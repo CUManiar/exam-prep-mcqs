@@ -21,7 +21,7 @@ import { UploadView } from '../components/UploadView';
 import { ExamSessionView } from '../components/ExamSessionView';
 import { PreExamModal } from '../components/PreExamModal';
 import { SettingsModal } from '../components/SettingsModal';
-import { AttemptDetailModal } from '../components/AttemptDetailModal';
+import { AttemptDetailView } from '../components/AttemptDetailView';
 
 export default function App() {
   const [activePage, setActivePage] = useState<ActivePage>('dashboard');
@@ -44,9 +44,9 @@ export default function App() {
     timeMinutes: number;
   } | null>(null);
 
-  // Settings & Detail modals
+  // Settings & Selected Attempt for Dedicated Detail View
   const [isSettingsOpen, setIsSettingsOpen] = useState<boolean>(false);
-  const [inspectedAttempt, setInspectedAttempt] = useState<Attempt | null>(null);
+  const [selectedAttemptForDetail, setSelectedAttemptForDetail] = useState<Attempt | null>(null);
 
   // Load data on mount
   useEffect(() => {
@@ -118,13 +118,16 @@ export default function App() {
     setActivePage('session');
   };
 
-  // Finishing an exam
+  // Finishing an exam session
   const handleFinishExamSession = (attempt: Attempt) => {
-    saveAttempt(attempt);
-    setAttempts(getAttempts());
+    // Practice mode is not saved to official History
+    if (attempt.mode === 'mock') {
+      saveAttempt(attempt);
+      setAttempts(getAttempts());
+    }
     setActiveExamConfig(null);
-    setInspectedAttempt(attempt);
-    setActivePage('history');
+    setSelectedAttemptForDetail(attempt);
+    setActivePage('attempt-detail');
   };
 
   const handleExitExamSession = () => {
@@ -134,20 +137,29 @@ export default function App() {
     }
   };
 
+  // Inspecting an attempt on dedicated page
+  const handleViewAttemptDetail = (attempt: Attempt) => {
+    setSelectedAttemptForDetail(attempt);
+    setActivePage('attempt-detail');
+  };
+
   // Updating an attempt (notes, edits)
   const handleUpdateAttempt = (updated: Attempt) => {
-    updateAttempt(updated.id, () => updated);
-    setAttempts(getAttempts());
-    setInspectedAttempt(updated);
+    if (updated.mode === 'mock') {
+      updateAttempt(updated.id, () => updated);
+      setAttempts(getAttempts());
+    }
+    setSelectedAttemptForDetail(updated);
   };
 
   // Deleting an attempt
   const handleDeleteAttempt = (attemptId: string) => {
     deleteAttempt(attemptId);
     setAttempts(getAttempts());
-    if (inspectedAttempt?.id === attemptId) {
-      setInspectedAttempt(null);
+    if (selectedAttemptForDetail?.id === attemptId) {
+      setSelectedAttemptForDetail(null);
     }
+    setActivePage('history');
   };
 
   // Paper uploaded handler
@@ -175,7 +187,7 @@ export default function App() {
             onStartExam={handleRequestExamStart}
             onNavigatePapers={() => setActivePage('papers')}
             onNavigateHistory={() => setActivePage('history')}
-            onViewAttempt={att => setInspectedAttempt(att)}
+            onViewAttempt={handleViewAttemptDetail}
           />
         )}
 
@@ -190,7 +202,7 @@ export default function App() {
         {activePage === 'history' && (
           <HistoryView
             attempts={attempts}
-            onViewAttempt={att => setInspectedAttempt(att)}
+            onViewAttempt={handleViewAttemptDetail}
             onDeleteAttempt={handleDeleteAttempt}
           />
         )}
@@ -209,6 +221,16 @@ export default function App() {
             config={activeExamConfig}
             onFinish={handleFinishExamSession}
             onExit={handleExitExamSession}
+          />
+        )}
+
+        {activePage === 'attempt-detail' && selectedAttemptForDetail && (
+          <AttemptDetailView
+            attempt={selectedAttemptForDetail}
+            papers={papers}
+            onBack={() => setActivePage(selectedAttemptForDetail.mode === 'mock' ? 'history' : 'papers')}
+            onUpdate={handleUpdateAttempt}
+            onDelete={handleDeleteAttempt}
           />
         )}
       </main>
@@ -233,15 +255,6 @@ export default function App() {
           setSettings(newS);
         }}
         onDataReload={loadAllData}
-      />
-
-      {/* Attempt Review & Edit Modal */}
-      <AttemptDetailModal
-        isOpen={!!inspectedAttempt}
-        attempt={inspectedAttempt}
-        onClose={() => setInspectedAttempt(null)}
-        onUpdate={handleUpdateAttempt}
-        onDelete={handleDeleteAttempt}
       />
     </div>
   );

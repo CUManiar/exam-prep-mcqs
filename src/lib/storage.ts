@@ -27,12 +27,15 @@ export function saveSettings(settings: ExamSettings): void {
   }
 }
 
+// History only counts Mock Mode attempts
 export function getAttempts(): Attempt[] {
   if (typeof window === 'undefined') return [];
   try {
     const raw = localStorage.getItem(STORAGE_KEYS.ATTEMPTS);
     if (!raw) return [];
-    return JSON.parse(raw);
+    const list: Attempt[] = JSON.parse(raw);
+    // Practice mode is not counted in History
+    return list.filter(a => a.mode === 'mock');
   } catch {
     return [];
   }
@@ -40,6 +43,11 @@ export function getAttempts(): Attempt[] {
 
 export function saveAttempt(attempt: Attempt): void {
   if (typeof window === 'undefined') return;
+  // Practice mode is not counted in History
+  if (attempt.mode === 'practice') {
+    return;
+  }
+
   try {
     const list = getAttempts();
     const idx = list.findIndex(a => a.id === attempt.id);
@@ -111,7 +119,6 @@ export function saveCustomPaper(paper: QuestionPaper): void {
 
 export async function getAllPapers(): Promise<QuestionPaper[]> {
   const custom = getCustomPapers();
-  // Fetch default answers for initial papers if on browser
   const builtIn = await Promise.all(
     INITIAL_PAPERS.map(async p => {
       if (p.akUrl && Object.keys(p.answerKey).length === 0) {
@@ -133,7 +140,6 @@ export async function getAllPapers(): Promise<QuestionPaper[]> {
   return [...custom, ...builtIn];
 }
 
-// Export all data as JSON
 export function exportAllData(): string {
   const data = {
     version: '1.0',
@@ -145,13 +151,13 @@ export function exportAllData(): string {
   return JSON.stringify(data, null, 2);
 }
 
-// Import data from JSON
 export function importAllData(jsonStr: string): boolean {
   try {
     const parsed = JSON.parse(jsonStr);
     if (parsed.settings) saveSettings(parsed.settings);
     if (Array.isArray(parsed.attempts)) {
-      localStorage.setItem(STORAGE_KEYS.ATTEMPTS, JSON.stringify(parsed.attempts));
+      const mockOnly = parsed.attempts.filter((a: any) => a.mode === 'mock');
+      localStorage.setItem(STORAGE_KEYS.ATTEMPTS, JSON.stringify(mockOnly));
     }
     if (Array.isArray(parsed.customPapers)) {
       localStorage.setItem(STORAGE_KEYS.CUSTOM_PAPERS, JSON.stringify(parsed.customPapers));

@@ -3,21 +3,18 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { QuestionPaper, Attempt, QuestionAnswer } from '../lib/types';
 import { formatTimeSeconds } from '../lib/defaults';
+import { DetailedSolutionModal } from './DetailedSolutionModal';
 import { 
   Clock, 
-  Flag, 
+  Bookmark, 
   CheckCircle2, 
   XCircle, 
-  Bookmark, 
-  FileText, 
-  ExternalLink, 
   ChevronLeft, 
   ChevronRight, 
-  Save, 
-  Maximize2,
-  AlertCircle,
-  HelpCircle,
-  Edit3
+  ExternalLink,
+  BookOpen,
+  Edit3,
+  AlertTriangle
 } from 'lucide-react';
 
 interface ExamSessionViewProps {
@@ -43,13 +40,22 @@ export function ExamSessionView({
   const [currentQuestion, setCurrentQuestion] = useState<number>(1);
   const [answers, setAnswers] = useState<Record<number, QuestionAnswer>>({});
   const [elapsedSeconds, setElapsedSeconds] = useState<number>(0);
+  const [qTimeSpent, setQTimeSpent] = useState<Record<number, number>>({});
   const [filterMode, setFilterMode] = useState<'all' | 'attempted' | 'unattempted' | 'flagged'>('all');
   const [openNoteForQ, setOpenNoteForQ] = useState<number | null>(null);
   const [showFinishConfirm, setShowFinishConfirm] = useState<boolean>(false);
+  const [solutionModalOpen, setSolutionModalOpen] = useState<boolean>(false);
 
   const totalTimeSeconds = config.timeMinutes * 60;
+  const isPractice = mode === 'practice';
+  
+  // In Practice mode, user can surpass time limit, tracking extra time
+  const isOvertime = isPractice && elapsedSeconds > totalTimeSeconds;
+  const overtimeSeconds = isOvertime ? elapsedSeconds - totalTimeSeconds : 0;
   const remainingSeconds = Math.max(0, totalTimeSeconds - elapsedSeconds);
-  const isTimeCritical = totalTimeSeconds > 0 && remainingSeconds <= (totalTimeSeconds * 0.10);
+  
+  // 10% remaining check (for mock countdown, or practice when approaching limit or exceeding)
+  const isTimeCritical = isOvertime || (totalTimeSeconds > 0 && remainingSeconds <= (totalTimeSeconds * 0.10));
 
   // Initialize questions
   useEffect(() => {
@@ -62,28 +68,68 @@ export function ExamSessionView({
         isCorrect: null,
         flagged: false,
         note: '',
+        timeSpentSeconds: 0,
+        changesCount: 0,
+        answerHistory: [],
       };
     }
     setAnswers(initial);
   }, [paper, config.totalQuestions]);
 
-  // Continuous timer in both modes
+  // Continuous timer + Mock question time tracker
   useEffect(() => {
     const timer = setInterval(() => {
       setElapsedSeconds(prev => prev + 1);
+
+      // In Mock Mode ONLY: track time taken on active question
+      if (mode === 'mock') {
+        setQTimeSpent(prev => ({
+          ...prev,
+          [currentQuestion]: (prev[currentQuestion] || 0) + 1,
+        }));
+      }
     }, 1000);
     return () => clearInterval(timer);
-  }, []);
+  }, [mode, currentQuestion]);
+
+  // In Mock Mode, auto-finish if strict time runs out
+  useEffect(() => {
+    if (mode === 'mock' && totalTimeSeconds > 0 && remainingSeconds <= 0) {
+      handleFinishExam();
+    }
+  }, [remainingSeconds, mode, totalTimeSeconds]);
 
   // Answer selection handler
   const handleSelectOption = (qNo: number, option: string) => {
     setAnswers(prev => {
-      const current = prev[qNo] || { questionNo: qNo, selected: null };
-      const newSelected = current.selected === option ? null : option; // toggle if clicked again
+      const current = prev[qNo] || { 
+        questionNo: qNo, 
+        selected: null, 
+        changesCount: 0, 
+        answerHistory: [] 
+      };
+
+      const prevSelected = current.selected;
+      const isUnselecting = prevSelected === option;
+      const newSelected = isUnselecting ? null : option;
+
       const correct = paper.answerKey[qNo];
       let isCorrect: boolean | null = null;
       if (newSelected && correct) {
         isCorrect = newSelected === correct;
+      }
+
+      // Track response alteration ONLY in Mock mode
+      let changesCount = current.changesCount || 0;
+      let answerHistory = current.answerHistory ? [...current.answerHistory] : [];
+
+      if (mode === 'mock') {
+        if (prevSelected && newSelected && prevSelected !== newSelected) {
+          changesCount += 1;
+          answerHistory.push(newSelected);
+        } else if (!prevSelected && newSelected) {
+          answerHistory.push(newSelected);
+        }
       }
 
       return {
@@ -93,6 +139,8 @@ export function ExamSessionView({
           selected: newSelected,
           correctAnswer: correct,
           isCorrect,
+          changesCount,
+          answerHistory,
         },
       };
     });
@@ -141,26 +189,76 @@ export function ExamSessionView({
     return true;
   });
 
-  // Finish exam calculations
+  // Finish exam calculations with deep question analytics
   const handleFinishExam = () => {
     let correctCount = 0;
     let incorrectCount = 0;
+    let alteredCount = 0;
+    let alteredHarmCount = 0;
+    let alteredBenefitCount = 0;
+
+    let timeCorrectSum = 0;
+    let timeIncorrectSum = 0;
+
+    const finalAnswers: Record<number, QuestionAnswer> = {};
 
     for (let i = 1; i <= config.totalQuestions; i++) {
-      const a = answers[i];
+      const a = answers[i] || { questionNo: i, selected: null };
       const correctAns = paper.answerKey[i];
-      if (a?.selected) {
+      const spentSecs = mode === 'mock' ? (qTimeSpent[i] || 0) : 0;
+
+      let isCorrect: boolean | null = null;
+      if (a.selected) {
         if (correctAns && a.selected === correctAns) {
           correctCount++;
+          isCorrect = true;
+          timeCorrectSum += spentSecs;
         } else if (correctAns) {
           incorrectCount++;
+          isCorrect = false;
+          timeIncorrectSum += spentSecs;
         }
       }
+
+      // Check alteration nuance in Mock mode
+      if (mode === 'mock' && a.changesCount && a.changesCount > 0) {
+        alteredCount++;
+        const history = a.answerHistory || [];
+        if (history.length >= 2 && correctAns) {
+          const initialChoice = history[0];
+          const finalChoice = a.selected;
+          // Initial was correct, changed to wrong
+          if (initialChoice === correctAns && finalChoice !== correctAns) {
+            alteredHarmCount++;
+          }
+          // Initial was wrong, changed to correct
+          if (initialChoice !== correctAns && finalChoice === correctAns) {
+            alteredBenefitCount++;
+          }
+        }
+      }
+
+      finalAnswers[i] = {
+        ...a,
+        correctAnswer: correctAns,
+        isCorrect,
+        timeSpentSeconds: spentSecs,
+      };
     }
 
     const calculatedScore = (correctCount * config.correctMarks) - (incorrectCount * config.incorrectMarks);
     const maxScore = config.totalQuestions * config.correctMarks;
     const accuracyPct = attemptedCount > 0 ? (correctCount / attemptedCount) * 100 : 0;
+
+    const avgTimePerQuestion = attemptedCount > 0 
+      ? Math.round((elapsedSeconds / attemptedCount)) 
+      : 0;
+    const avgTimeCorrect = correctCount > 0 
+      ? Math.round(timeCorrectSum / correctCount) 
+      : 0;
+    const avgTimeIncorrect = incorrectCount > 0 
+      ? Math.round(timeIncorrectSum / incorrectCount) 
+      : 0;
 
     const attempt: Attempt = {
       id: `attempt_${Date.now()}`,
@@ -174,6 +272,7 @@ export function ExamSessionView({
       incorrectMarks: config.incorrectMarks,
       timeMinutes: config.timeMinutes,
       durationSeconds: elapsedSeconds,
+      overtimeSeconds: isOvertime ? overtimeSeconds : 0,
       answered: attemptedCount,
       correct: correctCount,
       incorrect: incorrectCount,
@@ -181,7 +280,13 @@ export function ExamSessionView({
       score: Math.round(calculatedScore * 100) / 100,
       maxScore: Math.round(maxScore * 100) / 100,
       accuracyPct: Math.round(accuracyPct * 10) / 10,
-      answers,
+      avgTimePerQuestion,
+      avgTimeCorrect,
+      avgTimeIncorrect,
+      alteredCount,
+      alteredHarmCount,
+      alteredBenefitCount,
+      answers: finalAnswers,
     };
 
     onFinish(attempt);
@@ -213,24 +318,32 @@ export function ExamSessionView({
               {paper.label}
             </h1>
             <span className={`inline-block text-[10px] font-semibold uppercase tracking-wider ${
-              mode === 'practice' ? 'text-emerald-400' : 'text-indigo-400'
+              isPractice ? 'text-emerald-400' : 'text-indigo-400'
             }`}>
-              {mode === 'practice' ? 'Practice Mode (Live Review)' : 'Timed Mock Exam'}
+              {isPractice ? 'Practice Mode (Live Review)' : 'Timed Mock Exam (Strict)'}
             </span>
           </div>
         </div>
 
-        {/* Continuous Timer (Hour:Minutes:Seconds format) */}
+        {/* Continuous Timer (HH:MM:SS format) */}
         <div className={`flex items-center gap-2 rounded-xl px-4 py-1.5 font-mono text-sm font-bold transition-all shadow-inner ${
           isTimeCritical 
             ? 'bg-rose-950/80 border-2 border-rose-500 text-rose-300 animate-pulse ring-4 ring-rose-500/20'
             : 'bg-slate-950 border border-slate-800 text-indigo-300'
         }`}>
-          <Clock className={`h-4 w-4 ${isTimeCritical ? 'text-rose-400 animate-spin' : 'text-indigo-400'}`} />
-          <span>{formatTimeSeconds(remainingSeconds)}</span>
-          {isTimeCritical && (
+          <Clock className={`h-4 w-4 ${isTimeCritical ? 'text-rose-400' : 'text-indigo-400'}`} />
+          {isPractice ? (
+            isOvertime ? (
+              <span className="text-rose-400">+{formatTimeSeconds(overtimeSeconds)} (Overtime)</span>
+            ) : (
+              <span>{formatTimeSeconds(remainingSeconds)}</span>
+            )
+          ) : (
+            <span>{formatTimeSeconds(remainingSeconds)}</span>
+          )}
+          {isTimeCritical && !isOvertime && (
             <span className="text-[10px] uppercase font-bold text-rose-400 ml-1">
-              Time Warning!
+              Time Warning
             </span>
           )}
         </div>
@@ -298,6 +411,11 @@ export function ExamSessionView({
                   Question {currentQuestion}
                 </span>
                 <span className="text-xs text-slate-400">of {config.totalQuestions}</span>
+                {mode === 'mock' && (
+                  <span className="rounded bg-slate-800 px-2 py-0.5 text-[11px] font-mono text-indigo-300">
+                    ⏱ {qTimeSpent[currentQuestion] || 0}s
+                  </span>
+                )}
               </div>
 
               <div className="flex items-center gap-2">
@@ -337,8 +455,8 @@ export function ExamSessionView({
                   btnStyle = 'border-indigo-500 bg-indigo-600 text-white font-bold ring-2 ring-indigo-500/40';
                 }
 
-                // In practice mode, show correct/incorrect indicators immediately if selected
-                if (mode === 'practice' && isSelected && currentQObj.correctAnswer) {
+                // In practice mode, show correct/incorrect indicators immediately
+                if (isPractice && isSelected && currentQObj.correctAnswer) {
                   if (opt === currentQObj.correctAnswer) {
                     btnStyle = 'border-emerald-500 bg-emerald-600 text-white font-bold ring-2 ring-emerald-500/40';
                   } else {
@@ -358,32 +476,40 @@ export function ExamSessionView({
               })}
             </div>
 
-            {/* Practice Mode Live Feedback */}
-            {mode === 'practice' && currentQObj.selected && currentQObj.correctAnswer && (
-              <div className="mt-3 rounded-lg border p-2.5 text-xs flex items-center justify-between ${
+            {/* Mock Mode Alteration Indicator */}
+            {mode === 'mock' && currentQObj.changesCount && currentQObj.changesCount > 0 ? (
+              <div className="mt-2.5 flex items-center gap-1.5 text-[11px] text-amber-400 font-medium">
+                <span>Altered {currentQObj.changesCount} time(s)</span>
+                <span className="text-slate-500">• (Path: {currentQObj.answerHistory?.join(' → ')})</span>
+              </div>
+            ) : null}
+
+            {/* Practice Mode Live Feedback + "Detailed Solution" Modal Trigger */}
+            {isPractice && currentQObj.selected && currentQObj.correctAnswer && (
+              <div className={`mt-3 rounded-xl border p-3 text-xs flex items-center justify-between ${
                 currentQObj.selected === currentQObj.correctAnswer 
-                  ? 'border-emerald-800 bg-emerald-950/40 text-emerald-300' 
-                  : 'border-rose-800 bg-rose-950/40 text-rose-300'
-              }">
+                  ? 'border-emerald-800/80 bg-emerald-950/40 text-emerald-300' 
+                  : 'border-rose-800/80 bg-rose-950/40 text-rose-300'
+              }`}>
                 <div className="flex items-center gap-2">
                   {currentQObj.selected === currentQObj.correctAnswer ? (
-                    <CheckCircle2 className="h-4 w-4 text-emerald-400" />
+                    <CheckCircle2 className="h-4 w-4 text-emerald-400 shrink-0" />
                   ) : (
-                    <XCircle className="h-4 w-4 text-rose-400" />
+                    <XCircle className="h-4 w-4 text-rose-400 shrink-0" />
                   )}
                   <span>
                     Correct Answer: <strong>Option {currentQObj.correctAnswer}</strong>
                   </span>
                 </div>
+
                 {paper.exsUrl && (
-                  <a
-                    href={paper.exsUrl}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="text-[11px] underline text-indigo-400 hover:text-indigo-300"
+                  <button
+                    onClick={() => setSolutionModalOpen(true)}
+                    className="flex items-center gap-1 rounded-lg bg-indigo-600/30 border border-indigo-500/40 px-2.5 py-1 text-xs font-bold text-indigo-300 hover:bg-indigo-600 hover:text-white transition-all shadow-sm"
                   >
-                    View Solution PDF
-                  </a>
+                    <BookOpen className="h-3.5 w-3.5" />
+                    Detailed Solution
+                  </button>
                 )}
               </div>
             )}
@@ -493,6 +619,14 @@ export function ExamSessionView({
           </div>
         </div>
       </div>
+
+      {/* Detailed Solution Modal */}
+      <DetailedSolutionModal
+        isOpen={solutionModalOpen}
+        onClose={() => setSolutionModalOpen(false)}
+        pdfUrl={paper.exsUrl}
+        paperTitle={paper.label}
+      />
 
       {/* Finish Exam Confirmation Modal */}
       {showFinishConfirm && (

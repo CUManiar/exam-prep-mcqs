@@ -27,6 +27,9 @@ export interface QuestionAnswer {
   isCorrect?: boolean | null;
   flagged?: boolean;
   note?: string;
+  timeSpentSeconds?: number; // Tracked in Mock mode
+  changesCount?: number;     // Tracked in Mock mode (response alterations)
+  answerHistory?: string[];  // Sequence of choices e.g. ['A', 'B']
 }
 
 export interface Attempt {
@@ -41,6 +44,7 @@ export interface Attempt {
   incorrectMarks: number;
   timeMinutes: number;
   durationSeconds: number;
+  overtimeSeconds?: number;
   answered: number;
   correct: number;
   incorrect: number;
@@ -48,8 +52,14 @@ export interface Attempt {
   score: number;
   maxScore: number;
   accuracyPct: number;
+  avgTimePerQuestion?: number;
+  avgTimeCorrect?: number;
+  avgTimeIncorrect?: number;
+  alteredCount?: number;
+  alteredHarmCount?: number;   // Changed from correct to incorrect
+  alteredBenefitCount?: number; // Changed from incorrect to correct
   answers: Record<number, QuestionAnswer>;
   generalNotes?: string;
 }
 
-export type ActivePage = 'dashboard' | 'papers' | 'session' | 'history' | 'upload';
+export type ActivePage = 'dashboard' | 'papers' | 'session' | 'history' | 'upload' | 'attempt-detail';
