@@ -1,7 +1,8 @@
 'use client';
 
 import React from 'react';
-import { X, ExternalLink, BookOpen } from 'lucide-react';
+import { X, BookOpen } from 'lucide-react';
+import { PdfViewer } from './PdfViewer';
 
 interface DetailedSolutionModalProps {
   isOpen: boolean;
@@ -35,15 +36,6 @@ export function DetailedSolutionModal({
           </div>
 
           <div className="flex items-center gap-2">
-            <a
-              href={pdfUrl}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="flex items-center gap-1.5 rounded-lg border border-slate-800 bg-slate-900 px-3 py-1.5 text-xs font-semibold text-slate-300 hover:bg-slate-800 hover:text-white transition-colors"
-            >
-              <ExternalLink className="h-3.5 w-3.5" />
-              <span>Open in New Tab</span>
-            </a>
             <button
               onClick={onClose}
               className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-800 hover:text-white transition-colors"
@@ -53,14 +45,13 @@ export function DetailedSolutionModal({
           </div>
         </div>
 
-        {/* Embedded PDF iframe */}
-        <div className="flex-1 w-full bg-slate-950">
-          <iframe
-            src={pdfUrl}
-            title="Detailed Solution PDF"
-            className="w-full h-full border-0"
-          />
-        </div>
+        {/* Embedded PDF Viewer */}
+        <PdfViewer
+          url={pdfUrl}
+          title={paperTitle || 'Detailed Solution'}
+          showToolbar={true}
+          className="flex-1 w-full h-full min-h-0"
+        />
       </div>
     </div>
   );

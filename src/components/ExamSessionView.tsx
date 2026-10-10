@@ -2,9 +2,10 @@
 
 import React, { useState, useEffect } from 'react';
 import { QuestionPaper, Attempt, QuestionAnswer, ActiveSessionDraft } from '../lib/types';
-import { formatTimeSeconds } from '../lib/defaults';
+import { formatTimeSeconds, parseAnswerKeyText } from '../lib/defaults';
 import { saveActiveDraft, clearActiveDraft } from '../lib/storage';
 import { DetailedSolutionModal } from './DetailedSolutionModal';
+import { PdfViewer } from './PdfViewer';
 import { 
   Clock, 
   Flag, 
@@ -52,6 +53,7 @@ export function ExamSessionView({
   const [solutionModalOpen, setSolutionModalOpen] = useState<boolean>(false);
   const [mobileTab, setMobileTab] = useState<'paper' | 'split' | 'omr'>('split');
   const [isPaused, setIsPaused] = useState<boolean>(false);
+  const [revealedAnswers, setRevealedAnswers] = useState<Record<number, boolean>>({});
 
   // Subjective (Mains) handwritten scan & upload state
   const [isScanUploadPhase, setIsScanUploadPhase] = useState<boolean>(false);
@@ -72,6 +74,14 @@ export function ExamSessionView({
   // 10% remaining check (for mock countdown, or practice when approaching limit or exceeding)
   const isTimeCritical = isOvertime || (totalTimeSeconds > 0 && remainingSeconds <= (totalTimeSeconds * 0.10));
 
+  // Helper to reliably retrieve correct answer for any question
+  const getCorrectAnswerForQ = (qNo: number): string | undefined => {
+    const k = paper.answerKey;
+    let val = k ? (k[qNo] || k[String(qNo)]) : undefined;
+    if (!val && answers[qNo]?.correctAnswer) val = answers[qNo].correctAnswer;
+    return val ? String(val).toUpperCase().trim() : undefined;
+  };
+
   // Initialize questions unless resuming from draft
   useEffect(() => {
     if (initialDraft?.answers && Object.keys(initialDraft.answers).length > 0) {
@@ -79,10 +89,12 @@ export function ExamSessionView({
     }
     const initial: Record<number, QuestionAnswer> = {};
     for (let i = 1; i <= paper.totalQuestions; i++) {
+      const rawCorrect = paper.answerKey ? (paper.answerKey[i] || paper.answerKey[String(i)]) : undefined;
+      const correct = rawCorrect ? String(rawCorrect).toUpperCase().trim() : undefined;
       initial[i] = {
         questionNo: i,
         selected: null,
-        correctAnswer: paper.answerKey[i] || undefined,
+        correctAnswer: correct,
         isCorrect: null,
         flagged: false,
         note: '',
@@ -93,6 +105,58 @@ export function ExamSessionView({
     }
     setAnswers(initial);
   }, [paper, initialDraft]);
+
+  // Robust answer key hydration effect: fetches/parses if empty, attaches to answers
+  useEffect(() => {
+    const ensureAnswerKey = async () => {
+      let activeKey = paper.answerKey;
+      if (!activeKey || Object.keys(activeKey).length === 0) {
+        if (paper.answerKeyText) {
+          activeKey = parseAnswerKeyText(paper.answerKeyText);
+        } else if (paper.akUrl) {
+          try {
+            const res = await fetch(paper.akUrl);
+            if (res.ok) {
+              const text = await res.text();
+              activeKey = parseAnswerKeyText(text);
+            }
+          } catch (e) {
+            console.warn('Could not fetch answer key:', e);
+          }
+        }
+      }
+
+      if (activeKey && Object.keys(activeKey).length > 0) {
+        setAnswers(prev => {
+          const next = { ...prev };
+          let changed = false;
+          for (let q = 1; q <= paper.totalQuestions; q++) {
+            const raw = activeKey[q] || activeKey[String(q)];
+            const correct = raw ? String(raw).toUpperCase().trim() : undefined;
+            if (correct && (!next[q] || next[q].correctAnswer !== correct)) {
+              changed = true;
+              const selected = next[q]?.selected || null;
+              next[q] = {
+                questionNo: q,
+                selected,
+                flagged: false,
+                note: '',
+                timeSpentSeconds: 0,
+                changesCount: 0,
+                answerHistory: [],
+                ...next[q],
+                correctAnswer: correct,
+                isCorrect: selected ? selected.toUpperCase().trim() === correct : null,
+              };
+            }
+          }
+          return changed ? next : prev;
+        });
+      }
+    };
+
+    ensureAnswerKey();
+  }, [paper]);
 
   // Continuous timer + Mock question time tracker (freezes when paused)
   useEffect(() => {
@@ -137,10 +201,12 @@ export function ExamSessionView({
       const isUnselecting = prevSelected === option;
       const newSelected = isUnselecting ? null : option;
 
-      const correct = paper.answerKey[qNo];
+      const rawCorrect = getCorrectAnswerForQ(qNo);
+      const correct = rawCorrect ? rawCorrect.toUpperCase().trim() : undefined;
+
       let isCorrect: boolean | null = null;
       if (newSelected && correct) {
-        isCorrect = newSelected === correct;
+        isCorrect = newSelected.toUpperCase().trim() === correct;
       }
 
       // Track response alteration ONLY in Mock mode
@@ -314,12 +380,13 @@ export function ExamSessionView({
 
     for (let i = 1; i <= paper.totalQuestions; i++) {
       const a = answers[i] || { questionNo: i, selected: null };
-      const correctAns = paper.answerKey[i];
+      const rawCorrect = getCorrectAnswerForQ(i);
+      const correctAns = rawCorrect ? rawCorrect.toUpperCase().trim() : undefined;
       const spentSecs = mode === 'mock' ? (qTimeSpent[i] || 0) : 0;
 
       let isCorrect: boolean | null = null;
       if (a.selected) {
-        if (correctAns && a.selected === correctAns) {
+        if (correctAns && a.selected.toUpperCase().trim() === correctAns) {
           correctCount++;
           isCorrect = true;
           timeCorrectSum += spentSecs;
@@ -335,8 +402,8 @@ export function ExamSessionView({
         alteredCount++;
         const history = a.answerHistory || [];
         if (history.length >= 2 && correctAns) {
-          const initialChoice = history[0];
-          const finalChoice = a.selected;
+          const initialChoice = history[0]?.toUpperCase().trim();
+          const finalChoice = a.selected?.toUpperCase().trim();
           if (initialChoice === correctAns && finalChoice !== correctAns) {
             alteredHarmCount++;
           }
@@ -554,24 +621,10 @@ export function ExamSessionView({
               ? 'hidden lg:flex' 
               : 'h-1/2 lg:h-full'
         }`}>
-          <div className="flex items-center justify-between border-b border-slate-800 bg-slate-950/60 px-3 py-1.5 text-xs text-slate-400 shrink-0">
-            <span>Question Paper Reader</span>
-            <div className="flex items-center gap-3">
-              <a
-                href={paper.qpUrl}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="flex items-center gap-1 text-indigo-400 hover:text-indigo-300 transition-colors"
-              >
-                <ExternalLink className="h-3.5 w-3.5" />
-                Open PDF in new tab
-              </a>
-            </div>
-          </div>
-          <iframe
-            src={paper.qpUrl}
-            title="Question Paper PDF"
-            className="w-full flex-1 border-0 bg-slate-950"
+          <PdfViewer
+            url={paper.qpUrl}
+            title={`${paper.label} - Question Paper`}
+            className="w-full flex-1 min-h-0"
           />
 
           {/* Quick-Answer Sticky Bar when viewing full-screen Paper on Mobile/Tablet */}
@@ -601,18 +654,26 @@ export function ExamSessionView({
               {!isSubjective ? (
                 <div className="grid grid-cols-4 gap-1 flex-1 max-w-[200px] xs:max-w-[240px]">
                   {['A', 'B', 'C', 'D'].map(opt => {
-                    const isSelected = currentQObj.selected === opt;
+                    const isSelected = currentQObj.selected?.toUpperCase() === opt;
+                    const correctAns = getCorrectAnswerForQ(currentQuestion);
+                    const isRevealed = revealedAnswers[currentQuestion];
+                    const isCorrectChoice = correctAns && opt === correctAns;
+
                     let s = 'bg-slate-950 border-slate-800 text-slate-200 hover:border-slate-700';
                     if (isSelected) s = 'bg-indigo-600 border-indigo-500 text-white font-bold ring-2 ring-indigo-500/40';
 
                     // Practice mode live feedback: red for wrong, green for correct!
-                    if (isPractice && currentQObj.selected && currentQObj.correctAnswer) {
-                      if (isSelected) {
-                        s = opt === currentQObj.correctAnswer
-                          ? 'bg-emerald-600 border-emerald-500 text-white font-bold'
-                          : 'bg-rose-600 border-rose-500 text-white font-bold';
-                      } else if (opt === currentQObj.correctAnswer) {
-                        s = 'bg-emerald-950/60 border-emerald-500 text-emerald-300 font-bold ring-1 ring-emerald-500';
+                    if (isPractice) {
+                      if (currentQObj.selected && correctAns) {
+                        if (isSelected) {
+                          s = isCorrectChoice
+                            ? 'bg-emerald-600 border-emerald-500 text-white font-bold'
+                            : 'bg-rose-600 border-rose-500 text-white font-bold';
+                        } else if (isCorrectChoice) {
+                          s = 'bg-emerald-950/80 border-emerald-500 text-emerald-300 font-bold ring-1 ring-emerald-500';
+                        }
+                      } else if (isRevealed && isCorrectChoice) {
+                        s = 'bg-emerald-950/80 border-emerald-500 text-emerald-300 font-bold ring-1 ring-emerald-500';
                       }
                     }
                     return (
@@ -700,6 +761,22 @@ export function ExamSessionView({
                   <Edit3 className="h-3 w-3 sm:h-3.5 sm:w-3.5" />
                   <span className="hidden xs:inline">Note</span>
                 </button>
+
+                {/* Show Answer Toggle for Practice Mode */}
+                {isPractice && !isSubjective && getCorrectAnswerForQ(currentQuestion) && (
+                  <button
+                    type="button"
+                    onClick={() => setRevealedAnswers(prev => ({ ...prev, [currentQuestion]: !prev[currentQuestion] }))}
+                    className={`flex items-center gap-1 rounded-lg px-2 sm:px-3 py-1 sm:py-1.5 text-xs font-semibold transition-all border ${
+                      revealedAnswers[currentQuestion]
+                        ? 'bg-emerald-600/20 text-emerald-300 border-emerald-500/50'
+                        : 'border-slate-800 bg-slate-900 text-slate-400 hover:text-slate-200'
+                    }`}
+                  >
+                    <BookOpen className="h-3 w-3 sm:h-3.5 sm:w-3.5 text-emerald-400" />
+                    <span className="hidden xs:inline">{revealedAnswers[currentQuestion] ? 'Hide' : 'Answer'}</span>
+                  </button>
+                )}
               </div>
             </div>
 
@@ -707,7 +784,11 @@ export function ExamSessionView({
             {!isSubjective ? (
               <div className="mt-3 sm:mt-5 grid grid-cols-4 gap-2 sm:gap-3">
                 {['A', 'B', 'C', 'D'].map(opt => {
-                  const isSelected = currentQObj.selected === opt;
+                  const isSelected = currentQObj.selected?.toUpperCase() === opt;
+                  const correctAns = getCorrectAnswerForQ(currentQuestion);
+                  const isRevealed = revealedAnswers[currentQuestion];
+                  const isCorrectChoice = correctAns && opt === correctAns;
+
                   let btnStyle = 'border-slate-800 bg-[#070b14] text-slate-200 hover:border-slate-600 hover:bg-slate-900';
 
                   if (isSelected) {
@@ -715,16 +796,20 @@ export function ExamSessionView({
                   }
 
                   // Practice mode live feedback: selected wrong is RED, correct is GREEN!
-                  if (isPractice && currentQObj.selected && currentQObj.correctAnswer) {
-                    if (isSelected) {
-                      if (opt === currentQObj.correctAnswer) {
-                        btnStyle = 'border-emerald-500 bg-emerald-600 text-white font-bold ring-2 ring-emerald-500/40';
-                      } else {
-                        btnStyle = 'border-rose-500 bg-rose-600 text-white font-bold ring-2 ring-rose-500/40';
+                  if (isPractice) {
+                    if (currentQObj.selected && correctAns) {
+                      if (isSelected) {
+                        if (isCorrectChoice) {
+                          btnStyle = 'border-emerald-500 bg-emerald-600 text-white font-bold ring-2 ring-emerald-500/40';
+                        } else {
+                          btnStyle = 'border-rose-500 bg-rose-600 text-white font-bold ring-2 ring-rose-500/40';
+                        }
+                      } else if (isCorrectChoice) {
+                        // Guide user to the correct choice with emerald highlight
+                        btnStyle = 'border-emerald-500 bg-emerald-950/70 text-emerald-300 font-bold ring-2 ring-emerald-500/40';
                       }
-                    } else if (opt === currentQObj.correctAnswer) {
-                      // Guide user to the correct choice with emerald highlight
-                      btnStyle = 'border-emerald-500 bg-emerald-950/60 text-emerald-300 font-bold ring-2 ring-emerald-500/40';
+                    } else if (isRevealed && isCorrectChoice) {
+                      btnStyle = 'border-emerald-500 bg-emerald-950/70 text-emerald-300 font-bold ring-2 ring-emerald-500/60';
                     }
                   }
 
@@ -905,36 +990,48 @@ export function ExamSessionView({
             )}
 
             {/* Practice Mode Live Feedback Banner + Detailed Solution Button (Objective) */}
-            {isPractice && !isSubjective && currentQObj.selected && currentQObj.correctAnswer && (
-              <div className={`mt-2.5 rounded-xl border p-2.5 text-xs flex flex-wrap items-center justify-between gap-2 ${
-                currentQObj.selected === currentQObj.correctAnswer 
-                  ? 'border-emerald-800/80 bg-emerald-950/40 text-emerald-300' 
-                  : 'border-rose-800/80 bg-rose-950/40 text-rose-300'
-              }`}>
-                <div className="flex items-center gap-1.5">
-                  {currentQObj.selected === currentQObj.correctAnswer ? (
-                    <CheckCircle2 className="h-4 w-4 text-emerald-400 shrink-0" />
-                  ) : (
-                    <XCircle className="h-4 w-4 text-rose-400 shrink-0" />
-                  )}
-                  <span>
-                    {currentQObj.selected === currentQObj.correctAnswer 
-                      ? 'Correct!' 
-                      : `Wrong Answer • Correct is Option ${currentQObj.correctAnswer}`}
-                  </span>
-                </div>
+            {isPractice && !isSubjective && (currentQObj.selected || revealedAnswers[currentQuestion]) && getCorrectAnswerForQ(currentQuestion) && (() => {
+              const correctAns = getCorrectAnswerForQ(currentQuestion)!;
+              const hasSelected = !!currentQObj.selected;
+              const isCorrect = hasSelected && currentQObj.selected!.toUpperCase().trim() === correctAns;
 
-                {paper.exsUrl && (
-                  <button
-                    onClick={() => setSolutionModalOpen(true)}
-                    className="flex items-center gap-1 rounded-lg bg-indigo-600/30 border border-indigo-500/40 px-2 py-0.5 text-[11px] font-bold text-indigo-300 hover:bg-indigo-600 hover:text-white transition-all shadow-sm"
-                  >
-                    <BookOpen className="h-3 w-3" />
-                    Detailed Solution
-                  </button>
-                )}
-              </div>
-            )}
+              return (
+                <div className={`mt-2.5 rounded-xl border p-2.5 text-xs flex flex-wrap items-center justify-between gap-2 animate-in fade-in ${
+                  !hasSelected
+                    ? 'border-indigo-800/80 bg-indigo-950/40 text-indigo-300'
+                    : isCorrect 
+                      ? 'border-emerald-800/80 bg-emerald-950/40 text-emerald-300' 
+                      : 'border-rose-800/80 bg-rose-950/40 text-rose-300'
+                }`}>
+                  <div className="flex items-center gap-1.5">
+                    {!hasSelected ? (
+                      <BookOpen className="h-4 w-4 text-indigo-400 shrink-0" />
+                    ) : isCorrect ? (
+                      <CheckCircle2 className="h-4 w-4 text-emerald-400 shrink-0" />
+                    ) : (
+                      <XCircle className="h-4 w-4 text-rose-400 shrink-0" />
+                    )}
+                    <span>
+                      {!hasSelected 
+                        ? `Answer Key: Correct option is Option ${correctAns}`
+                        : isCorrect 
+                          ? 'Correct!' 
+                          : `Wrong Answer • Correct is Option ${correctAns}`}
+                    </span>
+                  </div>
+
+                  {paper.exsUrl && (
+                    <button
+                      onClick={() => setSolutionModalOpen(true)}
+                      className="flex items-center gap-1 rounded-lg bg-indigo-600/30 border border-indigo-500/40 px-2 py-0.5 text-[11px] font-bold text-indigo-300 hover:bg-indigo-600 hover:text-white transition-all shadow-sm"
+                    >
+                      <BookOpen className="h-3 w-3" />
+                      Detailed Solution
+                    </button>
+                  )}
+                </div>
+              );
+            })()}
 
             {/* Optional Scratchpad (Only shown when user explicitly toggles pencil icon) */}
             {showNoteBox && (

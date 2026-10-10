@@ -45,6 +45,7 @@ export function AttemptDetailView({
   const [editingQNote, setEditingQNote] = useState<number | null>(null);
   const [qNoteText, setQNoteText] = useState<string>('');
   const [solutionModalOpen, setSolutionModalOpen] = useState<boolean>(false);
+  const [submissionModalOpen, setSubmissionModalOpen] = useState<boolean>(false);
 
   // Match corresponding paper for solution PDF
   const matchedPaper = papers.find(p => p.id === attempt.paperId);
@@ -135,6 +136,15 @@ export function AttemptDetailView({
             >
               <BookOpen className="h-4 w-4" />
               Detailed Solution
+            </button>
+          )}
+          {attempt.userSubmissionPdfUrl && (
+            <button
+              onClick={() => setSubmissionModalOpen(true)}
+              className="flex items-center gap-1.5 rounded-xl bg-emerald-600/20 border border-emerald-500/40 px-3.5 py-2 text-xs font-bold text-emerald-300 hover:bg-emerald-600 hover:text-white transition-all"
+            >
+              <FileText className="h-4 w-4" />
+              My Answer Booklet
             </button>
           )}
           <button
@@ -505,6 +515,14 @@ export function AttemptDetailView({
         onClose={() => setSolutionModalOpen(false)}
         pdfUrl={matchedPaper?.exsUrl}
         paperTitle={attempt.paperLabel}
+      />
+
+      {/* User Submission Booklet Modal */}
+      <DetailedSolutionModal
+        isOpen={submissionModalOpen}
+        onClose={() => setSubmissionModalOpen(false)}
+        pdfUrl={attempt.userSubmissionPdfUrl}
+        paperTitle={`${attempt.paperLabel} - My Answer Booklet`}
       />
     </div>
   );

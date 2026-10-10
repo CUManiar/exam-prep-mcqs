@@ -180,43 +180,71 @@ export async function updatePaperOnServer(paperId: string, updates: Partial<Ques
   return false;
 }
 
-// Fetch all papers from server filesystem + metadata store
+// Fetch all papers from server filesystem + metadata store and ensure answer keys are parsed
 export async function getAllPapers(): Promise<QuestionPaper[]> {
+  let papers: QuestionPaper[] = [];
+
   try {
     const res = await fetch('/api/papers');
     if (res.ok) {
       const data = await res.json();
       if (data.ok && Array.isArray(data.papers)) {
-        if (typeof window !== 'undefined') {
-          const customs = data.papers.filter((p: QuestionPaper) => p.isCustom);
-          localStorage.setItem(STORAGE_KEYS.CUSTOM_PAPERS, JSON.stringify(customs));
-        }
-        return data.papers;
+        papers = data.papers;
       }
     }
   } catch (err) {
     console.warn('Network issue fetching /api/papers, falling back to local cache:', err);
   }
 
-  // Offline fallback
-  const custom = getCustomPapers();
-  const builtIn = await Promise.all(
-    INITIAL_PAPERS.map(async p => {
-      if (p.akUrl && Object.keys(p.answerKey).length === 0) {
+  if (papers.length === 0) {
+    // Offline fallback
+    const custom = getCustomPapers();
+    papers = [...custom, ...INITIAL_PAPERS];
+  }
+
+  // Ensure ALL papers have their answer keys populated
+  await Promise.all(
+    papers.map(async p => {
+      // If already populated, check if we need to do anything
+      if (p.answerKey && Object.keys(p.answerKey).length > 0) {
+        return;
+      }
+
+      // Check built-in defaults match
+      const matchingDefault = INITIAL_PAPERS.find(init => init.id === p.id);
+      if (matchingDefault && Object.keys(matchingDefault.answerKey || {}).length > 0) {
+        p.answerKey = { ...matchingDefault.answerKey };
+        return;
+      }
+
+      // Parse from answerKeyText if available
+      if (p.answerKeyText) {
+        p.answerKey = parseAnswerKeyText(p.answerKeyText);
+        return;
+      }
+
+      // Fetch from akUrl if available
+      if (p.akUrl) {
         try {
           const res = await fetch(p.akUrl);
           if (res.ok) {
             const text = await res.text();
-            p.answerKey = parseAnswerKeyText(text);
             p.answerKeyText = text;
+            p.answerKey = parseAnswerKeyText(text);
           }
-        } catch {}
+        } catch (fetchErr) {
+          console.warn(`Failed to fetch akUrl for paper ${p.id}:`, fetchErr);
+        }
       }
-      return p;
     })
   );
 
-  return [...custom, ...builtIn];
+  if (typeof window !== 'undefined') {
+    const customs = papers.filter((p: QuestionPaper) => p.isCustom);
+    localStorage.setItem(STORAGE_KEYS.CUSTOM_PAPERS, JSON.stringify(customs));
+  }
+
+  return papers;
 }
 
 export function exportAllData(): string {
