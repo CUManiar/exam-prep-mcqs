@@ -47,8 +47,12 @@ export function AttemptDetailView({
   const [solutionModalOpen, setSolutionModalOpen] = useState<boolean>(false);
   const [submissionModalOpen, setSubmissionModalOpen] = useState<boolean>(false);
 
-  // Match corresponding paper for solution PDF
-  const matchedPaper = papers.find(p => p.id === attempt.paperId);
+  // Match corresponding paper for solution PDF with backwards compatibility
+  const matchedPaper = papers.find(p => 
+    p.id === attempt.paperId || 
+    (attempt.paperId && p.id.toLowerCase().replace(/general_studies_paper_i(i?)/, (_, g) => g ? 'gsii_csat' : 'gs_i') === attempt.paperId.toLowerCase()) ||
+    (attempt.paperLabel && p.label.toLowerCase() === attempt.paperLabel.toLowerCase())
+  );
 
   const handleSaveGeneralNote = () => {
     const updated = { ...attempt, generalNotes: generalNote };

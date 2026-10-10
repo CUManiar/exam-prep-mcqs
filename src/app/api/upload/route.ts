@@ -23,9 +23,10 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ ok: false, error: 'Invalid year or identifier name' }, { status: 400 });
     }
 
-    const qpFileName = `qp_${cleanYear}_${cleanName}.pdf`;
-    const akFileName = `ak_${cleanYear}_${cleanName}.txt`;
-    const exsFileName = `exs_${cleanYear}_${cleanName}.pdf`;
+    const catFolder = examType === 'objective' ? 'prelims' : 'mains';
+    const qpFileName = `papers/${cleanYear}/${catFolder}/${cleanName}.pdf`;
+    const akFileName = `answer_keys/${cleanYear}/${catFolder}/${cleanName}.txt`;
+    const exsFileName = `solutions/${cleanYear}/${catFolder}/${cleanName}.pdf`;
 
     // 1. Process Question Paper (.pdf) -> prefix: qp
     let qpUrl = '';
