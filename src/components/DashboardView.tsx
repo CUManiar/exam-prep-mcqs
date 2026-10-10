@@ -1,12 +1,11 @@
 'use client';
 
-import React from 'react';
-import { Attempt, QuestionPaper } from '../lib/types';
-import { formatTimeSeconds, formatDateTime } from '../lib/defaults';
+import React, { useState } from 'react';
+import { Attempt, QuestionPaper, ExamCategory } from '../lib/types';
+import { formatTimeSeconds, formatDateTime, SUPPORTED_YEARS } from '../lib/defaults';
 import { 
   Target, 
   Award, 
-  TrendingUp, 
   Clock, 
   Play, 
   BookOpen, 
@@ -14,7 +13,12 @@ import {
   CheckCircle2, 
   Zap, 
   Layers, 
-  ArrowUpRight 
+  FileEdit,
+  TrendingUp,
+  Search,
+  Filter,
+  BarChart3,
+  Calendar
 } from 'lucide-react';
 
 interface DashboardViewProps {
@@ -34,163 +38,327 @@ export function DashboardView({
   onNavigateHistory,
   onViewAttempt,
 }: DashboardViewProps) {
-  // Aggregate stats
-  const totalAttempts = attempts.length;
-  const totalDurationSeconds = attempts.reduce((acc, a) => acc + (a.durationSeconds || 0), 0);
+  const [activeCategory, setActiveCategory] = useState<'all' | 'prelims' | 'mains'>('all');
+  const [selectedYear, setSelectedYear] = useState<string>('all');
+  const [selectedSubject, setSelectedSubject] = useState<string>('all');
+  const [searchQuery, setSearchQuery] = useState<string>('');
+
+  // Mock attempts only
+  const mockAttempts = attempts.filter(a => a.mode === 'mock');
+  const totalAttempts = mockAttempts.length;
+  const totalDurationSeconds = mockAttempts.reduce((acc, a) => acc + (a.durationSeconds || 0), 0);
+  
   const avgAccuracy = totalAttempts > 0 
-    ? Math.round((attempts.reduce((acc, a) => acc + (a.accuracyPct || 0), 0) / totalAttempts) * 10) / 10 
-    : 0;
-  const bestScore = totalAttempts > 0 
-    ? Math.max(...attempts.map(a => a.score)) 
+    ? Math.round((mockAttempts.reduce((acc, a) => acc + (a.accuracyPct || 0), 0) / totalAttempts) * 10) / 10 
     : 0;
 
-  const recentAttempts = attempts.slice(0, 4);
+  const bestScore = totalAttempts > 0 
+    ? Math.max(...mockAttempts.map(a => a.score)) 
+    : 0;
+
+  // GS1 vs GS2 Segregated Stats
+  const gs1Attempts = mockAttempts.filter(a => a.paperLabel.includes('GS I') && !a.paperLabel.includes('GS II'));
+  const gs2Attempts = mockAttempts.filter(a => a.paperLabel.includes('GS II') || a.paperLabel.includes('CSAT'));
+  const mainsAttempts = mockAttempts.filter(a => a.category === 'mains');
+
+  const gs1AvgScore = gs1Attempts.length > 0
+    ? Math.round((gs1Attempts.reduce((acc, a) => acc + a.score, 0) / gs1Attempts.length) * 10) / 10
+    : 0;
+  const gs2AvgScore = gs2Attempts.length > 0
+    ? Math.round((gs2Attempts.reduce((acc, a) => acc + a.score, 0) / gs2Attempts.length) * 10) / 10
+    : 0;
+
+  // Filter papers for library view
+  const filteredPapers = papers.filter(p => {
+    const matchesCat = activeCategory === 'all' || p.category === activeCategory;
+    const matchesYear = selectedYear === 'all' || p.year === selectedYear;
+    const matchesSubject = selectedSubject === 'all' || p.subject.toLowerCase().includes(selectedSubject.toLowerCase());
+    const matchesSearch = p.label.toLowerCase().includes(searchQuery.toLowerCase()) || 
+                          p.subject.toLowerCase().includes(searchQuery.toLowerCase());
+    return matchesCat && matchesYear && matchesSubject && matchesSearch;
+  });
+
+  const recentAttempts = mockAttempts.slice(0, 5);
 
   return (
-    <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8 space-y-8 animate-in fade-in duration-300">
+    <div className="mx-auto max-w-7xl px-4 py-6 sm:px-6 lg:px-8 space-y-7 animate-in fade-in duration-200">
       
-      {/* Welcome Hero Banner */}
-      <div className="relative overflow-hidden rounded-3xl border border-indigo-500/20 bg-gradient-to-r from-slate-900 via-indigo-950/60 to-slate-900 p-6 sm:p-8 shadow-2xl">
-        <div className="relative z-10 max-w-2xl space-y-3">
-          <div className="inline-flex items-center gap-2 rounded-full border border-indigo-500/30 bg-indigo-500/10 px-3 py-1 text-xs font-semibold text-indigo-300">
-            <Zap className="h-3.5 w-3.5 text-indigo-400" />
-            <span>Prelims & Competitive Exam Engine</span>
+      {/* Top Header & Exam Category Switcher */}
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 border-b border-slate-800 pb-5">
+        <div className="flex items-center gap-3">
+          <div className="h-12 w-12 rounded-xl bg-slate-900 border border-slate-800 p-1 flex items-center justify-center shrink-0 shadow-inner">
+            <img src="/upsc_logo.png" alt="UPSC" className="h-full w-full object-contain" />
           </div>
-          <h1 className="text-2xl sm:text-3xl font-extrabold text-white tracking-tight">
-            Track Progress. Master Accuracy. Score Higher.
-          </h1>
-          <p className="text-sm text-slate-300 leading-relaxed">
-            Practice actual exam papers with instantaneous feedback or timed mock simulation with negative marking analysis.
-          </p>
-
-          <div className="pt-2 flex flex-wrap items-center gap-3">
-            {papers[0] && (
-              <button
-                onClick={() => onStartExam(papers[0], 'practice')}
-                className="flex items-center gap-2 rounded-xl bg-indigo-600 px-5 py-2.5 text-xs font-bold text-white shadow-lg shadow-indigo-600/30 hover:bg-indigo-500 transition-all"
-              >
-                <Play className="h-4 w-4 fill-white" />
-                Quick Practice: {papers[0].subject}
-              </button>
-            )}
-            <button
-              onClick={onNavigatePapers}
-              className="flex items-center gap-1.5 rounded-xl border border-slate-700 bg-slate-800/80 px-4 py-2.5 text-xs font-semibold text-slate-200 hover:bg-slate-700 transition-all"
-            >
-              Browse Library ({papers.length} Papers)
-            </button>
+          <div>
+            <h1 className="text-xl sm:text-2xl font-black text-white tracking-tight">
+              UPSC Performance Analytics & Exam Hub
+            </h1>
+            <p className="text-xs text-slate-400">
+              Data dashboard for Prelims (Objective) & Mains (Subjective) preparation
+            </p>
           </div>
         </div>
 
-        {/* Decorative background glow */}
-        <div className="absolute -right-20 -top-20 h-64 w-64 rounded-full bg-indigo-600/10 blur-3xl pointer-events-none" />
-        <div className="absolute right-10 bottom-0 h-48 w-48 rounded-full bg-violet-600/10 blur-2xl pointer-events-none" />
+        {/* Category Switcher Tabs */}
+        <div className="flex items-center bg-slate-900 p-1 rounded-xl border border-slate-800 self-start sm:self-auto text-xs font-semibold">
+          <button
+            onClick={() => setActiveCategory('all')}
+            className={`rounded-lg px-3.5 py-1.5 transition-all ${
+              activeCategory === 'all'
+                ? 'bg-indigo-600 text-white shadow-md'
+                : 'text-slate-400 hover:text-slate-200'
+            }`}
+          >
+            All Exams
+          </button>
+          <button
+            onClick={() => setActiveCategory('prelims')}
+            className={`rounded-lg px-3.5 py-1.5 transition-all ${
+              activeCategory === 'prelims'
+                ? 'bg-indigo-600 text-white shadow-md'
+                : 'text-slate-400 hover:text-slate-200'
+            }`}
+          >
+            Prelims (Objective)
+          </button>
+          <button
+            onClick={() => setActiveCategory('mains')}
+            className={`rounded-lg px-3.5 py-1.5 transition-all ${
+              activeCategory === 'mains'
+                ? 'bg-indigo-600 text-white shadow-md'
+                : 'text-slate-400 hover:text-slate-200'
+            }`}
+          >
+            Mains (Subjective)
+          </button>
+        </div>
       </div>
 
-      {/* KPI Stats Grid */}
-      <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
+      {/* KPI Overview Metrics */}
+      <div className="grid grid-cols-2 gap-3.5 sm:grid-cols-4">
         
-        {/* Total attempts */}
-        <div className="rounded-2xl border border-slate-800 bg-slate-900/80 p-5 backdrop-blur-sm shadow-sm hover:border-slate-700 transition-colors">
-          <div className="flex items-center justify-between text-slate-400 mb-3">
-            <span className="text-xs font-medium uppercase tracking-wider">Attempts</span>
-            <div className="rounded-lg bg-indigo-500/10 p-2 text-indigo-400">
-              <Layers className="h-4 w-4" />
-            </div>
+        {/* Total Mocks */}
+        <div className="rounded-2xl border border-slate-800 bg-slate-900 p-4 shadow-sm">
+          <div className="flex items-center justify-between text-slate-400 mb-2">
+            <span className="text-[11px] font-semibold uppercase tracking-wider">Timed Mocks</span>
+            <Layers className="h-4 w-4 text-indigo-400" />
           </div>
-          <div className="text-2xl font-bold text-white">{totalAttempts}</div>
-          <div className="mt-1 text-[11px] text-slate-400">Mock & Practice Sessions</div>
+          <div className="text-2xl font-black text-white">{totalAttempts}</div>
+          <div className="mt-1 text-[11px] text-slate-500">Official evaluated sessions</div>
         </div>
 
         {/* Avg Accuracy */}
-        <div className="rounded-2xl border border-slate-800 bg-slate-900/80 p-5 backdrop-blur-sm shadow-sm hover:border-slate-700 transition-colors">
-          <div className="flex items-center justify-between text-slate-400 mb-3">
-            <span className="text-xs font-medium uppercase tracking-wider">Avg Accuracy</span>
-            <div className="rounded-lg bg-emerald-500/10 p-2 text-emerald-400">
-              <Target className="h-4 w-4" />
-            </div>
+        <div className="rounded-2xl border border-slate-800 bg-slate-900 p-4 shadow-sm">
+          <div className="flex items-center justify-between text-slate-400 mb-2">
+            <span className="text-[11px] font-semibold uppercase tracking-wider">Avg Accuracy</span>
+            <Target className="h-4 w-4 text-emerald-400" />
           </div>
-          <div className="text-2xl font-bold text-emerald-400">{avgAccuracy}%</div>
-          <div className="mt-1 text-[11px] text-slate-400">Net correct ratio</div>
+          <div className="text-2xl font-black text-emerald-400">{avgAccuracy}%</div>
+          <div className="mt-1 text-[11px] text-slate-500">Net correct ratio</div>
         </div>
 
         {/* Best Score */}
-        <div className="rounded-2xl border border-slate-800 bg-slate-900/80 p-5 backdrop-blur-sm shadow-sm hover:border-slate-700 transition-colors">
-          <div className="flex items-center justify-between text-slate-400 mb-3">
-            <span className="text-xs font-medium uppercase tracking-wider">Best Score</span>
-            <div className="rounded-lg bg-amber-500/10 p-2 text-amber-400">
-              <Award className="h-4 w-4" />
-            </div>
+        <div className="rounded-2xl border border-slate-800 bg-slate-900 p-4 shadow-sm">
+          <div className="flex items-center justify-between text-slate-400 mb-2">
+            <span className="text-[11px] font-semibold uppercase tracking-wider">Highest Score</span>
+            <Award className="h-4 w-4 text-amber-400" />
           </div>
-          <div className="text-2xl font-bold text-amber-400">{bestScore > 0 ? bestScore : '—'}</div>
-          <div className="mt-1 text-[11px] text-slate-400">Highest net marks</div>
+          <div className="text-2xl font-black text-amber-400">{bestScore > 0 ? bestScore : '—'}</div>
+          <div className="mt-1 text-[11px] text-slate-500">Best net marks achieved</div>
         </div>
 
-        {/* Time Practiced */}
-        <div className="rounded-2xl border border-slate-800 bg-slate-900/80 p-5 backdrop-blur-sm shadow-sm hover:border-slate-700 transition-colors">
-          <div className="flex items-center justify-between text-slate-400 mb-3">
-            <span className="text-xs font-medium uppercase tracking-wider">Practice Time</span>
-            <div className="rounded-lg bg-violet-500/10 p-2 text-violet-400">
-              <Clock className="h-4 w-4" />
-            </div>
+        {/* Exam Hours Logged */}
+        <div className="rounded-2xl border border-slate-800 bg-slate-900 p-4 shadow-sm">
+          <div className="flex items-center justify-between text-slate-400 mb-2">
+            <span className="text-[11px] font-semibold uppercase tracking-wider">Exam Hours</span>
+            <Clock className="h-4 w-4 text-violet-400" />
           </div>
-          <div className="text-2xl font-bold text-white">{formatTimeSeconds(totalDurationSeconds)}</div>
-          <div className="mt-1 text-[11px] text-slate-400">Total continuous duration</div>
+          <div className="text-2xl font-black text-white">{formatTimeSeconds(totalDurationSeconds)}</div>
+          <div className="mt-1 text-[11px] text-slate-500">Continuous test duration</div>
         </div>
       </div>
 
-      {/* Main Grid: Available Papers & Recent Attempts */}
-      <div className="grid grid-cols-1 gap-8 lg:grid-cols-3">
+      {/* Segregated Subject Analysis Panels (Objective & Subjective) */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         
-        {/* Papers Library Section (2 Cols) */}
+        {/* GS I (General Studies) Panel */}
+        <div className="rounded-2xl border border-slate-800 bg-slate-900 p-5 space-y-3">
+          <div className="flex items-center justify-between">
+            <span className="rounded-md bg-indigo-500/10 border border-indigo-500/20 px-2 py-0.5 text-xs font-bold text-indigo-400">
+              Prelims GS Paper I
+            </span>
+            <span className="text-[11px] text-slate-500">100 Qs • 200 Marks</span>
+          </div>
+
+          <div className="space-y-2 pt-1 text-xs">
+            <div className="flex justify-between p-2 rounded-xl bg-slate-950 border border-slate-800/80">
+              <span className="text-slate-400">Attempts:</span>
+              <span className="font-bold text-white">{gs1Attempts.length}</span>
+            </div>
+            <div className="flex justify-between p-2 rounded-xl bg-slate-950 border border-slate-800/80">
+              <span className="text-slate-400">Avg Score:</span>
+              <span className="font-bold text-indigo-300">{gs1AvgScore > 0 ? `${gs1AvgScore} / 200` : '—'}</span>
+            </div>
+            <div className="flex justify-between p-2 rounded-xl bg-slate-950 border border-slate-800/80">
+              <span className="text-slate-400">Marking Rule:</span>
+              <span className="font-semibold text-slate-300">+2.0 / -0.667</span>
+            </div>
+          </div>
+        </div>
+
+        {/* GS II (CSAT) Panel */}
+        <div className="rounded-2xl border border-slate-800 bg-slate-900 p-5 space-y-3">
+          <div className="flex items-center justify-between">
+            <span className="rounded-md bg-emerald-500/10 border border-emerald-500/20 px-2 py-0.5 text-xs font-bold text-emerald-400">
+              Prelims GS Paper II (CSAT)
+            </span>
+            <span className="text-[11px] text-slate-500">80 Qs • 200 Marks</span>
+          </div>
+
+          <div className="space-y-2 pt-1 text-xs">
+            <div className="flex justify-between p-2 rounded-xl bg-slate-950 border border-slate-800/80">
+              <span className="text-slate-400">Attempts:</span>
+              <span className="font-bold text-white">{gs2Attempts.length}</span>
+            </div>
+            <div className="flex justify-between p-2 rounded-xl bg-slate-950 border border-slate-800/80">
+              <span className="text-slate-400">Avg Score:</span>
+              <span className="font-bold text-emerald-300">{gs2AvgScore > 0 ? `${gs2AvgScore} / 200` : '—'}</span>
+            </div>
+            <div className="flex justify-between p-2 rounded-xl bg-slate-950 border border-slate-800/80">
+              <span className="text-slate-400">Qualifying Benchmark:</span>
+              <span className="font-semibold text-amber-300">66.67 Marks (33%)</span>
+            </div>
+          </div>
+        </div>
+
+        {/* Mains (Subjective) Panel */}
+        <div className="rounded-2xl border border-slate-800 bg-slate-900 p-5 space-y-3">
+          <div className="flex items-center justify-between">
+            <span className="rounded-md bg-violet-500/10 border border-violet-500/20 px-2 py-0.5 text-xs font-bold text-violet-400">
+              Mains (Subjective Exam)
+            </span>
+            <span className="text-[11px] text-slate-500">20 Qs • 250 Marks</span>
+          </div>
+
+          <div className="space-y-2 pt-1 text-xs">
+            <div className="flex justify-between p-2 rounded-xl bg-slate-950 border border-slate-800/80">
+              <span className="text-slate-400">Mains Papers Written:</span>
+              <span className="font-bold text-white">{mainsAttempts.length}</span>
+            </div>
+            <div className="flex justify-between p-2 rounded-xl bg-slate-950 border border-slate-800/80">
+              <span className="text-slate-400">Answer Copies Uploaded:</span>
+              <span className="font-bold text-violet-300">
+                {mainsAttempts.filter(a => a.userSubmissionPdfUrl).length}
+              </span>
+            </div>
+            <div className="flex justify-between p-2 rounded-xl bg-slate-950 border border-slate-800/80">
+              <span className="text-slate-400">Standard Duration:</span>
+              <span className="font-semibold text-slate-300">180 Mins (3 Hours)</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Main Grid: Filterable Papers Library & Recent Attempts */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-7">
+        
+        {/* Left: Scalable Filterable Question Papers Library (2 Cols) */}
         <div className="lg:col-span-2 space-y-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
               <BookOpen className="h-5 w-5 text-indigo-400" />
-              <h2 className="text-lg font-bold text-white">Question Papers</h2>
+              <h2 className="text-base font-bold text-white">Question Papers Repository</h2>
+              <span className="rounded-full bg-slate-800 px-2 py-0.5 text-[11px] font-semibold text-slate-300">
+                {filteredPapers.length} Available
+              </span>
             </div>
             <button
               onClick={onNavigatePapers}
-              className="flex items-center gap-1 text-xs font-medium text-indigo-400 hover:text-indigo-300"
+              className="text-xs font-semibold text-indigo-400 hover:text-indigo-300 flex items-center gap-1"
             >
-              View all <ChevronRight className="h-3.5 w-3.5" />
+              All Papers <ChevronRight className="h-3.5 w-3.5" />
             </button>
           </div>
 
-          <div className="grid grid-cols-1 gap-3.5 sm:grid-cols-2">
-            {papers.slice(0, 4).map(paper => (
+          {/* Search & Segregation Filters */}
+          <div className="flex flex-wrap items-center gap-2.5 bg-slate-900 p-3 rounded-2xl border border-slate-800">
+            {/* Search Input */}
+            <div className="relative flex-1 min-w-[160px]">
+              <Search className="absolute left-2.5 top-2.5 h-3.5 w-3.5 text-slate-400" />
+              <input
+                type="text"
+                value={searchQuery}
+                onChange={e => setSearchQuery(e.target.value)}
+                placeholder="Search paper by name..."
+                className="w-full rounded-xl border border-slate-700 bg-slate-950 pl-8 pr-3 py-1.5 text-xs text-white placeholder-slate-500 focus:border-indigo-500 focus:outline-none"
+              />
+            </div>
+
+            {/* Year Dropdown (15+ years) */}
+            <select
+              value={selectedYear}
+              onChange={e => setSelectedYear(e.target.value)}
+              className="rounded-xl border border-slate-700 bg-slate-950 px-3 py-1.5 text-xs text-slate-200 focus:outline-none focus:border-indigo-500"
+            >
+              <option value="all">All Years (15+ Yrs)</option>
+              {SUPPORTED_YEARS.map(yr => (
+                <option key={yr} value={yr}>{yr}</option>
+              ))}
+            </select>
+
+            {/* Subject Dropdown */}
+            <select
+              value={selectedSubject}
+              onChange={e => setSelectedSubject(e.target.value)}
+              className="rounded-xl border border-slate-700 bg-slate-950 px-3 py-1.5 text-xs text-slate-200 focus:outline-none focus:border-indigo-500"
+            >
+              <option value="all">All Subjects</option>
+              <option value="GS I">GS I</option>
+              <option value="CSAT">GS II (CSAT)</option>
+              <option value="Mains">Mains Papers</option>
+            </select>
+          </div>
+
+          {/* Papers Cards Grid */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+            {filteredPapers.map(paper => (
               <div
                 key={paper.id}
-                className="group relative flex flex-col justify-between rounded-2xl border border-slate-800 bg-slate-900/80 p-5 transition-all hover:border-indigo-500/50 hover:bg-slate-900"
+                className="flex flex-col justify-between rounded-2xl border border-slate-800 bg-slate-900/90 p-4 hover:border-indigo-500/40 transition-all shadow-sm"
               >
                 <div>
                   <div className="flex items-center justify-between">
-                    <span className="rounded-md border border-slate-700 bg-slate-800 px-2 py-0.5 text-[11px] font-semibold text-slate-300">
+                    <span className="rounded-md border border-slate-700 bg-slate-800 px-2 py-0.5 text-[11px] font-bold text-slate-200">
                       {paper.year}
                     </span>
-                    <span className="text-[11px] font-medium text-indigo-400">
-                      {paper.subject}
+                    <span className={`text-[10px] uppercase font-bold px-2 py-0.5 rounded ${
+                      paper.examType === 'subjective'
+                        ? 'bg-violet-500/10 text-violet-400 border border-violet-500/20'
+                        : 'bg-indigo-500/10 text-indigo-400 border border-indigo-500/20'
+                    }`}>
+                      {paper.examType === 'subjective' ? 'Mains Subjective' : paper.subject}
                     </span>
                   </div>
 
-                  <h3 className="mt-3 text-base font-bold text-white group-hover:text-indigo-300 transition-colors">
+                  <h3 className="mt-2.5 text-sm font-bold text-white truncate">
                     {paper.label}
                   </h3>
-                  <p className="mt-1 text-xs text-slate-400">
-                    PDF paper • Answer key configured
-                  </p>
+                  
+                  <div className="mt-1 text-[11px] text-slate-400">
+                    {paper.totalQuestions} Questions • {paper.timeMinutes} Mins • {paper.totalMarks} Marks
+                  </div>
                 </div>
 
-                <div className="mt-5 flex items-center gap-2 pt-3 border-t border-slate-800/80">
+                <div className="mt-4 pt-3 border-t border-slate-800/80 flex items-center gap-2">
                   <button
                     onClick={() => onStartExam(paper, 'practice')}
-                    className="flex-1 rounded-lg bg-emerald-600/20 border border-emerald-500/30 py-2 text-center text-xs font-semibold text-emerald-300 hover:bg-emerald-600 hover:text-white transition-all"
+                    className="flex-1 rounded-xl bg-emerald-600/20 border border-emerald-500/30 py-2 text-center text-xs font-bold text-emerald-300 hover:bg-emerald-600 hover:text-white transition-all"
                   >
-                    Practice Mode
+                    Practice
                   </button>
                   <button
                     onClick={() => onStartExam(paper, 'mock')}
-                    className="flex-1 rounded-lg bg-indigo-600/20 border border-indigo-500/30 py-2 text-center text-xs font-semibold text-indigo-300 hover:bg-indigo-600 hover:text-white transition-all"
+                    className="flex-1 rounded-xl bg-indigo-600/20 border border-indigo-500/30 py-2 text-center text-xs font-bold text-indigo-300 hover:bg-indigo-600 hover:text-white transition-all"
                   >
                     Mock Exam
                   </button>
@@ -200,19 +368,19 @@ export function DashboardView({
           </div>
         </div>
 
-        {/* Recent Performance & History (1 Col) */}
+        {/* Right: Recent Attempts (1 Col) */}
         <div className="space-y-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
               <TrendingUp className="h-5 w-5 text-indigo-400" />
-              <h2 className="text-lg font-bold text-white">Recent Attempts</h2>
+              <h2 className="text-base font-bold text-white">Recent Mock Attempts</h2>
             </div>
-            {attempts.length > 0 && (
+            {mockAttempts.length > 0 && (
               <button
                 onClick={onNavigateHistory}
-                className="text-xs font-medium text-indigo-400 hover:text-indigo-300"
+                className="text-xs font-semibold text-indigo-400 hover:text-indigo-300"
               >
-                Full History
+                View all
               </button>
             )}
           </div>
@@ -220,10 +388,10 @@ export function DashboardView({
           <div className="space-y-3">
             {recentAttempts.length === 0 ? (
               <div className="rounded-2xl border border-dashed border-slate-800 bg-slate-900/40 p-8 text-center">
-                <Target className="mx-auto h-8 w-8 text-slate-600 mb-2" />
-                <p className="text-xs font-medium text-slate-400">No attempts yet</p>
+                <BarChart3 className="mx-auto h-8 w-8 text-slate-600 mb-2" />
+                <p className="text-xs font-medium text-slate-400">No mock attempts yet</p>
                 <p className="text-[11px] text-slate-500 mt-1">
-                  Start your first practice or mock exam from above.
+                  Launch a timed Mock Exam from the left to start recording scores.
                 </p>
               </div>
             ) : (
@@ -231,25 +399,21 @@ export function DashboardView({
                 <div
                   key={att.id}
                   onClick={() => onViewAttempt(att)}
-                  className="cursor-pointer rounded-2xl border border-slate-800 bg-slate-900/80 p-4 transition-all hover:border-slate-700 hover:bg-slate-900 group"
+                  className="cursor-pointer rounded-2xl border border-slate-800 bg-slate-900 p-4 hover:border-slate-700 transition-all group shadow-sm"
                 >
                   <div className="flex items-center justify-between">
                     <span className="text-xs font-bold text-white group-hover:text-indigo-300 transition-colors truncate max-w-[180px]">
                       {att.paperLabel}
                     </span>
-                    <span className={`text-[10px] font-semibold uppercase px-2 py-0.5 rounded ${
-                      att.mode === 'practice' 
-                        ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20' 
-                        : 'bg-indigo-500/10 text-indigo-400 border border-indigo-500/20'
-                    }`}>
-                      {att.mode}
+                    <span className="text-[11px] text-slate-500 font-mono">
+                      {formatTimeSeconds(att.durationSeconds)}
                     </span>
                   </div>
 
-                  <div className="mt-3 flex items-center justify-between text-xs">
+                  <div className="mt-2.5 flex items-center justify-between text-xs">
                     <div>
-                      <span className="text-slate-400">Score: </span>
-                      <span className="font-bold text-white">{att.score}</span>
+                      <span className="text-slate-500">Net Score: </span>
+                      <strong className="text-white">{att.score}</strong>
                       <span className="text-[10px] text-slate-500"> / {att.maxScore}</span>
                     </div>
                     <div className="font-semibold text-emerald-400">
@@ -257,9 +421,11 @@ export function DashboardView({
                     </div>
                   </div>
 
-                  <div className="mt-2 flex items-center justify-between text-[11px] text-slate-500 pt-2 border-t border-slate-800/60">
+                  <div className="mt-2 pt-2 border-t border-slate-800/60 flex items-center justify-between text-[11px] text-slate-500">
                     <span>{formatDateTime(att.startedAt)}</span>
-                    <span>{formatTimeSeconds(att.durationSeconds)}</span>
+                    <span className="text-indigo-400 group-hover:text-indigo-300 font-semibold">
+                      Inspect Nuance →
+                    </span>
                   </div>
                 </div>
               ))

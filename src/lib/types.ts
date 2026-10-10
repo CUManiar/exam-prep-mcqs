@@ -1,17 +1,18 @@
-export interface ExamSettings {
-  defaultTotalQuestions: number;
-  defaultCorrectMarks: number;
-  defaultIncorrectMarks: number;
-  skippedMarks: number; // Always 0
-  defaultTimeMinutes: number;
-  fastStartWithDefaults: boolean;
-}
+export type ExamType = 'objective' | 'subjective';
+export type ExamCategory = 'prelims' | 'mains';
 
 export interface QuestionPaper {
   id: string;
   year: string;
-  subject: string;
+  category: ExamCategory; // 'prelims' | 'mains'
+  examType: ExamType;      // 'objective' | 'subjective'
+  subject: string;         // 'GS I', 'GS II CSAT', 'Essay', 'GS I (Mains)', etc.
   label: string;
+  totalQuestions: number;  // 100 for GS1, 80 for GS2, 20 for Mains
+  totalMarks: number;      // 200 for GS1/GS2, 250 for Mains
+  correctMarks: number;    // 2.0 for GS1, 2.5 for GS2, 0 for subjective
+  incorrectMarks: number;  // 0.667 for GS1, 0.833 for GS2, 0 for subjective
+  timeMinutes: number;     // 120 for Prelims, 180 for Mains
   qpUrl: string;
   akUrl?: string;
   exsUrl?: string;
@@ -27,19 +28,22 @@ export interface QuestionAnswer {
   isCorrect?: boolean | null;
   flagged?: boolean;
   note?: string;
-  timeSpentSeconds?: number; // Tracked in Mock mode
-  changesCount?: number;     // Tracked in Mock mode (response alterations)
-  answerHistory?: string[];  // Sequence of choices e.g. ['A', 'B']
+  timeSpentSeconds?: number;
+  changesCount?: number;
+  answerHistory?: string[];
 }
 
 export interface Attempt {
   id: string;
   paperId: string;
   paperLabel: string;
+  category: ExamCategory;
+  examType: ExamType;
   mode: 'practice' | 'mock';
   startedAt: string;
   finishedAt?: string;
   totalQuestions: number;
+  totalMarks: number;
   correctMarks: number;
   incorrectMarks: number;
   timeMinutes: number;
@@ -56,10 +60,11 @@ export interface Attempt {
   avgTimeCorrect?: number;
   avgTimeIncorrect?: number;
   alteredCount?: number;
-  alteredHarmCount?: number;   // Changed from correct to incorrect
-  alteredBenefitCount?: number; // Changed from incorrect to correct
+  alteredHarmCount?: number;
+  alteredBenefitCount?: number;
   answers: Record<number, QuestionAnswer>;
   generalNotes?: string;
+  userSubmissionPdfUrl?: string; // For subjective Mains handwritten answers
 }
 
 export type ActivePage = 'dashboard' | 'papers' | 'session' | 'history' | 'upload' | 'attempt-detail';

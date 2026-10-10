@@ -1,12 +1,12 @@
 'use client';
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
 import { QuestionPaper, Attempt, QuestionAnswer } from '../lib/types';
 import { formatTimeSeconds } from '../lib/defaults';
 import { DetailedSolutionModal } from './DetailedSolutionModal';
 import { 
   Clock, 
-  Bookmark, 
+  Flag, 
   CheckCircle2, 
   XCircle, 
   ChevronLeft, 
@@ -14,18 +14,15 @@ import {
   ExternalLink,
   BookOpen,
   Edit3,
-  AlertTriangle
+  UploadCloud,
+  FileUp,
+  AlertTriangle,
+  Bookmark
 } from 'lucide-react';
 
 interface ExamSessionViewProps {
   paper: QuestionPaper;
   mode: 'practice' | 'mock';
-  config: {
-    totalQuestions: number;
-    correctMarks: number;
-    incorrectMarks: number;
-    timeMinutes: number;
-  };
   onFinish: (attempt: Attempt) => void;
   onExit: () => void;
 }
@@ -33,7 +30,6 @@ interface ExamSessionViewProps {
 export function ExamSessionView({
   paper,
   mode,
-  config,
   onFinish,
   onExit,
 }: ExamSessionViewProps) {
@@ -42,13 +38,18 @@ export function ExamSessionView({
   const [elapsedSeconds, setElapsedSeconds] = useState<number>(0);
   const [qTimeSpent, setQTimeSpent] = useState<Record<number, number>>({});
   const [filterMode, setFilterMode] = useState<'all' | 'attempted' | 'unattempted' | 'flagged'>('all');
-  const [openNoteForQ, setOpenNoteForQ] = useState<number | null>(null);
+  const [showNoteBox, setShowNoteBox] = useState<boolean>(true);
   const [showFinishConfirm, setShowFinishConfirm] = useState<boolean>(false);
   const [solutionModalOpen, setSolutionModalOpen] = useState<boolean>(false);
 
-  const totalTimeSeconds = config.timeMinutes * 60;
+  // Subjective (Mains) scan & upload phase
+  const [isScanUploadPhase, setIsScanUploadPhase] = useState<boolean>(false);
+  const [userSubmissionFile, setUserSubmissionFile] = useState<File | null>(null);
+
+  const totalTimeSeconds = paper.timeMinutes * 60;
   const isPractice = mode === 'practice';
-  
+  const isSubjective = paper.examType === 'subjective';
+
   // In Practice mode, user can surpass time limit, tracking extra time
   const isOvertime = isPractice && elapsedSeconds > totalTimeSeconds;
   const overtimeSeconds = isOvertime ? elapsedSeconds - totalTimeSeconds : 0;
@@ -60,7 +61,7 @@ export function ExamSessionView({
   // Initialize questions
   useEffect(() => {
     const initial: Record<number, QuestionAnswer> = {};
-    for (let i = 1; i <= config.totalQuestions; i++) {
+    for (let i = 1; i <= paper.totalQuestions; i++) {
       initial[i] = {
         questionNo: i,
         selected: null,
@@ -74,15 +75,17 @@ export function ExamSessionView({
       };
     }
     setAnswers(initial);
-  }, [paper, config.totalQuestions]);
+  }, [paper]);
 
   // Continuous timer + Mock question time tracker
   useEffect(() => {
+    if (isScanUploadPhase) return;
+
     const timer = setInterval(() => {
       setElapsedSeconds(prev => prev + 1);
 
       // In Mock Mode ONLY: track time taken on active question
-      if (mode === 'mock') {
+      if (mode === 'mock' && !isSubjective) {
         setQTimeSpent(prev => ({
           ...prev,
           [currentQuestion]: (prev[currentQuestion] || 0) + 1,
@@ -90,16 +93,20 @@ export function ExamSessionView({
       }
     }, 1000);
     return () => clearInterval(timer);
-  }, [mode, currentQuestion]);
+  }, [mode, currentQuestion, isScanUploadPhase, isSubjective]);
 
   // In Mock Mode, auto-finish if strict time runs out
   useEffect(() => {
-    if (mode === 'mock' && totalTimeSeconds > 0 && remainingSeconds <= 0) {
-      handleFinishExam();
+    if (mode === 'mock' && totalTimeSeconds > 0 && remainingSeconds <= 0 && !isScanUploadPhase) {
+      if (isSubjective) {
+        setIsScanUploadPhase(true);
+      } else {
+        handleFinishExam();
+      }
     }
-  }, [remainingSeconds, mode, totalTimeSeconds]);
+  }, [remainingSeconds, mode, totalTimeSeconds, isScanUploadPhase, isSubjective]);
 
-  // Answer selection handler
+  // Answer selection handler (Objective)
   const handleSelectOption = (qNo: number, option: string) => {
     setAnswers(prev => {
       const current = prev[qNo] || { 
@@ -146,6 +153,20 @@ export function ExamSessionView({
     });
   };
 
+  const handleClearSelection = (qNo: number) => {
+    setAnswers(prev => {
+      const current = prev[qNo] || { questionNo: qNo, selected: null };
+      return {
+        ...prev,
+        [qNo]: {
+          ...current,
+          selected: null,
+          isCorrect: null,
+        },
+      };
+    });
+  };
+
   // Flag toggle handler
   const handleToggleFlag = (qNo: number) => {
     setAnswers(prev => {
@@ -176,21 +197,21 @@ export function ExamSessionView({
 
   // Computed counts
   const allAnswerValues = Object.values(answers);
-  const attemptedCount = allAnswerValues.filter(a => a.selected !== null).length;
+  const attemptedCount = allAnswerValues.filter(a => a.selected !== null || (isSubjective && a.note?.trim())).length;
   const flaggedCount = allAnswerValues.filter(a => a.flagged).length;
-  const unattemptedCount = config.totalQuestions - attemptedCount;
+  const unattemptedCount = paper.totalQuestions - attemptedCount;
 
   // Filtered question numbers for the grid
-  const filteredQuestionNumbers = Array.from({ length: config.totalQuestions }, (_, i) => i + 1).filter(qNo => {
+  const filteredQuestionNumbers = Array.from({ length: paper.totalQuestions }, (_, i) => i + 1).filter(qNo => {
     const a = answers[qNo];
-    if (filterMode === 'attempted') return a?.selected !== null;
-    if (filterMode === 'unattempted') return !a?.selected;
+    if (filterMode === 'attempted') return a?.selected !== null || (isSubjective && a?.note?.trim());
+    if (filterMode === 'unattempted') return !a?.selected && (!isSubjective || !a?.note?.trim());
     if (filterMode === 'flagged') return a?.flagged;
     return true;
   });
 
-  // Finish exam calculations with deep question analytics
-  const handleFinishExam = () => {
+  // Finish exam calculations
+  const handleFinishExam = (submissionPdfBlobUrl?: string) => {
     let correctCount = 0;
     let incorrectCount = 0;
     let alteredCount = 0;
@@ -202,7 +223,7 @@ export function ExamSessionView({
 
     const finalAnswers: Record<number, QuestionAnswer> = {};
 
-    for (let i = 1; i <= config.totalQuestions; i++) {
+    for (let i = 1; i <= paper.totalQuestions; i++) {
       const a = answers[i] || { questionNo: i, selected: null };
       const correctAns = paper.answerKey[i];
       const spentSecs = mode === 'mock' ? (qTimeSpent[i] || 0) : 0;
@@ -227,11 +248,9 @@ export function ExamSessionView({
         if (history.length >= 2 && correctAns) {
           const initialChoice = history[0];
           const finalChoice = a.selected;
-          // Initial was correct, changed to wrong
           if (initialChoice === correctAns && finalChoice !== correctAns) {
             alteredHarmCount++;
           }
-          // Initial was wrong, changed to correct
           if (initialChoice !== correctAns && finalChoice === correctAns) {
             alteredBenefitCount++;
           }
@@ -246,8 +265,10 @@ export function ExamSessionView({
       };
     }
 
-    const calculatedScore = (correctCount * config.correctMarks) - (incorrectCount * config.incorrectMarks);
-    const maxScore = config.totalQuestions * config.correctMarks;
+    const calculatedScore = isSubjective 
+      ? 0 
+      : (correctCount * paper.correctMarks) - (incorrectCount * paper.incorrectMarks);
+    const maxScore = paper.totalMarks;
     const accuracyPct = attemptedCount > 0 ? (correctCount / attemptedCount) * 100 : 0;
 
     const avgTimePerQuestion = attemptedCount > 0 
@@ -264,13 +285,16 @@ export function ExamSessionView({
       id: `attempt_${Date.now()}`,
       paperId: paper.id,
       paperLabel: paper.label,
+      category: paper.category,
+      examType: paper.examType,
       mode,
       startedAt: new Date(Date.now() - elapsedSeconds * 1000).toISOString(),
       finishedAt: new Date().toISOString(),
-      totalQuestions: config.totalQuestions,
-      correctMarks: config.correctMarks,
-      incorrectMarks: config.incorrectMarks,
-      timeMinutes: config.timeMinutes,
+      totalQuestions: paper.totalQuestions,
+      totalMarks: paper.totalMarks,
+      correctMarks: paper.correctMarks,
+      incorrectMarks: paper.incorrectMarks,
+      timeMinutes: paper.timeMinutes,
       durationSeconds: elapsedSeconds,
       overtimeSeconds: isOvertime ? overtimeSeconds : 0,
       answered: attemptedCount,
@@ -287,6 +311,7 @@ export function ExamSessionView({
       alteredHarmCount,
       alteredBenefitCount,
       answers: finalAnswers,
+      userSubmissionPdfUrl: submissionPdfBlobUrl,
     };
 
     onFinish(attempt);
@@ -300,10 +325,10 @@ export function ExamSessionView({
   };
 
   return (
-    <div className="flex flex-col h-[calc(100vh-4rem)] bg-slate-950 text-slate-100 overflow-hidden">
+    <div className="flex flex-col h-[calc(100vh-4rem)] bg-slate-950 text-slate-100 overflow-hidden font-sans">
       
       {/* Top Session Bar */}
-      <div className="flex flex-wrap items-center justify-between border-b border-slate-800 bg-slate-900/90 px-4 py-2.5 gap-3 shrink-0">
+      <div className="flex flex-wrap items-center justify-between border-b border-slate-800 bg-slate-900/95 px-4 py-2.5 gap-3 shrink-0">
         
         {/* Paper title & Mode */}
         <div className="flex items-center gap-3">
@@ -320,7 +345,7 @@ export function ExamSessionView({
             <span className={`inline-block text-[10px] font-semibold uppercase tracking-wider ${
               isPractice ? 'text-emerald-400' : 'text-indigo-400'
             }`}>
-              {isPractice ? 'Practice Mode (Live Review)' : 'Timed Mock Exam (Strict)'}
+              {isPractice ? 'Practice Mode (Live Review)' : `Timed Mock Exam (${paper.timeMinutes} Mins)`}
             </span>
           </div>
         </div>
@@ -348,7 +373,7 @@ export function ExamSessionView({
           )}
         </div>
 
-        {/* Live Counters */}
+        {/* Live Status Counters */}
         <div className="flex items-center gap-2 sm:gap-4 text-xs font-medium">
           <div className="flex items-center gap-1.5 rounded-lg bg-emerald-950/40 border border-emerald-800/40 px-2.5 py-1 text-emerald-300">
             <span className="h-2 w-2 rounded-full bg-emerald-400" />
@@ -366,10 +391,16 @@ export function ExamSessionView({
           </div>
 
           <button
-            onClick={() => setShowFinishConfirm(true)}
+            onClick={() => {
+              if (isSubjective) {
+                setIsScanUploadPhase(true);
+              } else {
+                setShowFinishConfirm(true);
+              }
+            }}
             className="rounded-lg bg-indigo-600 px-4 py-1.5 text-xs font-bold text-white shadow-md shadow-indigo-600/30 hover:bg-indigo-500 transition-all ml-2"
           >
-            Finish Exam
+            {isSubjective ? 'Submit & Upload Copy' : 'Finish Exam'}
           </button>
         </div>
       </div>
@@ -400,18 +431,18 @@ export function ExamSessionView({
           />
         </div>
 
-        {/* Right Side: OMR Response & Question Workspace */}
-        <div className="w-full lg:w-2/5 xl:w-1/3 h-1/2 lg:h-full bg-slate-900/95 flex flex-col overflow-hidden">
+        {/* Right Side: Exact UI as per Image 1 */}
+        <div className="w-full lg:w-2/5 xl:w-1/3 h-1/2 lg:h-full bg-[#0a0f1d] flex flex-col overflow-hidden">
           
-          {/* Active Question Bar */}
-          <div className="border-b border-slate-800 p-4 bg-slate-900">
+          {/* Active Question Top Bar (Image 1 Header) */}
+          <div className="border-b border-slate-800/80 p-5 bg-[#0e1424]">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <span className="text-xl font-bold text-white">
                   Question {currentQuestion}
                 </span>
-                <span className="text-xs text-slate-400">of {config.totalQuestions}</span>
-                {mode === 'mock' && (
+                <span className="text-xs text-slate-400">of {paper.totalQuestions}</span>
+                {mode === 'mock' && !isSubjective && (
                   <span className="rounded bg-slate-800 px-2 py-0.5 text-[11px] font-mono text-indigo-300">
                     ⏱ {qTimeSpent[currentQuestion] || 0}s
                   </span>
@@ -421,71 +452,69 @@ export function ExamSessionView({
               <div className="flex items-center gap-2">
                 <button
                   onClick={() => handleToggleFlag(currentQuestion)}
-                  className={`flex items-center gap-1.5 rounded-lg px-2.5 py-1 text-xs font-semibold transition-all ${
+                  className={`flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold transition-all border ${
                     currentQObj.flagged
-                      ? 'bg-amber-500/20 text-amber-300 border border-amber-500/50'
-                      : 'border border-slate-700 text-slate-400 hover:text-slate-200'
+                      ? 'bg-amber-500/20 text-amber-300 border-amber-500/50'
+                      : 'border-slate-800 bg-slate-900 text-slate-400 hover:text-slate-200'
                   }`}
                 >
                   <Bookmark className={`h-3.5 w-3.5 ${currentQObj.flagged ? 'fill-amber-400' : ''}`} />
-                  {currentQObj.flagged ? 'Flagged' : 'Flag'}
+                  Flag
                 </button>
 
                 <button
-                  onClick={() => setOpenNoteForQ(openNoteForQ === currentQuestion ? null : currentQuestion)}
-                  className={`flex items-center gap-1 rounded-lg px-2.5 py-1 text-xs font-semibold transition-all ${
+                  onClick={() => setShowNoteBox(!showNoteBox)}
+                  className={`flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold transition-all border ${
                     currentQObj.note
-                      ? 'bg-indigo-600/20 text-indigo-300 border border-indigo-500/40'
-                      : 'border border-slate-700 text-slate-400 hover:text-slate-200'
+                      ? 'bg-indigo-600/20 text-indigo-300 border-indigo-500/40'
+                      : 'border-slate-800 bg-slate-900 text-slate-400 hover:text-slate-200'
                   }`}
                 >
                   <Edit3 className="h-3.5 w-3.5" />
-                  Note {currentQObj.note ? '•' : ''}
+                  Note
                 </button>
               </div>
             </div>
 
-            {/* Answer Options (A, B, C, D) */}
-            <div className="mt-4 grid grid-cols-4 gap-2.5">
-              {['A', 'B', 'C', 'D'].map(opt => {
-                const isSelected = currentQObj.selected === opt;
-                let btnStyle = 'border-slate-700 bg-slate-950 text-slate-200 hover:border-slate-500 hover:bg-slate-800';
+            {/* Answer Options A, B, C, D (for Objective) */}
+            {!isSubjective ? (
+              <div className="mt-5 grid grid-cols-4 gap-3">
+                {['A', 'B', 'C', 'D'].map(opt => {
+                  const isSelected = currentQObj.selected === opt;
+                  let btnStyle = 'border-slate-800 bg-[#070b14] text-slate-200 hover:border-slate-600 hover:bg-slate-900';
 
-                if (isSelected) {
-                  btnStyle = 'border-indigo-500 bg-indigo-600 text-white font-bold ring-2 ring-indigo-500/40';
-                }
-
-                // In practice mode, show correct/incorrect indicators immediately
-                if (isPractice && isSelected && currentQObj.correctAnswer) {
-                  if (opt === currentQObj.correctAnswer) {
-                    btnStyle = 'border-emerald-500 bg-emerald-600 text-white font-bold ring-2 ring-emerald-500/40';
-                  } else {
-                    btnStyle = 'border-rose-500 bg-rose-600 text-white font-bold ring-2 ring-rose-500/40';
+                  if (isSelected) {
+                    btnStyle = 'border-indigo-500 bg-indigo-600 text-white font-bold ring-2 ring-indigo-500/40';
                   }
-                }
 
-                return (
-                  <button
-                    key={opt}
-                    onClick={() => handleSelectOption(currentQuestion, opt)}
-                    className={`flex h-12 items-center justify-center rounded-xl border text-base transition-all ${btnStyle}`}
-                  >
-                    {opt}
-                  </button>
-                );
-              })}
-            </div>
+                  // Practice mode live feedback
+                  if (isPractice && isSelected && currentQObj.correctAnswer) {
+                    if (opt === currentQObj.correctAnswer) {
+                      btnStyle = 'border-emerald-500 bg-emerald-600 text-white font-bold ring-2 ring-emerald-500/40';
+                    } else {
+                      btnStyle = 'border-rose-500 bg-rose-600 text-white font-bold ring-2 ring-rose-500/40';
+                    }
+                  }
 
-            {/* Mock Mode Alteration Indicator */}
-            {mode === 'mock' && currentQObj.changesCount && currentQObj.changesCount > 0 ? (
-              <div className="mt-2.5 flex items-center gap-1.5 text-[11px] text-amber-400 font-medium">
-                <span>Altered {currentQObj.changesCount} time(s)</span>
-                <span className="text-slate-500">• (Path: {currentQObj.answerHistory?.join(' → ')})</span>
+                  return (
+                    <button
+                      key={opt}
+                      onClick={() => handleSelectOption(currentQuestion, opt)}
+                      className={`flex h-12 items-center justify-center rounded-xl border text-base font-semibold transition-all ${btnStyle}`}
+                    >
+                      {opt}
+                    </button>
+                  );
+                })}
               </div>
-            ) : null}
+            ) : (
+              <div className="mt-3 p-3 rounded-xl border border-violet-900/40 bg-violet-950/20 text-xs text-violet-300">
+                ✍️ Subjective Question: Draft structural points & outline in the notes box below.
+              </div>
+            )}
 
-            {/* Practice Mode Live Feedback + "Detailed Solution" Modal Trigger */}
-            {isPractice && currentQObj.selected && currentQObj.correctAnswer && (
+            {/* Practice Mode Live Feedback + Detailed Solution Button */}
+            {isPractice && !isSubjective && currentQObj.selected && currentQObj.correctAnswer && (
               <div className={`mt-3 rounded-xl border p-3 text-xs flex items-center justify-between ${
                 currentQObj.selected === currentQObj.correctAnswer 
                   ? 'border-emerald-800/80 bg-emerald-950/40 text-emerald-300' 
@@ -514,64 +543,65 @@ export function ExamSessionView({
               </div>
             )}
 
-            {/* Per-Question Note Drawer */}
-            {openNoteForQ === currentQuestion && (
-              <div className="mt-3 rounded-xl border border-indigo-900/50 bg-indigo-950/20 p-3 animate-in fade-in">
-                <div className="flex items-center justify-between mb-1.5">
-                  <span className="text-xs font-semibold text-indigo-200">
+            {/* Notes Box matching Image 1 */}
+            {showNoteBox && (
+              <div className="mt-4 rounded-xl border border-slate-800 bg-[#070b14] p-3.5 space-y-2">
+                <div className="flex items-center justify-between text-xs">
+                  <span className="font-semibold text-slate-300">
                     Notes for Question {currentQuestion}
                   </span>
-                  <span className="text-[10px] text-slate-400">Autosaved with attempt</span>
+                  <span className="text-[11px] text-slate-500">Autosaved with attempt</span>
                 </div>
                 <textarea
                   value={currentQObj.note || ''}
                   onChange={e => handleUpdateNote(currentQuestion, e.target.value)}
                   placeholder="Jot down formulas, doubts, trick keywords, or reasoning for this question..."
-                  rows={2}
-                  className="w-full rounded-lg border border-slate-700 bg-slate-950 p-2 text-xs text-slate-200 focus:border-indigo-500 focus:outline-none"
+                  rows={4}
+                  className="w-full rounded-lg border border-slate-800 bg-slate-950 p-3 text-xs text-slate-200 placeholder-slate-600 focus:outline-none focus:border-indigo-500 resize-none"
                 />
               </div>
             )}
 
-            {/* Prev / Next Navigation Buttons */}
+            {/* Navigation Bottom Controls (Image 1: Previous, Clear Selection, Next) */}
             <div className="mt-4 flex items-center justify-between pt-2">
               <button
                 disabled={currentQuestion <= 1}
                 onClick={() => setCurrentQuestion(prev => Math.max(1, prev - 1))}
-                className="flex items-center gap-1 rounded-lg border border-slate-700 bg-slate-800 px-3 py-1.5 text-xs font-semibold text-slate-300 hover:bg-slate-700 disabled:opacity-40 disabled:pointer-events-none"
+                className="flex items-center gap-1 rounded-xl border border-slate-800 bg-slate-900 px-3.5 py-2 text-xs font-semibold text-slate-300 hover:bg-slate-800 disabled:opacity-40 disabled:pointer-events-none transition-colors"
               >
                 <ChevronLeft className="h-4 w-4" /> Previous
               </button>
 
-              <button
-                onClick={() => handleSelectOption(currentQuestion, currentQObj.selected || '')}
-                className="text-xs text-slate-400 hover:text-slate-200 transition-colors"
-              >
-                Clear Selection
-              </button>
+              {!isSubjective && (
+                <button
+                  onClick={() => handleClearSelection(currentQuestion)}
+                  className="text-xs text-slate-400 hover:text-slate-200 transition-colors font-medium"
+                >
+                  Clear Selection
+                </button>
+              )}
 
               <button
-                disabled={currentQuestion >= config.totalQuestions}
-                onClick={() => setCurrentQuestion(prev => Math.min(config.totalQuestions, prev + 1))}
-                className="flex items-center gap-1 rounded-lg border border-slate-700 bg-slate-800 px-3 py-1.5 text-xs font-semibold text-slate-300 hover:bg-slate-700 disabled:opacity-40 disabled:pointer-events-none"
+                disabled={currentQuestion >= paper.totalQuestions}
+                onClick={() => setCurrentQuestion(prev => Math.min(paper.totalQuestions, prev + 1))}
+                className="flex items-center gap-1 rounded-xl border border-slate-800 bg-slate-900 px-3.5 py-2 text-xs font-semibold text-slate-300 hover:bg-slate-800 disabled:opacity-40 disabled:pointer-events-none transition-colors"
               >
                 Next <ChevronRight className="h-4 w-4" />
               </button>
             </div>
           </div>
 
-          {/* Question Grid Section */}
-          <div className="flex-1 overflow-y-auto p-4">
+          {/* Question Palette Section matching Image 1 */}
+          <div className="flex-1 overflow-y-auto p-5">
             
-            {/* Filter Tabs */}
             <div className="flex items-center justify-between mb-3 text-xs">
-              <span className="font-bold text-slate-300">Question Palette</span>
+              <span className="font-bold text-white">Question Palette</span>
               <div className="flex items-center gap-1 bg-slate-950 p-0.5 rounded-lg border border-slate-800">
                 {(['all', 'attempted', 'unattempted', 'flagged'] as const).map(tab => (
                   <button
                     key={tab}
                     onClick={() => setFilterMode(tab)}
-                    className={`rounded px-2 py-0.5 capitalize transition-all ${
+                    className={`rounded-md px-2.5 py-1 capitalize transition-all text-xs ${
                       filterMode === tab 
                         ? 'bg-indigo-600 text-white font-semibold' 
                         : 'text-slate-400 hover:text-slate-200'
@@ -583,15 +613,15 @@ export function ExamSessionView({
               </div>
             </div>
 
-            {/* Grid buttons */}
+            {/* Grid buttons matching Image 1 style */}
             <div className="grid grid-cols-6 sm:grid-cols-8 gap-2">
               {filteredQuestionNumbers.map(qNo => {
                 const q = answers[qNo];
                 const isCurrent = qNo === currentQuestion;
-                const isAnswered = q?.selected !== null;
+                const isAnswered = q?.selected !== null || (isSubjective && q?.note?.trim());
                 const isFlagged = q?.flagged;
 
-                let badgeColor = 'bg-slate-950 text-slate-400 border-slate-800 hover:border-slate-600';
+                let badgeColor = 'bg-[#0e1424] text-slate-400 border-slate-800 hover:border-slate-700';
                 if (isAnswered) {
                   badgeColor = 'bg-emerald-950/60 text-emerald-300 border-emerald-600 font-semibold';
                 }
@@ -599,14 +629,14 @@ export function ExamSessionView({
                   badgeColor = 'bg-amber-950/60 text-amber-300 border-amber-500 font-semibold';
                 }
                 if (isCurrent) {
-                  badgeColor += ' ring-2 ring-indigo-400 scale-105';
+                  badgeColor += ' ring-2 ring-indigo-500 border-indigo-400 text-white font-bold scale-105';
                 }
 
                 return (
                   <button
                     key={qNo}
                     onClick={() => setCurrentQuestion(qNo)}
-                    className={`relative flex h-9 items-center justify-center rounded-lg border text-xs transition-all ${badgeColor}`}
+                    className={`relative flex h-10 items-center justify-center rounded-xl border text-xs transition-all ${badgeColor}`}
                   >
                     <span>{qNo}</span>
                     {q?.note && (
@@ -628,15 +658,15 @@ export function ExamSessionView({
         paperTitle={paper.label}
       />
 
-      {/* Finish Exam Confirmation Modal */}
+      {/* Objective Exam Finish Confirmation */}
       {showFinishConfirm && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in">
           <div className="relative w-full max-w-md rounded-2xl border border-slate-800 bg-slate-900 p-6 shadow-2xl">
             <h3 className="text-lg font-bold text-white mb-2">
-              Ready to submit your exam?
+              Submit your examination?
             </h3>
             <p className="text-xs text-slate-400 mb-4">
-              Here is your attempt summary:
+              Here is your submission summary for {paper.label}:
             </p>
 
             <div className="grid grid-cols-3 gap-2.5 mb-5 text-center">
@@ -669,6 +699,62 @@ export function ExamSessionView({
                 className="rounded-lg bg-indigo-600 px-5 py-2 text-xs font-bold text-white shadow-lg shadow-indigo-600/30 hover:bg-indigo-500"
               >
                 Confirm & Submit
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Subjective Mains Scan & Upload Phase */}
+      {isScanUploadPhase && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/85 backdrop-blur-md animate-in fade-in">
+          <div className="relative w-full max-w-lg rounded-3xl border border-slate-800 bg-slate-900 p-6 shadow-2xl space-y-4">
+            <div className="flex items-center gap-3">
+              <div className="rounded-xl bg-violet-500/20 p-2.5 text-violet-400">
+                <UploadCloud className="h-6 w-6" />
+              </div>
+              <div>
+                <h3 className="text-base font-bold text-white">Upload Handwritten Answer Copy</h3>
+                <p className="text-xs text-slate-400">Scan your written answer booklet and upload PDF copy</p>
+              </div>
+            </div>
+
+            <div className="rounded-xl bg-slate-950 p-4 border border-slate-800 text-xs text-slate-300 space-y-1">
+              <p>⏱ Exam writing time concluded: <strong>{formatTimeSeconds(elapsedSeconds)}</strong></p>
+              <p>You have grace buffer to scan your handwritten pages and attach your submission copy.</p>
+            </div>
+
+            <label className="flex flex-col items-center justify-center rounded-2xl border-2 border-dashed border-slate-700 bg-slate-950 p-6 text-center cursor-pointer hover:border-violet-500 transition-all">
+              <FileUp className="h-8 w-8 text-violet-400 mb-2" />
+              <span className="text-xs font-bold text-white">
+                {userSubmissionFile ? userSubmissionFile.name : 'Choose Scanned Answer Copy (PDF)'}
+              </span>
+              <span className="text-[11px] text-slate-500 mt-1">
+                {userSubmissionFile ? `${(userSubmissionFile.size / 1024 / 1024).toFixed(2)} MB` : 'Drop PDF here or browse'}
+              </span>
+              <input
+                type="file"
+                accept=".pdf"
+                onChange={e => setUserSubmissionFile(e.target.files?.[0] || null)}
+                className="hidden"
+              />
+            </label>
+
+            <div className="flex items-center justify-between pt-2">
+              <button
+                onClick={() => setIsScanUploadPhase(false)}
+                className="rounded-xl px-4 py-2 text-xs font-semibold text-slate-400 hover:bg-slate-800"
+              >
+                Back to Session
+              </button>
+              <button
+                onClick={() => {
+                  const blobUrl = userSubmissionFile ? URL.createObjectURL(userSubmissionFile) : undefined;
+                  handleFinishExam(blobUrl);
+                }}
+                className="rounded-xl bg-indigo-600 px-6 py-2.5 text-xs font-bold text-white hover:bg-indigo-500 shadow-lg shadow-indigo-600/30"
+              >
+                {userSubmissionFile ? 'Save Copy & Finish' : 'Skip & Finish'}
               </button>
             </div>
           </div>

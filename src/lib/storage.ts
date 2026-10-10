@@ -1,31 +1,10 @@
-import { Attempt, ExamSettings, QuestionPaper } from './types';
-import { DEFAULT_SETTINGS, INITIAL_PAPERS, parseAnswerKeyText } from './defaults';
+import { Attempt, QuestionPaper } from './types';
+import { INITIAL_PAPERS, parseAnswerKeyText } from './defaults';
 
 const STORAGE_KEYS = {
-  SETTINGS: 'exam_prep_settings_v1',
-  ATTEMPTS: 'exam_prep_attempts_v1',
-  CUSTOM_PAPERS: 'exam_prep_custom_papers_v1',
+  ATTEMPTS: 'exam_prep_attempts_v2',
+  CUSTOM_PAPERS: 'exam_prep_custom_papers_v2',
 };
-
-export function getSettings(): ExamSettings {
-  if (typeof window === 'undefined') return DEFAULT_SETTINGS;
-  try {
-    const raw = localStorage.getItem(STORAGE_KEYS.SETTINGS);
-    if (!raw) return DEFAULT_SETTINGS;
-    return { ...DEFAULT_SETTINGS, ...JSON.parse(raw) };
-  } catch {
-    return DEFAULT_SETTINGS;
-  }
-}
-
-export function saveSettings(settings: ExamSettings): void {
-  if (typeof window === 'undefined') return;
-  try {
-    localStorage.setItem(STORAGE_KEYS.SETTINGS, JSON.stringify(settings));
-  } catch (err) {
-    console.error('Failed to save settings:', err);
-  }
-}
 
 // History only counts Mock Mode attempts
 export function getAttempts(): Attempt[] {
@@ -34,7 +13,6 @@ export function getAttempts(): Attempt[] {
     const raw = localStorage.getItem(STORAGE_KEYS.ATTEMPTS);
     if (!raw) return [];
     const list: Attempt[] = JSON.parse(raw);
-    // Practice mode is not counted in History
     return list.filter(a => a.mode === 'mock');
   } catch {
     return [];
@@ -142,9 +120,8 @@ export async function getAllPapers(): Promise<QuestionPaper[]> {
 
 export function exportAllData(): string {
   const data = {
-    version: '1.0',
+    version: '2.0',
     exportedAt: new Date().toISOString(),
-    settings: getSettings(),
     attempts: getAttempts(),
     customPapers: getCustomPapers(),
   };
@@ -154,7 +131,6 @@ export function exportAllData(): string {
 export function importAllData(jsonStr: string): boolean {
   try {
     const parsed = JSON.parse(jsonStr);
-    if (parsed.settings) saveSettings(parsed.settings);
     if (Array.isArray(parsed.attempts)) {
       const mockOnly = parsed.attempts.filter((a: any) => a.mode === 'mock');
       localStorage.setItem(STORAGE_KEYS.ATTEMPTS, JSON.stringify(mockOnly));
