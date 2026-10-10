@@ -10,6 +10,9 @@ export function getBlobToken(): string | undefined {
   if (process.env.BLOB_READ_WRITE_TOKEN) {
     return process.env.BLOB_READ_WRITE_TOKEN;
   }
+  if (process.env.PAPERS_DATA_READ_WRITE_TOKEN) {
+    return process.env.PAPERS_DATA_READ_WRITE_TOKEN;
+  }
   const envKey = Object.keys(process.env).find(k => k.endsWith('_READ_WRITE_TOKEN'));
   if (envKey && process.env[envKey]) {
     return process.env[envKey];
