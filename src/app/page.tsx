@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { ActivePage, QuestionPaper, Attempt } from '../lib/types';
+import { ActivePage, QuestionPaper, Attempt, ActiveSessionDraft } from '../lib/types';
 import { 
   getAttempts, 
   loadAttemptsFromServer,
@@ -10,7 +10,9 @@ import {
   deleteAttempt, 
   getAllPapers,
   deletePaperFromServer,
-  updatePaperOnServer 
+  updatePaperOnServer,
+  getActiveDraft,
+  clearActiveDraft
 } from '../lib/storage';
 
 import { Navbar } from '../components/Navbar';
@@ -25,6 +27,7 @@ export default function App() {
   const [activePage, setActivePage] = useState<ActivePage>('dashboard');
   const [papers, setPapers] = useState<QuestionPaper[]>([]);
   const [attempts, setAttempts] = useState<Attempt[]>([]);
+  const [activeDraft, setActiveDraft] = useState<ActiveSessionDraft | null>(null);
 
   // Active exam session
   const [activeSession, setActiveSession] = useState<{
@@ -43,6 +46,7 @@ export default function App() {
   const loadAllData = async () => {
     // 1. Initial local cache for instant render
     setAttempts(getAttempts());
+    setActiveDraft(getActiveDraft());
     
     // 2. Fetch server persisted attempts & papers
     const [serverAttempts, loadedPapers] = await Promise.all([
@@ -51,12 +55,30 @@ export default function App() {
     ]);
     setAttempts(serverAttempts);
     setPapers(loadedPapers);
+    setActiveDraft(getActiveDraft());
   };
 
   // Launching an exam uses the paper's preconfigured rules directly!
   const handleStartExam = (paper: QuestionPaper, mode: 'practice' | 'mock') => {
     setActiveSession({ paper, mode });
     setActivePage('session');
+  };
+
+  // Resume a paused exam draft
+  const handleResumeDraft = (draft: ActiveSessionDraft) => {
+    const paper = papers.find(p => p.id === draft.paperId);
+    if (paper) {
+      setActiveSession({ paper, mode: draft.mode });
+      setActivePage('session');
+    }
+  };
+
+  // Discard paused draft
+  const handleDiscardDraft = () => {
+    if (confirm('Are you sure you want to discard your paused exam? Progress will be lost.')) {
+      clearActiveDraft();
+      setActiveDraft(null);
+    }
   };
 
   // Finishing an exam session
@@ -66,16 +88,17 @@ export default function App() {
       saveAttempt(attempt);
       setAttempts(getAttempts());
     }
+    clearActiveDraft();
+    setActiveDraft(null);
     setActiveSession(null);
     setSelectedAttemptForDetail(attempt);
     setActivePage('attempt-detail');
   };
 
   const handleExitExamSession = () => {
-    if (confirm('Are you sure you want to exit the current exam? Progress will not be saved.')) {
-      setActiveSession(null);
-      setActivePage('papers');
-    }
+    setActiveDraft(getActiveDraft());
+    setActiveSession(null);
+    setActivePage('papers');
   };
 
   // Inspecting an attempt on dedicated page
@@ -146,6 +169,9 @@ export default function App() {
             onNavigatePapers={() => setActivePage('papers')}
             onNavigateHistory={() => setActivePage('history')}
             onViewAttempt={handleViewAttemptDetail}
+            activeDraft={activeDraft}
+            onResumeDraft={handleResumeDraft}
+            onDiscardDraft={handleDiscardDraft}
           />
         )}
 
@@ -178,6 +204,7 @@ export default function App() {
           <ExamSessionView
             paper={activeSession.paper}
             mode={activeSession.mode}
+            initialDraft={activeDraft && activeDraft.paperId === activeSession.paper.id ? activeDraft : null}
             onFinish={handleFinishExamSession}
             onExit={handleExitExamSession}
           />

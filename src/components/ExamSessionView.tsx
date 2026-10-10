@@ -1,8 +1,9 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { QuestionPaper, Attempt, QuestionAnswer } from '../lib/types';
+import { QuestionPaper, Attempt, QuestionAnswer, ActiveSessionDraft } from '../lib/types';
 import { formatTimeSeconds } from '../lib/defaults';
+import { saveActiveDraft, clearActiveDraft } from '../lib/storage';
 import { DetailedSolutionModal } from './DetailedSolutionModal';
 import { 
   Clock, 
@@ -17,12 +18,16 @@ import {
   UploadCloud,
   FileUp,
   AlertTriangle,
-  Bookmark
+  Bookmark,
+  Pause,
+  Play,
+  Save
 } from 'lucide-react';
 
 interface ExamSessionViewProps {
   paper: QuestionPaper;
   mode: 'practice' | 'mock';
+  initialDraft?: ActiveSessionDraft | null;
   onFinish: (attempt: Attempt) => void;
   onExit: () => void;
 }
@@ -30,18 +35,20 @@ interface ExamSessionViewProps {
 export function ExamSessionView({
   paper,
   mode,
+  initialDraft,
   onFinish,
   onExit,
 }: ExamSessionViewProps) {
-  const [currentQuestion, setCurrentQuestion] = useState<number>(1);
-  const [answers, setAnswers] = useState<Record<number, QuestionAnswer>>({});
-  const [elapsedSeconds, setElapsedSeconds] = useState<number>(0);
-  const [qTimeSpent, setQTimeSpent] = useState<Record<number, number>>({});
+  const [currentQuestion, setCurrentQuestion] = useState<number>(initialDraft?.currentQuestion || 1);
+  const [answers, setAnswers] = useState<Record<number, QuestionAnswer>>(initialDraft?.answers || {});
+  const [elapsedSeconds, setElapsedSeconds] = useState<number>(initialDraft?.elapsedSeconds || 0);
+  const [qTimeSpent, setQTimeSpent] = useState<Record<number, number>>(initialDraft?.qTimeSpent || {});
   const [filterMode, setFilterMode] = useState<'all' | 'attempted' | 'unattempted' | 'flagged'>('all');
   const [showNoteBox, setShowNoteBox] = useState<boolean>(true);
   const [showFinishConfirm, setShowFinishConfirm] = useState<boolean>(false);
   const [solutionModalOpen, setSolutionModalOpen] = useState<boolean>(false);
   const [mobileTab, setMobileTab] = useState<'paper' | 'split' | 'omr'>('split');
+  const [isPaused, setIsPaused] = useState<boolean>(false);
 
   // Subjective (Mains) scan & upload phase
   const [isScanUploadPhase, setIsScanUploadPhase] = useState<boolean>(false);
@@ -59,8 +66,11 @@ export function ExamSessionView({
   // 10% remaining check (for mock countdown, or practice when approaching limit or exceeding)
   const isTimeCritical = isOvertime || (totalTimeSeconds > 0 && remainingSeconds <= (totalTimeSeconds * 0.10));
 
-  // Initialize questions
+  // Initialize questions unless resuming from draft
   useEffect(() => {
+    if (initialDraft?.answers && Object.keys(initialDraft.answers).length > 0) {
+      return;
+    }
     const initial: Record<number, QuestionAnswer> = {};
     for (let i = 1; i <= paper.totalQuestions; i++) {
       initial[i] = {
@@ -76,11 +86,11 @@ export function ExamSessionView({
       };
     }
     setAnswers(initial);
-  }, [paper]);
+  }, [paper, initialDraft]);
 
-  // Continuous timer + Mock question time tracker
+  // Continuous timer + Mock question time tracker (freezes when paused)
   useEffect(() => {
-    if (isScanUploadPhase) return;
+    if (isScanUploadPhase || isPaused) return;
 
     const timer = setInterval(() => {
       setElapsedSeconds(prev => prev + 1);
@@ -94,18 +104,18 @@ export function ExamSessionView({
       }
     }, 1000);
     return () => clearInterval(timer);
-  }, [mode, currentQuestion, isScanUploadPhase, isSubjective]);
+  }, [mode, currentQuestion, isScanUploadPhase, isPaused, isSubjective]);
 
   // In Mock Mode, auto-finish if strict time runs out
   useEffect(() => {
-    if (mode === 'mock' && totalTimeSeconds > 0 && remainingSeconds <= 0 && !isScanUploadPhase) {
+    if (mode === 'mock' && totalTimeSeconds > 0 && remainingSeconds <= 0 && !isScanUploadPhase && !isPaused) {
       if (isSubjective) {
         setIsScanUploadPhase(true);
       } else {
         handleFinishExam();
       }
     }
-  }, [remainingSeconds, mode, totalTimeSeconds, isScanUploadPhase, isSubjective]);
+  }, [remainingSeconds, mode, totalTimeSeconds, isScanUploadPhase, isPaused, isSubjective]);
 
   // Answer selection handler (Objective)
   const handleSelectOption = (qNo: number, option: string) => {
@@ -196,6 +206,22 @@ export function ExamSessionView({
     });
   };
 
+  // Save draft session and exit to resume later
+  const handleSaveDraftAndExit = () => {
+    const draft: ActiveSessionDraft = {
+      paperId: paper.id,
+      paperLabel: paper.label,
+      mode,
+      currentQuestion,
+      answers,
+      elapsedSeconds,
+      qTimeSpent,
+      pausedAt: new Date().toISOString(),
+    };
+    saveActiveDraft(draft);
+    onExit();
+  };
+
   // Computed counts
   const allAnswerValues = Object.values(answers);
   const attemptedCount = allAnswerValues.filter(a => a.selected !== null || (isSubjective && a.note?.trim())).length;
@@ -213,6 +239,8 @@ export function ExamSessionView({
 
   // Finish exam calculations
   const handleFinishExam = (submissionPdfBlobUrl?: string) => {
+    clearActiveDraft();
+
     let correctCount = 0;
     let incorrectCount = 0;
     let alteredCount = 0;
@@ -331,19 +359,30 @@ export function ExamSessionView({
       {/* Top Session Bar - Highly Responsive 2-Row Layout */}
       <div className="flex flex-col border-b border-slate-800 bg-slate-900/95 px-3 py-2 sm:px-4 sm:py-2.5 gap-2 shrink-0">
         
-        {/* Top Row: Exit, Title & Mode, Continuous Timer, Finish Exam */}
+        {/* Top Row: Exit, Pause, Title & Mode, Continuous Timer, Finish Exam */}
         <div className="flex items-center justify-between gap-2">
           
-          {/* Exit & Title */}
-          <div className="flex items-center gap-2 min-w-0">
+          {/* Exit, Pause & Title */}
+          <div className="flex items-center gap-1.5 sm:gap-2 min-w-0">
             <button
               onClick={onExit}
               className="flex items-center gap-1 rounded-lg border border-slate-700 bg-slate-800 px-2 py-1 text-xs font-semibold text-slate-300 hover:bg-slate-700 transition-colors shrink-0"
             >
               ← Exit
             </button>
-            <div className="min-w-0">
-              <h1 className="text-xs sm:text-sm font-bold text-white truncate max-w-[130px] xs:max-w-[180px] sm:max-w-xs md:max-w-md">
+
+            {/* Pause Feature Button */}
+            <button
+              onClick={() => setIsPaused(true)}
+              title="Pause ongoing exam"
+              className="flex items-center gap-1 rounded-lg border border-amber-600/40 bg-amber-950/30 px-2 py-1 text-xs font-semibold text-amber-300 hover:bg-amber-900/40 transition-colors shrink-0"
+            >
+              <Pause className="h-3 w-3" />
+              <span className="hidden xs:inline">Pause</span>
+            </button>
+
+            <div className="min-w-0 ml-1">
+              <h1 className="text-xs sm:text-sm font-bold text-white truncate max-w-[120px] xs:max-w-[170px] sm:max-w-xs md:max-w-md">
                 {paper.label}
               </h1>
               <span className={`block text-[9px] sm:text-[10px] font-semibold uppercase tracking-wider truncate ${
@@ -501,10 +540,16 @@ export function ExamSessionView({
                     const isSelected = currentQObj.selected === opt;
                     let s = 'bg-slate-950 border-slate-800 text-slate-200 hover:border-slate-700';
                     if (isSelected) s = 'bg-indigo-600 border-indigo-500 text-white font-bold ring-2 ring-indigo-500/40';
-                    if (isPractice && isSelected && currentQObj.correctAnswer) {
-                      s = opt === currentQObj.correctAnswer
-                        ? 'bg-emerald-600 border-emerald-500 text-white font-bold'
-                        : 'bg-rose-600 border-rose-500 text-white font-bold';
+
+                    // Practice mode live feedback: red for wrong, green for correct!
+                    if (isPractice && currentQObj.selected && currentQObj.correctAnswer) {
+                      if (isSelected) {
+                        s = opt === currentQObj.correctAnswer
+                          ? 'bg-emerald-600 border-emerald-500 text-white font-bold'
+                          : 'bg-rose-600 border-rose-500 text-white font-bold';
+                      } else if (opt === currentQObj.correctAnswer) {
+                        s = 'bg-emerald-950/60 border-emerald-500 text-emerald-300 font-bold ring-1 ring-emerald-500';
+                      }
                     }
                     return (
                       <button
@@ -605,12 +650,17 @@ export function ExamSessionView({
                     btnStyle = 'border-indigo-500 bg-indigo-600 text-white font-bold ring-2 ring-indigo-500/40';
                   }
 
-                  // Practice mode live feedback
-                  if (isPractice && isSelected && currentQObj.correctAnswer) {
-                    if (opt === currentQObj.correctAnswer) {
-                      btnStyle = 'border-emerald-500 bg-emerald-600 text-white font-bold ring-2 ring-emerald-500/40';
-                    } else {
-                      btnStyle = 'border-rose-500 bg-rose-600 text-white font-bold ring-2 ring-rose-500/40';
+                  // Practice mode live feedback: selected wrong is RED, correct is GREEN!
+                  if (isPractice && currentQObj.selected && currentQObj.correctAnswer) {
+                    if (isSelected) {
+                      if (opt === currentQObj.correctAnswer) {
+                        btnStyle = 'border-emerald-500 bg-emerald-600 text-white font-bold ring-2 ring-emerald-500/40';
+                      } else {
+                        btnStyle = 'border-rose-500 bg-rose-600 text-white font-bold ring-2 ring-rose-500/40';
+                      }
+                    } else if (opt === currentQObj.correctAnswer) {
+                      // Guide user to the correct choice with emerald highlight
+                      btnStyle = 'border-emerald-500 bg-emerald-950/60 text-emerald-300 font-bold ring-2 ring-emerald-500/40';
                     }
                   }
 
@@ -631,7 +681,7 @@ export function ExamSessionView({
               </div>
             )}
 
-            {/* Practice Mode Live Feedback + Detailed Solution Button */}
+            {/* Practice Mode Live Feedback Banner + Detailed Solution Button */}
             {isPractice && !isSubjective && currentQObj.selected && currentQObj.correctAnswer && (
               <div className={`mt-2.5 rounded-xl border p-2.5 text-xs flex flex-wrap items-center justify-between gap-2 ${
                 currentQObj.selected === currentQObj.correctAnswer 
@@ -645,7 +695,9 @@ export function ExamSessionView({
                     <XCircle className="h-4 w-4 text-rose-400 shrink-0" />
                   )}
                   <span>
-                    Answer: <strong>Option {currentQObj.correctAnswer}</strong>
+                    {currentQObj.selected === currentQObj.correctAnswer 
+                      ? 'Correct!' 
+                      : `Wrong Answer • Correct is Option ${currentQObj.correctAnswer}`}
                   </span>
                 </div>
 
@@ -709,7 +761,7 @@ export function ExamSessionView({
             </div>
           </div>
 
-          {/* Question Palette Section - Fixed Collision & Responsive Grid */}
+          {/* Question Palette Section - Responsive Grid with Correct Red/Green State in Practice */}
           <div className="flex-1 overflow-y-auto p-3 sm:p-5">
             
             <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-3 gap-2">
@@ -745,12 +797,26 @@ export function ExamSessionView({
                 const isFlagged = q?.flagged;
 
                 let badgeColor = 'bg-[#0e1424] text-slate-400 border-slate-800 hover:border-slate-700';
+
                 if (isAnswered) {
-                  badgeColor = 'bg-emerald-950/60 text-emerald-300 border-emerald-600 font-semibold';
+                  // In Practice mode: wrong answers are shown in RED, correct in GREEN!
+                  if (isPractice && !isSubjective) {
+                    if (q?.isCorrect === false) {
+                      badgeColor = 'bg-rose-950/70 text-rose-300 border-rose-600 font-semibold';
+                    } else if (q?.isCorrect === true) {
+                      badgeColor = 'bg-emerald-950/70 text-emerald-300 border-emerald-600 font-semibold';
+                    } else {
+                      badgeColor = 'bg-emerald-950/60 text-emerald-300 border-emerald-600 font-semibold';
+                    }
+                  } else {
+                    badgeColor = 'bg-emerald-950/60 text-emerald-300 border-emerald-600 font-semibold';
+                  }
                 }
+
                 if (isFlagged) {
                   badgeColor = 'bg-amber-950/60 text-amber-300 border-amber-500 font-semibold';
                 }
+
                 if (isCurrent) {
                   badgeColor += ' ring-2 ring-indigo-500 border-indigo-400 text-white font-bold scale-105';
                 }
@@ -772,6 +838,53 @@ export function ExamSessionView({
           </div>
         </div>
       </div>
+
+      {/* Exam Paused Overlay Modal */}
+      {isPaused && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/85 backdrop-blur-md animate-in fade-in">
+          <div className="relative w-full max-w-md rounded-2xl border border-slate-800 bg-slate-900 p-6 shadow-2xl text-center space-y-4">
+            <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-amber-500/20 text-amber-400 border border-amber-500/40">
+              <Pause className="h-7 w-7" />
+            </div>
+
+            <div>
+              <h2 className="text-xl font-bold text-white">Exam Paused</h2>
+              <p className="text-xs text-slate-400 mt-1">
+                Emergency or quick break? Timer is frozen and your answers are saved.
+              </p>
+            </div>
+
+            <div className="grid grid-cols-2 gap-2 rounded-xl bg-slate-950 p-3 text-xs border border-slate-800">
+              <div>
+                <span className="block text-slate-500 text-[11px]">Progress</span>
+                <span className="font-bold text-white">Q{currentQuestion} of {paper.totalQuestions}</span>
+              </div>
+              <div>
+                <span className="block text-slate-500 text-[11px]">Time Remaining</span>
+                <span className="font-bold text-indigo-300 font-mono">
+                  {formatTimeSeconds(remainingSeconds)}
+                </span>
+              </div>
+            </div>
+
+            <div className="flex flex-col gap-2 pt-2">
+              <button
+                onClick={() => setIsPaused(false)}
+                className="flex items-center justify-center gap-2 rounded-xl bg-indigo-600 py-3 text-xs font-bold text-white shadow-lg shadow-indigo-600/30 hover:bg-indigo-500 transition-all"
+              >
+                <Play className="h-4 w-4 fill-current" /> Resume Exam
+              </button>
+
+              <button
+                onClick={handleSaveDraftAndExit}
+                className="flex items-center justify-center gap-2 rounded-xl border border-slate-700 bg-slate-800 py-2.5 text-xs font-semibold text-slate-300 hover:bg-slate-700 transition-all"
+              >
+                <Save className="h-3.5 w-3.5" /> Save & Exit to Resume Later
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Detailed Solution Modal */}
       <DetailedSolutionModal

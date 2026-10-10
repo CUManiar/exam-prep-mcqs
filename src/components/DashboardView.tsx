@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
-import { Attempt, QuestionPaper, ExamCategory } from '../lib/types';
+import { Attempt, QuestionPaper, ExamCategory, ActiveSessionDraft } from '../lib/types';
 import { formatTimeSeconds, formatDateTime, SUPPORTED_YEARS } from '../lib/defaults';
 import { 
   Target, 
@@ -24,6 +24,9 @@ interface DashboardViewProps {
   onNavigatePapers: () => void;
   onNavigateHistory: () => void;
   onViewAttempt: (attempt: Attempt) => void;
+  activeDraft?: ActiveSessionDraft | null;
+  onResumeDraft?: (draft: ActiveSessionDraft) => void;
+  onDiscardDraft?: () => void;
 }
 
 export function DashboardView({
@@ -33,6 +36,9 @@ export function DashboardView({
   onNavigatePapers,
   onNavigateHistory,
   onViewAttempt,
+  activeDraft,
+  onResumeDraft,
+  onDiscardDraft,
 }: DashboardViewProps) {
   const [activeCategory, setActiveCategory] = useState<'all' | 'prelims' | 'mains'>('all');
   const [selectedYear, setSelectedYear] = useState<string>('all');
@@ -124,6 +130,43 @@ export function DashboardView({
           </button>
         </div>
       </div>
+
+      {/* Ongoing Paused Exam Draft Banner */}
+      {activeDraft && onResumeDraft && (
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 rounded-2xl border border-amber-500/40 bg-amber-950/20 p-4 shadow-lg animate-in fade-in">
+          <div className="flex items-center gap-3">
+            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-amber-500/20 text-amber-400 shrink-0">
+              <Clock className="h-5 w-5 animate-pulse" />
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <span className="text-xs font-bold uppercase tracking-wider text-amber-400">Ongoing Paused Mock Exam</span>
+                <span className="text-[11px] text-slate-400">Paused {new Date(activeDraft.pausedAt).toLocaleTimeString()}</span>
+              </div>
+              <h2 className="text-sm font-bold text-white mt-0.5">{activeDraft.paperLabel}</h2>
+              <p className="text-xs text-slate-400">
+                Resuming will continue at <strong>Question {activeDraft.currentQuestion}</strong> with your saved answers and exact timer.
+              </p>
+            </div>
+          </div>
+          <div className="flex items-center gap-2 self-end sm:self-center shrink-0">
+            {onDiscardDraft && (
+              <button
+                onClick={onDiscardDraft}
+                className="px-3 py-1.5 rounded-xl border border-slate-700 bg-slate-800 text-xs font-semibold text-slate-300 hover:bg-slate-700"
+              >
+                Discard
+              </button>
+            )}
+            <button
+              onClick={() => onResumeDraft(activeDraft)}
+              className="flex items-center gap-1.5 px-4 py-1.5 rounded-xl bg-amber-500 text-xs font-bold text-slate-950 hover:bg-amber-400 shadow-md shadow-amber-500/20"
+            >
+              <Play className="h-3.5 w-3.5 fill-current" /> Resume Exam
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* KPI Overview Metrics */}
       <div className="grid grid-cols-2 gap-3.5 sm:grid-cols-4">

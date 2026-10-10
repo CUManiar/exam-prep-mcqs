@@ -68,3 +68,14 @@ export interface Attempt {
 }
 
 export type ActivePage = 'dashboard' | 'papers' | 'session' | 'history' | 'upload' | 'attempt-detail';
+
+export interface ActiveSessionDraft {
+  paperId: string;
+  paperLabel: string;
+  mode: 'practice' | 'mock';
+  currentQuestion: number;
+  answers: Record<number, QuestionAnswer>;
+  elapsedSeconds: number;
+  qTimeSpent: Record<number, number>;
+  pausedAt: string;
+}

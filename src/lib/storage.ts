@@ -1,4 +1,4 @@
-import { Attempt, QuestionPaper } from './types';
+import { Attempt, QuestionPaper, ActiveSessionDraft } from './types';
 import { INITIAL_PAPERS, parseAnswerKeyText } from './defaults';
 
 const STORAGE_KEYS = {
@@ -248,4 +248,33 @@ export function importAllData(jsonStr: string): boolean {
     console.error('Import failed:', err);
     return false;
   }
+}
+
+const DRAFT_KEY = 'exam_prep_active_draft_v2';
+
+export function saveActiveDraft(draft: ActiveSessionDraft): void {
+  if (typeof window === 'undefined') return;
+  try {
+    localStorage.setItem(DRAFT_KEY, JSON.stringify(draft));
+  } catch (err) {
+    console.error('Failed to save draft session:', err);
+  }
+}
+
+export function getActiveDraft(): ActiveSessionDraft | null {
+  if (typeof window === 'undefined') return null;
+  try {
+    const raw = localStorage.getItem(DRAFT_KEY);
+    if (!raw) return null;
+    return JSON.parse(raw);
+  } catch {
+    return null;
+  }
+}
+
+export function clearActiveDraft(): void {
+  if (typeof window === 'undefined') return;
+  try {
+    localStorage.removeItem(DRAFT_KEY);
+  } catch {}
 }
