@@ -2,8 +2,13 @@ import type { Metadata } from 'next';
 import './globals.css';
 
 export const metadata: Metadata = {
-  title: 'ExamPrep MCQs • Prelims Practice & Exam Analytics',
-  description: 'Track, practice and monitor UPSC Prelims and competitive exam preparation with live OMR testing, notes, and negative marking analysis.',
+  title: 'UPSC Prep & Exam Hub • Prelims & Mains',
+  description: 'Track, practice and monitor UPSC Prelims and Mains preparation with real-time test evaluation and notes.',
+  icons: {
+    icon: '/upsc_logo.png',
+    shortcut: '/upsc_logo.png',
+    apple: '/upsc_logo.png',
+  },
 };
 
 export default function RootLayout({

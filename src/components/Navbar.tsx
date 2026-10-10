@@ -82,118 +82,116 @@ export function Navbar({ activePage, onNavigate, onDataReload }: NavbarProps) {
   };
 
   return (
-    <header className="sticky top-0 z-40 w-full border-b border-slate-800 bg-slate-950/90 backdrop-blur-md">
-      <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-4 sm:px-6 lg:px-8">
+    <header className="sticky top-0 z-40 w-full border-b border-slate-800 bg-slate-950/95 backdrop-blur-md">
+      <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-4 sm:px-6 lg:px-8 gap-4">
         
         {/* Brand / Logo with UPSC Emblem */}
-        <div className="flex items-center gap-6">
-          <button 
+        <button 
+          onClick={() => onNavigate('dashboard')}
+          className="flex items-center gap-2.5 text-left group focus:outline-none shrink-0"
+        >
+          <div className="relative flex h-10 w-10 items-center justify-center rounded-xl bg-slate-900 border border-slate-800 p-1 group-hover:scale-105 transition-transform overflow-hidden shadow-inner">
+            <img
+              src="/upsc_logo.png"
+              alt="UPSC Logo"
+              className="h-full w-full object-contain filter drop-shadow"
+            />
+          </div>
+          <div>
+            <span className="block text-sm font-extrabold tracking-tight text-white group-hover:text-indigo-400 transition-colors whitespace-nowrap">
+              UPSC Prep Hub
+            </span>
+            <span className="block text-[10px] font-semibold text-indigo-400 uppercase tracking-wider whitespace-nowrap">
+              Prelims • Mains
+            </span>
+          </div>
+        </button>
+
+        {/* Navigation Links - Single line, no wrapping */}
+        <nav className="hidden lg:flex items-center gap-1.5 shrink-0">
+          <button
             onClick={() => onNavigate('dashboard')}
-            className="flex items-center gap-3 text-left group focus:outline-none"
+            className={`flex items-center gap-2 rounded-xl px-3.5 py-2 text-xs font-bold whitespace-nowrap transition-all ${
+              activePage === 'dashboard'
+                ? 'bg-indigo-600/20 text-indigo-300 border border-indigo-500/40 shadow-sm'
+                : 'text-slate-400 hover:bg-slate-900 hover:text-slate-200'
+            }`}
           >
-            <div className="relative flex h-11 w-11 items-center justify-center rounded-xl bg-slate-900 border border-slate-800 p-1 group-hover:scale-105 transition-transform overflow-hidden shadow-inner">
-              <img
-                src="/upsc_logo.png"
-                alt="UPSC Logo"
-                className="h-full w-full object-contain filter drop-shadow"
-              />
-            </div>
-            <div>
-              <span className="block text-base font-extrabold tracking-tight text-white group-hover:text-indigo-400 transition-colors">
-                UPSC Prep & Exam Hub
-              </span>
-              <span className="block text-[11px] font-semibold text-indigo-400 uppercase tracking-wider">
-                Prelims • Mains
-              </span>
-            </div>
+            <LayoutDashboard className="h-4 w-4 shrink-0" />
+            <span>Dashboard</span>
           </button>
 
-          {/* Navigation Links */}
-          <nav className="hidden md:flex items-center gap-1.5 ml-4">
-            <button
-              onClick={() => onNavigate('dashboard')}
-              className={`flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium transition-all ${
-                activePage === 'dashboard'
-                  ? 'bg-indigo-600/15 text-indigo-400 border border-indigo-500/30'
-                  : 'text-slate-400 hover:bg-slate-900 hover:text-slate-200'
-              }`}
-            >
-              <LayoutDashboard className="h-4 w-4" />
-              Dashboard
-            </button>
+          <button
+            onClick={() => onNavigate('papers')}
+            className={`flex items-center gap-2 rounded-xl px-3.5 py-2 text-xs font-bold whitespace-nowrap transition-all ${
+              activePage === 'papers'
+                ? 'bg-indigo-600/20 text-indigo-300 border border-indigo-500/40 shadow-sm'
+                : 'text-slate-400 hover:bg-slate-900 hover:text-slate-200'
+            }`}
+          >
+            <BookOpen className="h-4 w-4 shrink-0" />
+            <span>Question Papers</span>
+          </button>
 
-            <button
-              onClick={() => onNavigate('papers')}
-              className={`flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium transition-all ${
-                activePage === 'papers'
-                  ? 'bg-indigo-600/15 text-indigo-400 border border-indigo-500/30'
-                  : 'text-slate-400 hover:bg-slate-900 hover:text-slate-200'
-              }`}
-            >
-              <BookOpen className="h-4 w-4" />
-              Question Papers
-            </button>
+          <button
+            onClick={() => onNavigate('history')}
+            className={`flex items-center gap-2 rounded-xl px-3.5 py-2 text-xs font-bold whitespace-nowrap transition-all ${
+              activePage === 'history' || activePage === 'attempt-detail'
+                ? 'bg-indigo-600/20 text-indigo-300 border border-indigo-500/40 shadow-sm'
+                : 'text-slate-400 hover:bg-slate-900 hover:text-slate-200'
+            }`}
+          >
+            <History className="h-4 w-4 shrink-0" />
+            <span>Mock History</span>
+          </button>
 
-            <button
-              onClick={() => onNavigate('history')}
-              className={`flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium transition-all ${
-                activePage === 'history' || activePage === 'attempt-detail'
-                  ? 'bg-indigo-600/15 text-indigo-400 border border-indigo-500/30'
-                  : 'text-slate-400 hover:bg-slate-900 hover:text-slate-200'
-              }`}
-            >
-              <History className="h-4 w-4" />
-              Mock History
-            </button>
-
-            <button
-              onClick={() => onNavigate('upload')}
-              className={`flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium transition-all ${
-                activePage === 'upload'
-                  ? 'bg-indigo-600/15 text-indigo-400 border border-indigo-500/30'
-                  : 'text-slate-400 hover:bg-slate-900 hover:text-slate-200'
-              }`}
-            >
-              <UploadCloud className="h-4 w-4" />
-              Upload Paper
-            </button>
-          </nav>
-        </div>
+          <button
+            onClick={() => onNavigate('upload')}
+            className={`flex items-center gap-2 rounded-xl px-3.5 py-2 text-xs font-bold whitespace-nowrap transition-all ${
+              activePage === 'upload'
+                ? 'bg-indigo-600/20 text-indigo-300 border border-indigo-500/40 shadow-sm'
+                : 'text-slate-400 hover:bg-slate-900 hover:text-slate-200'
+            }`}
+          >
+            <UploadCloud className="h-4 w-4 shrink-0" />
+            <span>Upload Paper</span>
+          </button>
+        </nav>
 
         {/* Live Date/Time & Backup */}
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-2.5 shrink-0">
           
-          {/* Always Visible Current Date & Time */}
-          <div className="hidden sm:flex items-center gap-2 rounded-lg border border-slate-800 bg-slate-900/90 px-3 py-1.5 text-xs font-mono text-indigo-300 shadow-inner">
-            <Clock className="h-3.5 w-3.5 text-indigo-400 animate-pulse" />
+          {/* Always Visible Current Date & Time (One Line Only) */}
+          <div className="hidden sm:flex items-center gap-2 rounded-xl border border-slate-800 bg-slate-900/90 px-3 py-1.5 text-xs font-mono text-indigo-300 shadow-inner whitespace-nowrap shrink-0">
+            <Clock className="h-3.5 w-3.5 text-indigo-400 animate-pulse shrink-0" />
             <span>{currentDateTime || 'Loading time...'}</span>
           </div>
 
           {/* Backup & Sync button */}
-          <div className="relative">
+          <div className="relative shrink-0">
             <button
               onClick={() => setShowBackupMenu(!showBackupMenu)}
               title="Backup & Export Data"
-              className="flex items-center gap-1.5 rounded-lg border border-slate-800 bg-slate-900 px-3 py-2 text-xs font-medium text-slate-300 hover:border-slate-700 hover:bg-slate-800 transition-all focus:outline-none"
+              className="flex items-center gap-1.5 rounded-xl border border-slate-800 bg-slate-900 px-3 py-1.5 text-xs font-semibold text-slate-300 hover:border-slate-700 hover:bg-slate-800 transition-all focus:outline-none whitespace-nowrap"
             >
-              <Database className="h-4 w-4 text-slate-400" />
-              <span className="hidden sm:inline">Backup</span>
+              <Database className="h-3.5 w-3.5 text-slate-400 shrink-0" />
+              <span>Backup</span>
             </button>
 
             {showBackupMenu && (
-              <div className="absolute right-0 mt-2 w-48 rounded-xl border border-slate-800 bg-slate-900 p-2 shadow-2xl z-50 animate-in fade-in">
+              <div className="absolute right-0 mt-2 w-48 rounded-2xl border border-slate-800 bg-slate-900 p-2 shadow-2xl z-50 animate-in fade-in">
                 {backupMsg && (
-                  <div className="mb-2 rounded bg-emerald-500/10 p-1.5 text-[11px] font-semibold text-emerald-400 flex items-center gap-1">
+                  <div className="mb-2 rounded-lg bg-emerald-500/10 p-1.5 text-[11px] font-semibold text-emerald-400 flex items-center gap-1">
                     <Check className="h-3.5 w-3.5" /> {backupMsg}
                   </div>
                 )}
                 <button
                   onClick={handleExport}
-                  className="flex w-full items-center gap-2 rounded-lg p-2 text-xs font-semibold text-slate-200 hover:bg-slate-800 text-left"
+                  className="flex w-full items-center gap-2 rounded-xl p-2 text-xs font-semibold text-slate-200 hover:bg-slate-800 text-left"
                 >
                   <Download className="h-3.5 w-3.5 text-indigo-400" /> Export JSON
                 </button>
-                <label className="flex w-full items-center gap-2 rounded-lg p-2 text-xs font-semibold text-slate-200 hover:bg-slate-800 text-left cursor-pointer">
+                <label className="flex w-full items-center gap-2 rounded-xl p-2 text-xs font-semibold text-slate-200 hover:bg-slate-800 text-left cursor-pointer">
                   <Upload className="h-3.5 w-3.5 text-emerald-400" /> Import JSON
                   <input
                     type="file"
@@ -206,6 +204,46 @@ export function Navbar({ activePage, onNavigate, onDataReload }: NavbarProps) {
             )}
           </div>
         </div>
+      </div>
+
+      {/* Medium Screen Nav Bar (Tablet / Smaller desktop) */}
+      <div className="flex lg:hidden items-center justify-around border-t border-slate-900 bg-slate-950 px-3 py-2">
+        <button
+          onClick={() => onNavigate('dashboard')}
+          className={`flex items-center gap-1.5 px-2.5 py-1 text-xs font-semibold rounded-lg ${
+            activePage === 'dashboard' ? 'text-indigo-400 bg-indigo-950/40' : 'text-slate-400'
+          }`}
+        >
+          <LayoutDashboard className="h-3.5 w-3.5" />
+          Dashboard
+        </button>
+        <button
+          onClick={() => onNavigate('papers')}
+          className={`flex items-center gap-1.5 px-2.5 py-1 text-xs font-semibold rounded-lg ${
+            activePage === 'papers' ? 'text-indigo-400 bg-indigo-950/40' : 'text-slate-400'
+          }`}
+        >
+          <BookOpen className="h-3.5 w-3.5" />
+          Papers
+        </button>
+        <button
+          onClick={() => onNavigate('history')}
+          className={`flex items-center gap-1.5 px-2.5 py-1 text-xs font-semibold rounded-lg ${
+            activePage === 'history' || activePage === 'attempt-detail' ? 'text-indigo-400 bg-indigo-950/40' : 'text-slate-400'
+          }`}
+        >
+          <History className="h-3.5 w-3.5" />
+          History
+        </button>
+        <button
+          onClick={() => onNavigate('upload')}
+          className={`flex items-center gap-1.5 px-2.5 py-1 text-xs font-semibold rounded-lg ${
+            activePage === 'upload' ? 'text-indigo-400 bg-indigo-950/40' : 'text-slate-400'
+          }`}
+        >
+          <UploadCloud className="h-3.5 w-3.5" />
+          Upload
+        </button>
       </div>
     </header>
   );

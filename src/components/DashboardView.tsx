@@ -10,13 +10,9 @@ import {
   Play, 
   BookOpen, 
   ChevronRight, 
-  CheckCircle2, 
-  Zap, 
   Layers, 
-  FileEdit,
-  TrendingUp,
-  Search,
-  Filter,
+  TrendingUp, 
+  Search, 
   BarChart3,
   Calendar
 } from 'lucide-react';
@@ -83,29 +79,24 @@ export function DashboardView({
   return (
     <div className="mx-auto max-w-7xl px-4 py-6 sm:px-6 lg:px-8 space-y-7 animate-in fade-in duration-200">
       
-      {/* Top Header & Exam Category Switcher */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 border-b border-slate-800 pb-5">
-        <div className="flex items-center gap-3">
-          <div className="h-12 w-12 rounded-xl bg-slate-900 border border-slate-800 p-1 flex items-center justify-center shrink-0 shadow-inner">
-            <img src="/upsc_logo.png" alt="UPSC" className="h-full w-full object-contain" />
-          </div>
-          <div>
-            <h1 className="text-xl sm:text-2xl font-black text-white tracking-tight">
-              UPSC Performance Analytics & Exam Hub
-            </h1>
-            <p className="text-xs text-slate-400">
-              Data dashboard for Prelims (Objective) & Mains (Subjective) preparation
-            </p>
-          </div>
+      {/* Clean Dashboard Top Bar (No duplicate logo or banner) */}
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 border-b border-slate-800/80 pb-4">
+        <div>
+          <h1 className="text-xl font-extrabold text-white tracking-tight">
+            Performance Dashboard
+          </h1>
+          <p className="text-xs text-slate-400 mt-0.5">
+            Analytics and test series for Prelims (GS 1 & CSAT) and Mains
+          </p>
         </div>
 
         {/* Category Switcher Tabs */}
-        <div className="flex items-center bg-slate-900 p-1 rounded-xl border border-slate-800 self-start sm:self-auto text-xs font-semibold">
+        <div className="flex items-center bg-slate-900 p-1 rounded-xl border border-slate-800 text-xs font-semibold shrink-0">
           <button
             onClick={() => setActiveCategory('all')}
             className={`rounded-lg px-3.5 py-1.5 transition-all ${
               activeCategory === 'all'
-                ? 'bg-indigo-600 text-white shadow-md'
+                ? 'bg-indigo-600 text-white shadow-sm'
                 : 'text-slate-400 hover:text-slate-200'
             }`}
           >
@@ -115,7 +106,7 @@ export function DashboardView({
             onClick={() => setActiveCategory('prelims')}
             className={`rounded-lg px-3.5 py-1.5 transition-all ${
               activeCategory === 'prelims'
-                ? 'bg-indigo-600 text-white shadow-md'
+                ? 'bg-indigo-600 text-white shadow-sm'
                 : 'text-slate-400 hover:text-slate-200'
             }`}
           >
@@ -125,7 +116,7 @@ export function DashboardView({
             onClick={() => setActiveCategory('mains')}
             className={`rounded-lg px-3.5 py-1.5 transition-all ${
               activeCategory === 'mains'
-                ? 'bg-indigo-600 text-white shadow-md'
+                ? 'bg-indigo-600 text-white shadow-sm'
                 : 'text-slate-400 hover:text-slate-200'
             }`}
           >
