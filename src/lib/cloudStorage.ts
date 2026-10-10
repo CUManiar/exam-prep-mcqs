@@ -2,14 +2,29 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { put, del, list } from '@vercel/blob';
 
+/**
+ * Automatically locate Vercel Blob token.
+ * Handles default `BLOB_READ_WRITE_TOKEN` as well as custom named stores like `<NAME>_READ_WRITE_TOKEN`.
+ */
+export function getBlobToken(): string | undefined {
+  if (process.env.BLOB_READ_WRITE_TOKEN) {
+    return process.env.BLOB_READ_WRITE_TOKEN;
+  }
+  const envKey = Object.keys(process.env).find(k => k.endsWith('_READ_WRITE_TOKEN'));
+  if (envKey && process.env[envKey]) {
+    return process.env[envKey];
+  }
+  return undefined;
+}
+
 export function isBlobEnabled(): boolean {
-  return !!process.env.BLOB_READ_WRITE_TOKEN;
+  return !!getBlobToken();
 }
 
 /**
  * Upload a file (PDF, TXT, Image).
- * If Vercel Blob is configured (BLOB_READ_WRITE_TOKEN), uploads to Vercel Blob CDN.
- * Otherwise, falls back to local public/data/ directory.
+ * If Vercel Blob is configured, uploads directly to Vercel Blob CDN.
+ * On local machine, falls back to local public/data/ directory.
  */
 export async function uploadFile(
   pathname: string,
@@ -17,17 +32,26 @@ export async function uploadFile(
   contentType?: string
 ): Promise<string> {
   const cleanPath = pathname.replace(/^\/+/, '');
+  const token = getBlobToken();
 
-  if (isBlobEnabled()) {
+  if (token) {
     const blob = await put(cleanPath, body, {
       access: 'public',
       addRandomSuffix: false,
       contentType,
+      token,
     });
     return blob.url;
   }
 
-  // Local filesystem fallback
+  // If running on Vercel but Blob store was not connected to project:
+  if (process.env.VERCEL) {
+    throw new Error(
+      'Vercel Blob store is not connected to this project yet. Please go to Vercel Dashboard -> Storage -> select your Blob store -> click "Connect Project", then redeploy.'
+    );
+  }
+
+  // Local filesystem fallback (Mac local development)
   const localDir = path.join(process.cwd(), 'public', 'data');
   if (!fs.existsSync(localDir)) {
     fs.mkdirSync(localDir, { recursive: true });
@@ -51,10 +75,11 @@ export async function uploadFile(
  */
 export async function deleteFile(fileUrlOrName: string): Promise<void> {
   if (!fileUrlOrName) return;
+  const token = getBlobToken();
 
-  if (isBlobEnabled()) {
+  if (token) {
     try {
-      await del(fileUrlOrName);
+      await del(fileUrlOrName, { token });
     } catch (err) {
       console.warn('Blob delete warning:', err);
     }
@@ -75,9 +100,11 @@ export async function deleteFile(fileUrlOrName: string): Promise<void> {
  * Checks Vercel Blob first; if empty or not enabled, falls back to local files.
  */
 export async function readJsonStore<T>(filename: string, defaultValue: T): Promise<T> {
-  if (isBlobEnabled()) {
+  const token = getBlobToken();
+
+  if (token) {
     try {
-      const { blobs } = await list({ prefix: filename });
+      const { blobs } = await list({ prefix: filename, token });
       const target = blobs.find(b => b.pathname === filename || b.pathname.endsWith(`/${filename}`));
       if (target) {
         const res = await fetch(target.url, { cache: 'no-store' });
@@ -106,12 +133,15 @@ export async function readJsonStore<T>(filename: string, defaultValue: T): Promi
  * Write JSON metadata store to Vercel Blob (or local filesystem fallback).
  */
 export async function writeJsonStore<T>(filename: string, data: T): Promise<void> {
-  if (isBlobEnabled()) {
+  const token = getBlobToken();
+
+  if (token) {
     try {
       await put(filename, JSON.stringify(data, null, 2), {
         access: 'public',
         addRandomSuffix: false,
         contentType: 'application/json',
+        token,
       });
       return;
     } catch (err) {
@@ -119,14 +149,17 @@ export async function writeJsonStore<T>(filename: string, data: T): Promise<void
     }
   }
 
-  try {
-    const localDir = path.join(process.cwd(), 'public', 'data');
-    if (!fs.existsSync(localDir)) {
-      fs.mkdirSync(localDir, { recursive: true });
+  // Local filesystem fallback (only when running locally outside Vercel)
+  if (!process.env.VERCEL) {
+    try {
+      const localDir = path.join(process.cwd(), 'public', 'data');
+      if (!fs.existsSync(localDir)) {
+        fs.mkdirSync(localDir, { recursive: true });
+      }
+      fs.writeFileSync(path.join(localDir, filename), JSON.stringify(data, null, 2), 'utf-8');
+    } catch (err) {
+      console.warn(`Local file write fallback failed:`, err);
     }
-    fs.writeFileSync(path.join(localDir, filename), JSON.stringify(data, null, 2), 'utf-8');
-  } catch (err) {
-    console.warn(`Local file write fallback failed (expected on serverless):`, err);
   }
 }
 
@@ -134,9 +167,11 @@ export async function writeJsonStore<T>(filename: string, data: T): Promise<void
  * Delete JSON store from Vercel Blob (or local filesystem).
  */
 export async function deleteJsonStore(filename: string): Promise<void> {
-  if (isBlobEnabled()) {
+  const token = getBlobToken();
+
+  if (token) {
     try {
-      await del(filename);
+      await del(filename, { token });
     } catch {}
     return;
   }
