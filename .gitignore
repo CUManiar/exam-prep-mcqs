@@ -32,3 +32,6 @@ next-env.d.ts
 prelims.db*
 tmp/
 server.js
+
+# Local user papers folder
+UPSC_Papers/
