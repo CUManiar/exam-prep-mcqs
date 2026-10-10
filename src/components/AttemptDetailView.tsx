@@ -138,12 +138,7 @@ export function AttemptDetailView({
             </button>
           )}
           <button
-            onClick={() => {
-              if (confirm('Are you sure you want to delete this attempt permanently?')) {
-                onDelete(attempt.id);
-                onBack();
-              }
-            }}
+            onClick={() => onDelete(attempt.id)}
             className="flex items-center gap-1.5 rounded-xl border border-rose-900/40 bg-rose-950/20 px-3 py-2 text-xs font-semibold text-rose-400 hover:bg-rose-900/40 transition-colors"
           >
             <Trash2 className="h-4 w-4" /> Delete

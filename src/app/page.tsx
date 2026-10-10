@@ -22,12 +22,29 @@ import { HistoryView } from '../components/HistoryView';
 import { UploadView } from '../components/UploadView';
 import { ExamSessionView } from '../components/ExamSessionView';
 import { AttemptDetailView } from '../components/AttemptDetailView';
+import { ConfirmationModal, ConfirmationModalProps } from '../components/ConfirmationModal';
 
 export default function App() {
   const [activePage, setActivePage] = useState<ActivePage>('dashboard');
   const [papers, setPapers] = useState<QuestionPaper[]>([]);
   const [attempts, setAttempts] = useState<Attempt[]>([]);
   const [activeDraft, setActiveDraft] = useState<ActiveSessionDraft | null>(null);
+
+  // Modern Confirmation & Alert Modal state
+  const [modalConfig, setModalConfig] = useState<{
+    isOpen: boolean;
+    title: string;
+    message: string;
+    confirmText?: string;
+    cancelText?: string;
+    variant?: 'danger' | 'warning' | 'info';
+    onConfirm: () => void;
+  }>({
+    isOpen: false,
+    title: '',
+    message: '',
+    onConfirm: () => {},
+  });
 
   // Active exam session
   const [activeSession, setActiveSession] = useState<{
@@ -73,12 +90,21 @@ export default function App() {
     }
   };
 
-  // Discard paused draft
+  // Discard paused draft with styled Notification Modal
   const handleDiscardDraft = () => {
-    if (confirm('Are you sure you want to discard your paused exam? Progress will be lost.')) {
-      clearActiveDraft();
-      setActiveDraft(null);
-    }
+    setModalConfig({
+      isOpen: true,
+      title: 'Discard Paused Exam?',
+      message: 'Are you sure you want to discard your ongoing paused exam session? All progress and marked answers will be lost.',
+      confirmText: 'Discard Exam',
+      cancelText: 'Keep Paused',
+      variant: 'warning',
+      onConfirm: () => {
+        clearActiveDraft();
+        setActiveDraft(null);
+        setModalConfig(prev => ({ ...prev, isOpen: false }));
+      },
+    });
   };
 
   // Finishing an exam session
@@ -116,14 +142,25 @@ export default function App() {
     setSelectedAttemptForDetail(updated);
   };
 
-  // Deleting an attempt
+  // Deleting an attempt with styled Notification Modal
   const handleDeleteAttempt = (attemptId: string) => {
-    deleteAttempt(attemptId);
-    setAttempts(getAttempts());
-    if (selectedAttemptForDetail?.id === attemptId) {
-      setSelectedAttemptForDetail(null);
-    }
-    setActivePage('history');
+    setModalConfig({
+      isOpen: true,
+      title: 'Delete Mock Exam Attempt?',
+      message: 'Are you sure you want to permanently delete this exam attempt from history? This record and its performance analytics cannot be recovered.',
+      confirmText: 'Delete Attempt',
+      cancelText: 'Cancel',
+      variant: 'danger',
+      onConfirm: () => {
+        setModalConfig(prev => ({ ...prev, isOpen: false }));
+        deleteAttempt(attemptId);
+        setAttempts(getAttempts());
+        if (selectedAttemptForDetail?.id === attemptId) {
+          setSelectedAttemptForDetail(null);
+        }
+        setActivePage('history');
+      },
+    });
   };
 
   // Paper uploaded handler - reload from server
@@ -132,13 +169,22 @@ export default function App() {
     setPapers(freshPapers);
   };
 
-  // Delete paper from repository & server files
-  const handleDeletePaper = async (paperId: string) => {
-    if (confirm('Are you sure you want to delete this paper and its files from the repository?')) {
-      await deletePaperFromServer(paperId);
-      const freshPapers = await getAllPapers();
-      setPapers(freshPapers);
-    }
+  // Delete paper from repository with styled Notification Modal
+  const handleDeletePaper = (paperId: string) => {
+    setModalConfig({
+      isOpen: true,
+      title: 'Delete Question Paper?',
+      message: 'Are you sure you want to delete this paper and its files from the repository? Associated PDF and answer files will be removed.',
+      confirmText: 'Delete Paper',
+      cancelText: 'Cancel',
+      variant: 'danger',
+      onConfirm: async () => {
+        setModalConfig(prev => ({ ...prev, isOpen: false }));
+        await deletePaperFromServer(paperId);
+        const freshPapers = await getAllPapers();
+        setPapers(freshPapers);
+      },
+    });
   };
 
   // Update paper rules
@@ -220,6 +266,18 @@ export default function App() {
           />
         )}
       </main>
+
+      {/* Styled Confirmation & Notification Modal */}
+      <ConfirmationModal
+        isOpen={modalConfig.isOpen}
+        title={modalConfig.title}
+        message={modalConfig.message}
+        confirmText={modalConfig.confirmText}
+        cancelText={modalConfig.cancelText}
+        variant={modalConfig.variant}
+        onConfirm={modalConfig.onConfirm}
+        onCancel={() => setModalConfig(prev => ({ ...prev, isOpen: false }))}
+      />
     </div>
   );
 }
