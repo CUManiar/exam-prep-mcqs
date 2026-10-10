@@ -1,17 +1,27 @@
 {
-  "name": "prelims-practice",
+  "name": "exam-prep-mcqs",
   "version": "1.0.0",
-  "description": "UPSC Prelims Practice Tool",
-  "main": "server.js",
+  "description": "Exam Prep & MCQ Practice Platform",
   "scripts": {
-    "start": "node server.js",
-    "dev": "nodemon server.js"
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start"
   },
   "dependencies": {
-    "express": "^4.18.2",
-    "node-sqlite3-wasm": "^0.8.60"
+    "clsx": "^2.1.1",
+    "lucide-react": "^1.55.0",
+    "next": "^16.4.0",
+    "react": "^19.3.0",
+    "react-dom": "^19.3.0",
+    "tailwind-merge": "^3.7.0"
   },
   "devDependencies": {
-    "nodemon": "^3.0.3"
+    "@types/node": "^26.6.5",
+    "@types/react": "^19.3.0",
+    "@types/react-dom": "^19.3.0",
+    "autoprefixer": "^10.6.1",
+    "postcss": "^8.5.29",
+    "tailwindcss": "^3.4.19",
+    "typescript": "^7.0.2"
   }
 }
