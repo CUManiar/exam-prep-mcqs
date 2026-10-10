@@ -1,15 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
-import fs from 'node:fs';
-import path from 'node:path';
-
-const DATA_DIR = path.join(process.cwd(), 'public', 'data');
+import { uploadFile, readJsonStore, writeJsonStore } from '@/lib/cloudStorage';
 
 export async function POST(req: NextRequest) {
   try {
-    if (!fs.existsSync(DATA_DIR)) {
-      fs.mkdirSync(DATA_DIR, { recursive: true });
-    }
-
     const formData = await req.formData();
     const year = (formData.get('year') as string) || '';
     const identifier = (formData.get('identifier') as string) || '';
@@ -30,16 +23,16 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ ok: false, error: 'Invalid year or identifier name' }, { status: 400 });
     }
 
-    // Exact requested naming convention: {prefix}_{year}_{file_name}.{extension} in lowercase
     const qpFileName = `qp_${cleanYear}_${cleanName}.pdf`;
     const akFileName = `ak_${cleanYear}_${cleanName}.txt`;
     const exsFileName = `exs_${cleanYear}_${cleanName}.pdf`;
 
     // 1. Process Question Paper (.pdf) -> prefix: qp
+    let qpUrl = '';
     const qpFile = formData.get('qpFile') as File | null;
     if (qpFile) {
       const qpBuffer = Buffer.from(await qpFile.arrayBuffer());
-      fs.writeFileSync(path.join(DATA_DIR, qpFileName), qpBuffer);
+      qpUrl = await uploadFile(qpFileName, qpBuffer, 'application/pdf');
     } else {
       return NextResponse.json({ ok: false, error: 'Question Paper PDF is required' }, { status: 400 });
     }
@@ -50,17 +43,17 @@ export async function POST(req: NextRequest) {
     if (akFile && akFile.size > 0) {
       answerKeyContent = await akFile.text();
     }
+    let akUrl: string | undefined = undefined;
     if (answerKeyContent) {
-      fs.writeFileSync(path.join(DATA_DIR, akFileName), answerKeyContent, 'utf-8');
+      akUrl = await uploadFile(akFileName, answerKeyContent, 'text/plain;charset=utf-8');
     }
 
     // 3. Process Solution (.pdf) -> prefix: exs
-    let hasExs = false;
+    let exsUrl: string | undefined = undefined;
     const exsFile = formData.get('exsFile') as File | null;
     if (exsFile && exsFile.size > 0) {
       const exsBuffer = Buffer.from(await exsFile.arrayBuffer());
-      fs.writeFileSync(path.join(DATA_DIR, exsFileName), exsBuffer);
-      hasExs = true;
+      exsUrl = await uploadFile(exsFileName, exsBuffer, 'application/pdf');
     }
 
     // Parse Answer Key into structured object
@@ -75,16 +68,8 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    // 4. Persist to server papers metadata store
-    const metadataPath = path.join(DATA_DIR, 'papers.json');
-    let papersMeta: Record<string, any> = {};
-    if (fs.existsSync(metadataPath)) {
-      try {
-        papersMeta = JSON.parse(fs.readFileSync(metadataPath, 'utf-8'));
-      } catch (e) {
-        papersMeta = {};
-      }
-    }
+    // 4. Persist to papers metadata store (Vercel Blob / Local)
+    const papersMeta = await readJsonStore<Record<string, any>>('papers.json', {});
 
     const paperId = `${cleanYear}_${cleanName}`;
     const paperObj = {
@@ -99,9 +84,9 @@ export async function POST(req: NextRequest) {
       correctMarks,
       incorrectMarks,
       timeMinutes,
-      qpUrl: `/data/${qpFileName}`,
-      akUrl: answerKeyContent ? `/data/${akFileName}` : undefined,
-      exsUrl: hasExs ? `/data/${exsFileName}` : undefined,
+      qpUrl,
+      akUrl,
+      exsUrl,
       answerKeyText: answerKeyContent,
       answerKey: parsedKey,
       isCustom: true,
@@ -109,7 +94,7 @@ export async function POST(req: NextRequest) {
     };
 
     papersMeta[paperId] = paperObj;
-    fs.writeFileSync(metadataPath, JSON.stringify(papersMeta, null, 2), 'utf-8');
+    await writeJsonStore('papers.json', papersMeta);
 
     return NextResponse.json({ ok: true, paper: paperObj });
   } catch (err: any) {

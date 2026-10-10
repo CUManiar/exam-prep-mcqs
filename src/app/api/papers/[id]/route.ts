@@ -1,8 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import fs from 'node:fs';
-import path from 'node:path';
-
-const DATA_DIR = path.join(process.cwd(), 'public', 'data');
+import { readJsonStore, writeJsonStore, deleteFile } from '@/lib/cloudStorage';
 
 export async function DELETE(
   req: NextRequest,
@@ -13,35 +10,16 @@ export async function DELETE(
     const cleanId = id.toLowerCase();
 
     // 1. Remove from papers.json
-    const metadataPath = path.join(DATA_DIR, 'papers.json');
-    if (fs.existsSync(metadataPath)) {
-      try {
-        const customMeta = JSON.parse(fs.readFileSync(metadataPath, 'utf8'));
-        if (customMeta[cleanId]) {
-          delete customMeta[cleanId];
-          fs.writeFileSync(metadataPath, JSON.stringify(customMeta, null, 2), 'utf8');
-        }
-      } catch (e) {
-        console.error('Error reading papers.json:', e);
-      }
-    }
+    const customMeta = await readJsonStore<Record<string, any>>('papers.json', {});
+    const targetPaper = customMeta[cleanId];
+    if (targetPaper) {
+      // Clean up uploaded files if present
+      if (targetPaper.qpUrl) await deleteFile(targetPaper.qpUrl);
+      if (targetPaper.akUrl) await deleteFile(targetPaper.akUrl);
+      if (targetPaper.exsUrl) await deleteFile(targetPaper.exsUrl);
 
-    // 2. Delete associated files on disk
-    if (fs.existsSync(DATA_DIR)) {
-      const files = fs.readdirSync(DATA_DIR);
-      for (const f of files) {
-        if (
-          f.toLowerCase().startsWith(`qp_${cleanId}.`) ||
-          f.toLowerCase().startsWith(`ak_${cleanId}.`) ||
-          f.toLowerCase().startsWith(`exs_${cleanId}.`)
-        ) {
-          try {
-            fs.unlinkSync(path.join(DATA_DIR, f));
-          } catch (err) {
-            console.error('Failed to unlink file:', f, err);
-          }
-        }
-      }
+      delete customMeta[cleanId];
+      await writeJsonStore('papers.json', customMeta);
     }
 
     return NextResponse.json({ ok: true, deletedId: cleanId });
@@ -60,16 +38,7 @@ export async function PATCH(
     const cleanId = id.toLowerCase();
     const body = await req.json();
 
-    const metadataPath = path.join(DATA_DIR, 'papers.json');
-    let customMeta: Record<string, any> = {};
-    if (fs.existsSync(metadataPath)) {
-      try {
-        customMeta = JSON.parse(fs.readFileSync(metadataPath, 'utf8'));
-      } catch (e) {
-        customMeta = {};
-      }
-    }
-
+    const customMeta = await readJsonStore<Record<string, any>>('papers.json', {});
     const current = customMeta[cleanId] || { id: cleanId };
     const updated = {
       ...current,
@@ -79,7 +48,7 @@ export async function PATCH(
     };
 
     customMeta[cleanId] = updated;
-    fs.writeFileSync(metadataPath, JSON.stringify(customMeta, null, 2), 'utf8');
+    await writeJsonStore('papers.json', customMeta);
 
     return NextResponse.json({ ok: true, paper: updated });
   } catch (err: any) {
