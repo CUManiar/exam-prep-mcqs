@@ -3,8 +3,11 @@ import path from 'node:path';
 import { put, del, list } from '@vercel/blob';
 
 /**
- * Automatically locate Vercel Blob token.
- * Handles default `BLOB_READ_WRITE_TOKEN` as well as custom named stores like `<NAME>_READ_WRITE_TOKEN`.
+ * Automatically locate Vercel Blob credentials.
+ * Supports:
+ * 1. BLOB_STORE_ID (modern Vercel OIDC auth)
+ * 2. BLOB_READ_WRITE_TOKEN
+ * 3. Custom store prefixes like PAPERS_DATA_READ_WRITE_TOKEN or PAPERS_DATA_STORE_ID
  */
 export function getBlobToken(): string | undefined {
   if (process.env.BLOB_READ_WRITE_TOKEN) {
@@ -21,12 +24,17 @@ export function getBlobToken(): string | undefined {
 }
 
 export function isBlobEnabled(): boolean {
-  return !!getBlobToken();
+  // Check for OIDC store ID or token or running on Vercel
+  if (process.env.BLOB_STORE_ID) return true;
+  if (Object.keys(process.env).some(k => k.endsWith('_STORE_ID'))) return true;
+  if (getBlobToken()) return true;
+  if (process.env.VERCEL) return true;
+  return false;
 }
 
 /**
  * Upload a file (PDF, TXT, Image).
- * If Vercel Blob is configured, uploads directly to Vercel Blob CDN.
+ * If running on Vercel or Blob is configured, uploads directly to Vercel Blob CDN.
  * On local machine, falls back to local public/data/ directory.
  */
 export async function uploadFile(
@@ -35,23 +43,20 @@ export async function uploadFile(
   contentType?: string
 ): Promise<string> {
   const cleanPath = pathname.replace(/^\/+/, '');
-  const token = getBlobToken();
 
-  if (token) {
-    const blob = await put(cleanPath, body, {
+  if (isBlobEnabled()) {
+    const putOptions: any = {
       access: 'public',
       addRandomSuffix: false,
       contentType,
-      token,
-    });
-    return blob.url;
-  }
+    };
+    const token = getBlobToken();
+    if (token) {
+      putOptions.token = token;
+    }
 
-  // If running on Vercel but Blob store was not connected to project:
-  if (process.env.VERCEL) {
-    throw new Error(
-      'Vercel Blob store is not connected to this project yet. Please go to Vercel Dashboard -> Storage -> select your Blob store -> click "Connect Project", then redeploy.'
-    );
+    const blob = await put(cleanPath, body, putOptions);
+    return blob.url;
   }
 
   // Local filesystem fallback (Mac local development)
@@ -78,11 +83,13 @@ export async function uploadFile(
  */
 export async function deleteFile(fileUrlOrName: string): Promise<void> {
   if (!fileUrlOrName) return;
-  const token = getBlobToken();
 
-  if (token) {
+  if (isBlobEnabled()) {
     try {
-      await del(fileUrlOrName, { token });
+      const delOptions: any = {};
+      const token = getBlobToken();
+      if (token) delOptions.token = token;
+      await del(fileUrlOrName, delOptions);
     } catch (err) {
       console.warn('Blob delete warning:', err);
     }
@@ -103,11 +110,13 @@ export async function deleteFile(fileUrlOrName: string): Promise<void> {
  * Checks Vercel Blob first; if empty or not enabled, falls back to local files.
  */
 export async function readJsonStore<T>(filename: string, defaultValue: T): Promise<T> {
-  const token = getBlobToken();
-
-  if (token) {
+  if (isBlobEnabled()) {
     try {
-      const { blobs } = await list({ prefix: filename, token });
+      const listOptions: any = { prefix: filename };
+      const token = getBlobToken();
+      if (token) listOptions.token = token;
+
+      const { blobs } = await list(listOptions);
       const target = blobs.find(b => b.pathname === filename || b.pathname.endsWith(`/${filename}`));
       if (target) {
         const res = await fetch(target.url, { cache: 'no-store' });
@@ -136,16 +145,17 @@ export async function readJsonStore<T>(filename: string, defaultValue: T): Promi
  * Write JSON metadata store to Vercel Blob (or local filesystem fallback).
  */
 export async function writeJsonStore<T>(filename: string, data: T): Promise<void> {
-  const token = getBlobToken();
-
-  if (token) {
+  if (isBlobEnabled()) {
     try {
-      await put(filename, JSON.stringify(data, null, 2), {
+      const putOptions: any = {
         access: 'public',
         addRandomSuffix: false,
         contentType: 'application/json',
-        token,
-      });
+      };
+      const token = getBlobToken();
+      if (token) putOptions.token = token;
+
+      await put(filename, JSON.stringify(data, null, 2), putOptions);
       return;
     } catch (err) {
       console.warn(`Failed writing ${filename} to Blob:`, err);
@@ -170,11 +180,12 @@ export async function writeJsonStore<T>(filename: string, data: T): Promise<void
  * Delete JSON store from Vercel Blob (or local filesystem).
  */
 export async function deleteJsonStore(filename: string): Promise<void> {
-  const token = getBlobToken();
-
-  if (token) {
+  if (isBlobEnabled()) {
     try {
-      await del(filename, { token });
+      const delOptions: any = {};
+      const token = getBlobToken();
+      if (token) delOptions.token = token;
+      await del(filename, delOptions);
     } catch {}
     return;
   }
