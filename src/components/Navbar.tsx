@@ -19,9 +19,10 @@ interface NavbarProps {
   activePage: ActivePage;
   onNavigate: (page: ActivePage) => void;
   onDataReload?: () => void;
+  isInExam?: boolean;
 }
 
-export function Navbar({ activePage, onNavigate, onDataReload }: NavbarProps) {
+export function Navbar({ activePage, onNavigate, onDataReload, isInExam }: NavbarProps) {
   const [currentDateTime, setCurrentDateTime] = useState<string>('');
   const [showBackupMenu, setShowBackupMenu] = useState<boolean>(false);
   const [backupMsg, setBackupMsg] = useState<string | null>(null);
@@ -206,45 +207,47 @@ export function Navbar({ activePage, onNavigate, onDataReload }: NavbarProps) {
         </div>
       </div>
 
-      {/* Medium Screen Nav Bar (Tablet / Smaller desktop) */}
-      <div className="flex lg:hidden items-center justify-around border-t border-slate-900 bg-slate-950 px-3 py-2">
-        <button
-          onClick={() => onNavigate('dashboard')}
-          className={`flex items-center gap-1.5 px-2.5 py-1 text-xs font-semibold rounded-lg ${
-            activePage === 'dashboard' ? 'text-indigo-400 bg-indigo-950/40' : 'text-slate-400'
-          }`}
-        >
-          <LayoutDashboard className="h-3.5 w-3.5" />
-          Dashboard
-        </button>
-        <button
-          onClick={() => onNavigate('papers')}
-          className={`flex items-center gap-1.5 px-2.5 py-1 text-xs font-semibold rounded-lg ${
-            activePage === 'papers' ? 'text-indigo-400 bg-indigo-950/40' : 'text-slate-400'
-          }`}
-        >
-          <BookOpen className="h-3.5 w-3.5" />
-          Papers
-        </button>
-        <button
-          onClick={() => onNavigate('history')}
-          className={`flex items-center gap-1.5 px-2.5 py-1 text-xs font-semibold rounded-lg ${
-            activePage === 'history' || activePage === 'attempt-detail' ? 'text-indigo-400 bg-indigo-950/40' : 'text-slate-400'
-          }`}
-        >
-          <History className="h-3.5 w-3.5" />
-          History
-        </button>
-        <button
-          onClick={() => onNavigate('upload')}
-          className={`flex items-center gap-1.5 px-2.5 py-1 text-xs font-semibold rounded-lg ${
-            activePage === 'upload' ? 'text-indigo-400 bg-indigo-950/40' : 'text-slate-400'
-          }`}
-        >
-          <UploadCloud className="h-3.5 w-3.5" />
-          Upload
-        </button>
-      </div>
+      {/* Medium/Mobile Nav Bar - Hidden during active exam session */}
+      {!isInExam && (
+        <div className="flex lg:hidden items-center justify-around border-t border-slate-900 bg-slate-950 px-3 py-2">
+          <button
+            onClick={() => onNavigate('dashboard')}
+            className={`flex items-center gap-1.5 px-2.5 py-1 text-xs font-semibold rounded-lg ${
+              activePage === 'dashboard' ? 'text-indigo-400 bg-indigo-950/40' : 'text-slate-400'
+            }`}
+          >
+            <LayoutDashboard className="h-3.5 w-3.5" />
+            Dashboard
+          </button>
+          <button
+            onClick={() => onNavigate('papers')}
+            className={`flex items-center gap-1.5 px-2.5 py-1 text-xs font-semibold rounded-lg ${
+              activePage === 'papers' ? 'text-indigo-400 bg-indigo-950/40' : 'text-slate-400'
+            }`}
+          >
+            <BookOpen className="h-3.5 w-3.5" />
+            Papers
+          </button>
+          <button
+            onClick={() => onNavigate('history')}
+            className={`flex items-center gap-1.5 px-2.5 py-1 text-xs font-semibold rounded-lg ${
+              activePage === 'history' || activePage === 'attempt-detail' ? 'text-indigo-400 bg-indigo-950/40' : 'text-slate-400'
+            }`}
+          >
+            <History className="h-3.5 w-3.5" />
+            History
+          </button>
+          <button
+            onClick={() => onNavigate('upload')}
+            className={`flex items-center gap-1.5 px-2.5 py-1 text-xs font-semibold rounded-lg ${
+              activePage === 'upload' ? 'text-indigo-400 bg-indigo-950/40' : 'text-slate-400'
+            }`}
+          >
+            <UploadCloud className="h-3.5 w-3.5" />
+            Upload
+          </button>
+        </div>
+      )}
     </header>
   );
 }

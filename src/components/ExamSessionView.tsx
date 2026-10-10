@@ -41,6 +41,7 @@ export function ExamSessionView({
   const [showNoteBox, setShowNoteBox] = useState<boolean>(true);
   const [showFinishConfirm, setShowFinishConfirm] = useState<boolean>(false);
   const [solutionModalOpen, setSolutionModalOpen] = useState<boolean>(false);
+  const [mobileTab, setMobileTab] = useState<'paper' | 'split' | 'omr'>('split');
 
   // Subjective (Mains) scan & upload phase
   const [isScanUploadPhase, setIsScanUploadPhase] = useState<boolean>(false);
@@ -325,92 +326,132 @@ export function ExamSessionView({
   };
 
   return (
-    <div className="flex flex-col h-[calc(100vh-4rem)] bg-slate-950 text-slate-100 overflow-hidden font-sans">
+    <div className="flex flex-col h-[calc(100dvh-4rem)] bg-slate-950 text-slate-100 overflow-hidden font-sans">
       
-      {/* Top Session Bar */}
-      <div className="flex flex-wrap items-center justify-between border-b border-slate-800 bg-slate-900/95 px-4 py-2.5 gap-3 shrink-0">
+      {/* Top Session Bar - Highly Responsive 2-Row Layout */}
+      <div className="flex flex-col border-b border-slate-800 bg-slate-900/95 px-3 py-2 sm:px-4 sm:py-2.5 gap-2 shrink-0">
         
-        {/* Paper title & Mode */}
-        <div className="flex items-center gap-3">
-          <button
-            onClick={onExit}
-            className="flex items-center gap-1 rounded-lg border border-slate-700 bg-slate-800 px-2.5 py-1 text-xs font-semibold text-slate-300 hover:bg-slate-700 transition-colors"
-          >
-            ← Exit
-          </button>
-          <div>
-            <h1 className="text-sm font-bold text-white truncate max-w-xs sm:max-w-md">
-              {paper.label}
-            </h1>
-            <span className={`inline-block text-[10px] font-semibold uppercase tracking-wider ${
-              isPractice ? 'text-emerald-400' : 'text-indigo-400'
+        {/* Top Row: Exit, Title & Mode, Continuous Timer, Finish Exam */}
+        <div className="flex items-center justify-between gap-2">
+          
+          {/* Exit & Title */}
+          <div className="flex items-center gap-2 min-w-0">
+            <button
+              onClick={onExit}
+              className="flex items-center gap-1 rounded-lg border border-slate-700 bg-slate-800 px-2 py-1 text-xs font-semibold text-slate-300 hover:bg-slate-700 transition-colors shrink-0"
+            >
+              ← Exit
+            </button>
+            <div className="min-w-0">
+              <h1 className="text-xs sm:text-sm font-bold text-white truncate max-w-[130px] xs:max-w-[180px] sm:max-w-xs md:max-w-md">
+                {paper.label}
+              </h1>
+              <span className={`block text-[9px] sm:text-[10px] font-semibold uppercase tracking-wider truncate ${
+                isPractice ? 'text-emerald-400' : 'text-indigo-400'
+              }`}>
+                {isPractice ? 'Practice Mode' : `Mock Exam (${paper.timeMinutes}m)`}
+              </span>
+            </div>
+          </div>
+
+          {/* Timer & Finish Button */}
+          <div className="flex items-center gap-2 shrink-0">
+            {/* Continuous Timer (HH:MM:SS format) */}
+            <div className={`flex items-center gap-1.5 rounded-xl px-2.5 sm:px-3 py-1 font-mono text-xs sm:text-sm font-bold transition-all shadow-inner ${
+              isTimeCritical 
+                ? 'bg-rose-950/80 border-2 border-rose-500 text-rose-300 animate-pulse ring-4 ring-rose-500/20'
+                : 'bg-slate-950 border border-slate-800 text-indigo-300'
             }`}>
-              {isPractice ? 'Practice Mode (Live Review)' : `Timed Mock Exam (${paper.timeMinutes} Mins)`}
-            </span>
+              <Clock className={`h-3.5 w-3.5 sm:h-4 sm:w-4 ${isTimeCritical ? 'text-rose-400' : 'text-indigo-400'} shrink-0`} />
+              {isPractice ? (
+                isOvertime ? (
+                  <span className="text-rose-400">+{formatTimeSeconds(overtimeSeconds)}</span>
+                ) : (
+                  <span>{formatTimeSeconds(remainingSeconds)}</span>
+                )
+              ) : (
+                <span>{formatTimeSeconds(remainingSeconds)}</span>
+              )}
+            </div>
+
+            <button
+              onClick={() => {
+                if (isSubjective) {
+                  setIsScanUploadPhase(true);
+                } else {
+                  setShowFinishConfirm(true);
+                }
+              }}
+              className="rounded-lg bg-indigo-600 px-3 sm:px-4 py-1 sm:py-1.5 text-xs font-bold text-white shadow-md shadow-indigo-600/30 hover:bg-indigo-500 transition-all shrink-0"
+            >
+              {isSubjective ? 'Submit' : 'Finish'}
+            </button>
           </div>
         </div>
 
-        {/* Continuous Timer (HH:MM:SS format) */}
-        <div className={`flex items-center gap-2 rounded-xl px-4 py-1.5 font-mono text-sm font-bold transition-all shadow-inner ${
-          isTimeCritical 
-            ? 'bg-rose-950/80 border-2 border-rose-500 text-rose-300 animate-pulse ring-4 ring-rose-500/20'
-            : 'bg-slate-950 border border-slate-800 text-indigo-300'
-        }`}>
-          <Clock className={`h-4 w-4 ${isTimeCritical ? 'text-rose-400' : 'text-indigo-400'}`} />
-          {isPractice ? (
-            isOvertime ? (
-              <span className="text-rose-400">+{formatTimeSeconds(overtimeSeconds)} (Overtime)</span>
-            ) : (
-              <span>{formatTimeSeconds(remainingSeconds)}</span>
-            )
-          ) : (
-            <span>{formatTimeSeconds(remainingSeconds)}</span>
-          )}
-          {isTimeCritical && !isOvertime && (
-            <span className="text-[10px] uppercase font-bold text-rose-400 ml-1">
-              Time Warning
-            </span>
-          )}
-        </div>
+        {/* Second Row: Counters & Mobile/Tablet View Switcher */}
+        <div className="flex items-center justify-between gap-2 pt-1 border-t border-slate-800/60">
+          
+          {/* Status Counters */}
+          <div className="flex items-center gap-1.5 sm:gap-3 text-[11px] sm:text-xs font-medium overflow-x-auto shrink-0">
+            <div className="flex items-center gap-1 rounded-md bg-emerald-950/40 border border-emerald-800/40 px-2 py-0.5 text-emerald-300 shrink-0">
+              <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" />
+              <span>Att: {attemptedCount}</span>
+            </div>
 
-        {/* Live Status Counters */}
-        <div className="flex items-center gap-2 sm:gap-4 text-xs font-medium">
-          <div className="flex items-center gap-1.5 rounded-lg bg-emerald-950/40 border border-emerald-800/40 px-2.5 py-1 text-emerald-300">
-            <span className="h-2 w-2 rounded-full bg-emerald-400" />
-            <span>Attempted: {attemptedCount}</span>
+            <div className="flex items-center gap-1 rounded-md bg-slate-800/60 border border-slate-700/60 px-2 py-0.5 text-slate-300 shrink-0">
+              <span className="h-1.5 w-1.5 rounded-full bg-slate-400" />
+              <span>Unatt: {unattemptedCount}</span>
+            </div>
+
+            <div className="flex items-center gap-1 rounded-md bg-amber-950/40 border border-amber-800/40 px-2 py-0.5 text-amber-300 shrink-0">
+              <span className="h-1.5 w-1.5 rounded-full bg-amber-400" />
+              <span>Flag: {flaggedCount}</span>
+            </div>
           </div>
 
-          <div className="flex items-center gap-1.5 rounded-lg bg-slate-800/60 border border-slate-700/60 px-2.5 py-1 text-slate-300">
-            <span className="h-2 w-2 rounded-full bg-slate-400" />
-            <span>Unattempted: {unattemptedCount}</span>
+          {/* Mobile/Tablet View Switcher (< lg) */}
+          <div className="flex lg:hidden items-center gap-0.5 bg-slate-950 p-0.5 rounded-lg border border-slate-800 shrink-0 text-[11px]">
+            <button
+              onClick={() => setMobileTab('paper')}
+              className={`px-2 py-0.5 rounded-md font-semibold transition-all ${
+                mobileTab === 'paper' ? 'bg-indigo-600 text-white' : 'text-slate-400 hover:text-slate-200'
+              }`}
+            >
+              Paper
+            </button>
+            <button
+              onClick={() => setMobileTab('split')}
+              className={`px-2 py-0.5 rounded-md font-semibold transition-all ${
+                mobileTab === 'split' ? 'bg-indigo-600 text-white' : 'text-slate-400 hover:text-slate-200'
+              }`}
+            >
+              Split
+            </button>
+            <button
+              onClick={() => setMobileTab('omr')}
+              className={`px-2 py-0.5 rounded-md font-semibold transition-all ${
+                mobileTab === 'omr' ? 'bg-indigo-600 text-white' : 'text-slate-400 hover:text-slate-200'
+              }`}
+            >
+              OMR (Q{currentQuestion})
+            </button>
           </div>
-
-          <div className="flex items-center gap-1.5 rounded-lg bg-amber-950/40 border border-amber-800/40 px-2.5 py-1 text-amber-300">
-            <span className="h-2 w-2 rounded-full bg-amber-400" />
-            <span>Flagged: {flaggedCount}</span>
-          </div>
-
-          <button
-            onClick={() => {
-              if (isSubjective) {
-                setIsScanUploadPhase(true);
-              } else {
-                setShowFinishConfirm(true);
-              }
-            }}
-            className="rounded-lg bg-indigo-600 px-4 py-1.5 text-xs font-bold text-white shadow-md shadow-indigo-600/30 hover:bg-indigo-500 transition-all ml-2"
-          >
-            {isSubjective ? 'Submit & Upload Copy' : 'Finish Exam'}
-          </button>
         </div>
       </div>
 
-      {/* Main Split Layout: Left PDF Viewer, Right Question/OMR Panel */}
-      <div className="flex flex-1 overflow-hidden flex-col lg:flex-row">
+      {/* Main Layout */}
+      <div className="flex flex-1 overflow-hidden flex-col lg:flex-row relative">
         
         {/* Left Side: Question Paper PDF Viewer */}
-        <div className="w-full lg:w-3/5 xl:w-2/3 h-1/2 lg:h-full border-r border-slate-800 bg-slate-900 flex flex-col">
-          <div className="flex items-center justify-between border-b border-slate-800 bg-slate-950/60 px-3 py-1.5 text-xs text-slate-400">
+        <div className={`w-full lg:w-3/5 xl:w-2/3 border-r border-slate-800 bg-slate-900 flex flex-col ${
+          mobileTab === 'paper' 
+            ? 'h-full flex-1' 
+            : mobileTab === 'omr' 
+              ? 'hidden lg:flex' 
+              : 'h-1/2 lg:h-full'
+        }`}>
+          <div className="flex items-center justify-between border-b border-slate-800 bg-slate-950/60 px-3 py-1.5 text-xs text-slate-400 shrink-0">
             <span>Question Paper Reader</span>
             <div className="flex items-center gap-3">
               <a
@@ -429,56 +470,133 @@ export function ExamSessionView({
             title="Question Paper PDF"
             className="w-full flex-1 border-0 bg-slate-950"
           />
+
+          {/* Quick-Answer Sticky Bar when viewing full-screen Paper on Mobile/Tablet */}
+          {mobileTab === 'paper' && (
+            <div className="lg:hidden sticky bottom-0 z-30 flex items-center justify-between bg-slate-900/95 backdrop-blur-md border-t border-slate-800 p-2 gap-2 shadow-2xl shrink-0">
+              <div className="flex items-center gap-1 shrink-0">
+                <button
+                  disabled={currentQuestion <= 1}
+                  onClick={() => setCurrentQuestion(prev => Math.max(1, prev - 1))}
+                  className="p-1.5 rounded-lg bg-slate-800 border border-slate-700 text-slate-300 disabled:opacity-40"
+                >
+                  <ChevronLeft className="h-4 w-4" />
+                </button>
+                <span className="text-xs font-bold text-white px-1">
+                  Q{currentQuestion}
+                </span>
+                <button
+                  disabled={currentQuestion >= paper.totalQuestions}
+                  onClick={() => setCurrentQuestion(prev => Math.min(paper.totalQuestions, prev + 1))}
+                  className="p-1.5 rounded-lg bg-slate-800 border border-slate-700 text-slate-300 disabled:opacity-40"
+                >
+                  <ChevronRight className="h-4 w-4" />
+                </button>
+              </div>
+
+              {/* Quick Options A, B, C, D */}
+              {!isSubjective ? (
+                <div className="grid grid-cols-4 gap-1 flex-1 max-w-[200px] xs:max-w-[240px]">
+                  {['A', 'B', 'C', 'D'].map(opt => {
+                    const isSelected = currentQObj.selected === opt;
+                    let s = 'bg-slate-950 border-slate-800 text-slate-200 hover:border-slate-700';
+                    if (isSelected) s = 'bg-indigo-600 border-indigo-500 text-white font-bold ring-2 ring-indigo-500/40';
+                    if (isPractice && isSelected && currentQObj.correctAnswer) {
+                      s = opt === currentQObj.correctAnswer
+                        ? 'bg-emerald-600 border-emerald-500 text-white font-bold'
+                        : 'bg-rose-600 border-rose-500 text-white font-bold';
+                    }
+                    return (
+                      <button
+                        key={opt}
+                        onClick={() => handleSelectOption(currentQuestion, opt)}
+                        className={`h-9 rounded-lg border text-xs font-bold flex items-center justify-center transition-all ${s}`}
+                      >
+                        {opt}
+                      </button>
+                    );
+                  })}
+                </div>
+              ) : (
+                <span className="text-[11px] text-violet-300 truncate">Mains question</span>
+              )}
+
+              <div className="flex items-center gap-1 shrink-0">
+                <button
+                  onClick={() => handleToggleFlag(currentQuestion)}
+                  className={`p-1.5 rounded-lg border text-xs ${
+                    currentQObj.flagged
+                      ? 'bg-amber-500/20 text-amber-300 border-amber-500/50'
+                      : 'bg-slate-950 border-slate-800 text-slate-400'
+                  }`}
+                >
+                  <Bookmark className={`h-4 w-4 ${currentQObj.flagged ? 'fill-amber-400' : ''}`} />
+                </button>
+                <button
+                  onClick={() => setMobileTab('omr')}
+                  className="px-2 py-1.5 rounded-lg bg-indigo-600/20 border border-indigo-500/40 text-indigo-300 text-xs font-bold whitespace-nowrap"
+                >
+                  OMR →
+                </button>
+              </div>
+            </div>
+          )}
         </div>
 
-        {/* Right Side: Exact UI as per Image 1 */}
-        <div className="w-full lg:w-2/5 xl:w-1/3 h-1/2 lg:h-full bg-[#0a0f1d] flex flex-col overflow-hidden">
+        {/* Right Side: Question & OMR Section */}
+        <div className={`w-full lg:w-2/5 xl:w-1/3 bg-[#0a0f1d] flex flex-col overflow-hidden ${
+          mobileTab === 'omr' 
+            ? 'h-full flex-1' 
+            : mobileTab === 'paper' 
+              ? 'hidden lg:flex' 
+              : 'h-1/2 lg:h-full'
+        }`}>
           
-          {/* Active Question Top Bar (Image 1 Header) */}
-          <div className="border-b border-slate-800/80 p-5 bg-[#0e1424]">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <span className="text-xl font-bold text-white">
+          {/* Active Question Top Card */}
+          <div className="border-b border-slate-800/80 p-3.5 sm:p-5 bg-[#0e1424] shrink-0 overflow-y-auto max-h-[50%] lg:max-h-none">
+            <div className="flex items-center justify-between gap-2">
+              <div className="flex items-center gap-1.5 sm:gap-2">
+                <span className="text-base sm:text-xl font-bold text-white">
                   Question {currentQuestion}
                 </span>
                 <span className="text-xs text-slate-400">of {paper.totalQuestions}</span>
                 {mode === 'mock' && !isSubjective && (
-                  <span className="rounded bg-slate-800 px-2 py-0.5 text-[11px] font-mono text-indigo-300">
+                  <span className="rounded bg-slate-800 px-1.5 sm:px-2 py-0.5 text-[10px] sm:text-[11px] font-mono text-indigo-300">
                     ⏱ {qTimeSpent[currentQuestion] || 0}s
                   </span>
                 )}
               </div>
 
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-1.5">
                 <button
                   onClick={() => handleToggleFlag(currentQuestion)}
-                  className={`flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold transition-all border ${
+                  className={`flex items-center gap-1 rounded-lg px-2 sm:px-3 py-1 sm:py-1.5 text-xs font-semibold transition-all border ${
                     currentQObj.flagged
                       ? 'bg-amber-500/20 text-amber-300 border-amber-500/50'
                       : 'border-slate-800 bg-slate-900 text-slate-400 hover:text-slate-200'
                   }`}
                 >
-                  <Bookmark className={`h-3.5 w-3.5 ${currentQObj.flagged ? 'fill-amber-400' : ''}`} />
-                  Flag
+                  <Bookmark className={`h-3 w-3 sm:h-3.5 sm:w-3.5 ${currentQObj.flagged ? 'fill-amber-400' : ''}`} />
+                  <span className="hidden xs:inline">Flag</span>
                 </button>
 
                 <button
                   onClick={() => setShowNoteBox(!showNoteBox)}
-                  className={`flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold transition-all border ${
+                  className={`flex items-center gap-1 rounded-lg px-2 sm:px-3 py-1 sm:py-1.5 text-xs font-semibold transition-all border ${
                     currentQObj.note
                       ? 'bg-indigo-600/20 text-indigo-300 border-indigo-500/40'
                       : 'border-slate-800 bg-slate-900 text-slate-400 hover:text-slate-200'
                   }`}
                 >
-                  <Edit3 className="h-3.5 w-3.5" />
-                  Note
+                  <Edit3 className="h-3 w-3 sm:h-3.5 sm:w-3.5" />
+                  <span className="hidden xs:inline">Note</span>
                 </button>
               </div>
             </div>
 
             {/* Answer Options A, B, C, D (for Objective) */}
             {!isSubjective ? (
-              <div className="mt-5 grid grid-cols-4 gap-3">
+              <div className="mt-3 sm:mt-5 grid grid-cols-4 gap-2 sm:gap-3">
                 {['A', 'B', 'C', 'D'].map(opt => {
                   const isSelected = currentQObj.selected === opt;
                   let btnStyle = 'border-slate-800 bg-[#070b14] text-slate-200 hover:border-slate-600 hover:bg-slate-900';
@@ -500,7 +618,7 @@ export function ExamSessionView({
                     <button
                       key={opt}
                       onClick={() => handleSelectOption(currentQuestion, opt)}
-                      className={`flex h-12 items-center justify-center rounded-xl border text-base font-semibold transition-all ${btnStyle}`}
+                      className={`flex h-11 sm:h-12 items-center justify-center rounded-xl border text-sm sm:text-base font-semibold transition-all ${btnStyle}`}
                     >
                       {opt}
                     </button>
@@ -508,74 +626,74 @@ export function ExamSessionView({
                 })}
               </div>
             ) : (
-              <div className="mt-3 p-3 rounded-xl border border-violet-900/40 bg-violet-950/20 text-xs text-violet-300">
+              <div className="mt-2.5 p-2.5 rounded-xl border border-violet-900/40 bg-violet-950/20 text-xs text-violet-300">
                 ✍️ Subjective Question: Draft structural points & outline in the notes box below.
               </div>
             )}
 
             {/* Practice Mode Live Feedback + Detailed Solution Button */}
             {isPractice && !isSubjective && currentQObj.selected && currentQObj.correctAnswer && (
-              <div className={`mt-3 rounded-xl border p-3 text-xs flex items-center justify-between ${
+              <div className={`mt-2.5 rounded-xl border p-2.5 text-xs flex flex-wrap items-center justify-between gap-2 ${
                 currentQObj.selected === currentQObj.correctAnswer 
                   ? 'border-emerald-800/80 bg-emerald-950/40 text-emerald-300' 
                   : 'border-rose-800/80 bg-rose-950/40 text-rose-300'
               }`}>
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-1.5">
                   {currentQObj.selected === currentQObj.correctAnswer ? (
                     <CheckCircle2 className="h-4 w-4 text-emerald-400 shrink-0" />
                   ) : (
                     <XCircle className="h-4 w-4 text-rose-400 shrink-0" />
                   )}
                   <span>
-                    Correct Answer: <strong>Option {currentQObj.correctAnswer}</strong>
+                    Answer: <strong>Option {currentQObj.correctAnswer}</strong>
                   </span>
                 </div>
 
                 {paper.exsUrl && (
                   <button
                     onClick={() => setSolutionModalOpen(true)}
-                    className="flex items-center gap-1 rounded-lg bg-indigo-600/30 border border-indigo-500/40 px-2.5 py-1 text-xs font-bold text-indigo-300 hover:bg-indigo-600 hover:text-white transition-all shadow-sm"
+                    className="flex items-center gap-1 rounded-lg bg-indigo-600/30 border border-indigo-500/40 px-2 py-0.5 text-[11px] font-bold text-indigo-300 hover:bg-indigo-600 hover:text-white transition-all shadow-sm"
                   >
-                    <BookOpen className="h-3.5 w-3.5" />
+                    <BookOpen className="h-3 w-3" />
                     Detailed Solution
                   </button>
                 )}
               </div>
             )}
 
-            {/* Notes Box matching Image 1 */}
+            {/* Notes Box */}
             {showNoteBox && (
-              <div className="mt-4 rounded-xl border border-slate-800 bg-[#070b14] p-3.5 space-y-2">
+              <div className="mt-3 rounded-xl border border-slate-800 bg-[#070b14] p-2.5 sm:p-3.5 space-y-1.5">
                 <div className="flex items-center justify-between text-xs">
                   <span className="font-semibold text-slate-300">
                     Notes for Question {currentQuestion}
                   </span>
-                  <span className="text-[11px] text-slate-500">Autosaved with attempt</span>
+                  <span className="text-[10px] text-slate-500">Autosaved</span>
                 </div>
                 <textarea
                   value={currentQObj.note || ''}
                   onChange={e => handleUpdateNote(currentQuestion, e.target.value)}
                   placeholder="Jot down formulas, doubts, trick keywords, or reasoning for this question..."
-                  rows={4}
-                  className="w-full rounded-lg border border-slate-800 bg-slate-950 p-3 text-xs text-slate-200 placeholder-slate-600 focus:outline-none focus:border-indigo-500 resize-none"
+                  rows={3}
+                  className="w-full rounded-lg border border-slate-800 bg-slate-950 p-2 sm:p-2.5 text-xs text-slate-200 placeholder-slate-600 focus:outline-none focus:border-indigo-500 resize-none"
                 />
               </div>
             )}
 
-            {/* Navigation Bottom Controls (Image 1: Previous, Clear Selection, Next) */}
-            <div className="mt-4 flex items-center justify-between pt-2">
+            {/* Navigation Bottom Controls */}
+            <div className="mt-3 flex items-center justify-between pt-1">
               <button
                 disabled={currentQuestion <= 1}
                 onClick={() => setCurrentQuestion(prev => Math.max(1, prev - 1))}
-                className="flex items-center gap-1 rounded-xl border border-slate-800 bg-slate-900 px-3.5 py-2 text-xs font-semibold text-slate-300 hover:bg-slate-800 disabled:opacity-40 disabled:pointer-events-none transition-colors"
+                className="flex items-center gap-1 rounded-xl border border-slate-800 bg-slate-900 px-3 py-1.5 text-xs font-semibold text-slate-300 hover:bg-slate-800 disabled:opacity-40 disabled:pointer-events-none transition-colors"
               >
-                <ChevronLeft className="h-4 w-4" /> Previous
+                <ChevronLeft className="h-3.5 w-3.5" /> Prev
               </button>
 
               {!isSubjective && (
                 <button
                   onClick={() => handleClearSelection(currentQuestion)}
-                  className="text-xs text-slate-400 hover:text-slate-200 transition-colors font-medium"
+                  className="text-xs text-slate-400 hover:text-slate-200 transition-colors font-medium px-2 py-1"
                 >
                   Clear Selection
                 </button>
@@ -584,24 +702,29 @@ export function ExamSessionView({
               <button
                 disabled={currentQuestion >= paper.totalQuestions}
                 onClick={() => setCurrentQuestion(prev => Math.min(paper.totalQuestions, prev + 1))}
-                className="flex items-center gap-1 rounded-xl border border-slate-800 bg-slate-900 px-3.5 py-2 text-xs font-semibold text-slate-300 hover:bg-slate-800 disabled:opacity-40 disabled:pointer-events-none transition-colors"
+                className="flex items-center gap-1 rounded-xl border border-slate-800 bg-slate-900 px-3 py-1.5 text-xs font-semibold text-slate-300 hover:bg-slate-800 disabled:opacity-40 disabled:pointer-events-none transition-colors"
               >
-                Next <ChevronRight className="h-4 w-4" />
+                Next <ChevronRight className="h-3.5 w-3.5" />
               </button>
             </div>
           </div>
 
-          {/* Question Palette Section matching Image 1 */}
-          <div className="flex-1 overflow-y-auto p-5">
+          {/* Question Palette Section - Fixed Collision & Responsive Grid */}
+          <div className="flex-1 overflow-y-auto p-3 sm:p-5">
             
-            <div className="flex items-center justify-between mb-3 text-xs">
-              <span className="font-bold text-white">Question Palette</span>
-              <div className="flex items-center gap-1 bg-slate-950 p-0.5 rounded-lg border border-slate-800">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-3 gap-2">
+              <div className="flex items-center justify-between">
+                <span className="font-bold text-white text-xs shrink-0">Question Palette</span>
+                <span className="text-[11px] text-slate-400 sm:hidden">
+                  {filteredQuestionNumbers.length} Qs
+                </span>
+              </div>
+              <div className="flex items-center gap-1 bg-slate-950 p-0.5 rounded-lg border border-slate-800 overflow-x-auto max-w-full">
                 {(['all', 'attempted', 'unattempted', 'flagged'] as const).map(tab => (
                   <button
                     key={tab}
                     onClick={() => setFilterMode(tab)}
-                    className={`rounded-md px-2.5 py-1 capitalize transition-all text-xs ${
+                    className={`rounded-md px-2 py-0.5 capitalize transition-all text-[11px] shrink-0 ${
                       filterMode === tab 
                         ? 'bg-indigo-600 text-white font-semibold' 
                         : 'text-slate-400 hover:text-slate-200'
@@ -613,8 +736,8 @@ export function ExamSessionView({
               </div>
             </div>
 
-            {/* Grid buttons matching Image 1 style */}
-            <div className="grid grid-cols-6 sm:grid-cols-8 gap-2">
+            {/* Grid buttons fitting any mobile width */}
+            <div className="grid grid-cols-5 sm:grid-cols-6 md:grid-cols-8 gap-1.5 sm:gap-2">
               {filteredQuestionNumbers.map(qNo => {
                 const q = answers[qNo];
                 const isCurrent = qNo === currentQuestion;
@@ -636,7 +759,7 @@ export function ExamSessionView({
                   <button
                     key={qNo}
                     onClick={() => setCurrentQuestion(qNo)}
-                    className={`relative flex h-10 items-center justify-center rounded-xl border text-xs transition-all ${badgeColor}`}
+                    className={`relative flex h-9 sm:h-10 items-center justify-center rounded-xl border text-xs transition-all ${badgeColor}`}
                   >
                     <span>{qNo}</span>
                     {q?.note && (

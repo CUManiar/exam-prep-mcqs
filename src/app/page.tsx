@@ -107,6 +107,7 @@ export default function App() {
         activePage={activePage}
         onNavigate={setActivePage}
         onDataReload={loadAllData}
+        isInExam={activePage === 'session'}
       />
 
       {/* Main Content Areas */}
