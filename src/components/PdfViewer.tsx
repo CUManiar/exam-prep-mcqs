@@ -40,6 +40,8 @@ export function PdfViewer({
   const containerRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const currentRenderTask = useRef<any>(null);
+  const renderInProgressRef = useRef<boolean>(false);
+  const pendingRenderRef = useRef<boolean>(false);
 
   const absoluteUrl = typeof window !== 'undefined'
     ? (url?.startsWith('http') ? url : `${window.location.origin}${url}`)
@@ -116,15 +118,29 @@ export function PdfViewer({
     };
   }, [absoluteUrl, viewMode, loadPdfJsLibrary]);
 
-  // 3. Render current page to canvas with high-DPI scaling
+  // 3. Render current page to canvas with safe render locking and high-DPI scaling
   const renderCurrentPage = useCallback(async () => {
     if (!pdfDoc || !canvasRef.current || !containerRef.current) return;
 
-    try {
-      if (currentRenderTask.current) {
+    // If another render is active on this canvas, cancel it and wait for release
+    if (currentRenderTask.current) {
+      try {
         currentRenderTask.current.cancel();
+        await currentRenderTask.current.promise.catch(() => {});
+      } catch {
+        // cancellation is expected
       }
+      currentRenderTask.current = null;
+    }
 
+    if (renderInProgressRef.current) {
+      pendingRenderRef.current = true;
+      return;
+    }
+
+    renderInProgressRef.current = true;
+
+    try {
       const page = await pdfDoc.getPage(pageNum);
       const containerWidth = containerRef.current.clientWidth || 360;
       
@@ -158,8 +174,15 @@ export function PdfViewer({
       await renderTask.promise;
       ctx.restore();
     } catch (err: any) {
-      if (err.name !== 'RenderingCancelledException') {
-        console.error('Page render error:', err);
+      if (err?.name !== 'RenderingCancelledException') {
+        console.warn('Page render warning:', err);
+      }
+    } finally {
+      currentRenderTask.current = null;
+      renderInProgressRef.current = false;
+      if (pendingRenderRef.current) {
+        pendingRenderRef.current = false;
+        renderCurrentPage();
       }
     }
   }, [pdfDoc, pageNum, zoomScale]);
@@ -170,16 +193,23 @@ export function PdfViewer({
     }
   }, [pdfDoc, pageNum, zoomScale, viewMode, renderCurrentPage]);
 
-  // Auto re-render on container resize
+  // Auto re-render on container resize with debounce
   useEffect(() => {
     if (!containerRef.current) return;
+    let resizeTimer: NodeJS.Timeout;
     const resizeObserver = new ResizeObserver(() => {
-      if (pdfDoc && viewMode === 'canvas') {
-        renderCurrentPage();
-      }
+      clearTimeout(resizeTimer);
+      resizeTimer = setTimeout(() => {
+        if (pdfDoc && viewMode === 'canvas') {
+          renderCurrentPage();
+        }
+      }, 150);
     });
     resizeObserver.observe(containerRef.current);
-    return () => resizeObserver.disconnect();
+    return () => {
+      clearTimeout(resizeTimer);
+      resizeObserver.disconnect();
+    };
   }, [pdfDoc, viewMode, renderCurrentPage]);
 
   const handlePrevPage = () => {
