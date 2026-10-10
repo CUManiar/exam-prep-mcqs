@@ -12,6 +12,7 @@ import {
   deletePaperFromServer,
   updatePaperOnServer,
   getActiveDraft,
+  loadActiveDraftFromServer,
   clearActiveDraft
 } from '../lib/storage';
 
@@ -65,14 +66,17 @@ export default function App() {
     setAttempts(getAttempts());
     setActiveDraft(getActiveDraft());
     
-    // 2. Fetch server persisted attempts & papers
-    const [serverAttempts, loadedPapers] = await Promise.all([
+    // 2. Fetch server persisted attempts, papers & cross-device draft
+    const [serverAttempts, loadedPapers, serverDraft] = await Promise.all([
       loadAttemptsFromServer(),
-      getAllPapers()
+      getAllPapers(),
+      loadActiveDraftFromServer()
     ]);
     setAttempts(serverAttempts);
     setPapers(loadedPapers);
-    setActiveDraft(getActiveDraft());
+    if (serverDraft) {
+      setActiveDraft(serverDraft);
+    }
   };
 
   // Launching an exam uses the paper's preconfigured rules directly!

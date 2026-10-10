@@ -31,6 +31,8 @@ export interface QuestionAnswer {
   timeSpentSeconds?: number;
   changesCount?: number;
   answerHistory?: string[];
+  submissionFileUrl?: string;
+  submissionFileName?: string;
 }
 
 export interface Attempt {

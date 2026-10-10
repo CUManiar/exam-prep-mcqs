@@ -12,16 +12,19 @@ import {
   XCircle, 
   ChevronLeft, 
   ChevronRight, 
-  ExternalLink,
-  BookOpen,
-  Edit3,
-  UploadCloud,
-  FileUp,
-  AlertTriangle,
-  Bookmark,
-  Pause,
-  Play,
-  Save
+  ExternalLink, 
+  BookOpen, 
+  Edit3, 
+  UploadCloud, 
+  FileUp, 
+  FileText,
+  Trash2,
+  Loader2,
+  AlertTriangle, 
+  Bookmark, 
+  Pause, 
+  Play, 
+  Save 
 } from 'lucide-react';
 
 interface ExamSessionViewProps {
@@ -44,15 +47,18 @@ export function ExamSessionView({
   const [elapsedSeconds, setElapsedSeconds] = useState<number>(initialDraft?.elapsedSeconds || 0);
   const [qTimeSpent, setQTimeSpent] = useState<Record<number, number>>(initialDraft?.qTimeSpent || {});
   const [filterMode, setFilterMode] = useState<'all' | 'attempted' | 'unattempted' | 'flagged'>('all');
-  const [showNoteBox, setShowNoteBox] = useState<boolean>(true);
+  const [showNoteBox, setShowNoteBox] = useState<boolean>(false);
   const [showFinishConfirm, setShowFinishConfirm] = useState<boolean>(false);
   const [solutionModalOpen, setSolutionModalOpen] = useState<boolean>(false);
   const [mobileTab, setMobileTab] = useState<'paper' | 'split' | 'omr'>('split');
   const [isPaused, setIsPaused] = useState<boolean>(false);
 
-  // Subjective (Mains) scan & upload phase
+  // Subjective (Mains) handwritten scan & upload state
   const [isScanUploadPhase, setIsScanUploadPhase] = useState<boolean>(false);
   const [userSubmissionFile, setUserSubmissionFile] = useState<File | null>(null);
+  const [isUploadingScan, setIsUploadingScan] = useState<boolean>(false);
+  const [fullBookletUrl, setFullBookletUrl] = useState<string | undefined>(undefined);
+  const [fullBookletName, setFullBookletName] = useState<string | undefined>(undefined);
 
   const totalTimeSeconds = paper.timeMinutes * 60;
   const isPractice = mode === 'practice';
@@ -222,17 +228,87 @@ export function ExamSessionView({
     onExit();
   };
 
-  // Computed counts
+  // Upload scanned handwritten answer for a specific question
+  const handleUploadQuestionScan = async (qNo: number, file: File) => {
+    setIsUploadingScan(true);
+    try {
+      const formData = new FormData();
+      formData.append('file', file);
+      const res = await fetch('/api/upload-submission', {
+        method: 'POST',
+        body: formData,
+      });
+      const data = await res.json();
+      if (data.ok) {
+        setAnswers(prev => ({
+          ...prev,
+          [qNo]: {
+            ...(prev[qNo] || { questionNo: qNo, selected: null }),
+            submissionFileUrl: data.url,
+            submissionFileName: data.fileName,
+          },
+        }));
+      }
+    } catch (err) {
+      console.error('Failed to upload question scan:', err);
+    } finally {
+      setIsUploadingScan(false);
+    }
+  };
+
+  const handleRemoveQuestionScan = (qNo: number) => {
+    setAnswers(prev => {
+      const updated = { ...prev };
+      if (updated[qNo]) {
+        updated[qNo] = {
+          ...updated[qNo],
+          submissionFileUrl: undefined,
+          submissionFileName: undefined,
+        };
+      }
+      return updated;
+    });
+  };
+
+  // Upload complete exam handwritten answer booklet
+  const handleUploadFullBooklet = async (file: File) => {
+    setIsUploadingScan(true);
+    try {
+      const formData = new FormData();
+      formData.append('file', file);
+      const res = await fetch('/api/upload-submission', {
+        method: 'POST',
+        body: formData,
+      });
+      const data = await res.json();
+      if (data.ok) {
+        setFullBookletUrl(data.url);
+        setFullBookletName(data.fileName);
+      }
+    } catch (err) {
+      console.error('Failed to upload full booklet:', err);
+    } finally {
+      setIsUploadingScan(false);
+    }
+  };
+
+  // Computed counts & status
+  const isQuestionAnswered = (q?: QuestionAnswer) => {
+    if (!q) return false;
+    if (!isSubjective) return q.selected !== null;
+    return !!(q.submissionFileUrl || fullBookletUrl);
+  };
+
   const allAnswerValues = Object.values(answers);
-  const attemptedCount = allAnswerValues.filter(a => a.selected !== null || (isSubjective && a.note?.trim())).length;
+  const attemptedCount = allAnswerValues.filter(a => isQuestionAnswered(a)).length;
   const flaggedCount = allAnswerValues.filter(a => a.flagged).length;
   const unattemptedCount = paper.totalQuestions - attemptedCount;
 
   // Filtered question numbers for the grid
   const filteredQuestionNumbers = Array.from({ length: paper.totalQuestions }, (_, i) => i + 1).filter(qNo => {
     const a = answers[qNo];
-    if (filterMode === 'attempted') return a?.selected !== null || (isSubjective && a?.note?.trim());
-    if (filterMode === 'unattempted') return !a?.selected && (!isSubjective || !a?.note?.trim());
+    if (filterMode === 'attempted') return isQuestionAnswered(a);
+    if (filterMode === 'unattempted') return !isQuestionAnswered(a);
     if (filterMode === 'flagged') return a?.flagged;
     return true;
   });
@@ -340,7 +416,7 @@ export function ExamSessionView({
       alteredHarmCount,
       alteredBenefitCount,
       answers: finalAnswers,
-      userSubmissionPdfUrl: submissionPdfBlobUrl,
+      userSubmissionPdfUrl: submissionPdfBlobUrl || fullBookletUrl,
     };
 
     onFinish(attempt);
@@ -676,12 +752,148 @@ export function ExamSessionView({
                 })}
               </div>
             ) : (
-              <div className="mt-2.5 p-2.5 rounded-xl border border-violet-900/40 bg-violet-950/20 text-xs text-violet-300">
-                ✍️ Subjective Question: Draft structural points & outline in the notes box below.
+              /* Dedicated Subjective Handwritten Notes / Scan Upload Section */
+              <div className="mt-3 sm:mt-4 space-y-3">
+                <div className="rounded-2xl border border-slate-800 bg-[#070b14] p-3.5 sm:p-4 space-y-3">
+                  <div className="flex items-center justify-between gap-2">
+                    <div className="flex items-center gap-2">
+                      <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-violet-500/20 text-violet-300 border border-violet-500/30 shrink-0">
+                        <FileUp className="h-4 w-4" />
+                      </div>
+                      <div>
+                        <h4 className="text-xs sm:text-sm font-bold text-white flex items-center gap-1.5">
+                          Handwritten Answer Copy
+                          <span className="text-[10px] font-normal text-slate-400">(Pen & Paper)</span>
+                        </h4>
+                        <p className="text-[11px] text-slate-400">
+                          Scan your handwritten answer sheet for Question {currentQuestion} and upload
+                        </p>
+                      </div>
+                    </div>
+                    {currentQObj.submissionFileUrl && (
+                      <span className="inline-flex items-center gap-1 rounded-full bg-emerald-950/80 border border-emerald-600/70 px-2.5 py-0.5 text-[10px] font-bold text-emerald-300 shrink-0">
+                        <CheckCircle2 className="h-3 w-3" /> Attached
+                      </span>
+                    )}
+                  </div>
+
+                  {/* If user has uploaded a scan for this question */}
+                  {currentQObj.submissionFileUrl ? (
+                    <div className="rounded-xl border border-violet-900/40 bg-violet-950/30 p-3 flex flex-wrap items-center justify-between gap-2.5">
+                      <div className="flex items-center gap-2.5 min-w-0">
+                        <FileText className="h-5 w-5 text-violet-400 shrink-0" />
+                        <div className="truncate">
+                          <p className="text-xs font-semibold text-slate-200 truncate">
+                            {currentQObj.submissionFileName || `Answer_Q${currentQuestion}.pdf`}
+                          </p>
+                          <p className="text-[10px] text-slate-400">Question {currentQuestion} scanned copy</p>
+                        </div>
+                      </div>
+
+                      <div className="flex items-center gap-2 shrink-0">
+                        <a
+                          href={currentQObj.submissionFileUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="flex items-center gap-1.5 rounded-lg bg-violet-600/30 border border-violet-500/40 px-3 py-1.5 text-xs font-semibold text-violet-200 hover:bg-violet-600 hover:text-white transition-colors"
+                        >
+                          <ExternalLink className="h-3.5 w-3.5" /> View Scan
+                        </a>
+                        <label className="cursor-pointer rounded-lg border border-slate-700 bg-slate-800 px-3 py-1.5 text-xs font-semibold text-slate-300 hover:bg-slate-700 hover:text-white transition-colors">
+                          Replace
+                          <input
+                            type="file"
+                            accept=".pdf,image/*"
+                            className="hidden"
+                            onChange={e => {
+                              const f = e.target.files?.[0];
+                              if (f) handleUploadQuestionScan(currentQuestion, f);
+                            }}
+                          />
+                        </label>
+                        <button
+                          onClick={() => handleRemoveQuestionScan(currentQuestion)}
+                          className="rounded-lg border border-rose-900/40 bg-rose-950/30 p-1.5 text-rose-400 hover:bg-rose-900/50 transition-colors"
+                          title="Remove file"
+                        >
+                          <Trash2 className="h-3.5 w-3.5" />
+                        </button>
+                      </div>
+                    </div>
+                  ) : (
+                    /* Upload Dropzone */
+                    <label className={`flex flex-col items-center justify-center rounded-xl border-2 border-dashed border-slate-700 hover:border-violet-500 bg-slate-950/70 p-4 text-center cursor-pointer transition-all ${isUploadingScan ? 'opacity-60 pointer-events-none' : ''}`}>
+                      {isUploadingScan ? (
+                        <div className="flex items-center gap-2 text-violet-300 text-xs font-semibold py-1">
+                          <Loader2 className="h-5 w-5 animate-spin" /> Uploading scanned sheet...
+                        </div>
+                      ) : (
+                        <>
+                          <UploadCloud className="h-6 w-6 text-violet-400 mb-1" />
+                          <span className="text-xs font-bold text-slate-200">
+                            Upload Scanned Sheet for Q{currentQuestion}
+                          </span>
+                          <span className="text-[10px] text-slate-400 mt-0.5">
+                            PDF or Images (CamScanner / Adobe Scan / ClearScan)
+                          </span>
+                        </>
+                      )}
+                      <input
+                        type="file"
+                        accept=".pdf,image/*"
+                        className="hidden"
+                        disabled={isUploadingScan}
+                        onChange={e => {
+                          const f = e.target.files?.[0];
+                          if (f) handleUploadQuestionScan(currentQuestion, f);
+                        }}
+                      />
+                    </label>
+                  )}
+
+                  {/* Or Full Booklet Option */}
+                  <div className="pt-1.5 flex flex-wrap items-center justify-between text-[11px] text-slate-400 border-t border-slate-800/80 gap-2">
+                    <span className="truncate">
+                      {fullBookletUrl 
+                        ? `✓ Full answer booklet attached (${fullBookletName || 'Booklet.pdf'})`
+                        : 'Wrote entire paper together in one booklet?'}
+                    </span>
+                    <label className="cursor-pointer text-violet-400 hover:text-violet-300 font-bold shrink-0 underline underline-offset-2">
+                      {fullBookletUrl ? 'Replace Full Booklet' : 'Upload Complete Booklet (PDF)'}
+                      <input
+                        type="file"
+                        accept=".pdf"
+                        className="hidden"
+                        disabled={isUploadingScan}
+                        onChange={e => {
+                          const f = e.target.files?.[0];
+                          if (f) handleUploadFullBooklet(f);
+                        }}
+                      />
+                    </label>
+                  </div>
+                </div>
+
+                {/* Model Solution / Synopsis in Practice Mode */}
+                {isPractice && paper.exsUrl && (
+                  <div className="rounded-xl border border-indigo-900/40 bg-indigo-950/30 p-2.5 flex items-center justify-between gap-2">
+                    <div className="flex items-center gap-2 text-xs text-indigo-300">
+                      <BookOpen className="h-4 w-4 text-indigo-400 shrink-0" />
+                      <span>Compare with Model Answer / Synopsis:</span>
+                    </div>
+                    <button
+                      onClick={() => setSolutionModalOpen(true)}
+                      className="flex items-center gap-1.5 rounded-lg bg-indigo-600 px-2.5 py-1 text-xs font-bold text-white hover:bg-indigo-500 shadow-md shadow-indigo-600/30 transition-all shrink-0"
+                    >
+                      <BookOpen className="h-3.5 w-3.5" />
+                      Detailed Solution
+                    </button>
+                  </div>
+                )}
               </div>
             )}
 
-            {/* Practice Mode Live Feedback Banner + Detailed Solution Button */}
+            {/* Practice Mode Live Feedback Banner + Detailed Solution Button (Objective) */}
             {isPractice && !isSubjective && currentQObj.selected && currentQObj.correctAnswer && (
               <div className={`mt-2.5 rounded-xl border p-2.5 text-xs flex flex-wrap items-center justify-between gap-2 ${
                 currentQObj.selected === currentQObj.correctAnswer 
@@ -713,20 +925,20 @@ export function ExamSessionView({
               </div>
             )}
 
-            {/* Notes Box */}
+            {/* Optional Scratchpad (Only shown when user explicitly toggles pencil icon) */}
             {showNoteBox && (
               <div className="mt-3 rounded-xl border border-slate-800 bg-[#070b14] p-2.5 sm:p-3.5 space-y-1.5">
                 <div className="flex items-center justify-between text-xs">
                   <span className="font-semibold text-slate-300">
-                    Notes for Question {currentQuestion}
+                    Rough Scratchpad for Question {currentQuestion} (Optional)
                   </span>
-                  <span className="text-[10px] text-slate-500">Autosaved</span>
+                  <span className="text-[10px] text-slate-500">Draft keywords only</span>
                 </div>
                 <textarea
                   value={currentQObj.note || ''}
                   onChange={e => handleUpdateNote(currentQuestion, e.target.value)}
-                  placeholder="Jot down formulas, doubts, trick keywords, or reasoning for this question..."
-                  rows={3}
+                  placeholder="Optional: Jot down outline points or trick keywords while writing by hand..."
+                  rows={2}
                   className="w-full rounded-lg border border-slate-800 bg-slate-950 p-2 sm:p-2.5 text-xs text-slate-200 placeholder-slate-600 focus:outline-none focus:border-indigo-500 resize-none"
                 />
               </div>
@@ -793,7 +1005,7 @@ export function ExamSessionView({
               {filteredQuestionNumbers.map(qNo => {
                 const q = answers[qNo];
                 const isCurrent = qNo === currentQuestion;
-                const isAnswered = q?.selected !== null || (isSubjective && q?.note?.trim());
+                const isAnswered = isQuestionAnswered(q);
                 const isFlagged = q?.flagged;
 
                 let badgeColor = 'bg-[#0e1424] text-slate-400 border-slate-800 hover:border-slate-700';
@@ -828,7 +1040,10 @@ export function ExamSessionView({
                     className={`relative flex h-9 sm:h-10 items-center justify-center rounded-xl border text-xs transition-all ${badgeColor}`}
                   >
                     <span>{qNo}</span>
-                    {q?.note && (
+                    {q?.submissionFileUrl && (
+                      <span className="absolute -top-1 -right-1 h-2 w-2 rounded-full bg-violet-400 ring-2 ring-slate-900" />
+                    )}
+                    {q?.note && !q?.submissionFileUrl && (
                       <span className="absolute -top-1 -right-1 h-2 w-2 rounded-full bg-indigo-500" />
                     )}
                   </button>

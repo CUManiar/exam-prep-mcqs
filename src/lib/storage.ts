@@ -257,7 +257,18 @@ export function saveActiveDraft(draft: ActiveSessionDraft): void {
   try {
     localStorage.setItem(DRAFT_KEY, JSON.stringify(draft));
   } catch (err) {
-    console.error('Failed to save draft session:', err);
+    console.error('Failed to save draft session to localStorage:', err);
+  }
+
+  // Cross-device server sync
+  try {
+    fetch('/api/draft', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(draft),
+    }).catch(e => console.warn('Server draft sync error:', e));
+  } catch (err) {
+    console.warn('Server draft sync network failed:', err);
   }
 }
 
@@ -272,9 +283,32 @@ export function getActiveDraft(): ActiveSessionDraft | null {
   }
 }
 
+export async function loadActiveDraftFromServer(): Promise<ActiveSessionDraft | null> {
+  try {
+    const res = await fetch('/api/draft');
+    if (res.ok) {
+      const data = await res.json();
+      if (data.ok && data.draft) {
+        if (typeof window !== 'undefined') {
+          localStorage.setItem(DRAFT_KEY, JSON.stringify(data.draft));
+        }
+        return data.draft;
+      }
+    }
+  } catch (err) {
+    console.warn('Failed to load draft from server, using local cache:', err);
+  }
+  return getActiveDraft();
+}
+
 export function clearActiveDraft(): void {
   if (typeof window === 'undefined') return;
   try {
     localStorage.removeItem(DRAFT_KEY);
+  } catch {}
+
+  // Cross-device server clear
+  try {
+    fetch('/api/draft', { method: 'DELETE' }).catch(() => {});
   } catch {}
 }
