@@ -1,0 +1,6 @@
+node_modules/
+prelims.db
+prelims.db-wal
+prelims.db-shm
+db.json
+.DS_Store

@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Prelims Practice</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <div id="app">
+    <!-- Sidebar -->
+    <nav id="sidebar">
+      <div class="sidebar-logo">
+        <span class="logo-icon">📋</span>
+        <span class="logo-text">Prelims</span>
+      </div>
+      <ul class="nav-links">
+        <li><a href="#" data-page="dashboard" class="nav-link active" id="nav-dashboard">
+          <span class="nav-icon">⊞</span> Dashboard
+        </a></li>
+        <li><a href="#" data-page="tests" class="nav-link" id="nav-tests">
+          <span class="nav-icon">📄</span> Tests
+        </a></li>
+        <li><a href="#" data-page="history" class="nav-link" id="nav-history">
+          <span class="nav-icon">🕐</span> History
+        </a></li>
+      </ul>
+    </nav>
+
+    <!-- Main content -->
+    <main id="main-content">
+      <!-- DASHBOARD PAGE -->
+      <section id="page-dashboard" class="page active">
+        <header class="page-header">
+          <h1>Dashboard</h1>
+          <p class="subtitle">Your UPSC Prelims practice hub</p>
+        </header>
+        <div id="dashboard-stats" class="stats-row"></div>
+        <div class="two-col">
+          <div>
+            <h2 class="section-title">Available Papers</h2>
+            <div id="dashboard-papers" class="card-grid"></div>
+          </div>
+          <div>
+            <h2 class="section-title">Recent Attempts</h2>
+            <div id="dashboard-recent"></div>
+          </div>
+        </div>
+      </section>
+
+      <!-- TESTS PAGE -->
+      <section id="page-tests" class="page">
+        <header class="page-header">
+          <h1>Tests</h1>
+          <p class="subtitle">Select a paper to begin</p>
+        </header>
+        <div id="tests-list" class="card-grid wide"></div>
+      </section>
+
+      <!-- HISTORY PAGE -->
+      <section id="page-history" class="page">
+        <header class="page-header">
+          <h1>History</h1>
+          <p class="subtitle">All previous attempts</p>
+        </header>
+        <div id="history-list"></div>
+      </section>
+
+      <!-- PAPER DETAIL PAGE -->
+      <section id="page-paper" class="page">
+        <button class="back-btn" onclick="navigate('tests')">← Back to Tests</button>
+        <div id="paper-detail-content"></div>
+      </section>
+
+      <!-- ANSWER KEY EDITOR -->
+      <section id="page-answer-key" class="page">
+        <button class="back-btn" id="ak-back-btn">← Back</button>
+        <header class="page-header">
+          <h1>Answer Key</h1>
+          <p class="subtitle" id="ak-subtitle"></p>
+        </header>
+        <div class="ak-editor-wrap">
+          <div class="ak-instructions">
+            <h3>Format</h3>
+            <pre>1. B
+2. C
+3. A
+4. D</pre>
+            <p>Paste the full answer key below and click Save.</p>
+          </div>
+          <div class="ak-textarea-wrap">
+            <textarea id="ak-textarea" placeholder="Paste answer key here...
+1. B
+2. C
+3. A
+..."></textarea>
+            <div class="ak-actions">
+              <button class="btn btn-primary" id="ak-save-btn">Save Answer Key</button>
+              <span id="ak-status"></span>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- TEST SESSION PAGE -->
+      <section id="page-session" class="page session-page">
+        <div id="session-container"></div>
+      </section>
+
+      <!-- RESULTS PAGE -->
+      <section id="page-results" class="page">
+        <div id="results-container"></div>
+      </section>
+    </main>
+  </div>
+
+  <!-- PDF Modal -->
+  <div id="pdf-modal" class="modal hidden">
+    <div class="modal-backdrop" onclick="closePdfModal()"></div>
+    <div class="modal-box">
+      <div class="modal-header">
+        <span id="modal-title">Solution</span>
+        <button onclick="closePdfModal()" class="modal-close">✕</button>
+      </div>
+      <iframe id="modal-iframe" src="" frameborder="0"></iframe>
+    </div>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>
