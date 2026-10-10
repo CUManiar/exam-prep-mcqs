@@ -28,6 +28,7 @@ export function UploadView({ onPaperUploaded, onNavigatePapers }: UploadViewProp
   // Paper rules & metadata
   const [year, setYear] = useState<string>('2026');
   const [subjectPreset, setSubjectPreset] = useState<string>('GS I');
+  const [customSubject, setCustomSubject] = useState<string>('');
   const [paperIdentifier, setPaperIdentifier] = useState<string>('prelims_gs_i');
   
   const [totalQuestions, setTotalQuestions] = useState<number>(100);
@@ -69,6 +70,8 @@ export function UploadView({ onPaperUploaded, onNavigatePapers }: UploadViewProp
       setIncorrectMarks(0);
       setTimeMinutes(180);
       setPaperIdentifier(preset.toLowerCase().replace(/\s+/g, '_'));
+    } else if (preset === 'Custom') {
+      setPaperIdentifier(examType === 'objective' ? 'custom_objective_paper' : 'custom_mains_paper');
     }
   };
 
@@ -103,12 +106,16 @@ export function UploadView({ onPaperUploaded, onNavigatePapers }: UploadViewProp
     setStatusMsg(null);
 
     try {
+      const displaySubject = subjectPreset === 'Custom' 
+        ? (customSubject.trim() || 'Custom Paper') 
+        : subjectPreset;
+
       const formData = new FormData();
       formData.append('year', cleanYear);
       formData.append('identifier', cleanName);
       formData.append('examType', examType);
-      formData.append('subject', subjectPreset);
-      formData.append('label', `${cleanYear} – ${subjectPreset}`);
+      formData.append('subject', displaySubject);
+      formData.append('label', `${cleanYear} – ${displaySubject}`);
       formData.append('totalQuestions', String(totalQuestions || (examType === 'objective' ? 100 : 20)));
       formData.append('totalMarks', String(totalMarks || (examType === 'objective' ? 200 : 250)));
       formData.append('correctMarks', String(examType === 'objective' ? correctMarks : 0));
@@ -252,6 +259,7 @@ export function UploadView({ onPaperUploaded, onNavigatePapers }: UploadViewProp
                   <>
                     <option value="GS I">Prelims GS I (100 Qs • 200 Marks)</option>
                     <option value="GS II CSAT">Prelims GS II CSAT (80 Qs • 200 Marks)</option>
+                    <option value="Custom">Custom Objective Paper / Section</option>
                   </>
                 ) : (
                   <>
@@ -260,10 +268,32 @@ export function UploadView({ onPaperUploaded, onNavigatePapers }: UploadViewProp
                     <option value="Mains GS III">Mains GS III (20 Qs • 250 Marks)</option>
                     <option value="Mains GS IV">Mains GS IV (Ethics • 250 Marks)</option>
                     <option value="Mains Essay">Mains Essay (250 Marks)</option>
+                    <option value="Custom">Custom Subjective / Optional Paper</option>
                   </>
                 )}
               </select>
             </div>
+
+            {/* Custom Subject Name (Shown when Custom preset selected) */}
+            {subjectPreset === 'Custom' && (
+              <div>
+                <label className="block text-xs font-semibold text-slate-300 mb-1">
+                  Custom Subject / Paper Title <span className="text-rose-400">*</span>
+                </label>
+                <input
+                  type="text"
+                  value={customSubject}
+                  onChange={e => {
+                    setCustomSubject(e.target.value);
+                    const clean = e.target.value.toLowerCase().replace(/[^a-z0-9_]/g, '_').replace(/_+/g, '_');
+                    if (clean) setPaperIdentifier(clean);
+                  }}
+                  placeholder="e.g. Sociology Optional Paper 1, Sectional Test"
+                  className="w-full rounded-xl border border-indigo-500/50 bg-slate-950 px-3.5 py-2 text-sm text-white focus:outline-none focus:border-indigo-400 ring-1 ring-indigo-500/30"
+                  required
+                />
+              </div>
+            )}
 
             {/* Paper Identifier */}
             <div>
