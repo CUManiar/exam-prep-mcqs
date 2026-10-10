@@ -103,55 +103,51 @@ export function UploadView({ onPaperUploaded, onNavigatePapers }: UploadViewProp
     setStatusMsg(null);
 
     try {
-      const qpUrl = URL.createObjectURL(qpFile);
-      let akUrl: string | undefined = undefined;
-      let exsUrl: string | undefined = undefined;
-      let answerKeyText = akText;
-
+      const formData = new FormData();
+      formData.append('year', cleanYear);
+      formData.append('identifier', cleanName);
+      formData.append('examType', examType);
+      formData.append('subject', subjectPreset);
+      formData.append('label', `${cleanYear} – ${subjectPreset}`);
+      formData.append('totalQuestions', String(totalQuestions || (examType === 'objective' ? 100 : 20)));
+      formData.append('totalMarks', String(totalMarks || (examType === 'objective' ? 200 : 250)));
+      formData.append('correctMarks', String(examType === 'objective' ? correctMarks : 0));
+      formData.append('incorrectMarks', String(examType === 'objective' ? incorrectMarks : 0));
+      formData.append('timeMinutes', String(timeMinutes || (examType === 'objective' ? 120 : 180)));
+      
+      formData.append('qpFile', qpFile);
       if (akFile) {
-        answerKeyText = await akFile.text();
-        akUrl = URL.createObjectURL(akFile);
+        formData.append('akFile', akFile);
+      }
+      if (akText) {
+        formData.append('answerKeyText', akText);
       }
       if (exsFile) {
-        exsUrl = URL.createObjectURL(exsFile);
+        formData.append('exsFile', exsFile);
       }
 
-      const parsedKey = examType === 'objective' ? parseAnswerKeyText(answerKeyText) : {};
+      const res = await fetch('/api/upload', {
+        method: 'POST',
+        body: formData,
+      });
 
-      const category: ExamCategory = examType === 'objective' ? 'prelims' : 'mains';
-      const label = `${cleanYear} – ${subjectPreset}`;
+      const data = await res.json();
+      if (!res.ok || !data.ok) {
+        throw new Error(data.error || 'Server failed to save paper to disk.');
+      }
 
-      const newPaper: QuestionPaper = {
-        id: `${cleanYear}_${cleanName}`,
-        year: cleanYear,
-        category,
-        examType,
-        subject: subjectPreset,
-        label,
-        totalQuestions: totalQuestions || (examType === 'objective' ? 100 : 20),
-        totalMarks: totalMarks || (examType === 'objective' ? 200 : 250),
-        correctMarks: examType === 'objective' ? correctMarks : 0,
-        incorrectMarks: examType === 'objective' ? incorrectMarks : 0,
-        timeMinutes: timeMinutes || (examType === 'objective' ? 120 : 180),
-        qpUrl,
-        akUrl,
-        exsUrl,
-        answerKeyText,
-        answerKey: parsedKey,
-        isCustom: true,
-      };
-
+      const newPaper: QuestionPaper = data.paper;
       saveCustomPaper(newPaper);
       onPaperUploaded(newPaper);
 
       setStatusMsg({ 
-        text: `Successfully added ${examType.toUpperCase()} paper: "${label}" configured with ${newPaper.totalQuestions} Questions!` 
+        text: `Successfully saved to data folder & repository: "${newPaper.label}" with ${newPaper.totalQuestions} Questions!` 
       });
       setTimeout(() => {
         onNavigatePapers();
       }, 1200);
     } catch (err: any) {
-      setStatusMsg({ text: err.message || 'Failed to process files.', isError: true });
+      setStatusMsg({ text: err.message || 'Failed to save paper.', isError: true });
     } finally {
       setIsSubmitting(false);
     }

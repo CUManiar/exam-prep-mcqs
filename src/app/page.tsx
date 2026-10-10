@@ -4,10 +4,13 @@ import React, { useState, useEffect } from 'react';
 import { ActivePage, QuestionPaper, Attempt } from '../lib/types';
 import { 
   getAttempts, 
+  loadAttemptsFromServer,
   saveAttempt, 
   updateAttempt, 
   deleteAttempt, 
-  getAllPapers 
+  getAllPapers,
+  deletePaperFromServer,
+  updatePaperOnServer 
 } from '../lib/storage';
 
 import { Navbar } from '../components/Navbar';
@@ -38,9 +41,15 @@ export default function App() {
   }, []);
 
   const loadAllData = async () => {
-    const loadedAttempts = getAttempts();
-    setAttempts(loadedAttempts);
-    const loadedPapers = await getAllPapers();
+    // 1. Initial local cache for instant render
+    setAttempts(getAttempts());
+    
+    // 2. Fetch server persisted attempts & papers
+    const [serverAttempts, loadedPapers] = await Promise.all([
+      loadAttemptsFromServer(),
+      getAllPapers()
+    ]);
+    setAttempts(serverAttempts);
     setPapers(loadedPapers);
   };
 
@@ -94,9 +103,26 @@ export default function App() {
     setActivePage('history');
   };
 
-  // Paper uploaded handler
-  const handlePaperUploaded = (newPaper: QuestionPaper) => {
-    setPapers(prev => [newPaper, ...prev]);
+  // Paper uploaded handler - reload from server
+  const handlePaperUploaded = async (newPaper: QuestionPaper) => {
+    const freshPapers = await getAllPapers();
+    setPapers(freshPapers);
+  };
+
+  // Delete paper from repository & server files
+  const handleDeletePaper = async (paperId: string) => {
+    if (confirm('Are you sure you want to delete this paper and its files from the repository?')) {
+      await deletePaperFromServer(paperId);
+      const freshPapers = await getAllPapers();
+      setPapers(freshPapers);
+    }
+  };
+
+  // Update paper rules
+  const handleUpdatePaper = async (paper: QuestionPaper) => {
+    await updatePaperOnServer(paper.id, paper);
+    const freshPapers = await getAllPapers();
+    setPapers(freshPapers);
   };
 
   return (
@@ -128,6 +154,8 @@ export default function App() {
             papers={papers}
             onStartExam={handleStartExam}
             onNavigateUpload={() => setActivePage('upload')}
+            onDeletePaper={handleDeletePaper}
+            onUpdatePaper={handleUpdatePaper}
           />
         )}
 

@@ -6,7 +6,7 @@ const STORAGE_KEYS = {
   CUSTOM_PAPERS: 'exam_prep_custom_papers_v2',
 };
 
-// History only counts Mock Mode attempts
+// Synchronously get cached attempts from localStorage for instant UI rendering
 export function getAttempts(): Attempt[] {
   if (typeof window === 'undefined') return [];
   try {
@@ -19,6 +19,26 @@ export function getAttempts(): Attempt[] {
   }
 }
 
+// Fetch persisted attempts from server database/file and synchronize cache
+export async function loadAttemptsFromServer(): Promise<Attempt[]> {
+  try {
+    const res = await fetch('/api/attempts');
+    if (res.ok) {
+      const data = await res.json();
+      if (data.ok && Array.isArray(data.attempts)) {
+        if (typeof window !== 'undefined') {
+          localStorage.setItem(STORAGE_KEYS.ATTEMPTS, JSON.stringify(data.attempts));
+        }
+        return data.attempts.filter((a: Attempt) => a.mode === 'mock');
+      }
+    }
+  } catch (err) {
+    console.warn('Using offline attempt cache:', err);
+  }
+  return getAttempts();
+}
+
+// Persist attempt: writes to server immediately ("Write is done, is done") + mirrors to localStorage
 export function saveAttempt(attempt: Attempt): void {
   if (typeof window === 'undefined') return;
   // Practice mode is not counted in History
@@ -35,11 +55,19 @@ export function saveAttempt(attempt: Attempt): void {
       list.unshift(attempt);
     }
     localStorage.setItem(STORAGE_KEYS.ATTEMPTS, JSON.stringify(list));
+
+    // Server-side permanent write
+    fetch('/api/attempts', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(attempt),
+    }).catch(err => console.error('Failed to write attempt to server:', err));
   } catch (err) {
     console.error('Failed to save attempt:', err);
   }
 }
 
+// Update attempt
 export function updateAttempt(attemptId: string, updater: (prev: Attempt) => Attempt): Attempt | null {
   if (typeof window === 'undefined') return null;
   try {
@@ -49,6 +77,14 @@ export function updateAttempt(attemptId: string, updater: (prev: Attempt) => Att
       const updated = updater(list[idx]);
       list[idx] = updated;
       localStorage.setItem(STORAGE_KEYS.ATTEMPTS, JSON.stringify(list));
+
+      // Server-side update
+      fetch(`/api/attempts/${attemptId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(updated),
+      }).catch(err => console.error('Failed to update attempt on server:', err));
+
       return updated;
     }
     return null;
@@ -58,16 +94,23 @@ export function updateAttempt(attemptId: string, updater: (prev: Attempt) => Att
   }
 }
 
+// Delete attempt
 export function deleteAttempt(attemptId: string): void {
   if (typeof window === 'undefined') return;
   try {
     const list = getAttempts().filter(a => a.id !== attemptId);
     localStorage.setItem(STORAGE_KEYS.ATTEMPTS, JSON.stringify(list));
+
+    // Server-side delete
+    fetch(`/api/attempts/${attemptId}`, {
+      method: 'DELETE',
+    }).catch(err => console.error('Failed to delete attempt on server:', err));
   } catch (err) {
     console.error('Failed to delete attempt:', err);
   }
 }
 
+// Custom Papers cache
 export function getCustomPapers(): QuestionPaper[] {
   if (typeof window === 'undefined') return [];
   try {
@@ -95,7 +138,67 @@ export function saveCustomPaper(paper: QuestionPaper): void {
   }
 }
 
+// Delete paper (Server + local)
+export async function deletePaperFromServer(paperId: string): Promise<boolean> {
+  try {
+    const res = await fetch(`/api/papers/${paperId}`, { method: 'DELETE' });
+    if (res.ok) {
+      if (typeof window !== 'undefined') {
+        const list = getCustomPapers().filter(p => p.id !== paperId);
+        localStorage.setItem(STORAGE_KEYS.CUSTOM_PAPERS, JSON.stringify(list));
+      }
+      return true;
+    }
+  } catch (err) {
+    console.error('Failed to delete paper on server:', err);
+  }
+  return false;
+}
+
+// Update paper rules (Server + local)
+export async function updatePaperOnServer(paperId: string, updates: Partial<QuestionPaper>): Promise<boolean> {
+  try {
+    const res = await fetch(`/api/papers/${paperId}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(updates),
+    });
+    if (res.ok) {
+      if (typeof window !== 'undefined') {
+        const list = getCustomPapers();
+        const idx = list.findIndex(p => p.id === paperId);
+        if (idx >= 0) {
+          list[idx] = { ...list[idx], ...updates };
+          localStorage.setItem(STORAGE_KEYS.CUSTOM_PAPERS, JSON.stringify(list));
+        }
+      }
+      return true;
+    }
+  } catch (err) {
+    console.error('Failed to update paper on server:', err);
+  }
+  return false;
+}
+
+// Fetch all papers from server filesystem + metadata store
 export async function getAllPapers(): Promise<QuestionPaper[]> {
+  try {
+    const res = await fetch('/api/papers');
+    if (res.ok) {
+      const data = await res.json();
+      if (data.ok && Array.isArray(data.papers)) {
+        if (typeof window !== 'undefined') {
+          const customs = data.papers.filter((p: QuestionPaper) => p.isCustom);
+          localStorage.setItem(STORAGE_KEYS.CUSTOM_PAPERS, JSON.stringify(customs));
+        }
+        return data.papers;
+      }
+    }
+  } catch (err) {
+    console.warn('Network issue fetching /api/papers, falling back to local cache:', err);
+  }
+
+  // Offline fallback
   const custom = getCustomPapers();
   const builtIn = await Promise.all(
     INITIAL_PAPERS.map(async p => {
@@ -107,9 +210,7 @@ export async function getAllPapers(): Promise<QuestionPaper[]> {
             p.answerKey = parseAnswerKeyText(text);
             p.answerKeyText = text;
           }
-        } catch {
-          // ignore offline
-        }
+        } catch {}
       }
       return p;
     })
@@ -134,6 +235,10 @@ export function importAllData(jsonStr: string): boolean {
     if (Array.isArray(parsed.attempts)) {
       const mockOnly = parsed.attempts.filter((a: any) => a.mode === 'mock');
       localStorage.setItem(STORAGE_KEYS.ATTEMPTS, JSON.stringify(mockOnly));
+      // Save each to server
+      for (const att of mockOnly) {
+        saveAttempt(att);
+      }
     }
     if (Array.isArray(parsed.customPapers)) {
       localStorage.setItem(STORAGE_KEYS.CUSTOM_PAPERS, JSON.stringify(parsed.customPapers));

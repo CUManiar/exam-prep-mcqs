@@ -9,13 +9,46 @@ interface PapersViewProps {
   papers: QuestionPaper[];
   onStartExam: (paper: QuestionPaper, mode: 'practice' | 'mock') => void;
   onNavigateUpload: () => void;
+  onDeletePaper?: (paperId: string) => void;
+  onUpdatePaper?: (paper: QuestionPaper) => void;
 }
 
-export function PapersView({ papers, onStartExam, onNavigateUpload }: PapersViewProps) {
+export function PapersView({ papers, onStartExam, onNavigateUpload, onDeletePaper, onUpdatePaper }: PapersViewProps) {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<'all' | 'prelims' | 'mains'>('all');
   const [selectedYear, setSelectedYear] = useState<string>('all');
   const [selectedSubject, setSelectedSubject] = useState<string>('all');
+
+  // Edit paper modal
+  const [editingPaper, setEditingPaper] = useState<QuestionPaper | null>(null);
+  const [editTotalQuestions, setEditTotalQuestions] = useState<number>(100);
+  const [editTotalMarks, setEditTotalMarks] = useState<number>(200);
+  const [editCorrectMarks, setEditCorrectMarks] = useState<number>(2.0);
+  const [editIncorrectMarks, setEditIncorrectMarks] = useState<number>(0.667);
+  const [editTimeMinutes, setEditTimeMinutes] = useState<number>(120);
+
+  const handleOpenEdit = (p: QuestionPaper) => {
+    setEditingPaper(p);
+    setEditTotalQuestions(p.totalQuestions);
+    setEditTotalMarks(p.totalMarks);
+    setEditCorrectMarks(p.correctMarks);
+    setEditIncorrectMarks(p.incorrectMarks);
+    setEditTimeMinutes(p.timeMinutes);
+  };
+
+  const handleSaveEdit = () => {
+    if (!editingPaper || !onUpdatePaper) return;
+    const updated: QuestionPaper = {
+      ...editingPaper,
+      totalQuestions: editTotalQuestions,
+      totalMarks: editTotalMarks,
+      correctMarks: editCorrectMarks,
+      incorrectMarks: editIncorrectMarks,
+      timeMinutes: editTimeMinutes,
+    };
+    onUpdatePaper(updated);
+    setEditingPaper(null);
+  };
 
   const filteredPapers = papers.filter(p => {
     const matchesCat = selectedCategory === 'all' || p.category === selectedCategory;
@@ -160,19 +193,124 @@ export function PapersView({ papers, onStartExam, onNavigateUpload }: PapersView
                 </button>
               </div>
 
-              <a
-                href={paper.qpUrl}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="flex items-center justify-center gap-1.5 w-full rounded-xl border border-slate-800 bg-slate-950 py-1.5 text-[11px] font-medium text-slate-400 hover:text-slate-200 hover:bg-slate-800 transition-colors"
-              >
-                <ExternalLink className="h-3 w-3" />
-                View Paper PDF
-              </a>
+              <div className="flex items-center gap-2">
+                <a
+                  href={paper.qpUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex items-center justify-center gap-1.5 flex-1 rounded-xl border border-slate-800 bg-slate-950 py-1.5 text-[11px] font-medium text-slate-400 hover:text-slate-200 hover:bg-slate-800 transition-colors"
+                >
+                  <ExternalLink className="h-3 w-3" />
+                  View PDF
+                </a>
+
+                {/* Edit Rules Button */}
+                {onUpdatePaper && (
+                  <button
+                    onClick={() => handleOpenEdit(paper)}
+                    className="rounded-xl border border-slate-800 bg-slate-950 px-2.5 py-1.5 text-[11px] font-medium text-indigo-300 hover:bg-slate-800 transition-colors"
+                  >
+                    Edit Rules
+                  </button>
+                )}
+
+                {/* Delete Paper Button */}
+                {onDeletePaper && (
+                  <button
+                    onClick={() => onDeletePaper(paper.id)}
+                    className="rounded-xl border border-rose-900/40 bg-rose-950/20 px-2.5 py-1.5 text-[11px] font-medium text-rose-400 hover:bg-rose-900/40 transition-colors"
+                  >
+                    Delete
+                  </button>
+                )}
+              </div>
             </div>
           </div>
         ))}
       </div>
+
+      {/* Edit Paper Rules Modal */}
+      {editingPaper && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in">
+          <div className="relative w-full max-w-md rounded-2xl border border-slate-800 bg-slate-900 p-6 shadow-2xl space-y-4">
+            <h3 className="text-base font-bold text-white">
+              Edit Rules for {editingPaper.label}
+            </h3>
+
+            <div className="space-y-3 text-xs">
+              <div>
+                <label className="block text-slate-400 mb-1">Total Questions</label>
+                <input
+                  type="number"
+                  value={editTotalQuestions}
+                  onChange={e => setEditTotalQuestions(parseInt(e.target.value) || 0)}
+                  className="w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-1.5 text-white"
+                />
+              </div>
+
+              <div>
+                <label className="block text-slate-400 mb-1">Total Marks</label>
+                <input
+                  type="number"
+                  value={editTotalMarks}
+                  onChange={e => setEditTotalMarks(parseFloat(e.target.value) || 0)}
+                  className="w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-1.5 text-white"
+                />
+              </div>
+
+              <div>
+                <label className="block text-slate-400 mb-1">Time (Minutes)</label>
+                <input
+                  type="number"
+                  value={editTimeMinutes}
+                  onChange={e => setEditTimeMinutes(parseInt(e.target.value) || 0)}
+                  className="w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-1.5 text-white"
+                />
+              </div>
+
+              {editingPaper.examType === 'objective' && (
+                <div className="grid grid-cols-2 gap-2">
+                  <div>
+                    <label className="block text-slate-400 mb-1">Correct (+)</label>
+                    <input
+                      type="number"
+                      step="0.01"
+                      value={editCorrectMarks}
+                      onChange={e => setEditCorrectMarks(parseFloat(e.target.value) || 0)}
+                      className="w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-1.5 text-white"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-slate-400 mb-1">Penalty (-)</label>
+                    <input
+                      type="number"
+                      step="0.001"
+                      value={editIncorrectMarks}
+                      onChange={e => setEditIncorrectMarks(parseFloat(e.target.value) || 0)}
+                      className="w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-1.5 text-white"
+                    />
+                  </div>
+                </div>
+              )}
+            </div>
+
+            <div className="flex items-center justify-end gap-2 pt-2">
+              <button
+                onClick={() => setEditingPaper(null)}
+                className="px-4 py-2 rounded-xl text-xs font-semibold text-slate-400 hover:bg-slate-800"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleSaveEdit}
+                className="px-5 py-2 rounded-xl bg-indigo-600 text-xs font-bold text-white hover:bg-indigo-500 shadow-md"
+              >
+                Save Changes
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
