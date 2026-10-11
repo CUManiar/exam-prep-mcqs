@@ -38,8 +38,11 @@ export async function DELETE(
       if (targetPaper.exsUrl) await deleteFile(targetPaper.exsUrl);
 
       delete customMeta[cleanId];
-      await writeJsonStore('papers.json', customMeta);
     }
+
+    // Record tombstone so built-in INITIAL_PAPERS with this id also stay deleted
+    customMeta[`__deleted_${cleanId}`] = { deletedAt: new Date().toISOString() };
+    await writeJsonStore('papers.json', customMeta);
 
     return NextResponse.json({ ok: true, deletedId: cleanId });
   } catch (err: any) {

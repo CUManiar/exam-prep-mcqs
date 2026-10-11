@@ -70,9 +70,10 @@ export async function GET(req: NextRequest) {
       }
     }
 
-    // 3. Add built-in INITIAL_PAPERS if not already present
+    // 3. Add built-in INITIAL_PAPERS if not already present and not deleted by user
     for (const initPaper of INITIAL_PAPERS) {
-      if (!allPapers.some(p => p.id === initPaper.id)) {
+      const isDeleted = Boolean(customMeta[`__deleted_${initPaper.id.toLowerCase()}`]);
+      if (!allPapers.some(p => p.id === initPaper.id) && !isDeleted) {
         allPapers.push(initPaper);
       }
     }

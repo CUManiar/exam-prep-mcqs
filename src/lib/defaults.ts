@@ -29,6 +29,18 @@ export function getStandardTimeMinutes(category?: string, examType?: string): nu
   return (category === 'prelims' || examType === 'objective') ? 120 : 180;
 }
 
+export function hasAnswerKey(paper: QuestionPaper): boolean {
+  if (paper.examType === 'subjective') return false;
+  if (paper.answerKey && Object.keys(paper.answerKey).length > 0) return true;
+  if (paper.answerKeyText && paper.answerKeyText.trim().length > 0) return true;
+  if (paper.akUrl && paper.akUrl.trim().length > 0) return true;
+  return false;
+}
+
+export function hasSolution(paper: QuestionPaper): boolean {
+  return Boolean(paper.exsUrl && paper.exsUrl.trim().length > 0);
+}
+
 export function formatDateTime(isoString: string): string {
   try {
     const d = new Date(isoString);

@@ -184,6 +184,38 @@ export async function updatePaperOnServer(paperId: string, updates: Partial<Ques
   return false;
 }
 
+// Attach answer key and/or solution to paper on server
+export async function attachToPaperOnServer(
+  paperId: string,
+  formData: FormData
+): Promise<QuestionPaper | null> {
+  try {
+    const res = await fetch(`/api/papers/${paperId}/attach`, {
+      method: 'POST',
+      body: formData,
+    });
+    if (res.ok) {
+      const data = await res.json();
+      if (data.ok && data.paper) {
+        if (typeof window !== 'undefined') {
+          const list = getCustomPapers();
+          const idx = list.findIndex(p => p.id === paperId);
+          if (idx >= 0) {
+            list[idx] = data.paper;
+          } else {
+            list.unshift(data.paper);
+          }
+          localStorage.setItem(STORAGE_KEYS.CUSTOM_PAPERS, JSON.stringify(list));
+        }
+        return data.paper;
+      }
+    }
+  } catch (err) {
+    console.error('Failed to attach to paper on server:', err);
+  }
+  return null;
+}
+
 // Fetch all papers from server filesystem + metadata store and ensure answer keys are parsed
 export async function getAllPapers(): Promise<QuestionPaper[]> {
   let papers: QuestionPaper[] = [];
