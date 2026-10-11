@@ -67,6 +67,7 @@ export interface Attempt {
   answers: Record<number, QuestionAnswer>;
   generalNotes?: string;
   userSubmissionPdfUrl?: string; // For subjective Mains handwritten answers
+  idleTimeSeconds?: number;      // Reading instructions, cover page & non-question buffer time
 }
 
 export type ActivePage = 'dashboard' | 'papers' | 'session' | 'history' | 'upload' | 'attempt-detail';
@@ -75,9 +76,10 @@ export interface ActiveSessionDraft {
   paperId: string;
   paperLabel: string;
   mode: 'practice' | 'mock';
-  currentQuestion: number;
+  currentQuestion: number | null;
   answers: Record<number, QuestionAnswer>;
   elapsedSeconds: number;
   qTimeSpent: Record<number, number>;
+  idleTimeSeconds?: number;
   pausedAt: string;
 }

@@ -113,8 +113,9 @@ export function AttemptDetailView({
   const grossCorrectMarks = attempt.correct * attempt.correctMarks;
   const negativePenaltyMarks = attempt.incorrect * attempt.incorrectMarks;
 
+  const activeSolvingSeconds = Math.max(0, attempt.durationSeconds - (attempt.idleTimeSeconds || 0));
   const avgTimePerQ = attempt.avgTimePerQuestion || 
-    (attempt.answered > 0 ? Math.round(attempt.durationSeconds / attempt.answered) : 0);
+    (attempt.answered > 0 ? Math.round(activeSolvingSeconds / attempt.answered) : 0);
   const avgTimeCorrect = attempt.avgTimeCorrect || 0;
   const avgTimeIncorrect = attempt.avgTimeIncorrect || 0;
 
@@ -406,6 +407,14 @@ export function AttemptDetailView({
                 {slowQuestions.length} questions
               </span>
             </div>
+            {attempt.idleTimeSeconds !== undefined && attempt.idleTimeSeconds > 0 && (
+              <div className="flex items-center justify-between p-2.5 rounded-xl bg-slate-950 border border-slate-800">
+                <span className="text-slate-400">Instructions / Overview:</span>
+                <span className="font-bold text-indigo-300 font-mono">
+                  {formatTimeSeconds(attempt.idleTimeSeconds)}
+                </span>
+              </div>
+            )}
           </div>
         </div>
 

@@ -45,9 +45,10 @@ export function ExamSessionView({
   onFinish,
   onExit,
 }: ExamSessionViewProps) {
-  const [currentQuestion, setCurrentQuestion] = useState<number>(initialDraft?.currentQuestion || 1);
+  const [currentQuestion, setCurrentQuestion] = useState<number | null>(initialDraft?.currentQuestion ?? null);
   const [answers, setAnswers] = useState<Record<number, QuestionAnswer>>(initialDraft?.answers || {});
   const [elapsedSeconds, setElapsedSeconds] = useState<number>(initialDraft?.elapsedSeconds || 0);
+  const [idleTimeSeconds, setIdleTimeSeconds] = useState<number>(initialDraft?.idleTimeSeconds || 0);
   const [qTimeSpent, setQTimeSpent] = useState<Record<number, number>>(initialDraft?.qTimeSpent || {});
   const [filterMode, setFilterMode] = useState<'all' | 'attempted' | 'unattempted' | 'flagged'>('all');
   const [showNoteBox, setShowNoteBox] = useState<boolean>(false);
@@ -167,12 +168,16 @@ export function ExamSessionView({
     const timer = setInterval(() => {
       setElapsedSeconds(prev => prev + 1);
 
-      // In Mock Mode ONLY: track time taken on active question
+      // In Mock Mode ONLY: track time taken on active question or idle/overview time
       if (mode === 'mock' && !isSubjective) {
-        setQTimeSpent(prev => ({
-          ...prev,
-          [currentQuestion]: (prev[currentQuestion] || 0) + 1,
-        }));
+        if (currentQuestion !== null) {
+          setQTimeSpent(prev => ({
+            ...prev,
+            [currentQuestion]: (prev[currentQuestion] || 0) + 1,
+          }));
+        } else {
+          setIdleTimeSeconds(prev => prev + 1);
+        }
       }
     }, 1000);
     return () => clearInterval(timer);
@@ -290,6 +295,7 @@ export function ExamSessionView({
       answers,
       elapsedSeconds,
       qTimeSpent,
+      idleTimeSeconds,
       pausedAt: new Date().toISOString(),
     };
     saveActiveDraft(draft);
@@ -430,8 +436,9 @@ export function ExamSessionView({
     const maxScore = paper.totalMarks;
     const accuracyPct = attemptedCount > 0 ? (correctCount / attemptedCount) * 100 : 0;
 
+    const activeQuestionSeconds = Math.max(0, elapsedSeconds - idleTimeSeconds);
     const avgTimePerQuestion = attemptedCount > 0 
-      ? Math.round((elapsedSeconds / attemptedCount)) 
+      ? Math.round((activeQuestionSeconds / attemptedCount)) 
       : 0;
     const avgTimeCorrect = correctCount > 0 
       ? Math.round(timeCorrectSum / correctCount) 
@@ -455,6 +462,7 @@ export function ExamSessionView({
       incorrectMarks: paper.incorrectMarks,
       timeMinutes: paper.timeMinutes,
       durationSeconds: elapsedSeconds,
+      idleTimeSeconds,
       overtimeSeconds: isOvertime ? overtimeSeconds : 0,
       answered: attemptedCount,
       correct: correctCount,
@@ -476,8 +484,8 @@ export function ExamSessionView({
     onFinish(attempt);
   };
 
-  const currentQObj = answers[currentQuestion] || {
-    questionNo: currentQuestion,
+  const currentQObj = (currentQuestion !== null ? answers[currentQuestion] : undefined) || {
+    questionNo: currentQuestion || 1,
     selected: null,
     flagged: false,
     note: '',
@@ -607,7 +615,7 @@ export function ExamSessionView({
                 mobileTab === 'omr' ? 'bg-indigo-600 text-white' : 'text-slate-400 hover:text-slate-200'
               }`}
             >
-              OMR (Q{currentQuestion})
+              OMR {currentQuestion !== null ? `(Q${currentQuestion})` : ''}
             </button>
           </div>
         </div>
@@ -633,85 +641,107 @@ export function ExamSessionView({
           {/* Quick-Answer Sticky Bar when viewing full-screen Paper on Mobile/Tablet */}
           {mobileTab === 'paper' && (
             <div className="lg:hidden sticky bottom-0 z-30 flex items-center justify-between bg-slate-900/95 backdrop-blur-md border-t border-slate-800 p-2 gap-2 shadow-2xl shrink-0">
-              <div className="flex items-center gap-1 shrink-0">
-                <button
-                  disabled={currentQuestion <= 1}
-                  onClick={() => setCurrentQuestion(prev => Math.max(1, prev - 1))}
-                  className="p-1.5 rounded-lg bg-slate-800 border border-slate-700 text-slate-300 disabled:opacity-40"
-                >
-                  <ChevronLeft className="h-4 w-4" />
-                </button>
-                <span className="text-xs font-bold text-white px-1">
-                  Q{currentQuestion}
-                </span>
-                <button
-                  disabled={currentQuestion >= paper.totalQuestions}
-                  onClick={() => setCurrentQuestion(prev => Math.min(paper.totalQuestions, prev + 1))}
-                  className="p-1.5 rounded-lg bg-slate-800 border border-slate-700 text-slate-300 disabled:opacity-40"
-                >
-                  <ChevronRight className="h-4 w-4" />
-                </button>
-              </div>
-
-              {/* Quick Options A, B, C, D */}
-              {!isSubjective ? (
-                <div className="grid grid-cols-4 gap-1 flex-1 max-w-[200px] xs:max-w-[240px]">
-                  {['A', 'B', 'C', 'D'].map(opt => {
-                    const isSelected = currentQObj.selected?.toUpperCase() === opt;
-                    const correctAns = getCorrectAnswerForQ(currentQuestion);
-                    const isRevealed = revealedAnswers[currentQuestion];
-                    const isCorrectChoice = correctAns && opt === correctAns;
-
-                    let s = 'bg-slate-950 border-slate-800 text-slate-200 hover:border-slate-700';
-                    if (isSelected) s = 'bg-indigo-600 border-indigo-500 text-white font-bold ring-2 ring-indigo-500/40';
-
-                    // Practice mode live feedback: red for wrong, green for correct!
-                    if (isPractice) {
-                      if (currentQObj.selected && correctAns) {
-                        if (isSelected) {
-                          s = isCorrectChoice
-                            ? 'bg-emerald-600 border-emerald-500 text-white font-bold'
-                            : 'bg-rose-600 border-rose-500 text-white font-bold';
-                        } else if (isCorrectChoice) {
-                          s = 'bg-emerald-950/80 border-emerald-500 text-emerald-300 font-bold ring-1 ring-emerald-500';
-                        }
-                      } else if (isRevealed && isCorrectChoice) {
-                        s = 'bg-emerald-950/80 border-emerald-500 text-emerald-300 font-bold ring-1 ring-emerald-500';
-                      }
-                    }
-                    return (
-                      <button
-                        key={opt}
-                        onClick={() => handleSelectOption(currentQuestion, opt)}
-                        className={`h-9 rounded-lg border text-xs font-bold flex items-center justify-center transition-all ${s}`}
-                      >
-                        {opt}
-                      </button>
-                    );
-                  })}
+              {currentQuestion === null ? (
+                <div className="flex items-center justify-between w-full gap-2">
+                  <div className="flex items-center gap-1.5 min-w-0">
+                    <span className="text-[11px] sm:text-xs text-slate-300 font-medium truncate">
+                      📖 Instructions / Reading Buffer
+                    </span>
+                    <span className="text-[10px] font-mono text-indigo-300 shrink-0">
+                      ⏱ {formatTimeSeconds(idleTimeSeconds)}
+                    </span>
+                  </div>
+                  <button
+                    onClick={() => setCurrentQuestion(1)}
+                    className="px-3 py-1.5 rounded-lg bg-indigo-600 text-white font-bold text-xs flex items-center gap-1 shadow-md shadow-indigo-600/30 shrink-0"
+                  >
+                    <span>Start Q1</span>
+                    <ArrowRight className="h-3.5 w-3.5" />
+                  </button>
                 </div>
               ) : (
-                <span className="text-[11px] text-violet-300 truncate">Mains question</span>
-              )}
+                <>
+                  <div className="flex items-center gap-1 shrink-0">
+                    <button
+                      disabled={currentQuestion <= 1}
+                      onClick={() => setCurrentQuestion(prev => Math.max(1, (prev || 1) - 1))}
+                      className="p-1.5 rounded-lg bg-slate-800 border border-slate-700 text-slate-300 disabled:opacity-40"
+                    >
+                      <ChevronLeft className="h-4 w-4" />
+                    </button>
+                    <span className="text-xs font-bold text-white px-1">
+                      Q{currentQuestion}
+                    </span>
+                    <button
+                      disabled={currentQuestion >= paper.totalQuestions}
+                      onClick={() => setCurrentQuestion(prev => Math.min(paper.totalQuestions, (prev || 1) + 1))}
+                      className="p-1.5 rounded-lg bg-slate-800 border border-slate-700 text-slate-300 disabled:opacity-40"
+                    >
+                      <ChevronRight className="h-4 w-4" />
+                    </button>
+                  </div>
 
-              <div className="flex items-center gap-1 shrink-0">
-                <button
-                  onClick={() => handleToggleFlag(currentQuestion)}
-                  className={`p-1.5 rounded-lg border text-xs ${
-                    currentQObj.flagged
-                      ? 'bg-amber-500/20 text-amber-300 border-amber-500/50'
-                      : 'bg-slate-950 border-slate-800 text-slate-400'
-                  }`}
-                >
-                  <Bookmark className={`h-4 w-4 ${currentQObj.flagged ? 'fill-amber-400' : ''}`} />
-                </button>
-                <button
-                  onClick={() => setMobileTab('omr')}
-                  className="px-2 py-1.5 rounded-lg bg-indigo-600/20 border border-indigo-500/40 text-indigo-300 text-xs font-bold whitespace-nowrap"
-                >
-                  OMR →
-                </button>
-              </div>
+                  {/* Quick Options A, B, C, D */}
+                  {!isSubjective ? (
+                    <div className="grid grid-cols-4 gap-1 flex-1 max-w-[200px] xs:max-w-[240px]">
+                      {['A', 'B', 'C', 'D'].map(opt => {
+                        const isSelected = currentQObj.selected?.toUpperCase() === opt;
+                        const correctAns = getCorrectAnswerForQ(currentQuestion);
+                        const isRevealed = revealedAnswers[currentQuestion];
+                        const isCorrectChoice = correctAns && opt === correctAns;
+
+                        let s = 'bg-slate-950 border-slate-800 text-slate-200 hover:border-slate-700';
+                        if (isSelected) s = 'bg-indigo-600 border-indigo-500 text-white font-bold ring-2 ring-indigo-500/40';
+
+                        // Practice mode live feedback: red for wrong, green for correct!
+                        if (isPractice) {
+                          if (currentQObj.selected && correctAns) {
+                            if (isSelected) {
+                              s = isCorrectChoice
+                                ? 'bg-emerald-600 border-emerald-500 text-white font-bold'
+                                : 'bg-rose-600 border-rose-500 text-white font-bold';
+                            } else if (isCorrectChoice) {
+                              s = 'bg-emerald-950/80 border-emerald-500 text-emerald-300 font-bold ring-1 ring-emerald-500';
+                            }
+                          } else if (isRevealed && isCorrectChoice) {
+                            s = 'bg-emerald-950/80 border-emerald-500 text-emerald-300 font-bold ring-1 ring-emerald-500';
+                          }
+                        }
+                        return (
+                          <button
+                            key={opt}
+                            onClick={() => handleSelectOption(currentQuestion, opt)}
+                            className={`h-9 rounded-lg border text-xs font-bold flex items-center justify-center transition-all ${s}`}
+                          >
+                            {opt}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  ) : (
+                    <span className="text-[11px] text-violet-300 truncate">Mains question</span>
+                  )}
+
+                  <div className="flex items-center gap-1 shrink-0">
+                    <button
+                      onClick={() => handleToggleFlag(currentQuestion)}
+                      className={`p-1.5 rounded-lg border text-xs ${
+                        currentQObj.flagged
+                          ? 'bg-amber-500/20 text-amber-300 border-amber-500/50'
+                          : 'bg-slate-950 border-slate-800 text-slate-400'
+                      }`}
+                    >
+                      <Bookmark className={`h-4 w-4 ${currentQObj.flagged ? 'fill-amber-400' : ''}`} />
+                    </button>
+                    <button
+                      onClick={() => setMobileTab('omr')}
+                      className="px-2 py-1.5 rounded-lg bg-indigo-600/20 border border-indigo-500/40 text-indigo-300 text-xs font-bold whitespace-nowrap"
+                    >
+                      OMR →
+                    </button>
+                  </div>
+                </>
+              )}
             </div>
           )}
         </div>
@@ -727,31 +757,76 @@ export function ExamSessionView({
           
           {/* Active Question Top Card */}
           <div className="border-b border-slate-800/80 p-3.5 sm:p-5 bg-[#0e1424] shrink-0 overflow-y-auto max-h-[50%] lg:max-h-none">
-            <div className="flex items-center justify-between gap-2">
-              <div className="flex items-center gap-1.5 sm:gap-2">
-                <span className="text-base sm:text-xl font-bold text-white">
-                  Question {currentQuestion}
-                </span>
-                <span className="text-xs text-slate-400">of {paper.totalQuestions}</span>
-                {mode === 'mock' && !isSubjective && (
-                  <span className="rounded bg-slate-800 px-1.5 sm:px-2 py-0.5 text-[10px] sm:text-[11px] font-mono text-indigo-300">
-                    ⏱ {qTimeSpent[currentQuestion] || 0}s
+            {currentQuestion === null ? (
+              <div className="space-y-4 py-1">
+                <div className="flex items-center justify-between gap-2">
+                  <div className="flex items-center gap-2">
+                    <span className="text-base sm:text-lg font-bold text-white">
+                      Instructions & Paper Overview
+                    </span>
+                  </div>
+                  <span className="rounded bg-indigo-950/60 border border-indigo-800/40 px-2 py-0.5 text-[10px] sm:text-xs font-mono text-indigo-300">
+                    ⏱ Buffer: {formatTimeSeconds(idleTimeSeconds)}
                   </span>
-                )}
-              </div>
+                </div>
 
-              <div className="flex items-center gap-1.5">
-                <button
-                  onClick={() => handleToggleFlag(currentQuestion)}
-                  className={`flex items-center gap-1 rounded-lg px-2 sm:px-3 py-1 sm:py-1.5 text-xs font-semibold transition-all border ${
-                    currentQObj.flagged
-                      ? 'bg-amber-500/20 text-amber-300 border-amber-500/50'
-                      : 'border-slate-800 bg-slate-900 text-slate-400 hover:text-slate-200'
-                  }`}
-                >
-                  <Bookmark className={`h-3 w-3 sm:h-3.5 sm:w-3.5 ${currentQObj.flagged ? 'fill-amber-400' : ''}`} />
-                  <span className="hidden xs:inline">Flag</span>
-                </button>
+                <div className="rounded-xl border border-indigo-500/20 bg-indigo-950/20 p-3.5 sm:p-4 text-xs text-slate-300 space-y-2">
+                  <p className="font-semibold text-white">
+                    📖 Reading instructions or scanning questions?
+                  </p>
+                  <p className="text-[11px] sm:text-xs text-slate-400 leading-relaxed">
+                    Overall exam timer is active. Time spent before choosing a question is recorded as <strong>Instructions & Overview Time</strong>. Question 1 will <span className="text-emerald-400 font-semibold">not</span> be charged or inflated for this initial reading period.
+                  </p>
+                  <p className="text-[11px] text-slate-400">
+                    Click <strong>Start Question 1</strong> or tap any question number in the palette below when you are ready to begin answering.
+                  </p>
+                </div>
+
+                <div className="flex items-center gap-3 pt-1">
+                  <button
+                    onClick={() => setCurrentQuestion(1)}
+                    className="flex-1 rounded-xl bg-indigo-600 px-4 py-2.5 text-xs sm:text-sm font-bold text-white shadow-md shadow-indigo-600/30 hover:bg-indigo-500 transition-all flex items-center justify-center gap-2"
+                  >
+                    <span>Start Solving (Question 1)</span>
+                    <ArrowRight className="h-4 w-4" />
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <>
+                <div className="flex items-center justify-between gap-2">
+                  <div className="flex items-center gap-1.5 sm:gap-2">
+                    <span className="text-base sm:text-xl font-bold text-white">
+                      Question {currentQuestion}
+                    </span>
+                    <span className="text-xs text-slate-400">of {paper.totalQuestions}</span>
+                    {mode === 'mock' && !isSubjective && (
+                      <span className="rounded bg-slate-800 px-1.5 sm:px-2 py-0.5 text-[10px] sm:text-[11px] font-mono text-indigo-300">
+                        ⏱ {qTimeSpent[currentQuestion] || 0}s
+                      </span>
+                    )}
+                  </div>
+
+                  <div className="flex items-center gap-1.5">
+                    <button
+                      onClick={() => setCurrentQuestion(null)}
+                      title="Return to reading buffer"
+                      className="rounded-lg border border-slate-800 bg-slate-900 px-2 py-1 text-[11px] text-slate-400 hover:text-slate-200 transition-colors hidden sm:inline-flex"
+                    >
+                      Instructions Buffer
+                    </button>
+
+                    <button
+                      onClick={() => handleToggleFlag(currentQuestion)}
+                      className={`flex items-center gap-1 rounded-lg px-2 sm:px-3 py-1 sm:py-1.5 text-xs font-semibold transition-all border ${
+                        currentQObj.flagged
+                          ? 'bg-amber-500/20 text-amber-300 border-amber-500/50'
+                          : 'border-slate-800 bg-slate-900 text-slate-400 hover:text-slate-200'
+                      }`}
+                    >
+                      <Bookmark className={`h-3 w-3 sm:h-3.5 sm:w-3.5 ${currentQObj.flagged ? 'fill-amber-400' : ''}`} />
+                      <span className="hidden xs:inline">Flag</span>
+                    </button>
 
                 <button
                   onClick={() => setShowNoteBox(!showNoteBox)}
@@ -1059,7 +1134,7 @@ export function ExamSessionView({
             <div className="mt-3 flex items-center justify-between pt-1">
               <button
                 disabled={currentQuestion <= 1}
-                onClick={() => setCurrentQuestion(prev => Math.max(1, prev - 1))}
+                onClick={() => setCurrentQuestion(prev => Math.max(1, (prev || 1) - 1))}
                 className="flex items-center gap-1 rounded-xl border border-slate-800 bg-slate-900 px-3 py-1.5 text-xs font-semibold text-slate-300 hover:bg-slate-800 disabled:opacity-40 disabled:pointer-events-none transition-colors"
               >
                 <ChevronLeft className="h-3.5 w-3.5" /> Prev
@@ -1076,12 +1151,14 @@ export function ExamSessionView({
 
               <button
                 disabled={currentQuestion >= paper.totalQuestions}
-                onClick={() => setCurrentQuestion(prev => Math.min(paper.totalQuestions, prev + 1))}
+                onClick={() => setCurrentQuestion(prev => Math.min(paper.totalQuestions, (prev || 1) + 1))}
                 className="flex items-center gap-1 rounded-xl border border-slate-800 bg-slate-900 px-3 py-1.5 text-xs font-semibold text-slate-300 hover:bg-slate-800 disabled:opacity-40 disabled:pointer-events-none transition-colors"
               >
                 Next <ChevronRight className="h-3.5 w-3.5" />
               </button>
             </div>
+              </>
+            )}
           </div>
 
           {/* Question Palette Section - Responsive Grid with Correct Red/Green State in Practice */}
@@ -1115,7 +1192,7 @@ export function ExamSessionView({
             <div className="grid grid-cols-5 sm:grid-cols-6 md:grid-cols-8 gap-1.5 sm:gap-2">
               {filteredQuestionNumbers.map(qNo => {
                 const q = answers[qNo];
-                const isCurrent = qNo === currentQuestion;
+                const isCurrent = currentQuestion !== null && qNo === currentQuestion;
                 const isAnswered = isQuestionAnswered(q);
                 const isFlagged = q?.flagged;
 
@@ -1180,7 +1257,7 @@ export function ExamSessionView({
             <div className="grid grid-cols-2 gap-2 rounded-xl bg-slate-950 p-3 text-xs border border-slate-800">
               <div>
                 <span className="block text-slate-500 text-[11px]">Progress</span>
-                <span className="font-bold text-white">Q{currentQuestion} of {paper.totalQuestions}</span>
+                <span className="font-bold text-white">{currentQuestion !== null ? `Q${currentQuestion}` : 'Overview'} of {paper.totalQuestions}</span>
               </div>
               <div>
                 <span className="block text-slate-500 text-[11px]">Time Remaining</span>
