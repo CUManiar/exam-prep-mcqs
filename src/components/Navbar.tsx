@@ -99,41 +99,41 @@ export function Navbar({ activePage, onNavigate, onDataReload, isInExam: propIsI
   };
 
   return (
-    <header className="sticky top-0 z-40 w-full border-b border-slate-800 bg-slate-950/95 backdrop-blur-md">
+    <header className="sticky top-0 z-40 w-full border-b border-slate-200/80 bg-white/95 backdrop-blur-md shadow-[0_1px_2px_0_rgba(0,0,0,0.03)]">
       <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-4 sm:px-6 lg:px-8 gap-4">
         
         {/* Brand / Logo with UPSC Emblem */}
         <Link 
           href="/"
           onClick={() => onNavigate && onNavigate('dashboard')}
-          className="cursor-pointer flex items-center gap-2.5 text-left group focus:outline-none shrink-0"
+          className="cursor-pointer flex items-center gap-3 text-left group focus:outline-none shrink-0"
         >
-          <div className="relative flex h-10 w-10 items-center justify-center rounded-xl bg-slate-900 border border-slate-800 p-1 group-hover:scale-105 transition-transform overflow-hidden shadow-inner">
+          <div className="relative flex h-10 w-10 items-center justify-center rounded-xl bg-slate-50 border border-slate-200 p-1 group-hover:scale-105 transition-transform overflow-hidden shadow-xs">
             <img
               src="/upsc_logo.png"
               alt="UPSC Logo"
-              className="h-full w-full object-contain filter drop-shadow"
+              className="h-full w-full object-contain filter drop-shadow-xs"
             />
           </div>
           <div>
-            <span className="block text-sm font-extrabold tracking-tight text-white group-hover:text-indigo-400 transition-colors whitespace-nowrap">
+            <span className="block text-sm font-extrabold tracking-tight text-slate-900 group-hover:text-indigo-600 transition-colors whitespace-nowrap">
               UPSC Prep Hub
             </span>
-            <span className="block text-[10px] font-semibold text-indigo-400 uppercase tracking-wider whitespace-nowrap">
+            <span className="block text-[10px] font-bold text-indigo-600 uppercase tracking-wider whitespace-nowrap">
               Prelims • Mains
             </span>
           </div>
         </Link>
 
-        {/* Navigation Links - Single line, no wrapping */}
+        {/* Navigation Links - Single line, spacious & clear */}
         <nav className="hidden lg:flex items-center gap-1.5 shrink-0">
           <Link
             href="/"
             onClick={() => onNavigate && onNavigate('dashboard')}
-            className={`cursor-pointer flex items-center gap-2 rounded-xl px-3.5 py-2 text-xs font-bold whitespace-nowrap transition-all ${
+            className={`cursor-pointer flex items-center gap-2 rounded-xl px-3.5 py-2 text-xs font-semibold whitespace-nowrap transition-all ${
               currentTab === 'dashboard'
-                ? 'bg-indigo-600/20 text-indigo-300 border border-indigo-500/40 shadow-sm'
-                : 'text-slate-400 hover:bg-slate-900 hover:text-slate-200'
+                ? 'bg-indigo-50 text-indigo-700 border border-indigo-200/70 shadow-xs'
+                : 'text-slate-600 hover:bg-slate-100/80 hover:text-slate-900'
             }`}
           >
             <LayoutDashboard className="h-4 w-4 shrink-0" />
@@ -143,10 +143,10 @@ export function Navbar({ activePage, onNavigate, onDataReload, isInExam: propIsI
           <Link
             href="/papers"
             onClick={() => onNavigate && onNavigate('papers')}
-            className={`cursor-pointer flex items-center gap-2 rounded-xl px-3.5 py-2 text-xs font-bold whitespace-nowrap transition-all ${
+            className={`cursor-pointer flex items-center gap-2 rounded-xl px-3.5 py-2 text-xs font-semibold whitespace-nowrap transition-all ${
               currentTab === 'papers'
-                ? 'bg-indigo-600/20 text-indigo-300 border border-indigo-500/40 shadow-sm'
-                : 'text-slate-400 hover:bg-slate-900 hover:text-slate-200'
+                ? 'bg-indigo-50 text-indigo-700 border border-indigo-200/70 shadow-xs'
+                : 'text-slate-600 hover:bg-slate-100/80 hover:text-slate-900'
             }`}
           >
             <BookOpen className="h-4 w-4 shrink-0" />
@@ -156,10 +156,10 @@ export function Navbar({ activePage, onNavigate, onDataReload, isInExam: propIsI
           <Link
             href="/history"
             onClick={() => onNavigate && onNavigate('history')}
-            className={`cursor-pointer flex items-center gap-2 rounded-xl px-3.5 py-2 text-xs font-bold whitespace-nowrap transition-all ${
+            className={`cursor-pointer flex items-center gap-2 rounded-xl px-3.5 py-2 text-xs font-semibold whitespace-nowrap transition-all ${
               currentTab === 'history' || currentTab === 'attempt-detail'
-                ? 'bg-indigo-600/20 text-indigo-300 border border-indigo-500/40 shadow-sm'
-                : 'text-slate-400 hover:bg-slate-900 hover:text-slate-200'
+                ? 'bg-indigo-50 text-indigo-700 border border-indigo-200/70 shadow-xs'
+                : 'text-slate-600 hover:bg-slate-100/80 hover:text-slate-900'
             }`}
           >
             <History className="h-4 w-4 shrink-0" />
@@ -169,10 +169,10 @@ export function Navbar({ activePage, onNavigate, onDataReload, isInExam: propIsI
           <Link
             href="/upload"
             onClick={() => onNavigate && onNavigate('upload')}
-            className={`cursor-pointer flex items-center gap-2 rounded-xl px-3.5 py-2 text-xs font-bold whitespace-nowrap transition-all ${
+            className={`cursor-pointer flex items-center gap-2 rounded-xl px-3.5 py-2 text-xs font-semibold whitespace-nowrap transition-all ${
               currentTab === 'upload'
-                ? 'bg-indigo-600/20 text-indigo-300 border border-indigo-500/40 shadow-sm'
-                : 'text-slate-400 hover:bg-slate-900 hover:text-slate-200'
+                ? 'bg-indigo-50 text-indigo-700 border border-indigo-200/70 shadow-xs'
+                : 'text-slate-600 hover:bg-slate-100/80 hover:text-slate-900'
             }`}
           >
             <UploadCloud className="h-4 w-4 shrink-0" />
@@ -184,8 +184,8 @@ export function Navbar({ activePage, onNavigate, onDataReload, isInExam: propIsI
         <div className="flex items-center gap-2.5 shrink-0">
           
           {/* Always Visible Current Date & Time (One Line Only) */}
-          <div className="hidden sm:flex items-center gap-2 rounded-xl border border-slate-800 bg-slate-900/70 px-3 py-1.5 text-xs font-mono text-slate-300 shadow-inner whitespace-nowrap shrink-0">
-            <Clock className="h-3.5 w-3.5 text-slate-400 shrink-0" />
+          <div className="hidden sm:flex items-center gap-2 rounded-xl border border-slate-200 bg-slate-50/90 px-3 py-1.5 text-xs font-mono text-slate-700 shadow-xs whitespace-nowrap shrink-0">
+            <Clock className="h-3.5 w-3.5 text-slate-500 shrink-0" />
             <span>{currentDateTime || 'Loading time...'}</span>
           </div>
 
@@ -194,34 +194,34 @@ export function Navbar({ activePage, onNavigate, onDataReload, isInExam: propIsI
             <button
               onClick={() => setShowBackupMenu(!showBackupMenu)}
               title="Backup & Export Data"
-              className="cursor-pointer flex items-center gap-1.5 rounded-xl border border-slate-800 bg-slate-900 px-3 py-1.5 text-xs font-semibold text-slate-300 hover:border-slate-700 hover:bg-slate-800 transition-all focus:outline-none whitespace-nowrap"
+              className="cursor-pointer flex items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 hover:border-slate-300 hover:bg-slate-50 transition-all focus:outline-none whitespace-nowrap shadow-xs"
             >
-              <Database className="h-3.5 w-3.5 text-slate-400 shrink-0" />
+              <Database className="h-3.5 w-3.5 text-slate-500 shrink-0" />
               <span>Backup</span>
             </button>
 
             {showBackupMenu && (
-              <div className="absolute right-0 mt-2 w-48 rounded-2xl border border-slate-800 bg-slate-900 p-2 shadow-2xl z-50 animate-in fade-in">
-                <div className="mb-2 px-2 py-1 rounded-lg bg-slate-950 border border-slate-800/80 text-[10px] font-semibold text-slate-400 flex items-center justify-between">
+              <div className="absolute right-0 mt-2 w-52 rounded-2xl border border-slate-200 bg-white p-2.5 shadow-xl z-50 animate-in fade-in">
+                <div className="mb-2 px-2.5 py-1.5 rounded-lg bg-slate-50 border border-slate-100 text-[10px] font-semibold text-slate-500 flex items-center justify-between">
                   <span>Target Env</span>
-                  <span className="flex items-center gap-1 font-mono text-xs font-bold text-indigo-400">
-                    <span className="h-1.5 w-1.5 rounded-full bg-emerald-400"></span>
+                  <span className="flex items-center gap-1.5 font-mono text-xs font-bold text-indigo-600">
+                    <span className="h-1.5 w-1.5 rounded-full bg-emerald-500"></span>
                     {(typeof window !== 'undefined' && localStorage.getItem('exam_prep_environment')) || 'PROD'}
                   </span>
                 </div>
                 {backupMsg && (
-                  <div className="mb-2 rounded-lg bg-emerald-500/10 p-1.5 text-[11px] font-semibold text-emerald-400 flex items-center gap-1">
+                  <div className="mb-2 rounded-lg bg-emerald-50 border border-emerald-200/60 p-1.5 text-[11px] font-semibold text-emerald-700 flex items-center gap-1">
                     <Check className="h-3.5 w-3.5" /> {backupMsg}
                   </div>
                 )}
                 <button
                   onClick={handleExport}
-                  className="cursor-pointer flex w-full items-center gap-2 rounded-xl p-2 text-xs font-semibold text-slate-200 hover:bg-slate-800 text-left"
+                  className="cursor-pointer flex w-full items-center gap-2.5 rounded-xl p-2 text-xs font-semibold text-slate-700 hover:bg-slate-100 text-left transition-colors"
                 >
-                  <Download className="h-3.5 w-3.5 text-indigo-400" /> Export JSON
+                  <Download className="h-4 w-4 text-indigo-600" /> Export JSON
                 </button>
-                <label className="cursor-pointer flex w-full items-center gap-2 rounded-xl p-2 text-xs font-semibold text-slate-200 hover:bg-slate-800 text-left">
-                  <Upload className="h-3.5 w-3.5 text-emerald-400" /> Import JSON
+                <label className="cursor-pointer flex w-full items-center gap-2.5 rounded-xl p-2 text-xs font-semibold text-slate-700 hover:bg-slate-100 text-left transition-colors">
+                  <Upload className="h-4 w-4 text-emerald-600" /> Import JSON
                   <input
                     type="file"
                     accept=".json"
@@ -237,12 +237,12 @@ export function Navbar({ activePage, onNavigate, onDataReload, isInExam: propIsI
 
       {/* Medium/Mobile Nav Bar - Hidden during active exam session */}
       {!isInExam && (
-        <div className="flex lg:hidden items-center justify-around border-t border-slate-900 bg-slate-950 px-3 py-2">
+        <div className="flex lg:hidden items-center justify-around border-t border-slate-200 bg-white px-3 py-2">
           <Link
             href="/"
             onClick={() => onNavigate && onNavigate('dashboard')}
             className={`cursor-pointer flex items-center gap-1.5 px-2.5 py-1 text-xs font-semibold rounded-lg ${
-              currentTab === 'dashboard' ? 'text-indigo-400 bg-indigo-950/40' : 'text-slate-400'
+              currentTab === 'dashboard' ? 'text-indigo-700 bg-indigo-50 font-bold' : 'text-slate-600'
             }`}
           >
             <LayoutDashboard className="h-3.5 w-3.5" />
@@ -252,7 +252,7 @@ export function Navbar({ activePage, onNavigate, onDataReload, isInExam: propIsI
             href="/papers"
             onClick={() => onNavigate && onNavigate('papers')}
             className={`cursor-pointer flex items-center gap-1.5 px-2.5 py-1 text-xs font-semibold rounded-lg ${
-              currentTab === 'papers' ? 'text-indigo-400 bg-indigo-950/40' : 'text-slate-400'
+              currentTab === 'papers' ? 'text-indigo-700 bg-indigo-50 font-bold' : 'text-slate-600'
             }`}
           >
             <BookOpen className="h-3.5 w-3.5" />
@@ -262,7 +262,7 @@ export function Navbar({ activePage, onNavigate, onDataReload, isInExam: propIsI
             href="/history"
             onClick={() => onNavigate && onNavigate('history')}
             className={`cursor-pointer flex items-center gap-1.5 px-2.5 py-1 text-xs font-semibold rounded-lg ${
-              currentTab === 'history' || currentTab === 'attempt-detail' ? 'text-indigo-400 bg-indigo-950/40' : 'text-slate-400'
+              currentTab === 'history' || currentTab === 'attempt-detail' ? 'text-indigo-700 bg-indigo-50 font-bold' : 'text-slate-600'
             }`}
           >
             <History className="h-3.5 w-3.5" />
@@ -272,7 +272,7 @@ export function Navbar({ activePage, onNavigate, onDataReload, isInExam: propIsI
             href="/upload"
             onClick={() => onNavigate && onNavigate('upload')}
             className={`cursor-pointer flex items-center gap-1.5 px-2.5 py-1 text-xs font-semibold rounded-lg ${
-              currentTab === 'upload' ? 'text-indigo-400 bg-indigo-950/40' : 'text-slate-400'
+              currentTab === 'upload' ? 'text-indigo-700 bg-indigo-50 font-bold' : 'text-slate-600'
             }`}
           >
             <UploadCloud className="h-3.5 w-3.5" />

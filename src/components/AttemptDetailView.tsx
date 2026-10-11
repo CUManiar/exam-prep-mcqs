@@ -241,7 +241,7 @@ export function AttemptDetailView({
   const skippedPct = Math.max(0, 100 - correctPct - incorrectPct);
 
   return (
-    <div className={`mx-auto ${showPaperSplit && matchedPaper?.qpUrl ? 'max-w-[1920px] px-3 sm:px-6' : 'max-w-5xl px-4 sm:px-6'} py-6 space-y-6 text-slate-100 font-sans animate-in fade-in duration-200 print:text-black print:bg-white print:p-0 print:space-y-4 print:max-w-none`}>
+    <div className={`mx-auto ${showPaperSplit && matchedPaper?.qpUrl ? 'max-w-[1920px] px-3 sm:px-6' : 'max-w-5xl px-4 sm:px-6'} py-6 space-y-6 text-slate-800 font-sans animate-in fade-in duration-200 print:text-black print:bg-white print:p-0 print:space-y-4 print:max-w-none`}>
       
       {/* Official Examination Header for Print & PDF Export */}
       <div className="hidden print:block pb-5 mb-5 border-b-2 border-slate-900 text-black">
@@ -272,22 +272,22 @@ export function AttemptDetailView({
       </div>
 
       {/* 1. Header Bar & Actions (Clean, restrained, professional) */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 border-b border-slate-800 pb-4 print:hidden">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 border-b border-slate-200/80 pb-4 print:hidden">
         <div className="flex items-center gap-3">
           <button
             onClick={onBack}
-            className="flex items-center gap-1.5 rounded-lg border border-slate-700 bg-slate-900 px-3 py-1.5 text-xs font-semibold text-slate-300 hover:bg-slate-800 hover:text-white transition-colors"
+            className="flex items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3.5 py-2 text-xs font-bold text-slate-700 hover:bg-slate-50 hover:text-slate-900 transition-colors shadow-xs"
           >
             <ArrowLeft className="h-3.5 w-3.5" /> Back
           </button>
           <div>
             <div className="flex items-center gap-2">
-              <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded bg-indigo-500/10 text-indigo-400 border border-indigo-500/20">
+              <span className="text-[10px] font-bold uppercase tracking-wider px-2.5 py-0.5 rounded-full bg-indigo-50 text-indigo-700 border border-indigo-200/60 font-mono">
                 Mock Assessment Report
               </span>
-              <span className="text-xs text-slate-400">{formatDateTime(attempt.startedAt)}</span>
+              <span className="text-xs text-slate-500 font-medium">{formatDateTime(attempt.startedAt)}</span>
             </div>
-            <h1 className="text-xl sm:text-2xl font-bold text-white tracking-tight mt-0.5">
+            <h1 className="text-xl sm:text-2xl font-extrabold text-slate-900 tracking-tight mt-0.5">
               {attempt.paperLabel}
             </h1>
           </div>
