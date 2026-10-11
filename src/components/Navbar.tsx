@@ -17,6 +17,9 @@ import {
   Database,
   Check,
   Sparkles,
+  LogIn,
+  LogOut,
+  User as UserIcon,
 } from "lucide-react";
 
 interface NavbarProps {
@@ -33,9 +36,16 @@ export function Navbar({
   isInExam: propIsInExam,
 }: NavbarProps) {
   const pathname = usePathname();
-  const { isPro, openProUpgradeModal } = useApp();
+  const {
+    isPro,
+    openProUpgradeModal,
+    currentUser,
+    openAuthModal,
+    handleSignOut,
+  } = useApp();
   const [currentDateTime, setCurrentDateTime] = useState<string>("");
   const [showBackupMenu, setShowBackupMenu] = useState<boolean>(false);
+  const [showUserMenu, setShowUserMenu] = useState<boolean>(false);
   const [backupMsg, setBackupMsg] = useState<string | null>(null);
 
   // Derive active tab from pathname
@@ -212,6 +222,66 @@ export function Navbar({
             >
               <Sparkles className="h-3.5 w-3.5 text-amber-200 fill-amber-200 shrink-0" />
               <span>Upgrade (₹999)</span>
+            </button>
+          )}
+
+          {/* User Auth Profile / Sign In */}
+          {currentUser ? (
+            <div className="relative shrink-0">
+              <button
+                onClick={() => setShowUserMenu(!showUserMenu)}
+                className="cursor-pointer flex items-center gap-1.5 rounded-xl border border-indigo-200 bg-indigo-50/70 hover:bg-indigo-100/70 px-2.5 py-1.5 text-xs font-semibold text-indigo-900 transition-colors shadow-2xs"
+              >
+                <div className="h-5 w-5 rounded-full bg-indigo-600 text-white flex items-center justify-center text-[10px] font-bold uppercase">
+                  {currentUser.email ? currentUser.email[0] : "U"}
+                </div>
+                <span className="hidden md:inline max-w-[120px] truncate text-[11px]">
+                  {currentUser.user_metadata?.full_name || currentUser.email?.split("@")[0]}
+                </span>
+              </button>
+
+              {showUserMenu && (
+                <div className="absolute right-0 mt-2 w-56 rounded-2xl border border-slate-200 bg-white p-2.5 shadow-xl z-50 animate-in fade-in">
+                  <div className="px-3 py-2 border-b border-slate-100">
+                    <p className="text-xs font-bold text-slate-800 truncate">
+                      {currentUser.user_metadata?.full_name || "Aspirant"}
+                    </p>
+                    <p className="text-[11px] text-slate-400 truncate font-mono">
+                      {currentUser.email}
+                    </p>
+                    <div className="mt-1.5 flex items-center gap-1">
+                      <span
+                        className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
+                          isPro
+                            ? "bg-amber-100 text-amber-800"
+                            : "bg-slate-100 text-slate-600"
+                        }`}
+                      >
+                        {isPro ? "⭐ Lifetime Pro Vault" : "Free Tier (2026)"}
+                      </span>
+                    </div>
+                  </div>
+                  <button
+                    onClick={async () => {
+                      setShowUserMenu(false);
+                      await handleSignOut();
+                    }}
+                    className="cursor-pointer flex w-full items-center gap-2 rounded-xl p-2 mt-1 text-xs font-semibold text-rose-600 hover:bg-rose-50 text-left transition-colors"
+                  >
+                    <LogOut className="h-3.5 w-3.5" />
+                    <span>Sign Out</span>
+                  </button>
+                </div>
+              )}
+            </div>
+          ) : (
+            <button
+              onClick={() => openAuthModal()}
+              className="cursor-pointer flex items-center gap-1.5 rounded-xl border border-slate-200 bg-white hover:border-indigo-300 hover:bg-slate-50 px-3 py-1.5 text-xs font-semibold text-slate-700 shadow-xs transition-colors whitespace-nowrap shrink-0"
+              title="Sign in to save your personal test history to the cloud"
+            >
+              <LogIn className="h-3.5 w-3.5 text-slate-500" />
+              <span>Sign In</span>
             </button>
           )}
 

@@ -25,7 +25,21 @@ import {
 } from "../lib/storage";
 import { ConfirmationModal } from "../components/ConfirmationModal";
 import { ProUpgradeModal } from "../components/ProUpgradeModal";
-import { isUserPro } from "../lib/razorpay";
+import { AuthModal } from "../components/AuthModal";
+import { isUserPro, setUserPro } from "../lib/razorpay";
+import { User } from "@supabase/supabase-js";
+import {
+  getSupabaseClient,
+  getCurrentUser,
+  getUserProfile,
+  updateUserProStatus,
+  fetchUserAttemptsFromSupabase,
+  saveUserAttemptToSupabase,
+  deleteUserAttemptFromSupabase,
+  fetchUserDraftFromSupabase,
+  saveUserDraftToSupabase,
+  clearUserDraftFromSupabase,
+} from "../lib/supabase";
 
 interface AppContextType {
   papers: QuestionPaper[];
@@ -33,7 +47,10 @@ interface AppContextType {
   activeDraft: ActiveSessionDraft | null;
   isLoading: boolean;
   isPro: boolean;
+  currentUser: User | null;
   openProUpgradeModal: (targetPaperLabel?: string) => void;
+  openAuthModal: () => void;
+  handleSignOut: () => Promise<void>;
   loadAllData: () => Promise<void>;
   handleStartExam: (paper: QuestionPaper, mode: "practice" | "mock") => void;
   handleResumeDraft: (draft: ActiveSessionDraft) => void;
@@ -58,6 +75,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   );
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [isPro, setIsPro] = useState<boolean>(false);
+  const [currentUser, setCurrentUser] = useState<User | null>(null);
+  const [authModalOpen, setAuthModalOpen] = useState<boolean>(false);
   const [proModalOpen, setProModalOpen] = useState<boolean>(false);
   const [proModalTarget, setProModalTarget] = useState<string | undefined>(undefined);
 
@@ -71,6 +90,19 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const openProUpgradeModal = (targetPaperLabel?: string) => {
     setProModalTarget(targetPaperLabel);
     setProModalOpen(true);
+  };
+
+  const openAuthModal = () => {
+    setAuthModalOpen(true);
+  };
+
+  const handleSignOut = async () => {
+    const supabase = getSupabaseClient();
+    if (supabase) {
+      await supabase.auth.signOut();
+    }
+    setCurrentUser(null);
+    await loadAllData();
   };
 
   // Modern Confirmation & Alert Modal state
@@ -90,14 +122,41 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   });
 
   const loadAllData = useCallback(async () => {
-    // 1. Initial local cache for instant render
+    setIsLoading(true);
+    const user = await getCurrentUser();
+    setCurrentUser(user);
+
+    if (user) {
+      // Authenticated User: Load their isolated attempts, drafts and profile from Supabase
+      try {
+        const [userAttempts, userDraft, loadedPapers, profile] = await Promise.all([
+          fetchUserAttemptsFromSupabase(user.id),
+          fetchUserDraftFromSupabase(user.id),
+          getAllPapers(),
+          getUserProfile(user.id),
+        ]);
+        setAttempts(userAttempts);
+        setActiveDraft(userDraft);
+        setPapers(loadedPapers);
+        if (profile?.is_pro) {
+          setUserPro(true);
+          setIsPro(true);
+        }
+      } catch (err) {
+        console.warn("Failed loading user data from Supabase:", err);
+      } finally {
+        setIsLoading(false);
+      }
+      return;
+    }
+
+    // Guest / Anonymous User: Isolated local storage fallback
     const cachedAttempts = getAttempts();
     setAttempts(cachedAttempts);
     const localDraft = getActiveDraft();
     setActiveDraft(localDraft);
 
     try {
-      // 2. Fetch server persisted attempts, papers & cross-device draft
       const [serverAttempts, loadedPapers, serverDraft] = await Promise.all([
         loadAttemptsFromServer(),
         getAllPapers(),
@@ -119,6 +178,28 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     loadAllData();
+
+    const supabase = getSupabaseClient();
+    if (!supabase) return;
+
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange(async (_event, session) => {
+      const user = session?.user || null;
+      setCurrentUser(user);
+      if (user) {
+        const profile = await getUserProfile(user.id);
+        if (profile?.is_pro) {
+          setUserPro(true);
+          setIsPro(true);
+        }
+      }
+      loadAllData();
+    });
+
+    return () => {
+      subscription.unsubscribe();
+    };
   }, [loadAllData]);
 
   // Start exam session - Gated for Freemium (Free: 2026 Prelims, Pro: 2011-2025 & Mains)
@@ -137,6 +218,9 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     const resumedDraft = { ...draft, isExited: false };
     saveActiveDraft(resumedDraft);
     setActiveDraft(resumedDraft);
+    if (currentUser) {
+      saveUserDraftToSupabase(resumedDraft, currentUser.id);
+    }
     router.push(
       `/exam?paperId=${encodeURIComponent(draft.paperId)}&mode=${draft.mode}`,
     );
@@ -155,6 +239,9 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       onConfirm: () => {
         clearActiveDraft();
         setActiveDraft(null);
+        if (currentUser) {
+          clearUserDraftFromSupabase(currentUser.id);
+        }
         setModalConfig((prev) => ({ ...prev, isOpen: false }));
       },
     });
@@ -165,9 +252,15 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     if (attempt.mode === "mock") {
       saveAttempt(attempt);
       setAttempts(getAttempts());
+      if (currentUser) {
+        saveUserAttemptToSupabase(attempt, currentUser.id);
+      }
     }
     clearActiveDraft();
     setActiveDraft(null);
+    if (currentUser) {
+      clearUserDraftFromSupabase(currentUser.id);
+    }
     router.push(`/history/${encodeURIComponent(attempt.id)}`);
   };
 
@@ -181,6 +274,9 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     if (updated.mode === "mock") {
       updateAttempt(updated.id, () => updated);
       setAttempts(getAttempts());
+      if (currentUser) {
+        saveUserAttemptToSupabase(updated, currentUser.id);
+      }
     }
   };
 
@@ -197,6 +293,9 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       onConfirm: () => {
         setModalConfig((prev) => ({ ...prev, isOpen: false }));
         deleteAttempt(attemptId);
+        if (currentUser) {
+          deleteUserAttemptFromSupabase(attemptId, currentUser.id);
+        }
         setAttempts(getAttempts());
         router.push("/history");
       },
@@ -243,7 +342,10 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         activeDraft,
         isLoading,
         isPro,
+        currentUser,
         openProUpgradeModal,
+        openAuthModal,
+        handleSignOut,
         loadAllData,
         handleStartExam,
         handleResumeDraft,
@@ -274,7 +376,18 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         isOpen={proModalOpen}
         onClose={() => setProModalOpen(false)}
         targetPaperLabel={proModalTarget}
-        onSuccess={() => setIsPro(true)}
+        onSuccess={async () => {
+          setIsPro(true);
+          if (currentUser) {
+            await updateUserProStatus(currentUser.id);
+          }
+        }}
+      />
+
+      <AuthModal
+        isOpen={authModalOpen}
+        onClose={() => setAuthModalOpen(false)}
+        onSuccess={() => loadAllData()}
       />
     </AppContext.Provider>
   );
