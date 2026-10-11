@@ -416,9 +416,9 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       // 2. Non-admin user: Hide paper from their dashboard ONLY (NEVER delete shared storage files!)
       setModalConfig({
         isOpen: true,
-        title: "Hide Paper from Dashboard?",
-        message: `Remove "${targetPaper?.label || "this paper"}" from your dashboard view? As an aspirant, this hides the paper from your view. Shared platform papers remain available for other students and are not deleted from storage.`,
-        confirmText: "Hide Paper",
+        title: "Remove Paper?",
+        message: `Are you sure you want to remove "${targetPaper?.label || "this paper"}"? It won't be visible for you anymore.`,
+        confirmText: "Remove Paper",
         cancelText: "Cancel",
         variant: "warning",
         onConfirm: async () => {

@@ -12,6 +12,8 @@ import {
   Loader2,
   Award,
   Zap,
+  Mail,
+  AlertCircle,
 } from "lucide-react";
 import { openRazorpayCheckout } from "../lib/razorpay";
 
@@ -189,10 +191,30 @@ export function ProUpgradeModal({
               </div>
             </div>
 
-            {/* Error Message */}
+            {/* Error Message with Support Link */}
             {errorMsg && (
-              <div className="rounded-xl border border-rose-200 bg-rose-50 p-3 text-xs text-rose-700 font-medium">
-                {errorMsg}
+              <div className="rounded-2xl border border-rose-200 bg-rose-50/90 p-4 space-y-2.5 text-xs text-rose-800 animate-in fade-in">
+                <div className="flex items-start gap-2.5">
+                  <AlertCircle className="h-4 w-4 text-rose-600 shrink-0 mt-0.5" />
+                  <div className="space-y-1">
+                    <p className="font-bold text-rose-900">
+                      Payment Incomplete or Interrupted
+                    </p>
+                    <p className="text-rose-700 leading-relaxed">{errorMsg}</p>
+                  </div>
+                </div>
+                <div className="pt-2 border-t border-rose-200/80 flex flex-wrap items-center justify-between gap-2">
+                  <span className="text-[11px] text-rose-600">
+                    If amount was debited or you need help:
+                  </span>
+                  <a
+                    href="mailto:support@chikoochi.com?subject=Payment%20Assistance%20-%20Upsc-Practice"
+                    className="cursor-pointer inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-rose-600 hover:bg-rose-700 text-white font-bold text-xs transition-colors shadow-2xs"
+                  >
+                    <Mail className="h-3.5 w-3.5" />
+                    <span>support@chikoochi.com</span>
+                  </a>
+                </div>
               </div>
             )}
 

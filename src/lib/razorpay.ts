@@ -175,16 +175,18 @@ export async function openRazorpayCheckout({
 
     const rzp = new (window as any).Razorpay(options);
     rzp.on("payment.failed", function (response: any) {
-      console.error("[Payment Failed]:", response.error);
-      const err = new Error(
-        response.error?.description || "Payment was unsuccessful or failed.",
-      );
+      console.warn("[Payment Failed Event]:", response?.error);
+      const failureReason =
+        response?.error?.description ||
+        response?.error?.reason ||
+        "Payment was unsuccessful or interrupted.";
+      const err = new Error(failureReason);
       if (onError) onError(err);
     });
 
     rzp.open();
   } catch (err: any) {
-    console.error("[Razorpay Checkout Error]:", err);
+    console.warn("[Razorpay Checkout Exception]:", err);
     if (onError) onError(err);
   }
 }
