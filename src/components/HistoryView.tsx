@@ -16,7 +16,6 @@ import {
   Target,
   Zap,
 } from "lucide-react";
-import { exportAttemptAsMarkdown } from "../lib/exportUtils";
 
 interface HistoryViewProps {
   attempts: Attempt[];
@@ -275,19 +274,7 @@ export function HistoryView({
                 </div>
 
                 {/* Bottom Actions */}
-                <div className="mt-5 pt-3 border-t border-slate-100 flex items-center justify-between text-xs">
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      exportAttemptAsMarkdown(att);
-                    }}
-                    title="Export Markdown Report"
-                    className="cursor-pointer flex items-center gap-1.5 text-[11px] font-bold text-slate-500 hover:text-indigo-600 transition-colors"
-                  >
-                    <Download className="h-3.5 w-3.5 text-indigo-500" />
-                    <span>Export MD</span>
-                  </button>
-
+                <div className="mt-5 pt-3 border-t border-slate-100 flex items-center justify-end text-xs">
                   <span className="text-indigo-600 group-hover:text-indigo-800 font-bold text-xs flex items-center gap-0.5 group-hover:translate-x-0.5 transition-transform">
                     Review Assessment <ChevronRight className="h-3.5 w-3.5" />
                   </span>

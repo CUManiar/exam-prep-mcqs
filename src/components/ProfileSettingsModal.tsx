@@ -38,6 +38,7 @@ export function ProfileSettingsModal({
     openProUpgradeModal,
     handleSignOut,
     openAuthModal,
+    loadAllData,
   } = useApp();
 
   const [activeTab, setActiveTab] = useState<"profile" | "settings">(
@@ -62,9 +63,15 @@ export function ProfileSettingsModal({
 
   const handleClearLocalCache = () => {
     try {
+      localStorage.removeItem("exam_prep_attempts_v2");
       localStorage.removeItem("upsc_prep_attempts_cache");
       localStorage.removeItem("upsc_prep_active_draft");
+      localStorage.removeItem("exam_prep_active_page_v1");
+      localStorage.removeItem("exam_prep_selected_attempt_id_v1");
+      localStorage.removeItem("exam_prep_custom_papers_v2");
+      localStorage.removeItem("exam_prep_is_pro_v1");
       setCacheClearedMsg(true);
+      if (loadAllData) loadAllData();
       setTimeout(() => setCacheClearedMsg(false), 2500);
     } catch (e) {
       console.error(e);

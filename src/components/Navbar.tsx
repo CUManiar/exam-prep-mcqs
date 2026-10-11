@@ -17,6 +17,7 @@ import {
   LogOut,
   User as UserIcon,
   Settings as SettingsIcon,
+  Lock,
 } from "lucide-react";
 
 interface NavbarProps {
@@ -122,47 +123,80 @@ export function Navbar({
             }`}
           >
             <LayoutDashboard className="h-4 w-4 shrink-0" />
-            <span>Dashboard</span>
+            <span>{currentUser ? "Dashboard" : "Home"}</span>
           </Link>
 
-          <Link
-            href="/papers"
-            onClick={() => onNavigate && onNavigate("papers")}
-            className={`cursor-pointer flex items-center gap-2 rounded-xl px-3.5 py-2 text-xs font-semibold whitespace-nowrap transition-all ${
-              currentTab === "papers"
-                ? "bg-indigo-50 text-indigo-700 border border-indigo-200/70 shadow-xs"
-                : "text-slate-600 hover:bg-slate-100/80 hover:text-slate-900"
-            }`}
-          >
-            <BookOpen className="h-4 w-4 shrink-0" />
-            <span>Question Papers</span>
-          </Link>
+          {currentUser ? (
+            <>
+              <Link
+                href="/papers"
+                onClick={() => onNavigate && onNavigate("papers")}
+                className={`cursor-pointer flex items-center gap-2 rounded-xl px-3.5 py-2 text-xs font-semibold whitespace-nowrap transition-all ${
+                  currentTab === "papers"
+                    ? "bg-indigo-50 text-indigo-700 border border-indigo-200/70 shadow-xs"
+                    : "text-slate-600 hover:bg-slate-100/80 hover:text-slate-900"
+                }`}
+              >
+                <BookOpen className="h-4 w-4 shrink-0" />
+                <span>Question Papers</span>
+              </Link>
 
-          <Link
-            href="/history"
-            onClick={() => onNavigate && onNavigate("history")}
-            className={`cursor-pointer flex items-center gap-2 rounded-xl px-3.5 py-2 text-xs font-semibold whitespace-nowrap transition-all ${
-              currentTab === "history" || currentTab === "attempt-detail"
-                ? "bg-indigo-50 text-indigo-700 border border-indigo-200/70 shadow-xs"
-                : "text-slate-600 hover:bg-slate-100/80 hover:text-slate-900"
-            }`}
-          >
-            <History className="h-4 w-4 shrink-0" />
-            <span>Mock History</span>
-          </Link>
+              <Link
+                href="/history"
+                onClick={() => onNavigate && onNavigate("history")}
+                className={`cursor-pointer flex items-center gap-2 rounded-xl px-3.5 py-2 text-xs font-semibold whitespace-nowrap transition-all ${
+                  currentTab === "history" || currentTab === "attempt-detail"
+                    ? "bg-indigo-50 text-indigo-700 border border-indigo-200/70 shadow-xs"
+                    : "text-slate-600 hover:bg-slate-100/80 hover:text-slate-900"
+                }`}
+              >
+                <History className="h-4 w-4 shrink-0" />
+                <span>Mock History</span>
+              </Link>
 
-          <Link
-            href="/upload"
-            onClick={() => onNavigate && onNavigate("upload")}
-            className={`cursor-pointer flex items-center gap-2 rounded-xl px-3.5 py-2 text-xs font-semibold whitespace-nowrap transition-all ${
-              currentTab === "upload"
-                ? "bg-indigo-50 text-indigo-700 border border-indigo-200/70 shadow-xs"
-                : "text-slate-600 hover:bg-slate-100/80 hover:text-slate-900"
-            }`}
-          >
-            <UploadCloud className="h-4 w-4 shrink-0" />
-            <span>Upload Paper</span>
-          </Link>
+              <Link
+                href="/upload"
+                onClick={() => onNavigate && onNavigate("upload")}
+                className={`cursor-pointer flex items-center gap-2 rounded-xl px-3.5 py-2 text-xs font-semibold whitespace-nowrap transition-all ${
+                  currentTab === "upload"
+                    ? "bg-indigo-50 text-indigo-700 border border-indigo-200/70 shadow-xs"
+                    : "text-slate-600 hover:bg-slate-100/80 hover:text-slate-900"
+                }`}
+              >
+                <UploadCloud className="h-4 w-4 shrink-0" />
+                <span>Upload Paper</span>
+              </Link>
+            </>
+          ) : (
+            <>
+              <button
+                onClick={() => openAuthModal()}
+                className="cursor-pointer flex items-center gap-1.5 rounded-xl px-3.5 py-2 text-xs font-semibold text-slate-500 hover:text-indigo-600 hover:bg-slate-100/80 transition-all whitespace-nowrap"
+                title="Sign in to access Question Papers Archive"
+              >
+                <Lock className="h-3.5 w-3.5 text-slate-400" />
+                <span>Question Papers</span>
+              </button>
+
+              <button
+                onClick={() => openAuthModal()}
+                className="cursor-pointer flex items-center gap-1.5 rounded-xl px-3.5 py-2 text-xs font-semibold text-slate-500 hover:text-indigo-600 hover:bg-slate-100/80 transition-all whitespace-nowrap"
+                title="Sign in to view your test history"
+              >
+                <Lock className="h-3.5 w-3.5 text-slate-400" />
+                <span>Mock History</span>
+              </button>
+
+              <button
+                onClick={() => openAuthModal()}
+                className="cursor-pointer flex items-center gap-1.5 rounded-xl px-3.5 py-2 text-xs font-semibold text-slate-500 hover:text-indigo-600 hover:bg-slate-100/80 transition-all whitespace-nowrap"
+                title="Sign in to upload custom papers"
+              >
+                <Lock className="h-3.5 w-3.5 text-slate-400" />
+                <span>Upload Paper</span>
+              </button>
+            </>
+          )}
         </nav>
 
         {/* Live Date/Time & Backup */}
@@ -312,44 +346,73 @@ export function Navbar({
             }`}
           >
             <LayoutDashboard className="h-3.5 w-3.5" />
-            Dashboard
+            {currentUser ? "Dashboard" : "Home"}
           </Link>
-          <Link
-            href="/papers"
-            onClick={() => onNavigate && onNavigate("papers")}
-            className={`cursor-pointer flex items-center gap-1.5 px-2.5 py-1 text-xs font-semibold rounded-lg ${
-              currentTab === "papers"
-                ? "text-indigo-700 bg-indigo-50 font-bold"
-                : "text-slate-600"
-            }`}
-          >
-            <BookOpen className="h-3.5 w-3.5" />
-            Papers
-          </Link>
-          <Link
-            href="/history"
-            onClick={() => onNavigate && onNavigate("history")}
-            className={`cursor-pointer flex items-center gap-1.5 px-2.5 py-1 text-xs font-semibold rounded-lg ${
-              currentTab === "history" || currentTab === "attempt-detail"
-                ? "text-indigo-700 bg-indigo-50 font-bold"
-                : "text-slate-600"
-            }`}
-          >
-            <History className="h-3.5 w-3.5" />
-            History
-          </Link>
-          <Link
-            href="/upload"
-            onClick={() => onNavigate && onNavigate("upload")}
-            className={`cursor-pointer flex items-center gap-1.5 px-2.5 py-1 text-xs font-semibold rounded-lg ${
-              currentTab === "upload"
-                ? "text-indigo-700 bg-indigo-50 font-bold"
-                : "text-slate-600"
-            }`}
-          >
-            <UploadCloud className="h-3.5 w-3.5" />
-            Upload
-          </Link>
+
+          {currentUser ? (
+            <>
+              <Link
+                href="/papers"
+                onClick={() => onNavigate && onNavigate("papers")}
+                className={`cursor-pointer flex items-center gap-1.5 px-2.5 py-1 text-xs font-semibold rounded-lg ${
+                  currentTab === "papers"
+                    ? "text-indigo-700 bg-indigo-50 font-bold"
+                    : "text-slate-600"
+                }`}
+              >
+                <BookOpen className="h-3.5 w-3.5" />
+                Papers
+              </Link>
+              <Link
+                href="/history"
+                onClick={() => onNavigate && onNavigate("history")}
+                className={`cursor-pointer flex items-center gap-1.5 px-2.5 py-1 text-xs font-semibold rounded-lg ${
+                  currentTab === "history" || currentTab === "attempt-detail"
+                    ? "text-indigo-700 bg-indigo-50 font-bold"
+                    : "text-slate-600"
+                }`}
+              >
+                <History className="h-3.5 w-3.5" />
+                History
+              </Link>
+              <Link
+                href="/upload"
+                onClick={() => onNavigate && onNavigate("upload")}
+                className={`cursor-pointer flex items-center gap-1.5 px-2.5 py-1 text-xs font-semibold rounded-lg ${
+                  currentTab === "upload"
+                    ? "text-indigo-700 bg-indigo-50 font-bold"
+                    : "text-slate-600"
+                }`}
+              >
+                <UploadCloud className="h-3.5 w-3.5" />
+                Upload
+              </Link>
+            </>
+          ) : (
+            <>
+              <button
+                onClick={() => openAuthModal()}
+                className="cursor-pointer flex items-center gap-1 px-2 py-1 text-xs font-medium text-slate-500 hover:text-indigo-600"
+              >
+                <Lock className="h-3 w-3 text-slate-400" />
+                Papers
+              </button>
+              <button
+                onClick={() => openAuthModal()}
+                className="cursor-pointer flex items-center gap-1 px-2 py-1 text-xs font-medium text-slate-500 hover:text-indigo-600"
+              >
+                <Lock className="h-3 w-3 text-slate-400" />
+                History
+              </button>
+              <button
+                onClick={() => openAuthModal()}
+                className="cursor-pointer flex items-center gap-1 px-2 py-1 text-xs font-medium text-slate-500 hover:text-indigo-600"
+              >
+                <Lock className="h-3 w-3 text-slate-400" />
+                Upload
+              </button>
+            </>
+          )}
         </div>
       )}
     </header>

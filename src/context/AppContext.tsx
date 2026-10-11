@@ -110,6 +110,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       await supabase.auth.signOut();
     }
     setCurrentUser(null);
+    setUserPro(false);
+    setIsPro(false);
     await loadAllData();
   };
 
@@ -150,6 +152,9 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         if (profile?.is_pro) {
           setUserPro(true);
           setIsPro(true);
+        } else {
+          setUserPro(false);
+          setIsPro(false);
         }
       } catch (err) {
         console.warn("Failed loading user data from Supabase:", err);
@@ -159,27 +164,17 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       return;
     }
 
-    // Guest / Anonymous User: Isolated local storage fallback
+    // Guest / Anonymous User: Isolated local browser storage only
     const cachedAttempts = getAttempts();
     setAttempts(cachedAttempts);
     const localDraft = getActiveDraft();
     setActiveDraft(localDraft);
 
     try {
-      const [serverAttempts, loadedPapers, serverDraft] = await Promise.all([
-        loadAttemptsFromServer(),
-        getAllPapers(),
-        loadActiveDraftFromServer(),
-      ]);
-      setAttempts(serverAttempts);
+      const loadedPapers = await getAllPapers();
       setPapers(loadedPapers);
-
-      const effectiveDraft = localDraft || serverDraft;
-      if (effectiveDraft) {
-        setActiveDraft(effectiveDraft);
-      }
     } catch (err) {
-      console.warn("Failed loading data from server:", err);
+      console.warn("Failed loading papers from server:", err);
     } finally {
       setIsLoading(false);
     }
