@@ -58,9 +58,9 @@ export function DashboardView({
     ? Math.max(...mockAttempts.map(a => a.score)) 
     : 0;
 
-  // GS1 vs GS2 Segregated Stats
-  const gs1Attempts = mockAttempts.filter(a => a.paperLabel.includes('GS I') && !a.paperLabel.includes('GS II'));
-  const gs2Attempts = mockAttempts.filter(a => a.paperLabel.includes('GS II') || a.paperLabel.includes('CSAT'));
+  // GS1 vs GS2 Segregated Stats (Prelims only)
+  const gs1Attempts = mockAttempts.filter(a => a.category === 'prelims' && a.paperLabel.includes('GS I') && !a.paperLabel.includes('GS II'));
+  const gs2Attempts = mockAttempts.filter(a => a.category === 'prelims' && (a.paperLabel.includes('GS II') || a.paperLabel.includes('CSAT')));
   const mainsAttempts = mockAttempts.filter(a => a.category === 'mains');
 
   const gs1AvgScore = gs1Attempts.length > 0

@@ -65,7 +65,8 @@ export function ExamSessionView({
   const [fullBookletUrl, setFullBookletUrl] = useState<string | undefined>(undefined);
   const [fullBookletName, setFullBookletName] = useState<string | undefined>(undefined);
 
-  const totalTimeSeconds = paper.timeMinutes * 60;
+  const effectiveTimeMinutes = (paper.category === 'prelims' || paper.examType === 'objective' || paper.subject === 'GS I' || paper.subject === 'GS II CSAT' || paper.id.includes('_prelims_')) ? 120 : (paper.timeMinutes || 180);
+  const totalTimeSeconds = effectiveTimeMinutes * 60;
   const isPractice = mode === 'practice';
   const isSubjective = paper.examType === 'subjective';
 
@@ -496,7 +497,7 @@ export function ExamSessionView({
       totalMarks: paper.totalMarks,
       correctMarks: paper.correctMarks,
       incorrectMarks: paper.incorrectMarks,
-      timeMinutes: paper.timeMinutes,
+      timeMinutes: effectiveTimeMinutes,
       durationSeconds: elapsedSeconds,
       idleTimeSeconds,
       overtimeSeconds: isOvertime ? overtimeSeconds : 0,
@@ -562,7 +563,7 @@ export function ExamSessionView({
               <span className={`block text-[9px] sm:text-[10px] font-semibold uppercase tracking-wider truncate ${
                 isPractice ? 'text-emerald-400' : 'text-indigo-400'
               }`}>
-                {isPractice ? 'Practice Mode' : `Mock Exam (${paper.timeMinutes}m)`}
+                {isPractice ? 'Practice Mode' : `Mock Exam (${effectiveTimeMinutes}m)`}
               </span>
             </div>
           </div>
@@ -1423,7 +1424,7 @@ export function ExamSessionView({
                   {formatTimeSeconds(elapsedSeconds)}
                 </div>
                 <div className="text-[11px] text-slate-400 mt-0.5">
-                  {isOvertime ? `Overtime +${formatTimeSeconds(overtimeSeconds)}` : `${paper.timeMinutes}m limit`}
+                  {isOvertime ? `Overtime +${formatTimeSeconds(overtimeSeconds)}` : `${effectiveTimeMinutes}m limit`}
                 </div>
               </div>
 
