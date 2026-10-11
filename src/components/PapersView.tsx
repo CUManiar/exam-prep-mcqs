@@ -205,7 +205,10 @@ export function PapersView({
             Question Papers
           </h1>
           <p className="text-xs sm:text-sm text-slate-500 mt-1 max-w-2xl">
-            Official UPSC Civil Services Prelims & Mains archive (2024, 2025, 2026). Attempt 2026 Prelims papers free forever, or upgrade to Pro to unlock the full 3-year archive and unlimited custom paper uploads.
+            Official UPSC Civil Services Prelims & Mains archive (2024, 2025,
+            2026). Attempt 2026 Prelims papers free forever, or upgrade to Pro
+            to unlock the full 3-year archive and unlimited custom paper
+            uploads.
           </p>
         </div>
 
@@ -298,7 +301,10 @@ export function PapersView({
                 </span>
               </div>
               <p className="text-xs text-slate-500 mt-1 leading-relaxed">
-                Full real-time countdown timer, answer keys, confidence tagging & automated evaluation included. Unlock the complete 2024, 2025, and 2026 Prelims & Mains archive + unlimited custom paper uploads with Lifetime Pro (₹999).
+                Full real-time countdown timer, answer keys, confidence tagging
+                & automated evaluation included. Unlock the complete 2024, 2025,
+                and 2026 Prelims & Mains archive + unlimited custom paper
+                uploads with Lifetime Pro (₹999).
               </p>
             </div>
           </div>

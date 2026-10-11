@@ -83,8 +83,10 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const [proModalTarget, setProModalTarget] = useState<string | undefined>(
     undefined,
   );
-  const [guestCompletionAttempt, setGuestCompletionAttempt] = useState<Attempt | null>(null);
-  const [guestCompletionModalOpen, setGuestCompletionModalOpen] = useState<boolean>(false);
+  const [guestCompletionAttempt, setGuestCompletionAttempt] =
+    useState<Attempt | null>(null);
+  const [guestCompletionModalOpen, setGuestCompletionModalOpen] =
+    useState<boolean>(false);
 
   useEffect(() => {
     setIsPro(isUserPro());
