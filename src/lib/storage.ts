@@ -1,5 +1,5 @@
 import { Attempt, QuestionPaper, ActiveSessionDraft } from './types';
-import { INITIAL_PAPERS, parseAnswerKeyText } from './defaults';
+import { INITIAL_PAPERS, parseAnswerKeyText, getStandardTimeMinutes } from './defaults';
 
 const STORAGE_KEYS = {
   ATTEMPTS: 'exam_prep_attempts_v2',
@@ -117,7 +117,7 @@ export function getCustomPapers(): QuestionPaper[] {
     const raw = localStorage.getItem(STORAGE_KEYS.CUSTOM_PAPERS);
     if (!raw) return [];
     const list: QuestionPaper[] = JSON.parse(raw);
-    return list.filter(p => p.id !== '2026_gs1');
+    return Array.isArray(list) ? list.filter(p => p && p.id && p.label) : [];
   } catch {
     return [];
   }
@@ -203,38 +203,10 @@ export async function getAllPapers(): Promise<QuestionPaper[]> {
     papers = [...custom, ...INITIAL_PAPERS];
   }
 
-  // Filter out any stale dummy papers
-  papers = papers.filter(p => p.id !== '2026_gs1');
-
-  // Enforce strict rules: Prelims GS I & GS II CSAT are strictly 120 mins (2 Hours)
+  // Dynamic resolution of timeMinutes if missing
   papers.forEach(p => {
-    const isPrelims = p.category === 'prelims' || 
-                      p.examType === 'objective' || 
-                      p.id.includes('_prelims_') ||
-                      p.subject === 'GS I' || 
-                      p.subject === 'GS II CSAT' || 
-                      p.subject === 'CSAT';
-
-    if (isPrelims) {
-      p.category = 'prelims';
-      p.examType = 'objective';
-      p.timeMinutes = 120; // 2 hours
-      p.totalMarks = 200;
-      if (p.subject === 'GS II CSAT' || p.subject === 'CSAT' || p.id.includes('general_studies_paper_ii')) {
-        p.totalQuestions = 80;
-        p.correctMarks = 2.5;
-        p.incorrectMarks = 0.833;
-      } else {
-        p.totalQuestions = 100;
-        p.correctMarks = 2.0;
-        p.incorrectMarks = 0.667;
-      }
-    } else {
-      p.category = 'mains';
-      p.examType = 'subjective';
-      if (!p.timeMinutes || p.timeMinutes === 120) {
-        p.timeMinutes = 180; // 3 hours
-      }
+    if (!p.timeMinutes || p.timeMinutes <= 0) {
+      p.timeMinutes = getStandardTimeMinutes(p.category, p.examType);
     }
   });
 

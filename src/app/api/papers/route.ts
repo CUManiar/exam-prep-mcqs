@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import fs from 'node:fs';
 import path from 'node:path';
 import { QuestionPaper, ExamCategory, ExamType } from '../../../lib/types';
-import { INITIAL_PAPERS } from '../../../lib/defaults';
+import { INITIAL_PAPERS, getStandardTimeMinutes } from '../../../lib/defaults';
 import { readJsonStore, writeJsonStore, isBlobEnabled } from '@/lib/cloudStorage';
 
 const DATA_DIR = path.join(process.cwd(), 'public', 'data');
@@ -28,59 +28,26 @@ export async function GET(req: NextRequest) {
     // 1. Read stored custom metadata from Cloud Storage (Vercel Blob) or local fallback
     const customMeta = await readJsonStore<Record<string, QuestionPaper>>('papers.json', {});
 
-    // Clean out stale dummy paper 2026_gs1 if present in Cloud Storage
-    if (customMeta['2026_gs1']) {
-      delete customMeta['2026_gs1'];
-      await writeJsonStore('papers.json', customMeta).catch(() => {});
-    }
-
     const allPapers: QuestionPaper[] = [];
 
-    // 2. Add papers from customMeta (which contains all user uploads)
+    // 2. Add valid papers from customMeta (user uploads)
     for (const [id, paper] of Object.entries(customMeta)) {
-      if (paper && paper.id && paper.id !== '2026_gs1') {
+      if (paper && paper.id && paper.label && paper.qpUrl) {
         allPapers.push(paper);
       }
     }
 
-    // 4. Add any INITIAL_PAPERS that aren't already included
+    // 3. Add built-in INITIAL_PAPERS if not already present
     for (const initPaper of INITIAL_PAPERS) {
       if (!allPapers.some(p => p.id === initPaper.id)) {
         allPapers.push(initPaper);
       }
     }
 
-    // Normalization & Strict Rule Enforcement:
-    // UPSC Prelims (GS I & GS II CSAT) are strictly 120 minutes (2 Hours), 200 marks.
-    // UPSC Mains papers are 180 minutes (3 Hours), 250 marks.
+    // Dynamic resolution of timeMinutes and rules if missing
     allPapers.forEach(p => {
-      const isPrelims = p.category === 'prelims' || 
-                        p.examType === 'objective' || 
-                        p.id.includes('_prelims_') ||
-                        p.subject === 'GS I' || 
-                        p.subject === 'GS II CSAT' || 
-                        p.subject === 'CSAT';
-
-      if (isPrelims) {
-        p.category = 'prelims';
-        p.examType = 'objective';
-        p.timeMinutes = 120; // Strictly 2 hours (120 mins)
-        p.totalMarks = 200;
-        if (p.subject === 'GS II CSAT' || p.subject === 'CSAT' || p.id.includes('general_studies_paper_ii')) {
-          p.totalQuestions = 80;
-          p.correctMarks = 2.5;
-          p.incorrectMarks = 0.833;
-        } else {
-          p.totalQuestions = 100;
-          p.correctMarks = 2.0;
-          p.incorrectMarks = 0.667;
-        }
-      } else {
-        p.category = 'mains';
-        p.examType = 'subjective';
-        if (!p.timeMinutes || p.timeMinutes === 120) {
-          p.timeMinutes = 180; // Mains papers standard 3 hours (180 mins)
-        }
+      if (!p.timeMinutes || p.timeMinutes <= 0) {
+        p.timeMinutes = getStandardTimeMinutes(p.category, p.examType);
       }
     });
 

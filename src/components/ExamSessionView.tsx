@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useCallback } from 'react';
 import { QuestionPaper, Attempt, QuestionAnswer, ActiveSessionDraft } from '../lib/types';
-import { formatTimeSeconds, parseAnswerKeyText } from '../lib/defaults';
+import { formatTimeSeconds, parseAnswerKeyText, getStandardTimeMinutes } from '../lib/defaults';
 import { saveActiveDraft, clearActiveDraft } from '../lib/storage';
 import { DetailedSolutionModal } from './DetailedSolutionModal';
 import { PdfViewer } from './PdfViewer';
@@ -65,8 +65,8 @@ export function ExamSessionView({
   const [fullBookletUrl, setFullBookletUrl] = useState<string | undefined>(undefined);
   const [fullBookletName, setFullBookletName] = useState<string | undefined>(undefined);
 
-  const effectiveTimeMinutes = (paper.category === 'prelims' || paper.examType === 'objective' || paper.subject === 'GS I' || paper.subject === 'GS II CSAT' || paper.id.includes('_prelims_')) ? 120 : (paper.timeMinutes || 180);
-  const totalTimeSeconds = effectiveTimeMinutes * 60;
+  const timeLimitMinutes = paper.timeMinutes || getStandardTimeMinutes(paper.category, paper.examType);
+  const totalTimeSeconds = timeLimitMinutes * 60;
   const isPractice = mode === 'practice';
   const isSubjective = paper.examType === 'subjective';
 
@@ -197,6 +197,7 @@ export function ExamSessionView({
 
   // Answer selection handler (Objective)
   const handleSelectOption = (qNo: number, option: string) => {
+    const isDeselecting = answers[qNo]?.selected === option;
     setAnswers(prev => {
       const current = prev[qNo] || { 
         questionNo: qNo, 
@@ -206,7 +207,7 @@ export function ExamSessionView({
       };
 
       const prevSelected = current.selected;
-      const isUnselecting = prevSelected === option;
+      const isUnselecting = isDeselecting;
       const newSelected = isUnselecting ? null : option;
 
       const rawCorrect = getCorrectAnswerForQ(qNo);
@@ -242,6 +243,11 @@ export function ExamSessionView({
         },
       };
     });
+
+    // Auto-advance to next question upon selecting an option so that subsequent reading time is tracked on the new question
+    if (!isDeselecting && qNo < paper.totalQuestions) {
+      setCurrentQuestion(qNo + 1);
+    }
   };
 
   const handleClearSelection = (qNo: number) => {
@@ -497,7 +503,7 @@ export function ExamSessionView({
       totalMarks: paper.totalMarks,
       correctMarks: paper.correctMarks,
       incorrectMarks: paper.incorrectMarks,
-      timeMinutes: effectiveTimeMinutes,
+      timeMinutes: timeLimitMinutes,
       durationSeconds: elapsedSeconds,
       idleTimeSeconds,
       overtimeSeconds: isOvertime ? overtimeSeconds : 0,
@@ -563,7 +569,7 @@ export function ExamSessionView({
               <span className={`block text-[9px] sm:text-[10px] font-semibold uppercase tracking-wider truncate ${
                 isPractice ? 'text-emerald-400' : 'text-indigo-400'
               }`}>
-                {isPractice ? 'Practice Mode' : `Mock Exam (${effectiveTimeMinutes}m)`}
+                {isPractice ? 'Practice Mode' : `Mock Exam (${timeLimitMinutes}m)`}
               </span>
             </div>
           </div>
@@ -847,10 +853,10 @@ export function ExamSessionView({
                   <div className="flex items-center gap-1.5">
                     <button
                       onClick={() => setCurrentQuestion(null)}
-                      title="Return to reading buffer"
-                      className="rounded-lg border border-slate-800 bg-slate-900 px-2 py-1 text-[11px] text-slate-400 hover:text-slate-200 transition-colors hidden sm:inline-flex"
+                      title="Switch to reading & overview buffer (time not allocated to any specific question)"
+                      className="rounded-lg border border-slate-800 bg-slate-900 px-2 py-1 text-[11px] text-slate-400 hover:text-amber-300 hover:border-amber-500/40 transition-colors inline-flex items-center gap-1"
                     >
-                      Instructions Buffer
+                      <span>Buffer Mode</span>
                     </button>
 
                     <button
@@ -1261,7 +1267,7 @@ export function ExamSessionView({
                 return (
                   <button
                     key={qNo}
-                    onClick={() => setCurrentQuestion(qNo)}
+                    onClick={() => setCurrentQuestion(currentQuestion === qNo ? null : qNo)}
                     className={`relative flex h-9 sm:h-10 items-center justify-center rounded-xl border text-xs transition-all ${badgeColor}`}
                   >
                     <span>{qNo}</span>
@@ -1424,7 +1430,7 @@ export function ExamSessionView({
                   {formatTimeSeconds(elapsedSeconds)}
                 </div>
                 <div className="text-[11px] text-slate-400 mt-0.5">
-                  {isOvertime ? `Overtime +${formatTimeSeconds(overtimeSeconds)}` : `${effectiveTimeMinutes}m limit`}
+                  {isOvertime ? `Overtime +${formatTimeSeconds(overtimeSeconds)}` : `${timeLimitMinutes}m limit`}
                 </div>
               </div>
 

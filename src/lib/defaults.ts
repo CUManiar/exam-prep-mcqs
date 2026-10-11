@@ -25,6 +25,10 @@ export function formatTimeSeconds(seconds: number): string {
   return `${pad(h)}:${pad(m)}:${pad(s)}`;
 }
 
+export function getStandardTimeMinutes(category?: string, examType?: string): number {
+  return (category === 'prelims' || examType === 'objective') ? 120 : 180;
+}
+
 export function formatDateTime(isoString: string): string {
   try {
     const d = new Date(isoString);
