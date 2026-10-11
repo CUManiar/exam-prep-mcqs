@@ -266,7 +266,10 @@ export default function App() {
 
         {activePage === 'upload' && (
           <UploadView
+            papers={papers}
             onPaperUploaded={handlePaperUploaded}
+            onUpdatePaper={handleUpdatePaper}
+            onDeletePaper={handleDeletePaper}
             onNavigatePapers={() => setActivePage('papers')}
           />
         )}

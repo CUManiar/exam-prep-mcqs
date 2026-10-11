@@ -17,6 +17,19 @@ body {
   min-height: 100vh;
 }
 
+/* Ensure all clickable buttons and interactive items always display pointer cursor */
+button,
+input[type="button"],
+input[type="submit"],
+input[type="reset"],
+input[type="file"],
+select,
+label,
+[role="button"],
+.cursor-pointer {
+  cursor: pointer !important;
+}
+
 /* Smooth transitions & subtle glow utilities */
 .glow-indigo {
   box-shadow: 0 0 25px -5px rgba(99, 102, 241, 0.25);

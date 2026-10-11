@@ -2,7 +2,7 @@
 
 import React, { useState } from 'react';
 import { Attempt, QuestionPaper, ActiveSessionDraft } from '../lib/types';
-import { formatTimeSeconds, formatDateTime, SUPPORTED_YEARS } from '../lib/defaults';
+import { formatTimeSeconds, formatDateTime, SUPPORTED_YEARS, hasAnswerKey } from '../lib/defaults';
 import { 
   Play, 
   Clock, 
@@ -10,7 +10,9 @@ import {
   Search, 
   FileText,
   CheckCircle2,
-  AlertCircle
+  AlertCircle,
+  ExternalLink,
+  Key
 } from 'lucide-react';
 
 interface DashboardViewProps {
@@ -242,43 +244,92 @@ export function DashboardView({
 
         {/* Paper cards grid */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3.5">
-          {filteredPapers.slice(0, 12).map(paper => (
-            <div
-              key={paper.id}
-              className="flex flex-col justify-between rounded-xl border border-slate-800 bg-slate-900/60 p-4 hover:border-slate-700 transition-colors"
-            >
-              <div>
-                <div className="flex items-center justify-between text-xs">
-                  <span className="font-mono font-semibold text-slate-300">{paper.year}</span>
-                  <span className="text-[10px] uppercase font-bold text-indigo-400 bg-indigo-500/10 px-2 py-0.5 rounded border border-indigo-500/20">
-                    {paper.category}
-                  </span>
+          {filteredPapers.slice(0, 12).map(paper => {
+            const keyPresent = hasAnswerKey(paper);
+
+            return (
+              <div
+                key={paper.id}
+                className="flex flex-col justify-between rounded-xl border border-slate-800 bg-slate-900/60 p-4 hover:border-slate-700 transition-colors"
+              >
+                <div>
+                  <div className="flex items-center justify-between text-xs">
+                    <span className="font-mono font-semibold text-slate-300">{paper.year}</span>
+                    <span className="text-[10px] uppercase font-bold text-indigo-400 bg-indigo-500/10 px-2 py-0.5 rounded border border-indigo-500/20">
+                      {paper.category}
+                    </span>
+                  </div>
+
+                  <h3 className="text-sm font-semibold text-white mt-2 truncate">
+                    {paper.label}
+                  </h3>
+                  <p className="text-xs text-slate-400 mt-0.5">
+                    {paper.totalQuestions} Questions • {paper.timeMinutes} Mins • {paper.totalMarks} Marks
+                  </p>
+
+                  {/* Key status badge */}
+                  <div className="mt-2.5 flex items-center gap-2">
+                    {paper.examType === 'objective' && (
+                      keyPresent ? (
+                        <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 px-2 py-0.5 rounded">
+                          <CheckCircle2 className="h-3 w-3" /> Key Available
+                        </span>
+                      ) : (
+                        <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-amber-400 bg-amber-500/10 border border-amber-500/20 px-2 py-0.5 rounded">
+                          <AlertCircle className="h-3 w-3" /> No Key
+                        </span>
+                      )
+                    )}
+                  </div>
                 </div>
 
-                <h3 className="text-sm font-semibold text-white mt-2 truncate">
-                  {paper.label}
-                </h3>
-                <p className="text-xs text-slate-400 mt-0.5">
-                  {paper.totalQuestions} Questions • {paper.timeMinutes} Mins • {paper.totalMarks} Marks
-                </p>
-              </div>
+                <div className="mt-4 pt-3 border-t border-slate-800/80 space-y-2">
+                  <div className="flex items-center gap-2">
+                    {keyPresent || paper.examType === 'subjective' ? (
+                      <button
+                        onClick={() => onStartExam(paper, 'practice')}
+                        className="cursor-pointer flex-1 rounded-lg border border-slate-700 bg-slate-800/80 py-1.5 text-xs font-semibold text-slate-300 hover:bg-slate-700 hover:text-white transition-colors"
+                      >
+                        Practice
+                      </button>
+                    ) : (
+                      <button
+                        onClick={onNavigatePapers}
+                        title="Practice mode requires an answer key. Click to open Question Papers and attach."
+                        className="cursor-pointer flex-1 rounded-lg border border-amber-500/30 bg-amber-500/10 py-1.5 text-xs font-semibold text-amber-300 hover:bg-amber-500/20 transition-colors"
+                      >
+                        Practice (Needs Key)
+                      </button>
+                    )}
+                    <button
+                      onClick={() => onStartExam(paper, 'mock')}
+                      className="cursor-pointer flex-1 rounded-lg bg-indigo-600 py-1.5 text-xs font-semibold text-white hover:bg-indigo-500 transition-colors shadow-sm"
+                    >
+                      Mock Test
+                    </button>
+                  </div>
 
-              <div className="mt-4 pt-3 border-t border-slate-800/80 flex items-center gap-2">
-                <button
-                  onClick={() => onStartExam(paper, 'practice')}
-                  className="flex-1 rounded-lg border border-slate-700 bg-slate-800/80 py-1.5 text-xs font-semibold text-slate-300 hover:bg-slate-700 hover:text-white transition-colors"
-                >
-                  Practice
-                </button>
-                <button
-                  onClick={() => onStartExam(paper, 'mock')}
-                  className="flex-1 rounded-lg bg-indigo-600 py-1.5 text-xs font-semibold text-white hover:bg-indigo-500 transition-colors shadow-sm"
-                >
-                  Mock Test
-                </button>
+                  <div className="flex items-center justify-between text-xs pt-0.5">
+                    <a
+                      href={paper.qpUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="cursor-pointer inline-flex items-center gap-1 text-[11px] text-slate-400 hover:text-indigo-300"
+                    >
+                      <ExternalLink className="h-3 w-3" />
+                      <span>View PDF</span>
+                    </a>
+                    <button
+                      onClick={onNavigatePapers}
+                      className="cursor-pointer text-[11px] text-indigo-400 hover:text-indigo-300 font-medium"
+                    >
+                      Manage / Attach →
+                    </button>
+                  </div>
+                </div>
               </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
 
         {filteredPapers.length > 12 && (

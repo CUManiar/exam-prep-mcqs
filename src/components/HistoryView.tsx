@@ -193,7 +193,7 @@ export function HistoryView({ attempts, onViewAttempt, onDeleteAttempt }: Histor
                       exportAttemptAsMarkdown(att);
                     }}
                     title="Export Markdown Report"
-                    className="flex items-center gap-1 text-[11px] font-medium text-slate-400 hover:text-white transition-colors"
+                    className="cursor-pointer flex items-center gap-1 text-[11px] font-medium text-slate-400 hover:text-white transition-colors"
                   >
                     <Download className="h-3 w-3 text-indigo-400" />
                     <span>Export MD</span>
