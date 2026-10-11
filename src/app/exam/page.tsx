@@ -4,6 +4,7 @@ import React, { Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useApp } from "../../context/AppContext";
 import { ExamSessionView } from "../../components/ExamSessionView";
+import { isPaperFree } from "../../lib/defaults";
 import { Lock } from "lucide-react";
 
 function ExamSessionContent() {
@@ -55,7 +56,7 @@ function ExamSessionContent() {
   }
 
   // Check if paper is locked in Freemium tier
-  if (paper.year !== "2026" && !isPro) {
+  if (!isPaperFree(paper) && !isPro) {
     return (
       <div className="mx-auto max-w-xl px-4 py-20 text-center space-y-6">
         <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-2xl bg-amber-100 text-amber-700 shadow-sm">
@@ -66,7 +67,8 @@ function ExamSessionContent() {
             Pro Vault Paper Locked
           </h2>
           <p className="text-sm text-slate-600">
-            <strong>{paper.label}</strong> belongs to the Pro Archive. Free tier includes all 2026 Prelims papers.
+            <strong>{paper.label}</strong> belongs to the Pro Archive. Free tier
+            includes 2026 Prelims papers (GS I & CSAT).
           </p>
         </div>
         <div className="flex items-center justify-center gap-3">

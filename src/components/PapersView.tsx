@@ -7,6 +7,7 @@ import {
   hasAnswerKey,
   hasSolution,
   parseAnswerKeyText,
+  isPaperFree,
 } from "../lib/defaults";
 import { attachToPaperOnServer } from "../lib/storage";
 import { DetailedSolutionModal } from "./DetailedSolutionModal";
@@ -204,9 +205,7 @@ export function PapersView({
             Question Papers
           </h1>
           <p className="text-xs sm:text-sm text-slate-500 mt-1 max-w-2xl">
-            Past 15+ years of UPSC Civil Services Prelims (General Studies &
-            CSAT) and Mains papers. Attach answer keys or solutions directly to
-            any paper.
+            Official UPSC Civil Services Prelims & Mains archive (2024, 2025, 2026). Attempt 2026 Prelims papers free forever, or upgrade to Pro to unlock the full 3-year archive and unlimited custom paper uploads.
           </p>
         </div>
 
@@ -294,10 +293,12 @@ export function PapersView({
                 <h3 className="text-sm font-bold text-slate-900">
                   Free Tier: 2026 Prelims Papers (GS I & CSAT)
                 </h3>
-                <span className="rounded-full bg-emerald-100 text-emerald-800 px-2 py-0.2 text-[10px] font-extrabold">FREE FOREVER</span>
+                <span className="rounded-full bg-emerald-100 text-emerald-800 px-2 py-0.2 text-[10px] font-extrabold">
+                  FREE FOREVER
+                </span>
               </div>
               <p className="text-xs text-slate-500 mt-1 leading-relaxed">
-                Full real-time timer, answer keys, confidence tagging & evaluation included. Unlock the 15+ years archive (2011–2025) and all Mains papers with Lifetime Pro (₹999).
+                Full real-time countdown timer, answer keys, confidence tagging & automated evaluation included. Unlock the complete 2024, 2025, and 2026 Prelims & Mains archive + unlimited custom paper uploads with Lifetime Pro (₹999).
               </p>
             </div>
           </div>
@@ -306,7 +307,7 @@ export function PapersView({
             className="cursor-pointer shrink-0 rounded-xl bg-indigo-600 hover:bg-indigo-700 active:scale-[0.98] px-4 py-2.5 text-xs font-bold text-white transition-all shadow-xs flex items-center justify-center gap-1.5"
           >
             <Lock className="h-3.5 w-3.5" />
-            <span>Unlock 15-Year Vault (₹999)</span>
+            <span>Unlock Pro Vault (₹999)</span>
           </button>
         </div>
       )}
@@ -331,10 +332,12 @@ export function PapersView({
               Object.keys(paper.answerKey || {}).length ||
               (keyPresent ? paper.totalQuestions : 0);
 
+            const isLocked = !isPro && !isPaperFree(paper);
+
             return (
               <div
                 key={paper.id}
-                className="flex flex-col justify-between bi-card p-5 group hover:border-indigo-300 transition-all shadow-xs"
+                className="flex flex-col h-full justify-between bi-card p-5 group hover:border-indigo-300 transition-all shadow-xs"
               >
                 <div>
                   {/* Top Header Row: Year & Category Tag */}
@@ -343,7 +346,7 @@ export function PapersView({
                       <span className="rounded-md bg-slate-100 px-2.5 py-0.5 text-xs font-bold text-slate-700 font-mono">
                         {paper.year}
                       </span>
-                      {paper.year !== "2026" && !isPro && (
+                      {isLocked && (
                         <span className="inline-flex items-center gap-1 rounded-full bg-amber-50 px-2 py-0.5 text-[10px] font-bold text-amber-800 border border-amber-200">
                           <Lock className="h-2.5 w-2.5 text-amber-600" />
                           <span>PRO</span>
@@ -363,10 +366,12 @@ export function PapersView({
                     </span>
                   </div>
 
-                  {/* Title */}
-                  <h3 className="mt-3 text-base font-bold text-slate-900 group-hover:text-indigo-600 transition-colors leading-snug">
-                    {paper.label}
-                  </h3>
+                  {/* Standardized Title Container */}
+                  <div className="mt-3 min-h-[44px] flex items-start">
+                    <h3 className="text-base font-bold text-slate-900 group-hover:text-indigo-600 transition-colors leading-snug line-clamp-2">
+                      {paper.label}
+                    </h3>
+                  </div>
 
                   {/* Meta details */}
                   <div className="mt-2 flex items-center gap-2 text-xs text-slate-500 font-medium">
@@ -377,11 +382,10 @@ export function PapersView({
                     <span>{paper.totalMarks} Marks</span>
                   </div>
 
-                  {/* Prominent Resource Status Indicators */}
-                  <div className="mt-3.5 pt-3 border-t border-slate-100 flex flex-wrap items-center gap-2">
-                    {/* Answer Key Badge */}
-                    {paper.examType === "objective" &&
-                      (keyPresent ? (
+                  {/* Prominent Resource Status Indicators - Standard Single Row */}
+                  <div className="mt-3.5 pt-3 border-t border-slate-100 h-7 flex items-center gap-2">
+                    {paper.examType === "objective" ? (
+                      keyPresent ? (
                         <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200/60">
                           <CheckCircle2 className="h-3.5 w-3.5 text-emerald-600" />
                           <span>Key Attached ({keyCount} Qs)</span>
@@ -391,13 +395,17 @@ export function PapersView({
                           <AlertCircle className="h-3.5 w-3.5 text-amber-600" />
                           <span>Key Missing</span>
                         </div>
-                      ))}
+                      )
+                    ) : (
+                      <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-violet-50 text-violet-700 border border-violet-200/60">
+                        <span>Subjective Paper</span>
+                      </div>
+                    )}
 
-                    {/* Solution Badge / Button */}
                     {solutionPresent ? (
                       <button
                         onClick={() => setViewingSolutionPaper(paper)}
-                        className="cursor-pointer inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-indigo-50 text-indigo-700 border border-indigo-200/80 hover:bg-indigo-100 hover:border-indigo-300 transition-colors shadow-2xs group/sol"
+                        className="cursor-pointer inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-indigo-50 text-indigo-700 border border-indigo-200/80 hover:bg-indigo-100 hover:border-indigo-300 transition-colors shadow-2xs group/sol"
                         title="Click to view attached solution booklet"
                       >
                         <FileText className="h-3.5 w-3.5 text-indigo-600" />
@@ -412,43 +420,64 @@ export function PapersView({
                   </div>
                 </div>
 
-                {/* All Action Buttons */}
-                <div className="mt-5 space-y-2.5">
+                {/* All Action Buttons pinned to bottom with consistent height */}
+                <div className="mt-5 space-y-2.5 pt-2 border-t border-slate-100">
                   {/* Row 1: Practice & Mock Exam */}
                   <div className="grid grid-cols-2 gap-2">
-                    {keyPresent || paper.examType === "subjective" ? (
-                      <button
-                        onClick={() => onStartExam(paper, "practice")}
-                        className="cursor-pointer flex items-center justify-center gap-1.5 rounded-xl border border-slate-200 bg-slate-50/80 py-2.5 text-xs font-bold text-slate-700 hover:bg-slate-100 hover:text-slate-900 transition-colors"
-                      >
-                        <Play className="h-3.5 w-3.5 text-slate-500" />
-                        <span>Practice</span>
-                      </button>
+                    {isLocked ? (
+                      <>
+                        <button
+                          onClick={() => openProUpgradeModal(paper.label)}
+                          className="cursor-pointer flex items-center justify-center gap-1.5 rounded-xl border border-amber-200 bg-amber-50/70 py-2.5 text-xs font-bold text-amber-900 hover:bg-amber-100 transition-colors"
+                        >
+                          <Lock className="h-3.5 w-3.5 text-amber-600" />
+                          <span>Practice</span>
+                        </button>
+                        <button
+                          onClick={() => openProUpgradeModal(paper.label)}
+                          className="cursor-pointer flex items-center justify-center gap-1.5 rounded-xl bg-amber-600 hover:bg-amber-700 py-2.5 text-xs font-bold text-white transition-all shadow-xs"
+                        >
+                          <Lock className="h-3.5 w-3.5" />
+                          <span>Mock Exam</span>
+                        </button>
+                      </>
                     ) : (
-                      <button
-                        onClick={() =>
-                          handleOpenAttachModal(paper, "key", true)
-                        }
-                        title="Practice mode requires an answer key. Click to attach answer key."
-                        className="cursor-pointer flex items-center justify-center gap-1.5 rounded-xl border border-amber-200 bg-amber-50 py-2.5 text-xs font-bold text-amber-800 hover:bg-amber-100 transition-colors"
-                      >
-                        <AlertTriangle className="h-3.5 w-3.5 text-amber-600" />
-                        <span>Practice (Add Key)</span>
-                      </button>
-                    )}
+                      <>
+                        {keyPresent || paper.examType === "subjective" ? (
+                          <button
+                            onClick={() => onStartExam(paper, "practice")}
+                            className="cursor-pointer flex items-center justify-center gap-1.5 rounded-xl border border-slate-200 bg-slate-50/80 py-2.5 text-xs font-bold text-slate-700 hover:bg-slate-100 hover:text-slate-900 transition-colors"
+                          >
+                            <Play className="h-3.5 w-3.5 text-slate-500" />
+                            <span>Practice</span>
+                          </button>
+                        ) : (
+                          <button
+                            onClick={() =>
+                              handleOpenAttachModal(paper, "key", true)
+                            }
+                            title="Practice mode requires an answer key. Click to attach answer key."
+                            className="cursor-pointer flex items-center justify-center gap-1.5 rounded-xl border border-amber-200 bg-amber-50 py-2.5 text-xs font-bold text-amber-800 hover:bg-amber-100 transition-colors"
+                          >
+                            <AlertTriangle className="h-3.5 w-3.5 text-amber-600" />
+                            <span>Practice (Add Key)</span>
+                          </button>
+                        )}
 
-                    <button
-                      onClick={() => onStartExam(paper, "mock")}
-                      className="cursor-pointer flex items-center justify-center gap-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 py-2.5 text-xs font-bold text-white transition-all shadow-xs"
-                    >
-                      <Clock className="h-3.5 w-3.5" />
-                      <span>Mock Exam</span>
-                    </button>
+                        <button
+                          onClick={() => onStartExam(paper, "mock")}
+                          className="cursor-pointer flex items-center justify-center gap-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 py-2.5 text-xs font-bold text-white transition-all shadow-xs"
+                        >
+                          <Clock className="h-3.5 w-3.5" />
+                          <span>Mock Exam</span>
+                        </button>
+                      </>
+                    )}
                   </div>
 
-                  {/* Row 2: Prominent Attach Actions */}
+                  {/* Row 2: Standardized 2-Button Grid across all cards */}
                   <div className="grid grid-cols-2 gap-2 pt-2 border-t border-slate-100">
-                    {paper.examType === "objective" && (
+                    {paper.examType === "objective" ? (
                       <button
                         onClick={() => handleOpenAttachModal(paper, "key")}
                         className="cursor-pointer flex items-center justify-center gap-1.5 rounded-xl border border-slate-200 bg-white hover:border-indigo-300 hover:bg-indigo-50/50 py-2 text-xs font-bold text-indigo-700 transition-colors shadow-2xs"
@@ -457,13 +486,20 @@ export function PapersView({
                         <Key className="h-3.5 w-3.5 text-indigo-600" />
                         <span>{keyPresent ? "Update Key" : "Attach Key"}</span>
                       </button>
+                    ) : (
+                      <button
+                        onClick={() => handleOpenAttachModal(paper, "solution")}
+                        className="cursor-pointer flex items-center justify-center gap-1.5 rounded-xl border border-slate-200 bg-white hover:border-violet-300 hover:bg-violet-50/50 py-2 text-xs font-bold text-violet-700 transition-colors shadow-2xs"
+                        title="Attach model answer key for subjective evaluation"
+                      >
+                        <FileText className="h-3.5 w-3.5 text-violet-600" />
+                        <span>Model Key</span>
+                      </button>
                     )}
 
                     <button
                       onClick={() => handleOpenAttachModal(paper, "solution")}
-                      className={`cursor-pointer flex items-center justify-center gap-1.5 rounded-xl border border-slate-200 bg-white hover:border-indigo-300 hover:bg-indigo-50/50 py-2 text-xs font-bold text-slate-700 transition-colors shadow-2xs ${
-                        paper.examType === "subjective" ? "col-span-2" : ""
-                      }`}
+                      className="cursor-pointer flex items-center justify-center gap-1.5 rounded-xl border border-slate-200 bg-white hover:border-indigo-300 hover:bg-indigo-50/50 py-2 text-xs font-bold text-slate-700 transition-colors shadow-2xs"
                       title="Upload or replace official solution PDF booklet"
                     >
                       <FileUp className="h-3.5 w-3.5 text-indigo-600" />
@@ -475,8 +511,8 @@ export function PapersView({
                     </button>
                   </div>
 
-                  {/* Row 3: Utility Links (PDF preview, Solution preview, Edit Rules, Delete) */}
-                  <div className="flex items-center justify-between text-xs pt-1">
+                  {/* Row 3: Utility Links */}
+                  <div className="flex items-center justify-between text-xs pt-1 h-6">
                     <div className="flex items-center gap-3">
                       <a
                         href={paper.qpUrl}

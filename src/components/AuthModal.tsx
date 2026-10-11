@@ -1,19 +1,19 @@
-'use client';
+"use client";
 
-import React, { useState } from 'react';
-import { 
-  User, 
-  Mail, 
-  Lock, 
-  X, 
-  Loader2, 
-  Sparkles, 
-  CheckCircle2, 
+import React, { useState } from "react";
+import {
+  User,
+  Mail,
+  Lock,
+  X,
+  Loader2,
+  Sparkles,
+  CheckCircle2,
   ArrowRight,
   ShieldCheck,
-  AlertCircle
-} from 'lucide-react';
-import { getSupabaseClient } from '../lib/supabase';
+  AlertCircle,
+} from "lucide-react";
+import { getSupabaseClient } from "../lib/supabase";
 
 interface AuthModalProps {
   isOpen: boolean;
@@ -22,10 +22,10 @@ interface AuthModalProps {
 }
 
 export function AuthModal({ isOpen, onClose, onSuccess }: AuthModalProps) {
-  const [mode, setMode] = useState<'signin' | 'signup'>('signin');
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [fullName, setFullName] = useState('');
+  const [mode, setMode] = useState<"signin" | "signup">("signin");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [fullName, setFullName] = useState("");
   const [loading, setLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
@@ -39,32 +39,34 @@ export function AuthModal({ isOpen, onClose, onSuccess }: AuthModalProps) {
 
     const supabase = getSupabaseClient();
     if (!supabase) {
-      setErrorMsg('Supabase client is not configured.');
+      setErrorMsg("Supabase client is not configured.");
       return;
     }
 
     setLoading(true);
 
     try {
-      if (mode === 'signup') {
+      if (mode === "signup") {
         const { data, error } = await supabase.auth.signUp({
           email,
           password,
           options: {
-            data: { full_name: fullName || email.split('@')[0] },
+            data: { full_name: fullName || email.split("@")[0] },
           },
         });
 
         if (error) throw error;
 
         if (data?.session) {
-          setSuccessMsg('Account created! Logging you in...');
+          setSuccessMsg("Account created! Logging you in...");
           setTimeout(() => {
             if (onSuccess) onSuccess();
             onClose();
           }, 1200);
         } else {
-          setSuccessMsg('Verification link sent to your email. Please check your inbox.');
+          setSuccessMsg(
+            "Verification link sent to your email. Please check your inbox.",
+          );
         }
       } else {
         const { error } = await supabase.auth.signInWithPassword({
@@ -74,14 +76,16 @@ export function AuthModal({ isOpen, onClose, onSuccess }: AuthModalProps) {
 
         if (error) throw error;
 
-        setSuccessMsg('Welcome back! Loading your test history...');
+        setSuccessMsg("Welcome back! Loading your test history...");
         setTimeout(() => {
           if (onSuccess) onSuccess();
           onClose();
         }, 1200);
       }
     } catch (err: any) {
-      setErrorMsg(err?.message || 'Authentication failed. Please check your credentials.');
+      setErrorMsg(
+        err?.message || "Authentication failed. Please check your credentials.",
+      );
     } finally {
       setLoading(false);
     }
@@ -108,20 +112,24 @@ export function AuthModal({ isOpen, onClose, onSuccess }: AuthModalProps) {
             <span>Secure Cloud Sync</span>
           </div>
           <h2 className="text-xl sm:text-2xl font-extrabold text-slate-900 tracking-tight">
-            {mode === 'signin' ? 'Sign in to Upsc-Practice' : 'Create Free Aspirant Account'}
+            {mode === "signin"
+              ? "Sign in to Upsc-Practice"
+              : "Create Free Aspirant Account"}
           </h2>
           <p className="text-xs text-slate-500 leading-relaxed">
-            {mode === 'signin'
-              ? 'Access your saved mock tests, evaluation reports, and pro vault across all devices.'
-              : 'Save your test attempts, track confidence metrics, and isolate your personal progress.'}
+            {mode === "signin"
+              ? "Access your saved mock tests, evaluation reports, and pro vault across all devices."
+              : "Save your test attempts, track confidence metrics, and isolate your personal progress."}
           </p>
         </div>
 
         {/* Form */}
         <form onSubmit={handleSubmit} className="space-y-4">
-          {mode === 'signup' && (
+          {mode === "signup" && (
             <div className="space-y-1">
-              <label className="text-xs font-semibold text-slate-700 block">Full Name</label>
+              <label className="text-xs font-semibold text-slate-700 block">
+                Full Name
+              </label>
               <div className="relative">
                 <User className="absolute left-3 top-2.5 h-4 w-4 text-slate-400" />
                 <input
@@ -137,7 +145,9 @@ export function AuthModal({ isOpen, onClose, onSuccess }: AuthModalProps) {
           )}
 
           <div className="space-y-1">
-            <label className="text-xs font-semibold text-slate-700 block">Email Address</label>
+            <label className="text-xs font-semibold text-slate-700 block">
+              Email Address
+            </label>
             <div className="relative">
               <Mail className="absolute left-3 top-2.5 h-4 w-4 text-slate-400" />
               <input
@@ -152,7 +162,9 @@ export function AuthModal({ isOpen, onClose, onSuccess }: AuthModalProps) {
           </div>
 
           <div className="space-y-1">
-            <label className="text-xs font-semibold text-slate-700 block">Password</label>
+            <label className="text-xs font-semibold text-slate-700 block">
+              Password
+            </label>
             <div className="relative">
               <Lock className="absolute left-3 top-2.5 h-4 w-4 text-slate-400" />
               <input
@@ -193,7 +205,9 @@ export function AuthModal({ isOpen, onClose, onSuccess }: AuthModalProps) {
               </>
             ) : (
               <>
-                <span>{mode === 'signin' ? 'Sign In to Hub' : 'Create Free Account'}</span>
+                <span>
+                  {mode === "signin" ? "Sign In to Hub" : "Create Free Account"}
+                </span>
                 <ArrowRight className="h-4 w-4" />
               </>
             )}
@@ -202,13 +216,13 @@ export function AuthModal({ isOpen, onClose, onSuccess }: AuthModalProps) {
 
         {/* Toggle Mode */}
         <div className="pt-2 border-t border-slate-100 text-center text-xs text-slate-500">
-          {mode === 'signin' ? (
+          {mode === "signin" ? (
             <span>
-              Don&apos;t have an account?{' '}
+              Don&apos;t have an account?{" "}
               <button
                 type="button"
                 onClick={() => {
-                  setMode('signup');
+                  setMode("signup");
                   setErrorMsg(null);
                   setSuccessMsg(null);
                 }}
@@ -219,11 +233,11 @@ export function AuthModal({ isOpen, onClose, onSuccess }: AuthModalProps) {
             </span>
           ) : (
             <span>
-              Already have an account?{' '}
+              Already have an account?{" "}
               <button
                 type="button"
                 onClick={() => {
-                  setMode('signin');
+                  setMode("signin");
                   setErrorMsg(null);
                   setSuccessMsg(null);
                 }}

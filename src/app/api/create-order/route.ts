@@ -1,5 +1,5 @@
-import { NextRequest, NextResponse } from 'next/server';
-import Razorpay from 'razorpay';
+import { NextRequest, NextResponse } from "next/server";
+import Razorpay from "razorpay";
 
 export async function POST(req: NextRequest) {
   try {
@@ -8,22 +8,28 @@ export async function POST(req: NextRequest) {
 
     if (!keyId || !keySecret) {
       return NextResponse.json(
-        { ok: false, error: 'Razorpay API credentials not configured on server' },
-        { status: 401 }
+        {
+          ok: false,
+          error: "Razorpay API credentials not configured on server",
+        },
+        { status: 401 },
       );
     }
 
     const body = await req.json().catch(() => ({}));
     const amount = Number(body.amount);
-    const currency = body.currency || 'INR';
+    const currency = body.currency || "INR";
     const receipt = body.receipt || `rcpt_${Date.now()}`;
     const notes = body.notes || {};
 
     // Razorpay requires minimum 100 paise (₹1)
     if (!amount || isNaN(amount) || amount < 100) {
       return NextResponse.json(
-        { ok: false, error: 'Invalid amount. Minimum amount is 100 paise (₹1).' },
-        { status: 400 }
+        {
+          ok: false,
+          error: "Invalid amount. Minimum amount is 100 paise (₹1).",
+        },
+        { status: 400 },
       );
     }
 
@@ -47,13 +53,16 @@ export async function POST(req: NextRequest) {
       receipt: order.receipt,
     });
   } catch (error: any) {
-    console.error('[Razorpay Create Order Error]:', error);
+    console.error("[Razorpay Create Order Error]:", error);
     return NextResponse.json(
       {
         ok: false,
-        error: error?.error?.description || error?.message || 'Failed to create Razorpay order',
+        error:
+          error?.error?.description ||
+          error?.message ||
+          "Failed to create Razorpay order",
       },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }

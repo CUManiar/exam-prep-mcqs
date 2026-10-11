@@ -1,5 +1,5 @@
-import { NextRequest, NextResponse } from 'next/server';
-import crypto from 'crypto';
+import { NextRequest, NextResponse } from "next/server";
+import crypto from "crypto";
 
 export async function POST(req: NextRequest) {
   try {
@@ -7,8 +7,8 @@ export async function POST(req: NextRequest) {
 
     if (!keySecret) {
       return NextResponse.json(
-        { ok: false, error: 'Razorpay secret key not configured on server' },
-        { status: 401 }
+        { ok: false, error: "Razorpay secret key not configured on server" },
+        { status: 401 },
       );
     }
 
@@ -19,22 +19,23 @@ export async function POST(req: NextRequest) {
       return NextResponse.json(
         {
           ok: false,
-          error: 'Missing required fields: razorpay_order_id, razorpay_payment_id, or razorpay_signature',
+          error:
+            "Missing required fields: razorpay_order_id, razorpay_payment_id, or razorpay_signature",
         },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
     // Generate expected HMAC-SHA256 signature
     const text = `${razorpay_order_id}|${razorpay_payment_id}`;
     const expectedSignature = crypto
-      .createHmac('sha256', keySecret)
+      .createHmac("sha256", keySecret)
       .update(text)
-      .digest('hex');
+      .digest("hex");
 
     // Timing-safe buffer comparison to prevent timing attacks
-    const expectedBuffer = Buffer.from(expectedSignature, 'utf-8');
-    const receivedBuffer = Buffer.from(razorpay_signature, 'utf-8');
+    const expectedBuffer = Buffer.from(expectedSignature, "utf-8");
+    const receivedBuffer = Buffer.from(razorpay_signature, "utf-8");
 
     const isValid =
       expectedBuffer.length === receivedBuffer.length &&
@@ -45,9 +46,9 @@ export async function POST(req: NextRequest) {
         {
           ok: false,
           verified: false,
-          error: 'Payment verification failed: signature mismatch',
+          error: "Payment verification failed: signature mismatch",
         },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
@@ -56,16 +57,16 @@ export async function POST(req: NextRequest) {
       verified: true,
       payment_id: razorpay_payment_id,
       order_id: razorpay_order_id,
-      message: 'Payment signature verified successfully',
+      message: "Payment signature verified successfully",
     });
   } catch (error: any) {
-    console.error('[Razorpay Verify Payment Error]:', error);
+    console.error("[Razorpay Verify Payment Error]:", error);
     return NextResponse.json(
       {
         ok: false,
-        error: error?.message || 'Server error during payment verification',
+        error: error?.message || "Server error during payment verification",
       },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }

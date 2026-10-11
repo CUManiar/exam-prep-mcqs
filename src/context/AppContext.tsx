@@ -26,6 +26,8 @@ import {
 import { ConfirmationModal } from "../components/ConfirmationModal";
 import { ProUpgradeModal } from "../components/ProUpgradeModal";
 import { AuthModal } from "../components/AuthModal";
+import { GuestCompletionModal } from "../components/GuestCompletionModal";
+import { isPaperFree } from "../lib/defaults";
 import { isUserPro, setUserPro } from "../lib/razorpay";
 import { User } from "@supabase/supabase-js";
 import {
@@ -78,7 +80,11 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [authModalOpen, setAuthModalOpen] = useState<boolean>(false);
   const [proModalOpen, setProModalOpen] = useState<boolean>(false);
-  const [proModalTarget, setProModalTarget] = useState<string | undefined>(undefined);
+  const [proModalTarget, setProModalTarget] = useState<string | undefined>(
+    undefined,
+  );
+  const [guestCompletionAttempt, setGuestCompletionAttempt] = useState<Attempt | null>(null);
+  const [guestCompletionModalOpen, setGuestCompletionModalOpen] = useState<boolean>(false);
 
   useEffect(() => {
     setIsPro(isUserPro());
@@ -129,12 +135,13 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     if (user) {
       // Authenticated User: Load their isolated attempts, drafts and profile from Supabase
       try {
-        const [userAttempts, userDraft, loadedPapers, profile] = await Promise.all([
-          fetchUserAttemptsFromSupabase(user.id),
-          fetchUserDraftFromSupabase(user.id),
-          getAllPapers(),
-          getUserProfile(user.id),
-        ]);
+        const [userAttempts, userDraft, loadedPapers, profile] =
+          await Promise.all([
+            fetchUserAttemptsFromSupabase(user.id),
+            fetchUserDraftFromSupabase(user.id),
+            getAllPapers(),
+            getUserProfile(user.id),
+          ]);
         setAttempts(userAttempts);
         setActiveDraft(userDraft);
         setPapers(loadedPapers);
@@ -202,9 +209,9 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     };
   }, [loadAllData]);
 
-  // Start exam session - Gated for Freemium (Free: 2026 Prelims, Pro: 2011-2025 & Mains)
+  // Start exam session - Gated for Freemium (Free: 2026 Prelims GS I & CSAT, Pro: all other papers)
   const handleStartExam = (paper: QuestionPaper, mode: "practice" | "mock") => {
-    if (paper.year !== "2026" && !isUserPro()) {
+    if (!isPaperFree(paper) && !isUserPro()) {
       openProUpgradeModal(paper.label);
       return;
     }
@@ -261,6 +268,14 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     if (currentUser) {
       clearUserDraftFromSupabase(currentUser.id);
     }
+
+    // If user is not logged in, prompt them to save results to their account
+    if (!currentUser) {
+      setGuestCompletionAttempt(attempt);
+      setGuestCompletionModalOpen(true);
+      return;
+    }
+
     router.push(`/history/${encodeURIComponent(attempt.id)}`);
   };
 
@@ -387,7 +402,36 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       <AuthModal
         isOpen={authModalOpen}
         onClose={() => setAuthModalOpen(false)}
-        onSuccess={() => loadAllData()}
+        onSuccess={async () => {
+          await loadAllData();
+          if (guestCompletionAttempt) {
+            const user = await getCurrentUser();
+            if (user) {
+              await saveUserAttemptToSupabase(guestCompletionAttempt, user.id);
+            }
+            setGuestCompletionModalOpen(false);
+            const targetId = guestCompletionAttempt.id;
+            setGuestCompletionAttempt(null);
+            router.push(`/history/${encodeURIComponent(targetId)}`);
+          }
+        }}
+      />
+
+      <GuestCompletionModal
+        isOpen={guestCompletionModalOpen}
+        attempt={guestCompletionAttempt}
+        onOpenAuth={() => {
+          setGuestCompletionModalOpen(false);
+          setAuthModalOpen(true);
+        }}
+        onProceedAsGuest={() => {
+          setGuestCompletionModalOpen(false);
+          if (guestCompletionAttempt) {
+            const targetId = guestCompletionAttempt.id;
+            setGuestCompletionAttempt(null);
+            router.push(`/history/${encodeURIComponent(targetId)}`);
+          }
+        }}
       />
     </AppContext.Provider>
   );

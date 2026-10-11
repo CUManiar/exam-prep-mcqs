@@ -59,10 +59,17 @@ export function formatDateTime(isoString: string): string {
   }
 }
 
-// 15+ years of UPSC examination papers support
-export const SUPPORTED_YEARS = Array.from({ length: 16 }, (_, i) =>
-  String(2026 - i),
-); // 2026 down to 2011
+// Available paper years in repository: 2026, 2025, 2024
+export const SUPPORTED_YEARS = ["2026", "2025", "2024"];
+
+/**
+ * Checks if a question paper is part of the completely free tier.
+ * Only 2026 Prelims papers (GS Paper I & CSAT Paper II) are free for all aspirants.
+ * All other papers (2024, 2025, and all Mains papers) require Pro Vault access.
+ */
+export function isPaperFree(paper: QuestionPaper): boolean {
+  return paper.year === "2026" && paper.category === "prelims";
+}
 
 // Comprehensive built-in papers with exact UPSC exam-specific rules
 export const INITIAL_PAPERS: QuestionPaper[] = [

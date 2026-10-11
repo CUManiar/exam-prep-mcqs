@@ -1,18 +1,18 @@
-'use client';
+"use client";
 
-import React, { useState } from 'react';
-import { 
-  Sparkles, 
-  Check, 
-  X, 
-  Lock, 
-  ShieldCheck, 
-  CreditCard, 
-  Loader2, 
+import React, { useState } from "react";
+import {
+  Sparkles,
+  Check,
+  X,
+  Lock,
+  ShieldCheck,
+  CreditCard,
+  Loader2,
   Award,
-  Zap
-} from 'lucide-react';
-import { openRazorpayCheckout } from '../lib/razorpay';
+  Zap,
+} from "lucide-react";
+import { openRazorpayCheckout } from "../lib/razorpay";
 
 interface ProUpgradeModalProps {
   isOpen: boolean;
@@ -39,8 +39,8 @@ export function ProUpgradeModal({
 
     await openRazorpayCheckout({
       amountPaise: 99900, // ₹999 in paise
-      name: 'Upsc-Practice',
-      description: 'Lifetime Access - 15+ Years UPSC Papers Vault',
+      name: "Upsc-Practice",
+      description: "Lifetime Access - 2024-2026 UPSC Papers Vault",
       onSuccess: () => {
         setLoading(false);
         setSuccessPaid(true);
@@ -54,7 +54,9 @@ export function ProUpgradeModal({
       },
       onError: (err) => {
         setLoading(false);
-        setErrorMsg(err.message || 'Payment could not be completed. Please try again.');
+        setErrorMsg(
+          err.message || "Payment could not be completed. Please try again.",
+        );
       },
     });
   };
@@ -79,9 +81,12 @@ export function ProUpgradeModal({
               <Check className="h-8 w-8 stroke-[3]" />
             </div>
             <div>
-              <h3 className="text-xl font-extrabold text-slate-900">Payment Verified!</h3>
+              <h3 className="text-xl font-extrabold text-slate-900">
+                Payment Verified!
+              </h3>
               <p className="text-xs text-slate-500 mt-1">
-                You now have Lifetime Pro Access. Unlocking the complete paper vault...
+                You now have Lifetime Pro Access. Unlocking the complete paper
+                vault...
               </p>
             </div>
           </div>
@@ -94,10 +99,14 @@ export function ProUpgradeModal({
                 <span>Upsc-Practice Pro Vault</span>
               </div>
               <h2 className="text-xl sm:text-2xl font-extrabold text-slate-900 tracking-tight">
-                {targetPaperLabel ? `Unlock ${targetPaperLabel}` : 'Unlock 15+ Years UPSC Vault'}
+                {targetPaperLabel
+                  ? `Unlock ${targetPaperLabel}`
+                  : "Unlock 2024–2026 Vault & Custom Uploads"}
               </h2>
               <p className="text-xs sm:text-sm text-slate-500 leading-relaxed">
-                Free tier includes all 2026 Prelims papers. Upgrade to Pro for lifetime access to the complete archive and model solutions.
+                Free tier includes 2026 Prelims papers. Upgrade to Pro for
+                unlimited practice across our 2024, 2025, and 2026 papers, plus
+                your own custom paper uploads.
               </p>
             </div>
 
@@ -107,41 +116,70 @@ export function ProUpgradeModal({
                 <div className="rounded-full bg-emerald-100 p-0.5 text-emerald-700 mt-0.5 shrink-0">
                   <Check className="h-3 w-3 stroke-[3]" />
                 </div>
-                <span><strong>15+ Years Archive (2011–2025):</strong> All official Prelims GS Paper I & CSAT Paper II sets.</span>
+                <span>
+                  <strong>2024, 2025 & 2026 Paper Sets:</strong> Unlimited
+                  practice attempts across all available Prelims and Mains
+                  papers in our repository.
+                </span>
               </div>
               <div className="flex items-start gap-2.5">
                 <div className="rounded-full bg-emerald-100 p-0.5 text-emerald-700 mt-0.5 shrink-0">
                   <Check className="h-3 w-3 stroke-[3]" />
                 </div>
-                <span><strong>Complete Mains Subjective Papers:</strong> GS I–IV, Essay, and model answer keys.</span>
+                <span>
+                  <strong>Add Your Own Custom Papers:</strong> Upload any custom
+                  question set and attach your own answer key for instant
+                  automated scoring.
+                </span>
               </div>
               <div className="flex items-start gap-2.5">
                 <div className="rounded-full bg-emerald-100 p-0.5 text-emerald-700 mt-0.5 shrink-0">
                   <Check className="h-3 w-3 stroke-[3]" />
                 </div>
-                <span><strong>Advanced BI Analytics:</strong> Deep-dive confidence metrics (🎯 Sure, ⚖️ 50:50, 🎲 Guess) & pacing drag.</span>
+                <span>
+                  <strong>Behavioral BI Analytics:</strong> Cognitive breakdown
+                  across 🎯 Sure, ⚖️ 50:50, and 🎲 Guess questions with pacing
+                  analysis.
+                </span>
               </div>
               <div className="flex items-start gap-2.5">
-                <div className="rounded-full bg-emerald-100 p-0.5 text-emerald-700 mt-0.5 shrink-0">
-                  <Check className="h-3 w-3 stroke-[3]" />
+                <div className="rounded-full bg-amber-100 p-0.5 text-amber-800 mt-0.5 shrink-0">
+                  <ShieldCheck className="h-3 w-3 stroke-[3]" />
                 </div>
-                <span><strong>Lifetime Validity:</strong> Single one-time payment. No recurring monthly subscriptions.</span>
+                <span className="text-[11px] text-slate-500">
+                  <strong>Terms & No-Refund Policy:</strong> Covers current
+                  2024–2026 paper sets. Future additions or updates are at
+                  platform discretion and may carry separate pricing. All sales
+                  are final; no refunds.
+                </span>
               </div>
             </div>
 
             {/* Price Box */}
             <div className="rounded-2xl border border-indigo-200 bg-indigo-50/60 p-4 flex items-center justify-between">
               <div>
-                <span className="text-[11px] font-semibold text-indigo-700 uppercase tracking-wider block">One-Time Fee</span>
+                <span className="text-[11px] font-semibold text-indigo-700 uppercase tracking-wider block">
+                  One-Time Fee
+                </span>
                 <div className="flex items-baseline gap-2 mt-0.5">
-                  <span className="text-2xl sm:text-3xl font-extrabold text-slate-900 font-mono">₹999</span>
-                  <span className="text-xs text-slate-400 line-through font-mono">₹2,999</span>
-                  <span className="text-[10px] font-bold text-emerald-700 bg-emerald-100 px-1.5 py-0.2 rounded">66% OFF</span>
+                  <span className="text-2xl sm:text-3xl font-extrabold text-slate-900 font-mono">
+                    ₹999
+                  </span>
+                  <span className="text-xs text-slate-400 line-through font-mono">
+                    ₹2,499
+                  </span>
+                  <span className="text-[10px] font-bold text-emerald-700 bg-emerald-100 px-1.5 py-0.2 rounded">
+                    60% OFF
+                  </span>
                 </div>
               </div>
               <div className="text-right">
-                <span className="text-[10px] text-slate-500 block">Secured by</span>
-                <span className="text-xs font-bold text-indigo-900 font-mono">Razorpay UPI & Cards</span>
+                <span className="text-[10px] text-slate-500 block">
+                  Secured by
+                </span>
+                <span className="text-xs font-bold text-indigo-900 font-mono">
+                  Razorpay UPI & Cards
+                </span>
               </div>
             </div>
 
@@ -175,7 +213,10 @@ export function ProUpgradeModal({
 
               <div className="flex items-center justify-center gap-1.5 text-[11px] text-slate-400 pt-1">
                 <ShieldCheck className="h-3.5 w-3.5 text-emerald-600" />
-                <span>Instant activation • 100% secure Razorpay checkout (UPI, GPay, PhonePe, Cards)</span>
+                <span>
+                  Instant activation • 100% secure Razorpay checkout (UPI, GPay,
+                  PhonePe, Cards)
+                </span>
               </div>
             </div>
           </>

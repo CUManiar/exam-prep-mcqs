@@ -4,10 +4,12 @@ import React from "react";
 import { useRouter } from "next/navigation";
 import { useApp } from "../context/AppContext";
 import { DashboardView } from "../components/DashboardView";
+import { LandingView } from "../components/LandingView";
 
-export default function DashboardPage() {
+export default function RootPage() {
   const router = useRouter();
   const {
+    currentUser,
     papers,
     attempts,
     handleStartExam,
@@ -15,7 +17,24 @@ export default function DashboardPage() {
     activeDraft,
     handleResumeDraft,
     handleDiscardDraft,
+    openAuthModal,
+    openProUpgradeModal,
+    isPro,
+    isLoading,
   } = useApp();
+
+  // If user is not authenticated, show high-converting Landing Page
+  if (!currentUser && !isLoading) {
+    return (
+      <LandingView
+        papers={papers}
+        onStartExam={handleStartExam}
+        onOpenAuth={openAuthModal}
+        onOpenProModal={openProUpgradeModal}
+        isPro={isPro}
+      />
+    );
+  }
 
   return (
     <DashboardView

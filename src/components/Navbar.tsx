@@ -4,22 +4,19 @@ import React, { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { ActivePage } from "../lib/types";
-import { exportAllData, importAllData } from "../lib/storage";
 import { useApp } from "../context/AppContext";
+import { ProfileSettingsModal } from "./ProfileSettingsModal";
 import {
   LayoutDashboard,
   BookOpen,
   History,
   UploadCloud,
   Clock,
-  Download,
-  Upload,
-  Database,
-  Check,
   Sparkles,
   LogIn,
   LogOut,
   User as UserIcon,
+  Settings as SettingsIcon,
 } from "lucide-react";
 
 interface NavbarProps {
@@ -44,9 +41,11 @@ export function Navbar({
     handleSignOut,
   } = useApp();
   const [currentDateTime, setCurrentDateTime] = useState<string>("");
-  const [showBackupMenu, setShowBackupMenu] = useState<boolean>(false);
   const [showUserMenu, setShowUserMenu] = useState<boolean>(false);
-  const [backupMsg, setBackupMsg] = useState<string | null>(null);
+  const [showProfileModal, setShowProfileModal] = useState<boolean>(false);
+  const [profileModalTab, setProfileModalTab] = useState<
+    "profile" | "settings"
+  >("profile");
 
   // Derive active tab from pathname
   const currentTab = (() => {
@@ -84,40 +83,6 @@ export function Navbar({
     const interval = setInterval(updateTime, 1000);
     return () => clearInterval(interval);
   }, []);
-
-  const handleExport = () => {
-    try {
-      const dataStr = exportAllData();
-      const blob = new Blob(dataStr ? [dataStr] : [], {
-        type: "application/json",
-      });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = `upsc-prep-backup-${new Date().toISOString().slice(0, 10)}.json`;
-      a.click();
-      URL.revokeObjectURL(url);
-      setBackupMsg("Backup downloaded!");
-      setTimeout(() => setBackupMsg(null), 2000);
-    } catch (e) {
-      console.error(e);
-    }
-  };
-
-  const handleImport = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    const reader = new FileReader();
-    reader.onload = (evt) => {
-      const content = evt.target?.result as string;
-      if (content && importAllData(content)) {
-        setBackupMsg("Imported successfully!");
-        if (onDataReload) onDataReload();
-        setTimeout(() => setBackupMsg(null), 2000);
-      }
-    };
-    reader.readAsText(file);
-  };
 
   return (
     <header className="sticky top-0 z-40 w-full border-b border-slate-200/80 bg-white/95 backdrop-blur-md shadow-[0_1px_2px_0_rgba(0,0,0,0.03)]">
@@ -218,7 +183,7 @@ export function Navbar({
             <button
               onClick={() => openProUpgradeModal()}
               className="cursor-pointer flex items-center gap-1.5 rounded-xl bg-gradient-to-r from-amber-500 via-indigo-600 to-indigo-700 hover:from-amber-600 hover:to-indigo-800 px-3 py-1.5 text-xs font-bold text-white shadow-xs hover:shadow-sm transition-all whitespace-nowrap shrink-0 active:scale-[0.98]"
-              title="Unlock complete 15+ years UPSC paper vault with Razorpay"
+              title="Unlock complete 2024–2026 UPSC paper vault & custom uploads with Razorpay"
             >
               <Sparkles className="h-3.5 w-3.5 text-amber-200 fill-amber-200 shrink-0" />
               <span>Upgrade (₹999)</span>
@@ -236,7 +201,8 @@ export function Navbar({
                   {currentUser.email ? currentUser.email[0] : "U"}
                 </div>
                 <span className="hidden md:inline max-w-[120px] truncate text-[11px]">
-                  {currentUser.user_metadata?.full_name || currentUser.email?.split("@")[0]}
+                  {currentUser.user_metadata?.full_name ||
+                    currentUser.email?.split("@")[0]}
                 </span>
               </button>
 
@@ -261,16 +227,44 @@ export function Navbar({
                       </span>
                     </div>
                   </div>
-                  <button
-                    onClick={async () => {
-                      setShowUserMenu(false);
-                      await handleSignOut();
-                    }}
-                    className="cursor-pointer flex w-full items-center gap-2 rounded-xl p-2 mt-1 text-xs font-semibold text-rose-600 hover:bg-rose-50 text-left transition-colors"
-                  >
-                    <LogOut className="h-3.5 w-3.5" />
-                    <span>Sign Out</span>
-                  </button>
+
+                  <div className="py-1">
+                    <button
+                      onClick={() => {
+                        setProfileModalTab("profile");
+                        setShowProfileModal(true);
+                        setShowUserMenu(false);
+                      }}
+                      className="cursor-pointer flex w-full items-center gap-2 rounded-xl p-2 text-xs font-semibold text-slate-700 hover:bg-slate-100 text-left transition-colors"
+                    >
+                      <UserIcon className="h-3.5 w-3.5 text-slate-500" />
+                      <span>My Profile</span>
+                    </button>
+                    <button
+                      onClick={() => {
+                        setProfileModalTab("settings");
+                        setShowProfileModal(true);
+                        setShowUserMenu(false);
+                      }}
+                      className="cursor-pointer flex w-full items-center gap-2 rounded-xl p-2 text-xs font-semibold text-slate-700 hover:bg-slate-100 text-left transition-colors"
+                    >
+                      <SettingsIcon className="h-3.5 w-3.5 text-slate-500" />
+                      <span>Preferences & Settings</span>
+                    </button>
+                  </div>
+
+                  <div className="pt-1 border-t border-slate-100">
+                    <button
+                      onClick={async () => {
+                        setShowUserMenu(false);
+                        await handleSignOut();
+                      }}
+                      className="cursor-pointer flex w-full items-center gap-2 rounded-xl p-2 text-xs font-semibold text-rose-600 hover:bg-rose-50 text-left transition-colors"
+                    >
+                      <LogOut className="h-3.5 w-3.5" />
+                      <span>Sign Out</span>
+                    </button>
+                  </div>
                 </div>
               )}
             </div>
@@ -285,53 +279,25 @@ export function Navbar({
             </button>
           )}
 
-          {/* Backup & Sync button */}
-          <div className="relative shrink-0">
-            <button
-              onClick={() => setShowBackupMenu(!showBackupMenu)}
-              title="Backup & Export Data"
-              className="cursor-pointer flex items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 hover:border-slate-300 hover:bg-slate-50 transition-all focus:outline-none whitespace-nowrap shadow-xs"
-            >
-              <Database className="h-3.5 w-3.5 text-slate-500 shrink-0" />
-              <span>Backup</span>
-            </button>
-
-            {showBackupMenu && (
-              <div className="absolute right-0 mt-2 w-52 rounded-2xl border border-slate-200 bg-white p-2.5 shadow-xl z-50 animate-in fade-in">
-                <div className="mb-2 px-2.5 py-1.5 rounded-lg bg-slate-50 border border-slate-100 text-[10px] font-semibold text-slate-500 flex items-center justify-between">
-                  <span>Target Env</span>
-                  <span className="flex items-center gap-1.5 font-mono text-xs font-bold text-indigo-600">
-                    <span className="h-1.5 w-1.5 rounded-full bg-emerald-500"></span>
-                    {(typeof window !== "undefined" &&
-                      localStorage.getItem("exam_prep_environment")) ||
-                      "PROD"}
-                  </span>
-                </div>
-                {backupMsg && (
-                  <div className="mb-2 rounded-lg bg-emerald-50 border border-emerald-200/60 p-1.5 text-[11px] font-semibold text-emerald-700 flex items-center gap-1">
-                    <Check className="h-3.5 w-3.5" /> {backupMsg}
-                  </div>
-                )}
-                <button
-                  onClick={handleExport}
-                  className="cursor-pointer flex w-full items-center gap-2.5 rounded-xl p-2 text-xs font-semibold text-slate-700 hover:bg-slate-100 text-left transition-colors"
-                >
-                  <Download className="h-4 w-4 text-indigo-600" /> Export JSON
-                </button>
-                <label className="cursor-pointer flex w-full items-center gap-2.5 rounded-xl p-2 text-xs font-semibold text-slate-700 hover:bg-slate-100 text-left transition-colors">
-                  <Upload className="h-4 w-4 text-emerald-600" /> Import JSON
-                  <input
-                    type="file"
-                    accept=".json"
-                    onChange={handleImport}
-                    className="hidden"
-                  />
-                </label>
-              </div>
-            )}
-          </div>
+          {/* Quick Settings Icon Button */}
+          <button
+            onClick={() => {
+              setProfileModalTab("settings");
+              setShowProfileModal(true);
+            }}
+            title="Preferences & Settings"
+            className="cursor-pointer flex items-center justify-center h-8 w-8 rounded-xl border border-slate-200 bg-white hover:border-slate-300 hover:bg-slate-50 text-slate-500 hover:text-slate-800 transition-colors shadow-2xs shrink-0"
+          >
+            <SettingsIcon className="h-4 w-4" />
+          </button>
         </div>
       </div>
+
+      <ProfileSettingsModal
+        isOpen={showProfileModal}
+        onClose={() => setShowProfileModal(false)}
+        initialTab={profileModalTab}
+      />
 
       {/* Medium/Mobile Nav Bar - Hidden during active exam session */}
       {!isInExam && (
