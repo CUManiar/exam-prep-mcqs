@@ -234,8 +234,36 @@ export function AttemptDetailView({
   const skippedPct = Math.max(0, 100 - correctPct - incorrectPct);
 
   return (
-    <div className="mx-auto max-w-6xl px-4 py-6 sm:px-6 space-y-6 text-slate-100 font-sans animate-in fade-in duration-200">
+    <div className="mx-auto max-w-6xl px-4 py-6 sm:px-6 space-y-6 text-slate-100 font-sans animate-in fade-in duration-200 print:text-black print:bg-white print:p-0 print:space-y-4 print:max-w-none">
       
+      {/* Official Examination Header for Print & PDF Export */}
+      <div className="hidden print:block pb-5 mb-5 border-b-2 border-slate-900 text-black">
+        <div className="text-center space-y-1">
+          <div className="text-[11px] font-black uppercase tracking-widest text-slate-800">
+            UNION PUBLIC SERVICE COMMISSION (UPSC)
+          </div>
+          <div className="text-base font-black text-black uppercase tracking-wider">
+            CIVIL SERVICES EXAMINATION — OFFICIAL CANDIDATE ASSESSMENT REPORT
+          </div>
+          <h1 className="text-2xl font-extrabold text-black pt-1">
+            {attempt.paperLabel}
+          </h1>
+          <div className="flex flex-wrap justify-center items-center gap-3 text-xs font-semibold text-slate-700 pt-2 border-t border-slate-300 mt-2">
+            <span><strong>Exam Stage:</strong> {attempt.category.toUpperCase()} ({attempt.examType.toUpperCase()})</span>
+            <span>•</span>
+            <span><strong>Max Marks:</strong> {attempt.maxScore}</span>
+            <span>•</span>
+            <span><strong>Prescribed Time:</strong> {attempt.timeMinutes || 120} Mins</span>
+            <span>•</span>
+            <span><strong>Attempted:</strong> {formatDateTime(attempt.startedAt)}</span>
+            <span>•</span>
+            <span><strong>Duration:</strong> {formatTimeSeconds(attempt.durationSeconds)}</span>
+            <span>•</span>
+            <span><strong>Ref ID:</strong> {attempt.id}</span>
+          </div>
+        </div>
+      </div>
+
       {/* 1. Header Bar & Actions (Clean, restrained, professional) */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 border-b border-slate-800 pb-4 print:hidden">
         <div className="flex items-center gap-3">
