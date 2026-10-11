@@ -1,6 +1,7 @@
 "use client";
 
-import React, { useEffect } from "react";
+import React, { useState, useEffect } from "react";
+import { createPortal } from "react-dom";
 import { AlertTriangle, Trash2, Info, X } from "lucide-react";
 
 export interface ConfirmationModalProps {
@@ -24,6 +25,12 @@ export function ConfirmationModal({
   onConfirm,
   onCancel,
 }: ConfirmationModalProps) {
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (!isOpen) return;
@@ -33,7 +40,7 @@ export function ConfirmationModal({
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [isOpen, onCancel]);
 
-  if (!isOpen) return null;
+  if (!isOpen || !mounted) return null;
 
   const iconVariants = {
     danger: {
@@ -55,8 +62,8 @@ export function ConfirmationModal({
 
   const currentVariant = iconVariants[variant];
 
-  return (
-    <div className="fixed inset-0 z-50 overflow-y-auto flex min-h-full items-start sm:items-center justify-center p-3 sm:p-6 py-8 sm:py-12 bg-black/80 backdrop-blur-md animate-in fade-in duration-150">
+  return createPortal(
+    <div className="fixed inset-0 z-[9999] overflow-y-auto flex min-h-full items-start sm:items-center justify-center p-3 sm:p-6 py-8 sm:py-12 bg-black/80 backdrop-blur-md animate-in fade-in duration-150">
       <div
         className="relative my-auto w-full max-w-md rounded-2xl border border-slate-800 bg-slate-900 p-6 shadow-2xl animate-in zoom-in-95 duration-150 space-y-4"
         onClick={(e) => e.stopPropagation()}
@@ -101,6 +108,7 @@ export function ConfirmationModal({
           </button>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }

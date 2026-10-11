@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
+import { createPortal } from "react-dom";
 import {
   User,
   Settings,
@@ -46,6 +47,7 @@ export function ProfileSettingsModal({
     handleRestoreHiddenPapers,
   } = useApp();
 
+  const [mounted, setMounted] = useState(false);
   const [activeTab, setActiveTab] = useState<"profile" | "settings">(
     initialTab,
   );
@@ -54,6 +56,10 @@ export function ProfileSettingsModal({
   const [cacheClearedMsg, setCacheClearedMsg] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [isDeletingAccount, setIsDeletingAccount] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   // Close on Escape key press
   useEffect(() => {
@@ -73,7 +79,7 @@ export function ProfileSettingsModal({
     }
   }, [isOpen, initialTab]);
 
-  if (!isOpen) return null;
+  if (!isOpen || !mounted) return null;
 
   const totalAttempts = attempts.length;
   const totalCorrect = attempts.reduce((acc, a) => acc + (a.correct || 0), 0);
@@ -127,12 +133,12 @@ export function ProfileSettingsModal({
     }
   };
 
-  return (
+  return createPortal(
     <div
       onClick={(e) => {
         if (e.target === e.currentTarget) onClose();
       }}
-      className="fixed inset-0 z-50 overflow-y-auto bg-slate-900/60 backdrop-blur-xs flex min-h-full items-start sm:items-center justify-center p-3 sm:p-6 py-8 sm:py-12 animate-in fade-in"
+      className="fixed inset-0 z-[9999] overflow-y-auto bg-slate-900/60 backdrop-blur-xs flex min-h-full items-start sm:items-center justify-center p-3 sm:p-6 py-8 sm:py-12 animate-in fade-in"
     >
       <div className="relative my-auto w-full max-w-xl max-h-[calc(100dvh-4rem)] flex flex-col rounded-3xl border border-slate-200 bg-white shadow-2xl overflow-hidden animate-in zoom-in-95 duration-150">
         {/* Accent Bar */}
@@ -467,6 +473,7 @@ export function ProfileSettingsModal({
           )}
         </div>
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }

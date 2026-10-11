@@ -1,6 +1,7 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
+import { createPortal } from "react-dom";
 import {
   User,
   Mail,
@@ -22,6 +23,7 @@ interface AuthModalProps {
 }
 
 export function AuthModal({ isOpen, onClose, onSuccess }: AuthModalProps) {
+  const [mounted, setMounted] = useState(false);
   const [mode, setMode] = useState<"signin" | "signup">("signin");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -30,7 +32,11 @@ export function AuthModal({ isOpen, onClose, onSuccess }: AuthModalProps) {
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
 
-  if (!isOpen) return null;
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  if (!isOpen || !mounted) return null;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -91,8 +97,8 @@ export function AuthModal({ isOpen, onClose, onSuccess }: AuthModalProps) {
     }
   };
 
-  return (
-    <div className="fixed inset-0 z-50 overflow-y-auto flex min-h-full items-start sm:items-center justify-center p-3 sm:p-6 py-8 sm:py-12 bg-slate-900/60 backdrop-blur-xs animate-in fade-in">
+  return createPortal(
+    <div className="fixed inset-0 z-[9999] overflow-y-auto flex min-h-full items-start sm:items-center justify-center p-3 sm:p-6 py-8 sm:py-12 bg-slate-900/60 backdrop-blur-xs animate-in fade-in">
       <div className="relative my-auto w-full max-w-md rounded-3xl border border-slate-200 bg-white p-6 sm:p-8 shadow-2xl space-y-5 overflow-hidden">
         {/* Accent Bar */}
         <div className="absolute top-0 left-0 right-0 h-1.5 bg-gradient-to-r from-indigo-500 via-purple-500 to-amber-500" />
@@ -249,6 +255,7 @@ export function AuthModal({ isOpen, onClose, onSuccess }: AuthModalProps) {
           )}
         </div>
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }
