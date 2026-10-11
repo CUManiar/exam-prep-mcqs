@@ -1,9 +1,9 @@
-'use client';
+"use client";
 
-import React from 'react';
-import { useRouter } from 'next/navigation';
-import { useApp } from '../context/AppContext';
-import { DashboardView } from '../components/DashboardView';
+import React from "react";
+import { useRouter } from "next/navigation";
+import { useApp } from "../context/AppContext";
+import { DashboardView } from "../components/DashboardView";
 
 export default function DashboardPage() {
   const router = useRouter();
@@ -22,8 +22,8 @@ export default function DashboardPage() {
       papers={papers}
       attempts={attempts}
       onStartExam={handleStartExam}
-      onNavigatePapers={() => router.push('/papers')}
-      onNavigateHistory={() => router.push('/history')}
+      onNavigatePapers={() => router.push("/papers")}
+      onNavigateHistory={() => router.push("/history")}
       onViewAttempt={handleViewAttemptDetail}
       activeDraft={activeDraft}
       onResumeDraft={handleResumeDraft}

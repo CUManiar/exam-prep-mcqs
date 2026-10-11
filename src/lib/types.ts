@@ -1,18 +1,18 @@
-export type ExamType = 'objective' | 'subjective';
-export type ExamCategory = 'prelims' | 'mains';
+export type ExamType = "objective" | "subjective";
+export type ExamCategory = "prelims" | "mains";
 
 export interface QuestionPaper {
   id: string;
   year: string;
   category: ExamCategory; // 'prelims' | 'mains'
-  examType: ExamType;      // 'objective' | 'subjective'
-  subject: string;         // 'GS I', 'GS II CSAT', 'Essay', 'GS I (Mains)', etc.
+  examType: ExamType; // 'objective' | 'subjective'
+  subject: string; // 'GS I', 'GS II CSAT', 'Essay', 'GS I (Mains)', etc.
   label: string;
-  totalQuestions: number;  // 100 for GS1, 80 for GS2, 20 for Mains
-  totalMarks: number;      // 200 for GS1/GS2, 250 for Mains
-  correctMarks: number;    // 2.0 for GS1, 2.5 for GS2, 0 for subjective
-  incorrectMarks: number;  // 0.667 for GS1, 0.833 for GS2, 0 for subjective
-  timeMinutes: number;     // 120 for Prelims, 180 for Mains
+  totalQuestions: number; // 100 for GS1, 80 for GS2, 20 for Mains
+  totalMarks: number; // 200 for GS1/GS2, 250 for Mains
+  correctMarks: number; // 2.0 for GS1, 2.5 for GS2, 0 for subjective
+  incorrectMarks: number; // 0.667 for GS1, 0.833 for GS2, 0 for subjective
+  timeMinutes: number; // 120 for Prelims, 180 for Mains
   qpUrl: string;
   akUrl?: string;
   exsUrl?: string;
@@ -21,7 +21,7 @@ export interface QuestionPaper {
   isCustom?: boolean;
 }
 
-export type ConfidenceLevel = 'sure' | '50-50' | 'guess';
+export type ConfidenceLevel = "sure" | "50-50" | "guess";
 
 export interface QuestionAnswer {
   questionNo: number;
@@ -44,7 +44,7 @@ export interface Attempt {
   paperLabel: string;
   category: ExamCategory;
   examType: ExamType;
-  mode: 'practice' | 'mock';
+  mode: "practice" | "mock";
   startedAt: string;
   finishedAt?: string;
   totalQuestions: number;
@@ -70,15 +70,21 @@ export interface Attempt {
   answers: Record<number, QuestionAnswer>;
   generalNotes?: string;
   userSubmissionPdfUrl?: string; // For subjective Mains handwritten answers
-  idleTimeSeconds?: number;      // Reading instructions, cover page & non-question buffer time
+  idleTimeSeconds?: number; // Reading instructions, cover page & non-question buffer time
 }
 
-export type ActivePage = 'dashboard' | 'papers' | 'session' | 'history' | 'upload' | 'attempt-detail';
+export type ActivePage =
+  | "dashboard"
+  | "papers"
+  | "session"
+  | "history"
+  | "upload"
+  | "attempt-detail";
 
 export interface ActiveSessionDraft {
   paperId: string;
   paperLabel: string;
-  mode: 'practice' | 'mock';
+  mode: "practice" | "mock";
   currentQuestion: number | null;
   answers: Record<number, QuestionAnswer>;
   elapsedSeconds: number;

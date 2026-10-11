@@ -1,16 +1,21 @@
-'use client';
+"use client";
 
-import React, { useState } from 'react';
-import { Attempt, QuestionPaper, ActiveSessionDraft } from '../lib/types';
-import { formatTimeSeconds, formatDateTime, hasAnswerKey, hasSolution } from '../lib/defaults';
-import { DetailedSolutionModal } from './DetailedSolutionModal';
-import { 
-  Play, 
-  Clock, 
-  ArrowRight, 
-  Search, 
+import React, { useState } from "react";
+import { Attempt, QuestionPaper, ActiveSessionDraft } from "../lib/types";
+import {
+  formatTimeSeconds,
+  formatDateTime,
+  hasAnswerKey,
+  hasSolution,
+} from "../lib/defaults";
+import { DetailedSolutionModal } from "./DetailedSolutionModal";
+import {
+  Play,
+  Clock,
+  ArrowRight,
+  Search,
   FileText,
-  CheckCircle2, 
+  CheckCircle2,
   AlertCircle,
   ExternalLink,
   Target,
@@ -23,13 +28,13 @@ import {
   Sparkles,
   ChevronRight,
   Filter,
-  Check
-} from 'lucide-react';
+  Check,
+} from "lucide-react";
 
 interface DashboardViewProps {
   papers: QuestionPaper[];
   attempts: Attempt[];
-  onStartExam: (paper: QuestionPaper, mode: 'practice' | 'mock') => void;
+  onStartExam: (paper: QuestionPaper, mode: "practice" | "mock") => void;
   onNavigatePapers: () => void;
   onNavigateHistory: () => void;
   onViewAttempt: (attempt: Attempt) => void;
@@ -49,60 +54,100 @@ export function DashboardView({
   onResumeDraft,
   onDiscardDraft,
 }: DashboardViewProps) {
-  const [activeTab, setActiveTab] = useState<'all' | 'prelims' | 'mains'>('all');
-  const [searchQuery, setSearchQuery] = useState<string>('');
-  const [viewingSolutionPaper, setViewingSolutionPaper] = useState<QuestionPaper | null>(null);
+  const [activeTab, setActiveTab] = useState<"all" | "prelims" | "mains">(
+    "all",
+  );
+  const [searchQuery, setSearchQuery] = useState<string>("");
+  const [viewingSolutionPaper, setViewingSolutionPaper] =
+    useState<QuestionPaper | null>(null);
 
   // 1. Evaluated mock attempts
-  const mockAttempts = attempts.filter(a => a.mode === 'mock');
+  const mockAttempts = attempts.filter((a) => a.mode === "mock");
   const totalAttempts = mockAttempts.length;
-  const totalDurationSeconds = mockAttempts.reduce((acc, a) => acc + (a.durationSeconds || 0), 0);
-  
-  const avgAccuracy = totalAttempts > 0 
-    ? Math.round((mockAttempts.reduce((acc, a) => acc + (a.accuracyPct || 0), 0) / totalAttempts) * 10) / 10 
-    : 0;
+  const totalDurationSeconds = mockAttempts.reduce(
+    (acc, a) => acc + (a.durationSeconds || 0),
+    0,
+  );
 
-  const avgScore = totalAttempts > 0
-    ? Math.round((mockAttempts.reduce((acc, a) => acc + (a.score || 0), 0) / totalAttempts) * 100) / 100
-    : 0;
+  const avgAccuracy =
+    totalAttempts > 0
+      ? Math.round(
+          (mockAttempts.reduce((acc, a) => acc + (a.accuracyPct || 0), 0) /
+            totalAttempts) *
+            10,
+        ) / 10
+      : 0;
+
+  const avgScore =
+    totalAttempts > 0
+      ? Math.round(
+          (mockAttempts.reduce((acc, a) => acc + (a.score || 0), 0) /
+            totalAttempts) *
+            100,
+        ) / 100
+      : 0;
 
   // Question Aggregations
-  const totalCorrect = mockAttempts.reduce((acc, a) => acc + (a.correct || 0), 0);
-  const totalIncorrect = mockAttempts.reduce((acc, a) => acc + (a.incorrect || 0), 0);
-  const totalQuestionsSum = mockAttempts.reduce((acc, a) => acc + (a.totalQuestions || 100), 0);
-  const totalAttempted = mockAttempts.reduce((acc, a) => acc + (a.answered || 0), 0);
-  const totalSkipped = mockAttempts.reduce((acc, a) => acc + (a.unattempted || 0), 0);
-  
-  const totalPenalty = Math.round(
-    mockAttempts.reduce((acc, a) => acc + ((a.incorrect || 0) * (a.incorrectMarks || 0.667)), 0) * 10
-  ) / 10;
-  const grossScore = Math.round(
-    mockAttempts.reduce((acc, a) => acc + ((a.correct || 0) * (a.correctMarks || 2.0)), 0) * 10
-  ) / 10;
+  const totalCorrect = mockAttempts.reduce(
+    (acc, a) => acc + (a.correct || 0),
+    0,
+  );
+  const totalIncorrect = mockAttempts.reduce(
+    (acc, a) => acc + (a.incorrect || 0),
+    0,
+  );
+  const totalQuestionsSum = mockAttempts.reduce(
+    (acc, a) => acc + (a.totalQuestions || 100),
+    0,
+  );
+  const totalAttempted = mockAttempts.reduce(
+    (acc, a) => acc + (a.answered || 0),
+    0,
+  );
+  const totalSkipped = mockAttempts.reduce(
+    (acc, a) => acc + (a.unattempted || 0),
+    0,
+  );
+
+  const totalPenalty =
+    Math.round(
+      mockAttempts.reduce(
+        (acc, a) => acc + (a.incorrect || 0) * (a.incorrectMarks || 0.667),
+        0,
+      ) * 10,
+    ) / 10;
+  const grossScore =
+    Math.round(
+      mockAttempts.reduce(
+        (acc, a) => acc + (a.correct || 0) * (a.correctMarks || 2.0),
+        0,
+      ) * 10,
+    ) / 10;
 
   // Pace metric
-  const avgSecondsPerQ = totalAttempted > 0
-    ? Math.round(totalDurationSeconds / totalAttempted)
-    : 72; // default 72 seconds
+  const avgSecondsPerQ =
+    totalAttempted > 0 ? Math.round(totalDurationSeconds / totalAttempted) : 72; // default 72 seconds
 
   // Cutoff zone indicator calculation (UPSC GS-1 out of 200)
   const cutoffTarget = 92; // Typical benchmark cutoff
   const cutoffProgressPct = Math.min(100, Math.max(0, (avgScore / 200) * 100));
 
   // Filter papers
-  const filteredPapers = papers.filter(p => {
-    const matchesTab = activeTab === 'all' || p.category === activeTab;
-    const matchesSearch = !searchQuery || 
-      p.label.toLowerCase().includes(searchQuery.toLowerCase()) || 
+  const filteredPapers = papers.filter((p) => {
+    const matchesTab = activeTab === "all" || p.category === activeTab;
+    const matchesSearch =
+      !searchQuery ||
+      p.label.toLowerCase().includes(searchQuery.toLowerCase()) ||
       p.subject.toLowerCase().includes(searchQuery.toLowerCase()) ||
       p.year.includes(searchQuery);
     return matchesTab && matchesSearch;
   });
 
   // Calculate Donut percentages
-  const donutTotal = (totalCorrect + totalIncorrect + totalSkipped) || 100;
+  const donutTotal = totalCorrect + totalIncorrect + totalSkipped || 100;
   const correctPct = totalAttempts > 0 ? (totalCorrect / donutTotal) * 100 : 65;
-  const incorrectPct = totalAttempts > 0 ? (totalIncorrect / donutTotal) * 100 : 20;
+  const incorrectPct =
+    totalAttempts > 0 ? (totalIncorrect / donutTotal) * 100 : 20;
   const skippedPct = totalAttempts > 0 ? (totalSkipped / donutTotal) * 100 : 15;
 
   // SVG Donut circumferences (radius = 42, perimeter = 2 * PI * 42 ≈ 263.89)
@@ -113,7 +158,6 @@ export function DashboardView({
 
   return (
     <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8 space-y-8 animate-in fade-in duration-200">
-      
       {/* 1. Spacious Executive Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 pb-2 border-b border-slate-200/80">
         <div>
@@ -134,8 +178,12 @@ export function DashboardView({
               <Clock className="h-4 w-4" />
             </div>
             <div>
-              <span className="font-bold text-amber-900">Paused Exam In Progress: </span>
-              <span className="text-slate-800 font-medium">{activeDraft.paperLabel}</span>
+              <span className="font-bold text-amber-900">
+                Paused Exam In Progress:{" "}
+              </span>
+              <span className="text-slate-800 font-medium">
+                {activeDraft.paperLabel}
+              </span>
               <span className="text-amber-700 font-mono text-[11px] ml-2 font-semibold">
                 (Paused at Question {activeDraft.currentQuestion || 1})
               </span>
@@ -162,7 +210,6 @@ export function DashboardView({
 
       {/* 3. Executive BI KPI Metrics Bar (4 Spacious Cards) */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-5">
-        
         {/* KPI 1: Evaluated Mocks */}
         <div className="bi-card p-5 relative overflow-hidden group">
           <div className="flex items-center justify-between">
@@ -177,11 +224,15 @@ export function DashboardView({
             <span className="text-3xl font-extrabold text-slate-900 font-mono tracking-tight">
               {totalAttempts}
             </span>
-            <span className="text-xs text-slate-500 font-medium">completed</span>
+            <span className="text-xs text-slate-500 font-medium">
+              completed
+            </span>
           </div>
           <div className="mt-3 flex items-center gap-1.5 text-[11px] font-semibold text-indigo-700">
             <span className="h-1.5 w-1.5 rounded-full bg-indigo-500"></span>
-            <span>{totalAttempts > 0 ? 'Full OMR Reconciled' : 'Ready for 1st Mock'}</span>
+            <span>
+              {totalAttempts > 0 ? "Full OMR Reconciled" : "Ready for 1st Mock"}
+            </span>
           </div>
         </div>
 
@@ -197,9 +248,11 @@ export function DashboardView({
           </div>
           <div className="mt-3 flex items-baseline gap-2">
             <span className="text-3xl font-extrabold text-slate-900 font-mono tracking-tight">
-              {avgScore > 0 ? avgScore : '—'}
+              {avgScore > 0 ? avgScore : "—"}
             </span>
-            <span className="text-xs text-slate-400 font-mono font-medium">/ 200</span>
+            <span className="text-xs text-slate-400 font-mono font-medium">
+              / 200
+            </span>
           </div>
           <div className="mt-3 flex items-center gap-1.5 text-[11px] font-semibold">
             {avgScore >= cutoffTarget ? (
@@ -208,7 +261,8 @@ export function DashboardView({
               </span>
             ) : avgScore > 0 ? (
               <span className="text-amber-700 flex items-center gap-1">
-                <AlertCircle className="h-3 w-3" /> {Math.round(cutoffTarget - avgScore)} pts to cutoff
+                <AlertCircle className="h-3 w-3" />{" "}
+                {Math.round(cutoffTarget - avgScore)} pts to cutoff
               </span>
             ) : (
               <span className="text-slate-400">Target: 95+ marks</span>
@@ -228,9 +282,11 @@ export function DashboardView({
           </div>
           <div className="mt-3 flex items-baseline gap-2">
             <span className="text-3xl font-extrabold text-teal-700 font-mono tracking-tight">
-              {avgAccuracy > 0 ? `${avgAccuracy}%` : '—'}
+              {avgAccuracy > 0 ? `${avgAccuracy}%` : "—"}
             </span>
-            <span className="text-xs text-slate-500 font-medium">precision</span>
+            <span className="text-xs text-slate-500 font-medium">
+              precision
+            </span>
           </div>
           <div className="mt-3 flex items-center gap-1.5 text-[11px] font-semibold text-slate-500">
             <span>{totalCorrect} correct</span>
@@ -253,18 +309,23 @@ export function DashboardView({
             <span className="text-3xl font-extrabold text-slate-900 font-mono tracking-tight">
               {avgSecondsPerQ}s
             </span>
-            <span className="text-xs text-slate-500 font-medium">/ question</span>
+            <span className="text-xs text-slate-500 font-medium">
+              / question
+            </span>
           </div>
           <div className="mt-3 flex items-center gap-1.5 text-[11px] font-semibold text-slate-500">
-            <span>Logged: <strong className="text-slate-800 font-mono">{formatTimeSeconds(totalDurationSeconds)}</strong></span>
+            <span>
+              Logged:{" "}
+              <strong className="text-slate-800 font-mono">
+                {formatTimeSeconds(totalDurationSeconds)}
+              </strong>
+            </span>
           </div>
         </div>
-
       </div>
 
       {/* 4. Interactive BI Visual Analytics & Decision Tools (Charts & Meters) */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        
         {/* Tool 1: UPSC GS-1 Benchmark Cutoff Gauge & Zone Meter */}
         <div className="bi-card p-6 flex flex-col justify-between">
           <div>
@@ -285,12 +346,13 @@ export function DashboardView({
             {/* Visual Segmented Spectrum Bar */}
             <div className="mt-6 space-y-2">
               <div className="relative pt-6">
-                
                 {/* Pointer marker for user's avg score */}
                 {totalAttempts > 0 && (
-                  <div 
+                  <div
                     className="absolute top-0 transform -translate-x-1/2 flex flex-col items-center transition-all duration-500"
-                    style={{ left: `${Math.max(5, Math.min(95, cutoffProgressPct))}%` }}
+                    style={{
+                      left: `${Math.max(5, Math.min(95, cutoffProgressPct))}%`,
+                    }}
                   >
                     <span className="px-1.5 py-0.5 rounded bg-slate-900 text-white text-[10px] font-mono font-bold shadow-xs whitespace-nowrap">
                       {avgScore} pts
@@ -301,10 +363,22 @@ export function DashboardView({
 
                 {/* The 4 colored zones */}
                 <div className="h-3.5 w-full rounded-full overflow-hidden flex shadow-inner bg-slate-100">
-                  <div className="bg-rose-400 w-[37.5%]" title="High Risk: < 75"></div>
-                  <div className="bg-amber-400 w-[7%]" title="Marginal: 75 - 88"></div>
-                  <div className="bg-indigo-500 w-[5.5%]" title="Cutoff Zone: 88 - 98"></div>
-                  <div className="bg-emerald-500 w-[50%]" title="Safe Merit: 100+"></div>
+                  <div
+                    className="bg-rose-400 w-[37.5%]"
+                    title="High Risk: < 75"
+                  ></div>
+                  <div
+                    className="bg-amber-400 w-[7%]"
+                    title="Marginal: 75 - 88"
+                  ></div>
+                  <div
+                    className="bg-indigo-500 w-[5.5%]"
+                    title="Cutoff Zone: 88 - 98"
+                  ></div>
+                  <div
+                    className="bg-emerald-500 w-[50%]"
+                    title="Safe Merit: 100+"
+                  ></div>
                 </div>
               </div>
 
@@ -322,11 +396,15 @@ export function DashboardView({
             <div className="mt-6 grid grid-cols-2 gap-2.5 text-xs">
               <div className="p-2.5 rounded-xl bg-slate-50 border border-slate-100 flex items-center justify-between">
                 <span className="text-slate-500 font-medium">UPSC Cutoff</span>
-                <span className="font-bold text-slate-800 font-mono">~88-95</span>
+                <span className="font-bold text-slate-800 font-mono">
+                  ~88-95
+                </span>
               </div>
               <div className="p-2.5 rounded-xl bg-emerald-50/70 border border-emerald-100 flex items-center justify-between">
                 <span className="text-emerald-800 font-medium">Safe Merit</span>
-                <span className="font-bold text-emerald-700 font-mono">100+</span>
+                <span className="font-bold text-emerald-700 font-mono">
+                  100+
+                </span>
               </div>
             </div>
           </div>
@@ -352,7 +430,10 @@ export function DashboardView({
             {/* Circular SVG Donut */}
             <div className="mt-5 flex items-center justify-center">
               <div className="relative flex items-center justify-center">
-                <svg className="w-36 h-36 transform -rotate-90" viewBox="0 0 100 100">
+                <svg
+                  className="w-36 h-36 transform -rotate-90"
+                  viewBox="0 0 100 100"
+                >
                   {/* Background Track */}
                   <circle
                     cx="50"
@@ -406,7 +487,7 @@ export function DashboardView({
                 {/* Donut Center Display */}
                 <div className="absolute flex flex-col items-center justify-center text-center">
                   <span className="text-xl font-extrabold font-mono text-slate-900">
-                    {totalAttempts > 0 ? `${avgAccuracy}%` : '0%'}
+                    {totalAttempts > 0 ? `${avgAccuracy}%` : "0%"}
                   </span>
                   <span className="text-[10px] uppercase font-bold text-slate-400">
                     Accuracy
@@ -420,22 +501,34 @@ export function DashboardView({
               <div className="flex items-center gap-1.5">
                 <span className="h-3 w-3 rounded-full bg-emerald-500 shadow-2xs"></span>
                 <div>
-                  <span className="text-slate-500 text-[10px] block">Correct</span>
-                  <strong className="text-slate-800 font-mono">{totalCorrect}</strong>
+                  <span className="text-slate-500 text-[10px] block">
+                    Correct
+                  </span>
+                  <strong className="text-slate-800 font-mono">
+                    {totalCorrect}
+                  </strong>
                 </div>
               </div>
               <div className="flex items-center gap-1.5">
                 <span className="h-3 w-3 rounded-full bg-rose-500 shadow-2xs"></span>
                 <div>
-                  <span className="text-slate-500 text-[10px] block">Wrong</span>
-                  <strong className="text-slate-800 font-mono">{totalIncorrect}</strong>
+                  <span className="text-slate-500 text-[10px] block">
+                    Wrong
+                  </span>
+                  <strong className="text-slate-800 font-mono">
+                    {totalIncorrect}
+                  </strong>
                 </div>
               </div>
               <div className="flex items-center gap-1.5">
                 <span className="h-3 w-3 rounded-full bg-slate-400 shadow-2xs"></span>
                 <div>
-                  <span className="text-slate-500 text-[10px] block">Skipped</span>
-                  <strong className="text-slate-800 font-mono">{totalSkipped}</strong>
+                  <span className="text-slate-500 text-[10px] block">
+                    Skipped
+                  </span>
+                  <strong className="text-slate-800 font-mono">
+                    {totalSkipped}
+                  </strong>
                 </div>
               </div>
             </div>
@@ -463,7 +556,9 @@ export function DashboardView({
             <div className="mt-5 space-y-3">
               <div className="p-3 rounded-xl bg-rose-50/60 border border-rose-100 flex items-center justify-between">
                 <div>
-                  <span className="text-xs font-bold text-rose-900 block">Negative Marks Deducted</span>
+                  <span className="text-xs font-bold text-rose-900 block">
+                    Negative Marks Deducted
+                  </span>
                 </div>
                 <div className="text-right">
                   <span className="text-xl font-extrabold text-rose-600 font-mono">
@@ -475,13 +570,17 @@ export function DashboardView({
 
               <div className="grid grid-cols-2 gap-2 text-xs">
                 <div className="p-2.5 rounded-xl bg-slate-50 border border-slate-100">
-                  <span className="text-[10px] text-slate-400 uppercase font-bold block">Gross</span>
+                  <span className="text-[10px] text-slate-400 uppercase font-bold block">
+                    Gross
+                  </span>
                   <span className="text-sm font-mono font-bold text-slate-800 mt-0.5 block">
                     +{grossScore}
                   </span>
                 </div>
                 <div className="p-2.5 rounded-xl bg-slate-50 border border-slate-100">
-                  <span className="text-[10px] text-slate-400 uppercase font-bold block">Net</span>
+                  <span className="text-[10px] text-slate-400 uppercase font-bold block">
+                    Net
+                  </span>
                   <span className="text-sm font-mono font-bold text-indigo-700 mt-0.5 block">
                     {Math.round((grossScore - totalPenalty) * 10) / 10}
                   </span>
@@ -493,16 +592,19 @@ export function DashboardView({
                 <div className="flex justify-between text-xs font-semibold mb-1 text-slate-600">
                   <span>Retention Ratio</span>
                   <span className="font-mono text-slate-800">
-                    {grossScore > 0 ? `${Math.round(((grossScore - totalPenalty) / grossScore) * 100)}%` : '100%'}
+                    {grossScore > 0
+                      ? `${Math.round(((grossScore - totalPenalty) / grossScore) * 100)}%`
+                      : "100%"}
                   </span>
                 </div>
                 <div className="h-2 w-full rounded-full bg-slate-100 overflow-hidden">
-                  <div 
+                  <div
                     className="h-full bg-indigo-600 rounded-full transition-all duration-500"
-                    style={{ 
-                      width: grossScore > 0 
-                        ? `${Math.max(10, Math.min(100, Math.round(((grossScore - totalPenalty) / grossScore) * 100)))}%` 
-                        : '100%' 
+                    style={{
+                      width:
+                        grossScore > 0
+                          ? `${Math.max(10, Math.min(100, Math.round(((grossScore - totalPenalty) / grossScore) * 100)))}%`
+                          : "100%",
                     }}
                   ></div>
                 </div>
@@ -510,7 +612,6 @@ export function DashboardView({
             </div>
           </div>
         </div>
-
       </div>
 
       {/* 5. Score Performance History / Velocity Bar (If attempts exist) */}
@@ -534,8 +635,11 @@ export function DashboardView({
           </div>
 
           <div className="mt-6 space-y-3">
-            {mockAttempts.slice(0, 4).map(att => {
-              const scorePct = Math.min(100, Math.max(0, (att.score / (att.maxScore || 200)) * 100));
+            {mockAttempts.slice(0, 4).map((att) => {
+              const scorePct = Math.min(
+                100,
+                Math.max(0, (att.score / (att.maxScore || 200)) * 100),
+              );
               const isAboveCutoff = att.score >= cutoffTarget;
 
               return (
@@ -563,13 +667,15 @@ export function DashboardView({
                   {/* Progress bar visual */}
                   <div className="flex-1 max-w-md hidden sm:block">
                     <div className="flex justify-between text-[10px] font-mono font-semibold text-slate-400 mb-1">
-                      <span>Score: {att.score} / {att.maxScore}</span>
+                      <span>
+                        Score: {att.score} / {att.maxScore}
+                      </span>
                       <span>Accuracy: {att.accuracyPct}%</span>
                     </div>
                     <div className="h-2 w-full rounded-full bg-slate-200/80 overflow-hidden relative">
-                      <div 
+                      <div
                         className={`h-full rounded-full transition-all duration-500 ${
-                          isAboveCutoff ? 'bg-emerald-500' : 'bg-indigo-600'
+                          isAboveCutoff ? "bg-emerald-500" : "bg-indigo-600"
                         }`}
                         style={{ width: `${scorePct}%` }}
                       ></div>
@@ -607,31 +713,31 @@ export function DashboardView({
             {/* Segmented Category Filter Inline */}
             <div className="inline-flex rounded-xl bg-slate-100 p-1 border border-slate-200/80 text-xs font-semibold shadow-inner self-start sm:self-auto">
               <button
-                onClick={() => setActiveTab('all')}
+                onClick={() => setActiveTab("all")}
                 className={`px-3 py-1.5 rounded-lg transition-all ${
-                  activeTab === 'all' 
-                    ? 'bg-white text-indigo-700 shadow-xs font-bold' 
-                    : 'text-slate-600 hover:text-slate-900'
+                  activeTab === "all"
+                    ? "bg-white text-indigo-700 shadow-xs font-bold"
+                    : "text-slate-600 hover:text-slate-900"
                 }`}
               >
                 All Papers ({papers.length})
               </button>
               <button
-                onClick={() => setActiveTab('prelims')}
+                onClick={() => setActiveTab("prelims")}
                 className={`px-3 py-1.5 rounded-lg transition-all ${
-                  activeTab === 'prelims' 
-                    ? 'bg-white text-indigo-700 shadow-xs font-bold' 
-                    : 'text-slate-600 hover:text-slate-900'
+                  activeTab === "prelims"
+                    ? "bg-white text-indigo-700 shadow-xs font-bold"
+                    : "text-slate-600 hover:text-slate-900"
                 }`}
               >
                 Prelims GS
               </button>
               <button
-                onClick={() => setActiveTab('mains')}
+                onClick={() => setActiveTab("mains")}
                 className={`px-3 py-1.5 rounded-lg transition-all ${
-                  activeTab === 'mains' 
-                    ? 'bg-white text-indigo-700 shadow-xs font-bold' 
-                    : 'text-slate-600 hover:text-slate-900'
+                  activeTab === "mains"
+                    ? "bg-white text-indigo-700 shadow-xs font-bold"
+                    : "text-slate-600 hover:text-slate-900"
                 }`}
               >
                 Mains
@@ -645,7 +751,7 @@ export function DashboardView({
             <input
               type="text"
               value={searchQuery}
-              onChange={e => setSearchQuery(e.target.value)}
+              onChange={(e) => setSearchQuery(e.target.value)}
               placeholder="Search year or subject..."
               className="w-full rounded-xl border border-slate-200 bg-white pl-9 pr-3.5 py-2 text-xs text-slate-800 placeholder-slate-400 focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 shadow-xs"
             />
@@ -654,7 +760,7 @@ export function DashboardView({
 
         {/* Paper cards grid */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
-          {filteredPapers.slice(0, 12).map(paper => {
+          {filteredPapers.slice(0, 12).map((paper) => {
             const keyPresent = hasAnswerKey(paper);
             const solutionPresent = hasSolution(paper);
 
@@ -676,9 +782,11 @@ export function DashboardView({
                   <h3 className="text-sm font-bold text-slate-900 mt-2.5 group-hover:text-indigo-600 transition-colors line-clamp-1">
                     {paper.label}
                   </h3>
-                  
+
                   <div className="mt-1 flex items-center gap-2 text-xs text-slate-500">
-                    <span className="font-medium">{paper.totalQuestions} Questions</span>
+                    <span className="font-medium">
+                      {paper.totalQuestions} Questions
+                    </span>
                     <span className="text-slate-300">•</span>
                     <span>{paper.timeMinutes} Mins</span>
                     <span className="text-slate-300">•</span>
@@ -687,17 +795,18 @@ export function DashboardView({
 
                   {/* Key & Solution status badges */}
                   <div className="mt-3 flex items-center gap-2 flex-wrap">
-                    {paper.examType === 'objective' && (
-                      keyPresent ? (
+                    {paper.examType === "objective" &&
+                      (keyPresent ? (
                         <span className="inline-flex items-center gap-1.5 text-[11px] font-semibold text-emerald-700 bg-emerald-50 border border-emerald-200/60 px-2.5 py-0.5 rounded-full">
-                          <CheckCircle2 className="h-3 w-3 text-emerald-600" /> Key Available
+                          <CheckCircle2 className="h-3 w-3 text-emerald-600" />{" "}
+                          Key Available
                         </span>
                       ) : (
                         <span className="inline-flex items-center gap-1.5 text-[11px] font-semibold text-amber-700 bg-amber-50 border border-amber-200/60 px-2.5 py-0.5 rounded-full">
-                          <AlertCircle className="h-3 w-3 text-amber-600" /> Key Needed
+                          <AlertCircle className="h-3 w-3 text-amber-600" /> Key
+                          Needed
                         </span>
-                      )
-                    )}
+                      ))}
 
                     {solutionPresent && (
                       <button
@@ -714,9 +823,9 @@ export function DashboardView({
 
                 <div className="mt-5 pt-4 border-t border-slate-100 space-y-2.5">
                   <div className="flex items-center gap-2">
-                    {keyPresent || paper.examType === 'subjective' ? (
+                    {keyPresent || paper.examType === "subjective" ? (
                       <button
-                        onClick={() => onStartExam(paper, 'practice')}
+                        onClick={() => onStartExam(paper, "practice")}
                         className="cursor-pointer flex-1 rounded-xl border border-slate-200 bg-slate-50/80 py-2 text-xs font-bold text-slate-700 hover:bg-slate-100 hover:text-slate-900 transition-all text-center"
                       >
                         Practice
@@ -731,7 +840,7 @@ export function DashboardView({
                       </button>
                     )}
                     <button
-                      onClick={() => onStartExam(paper, 'mock')}
+                      onClick={() => onStartExam(paper, "mock")}
                       className="cursor-pointer flex-1 rounded-xl bg-indigo-600 py-2 text-xs font-bold text-white hover:bg-indigo-700 transition-all text-center shadow-xs hover:shadow-sm"
                     >
                       Mock Test
@@ -791,9 +900,8 @@ export function DashboardView({
         isOpen={!!viewingSolutionPaper}
         onClose={() => setViewingSolutionPaper(null)}
         pdfUrl={viewingSolutionPaper?.exsUrl}
-        paperTitle={`${viewingSolutionPaper?.label || ''} - Solution Key`}
+        paperTitle={`${viewingSolutionPaper?.label || ""} - Solution Key`}
       />
-
     </div>
   );
 }

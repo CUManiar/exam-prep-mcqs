@@ -1,6 +1,6 @@
-import fs from 'node:fs';
-import path from 'node:path';
-import { put, del, list } from '@vercel/blob';
+import fs from "node:fs";
+import path from "node:path";
+import { put, del, list } from "@vercel/blob";
 import {
   getAppEnvironment,
   isProdEnv,
@@ -9,7 +9,7 @@ import {
   APP_ENVIRONMENTS,
   DEFAULT_PROD_URL,
   type AppEnvironment,
-} from './config';
+} from "./config";
 
 export {
   getAppEnvironment,
@@ -35,7 +35,9 @@ export function getBlobToken(): string | undefined {
   if (process.env.PAPERS_DATA_READ_WRITE_TOKEN) {
     return process.env.PAPERS_DATA_READ_WRITE_TOKEN;
   }
-  const envKey = Object.keys(process.env).find(k => k.endsWith('_READ_WRITE_TOKEN'));
+  const envKey = Object.keys(process.env).find((k) =>
+    k.endsWith("_READ_WRITE_TOKEN"),
+  );
   if (envKey && process.env[envKey]) {
     return process.env[envKey];
   }
@@ -45,7 +47,8 @@ export function getBlobToken(): string | undefined {
 export function isBlobEnabled(): boolean {
   // Check for OIDC store ID or token or running on Vercel
   if (process.env.BLOB_STORE_ID) return true;
-  if (Object.keys(process.env).some(k => k.endsWith('_STORE_ID'))) return true;
+  if (Object.keys(process.env).some((k) => k.endsWith("_STORE_ID")))
+    return true;
   if (getBlobToken()) return true;
   if (process.env.VERCEL) return true;
   return false;
@@ -59,13 +62,13 @@ export function isBlobEnabled(): boolean {
 export async function uploadFile(
   pathname: string,
   body: Buffer | Blob | string,
-  contentType?: string
+  contentType?: string,
 ): Promise<string> {
-  const cleanPath = pathname.replace(/^\/+/, '');
+  const cleanPath = pathname.replace(/^\/+/, "");
 
   if (isBlobEnabled()) {
     const putOptions: any = {
-      access: 'public',
+      access: "public",
       addRandomSuffix: false,
       contentType,
     };
@@ -79,7 +82,7 @@ export async function uploadFile(
   }
 
   // Local filesystem fallback (Mac local development)
-  const localDir = path.join(process.cwd(), 'public', 'data');
+  const localDir = path.join(process.cwd(), "public", "data");
   if (!fs.existsSync(localDir)) {
     fs.mkdirSync(localDir, { recursive: true });
   }
@@ -87,8 +90,8 @@ export async function uploadFile(
   const filePath = path.join(localDir, path.basename(cleanPath));
   if (Buffer.isBuffer(body)) {
     fs.writeFileSync(filePath, body);
-  } else if (typeof body === 'string') {
-    fs.writeFileSync(filePath, body, 'utf-8');
+  } else if (typeof body === "string") {
+    fs.writeFileSync(filePath, body, "utf-8");
   } else {
     const arrayBuf = await (body as Blob).arrayBuffer();
     fs.writeFileSync(filePath, Buffer.from(arrayBuf));
@@ -110,13 +113,13 @@ export async function deleteFile(fileUrlOrName: string): Promise<void> {
       if (token) delOptions.token = token;
       await del(fileUrlOrName, delOptions);
     } catch (err) {
-      console.warn('Blob delete warning:', err);
+      console.warn("Blob delete warning:", err);
     }
     return;
   }
 
   const filename = path.basename(fileUrlOrName);
-  const localPath = path.join(process.cwd(), 'public', 'data', filename);
+  const localPath = path.join(process.cwd(), "public", "data", filename);
   if (fs.existsSync(localPath)) {
     try {
       fs.unlinkSync(localPath);
@@ -129,11 +132,15 @@ export async function deleteFile(fileUrlOrName: string): Promise<void> {
  */
 function writeLocalDiskFile<T>(filename: string, data: T): void {
   try {
-    const localDir = path.join(process.cwd(), 'public', 'data');
+    const localDir = path.join(process.cwd(), "public", "data");
     if (!fs.existsSync(localDir)) {
       fs.mkdirSync(localDir, { recursive: true });
     }
-    fs.writeFileSync(path.join(localDir, filename), JSON.stringify(data, null, 2), 'utf-8');
+    fs.writeFileSync(
+      path.join(localDir, filename),
+      JSON.stringify(data, null, 2),
+      "utf-8",
+    );
   } catch (err) {
     console.warn(`Local file write fallback failed:`, err);
   }
@@ -143,7 +150,10 @@ function writeLocalDiskFile<T>(filename: string, data: T): void {
  * Read JSON metadata store (papers.json, attempts.json, active_draft.json).
  * Checks Vercel Blob first; if empty or not enabled, checks PROD if in PROD mode, then falls back to local files.
  */
-export async function readJsonStore<T>(filename: string, defaultValue: T): Promise<T> {
+export async function readJsonStore<T>(
+  filename: string,
+  defaultValue: T,
+): Promise<T> {
   // 1. Direct Vercel Blob read if credentials exist
   if (isBlobEnabled()) {
     try {
@@ -152,9 +162,11 @@ export async function readJsonStore<T>(filename: string, defaultValue: T): Promi
       if (token) listOptions.token = token;
 
       const { blobs } = await list(listOptions);
-      const target = blobs.find(b => b.pathname === filename || b.pathname.endsWith(`/${filename}`));
+      const target = blobs.find(
+        (b) => b.pathname === filename || b.pathname.endsWith(`/${filename}`),
+      );
       if (target) {
-        const res = await fetch(target.url, { cache: 'no-store' });
+        const res = await fetch(target.url, { cache: "no-store" });
         if (res.ok) {
           return await res.json();
         }
@@ -168,11 +180,11 @@ export async function readJsonStore<T>(filename: string, defaultValue: T): Promi
   if (isProdEnv() && !process.env.VERCEL && !getBlobToken()) {
     try {
       const prodUrl = getProdApiUrl();
-      if (filename === 'attempts.json') {
+      if (filename === "attempts.json") {
         const res = await fetch(`${prodUrl}/api/attempts`, {
-          redirect: 'follow',
-          cache: 'no-store',
-          headers: { Accept: 'application/json' },
+          redirect: "follow",
+          cache: "no-store",
+          headers: { Accept: "application/json" },
         });
         if (res.ok) {
           const json = await res.json();
@@ -181,11 +193,11 @@ export async function readJsonStore<T>(filename: string, defaultValue: T): Promi
             return json.attempts as unknown as T;
           }
         }
-      } else if (filename === 'active_draft.json') {
+      } else if (filename === "active_draft.json") {
         const res = await fetch(`${prodUrl}/api/draft`, {
-          redirect: 'follow',
-          cache: 'no-store',
-          headers: { Accept: 'application/json' },
+          redirect: "follow",
+          cache: "no-store",
+          headers: { Accept: "application/json" },
         });
         if (res.ok) {
           const json = await res.json();
@@ -195,15 +207,18 @@ export async function readJsonStore<T>(filename: string, defaultValue: T): Promi
         }
       }
     } catch (err) {
-      console.warn(`Remote fetch for ${filename} from PROD (${getProdApiUrl()}) failed, using local:`, err);
+      console.warn(
+        `Remote fetch for ${filename} from PROD (${getProdApiUrl()}) failed, using local:`,
+        err,
+      );
     }
   }
 
   // 3. Local filesystem fallback / cache
-  const localPath = path.join(process.cwd(), 'public', 'data', filename);
+  const localPath = path.join(process.cwd(), "public", "data", filename);
   if (fs.existsSync(localPath)) {
     try {
-      const raw = fs.readFileSync(localPath, 'utf-8');
+      const raw = fs.readFileSync(localPath, "utf-8");
       return JSON.parse(raw);
     } catch {}
   }
@@ -214,13 +229,16 @@ export async function readJsonStore<T>(filename: string, defaultValue: T): Promi
 /**
  * Write JSON metadata store to Vercel Blob (or local filesystem fallback).
  */
-export async function writeJsonStore<T>(filename: string, data: T): Promise<void> {
+export async function writeJsonStore<T>(
+  filename: string,
+  data: T,
+): Promise<void> {
   if (isBlobEnabled()) {
     try {
       const putOptions: any = {
-        access: 'public',
+        access: "public",
         addRandomSuffix: false,
-        contentType: 'application/json',
+        contentType: "application/json",
       };
       const token = getBlobToken();
       if (token) putOptions.token = token;
@@ -252,11 +270,10 @@ export async function deleteJsonStore(filename: string): Promise<void> {
     return;
   }
 
-  const localPath = path.join(process.cwd(), 'public', 'data', filename);
+  const localPath = path.join(process.cwd(), "public", "data", filename);
   if (fs.existsSync(localPath)) {
     try {
       fs.unlinkSync(localPath);
     } catch {}
   }
 }
-

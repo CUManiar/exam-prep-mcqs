@@ -1,8 +1,8 @@
-'use client';
+"use client";
 
-import React from 'react';
-import { X, BookOpen } from 'lucide-react';
-import { PdfViewer } from './PdfViewer';
+import React from "react";
+import { X, BookOpen } from "lucide-react";
+import { PdfViewer } from "./PdfViewer";
 
 interface DetailedSolutionModalProps {
   isOpen: boolean;
@@ -22,7 +22,6 @@ export function DetailedSolutionModal({
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 bg-slate-900/50 backdrop-blur-sm animate-in fade-in duration-200">
       <div className="relative w-full max-w-6xl h-[92vh] flex flex-col rounded-3xl border border-slate-200 bg-white shadow-2xl overflow-hidden">
-        
         {/* Top Header */}
         <div className="flex items-center justify-between border-b border-slate-200 bg-white px-5 py-3.5 shrink-0">
           <div className="flex items-center gap-2.5">
@@ -30,8 +29,12 @@ export function DetailedSolutionModal({
               <BookOpen className="h-4 w-4" />
             </div>
             <div>
-              <h3 className="text-sm font-bold text-slate-900">Detailed Solution Booklet</h3>
-              <p className="text-[11px] text-slate-500 truncate max-w-md">{paperTitle}</p>
+              <h3 className="text-sm font-bold text-slate-900">
+                Detailed Solution Booklet
+              </h3>
+              <p className="text-[11px] text-slate-500 truncate max-w-md">
+                {paperTitle}
+              </p>
             </div>
           </div>
 
@@ -49,7 +52,7 @@ export function DetailedSolutionModal({
         {/* Embedded PDF Viewer */}
         <PdfViewer
           url={pdfUrl}
-          title={paperTitle || 'Detailed Solution'}
+          title={paperTitle || "Detailed Solution"}
           showToolbar={true}
           className="flex-1 w-full h-full min-h-0 bg-slate-100"
         />

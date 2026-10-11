@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from "next/server";
 import {
   readJsonStore,
   writeJsonStore,
@@ -6,11 +6,11 @@ import {
   isProdEnv,
   getProdApiUrl,
   getBlobToken,
-} from '@/lib/cloudStorage';
+} from "@/lib/cloudStorage";
 
 export async function DELETE(
   req: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
+  { params }: { params: Promise<{ id: string }> },
 ) {
   try {
     const { id } = await params;
@@ -20,16 +20,19 @@ export async function DELETE(
     if (isProdEnv() && !process.env.VERCEL && !getBlobToken()) {
       try {
         await fetch(`${getProdApiUrl()}/api/papers/${cleanId}`, {
-          method: 'DELETE',
-          redirect: 'follow',
+          method: "DELETE",
+          redirect: "follow",
         });
       } catch (err) {
-        console.warn('Failed forwarding paper DELETE to PROD:', err);
+        console.warn("Failed forwarding paper DELETE to PROD:", err);
       }
     }
 
     // 1. Remove from papers.json
-    const customMeta = await readJsonStore<Record<string, any>>('papers.json', {});
+    const customMeta = await readJsonStore<Record<string, any>>(
+      "papers.json",
+      {},
+    );
     const targetPaper = customMeta[cleanId];
     if (targetPaper) {
       // Clean up uploaded files if present
@@ -41,19 +44,24 @@ export async function DELETE(
     }
 
     // Record tombstone so built-in INITIAL_PAPERS with this id also stay deleted
-    customMeta[`__deleted_${cleanId}`] = { deletedAt: new Date().toISOString() };
-    await writeJsonStore('papers.json', customMeta);
+    customMeta[`__deleted_${cleanId}`] = {
+      deletedAt: new Date().toISOString(),
+    };
+    await writeJsonStore("papers.json", customMeta);
 
     return NextResponse.json({ ok: true, deletedId: cleanId });
   } catch (err: any) {
-    console.error('Delete paper error:', err);
-    return NextResponse.json({ ok: false, error: err.message }, { status: 500 });
+    console.error("Delete paper error:", err);
+    return NextResponse.json(
+      { ok: false, error: err.message },
+      { status: 500 },
+    );
   }
 }
 
 export async function PATCH(
   req: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
+  { params }: { params: Promise<{ id: string }> },
 ) {
   try {
     const { id } = await params;
@@ -64,17 +72,20 @@ export async function PATCH(
     if (isProdEnv() && !process.env.VERCEL && !getBlobToken()) {
       try {
         await fetch(`${getProdApiUrl()}/api/papers/${cleanId}`, {
-          method: 'PATCH',
-          headers: { 'Content-Type': 'application/json' },
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
           body: JSON.stringify(body),
-          redirect: 'follow',
+          redirect: "follow",
         });
       } catch (err) {
-        console.warn('Failed forwarding paper PATCH to PROD:', err);
+        console.warn("Failed forwarding paper PATCH to PROD:", err);
       }
     }
 
-    const customMeta = await readJsonStore<Record<string, any>>('papers.json', {});
+    const customMeta = await readJsonStore<Record<string, any>>(
+      "papers.json",
+      {},
+    );
     const current = customMeta[cleanId] || { id: cleanId };
     const updated = {
       ...current,
@@ -84,12 +95,14 @@ export async function PATCH(
     };
 
     customMeta[cleanId] = updated;
-    await writeJsonStore('papers.json', customMeta);
+    await writeJsonStore("papers.json", customMeta);
 
     return NextResponse.json({ ok: true, paper: updated });
   } catch (err: any) {
-    console.error('Patch paper error:', err);
-    return NextResponse.json({ ok: false, error: err.message }, { status: 500 });
+    console.error("Patch paper error:", err);
+    return NextResponse.json(
+      { ok: false, error: err.message },
+      { status: 500 },
+    );
   }
 }
-

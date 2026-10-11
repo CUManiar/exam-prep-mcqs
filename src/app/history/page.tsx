@@ -1,15 +1,11 @@
-'use client';
+"use client";
 
-import React from 'react';
-import { useApp } from '../../context/AppContext';
-import { HistoryView } from '../../components/HistoryView';
+import React from "react";
+import { useApp } from "../../context/AppContext";
+import { HistoryView } from "../../components/HistoryView";
 
 export default function MockHistoryPage() {
-  const {
-    attempts,
-    handleViewAttemptDetail,
-    handleDeleteAttempt,
-  } = useApp();
+  const { attempts, handleViewAttemptDetail, handleDeleteAttempt } = useApp();
 
   return (
     <HistoryView

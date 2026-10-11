@@ -1,23 +1,29 @@
-'use client';
+"use client";
 
-import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
-import { useRouter } from 'next/navigation';
-import { QuestionPaper, Attempt, ActiveSessionDraft } from '../lib/types';
-import { 
-  getAttempts, 
+import React, {
+  createContext,
+  useContext,
+  useState,
+  useEffect,
+  useCallback,
+} from "react";
+import { useRouter } from "next/navigation";
+import { QuestionPaper, Attempt, ActiveSessionDraft } from "../lib/types";
+import {
+  getAttempts,
   loadAttemptsFromServer,
-  saveAttempt, 
-  updateAttempt, 
-  deleteAttempt, 
+  saveAttempt,
+  updateAttempt,
+  deleteAttempt,
   getAllPapers,
   deletePaperFromServer,
   updatePaperOnServer,
   getActiveDraft,
   loadActiveDraftFromServer,
   saveActiveDraft,
-  clearActiveDraft
-} from '../lib/storage';
-import { ConfirmationModal } from '../components/ConfirmationModal';
+  clearActiveDraft,
+} from "../lib/storage";
+import { ConfirmationModal } from "../components/ConfirmationModal";
 
 interface AppContextType {
   papers: QuestionPaper[];
@@ -25,7 +31,7 @@ interface AppContextType {
   activeDraft: ActiveSessionDraft | null;
   isLoading: boolean;
   loadAllData: () => Promise<void>;
-  handleStartExam: (paper: QuestionPaper, mode: 'practice' | 'mock') => void;
+  handleStartExam: (paper: QuestionPaper, mode: "practice" | "mock") => void;
   handleResumeDraft: (draft: ActiveSessionDraft) => void;
   handleDiscardDraft: () => void;
   handleFinishExamSession: (attempt: Attempt) => void;
@@ -43,7 +49,9 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const router = useRouter();
   const [papers, setPapers] = useState<QuestionPaper[]>([]);
   const [attempts, setAttempts] = useState<Attempt[]>([]);
-  const [activeDraft, setActiveDraft] = useState<ActiveSessionDraft | null>(null);
+  const [activeDraft, setActiveDraft] = useState<ActiveSessionDraft | null>(
+    null,
+  );
   const [isLoading, setIsLoading] = useState<boolean>(true);
 
   // Modern Confirmation & Alert Modal state
@@ -53,12 +61,12 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     message: string;
     confirmText?: string;
     cancelText?: string;
-    variant?: 'danger' | 'warning' | 'info';
+    variant?: "danger" | "warning" | "info";
     onConfirm: () => void;
   }>({
     isOpen: false,
-    title: '',
-    message: '',
+    title: "",
+    message: "",
     onConfirm: () => {},
   });
 
@@ -74,7 +82,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       const [serverAttempts, loadedPapers, serverDraft] = await Promise.all([
         loadAttemptsFromServer(),
         getAllPapers(),
-        loadActiveDraftFromServer()
+        loadActiveDraftFromServer(),
       ]);
       setAttempts(serverAttempts);
       setPapers(loadedPapers);
@@ -84,7 +92,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         setActiveDraft(effectiveDraft);
       }
     } catch (err) {
-      console.warn('Failed loading data from server:', err);
+      console.warn("Failed loading data from server:", err);
     } finally {
       setIsLoading(false);
     }
@@ -95,7 +103,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   }, [loadAllData]);
 
   // Start exam session
-  const handleStartExam = (paper: QuestionPaper, mode: 'practice' | 'mock') => {
+  const handleStartExam = (paper: QuestionPaper, mode: "practice" | "mock") => {
     clearActiveDraft();
     setActiveDraft(null);
     router.push(`/exam?paperId=${encodeURIComponent(paper.id)}&mode=${mode}`);
@@ -106,29 +114,32 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     const resumedDraft = { ...draft, isExited: false };
     saveActiveDraft(resumedDraft);
     setActiveDraft(resumedDraft);
-    router.push(`/exam?paperId=${encodeURIComponent(draft.paperId)}&mode=${draft.mode}`);
+    router.push(
+      `/exam?paperId=${encodeURIComponent(draft.paperId)}&mode=${draft.mode}`,
+    );
   };
 
   // Discard draft with confirmation
   const handleDiscardDraft = () => {
     setModalConfig({
       isOpen: true,
-      title: 'Discard Paused Exam?',
-      message: 'Are you sure you want to discard your ongoing paused exam session? All progress and marked answers will be lost.',
-      confirmText: 'Discard Exam',
-      cancelText: 'Keep Paused',
-      variant: 'warning',
+      title: "Discard Paused Exam?",
+      message:
+        "Are you sure you want to discard your ongoing paused exam session? All progress and marked answers will be lost.",
+      confirmText: "Discard Exam",
+      cancelText: "Keep Paused",
+      variant: "warning",
       onConfirm: () => {
         clearActiveDraft();
         setActiveDraft(null);
-        setModalConfig(prev => ({ ...prev, isOpen: false }));
+        setModalConfig((prev) => ({ ...prev, isOpen: false }));
       },
     });
   };
 
   // Finishing exam session
   const handleFinishExamSession = (attempt: Attempt) => {
-    if (attempt.mode === 'mock') {
+    if (attempt.mode === "mock") {
       saveAttempt(attempt);
       setAttempts(getAttempts());
     }
@@ -144,7 +155,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
   // Updating attempt
   const handleUpdateAttempt = (updated: Attempt) => {
-    if (updated.mode === 'mock') {
+    if (updated.mode === "mock") {
       updateAttempt(updated.id, () => updated);
       setAttempts(getAttempts());
     }
@@ -154,16 +165,17 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const handleDeleteAttempt = (attemptId: string) => {
     setModalConfig({
       isOpen: true,
-      title: 'Delete Mock Exam Attempt?',
-      message: 'Are you sure you want to permanently delete this exam attempt from history? This record and its performance analytics cannot be recovered.',
-      confirmText: 'Delete Attempt',
-      cancelText: 'Cancel',
-      variant: 'danger',
+      title: "Delete Mock Exam Attempt?",
+      message:
+        "Are you sure you want to permanently delete this exam attempt from history? This record and its performance analytics cannot be recovered.",
+      confirmText: "Delete Attempt",
+      cancelText: "Cancel",
+      variant: "danger",
       onConfirm: () => {
-        setModalConfig(prev => ({ ...prev, isOpen: false }));
+        setModalConfig((prev) => ({ ...prev, isOpen: false }));
         deleteAttempt(attemptId);
         setAttempts(getAttempts());
-        router.push('/history');
+        router.push("/history");
       },
     });
   };
@@ -178,13 +190,14 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const handleDeletePaper = (paperId: string) => {
     setModalConfig({
       isOpen: true,
-      title: 'Delete Question Paper?',
-      message: 'Are you sure you want to delete this paper and its files from the repository? Associated PDF and answer files will be removed.',
-      confirmText: 'Delete Paper',
-      cancelText: 'Cancel',
-      variant: 'danger',
+      title: "Delete Question Paper?",
+      message:
+        "Are you sure you want to delete this paper and its files from the repository? Associated PDF and answer files will be removed.",
+      confirmText: "Delete Paper",
+      cancelText: "Cancel",
+      variant: "danger",
       onConfirm: async () => {
-        setModalConfig(prev => ({ ...prev, isOpen: false }));
+        setModalConfig((prev) => ({ ...prev, isOpen: false }));
         await deletePaperFromServer(paperId);
         const freshPapers = await getAllPapers();
         setPapers(freshPapers);
@@ -229,7 +242,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         cancelText={modalConfig.cancelText}
         variant={modalConfig.variant}
         onConfirm={modalConfig.onConfirm}
-        onCancel={() => setModalConfig(prev => ({ ...prev, isOpen: false }))}
+        onCancel={() => setModalConfig((prev) => ({ ...prev, isOpen: false }))}
       />
     </AppContext.Provider>
   );
@@ -238,7 +251,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 export function useApp() {
   const context = useContext(AppContext);
   if (!context) {
-    throw new Error('useApp must be used within an AppProvider');
+    throw new Error("useApp must be used within an AppProvider");
   }
   return context;
 }

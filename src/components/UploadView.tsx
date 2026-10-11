@@ -1,15 +1,15 @@
-'use client';
+"use client";
 
-import React, { useState } from 'react';
-import { QuestionPaper, ExamType } from '../lib/types';
-import { SUPPORTED_YEARS, hasAnswerKey, hasSolution } from '../lib/defaults';
-import { saveCustomPaper, attachToPaperOnServer } from '../lib/storage';
-import { 
-  UploadCloud, 
-  FileText, 
-  CheckCircle2, 
-  AlertCircle, 
-  FileUp, 
+import React, { useState } from "react";
+import { QuestionPaper, ExamType } from "../lib/types";
+import { SUPPORTED_YEARS, hasAnswerKey, hasSolution } from "../lib/defaults";
+import { saveCustomPaper, attachToPaperOnServer } from "../lib/storage";
+import {
+  UploadCloud,
+  FileText,
+  CheckCircle2,
+  AlertCircle,
+  FileUp,
   Sliders,
   Check,
   Edit3,
@@ -17,8 +17,8 @@ import {
   Trash2,
   Key,
   Paperclip,
-  RefreshCw
-} from 'lucide-react';
+  RefreshCw,
+} from "lucide-react";
 
 interface UploadViewProps {
   papers?: QuestionPaper[];
@@ -28,28 +28,31 @@ interface UploadViewProps {
   onNavigatePapers: () => void;
 }
 
-export function UploadView({ 
-  papers = [], 
-  onPaperUploaded, 
+export function UploadView({
+  papers = [],
+  onPaperUploaded,
   onUpdatePaper,
   onDeletePaper,
-  onNavigatePapers 
+  onNavigatePapers,
 }: UploadViewProps) {
   // Main View Mode: 'create' or 'update'
-  const [viewMode, setViewMode] = useState<'create' | 'update'>('create');
+  const [viewMode, setViewMode] = useState<"create" | "update">("create");
 
   // Selected paper for update mode
-  const [selectedPaperId, setSelectedPaperId] = useState<string>(papers[0]?.id || '');
+  const [selectedPaperId, setSelectedPaperId] = useState<string>(
+    papers[0]?.id || "",
+  );
 
   // Step 1: Exam Type
-  const [examType, setExamType] = useState<ExamType>('objective');
-  
+  const [examType, setExamType] = useState<ExamType>("objective");
+
   // Paper rules & metadata
-  const [year, setYear] = useState<string>('2026');
-  const [subjectPreset, setSubjectPreset] = useState<string>('GS I');
-  const [customSubject, setCustomSubject] = useState<string>('');
-  const [paperIdentifier, setPaperIdentifier] = useState<string>('prelims_gs_i');
-  
+  const [year, setYear] = useState<string>("2026");
+  const [subjectPreset, setSubjectPreset] = useState<string>("GS I");
+  const [customSubject, setCustomSubject] = useState<string>("");
+  const [paperIdentifier, setPaperIdentifier] =
+    useState<string>("prelims_gs_i");
+
   const [totalQuestions, setTotalQuestions] = useState<number>(100);
   const [totalMarks, setTotalMarks] = useState<number>(200);
   const [correctMarks, setCorrectMarks] = useState<number>(2.0);
@@ -59,56 +62,63 @@ export function UploadView({
   // Files
   const [qpFile, setQpFile] = useState<File | null>(null);
   const [akFile, setAkFile] = useState<File | null>(null);
-  const [akMode, setAkMode] = useState<'upload' | 'paste'>('paste');
-  const [akText, setAkText] = useState<string>('');
+  const [akMode, setAkMode] = useState<"upload" | "paste">("paste");
+  const [akText, setAkText] = useState<string>("");
   const [exsFile, setExsFile] = useState<File | null>(null);
 
-  const [statusMsg, setStatusMsg] = useState<{ text: string; isError?: boolean } | null>(null);
+  const [statusMsg, setStatusMsg] = useState<{
+    text: string;
+    isError?: boolean;
+  } | null>(null);
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState<boolean>(false);
 
   // Auto-fill rules based on preset selection
   const handlePresetChange = (preset: string) => {
     setSubjectPreset(preset);
-    if (preset === 'GS I') {
+    if (preset === "GS I") {
       setTotalQuestions(100);
       setTotalMarks(200);
       setCorrectMarks(2.0);
       setIncorrectMarks(0.667);
       setTimeMinutes(120);
-      setPaperIdentifier('prelims_gs_i');
-    } else if (preset === 'GS II CSAT') {
+      setPaperIdentifier("prelims_gs_i");
+    } else if (preset === "GS II CSAT") {
       setTotalQuestions(80);
       setTotalMarks(200);
       setCorrectMarks(2.5);
       setIncorrectMarks(0.833);
       setTimeMinutes(120);
-      setPaperIdentifier('prelims_gsii_csat');
-    } else if (preset.startsWith('Mains')) {
+      setPaperIdentifier("prelims_gsii_csat");
+    } else if (preset.startsWith("Mains")) {
       setTotalQuestions(20);
       setTotalMarks(250);
       setCorrectMarks(0);
       setIncorrectMarks(0);
       setTimeMinutes(180);
-      setPaperIdentifier(preset.toLowerCase().replace(/\s+/g, '_'));
-    } else if (preset === 'Custom') {
-      setPaperIdentifier(examType === 'objective' ? 'custom_objective_paper' : 'custom_mains_paper');
+      setPaperIdentifier(preset.toLowerCase().replace(/\s+/g, "_"));
+    } else if (preset === "Custom") {
+      setPaperIdentifier(
+        examType === "objective"
+          ? "custom_objective_paper"
+          : "custom_mains_paper",
+      );
     }
   };
 
   const handleExamTypeChange = (type: ExamType) => {
     setExamType(type);
-    if (type === 'objective') {
-      handlePresetChange('GS I');
+    if (type === "objective") {
+      handlePresetChange("GS I");
     } else {
-      handlePresetChange('Mains GS I');
+      handlePresetChange("Mains GS I");
     }
   };
 
   // Load selected paper data into form when in Update mode
   const handleSelectPaperToUpdate = (paperId: string) => {
     setSelectedPaperId(paperId);
-    const p = papers.find(x => x.id === paperId);
+    const p = papers.find((x) => x.id === paperId);
     if (!p) return;
 
     setYear(p.year);
@@ -118,29 +128,39 @@ export function UploadView({
     setCorrectMarks(p.correctMarks);
     setIncorrectMarks(p.incorrectMarks);
     setTimeMinutes(p.timeMinutes);
-    setPaperIdentifier(p.id.replace(/^[0-9]+_/, ''));
+    setPaperIdentifier(p.id.replace(/^[0-9]+_/, ""));
     setSubjectPreset(p.subject);
-    setAkText(p.answerKeyText || '');
+    setAkText(p.answerKeyText || "");
     setQpFile(null);
     setAkFile(null);
     setExsFile(null);
     setStatusMsg(null);
   };
 
-  const currentSelectedPaper = papers.find(p => p.id === selectedPaperId);
+  const currentSelectedPaper = papers.find((p) => p.id === selectedPaperId);
 
-  const cleanYear = year.replace(/[^0-9]/g, '');
-  const cleanName = paperIdentifier.toLowerCase().replace(/[^a-z0-9_]/g, '_').replace(/_+/g, '_').replace(/^_|_$/g, '');
+  const cleanYear = year.replace(/[^0-9]/g, "");
+  const cleanName = paperIdentifier
+    .toLowerCase()
+    .replace(/[^a-z0-9_]/g, "_")
+    .replace(/_+/g, "_")
+    .replace(/^_|_$/g, "");
 
   // Handle uploading NEW paper
   const handleUploadNewPaper = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!cleanYear || !cleanName) {
-      setStatusMsg({ text: 'Please enter a valid Year and Paper Identifier.', isError: true });
+      setStatusMsg({
+        text: "Please enter a valid Year and Paper Identifier.",
+        isError: true,
+      });
       return;
     }
     if (!qpFile) {
-      setStatusMsg({ text: 'Please attach a Question Paper PDF file.', isError: true });
+      setStatusMsg({
+        text: "Please attach a Question Paper PDF file.",
+        isError: true,
+      });
       return;
     }
 
@@ -148,55 +168,74 @@ export function UploadView({
     setStatusMsg(null);
 
     try {
-      const displaySubject = subjectPreset === 'Custom' 
-        ? (customSubject.trim() || 'Custom Paper') 
-        : subjectPreset;
+      const displaySubject =
+        subjectPreset === "Custom"
+          ? customSubject.trim() || "Custom Paper"
+          : subjectPreset;
 
       const formData = new FormData();
-      formData.append('year', cleanYear);
-      formData.append('identifier', cleanName);
-      formData.append('examType', examType);
-      formData.append('subject', displaySubject);
-      formData.append('label', `${cleanYear} – ${displaySubject}`);
-      formData.append('totalQuestions', String(totalQuestions || (examType === 'objective' ? 100 : 20)));
-      formData.append('totalMarks', String(totalMarks || (examType === 'objective' ? 200 : 250)));
-      formData.append('correctMarks', String(examType === 'objective' ? correctMarks : 0));
-      formData.append('incorrectMarks', String(examType === 'objective' ? incorrectMarks : 0));
-      formData.append('timeMinutes', String(timeMinutes || (examType === 'objective' ? 120 : 180)));
-      
-      formData.append('qpFile', qpFile);
-      if (akFile && akMode === 'upload') {
-        formData.append('akFile', akFile);
+      formData.append("year", cleanYear);
+      formData.append("identifier", cleanName);
+      formData.append("examType", examType);
+      formData.append("subject", displaySubject);
+      formData.append("label", `${cleanYear} – ${displaySubject}`);
+      formData.append(
+        "totalQuestions",
+        String(totalQuestions || (examType === "objective" ? 100 : 20)),
+      );
+      formData.append(
+        "totalMarks",
+        String(totalMarks || (examType === "objective" ? 200 : 250)),
+      );
+      formData.append(
+        "correctMarks",
+        String(examType === "objective" ? correctMarks : 0),
+      );
+      formData.append(
+        "incorrectMarks",
+        String(examType === "objective" ? incorrectMarks : 0),
+      );
+      formData.append(
+        "timeMinutes",
+        String(timeMinutes || (examType === "objective" ? 120 : 180)),
+      );
+
+      formData.append("qpFile", qpFile);
+      if (akFile && akMode === "upload") {
+        formData.append("akFile", akFile);
       }
-      if (akText && akMode === 'paste') {
-        formData.append('answerKeyText', akText);
+      if (akText && akMode === "paste") {
+        formData.append("answerKeyText", akText);
       }
       if (exsFile) {
-        formData.append('exsFile', exsFile);
+        formData.append("exsFile", exsFile);
       }
 
-      const res = await fetch('/api/upload', {
-        method: 'POST',
+      const res = await fetch("/api/upload", {
+        method: "POST",
         body: formData,
       });
 
       const data = await res.json();
       if (!res.ok || !data.ok) {
-        throw new Error(data.error || 'Server failed to save paper.');
+        throw new Error(data.error || "Server failed to save paper.");
       }
 
       const newPaper: QuestionPaper = data.paper;
       saveCustomPaper(newPaper);
       onPaperUploaded(newPaper);
 
-      setStatusMsg({ 
-        text: `Paper saved successfully: "${newPaper.label}" (${newPaper.totalQuestions} Questions).` 
+      setStatusMsg({
+        text: `Paper saved successfully: "${newPaper.label}" (${newPaper.totalQuestions} Questions).`,
       });
       setTimeout(() => {
         onNavigatePapers();
       }, 1000);
     } catch (err: any) {
-      setStatusMsg({ text: err.message || 'Failed to save paper.', isError: true });
+      setStatusMsg({
+        text: err.message || "Failed to save paper.",
+        isError: true,
+      });
     } finally {
       setIsSubmitting(false);
     }
@@ -206,7 +245,7 @@ export function UploadView({
   const handleUpdateExistingPaper = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!currentSelectedPaper) {
-      setStatusMsg({ text: 'Please select a paper to update.', isError: true });
+      setStatusMsg({ text: "Please select a paper to update.", isError: true });
       return;
     }
 
@@ -216,35 +255,43 @@ export function UploadView({
     try {
       const formData = new FormData();
       if (qpFile) {
-        formData.append('qpFile', qpFile);
+        formData.append("qpFile", qpFile);
       }
-      if (akFile && akMode === 'upload') {
-        formData.append('akFile', akFile);
-      } else if (akMode === 'paste' && akText.trim()) {
-        formData.append('answerKeyText', akText.trim());
+      if (akFile && akMode === "upload") {
+        formData.append("akFile", akFile);
+      } else if (akMode === "paste" && akText.trim()) {
+        formData.append("answerKeyText", akText.trim());
       }
       if (exsFile) {
-        formData.append('exsFile', exsFile);
+        formData.append("exsFile", exsFile);
       }
 
-      formData.append('totalQuestions', String(totalQuestions));
-      formData.append('totalMarks', String(totalMarks));
-      formData.append('correctMarks', String(correctMarks));
-      formData.append('incorrectMarks', String(incorrectMarks));
-      formData.append('timeMinutes', String(timeMinutes));
+      formData.append("totalQuestions", String(totalQuestions));
+      formData.append("totalMarks", String(totalMarks));
+      formData.append("correctMarks", String(correctMarks));
+      formData.append("incorrectMarks", String(incorrectMarks));
+      formData.append("timeMinutes", String(timeMinutes));
 
-      const updated = await attachToPaperOnServer(currentSelectedPaper.id, formData);
+      const updated = await attachToPaperOnServer(
+        currentSelectedPaper.id,
+        formData,
+      );
       if (updated) {
         if (onUpdatePaper) onUpdatePaper(updated);
-        setStatusMsg({ text: `Successfully updated files and rules for "${updated.label}".` });
+        setStatusMsg({
+          text: `Successfully updated files and rules for "${updated.label}".`,
+        });
         setQpFile(null);
         setAkFile(null);
         setExsFile(null);
       } else {
-        throw new Error('Failed to update paper files on server.');
+        throw new Error("Failed to update paper files on server.");
       }
     } catch (err: any) {
-      setStatusMsg({ text: err.message || 'Failed to update paper.', isError: true });
+      setStatusMsg({
+        text: err.message || "Failed to update paper.",
+        isError: true,
+      });
     } finally {
       setIsSubmitting(false);
     }
@@ -252,7 +299,6 @@ export function UploadView({
 
   return (
     <div className="mx-auto max-w-4xl px-4 py-8 sm:px-6 lg:px-8 space-y-8 animate-in fade-in duration-200">
-      
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 pb-4 border-b border-slate-200/80">
         <div>
@@ -261,9 +307,12 @@ export function UploadView({
               Paper Intake & Management Studio
             </span>
           </div>
-          <h1 className="text-2xl sm:text-3xl font-extrabold text-slate-900 tracking-tight">Question Papers Studio</h1>
+          <h1 className="text-2xl sm:text-3xl font-extrabold text-slate-900 tracking-tight">
+            Question Papers Studio
+          </h1>
           <p className="text-xs sm:text-sm text-slate-500 mt-1">
-            Upload new papers or correct files (Question Paper PDF, Answer Key, Solution) on existing papers.
+            Upload new papers or correct files (Question Paper PDF, Answer Key,
+            Solution) on existing papers.
           </p>
         </div>
 
@@ -272,13 +321,13 @@ export function UploadView({
           <button
             type="button"
             onClick={() => {
-              setViewMode('create');
+              setViewMode("create");
               setStatusMsg(null);
             }}
             className={`cursor-pointer flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg transition-colors ${
-              viewMode === 'create'
-                ? 'bg-white text-indigo-700 shadow-xs font-bold'
-                : 'text-slate-600 hover:text-slate-900'
+              viewMode === "create"
+                ? "bg-white text-indigo-700 shadow-xs font-bold"
+                : "text-slate-600 hover:text-slate-900"
             }`}
           >
             <UploadCloud className="h-4 w-4" />
@@ -287,7 +336,7 @@ export function UploadView({
           <button
             type="button"
             onClick={() => {
-              setViewMode('update');
+              setViewMode("update");
               if (papers.length > 0 && !selectedPaperId) {
                 handleSelectPaperToUpdate(papers[0].id);
               } else if (selectedPaperId) {
@@ -296,9 +345,9 @@ export function UploadView({
               setStatusMsg(null);
             }}
             className={`cursor-pointer flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg transition-colors ${
-              viewMode === 'update'
-                ? 'bg-white text-indigo-700 shadow-xs font-bold'
-                : 'text-slate-600 hover:text-slate-900'
+              viewMode === "update"
+                ? "bg-white text-indigo-700 shadow-xs font-bold"
+                : "text-slate-600 hover:text-slate-900"
             }`}
           >
             <Edit3 className="h-4 w-4" />
@@ -308,12 +357,18 @@ export function UploadView({
       </div>
 
       {statusMsg && (
-        <div className={`flex items-center gap-2 rounded-xl p-3.5 text-xs font-semibold border ${
-          statusMsg.isError 
-            ? 'bg-rose-50 border-rose-200 text-rose-800' 
-            : 'bg-emerald-50 border-emerald-200 text-emerald-800'
-        }`}>
-          {statusMsg.isError ? <AlertCircle className="h-4 w-4 shrink-0 text-rose-600" /> : <CheckCircle2 className="h-4 w-4 shrink-0 text-emerald-600" />}
+        <div
+          className={`flex items-center gap-2 rounded-xl p-3.5 text-xs font-semibold border ${
+            statusMsg.isError
+              ? "bg-rose-50 border-rose-200 text-rose-800"
+              : "bg-emerald-50 border-emerald-200 text-emerald-800"
+          }`}
+        >
+          {statusMsg.isError ? (
+            <AlertCircle className="h-4 w-4 shrink-0 text-rose-600" />
+          ) : (
+            <CheckCircle2 className="h-4 w-4 shrink-0 text-emerald-600" />
+          )}
           <span>{statusMsg.text}</span>
         </div>
       )}
@@ -321,7 +376,7 @@ export function UploadView({
       {/* ============================================================== */}
       {/* MODE 1: UPDATE / CORRECT EXISTING PAPER */}
       {/* ============================================================== */}
-      {viewMode === 'update' && (
+      {viewMode === "update" && (
         <div className="space-y-6">
           <div className="bi-card p-6 space-y-4">
             <div>
@@ -330,10 +385,10 @@ export function UploadView({
               </label>
               <select
                 value={selectedPaperId}
-                onChange={e => handleSelectPaperToUpdate(e.target.value)}
+                onChange={(e) => handleSelectPaperToUpdate(e.target.value)}
                 className="cursor-pointer w-full rounded-xl border border-slate-200 bg-slate-50 px-3.5 py-2.5 text-xs font-semibold text-slate-800 focus:outline-none focus:border-indigo-500 focus:bg-white"
               >
-                {papers.map(p => (
+                {papers.map((p) => (
                   <option key={p.id} value={p.id}>
                     {p.label} ({p.year} • {p.subject} • {p.totalQuestions} Qs)
                   </option>
@@ -344,7 +399,9 @@ export function UploadView({
             {currentSelectedPaper && (
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 p-4 rounded-xl bg-slate-50 border border-slate-200/70 text-xs">
                 <div>
-                  <span className="text-[11px] text-slate-400 font-medium block">Question Paper PDF</span>
+                  <span className="text-[11px] text-slate-400 font-medium block">
+                    Question Paper PDF
+                  </span>
                   <a
                     href={currentSelectedPaper.qpUrl}
                     target="_blank"
@@ -356,10 +413,15 @@ export function UploadView({
                 </div>
 
                 <div>
-                  <span className="text-[11px] text-slate-400 font-medium block">Answer Key Status</span>
+                  <span className="text-[11px] text-slate-400 font-medium block">
+                    Answer Key Status
+                  </span>
                   {hasAnswerKey(currentSelectedPaper) ? (
                     <span className="text-emerald-700 font-bold inline-flex items-center gap-1 mt-0.5">
-                      <Check className="h-3.5 w-3.5" /> Attached ({Object.keys(currentSelectedPaper.answerKey || {}).length || currentSelectedPaper.totalQuestions} Qs)
+                      <Check className="h-3.5 w-3.5" /> Attached (
+                      {Object.keys(currentSelectedPaper.answerKey || {})
+                        .length || currentSelectedPaper.totalQuestions}{" "}
+                      Qs)
                     </span>
                   ) : (
                     <span className="text-amber-700 font-bold inline-flex items-center gap-1 mt-0.5">
@@ -369,7 +431,9 @@ export function UploadView({
                 </div>
 
                 <div>
-                  <span className="text-[11px] text-slate-400 font-medium block">Detailed Solution</span>
+                  <span className="text-[11px] text-slate-400 font-medium block">
+                    Detailed Solution
+                  </span>
                   {hasSolution(currentSelectedPaper) ? (
                     <a
                       href={currentSelectedPaper.exsUrl}
@@ -391,7 +455,6 @@ export function UploadView({
 
           {currentSelectedPaper && (
             <form onSubmit={handleUpdateExistingPaper} className="space-y-6">
-              
               {/* Replace Files Section */}
               <div className="bi-card p-6 space-y-4">
                 <h2 className="text-xs font-bold text-slate-700 uppercase tracking-wider">
@@ -411,12 +474,12 @@ export function UploadView({
                     <label className="cursor-pointer flex flex-col items-center justify-center rounded-xl border border-dashed border-slate-300 bg-white p-4 text-center hover:border-indigo-500 hover:bg-slate-50 transition-colors shadow-2xs">
                       <FileUp className="h-6 w-6 text-indigo-600 mb-1" />
                       <span className="text-xs font-bold text-slate-700 truncate max-w-[220px]">
-                        {qpFile ? qpFile.name : 'Choose Replacement PDF'}
+                        {qpFile ? qpFile.name : "Choose Replacement PDF"}
                       </span>
                       <input
                         type="file"
                         accept=".pdf"
-                        onChange={e => setQpFile(e.target.files?.[0] || null)}
+                        onChange={(e) => setQpFile(e.target.files?.[0] || null)}
                         className="hidden"
                       />
                     </label>
@@ -434,12 +497,14 @@ export function UploadView({
                     <label className="cursor-pointer flex flex-col items-center justify-center rounded-xl border border-dashed border-slate-300 bg-white p-4 text-center hover:border-slate-500 hover:bg-slate-50 transition-colors shadow-2xs">
                       <FileUp className="h-6 w-6 text-slate-500 mb-1" />
                       <span className="text-xs font-bold text-slate-700 truncate max-w-[220px]">
-                        {exsFile ? exsFile.name : 'Choose Solution PDF'}
+                        {exsFile ? exsFile.name : "Choose Solution PDF"}
                       </span>
                       <input
                         type="file"
                         accept=".pdf"
-                        onChange={e => setExsFile(e.target.files?.[0] || null)}
+                        onChange={(e) =>
+                          setExsFile(e.target.files?.[0] || null)
+                        }
                         className="hidden"
                       />
                     </label>
@@ -447,29 +512,38 @@ export function UploadView({
                 </div>
 
                 {/* Answer Key (Objective) */}
-                {currentSelectedPaper.examType === 'objective' && (
+                {currentSelectedPaper.examType === "objective" && (
                   <div className="rounded-xl border border-slate-200 bg-slate-50/80 p-4 space-y-3 pt-4">
                     <div className="flex items-center justify-between">
                       <div>
-                        <h3 className="text-xs font-bold text-slate-800">Update Answer Key</h3>
-                        <p className="text-[11px] text-slate-500">Provide corrected answer choices for automatic evaluation.</p>
+                        <h3 className="text-xs font-bold text-slate-800">
+                          Update Answer Key
+                        </h3>
+                        <p className="text-[11px] text-slate-500">
+                          Provide corrected answer choices for automatic
+                          evaluation.
+                        </p>
                       </div>
 
                       <div className="flex items-center bg-slate-100 p-0.5 rounded-lg border border-slate-200 text-[11px] font-semibold">
                         <button
                           type="button"
-                          onClick={() => setAkMode('paste')}
+                          onClick={() => setAkMode("paste")}
                           className={`cursor-pointer px-2.5 py-1 rounded-md transition-colors ${
-                            akMode === 'paste' ? 'bg-white text-indigo-700 font-bold shadow-2xs' : 'text-slate-600 hover:text-slate-900'
+                            akMode === "paste"
+                              ? "bg-white text-indigo-700 font-bold shadow-2xs"
+                              : "text-slate-600 hover:text-slate-900"
                           }`}
                         >
                           Paste Text
                         </button>
                         <button
                           type="button"
-                          onClick={() => setAkMode('upload')}
+                          onClick={() => setAkMode("upload")}
                           className={`cursor-pointer px-2.5 py-1 rounded-md transition-colors ${
-                            akMode === 'upload' ? 'bg-white text-indigo-700 font-bold shadow-2xs' : 'text-slate-600 hover:text-slate-900'
+                            akMode === "upload"
+                              ? "bg-white text-indigo-700 font-bold shadow-2xs"
+                              : "text-slate-600 hover:text-slate-900"
                           }`}
                         >
                           Upload .txt
@@ -477,21 +551,25 @@ export function UploadView({
                       </div>
                     </div>
 
-                    {akMode === 'upload' ? (
+                    {akMode === "upload" ? (
                       <label className="cursor-pointer flex items-center justify-center gap-2 rounded-xl border border-dashed border-slate-300 bg-white p-4 text-xs font-semibold text-slate-700 hover:border-slate-500 shadow-2xs">
                         <FileUp className="h-4 w-4 text-slate-500" />
-                        <span>{akFile ? akFile.name : 'Select .txt answer key file'}</span>
+                        <span>
+                          {akFile ? akFile.name : "Select .txt answer key file"}
+                        </span>
                         <input
                           type="file"
                           accept=".txt"
-                          onChange={e => setAkFile(e.target.files?.[0] || null)}
+                          onChange={(e) =>
+                            setAkFile(e.target.files?.[0] || null)
+                          }
                           className="hidden"
                         />
                       </label>
                     ) : (
                       <textarea
                         value={akText}
-                        onChange={e => setAkText(e.target.value)}
+                        onChange={(e) => setAkText(e.target.value)}
                         placeholder={`1. a\n2. c\n3. d\n4. b\n...\n100. a`}
                         rows={5}
                         className="w-full rounded-xl border border-slate-200 bg-white p-3 font-mono text-xs text-slate-800 placeholder-slate-400 focus:outline-none focus:border-indigo-500 shadow-2xs"
@@ -509,45 +587,61 @@ export function UploadView({
 
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
                   <div>
-                    <label className="block text-[11px] font-bold text-slate-600 mb-1">Total Questions</label>
+                    <label className="block text-[11px] font-bold text-slate-600 mb-1">
+                      Total Questions
+                    </label>
                     <input
                       type="number"
                       value={totalQuestions}
-                      onChange={e => setTotalQuestions(parseInt(e.target.value) || 0)}
+                      onChange={(e) =>
+                        setTotalQuestions(parseInt(e.target.value) || 0)
+                      }
                       className="w-full rounded-lg border border-slate-200 bg-slate-50 px-3 py-1.5 text-xs text-slate-800 font-mono focus:bg-white focus:border-indigo-500"
                     />
                   </div>
 
                   <div>
-                    <label className="block text-[11px] font-bold text-slate-600 mb-1">Duration (Mins)</label>
+                    <label className="block text-[11px] font-bold text-slate-600 mb-1">
+                      Duration (Mins)
+                    </label>
                     <input
                       type="number"
                       value={timeMinutes}
-                      onChange={e => setTimeMinutes(parseInt(e.target.value) || 0)}
+                      onChange={(e) =>
+                        setTimeMinutes(parseInt(e.target.value) || 0)
+                      }
                       className="w-full rounded-lg border border-slate-200 bg-slate-50 px-3 py-1.5 text-xs text-slate-800 font-mono focus:bg-white focus:border-indigo-500"
                     />
                   </div>
 
-                  {currentSelectedPaper.examType === 'objective' && (
+                  {currentSelectedPaper.examType === "objective" && (
                     <>
                       <div>
-                        <label className="block text-[11px] font-bold text-slate-600 mb-1">Correct Marks (+)</label>
+                        <label className="block text-[11px] font-bold text-slate-600 mb-1">
+                          Correct Marks (+)
+                        </label>
                         <input
                           type="number"
                           step="0.01"
                           value={correctMarks}
-                          onChange={e => setCorrectMarks(parseFloat(e.target.value) || 0)}
+                          onChange={(e) =>
+                            setCorrectMarks(parseFloat(e.target.value) || 0)
+                          }
                           className="w-full rounded-lg border border-slate-200 bg-slate-50 px-3 py-1.5 text-xs text-slate-800 font-mono focus:bg-white focus:border-indigo-500"
                         />
                       </div>
 
                       <div>
-                        <label className="block text-[11px] font-bold text-slate-600 mb-1">Penalty (-)</label>
+                        <label className="block text-[11px] font-bold text-slate-600 mb-1">
+                          Penalty (-)
+                        </label>
                         <input
                           type="number"
                           step="0.001"
                           value={incorrectMarks}
-                          onChange={e => setIncorrectMarks(parseFloat(e.target.value) || 0)}
+                          onChange={(e) =>
+                            setIncorrectMarks(parseFloat(e.target.value) || 0)
+                          }
                           className="w-full rounded-lg border border-slate-200 bg-slate-50 px-3 py-1.5 text-xs text-slate-800 font-mono focus:bg-white focus:border-indigo-500"
                         />
                       </div>
@@ -567,15 +661,23 @@ export function UploadView({
                     <Trash2 className="h-4 w-4" />
                     <span>Delete This Paper</span>
                   </button>
-                ) : <div />}
+                ) : (
+                  <div />
+                )}
 
                 <button
                   type="submit"
                   disabled={isSubmitting}
                   className="cursor-pointer flex items-center gap-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 px-6 py-2.5 text-xs font-bold text-white shadow-xs disabled:opacity-40 transition-all"
                 >
-                  <RefreshCw className={`h-4 w-4 ${isSubmitting ? 'animate-spin' : ''}`} />
-                  <span>{isSubmitting ? 'Saving Updates...' : 'Save Updates & Replace Files'}</span>
+                  <RefreshCw
+                    className={`h-4 w-4 ${isSubmitting ? "animate-spin" : ""}`}
+                  />
+                  <span>
+                    {isSubmitting
+                      ? "Saving Updates..."
+                      : "Save Updates & Replace Files"}
+                  </span>
                 </button>
               </div>
             </form>
@@ -590,9 +692,12 @@ export function UploadView({
                     <Trash2 className="h-5 w-5" />
                   </div>
                   <div>
-                    <h3 className="text-base font-bold text-slate-900">Delete Question Paper?</h3>
+                    <h3 className="text-base font-bold text-slate-900">
+                      Delete Question Paper?
+                    </h3>
                     <p className="text-xs text-slate-500 mt-1 leading-relaxed">
-                      Are you sure you want to permanently delete &quot;{currentSelectedPaper.label}&quot;?
+                      Are you sure you want to permanently delete &quot;
+                      {currentSelectedPaper.label}&quot;?
                     </p>
                   </div>
                 </div>
@@ -626,9 +731,8 @@ export function UploadView({
       {/* ============================================================== */}
       {/* MODE 2: UPLOAD NEW PAPER */}
       {/* ============================================================== */}
-      {viewMode === 'create' && (
+      {viewMode === "create" && (
         <form onSubmit={handleUploadNewPaper} className="space-y-6">
-          
           {/* Step 1: Exam Type Selector */}
           <div className="bi-card p-6 space-y-3">
             <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider">
@@ -637,37 +741,47 @@ export function UploadView({
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <button
                 type="button"
-                onClick={() => handleExamTypeChange('objective')}
+                onClick={() => handleExamTypeChange("objective")}
                 className={`cursor-pointer p-4 rounded-xl border text-left transition-all ${
-                  examType === 'objective'
-                    ? 'border-indigo-500 bg-indigo-50/60 text-slate-900 shadow-xs ring-1 ring-indigo-500/20'
-                    : 'border-slate-200 bg-slate-50/60 text-slate-600 hover:border-slate-300 hover:text-slate-900'
+                  examType === "objective"
+                    ? "border-indigo-500 bg-indigo-50/60 text-slate-900 shadow-xs ring-1 ring-indigo-500/20"
+                    : "border-slate-200 bg-slate-50/60 text-slate-600 hover:border-slate-300 hover:text-slate-900"
                 }`}
               >
                 <div className="flex items-center justify-between">
-                  <span className="font-bold text-sm text-slate-900">Objective (Prelims)</span>
-                  {examType === 'objective' && <Check className="h-4.5 w-4.5 text-indigo-600" />}
+                  <span className="font-bold text-sm text-slate-900">
+                    Objective (Prelims)
+                  </span>
+                  {examType === "objective" && (
+                    <Check className="h-4.5 w-4.5 text-indigo-600" />
+                  )}
                 </div>
                 <p className="text-xs text-slate-500 mt-1">
-                  Multiple-choice questions with interactive OMR sheet, auto-evaluation, and negative marking.
+                  Multiple-choice questions with interactive OMR sheet,
+                  auto-evaluation, and negative marking.
                 </p>
               </button>
 
               <button
                 type="button"
-                onClick={() => handleExamTypeChange('subjective')}
+                onClick={() => handleExamTypeChange("subjective")}
                 className={`cursor-pointer p-4 rounded-xl border text-left transition-all ${
-                  examType === 'subjective'
-                    ? 'border-indigo-500 bg-indigo-50/60 text-slate-900 shadow-xs ring-1 ring-indigo-500/20'
-                    : 'border-slate-200 bg-slate-50/60 text-slate-600 hover:border-slate-300 hover:text-slate-900'
+                  examType === "subjective"
+                    ? "border-indigo-500 bg-indigo-50/60 text-slate-900 shadow-xs ring-1 ring-indigo-500/20"
+                    : "border-slate-200 bg-slate-50/60 text-slate-600 hover:border-slate-300 hover:text-slate-900"
                 }`}
               >
                 <div className="flex items-center justify-between">
-                  <span className="font-bold text-sm text-slate-900">Subjective (Mains)</span>
-                  {examType === 'subjective' && <Check className="h-4.5 w-4.5 text-indigo-600" />}
+                  <span className="font-bold text-sm text-slate-900">
+                    Subjective (Mains)
+                  </span>
+                  {examType === "subjective" && (
+                    <Check className="h-4.5 w-4.5 text-indigo-600" />
+                  )}
                 </div>
                 <p className="text-xs text-slate-500 mt-1">
-                  Descriptive answer writing questions with post-exam handwritten PDF submission.
+                  Descriptive answer writing questions with post-exam
+                  handwritten PDF submission.
                 </p>
               </button>
             </div>
@@ -690,11 +804,13 @@ export function UploadView({
                 </label>
                 <select
                   value={year}
-                  onChange={e => setYear(e.target.value)}
+                  onChange={(e) => setYear(e.target.value)}
                   className="cursor-pointer w-full rounded-xl border border-slate-200 bg-slate-50 px-3.5 py-2.5 text-xs font-semibold text-slate-800 focus:outline-none focus:border-indigo-500 focus:bg-white"
                 >
-                  {SUPPORTED_YEARS.map(yr => (
-                    <option key={yr} value={yr}>{yr}</option>
+                  {SUPPORTED_YEARS.map((yr) => (
+                    <option key={yr} value={yr}>
+                      {yr}
+                    </option>
                   ))}
                 </select>
               </div>
@@ -706,22 +822,36 @@ export function UploadView({
                 </label>
                 <select
                   value={subjectPreset}
-                  onChange={e => handlePresetChange(e.target.value)}
+                  onChange={(e) => handlePresetChange(e.target.value)}
                   className="cursor-pointer w-full rounded-xl border border-slate-200 bg-slate-50 px-3.5 py-2.5 text-xs font-semibold text-slate-800 focus:outline-none focus:border-indigo-500 focus:bg-white"
                 >
-                  {examType === 'objective' ? (
+                  {examType === "objective" ? (
                     <>
-                      <option value="GS I">Prelims GS I (100 Qs • 200 Marks)</option>
-                      <option value="GS II CSAT">Prelims GS II CSAT (80 Qs • 200 Marks)</option>
+                      <option value="GS I">
+                        Prelims GS I (100 Qs • 200 Marks)
+                      </option>
+                      <option value="GS II CSAT">
+                        Prelims GS II CSAT (80 Qs • 200 Marks)
+                      </option>
                       <option value="Custom">Custom Objective Paper</option>
                     </>
                   ) : (
                     <>
-                      <option value="Mains GS I">Mains GS I (20 Qs • 250 Marks)</option>
-                      <option value="Mains GS II">Mains GS II (20 Qs • 250 Marks)</option>
-                      <option value="Mains GS III">Mains GS III (20 Qs • 250 Marks)</option>
-                      <option value="Mains GS IV">Mains GS IV (Ethics • 250 Marks)</option>
-                      <option value="Mains Essay">Mains Essay (250 Marks)</option>
+                      <option value="Mains GS I">
+                        Mains GS I (20 Qs • 250 Marks)
+                      </option>
+                      <option value="Mains GS II">
+                        Mains GS II (20 Qs • 250 Marks)
+                      </option>
+                      <option value="Mains GS III">
+                        Mains GS III (20 Qs • 250 Marks)
+                      </option>
+                      <option value="Mains GS IV">
+                        Mains GS IV (Ethics • 250 Marks)
+                      </option>
+                      <option value="Mains Essay">
+                        Mains Essay (250 Marks)
+                      </option>
                       <option value="Custom">Custom Subjective Paper</option>
                     </>
                   )}
@@ -736,7 +866,7 @@ export function UploadView({
                 <input
                   type="text"
                   value={paperIdentifier}
-                  onChange={e => setPaperIdentifier(e.target.value)}
+                  onChange={(e) => setPaperIdentifier(e.target.value)}
                   placeholder="prelims_gs_i"
                   className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3.5 py-2 text-xs text-slate-800 focus:outline-none focus:border-indigo-500 focus:bg-white font-mono"
                   required
@@ -745,7 +875,7 @@ export function UploadView({
             </div>
 
             {/* Custom Subject Name if selected */}
-            {subjectPreset === 'Custom' && (
+            {subjectPreset === "Custom" && (
               <div>
                 <label className="block text-xs font-bold text-slate-700 mb-1">
                   Custom Subject / Paper Title
@@ -753,9 +883,12 @@ export function UploadView({
                 <input
                   type="text"
                   value={customSubject}
-                  onChange={e => {
+                  onChange={(e) => {
                     setCustomSubject(e.target.value);
-                    const clean = e.target.value.toLowerCase().replace(/[^a-z0-9_]/g, '_').replace(/_+/g, '_');
+                    const clean = e.target.value
+                      .toLowerCase()
+                      .replace(/[^a-z0-9_]/g, "_")
+                      .replace(/_+/g, "_");
                     if (clean) setPaperIdentifier(clean);
                   }}
                   placeholder="e.g. Sociology Optional Paper 1"
@@ -768,45 +901,61 @@ export function UploadView({
             {/* Marking scheme and rules grid */}
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 pt-3 border-t border-slate-100">
               <div>
-                <label className="block text-[11px] font-bold text-slate-600 mb-1">Total Questions</label>
+                <label className="block text-[11px] font-bold text-slate-600 mb-1">
+                  Total Questions
+                </label>
                 <input
                   type="number"
                   value={totalQuestions}
-                  onChange={e => setTotalQuestions(parseInt(e.target.value) || 0)}
+                  onChange={(e) =>
+                    setTotalQuestions(parseInt(e.target.value) || 0)
+                  }
                   className="w-full rounded-lg border border-slate-200 bg-slate-50 px-3 py-1.5 text-xs text-slate-800 font-mono focus:bg-white focus:border-indigo-500"
                 />
               </div>
 
               <div>
-                <label className="block text-[11px] font-bold text-slate-600 mb-1">Time (Minutes)</label>
+                <label className="block text-[11px] font-bold text-slate-600 mb-1">
+                  Time (Minutes)
+                </label>
                 <input
                   type="number"
                   value={timeMinutes}
-                  onChange={e => setTimeMinutes(parseInt(e.target.value) || 0)}
+                  onChange={(e) =>
+                    setTimeMinutes(parseInt(e.target.value) || 0)
+                  }
                   className="w-full rounded-lg border border-slate-200 bg-slate-50 px-3 py-1.5 text-xs text-slate-800 font-mono focus:bg-white focus:border-indigo-500"
                 />
               </div>
 
-              {examType === 'objective' && (
+              {examType === "objective" && (
                 <>
                   <div>
-                    <label className="block text-[11px] font-bold text-slate-600 mb-1">Correct Marks (+)</label>
+                    <label className="block text-[11px] font-bold text-slate-600 mb-1">
+                      Correct Marks (+)
+                    </label>
                     <input
                       type="number"
                       step="0.01"
                       value={correctMarks}
-                      onChange={e => setCorrectMarks(parseFloat(e.target.value) || 0)}
+                      onChange={(e) =>
+                        setCorrectMarks(parseFloat(e.target.value) || 0)
+                      }
                       className="w-full rounded-lg border border-slate-200 bg-slate-50 px-3 py-1.5 text-xs text-slate-800 font-mono focus:bg-white focus:border-indigo-500"
                     />
                   </div>
 
                   <div>
-                    <label className="block text-[11px] font-bold text-slate-600 mb-1">Penalty Marks (-)</label>
+                    <label className="block text-[11px] font-bold text-slate-600 mb-1">
+                      Penalty Marks (-)
+                    </label>
                     <input
                       type="number"
                       step="0.001"
                       value={incorrectMarks}
-                      onChange={e => setIncorrectMarks(parseFloat(e.target.value) || 0)}
+                      onChange={(e) =>
+                        setIncorrectMarks(parseFloat(e.target.value) || 0)
+                      }
                       className="w-full rounded-lg border border-slate-200 bg-slate-50 px-3 py-1.5 text-xs text-slate-800 font-mono focus:bg-white focus:border-indigo-500"
                     />
                   </div>
@@ -825,23 +974,31 @@ export function UploadView({
               {/* Question Paper PDF */}
               <div className="rounded-xl border border-slate-200 bg-slate-50/80 p-4 space-y-2">
                 <div className="flex items-center justify-between">
-                  <span className="text-xs font-bold text-slate-800">Question Paper PDF</span>
-                  <span className="text-[10px] font-bold text-indigo-600 font-mono">Required</span>
+                  <span className="text-xs font-bold text-slate-800">
+                    Question Paper PDF
+                  </span>
+                  <span className="text-[10px] font-bold text-indigo-600 font-mono">
+                    Required
+                  </span>
                 </div>
-                <p className="text-[11px] text-slate-500">Official question paper in PDF format.</p>
+                <p className="text-[11px] text-slate-500">
+                  Official question paper in PDF format.
+                </p>
 
                 <label className="cursor-pointer flex flex-col items-center justify-center rounded-xl border border-dashed border-slate-300 bg-white p-4 text-center hover:border-indigo-500 hover:bg-slate-50 transition-colors shadow-2xs">
                   <FileUp className="h-6 w-6 text-indigo-600 mb-1" />
                   <span className="text-xs font-bold text-slate-700 truncate max-w-[220px]">
-                    {qpFile ? qpFile.name : 'Choose PDF File'}
+                    {qpFile ? qpFile.name : "Choose PDF File"}
                   </span>
                   <span className="text-[10px] text-slate-400 mt-0.5">
-                    {qpFile ? `${(qpFile.size / 1024 / 1024).toFixed(2)} MB` : 'Click to browse'}
+                    {qpFile
+                      ? `${(qpFile.size / 1024 / 1024).toFixed(2)} MB`
+                      : "Click to browse"}
                   </span>
                   <input
                     type="file"
                     accept=".pdf"
-                    onChange={e => setQpFile(e.target.files?.[0] || null)}
+                    onChange={(e) => setQpFile(e.target.files?.[0] || null)}
                     className="hidden"
                   />
                 </label>
@@ -850,23 +1007,31 @@ export function UploadView({
               {/* Model Solution / Explanations PDF */}
               <div className="rounded-xl border border-slate-200 bg-slate-50/80 p-4 space-y-2">
                 <div className="flex items-center justify-between">
-                  <span className="text-xs font-bold text-slate-800">Solution Booklet</span>
-                  <span className="text-[10px] text-slate-400 font-mono font-medium">Optional</span>
+                  <span className="text-xs font-bold text-slate-800">
+                    Solution Booklet
+                  </span>
+                  <span className="text-[10px] text-slate-400 font-mono font-medium">
+                    Optional
+                  </span>
                 </div>
-                <p className="text-[11px] text-slate-500">Detailed explanation or answer hints PDF.</p>
+                <p className="text-[11px] text-slate-500">
+                  Detailed explanation or answer hints PDF.
+                </p>
 
                 <label className="cursor-pointer flex flex-col items-center justify-center rounded-xl border border-dashed border-slate-300 bg-white p-4 text-center hover:border-slate-500 hover:bg-slate-50 transition-colors shadow-2xs">
                   <FileUp className="h-6 w-6 text-slate-500 mb-1" />
                   <span className="text-xs font-bold text-slate-700 truncate max-w-[220px]">
-                    {exsFile ? exsFile.name : 'Choose Solution PDF'}
+                    {exsFile ? exsFile.name : "Choose Solution PDF"}
                   </span>
                   <span className="text-[10px] text-slate-400 mt-0.5">
-                    {exsFile ? `${(exsFile.size / 1024 / 1024).toFixed(2)} MB` : 'Optional'}
+                    {exsFile
+                      ? `${(exsFile.size / 1024 / 1024).toFixed(2)} MB`
+                      : "Optional"}
                   </span>
                   <input
                     type="file"
                     accept=".pdf"
-                    onChange={e => setExsFile(e.target.files?.[0] || null)}
+                    onChange={(e) => setExsFile(e.target.files?.[0] || null)}
                     className="hidden"
                   />
                 </label>
@@ -874,30 +1039,38 @@ export function UploadView({
             </div>
 
             {/* Answer Key (For Objective MCQs only) */}
-            {examType === 'objective' && (
+            {examType === "objective" && (
               <div className="rounded-xl border border-slate-200 bg-slate-50/80 p-4 space-y-3 pt-4">
                 <div className="flex items-center justify-between">
                   <div>
-                    <h3 className="text-xs font-bold text-slate-800">Answer Key</h3>
-                    <p className="text-[11px] text-slate-500">Provide official answer choices for automatic evaluation.</p>
+                    <h3 className="text-xs font-bold text-slate-800">
+                      Answer Key
+                    </h3>
+                    <p className="text-[11px] text-slate-500">
+                      Provide official answer choices for automatic evaluation.
+                    </p>
                   </div>
 
                   {/* Tab Switcher */}
                   <div className="flex items-center bg-slate-100 p-0.5 rounded-lg border border-slate-200 text-[11px] font-semibold">
                     <button
                       type="button"
-                      onClick={() => setAkMode('paste')}
+                      onClick={() => setAkMode("paste")}
                       className={`cursor-pointer px-2.5 py-1 rounded-md transition-colors ${
-                        akMode === 'paste' ? 'bg-white text-indigo-700 font-bold shadow-2xs' : 'text-slate-600 hover:text-slate-900'
+                        akMode === "paste"
+                          ? "bg-white text-indigo-700 font-bold shadow-2xs"
+                          : "text-slate-600 hover:text-slate-900"
                       }`}
                     >
                       Paste Text
                     </button>
                     <button
                       type="button"
-                      onClick={() => setAkMode('upload')}
+                      onClick={() => setAkMode("upload")}
                       className={`cursor-pointer px-2.5 py-1 rounded-md transition-colors ${
-                        akMode === 'upload' ? 'bg-white text-indigo-700 font-bold shadow-2xs' : 'text-slate-600 hover:text-slate-900'
+                        akMode === "upload"
+                          ? "bg-white text-indigo-700 font-bold shadow-2xs"
+                          : "text-slate-600 hover:text-slate-900"
                       }`}
                     >
                       Upload .txt
@@ -905,21 +1078,23 @@ export function UploadView({
                   </div>
                 </div>
 
-                {akMode === 'upload' ? (
+                {akMode === "upload" ? (
                   <label className="cursor-pointer flex items-center justify-center gap-2 rounded-xl border border-dashed border-slate-300 bg-white p-4 text-xs font-semibold text-slate-700 hover:border-slate-500 shadow-2xs">
                     <FileUp className="h-4 w-4 text-slate-500" />
-                    <span>{akFile ? akFile.name : 'Select .txt answer key file'}</span>
+                    <span>
+                      {akFile ? akFile.name : "Select .txt answer key file"}
+                    </span>
                     <input
                       type="file"
                       accept=".txt"
-                      onChange={e => setAkFile(e.target.files?.[0] || null)}
+                      onChange={(e) => setAkFile(e.target.files?.[0] || null)}
                       className="hidden"
                     />
                   </label>
                 ) : (
                   <textarea
                     value={akText}
-                    onChange={e => setAkText(e.target.value)}
+                    onChange={(e) => setAkText(e.target.value)}
                     placeholder={`1. a\n2. c\n3. d\n4. b\n...\n100. a`}
                     rows={4}
                     className="w-full rounded-xl border border-slate-200 bg-white p-3 font-mono text-xs text-slate-800 placeholder-slate-400 focus:outline-none focus:border-indigo-500 shadow-2xs"
@@ -937,12 +1112,11 @@ export function UploadView({
               className="cursor-pointer flex items-center gap-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 px-6 py-2.5 text-xs font-bold text-white shadow-xs disabled:opacity-40 transition-all"
             >
               <UploadCloud className="h-4 w-4" />
-              {isSubmitting ? 'Saving Paper...' : 'Save Paper to Repository'}
+              {isSubmitting ? "Saving Paper..." : "Save Paper to Repository"}
             </button>
           </div>
         </form>
       )}
-
     </div>
   );
 }

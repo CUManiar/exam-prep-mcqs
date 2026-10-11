@@ -1,7 +1,7 @@
-'use client';
+"use client";
 
-import React, { useEffect } from 'react';
-import { AlertTriangle, Trash2, Info, X } from 'lucide-react';
+import React, { useEffect } from "react";
+import { AlertTriangle, Trash2, Info, X } from "lucide-react";
 
 export interface ConfirmationModalProps {
   isOpen: boolean;
@@ -9,7 +9,7 @@ export interface ConfirmationModalProps {
   message: string;
   confirmText?: string;
   cancelText?: string;
-  variant?: 'danger' | 'warning' | 'info';
+  variant?: "danger" | "warning" | "info";
   onConfirm: () => void;
   onCancel: () => void;
 }
@@ -18,37 +18,37 @@ export function ConfirmationModal({
   isOpen,
   title,
   message,
-  confirmText = 'Confirm',
-  cancelText = 'Cancel',
-  variant = 'danger',
+  confirmText = "Confirm",
+  cancelText = "Cancel",
+  variant = "danger",
   onConfirm,
   onCancel,
 }: ConfirmationModalProps) {
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (!isOpen) return;
-      if (e.key === 'Escape') onCancel();
+      if (e.key === "Escape") onCancel();
     };
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
   }, [isOpen, onCancel]);
 
   if (!isOpen) return null;
 
   const iconVariants = {
     danger: {
-      bg: 'bg-rose-500/20 text-rose-400 border-rose-500/30',
-      btn: 'bg-rose-600 hover:bg-rose-500 shadow-rose-600/30 text-white',
+      bg: "bg-rose-500/20 text-rose-400 border-rose-500/30",
+      btn: "bg-rose-600 hover:bg-rose-500 shadow-rose-600/30 text-white",
       icon: <Trash2 className="h-6 w-6" />,
     },
     warning: {
-      bg: 'bg-amber-500/20 text-amber-400 border-amber-500/30',
-      btn: 'bg-amber-500 hover:bg-amber-400 shadow-amber-500/30 text-slate-950 font-bold',
+      bg: "bg-amber-500/20 text-amber-400 border-amber-500/30",
+      btn: "bg-amber-500 hover:bg-amber-400 shadow-amber-500/30 text-slate-950 font-bold",
       icon: <AlertTriangle className="h-6 w-6" />,
     },
     info: {
-      bg: 'bg-indigo-500/20 text-indigo-400 border-indigo-500/30',
-      btn: 'bg-indigo-600 hover:bg-indigo-500 shadow-indigo-600/30 text-white',
+      bg: "bg-indigo-500/20 text-indigo-400 border-indigo-500/30",
+      btn: "bg-indigo-600 hover:bg-indigo-500 shadow-indigo-600/30 text-white",
       icon: <Info className="h-6 w-6" />,
     },
   };
@@ -57,9 +57,9 @@ export function ConfirmationModal({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md animate-in fade-in duration-150">
-      <div 
+      <div
         className="relative w-full max-w-md rounded-2xl border border-slate-800 bg-slate-900 p-6 shadow-2xl animate-in zoom-in-95 duration-150 space-y-4"
-        onClick={e => e.stopPropagation()}
+        onClick={(e) => e.stopPropagation()}
       >
         {/* Close Button */}
         <button
@@ -70,7 +70,9 @@ export function ConfirmationModal({
         </button>
 
         <div className="flex items-start gap-4">
-          <div className={`flex h-12 w-12 items-center justify-center rounded-2xl border shrink-0 ${currentVariant.bg}`}>
+          <div
+            className={`flex h-12 w-12 items-center justify-center rounded-2xl border shrink-0 ${currentVariant.bg}`}
+          >
             {currentVariant.icon}
           </div>
 
@@ -78,9 +80,7 @@ export function ConfirmationModal({
             <h3 className="text-base font-bold text-white tracking-tight">
               {title}
             </h3>
-            <p className="text-xs text-slate-400 leading-relaxed">
-              {message}
-            </p>
+            <p className="text-xs text-slate-400 leading-relaxed">{message}</p>
           </div>
         </div>
 

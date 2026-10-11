@@ -1,10 +1,22 @@
-'use client';
+"use client";
 
-import React, { useState } from 'react';
-import { Attempt } from '../lib/types';
-import { formatTimeSeconds, formatDateTime } from '../lib/defaults';
-import { History, Search, Clock, ArrowRight, Download, CheckCircle2, AlertTriangle, ChevronRight, Award, Target, Zap } from 'lucide-react';
-import { exportAttemptAsMarkdown } from '../lib/exportUtils';
+import React, { useState } from "react";
+import { Attempt } from "../lib/types";
+import { formatTimeSeconds, formatDateTime } from "../lib/defaults";
+import {
+  History,
+  Search,
+  Clock,
+  ArrowRight,
+  Download,
+  CheckCircle2,
+  AlertTriangle,
+  ChevronRight,
+  Award,
+  Target,
+  Zap,
+} from "lucide-react";
+import { exportAttemptAsMarkdown } from "../lib/exportUtils";
 
 interface HistoryViewProps {
   attempts: Attempt[];
@@ -12,28 +24,39 @@ interface HistoryViewProps {
   onDeleteAttempt: (attemptId: string) => void;
 }
 
-export function HistoryView({ attempts, onViewAttempt, onDeleteAttempt }: HistoryViewProps) {
-  const [search, setSearch] = useState('');
+export function HistoryView({
+  attempts,
+  onViewAttempt,
+  onDeleteAttempt,
+}: HistoryViewProps) {
+  const [search, setSearch] = useState("");
 
   // Only mock mode attempts are counted in official history
-  const mockAttempts = attempts.filter(a => a.mode === 'mock');
+  const mockAttempts = attempts.filter((a) => a.mode === "mock");
 
-  const filtered = mockAttempts.filter(a => {
+  const filtered = mockAttempts.filter((a) => {
     return a.paperLabel.toLowerCase().includes(search.toLowerCase());
   });
 
   // Calculate quick metrics if mock attempts exist
   const totalMocks = mockAttempts.length;
-  const avgScore = totalMocks > 0 
-    ? Math.round((mockAttempts.reduce((acc, a) => acc + a.score, 0) / totalMocks) * 10) / 10 
-    : 0;
-  const avgAccuracy = totalMocks > 0
-    ? Math.round((mockAttempts.reduce((acc, a) => acc + a.accuracyPct, 0) / totalMocks) * 10) / 10
-    : 0;
+  const avgScore =
+    totalMocks > 0
+      ? Math.round(
+          (mockAttempts.reduce((acc, a) => acc + a.score, 0) / totalMocks) * 10,
+        ) / 10
+      : 0;
+  const avgAccuracy =
+    totalMocks > 0
+      ? Math.round(
+          (mockAttempts.reduce((acc, a) => acc + a.accuracyPct, 0) /
+            totalMocks) *
+            10,
+        ) / 10
+      : 0;
 
   return (
     <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8 space-y-8 animate-in fade-in duration-200">
-      
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 pb-4 border-b border-slate-200/80">
         <div>
@@ -43,12 +66,15 @@ export function HistoryView({ attempts, onViewAttempt, onDeleteAttempt }: Histor
             </span>
             <span className="text-slate-300">•</span>
             <span className="text-xs font-semibold text-slate-500 font-mono">
-              {totalMocks} {totalMocks === 1 ? 'Attempt' : 'Attempts'} Logged
+              {totalMocks} {totalMocks === 1 ? "Attempt" : "Attempts"} Logged
             </span>
           </div>
-          <h1 className="text-2xl sm:text-3xl font-extrabold text-slate-900 tracking-tight">Mock Exam History</h1>
+          <h1 className="text-2xl sm:text-3xl font-extrabold text-slate-900 tracking-tight">
+            Mock Exam History
+          </h1>
           <p className="text-xs sm:text-sm text-slate-500 mt-1 max-w-2xl">
-            Detailed performance logs for timed UPSC test attempts with negative marking reconciliations and per-question pace analysis.
+            Detailed performance logs for timed UPSC test attempts with negative
+            marking reconciliations and per-question pace analysis.
           </p>
         </div>
 
@@ -58,7 +84,7 @@ export function HistoryView({ attempts, onViewAttempt, onDeleteAttempt }: Histor
           <input
             type="text"
             value={search}
-            onChange={e => setSearch(e.target.value)}
+            onChange={(e) => setSearch(e.target.value)}
             placeholder="Search by paper or year..."
             className="w-full rounded-xl border border-slate-200 bg-white pl-9 pr-4 py-2 text-xs text-slate-800 placeholder-slate-400 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 focus:outline-none transition-all shadow-xs"
           />
@@ -73,8 +99,12 @@ export function HistoryView({ attempts, onViewAttempt, onDeleteAttempt }: Histor
               <Award className="h-5 w-5" />
             </div>
             <div>
-              <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider block">Total Attempts</span>
-              <div className="text-2xl font-extrabold text-slate-900 font-mono mt-0.5">{totalMocks}</div>
+              <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider block">
+                Total Attempts
+              </span>
+              <div className="text-2xl font-extrabold text-slate-900 font-mono mt-0.5">
+                {totalMocks}
+              </div>
             </div>
           </div>
 
@@ -83,8 +113,15 @@ export function HistoryView({ attempts, onViewAttempt, onDeleteAttempt }: Histor
               <Target className="h-5 w-5" />
             </div>
             <div>
-              <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider block">Average Score</span>
-              <div className="text-2xl font-extrabold text-slate-900 font-mono mt-0.5">{avgScore} <span className="text-xs text-slate-400 font-normal">/ 200</span></div>
+              <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider block">
+                Average Score
+              </span>
+              <div className="text-2xl font-extrabold text-slate-900 font-mono mt-0.5">
+                {avgScore}{" "}
+                <span className="text-xs text-slate-400 font-normal">
+                  / 200
+                </span>
+              </div>
             </div>
           </div>
 
@@ -93,8 +130,12 @@ export function HistoryView({ attempts, onViewAttempt, onDeleteAttempt }: Histor
               <Zap className="h-5 w-5" />
             </div>
             <div>
-              <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider block">Average Accuracy</span>
-              <div className="text-2xl font-extrabold text-teal-700 font-mono mt-0.5">{avgAccuracy}%</div>
+              <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider block">
+                Average Accuracy
+              </span>
+              <div className="text-2xl font-extrabold text-teal-700 font-mono mt-0.5">
+                {avgAccuracy}%
+              </div>
             </div>
           </div>
         </div>
@@ -104,40 +145,59 @@ export function HistoryView({ attempts, onViewAttempt, onDeleteAttempt }: Histor
       {filtered.length === 0 ? (
         <div className="bi-card rounded-2xl p-12 text-center border-dashed border-slate-300">
           <History className="mx-auto h-12 w-12 text-slate-400 mb-3" />
-          <h3 className="text-base font-bold text-slate-800">No mock exam attempts found</h3>
+          <h3 className="text-base font-bold text-slate-800">
+            No mock exam attempts found
+          </h3>
           <p className="text-xs text-slate-500 mt-1 max-w-md mx-auto">
-            {search ? 'No past mock tests matched your search.' : 'Start a timed Mock Exam from the Question Papers library to generate your first assessment report.'}
+            {search
+              ? "No past mock tests matched your search."
+              : "Start a timed Mock Exam from the Question Papers library to generate your first assessment report."}
           </p>
         </div>
       ) : (
         <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">
-          {filtered.map(att => {
-            const isCsat = att.paperLabel.includes('CSAT') || att.paperLabel.includes('GS II');
-            const scoreColor = att.score >= 90 ? 'text-emerald-700' : att.score >= 66 ? 'text-amber-700' : 'text-slate-800';
-            
+          {filtered.map((att) => {
+            const isCsat =
+              att.paperLabel.includes("CSAT") ||
+              att.paperLabel.includes("GS II");
+            const scoreColor =
+              att.score >= 90
+                ? "text-emerald-700"
+                : att.score >= 66
+                  ? "text-amber-700"
+                  : "text-slate-800";
+
             // Cutoff indicator badge
             let cutoffBadge = null;
             if (isCsat) {
               const qualified = att.score >= 66.67;
               cutoffBadge = (
-                <span className={`text-[10px] font-bold px-2.5 py-0.5 rounded-full flex items-center gap-1 ${
-                  qualified 
-                    ? 'bg-emerald-50 text-emerald-700 border border-emerald-200/60' 
-                    : 'bg-rose-50 text-rose-700 border border-rose-200/60'
-                }`}>
-                  {qualified ? <CheckCircle2 className="h-3 w-3" /> : <AlertTriangle className="h-3 w-3" />}
-                  {qualified ? 'CSAT Qualified (33%+)' : 'Below 33% Cutoff'}
+                <span
+                  className={`text-[10px] font-bold px-2.5 py-0.5 rounded-full flex items-center gap-1 ${
+                    qualified
+                      ? "bg-emerald-50 text-emerald-700 border border-emerald-200/60"
+                      : "bg-rose-50 text-rose-700 border border-rose-200/60"
+                  }`}
+                >
+                  {qualified ? (
+                    <CheckCircle2 className="h-3 w-3" />
+                  ) : (
+                    <AlertTriangle className="h-3 w-3" />
+                  )}
+                  {qualified ? "CSAT Qualified (33%+)" : "Below 33% Cutoff"}
                 </span>
               );
-            } else if (att.category === 'prelims') {
+            } else if (att.category === "prelims") {
               const competitive = att.score >= 95;
               cutoffBadge = (
-                <span className={`text-[10px] font-bold px-2.5 py-0.5 rounded-full ${
-                  competitive 
-                    ? 'bg-emerald-50 text-emerald-700 border border-emerald-200/60' 
-                    : 'bg-slate-100 text-slate-700 border border-slate-200'
-                }`}>
-                  {competitive ? 'Target Cutoff Cleared' : 'Prelims Attempt'}
+                <span
+                  className={`text-[10px] font-bold px-2.5 py-0.5 rounded-full ${
+                    competitive
+                      ? "bg-emerald-50 text-emerald-700 border border-emerald-200/60"
+                      : "bg-slate-100 text-slate-700 border border-slate-200"
+                  }`}
+                >
+                  {competitive ? "Target Cutoff Cleared" : "Prelims Attempt"}
                 </span>
               );
             }
@@ -173,13 +233,22 @@ export function HistoryView({ attempts, onViewAttempt, onDeleteAttempt }: Histor
                   {/* Score & Accuracy Box */}
                   <div className="mt-4 flex items-center justify-between rounded-xl bg-slate-50 p-3.5 border border-slate-200/70">
                     <div>
-                      <span className="text-[10px] text-slate-400 uppercase font-bold tracking-wider">Net Score</span>
-                      <div className={`text-xl font-extrabold font-mono ${scoreColor} mt-0.5`}>
-                        {att.score} <span className="text-xs text-slate-400 font-normal">/ {att.maxScore}</span>
+                      <span className="text-[10px] text-slate-400 uppercase font-bold tracking-wider">
+                        Net Score
+                      </span>
+                      <div
+                        className={`text-xl font-extrabold font-mono ${scoreColor} mt-0.5`}
+                      >
+                        {att.score}{" "}
+                        <span className="text-xs text-slate-400 font-normal">
+                          / {att.maxScore}
+                        </span>
                       </div>
                     </div>
                     <div className="text-right">
-                      <span className="text-[10px] text-slate-400 uppercase font-bold tracking-wider">Accuracy</span>
+                      <span className="text-[10px] text-slate-400 uppercase font-bold tracking-wider">
+                        Accuracy
+                      </span>
                       <div className="text-xl font-extrabold text-teal-700 font-mono mt-0.5">
                         {att.accuracyPct}%
                       </div>
@@ -189,15 +258,18 @@ export function HistoryView({ attempts, onViewAttempt, onDeleteAttempt }: Histor
                   {/* Question breakdown row */}
                   <div className="mt-3 flex items-center justify-between text-[11px] font-mono text-slate-500 px-1 font-semibold">
                     <span>
-                      <span className="text-emerald-600">{att.correct}</span> Correct
+                      <span className="text-emerald-600">{att.correct}</span>{" "}
+                      Correct
                     </span>
                     <span className="text-slate-300">•</span>
                     <span>
-                      <span className="text-rose-600">{att.incorrect}</span> Wrong
+                      <span className="text-rose-600">{att.incorrect}</span>{" "}
+                      Wrong
                     </span>
                     <span className="text-slate-300">•</span>
                     <span>
-                      <span className="text-slate-400">{att.unattempted}</span> Skipped
+                      <span className="text-slate-400">{att.unattempted}</span>{" "}
+                      Skipped
                     </span>
                   </div>
                 </div>

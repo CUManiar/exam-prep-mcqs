@@ -13,15 +13,16 @@
  */
 
 export const APP_ENVIRONMENTS = {
-  LOCAL: 'LOCAL',
-  PROD: 'PROD',
+  LOCAL: "LOCAL",
+  PROD: "PROD",
 } as const;
 
-export type AppEnvironment = (typeof APP_ENVIRONMENTS)[keyof typeof APP_ENVIRONMENTS];
+export type AppEnvironment =
+  (typeof APP_ENVIRONMENTS)[keyof typeof APP_ENVIRONMENTS];
 
 // Production server endpoints constants (used when PROD_API_URL is not explicitly set)
-export const DEFAULT_PROD_URL = 'https://upsc-practice.vercel.app';
-export const FALLBACK_PROD_URL = 'https://exam-prep-mcqs.vercel.app';
+export const DEFAULT_PROD_URL = "https://upsc-practice.vercel.app";
+export const FALLBACK_PROD_URL = "https://exam-prep-mcqs.vercel.app";
 
 /**
  * Returns the current application environment: 'LOCAL' | 'PROD'
@@ -31,13 +32,15 @@ export function getAppEnvironment(): AppEnvironment {
     process.env.environment ||
     process.env.ENVIRONMENT ||
     process.env.NEXT_PUBLIC_ENVIRONMENT ||
-    ''
-  ).trim().toUpperCase();
+    ""
+  )
+    .trim()
+    .toUpperCase();
 
-  if (envVal.includes('PROD')) {
+  if (envVal.includes("PROD")) {
     return APP_ENVIRONMENTS.PROD;
   }
-  if (envVal.includes('LOCAL')) {
+  if (envVal.includes("LOCAL")) {
     return APP_ENVIRONMENTS.LOCAL;
   }
   if (process.env.VERCEL) {
@@ -65,5 +68,5 @@ export function getProdApiUrl(): string {
     DEFAULT_PROD_URL
   ).trim();
 
-  return url.replace(/\/+$/, '');
+  return url.replace(/\/+$/, "");
 }
