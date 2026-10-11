@@ -1,6 +1,8 @@
 'use client';
 
 import React, { useEffect, useState } from 'react';
+import Link from 'next/link';
+import { usePathname } from 'next/navigation';
 import { ActivePage } from '../lib/types';
 import { exportAllData, importAllData } from '../lib/storage';
 import { 
@@ -16,16 +18,30 @@ import {
 } from 'lucide-react';
 
 interface NavbarProps {
-  activePage: ActivePage;
-  onNavigate: (page: ActivePage) => void;
+  activePage?: ActivePage;
+  onNavigate?: (page: ActivePage) => void;
   onDataReload?: () => void;
   isInExam?: boolean;
 }
 
-export function Navbar({ activePage, onNavigate, onDataReload, isInExam }: NavbarProps) {
+export function Navbar({ activePage, onNavigate, onDataReload, isInExam: propIsInExam }: NavbarProps) {
+  const pathname = usePathname();
   const [currentDateTime, setCurrentDateTime] = useState<string>('');
   const [showBackupMenu, setShowBackupMenu] = useState<boolean>(false);
   const [backupMsg, setBackupMsg] = useState<string | null>(null);
+
+  // Derive active tab from pathname
+  const currentTab = (() => {
+    if (activePage) return activePage;
+    if (!pathname || pathname === '/') return 'dashboard';
+    if (pathname.startsWith('/papers')) return 'papers';
+    if (pathname.startsWith('/history')) return 'history';
+    if (pathname.startsWith('/upload')) return 'upload';
+    if (pathname.startsWith('/exam')) return 'session';
+    return 'dashboard';
+  })();
+
+  const isInExam = propIsInExam || (pathname ? pathname.startsWith('/exam') : false);
 
   useEffect(() => {
     const updateTime = () => {
@@ -53,7 +69,7 @@ export function Navbar({ activePage, onNavigate, onDataReload, isInExam }: Navba
   const handleExport = () => {
     try {
       const dataStr = exportAllData();
-      const blob = new Blob([dataStr], { type: 'application/json' });
+      const blob = new Blob(dataStr ? [dataStr] : [], { type: 'application/json' });
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
@@ -87,9 +103,10 @@ export function Navbar({ activePage, onNavigate, onDataReload, isInExam }: Navba
       <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-4 sm:px-6 lg:px-8 gap-4">
         
         {/* Brand / Logo with UPSC Emblem */}
-        <button 
-          onClick={() => onNavigate('dashboard')}
-          className="flex items-center gap-2.5 text-left group focus:outline-none shrink-0"
+        <Link 
+          href="/"
+          onClick={() => onNavigate && onNavigate('dashboard')}
+          className="cursor-pointer flex items-center gap-2.5 text-left group focus:outline-none shrink-0"
         >
           <div className="relative flex h-10 w-10 items-center justify-center rounded-xl bg-slate-900 border border-slate-800 p-1 group-hover:scale-105 transition-transform overflow-hidden shadow-inner">
             <img
@@ -106,57 +123,61 @@ export function Navbar({ activePage, onNavigate, onDataReload, isInExam }: Navba
               Prelims • Mains
             </span>
           </div>
-        </button>
+        </Link>
 
         {/* Navigation Links - Single line, no wrapping */}
         <nav className="hidden lg:flex items-center gap-1.5 shrink-0">
-          <button
-            onClick={() => onNavigate('dashboard')}
-            className={`flex items-center gap-2 rounded-xl px-3.5 py-2 text-xs font-bold whitespace-nowrap transition-all ${
-              activePage === 'dashboard'
+          <Link
+            href="/"
+            onClick={() => onNavigate && onNavigate('dashboard')}
+            className={`cursor-pointer flex items-center gap-2 rounded-xl px-3.5 py-2 text-xs font-bold whitespace-nowrap transition-all ${
+              currentTab === 'dashboard'
                 ? 'bg-indigo-600/20 text-indigo-300 border border-indigo-500/40 shadow-sm'
                 : 'text-slate-400 hover:bg-slate-900 hover:text-slate-200'
             }`}
           >
             <LayoutDashboard className="h-4 w-4 shrink-0" />
             <span>Dashboard</span>
-          </button>
+          </Link>
 
-          <button
-            onClick={() => onNavigate('papers')}
-            className={`flex items-center gap-2 rounded-xl px-3.5 py-2 text-xs font-bold whitespace-nowrap transition-all ${
-              activePage === 'papers'
+          <Link
+            href="/papers"
+            onClick={() => onNavigate && onNavigate('papers')}
+            className={`cursor-pointer flex items-center gap-2 rounded-xl px-3.5 py-2 text-xs font-bold whitespace-nowrap transition-all ${
+              currentTab === 'papers'
                 ? 'bg-indigo-600/20 text-indigo-300 border border-indigo-500/40 shadow-sm'
                 : 'text-slate-400 hover:bg-slate-900 hover:text-slate-200'
             }`}
           >
             <BookOpen className="h-4 w-4 shrink-0" />
             <span>Question Papers</span>
-          </button>
+          </Link>
 
-          <button
-            onClick={() => onNavigate('history')}
-            className={`flex items-center gap-2 rounded-xl px-3.5 py-2 text-xs font-bold whitespace-nowrap transition-all ${
-              activePage === 'history' || activePage === 'attempt-detail'
+          <Link
+            href="/history"
+            onClick={() => onNavigate && onNavigate('history')}
+            className={`cursor-pointer flex items-center gap-2 rounded-xl px-3.5 py-2 text-xs font-bold whitespace-nowrap transition-all ${
+              currentTab === 'history' || currentTab === 'attempt-detail'
                 ? 'bg-indigo-600/20 text-indigo-300 border border-indigo-500/40 shadow-sm'
                 : 'text-slate-400 hover:bg-slate-900 hover:text-slate-200'
             }`}
           >
             <History className="h-4 w-4 shrink-0" />
             <span>Mock History</span>
-          </button>
+          </Link>
 
-          <button
-            onClick={() => onNavigate('upload')}
-            className={`flex items-center gap-2 rounded-xl px-3.5 py-2 text-xs font-bold whitespace-nowrap transition-all ${
-              activePage === 'upload'
+          <Link
+            href="/upload"
+            onClick={() => onNavigate && onNavigate('upload')}
+            className={`cursor-pointer flex items-center gap-2 rounded-xl px-3.5 py-2 text-xs font-bold whitespace-nowrap transition-all ${
+              currentTab === 'upload'
                 ? 'bg-indigo-600/20 text-indigo-300 border border-indigo-500/40 shadow-sm'
                 : 'text-slate-400 hover:bg-slate-900 hover:text-slate-200'
             }`}
           >
             <UploadCloud className="h-4 w-4 shrink-0" />
             <span>Upload Paper</span>
-          </button>
+          </Link>
         </nav>
 
         {/* Live Date/Time & Backup */}
@@ -173,7 +194,7 @@ export function Navbar({ activePage, onNavigate, onDataReload, isInExam }: Navba
             <button
               onClick={() => setShowBackupMenu(!showBackupMenu)}
               title="Backup & Export Data"
-              className="flex items-center gap-1.5 rounded-xl border border-slate-800 bg-slate-900 px-3 py-1.5 text-xs font-semibold text-slate-300 hover:border-slate-700 hover:bg-slate-800 transition-all focus:outline-none whitespace-nowrap"
+              className="cursor-pointer flex items-center gap-1.5 rounded-xl border border-slate-800 bg-slate-900 px-3 py-1.5 text-xs font-semibold text-slate-300 hover:border-slate-700 hover:bg-slate-800 transition-all focus:outline-none whitespace-nowrap"
             >
               <Database className="h-3.5 w-3.5 text-slate-400 shrink-0" />
               <span>Backup</span>
@@ -184,7 +205,7 @@ export function Navbar({ activePage, onNavigate, onDataReload, isInExam }: Navba
                 <div className="mb-2 px-2 py-1 rounded-lg bg-slate-950 border border-slate-800/80 text-[10px] font-semibold text-slate-400 flex items-center justify-between">
                   <span>Target Env</span>
                   <span className="flex items-center gap-1 font-mono text-xs font-bold text-indigo-400">
-                    <span className="h-1.5 w-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
+                    <span className="h-1.5 w-1.5 rounded-full bg-emerald-400"></span>
                     {(typeof window !== 'undefined' && localStorage.getItem('exam_prep_environment')) || 'PROD'}
                   </span>
                 </div>
@@ -195,11 +216,11 @@ export function Navbar({ activePage, onNavigate, onDataReload, isInExam }: Navba
                 )}
                 <button
                   onClick={handleExport}
-                  className="flex w-full items-center gap-2 rounded-xl p-2 text-xs font-semibold text-slate-200 hover:bg-slate-800 text-left"
+                  className="cursor-pointer flex w-full items-center gap-2 rounded-xl p-2 text-xs font-semibold text-slate-200 hover:bg-slate-800 text-left"
                 >
                   <Download className="h-3.5 w-3.5 text-indigo-400" /> Export JSON
                 </button>
-                <label className="flex w-full items-center gap-2 rounded-xl p-2 text-xs font-semibold text-slate-200 hover:bg-slate-800 text-left cursor-pointer">
+                <label className="cursor-pointer flex w-full items-center gap-2 rounded-xl p-2 text-xs font-semibold text-slate-200 hover:bg-slate-800 text-left">
                   <Upload className="h-3.5 w-3.5 text-emerald-400" /> Import JSON
                   <input
                     type="file"
@@ -217,42 +238,46 @@ export function Navbar({ activePage, onNavigate, onDataReload, isInExam }: Navba
       {/* Medium/Mobile Nav Bar - Hidden during active exam session */}
       {!isInExam && (
         <div className="flex lg:hidden items-center justify-around border-t border-slate-900 bg-slate-950 px-3 py-2">
-          <button
-            onClick={() => onNavigate('dashboard')}
-            className={`flex items-center gap-1.5 px-2.5 py-1 text-xs font-semibold rounded-lg ${
-              activePage === 'dashboard' ? 'text-indigo-400 bg-indigo-950/40' : 'text-slate-400'
+          <Link
+            href="/"
+            onClick={() => onNavigate && onNavigate('dashboard')}
+            className={`cursor-pointer flex items-center gap-1.5 px-2.5 py-1 text-xs font-semibold rounded-lg ${
+              currentTab === 'dashboard' ? 'text-indigo-400 bg-indigo-950/40' : 'text-slate-400'
             }`}
           >
             <LayoutDashboard className="h-3.5 w-3.5" />
             Dashboard
-          </button>
-          <button
-            onClick={() => onNavigate('papers')}
-            className={`flex items-center gap-1.5 px-2.5 py-1 text-xs font-semibold rounded-lg ${
-              activePage === 'papers' ? 'text-indigo-400 bg-indigo-950/40' : 'text-slate-400'
+          </Link>
+          <Link
+            href="/papers"
+            onClick={() => onNavigate && onNavigate('papers')}
+            className={`cursor-pointer flex items-center gap-1.5 px-2.5 py-1 text-xs font-semibold rounded-lg ${
+              currentTab === 'papers' ? 'text-indigo-400 bg-indigo-950/40' : 'text-slate-400'
             }`}
           >
             <BookOpen className="h-3.5 w-3.5" />
             Papers
-          </button>
-          <button
-            onClick={() => onNavigate('history')}
-            className={`flex items-center gap-1.5 px-2.5 py-1 text-xs font-semibold rounded-lg ${
-              activePage === 'history' || activePage === 'attempt-detail' ? 'text-indigo-400 bg-indigo-950/40' : 'text-slate-400'
+          </Link>
+          <Link
+            href="/history"
+            onClick={() => onNavigate && onNavigate('history')}
+            className={`cursor-pointer flex items-center gap-1.5 px-2.5 py-1 text-xs font-semibold rounded-lg ${
+              currentTab === 'history' || currentTab === 'attempt-detail' ? 'text-indigo-400 bg-indigo-950/40' : 'text-slate-400'
             }`}
           >
             <History className="h-3.5 w-3.5" />
             History
-          </button>
-          <button
-            onClick={() => onNavigate('upload')}
-            className={`flex items-center gap-1.5 px-2.5 py-1 text-xs font-semibold rounded-lg ${
-              activePage === 'upload' ? 'text-indigo-400 bg-indigo-950/40' : 'text-slate-400'
+          </Link>
+          <Link
+            href="/upload"
+            onClick={() => onNavigate && onNavigate('upload')}
+            className={`cursor-pointer flex items-center gap-1.5 px-2.5 py-1 text-xs font-semibold rounded-lg ${
+              currentTab === 'upload' ? 'text-indigo-400 bg-indigo-950/40' : 'text-slate-400'
             }`}
           >
             <UploadCloud className="h-3.5 w-3.5" />
             Upload
-          </button>
+          </Link>
         </div>
       )}
     </header>
