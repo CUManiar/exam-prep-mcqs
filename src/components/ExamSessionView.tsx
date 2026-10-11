@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useCallback } from 'react';
-import { QuestionPaper, Attempt, QuestionAnswer, ActiveSessionDraft } from '../lib/types';
+import { QuestionPaper, Attempt, QuestionAnswer, ActiveSessionDraft, ConfidenceLevel } from '../lib/types';
 import { formatTimeSeconds, parseAnswerKeyText, getStandardTimeMinutes } from '../lib/defaults';
 import { saveActiveDraft, clearActiveDraft } from '../lib/storage';
 import { DetailedSolutionModal } from './DetailedSolutionModal';
@@ -244,10 +244,23 @@ export function ExamSessionView({
       };
     });
 
-    // Auto-advance to next question upon selecting an option so that subsequent reading time is tracked on the new question
-    if (!isDeselecting && qNo < paper.totalQuestions) {
+    // Auto-advance to next question upon selecting an option ONLY in Mock mode
+    if (mode === 'mock' && !isDeselecting && qNo < paper.totalQuestions) {
       setCurrentQuestion(qNo + 1);
     }
+  };
+
+  const handleSetConfidence = (qNo: number, confidence: ConfidenceLevel) => {
+    setAnswers(prev => {
+      const current = prev[qNo] || { questionNo: qNo, selected: null };
+      return {
+        ...prev,
+        [qNo]: {
+          ...current,
+          confidence: current.confidence === confidence ? undefined : confidence,
+        },
+      };
+    });
   };
 
   const handleClearSelection = (qNo: number) => {
@@ -535,19 +548,19 @@ export function ExamSessionView({
   };
 
   return (
-    <div className="flex flex-col h-[calc(100dvh-4rem)] bg-slate-950 text-slate-100 overflow-hidden font-sans">
+    <div className="flex flex-col h-[calc(100dvh-4rem)] bg-slate-50 text-slate-800 overflow-hidden font-sans">
       
       {/* Top Session Bar - Highly Responsive 2-Row Layout */}
-      <div className="flex flex-col border-b border-slate-800 bg-slate-900/95 px-3 py-2 sm:px-4 sm:py-2.5 gap-2 shrink-0">
+      <div className="flex flex-col border-b border-slate-200 bg-white px-3 py-2 sm:px-4 sm:py-2.5 gap-2 shrink-0 shadow-2xs">
         
-        {/* Top Row: Exit, Pause, Title & Mode, Continuous Timer, Finish Exam */}
+        {/* Top Row: Exit, Pause, Solution Key, Title & Mode, Continuous Timer, Finish Exam */}
         <div className="flex items-center justify-between gap-2">
           
           {/* Exit, Pause & Title */}
           <div className="flex items-center gap-1.5 sm:gap-2 min-w-0">
             <button
               onClick={onExit}
-              className="flex items-center gap-1 rounded-lg border border-slate-700 bg-slate-800 px-2 py-1 text-xs font-semibold text-slate-300 hover:bg-slate-700 transition-colors shrink-0"
+              className="flex items-center gap-1 rounded-lg border border-slate-200 bg-white px-2 py-1 text-xs font-semibold text-slate-700 hover:bg-slate-50 transition-colors shrink-0 shadow-2xs"
             >
               ← Exit
             </button>
@@ -556,18 +569,31 @@ export function ExamSessionView({
             <button
               onClick={() => setIsPaused(true)}
               title="Pause ongoing exam"
-              className="flex items-center gap-1 rounded-lg border border-amber-600/40 bg-amber-950/30 px-2 py-1 text-xs font-semibold text-amber-300 hover:bg-amber-900/40 transition-colors shrink-0"
+              className="flex items-center gap-1 rounded-lg border border-amber-300 bg-amber-50 px-2 py-1 text-xs font-semibold text-amber-800 hover:bg-amber-100 transition-colors shrink-0 shadow-2xs"
             >
               <Pause className="h-3 w-3" />
               <span className="hidden xs:inline">Pause</span>
             </button>
 
+            {/* Solution Key Shortcut Button */}
+            {paper.exsUrl && (
+              <button
+                type="button"
+                onClick={() => setSolutionModalOpen(true)}
+                title="View Detailed Solution Key PDF"
+                className="flex items-center gap-1 rounded-lg border border-indigo-200 bg-indigo-50 px-2 py-1 text-xs font-semibold text-indigo-700 hover:bg-indigo-100 transition-colors shrink-0 shadow-2xs"
+              >
+                <BookOpen className="h-3 w-3" />
+                <span className="hidden sm:inline">Solution Key</span>
+              </button>
+            )}
+
             <div className="min-w-0 ml-1">
-              <h1 className="text-xs sm:text-sm font-bold text-white truncate max-w-[120px] xs:max-w-[170px] sm:max-w-xs md:max-w-md">
+              <h1 className="text-xs sm:text-sm font-bold text-slate-900 truncate max-w-[120px] xs:max-w-[170px] sm:max-w-xs md:max-w-md">
                 {paper.label}
               </h1>
               <span className={`block text-[9px] sm:text-[10px] font-semibold uppercase tracking-wider truncate ${
-                isPractice ? 'text-emerald-400' : 'text-indigo-400'
+                isPractice ? 'text-emerald-700' : 'text-indigo-700'
               }`}>
                 {isPractice ? 'Practice Mode' : `Mock Exam (${timeLimitMinutes}m)`}
               </span>
@@ -577,15 +603,15 @@ export function ExamSessionView({
           {/* Timer & Finish Button */}
           <div className="flex items-center gap-2 shrink-0">
             {/* Continuous Timer (HH:MM:SS format) */}
-            <div className={`flex items-center gap-1.5 rounded-xl px-2.5 sm:px-3 py-1 font-mono text-xs sm:text-sm font-bold transition-all shadow-inner ${
+            <div className={`flex items-center gap-1.5 rounded-xl px-2.5 sm:px-3 py-1 font-mono text-xs sm:text-sm font-bold transition-all shadow-2xs ${
               isTimeCritical 
-                ? 'bg-rose-950/80 border-2 border-rose-500 text-rose-300 animate-pulse ring-4 ring-rose-500/20'
-                : 'bg-slate-950 border border-slate-800 text-indigo-300'
+                ? 'bg-rose-50 border-2 border-rose-500 text-rose-700 animate-pulse ring-4 ring-rose-500/10'
+                : 'bg-slate-50 border border-slate-200 text-indigo-700'
             }`}>
-              <Clock className={`h-3.5 w-3.5 sm:h-4 sm:w-4 ${isTimeCritical ? 'text-rose-400' : 'text-indigo-400'} shrink-0`} />
+              <Clock className={`h-3.5 w-3.5 sm:h-4 sm:w-4 ${isTimeCritical ? 'text-rose-600' : 'text-indigo-600'} shrink-0`} />
               {isPractice ? (
                 isOvertime ? (
-                  <span className="text-rose-400">+{formatTimeSeconds(overtimeSeconds)}</span>
+                  <span className="text-rose-600">+{formatTimeSeconds(overtimeSeconds)}</span>
                 ) : (
                   <span>{formatTimeSeconds(remainingSeconds)}</span>
                 )
@@ -606,7 +632,7 @@ export function ExamSessionView({
                   setShowFinishConfirm(true);
                 }
               }}
-              className="rounded-lg bg-indigo-600 px-3 sm:px-4 py-1 sm:py-1.5 text-xs font-bold text-white shadow-md shadow-indigo-600/30 hover:bg-indigo-500 transition-all shrink-0"
+              className="rounded-lg bg-indigo-600 px-3 sm:px-4 py-1 sm:py-1.5 text-xs font-bold text-white shadow-xs hover:bg-indigo-700 transition-all shrink-0"
             >
               {isSubjective ? 'Submit' : 'Finish'}
             </button>
@@ -614,32 +640,32 @@ export function ExamSessionView({
         </div>
 
         {/* Second Row: Counters & Mobile/Tablet View Switcher */}
-        <div className="flex items-center justify-between gap-2 pt-1 border-t border-slate-800/60">
+        <div className="flex items-center justify-between gap-2 pt-1 border-t border-slate-100">
           
           {/* Status Counters */}
           <div className="flex items-center gap-1.5 sm:gap-3 text-[11px] sm:text-xs font-medium overflow-x-auto shrink-0">
-            <div className="flex items-center gap-1 rounded-md bg-emerald-950/40 border border-emerald-800/40 px-2 py-0.5 text-emerald-300 shrink-0">
-              <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" />
+            <div className="flex items-center gap-1 rounded-md bg-emerald-50 border border-emerald-200 px-2 py-0.5 text-emerald-800 shrink-0">
+              <span className="h-1.5 w-1.5 rounded-full bg-emerald-600" />
               <span>Att: {attemptedCount}</span>
             </div>
 
-            <div className="flex items-center gap-1 rounded-md bg-slate-800/60 border border-slate-700/60 px-2 py-0.5 text-slate-300 shrink-0">
+            <div className="flex items-center gap-1 rounded-md bg-slate-100 border border-slate-200 px-2 py-0.5 text-slate-700 shrink-0">
               <span className="h-1.5 w-1.5 rounded-full bg-slate-400" />
               <span>Unatt: {unattemptedCount}</span>
             </div>
 
-            <div className="flex items-center gap-1 rounded-md bg-amber-950/40 border border-amber-800/40 px-2 py-0.5 text-amber-300 shrink-0">
-              <span className="h-1.5 w-1.5 rounded-full bg-amber-400" />
+            <div className="flex items-center gap-1 rounded-md bg-amber-50 border border-amber-200 px-2 py-0.5 text-amber-800 shrink-0">
+              <span className="h-1.5 w-1.5 rounded-full bg-amber-500" />
               <span>Flag: {flaggedCount}</span>
             </div>
           </div>
 
           {/* Mobile/Tablet View Switcher (< lg) */}
-          <div className="flex lg:hidden items-center gap-0.5 bg-slate-950 p-0.5 rounded-lg border border-slate-800 shrink-0 text-[11px]">
+          <div className="flex lg:hidden items-center gap-0.5 bg-slate-100 p-0.5 rounded-lg border border-slate-200 shrink-0 text-[11px]">
             <button
               onClick={() => setMobileTab('paper')}
               className={`px-2 py-0.5 rounded-md font-semibold transition-all ${
-                mobileTab === 'paper' ? 'bg-indigo-600 text-white' : 'text-slate-400 hover:text-slate-200'
+                mobileTab === 'paper' ? 'bg-indigo-600 text-white shadow-2xs' : 'text-slate-600 hover:text-slate-900'
               }`}
             >
               Paper
@@ -647,7 +673,7 @@ export function ExamSessionView({
             <button
               onClick={() => setMobileTab('split')}
               className={`px-2 py-0.5 rounded-md font-semibold transition-all ${
-                mobileTab === 'split' ? 'bg-indigo-600 text-white' : 'text-slate-400 hover:text-slate-200'
+                mobileTab === 'split' ? 'bg-indigo-600 text-white shadow-2xs' : 'text-slate-600 hover:text-slate-900'
               }`}
             >
               Split
@@ -655,7 +681,7 @@ export function ExamSessionView({
             <button
               onClick={() => setMobileTab('omr')}
               className={`px-2 py-0.5 rounded-md font-semibold transition-all ${
-                mobileTab === 'omr' ? 'bg-indigo-600 text-white' : 'text-slate-400 hover:text-slate-200'
+                mobileTab === 'omr' ? 'bg-indigo-600 text-white shadow-2xs' : 'text-slate-600 hover:text-slate-900'
               }`}
             >
               OMR {currentQuestion !== null ? `(Q${currentQuestion})` : ''}
@@ -668,7 +694,7 @@ export function ExamSessionView({
       <div className="flex flex-1 overflow-hidden flex-col lg:flex-row relative">
         
         {/* Left Side: Question Paper PDF Viewer */}
-        <div className={`w-full lg:w-3/5 xl:w-2/3 border-r border-slate-800 bg-slate-900 flex flex-col ${
+        <div className={`w-full lg:w-3/5 xl:w-2/3 border-r border-slate-200 bg-slate-100 flex flex-col ${
           mobileTab === 'paper' 
             ? 'h-full flex-1' 
             : mobileTab === 'omr' 
@@ -683,20 +709,20 @@ export function ExamSessionView({
 
           {/* Quick-Answer Sticky Bar when viewing full-screen Paper on Mobile/Tablet */}
           {mobileTab === 'paper' && (
-            <div className="lg:hidden sticky bottom-0 z-30 flex items-center justify-between bg-slate-900/95 backdrop-blur-md border-t border-slate-800 p-2 gap-2 shadow-2xl shrink-0">
+            <div className="lg:hidden sticky bottom-0 z-30 flex items-center justify-between bg-white/95 backdrop-blur-md border-t border-slate-200 p-2 gap-2 shadow-lg shrink-0">
               {currentQuestion === null ? (
                 <div className="flex items-center justify-between w-full gap-2">
                   <div className="flex items-center gap-1.5 min-w-0">
-                    <span className="text-[11px] sm:text-xs text-slate-300 font-medium truncate">
+                    <span className="text-[11px] sm:text-xs text-slate-700 font-medium truncate">
                       📖 Instructions / Reading Buffer
                     </span>
-                    <span className="text-[10px] font-mono text-indigo-300 shrink-0">
+                    <span className="text-[10px] font-mono text-indigo-700 shrink-0 font-bold">
                       ⏱ {formatTimeSeconds(idleTimeSeconds)}
                     </span>
                   </div>
                   <button
                     onClick={() => setCurrentQuestion(1)}
-                    className="px-3 py-1.5 rounded-lg bg-indigo-600 text-white font-bold text-xs flex items-center gap-1 shadow-md shadow-indigo-600/30 shrink-0"
+                    className="px-3 py-1.5 rounded-lg bg-indigo-600 text-white font-bold text-xs flex items-center gap-1 shadow-xs hover:bg-indigo-700 shrink-0"
                   >
                     <span>Start Q1</span>
                     <ArrowRight className="h-3.5 w-3.5" />
@@ -708,17 +734,17 @@ export function ExamSessionView({
                     <button
                       disabled={currentQuestion <= 1}
                       onClick={() => setCurrentQuestion(prev => Math.max(1, (prev || 1) - 1))}
-                      className="p-1.5 rounded-lg bg-slate-800 border border-slate-700 text-slate-300 disabled:opacity-40"
+                      className="p-1.5 rounded-lg bg-white border border-slate-200 text-slate-700 disabled:opacity-40 shadow-2xs"
                     >
                       <ChevronLeft className="h-4 w-4" />
                     </button>
-                    <span className="text-xs font-bold text-white px-1">
+                    <span className="text-xs font-bold text-slate-900 px-1">
                       Q{currentQuestion}
                     </span>
                     <button
                       disabled={currentQuestion >= paper.totalQuestions}
                       onClick={() => setCurrentQuestion(prev => Math.min(paper.totalQuestions, (prev || 1) + 1))}
-                      className="p-1.5 rounded-lg bg-slate-800 border border-slate-700 text-slate-300 disabled:opacity-40"
+                      className="p-1.5 rounded-lg bg-white border border-slate-200 text-slate-700 disabled:opacity-40 shadow-2xs"
                     >
                       <ChevronRight className="h-4 w-4" />
                     </button>
@@ -733,21 +759,21 @@ export function ExamSessionView({
                         const isRevealed = revealedAnswers[currentQuestion];
                         const isCorrectChoice = correctAns && opt === correctAns;
 
-                        let s = 'bg-slate-950 border-slate-800 text-slate-200 hover:border-slate-700';
-                        if (isSelected) s = 'bg-indigo-600 border-indigo-500 text-white font-bold ring-2 ring-indigo-500/40';
+                        let s = 'bg-white border-slate-200 text-slate-800 hover:border-slate-400';
+                        if (isSelected) s = 'bg-indigo-600 border-indigo-600 text-white font-bold shadow-xs';
 
                         // Practice mode live feedback: red for wrong, green for correct!
                         if (isPractice) {
                           if (currentQObj.selected && correctAns) {
                             if (isSelected) {
                               s = isCorrectChoice
-                                ? 'bg-emerald-600 border-emerald-500 text-white font-bold'
-                                : 'bg-rose-600 border-rose-500 text-white font-bold';
+                                ? 'bg-emerald-600 border-emerald-600 text-white font-bold'
+                                : 'bg-rose-600 border-rose-600 text-white font-bold';
                             } else if (isCorrectChoice) {
-                              s = 'bg-emerald-950/80 border-emerald-500 text-emerald-300 font-bold ring-1 ring-emerald-500';
+                              s = 'bg-emerald-50 border-emerald-500 text-emerald-800 font-bold ring-1 ring-emerald-500';
                             }
                           } else if (isRevealed && isCorrectChoice) {
-                            s = 'bg-emerald-950/80 border-emerald-500 text-emerald-300 font-bold ring-1 ring-emerald-500';
+                            s = 'bg-emerald-50 border-emerald-500 text-emerald-800 font-bold ring-1 ring-emerald-500';
                           }
                         }
                         return (
@@ -762,7 +788,7 @@ export function ExamSessionView({
                       })}
                     </div>
                   ) : (
-                    <span className="text-[11px] text-violet-300 truncate">Mains question</span>
+                    <span className="text-[11px] text-indigo-700 font-medium truncate">Mains question</span>
                   )}
 
                   <div className="flex items-center gap-1 shrink-0">
@@ -770,15 +796,15 @@ export function ExamSessionView({
                       onClick={() => handleToggleFlag(currentQuestion)}
                       className={`p-1.5 rounded-lg border text-xs ${
                         currentQObj.flagged
-                          ? 'bg-amber-500/20 text-amber-300 border-amber-500/50'
-                          : 'bg-slate-950 border-slate-800 text-slate-400'
+                          ? 'bg-amber-50 text-amber-800 border-amber-300'
+                          : 'bg-white border-slate-200 text-slate-600'
                       }`}
                     >
                       <Bookmark className={`h-4 w-4 ${currentQObj.flagged ? 'fill-amber-400' : ''}`} />
                     </button>
                     <button
                       onClick={() => setMobileTab('omr')}
-                      className="px-2 py-1.5 rounded-lg bg-indigo-600/20 border border-indigo-500/40 text-indigo-300 text-xs font-bold whitespace-nowrap"
+                      className="px-2 py-1.5 rounded-lg bg-indigo-50 border border-indigo-200 text-indigo-700 text-xs font-bold whitespace-nowrap"
                     >
                       OMR →
                     </button>
@@ -790,7 +816,7 @@ export function ExamSessionView({
         </div>
 
         {/* Right Side: Question & OMR Section */}
-        <div className={`w-full lg:w-2/5 xl:w-1/3 bg-[#0a0f1d] flex flex-col overflow-hidden ${
+        <div className={`w-full lg:w-2/5 xl:w-1/3 bg-slate-50/70 border-l border-slate-200 flex flex-col overflow-hidden ${
           mobileTab === 'omr' 
             ? 'h-full flex-1' 
             : mobileTab === 'paper' 
@@ -799,28 +825,28 @@ export function ExamSessionView({
         }`}>
           
           {/* Active Question Top Card */}
-          <div className="border-b border-slate-800/80 p-3.5 sm:p-5 bg-[#0e1424] shrink-0 overflow-y-auto max-h-[50%] lg:max-h-none">
+          <div className="border-b border-slate-200 p-3.5 sm:p-5 bg-white shrink-0 overflow-y-auto max-h-[50%] lg:max-h-none shadow-2xs">
             {currentQuestion === null ? (
               <div className="space-y-4 py-1">
                 <div className="flex items-center justify-between gap-2">
                   <div className="flex items-center gap-2">
-                    <span className="text-base sm:text-lg font-bold text-white">
+                    <span className="text-base sm:text-lg font-bold text-slate-900">
                       Instructions & Paper Overview
                     </span>
                   </div>
-                  <span className="rounded bg-indigo-950/60 border border-indigo-800/40 px-2 py-0.5 text-[10px] sm:text-xs font-mono text-indigo-300">
+                  <span className="rounded bg-indigo-50 border border-indigo-200 px-2 py-0.5 text-[10px] sm:text-xs font-mono font-bold text-indigo-700">
                     ⏱ Buffer: {formatTimeSeconds(idleTimeSeconds)}
                   </span>
                 </div>
 
-                <div className="rounded-xl border border-indigo-500/20 bg-indigo-950/20 p-3.5 sm:p-4 text-xs text-slate-300 space-y-2">
-                  <p className="font-semibold text-white">
+                <div className="rounded-xl border border-indigo-200/80 bg-indigo-50/60 p-3.5 sm:p-4 text-xs text-slate-700 space-y-2">
+                  <p className="font-semibold text-slate-900">
                     📖 Reading instructions or scanning questions?
                   </p>
-                  <p className="text-[11px] sm:text-xs text-slate-400 leading-relaxed">
-                    Overall exam timer is active. Time spent before choosing a question is recorded as <strong>Instructions & Overview Time</strong>. Question 1 will <span className="text-emerald-400 font-semibold">not</span> be charged or inflated for this initial reading period.
+                  <p className="text-[11px] sm:text-xs text-slate-600 leading-relaxed">
+                    Overall exam timer is active. Time spent before choosing a question is recorded as <strong>Instructions & Overview Time</strong>. Question 1 will <span className="text-emerald-700 font-semibold">not</span> be charged or inflated for this initial reading period.
                   </p>
-                  <p className="text-[11px] text-slate-400">
+                  <p className="text-[11px] text-slate-500">
                     Click <strong>Start Question 1</strong> or tap any question number in the palette below when you are ready to begin answering.
                   </p>
                 </div>
@@ -828,7 +854,7 @@ export function ExamSessionView({
                 <div className="flex items-center gap-3 pt-1">
                   <button
                     onClick={() => setCurrentQuestion(1)}
-                    className="flex-1 rounded-xl bg-indigo-600 px-4 py-2.5 text-xs sm:text-sm font-bold text-white shadow-md shadow-indigo-600/30 hover:bg-indigo-500 transition-all flex items-center justify-center gap-2"
+                    className="flex-1 rounded-xl bg-indigo-600 px-4 py-2.5 text-xs sm:text-sm font-bold text-white shadow-xs hover:bg-indigo-700 transition-all flex items-center justify-center gap-2"
                   >
                     <span>Start Solving (Question 1)</span>
                     <ArrowRight className="h-4 w-4" />
@@ -837,83 +863,134 @@ export function ExamSessionView({
               </div>
             ) : (
               <>
-                <div className="flex items-center justify-between gap-2">
+                <div className="flex items-center justify-between gap-2 flex-wrap">
                   <div className="flex items-center gap-1.5 sm:gap-2">
-                    <span className="text-base sm:text-xl font-bold text-white">
+                    <span className="text-base sm:text-xl font-bold text-slate-900">
                       Question {currentQuestion}
                     </span>
-                    <span className="text-xs text-slate-400">of {paper.totalQuestions}</span>
+                    <span className="text-xs text-slate-500 font-medium">of {paper.totalQuestions}</span>
                     {mode === 'mock' && !isSubjective && (
-                      <span className="rounded bg-slate-800 px-1.5 sm:px-2 py-0.5 text-[10px] sm:text-[11px] font-mono text-indigo-300">
+                      <span className="rounded bg-slate-100 border border-slate-200 px-1.5 sm:px-2 py-0.5 text-[10px] sm:text-[11px] font-mono font-semibold text-indigo-700">
                         ⏱ {qTimeSpent[currentQuestion] || 0}s
+                      </span>
+                    )}
+
+                    {/* Time-Trap Alert (>90s spent in Mock) */}
+                    {mode === 'mock' && !isSubjective && (qTimeSpent[currentQuestion] || 0) >= 90 && (
+                      <span 
+                        className="flex items-center gap-1 rounded-full bg-amber-50 border border-amber-300 px-2 py-0.5 text-[10px] font-bold text-amber-800 animate-pulse"
+                        title="Pacing Warning: Over 90s spent on this question. UPSC Prelims benchmark is 72s per question."
+                      >
+                        <AlertTriangle className="h-3 w-3 text-amber-600 shrink-0" />
+                        <span className="hidden xs:inline">Time-Trap</span> &gt;90s
                       </span>
                     )}
                   </div>
 
-                  <div className="flex items-center gap-1.5">
+                  <div className="flex items-center gap-1.5 flex-wrap">
+                    {/* Solution Key Button in Header */}
+                    {paper.exsUrl && (
+                      <button
+                        type="button"
+                        onClick={() => setSolutionModalOpen(true)}
+                        className="flex items-center gap-1 rounded-lg border border-indigo-200 bg-indigo-50 px-2 sm:px-2.5 py-1 text-xs font-bold text-indigo-700 hover:bg-indigo-100 transition-colors shadow-2xs"
+                        title="View Official Solution Key / Booklet"
+                      >
+                        <BookOpen className="h-3.5 w-3.5 text-indigo-600" />
+                        <span>Solution Key</span>
+                      </button>
+                    )}
+
                     <button
                       onClick={() => setCurrentQuestion(null)}
-                      title="Switch to reading & overview buffer (time not allocated to any specific question)"
-                      className="rounded-lg border border-slate-800 bg-slate-900 px-2 py-1 text-[11px] text-slate-400 hover:text-amber-300 hover:border-amber-500/40 transition-colors inline-flex items-center gap-1"
+                      title="Switch to reading & overview buffer"
+                      className="rounded-lg border border-slate-200 bg-white px-2 py-1 text-[11px] text-slate-600 hover:text-amber-700 hover:border-amber-300 transition-colors inline-flex items-center gap-1 shadow-2xs"
                     >
                       <span>Buffer Mode</span>
                     </button>
 
                     <button
                       onClick={() => handleToggleFlag(currentQuestion)}
-                      className={`flex items-center gap-1 rounded-lg px-2 sm:px-3 py-1 sm:py-1.5 text-xs font-semibold transition-all border ${
+                      className={`flex items-center gap-1 rounded-lg px-2 sm:px-2.5 py-1 text-xs font-semibold transition-all border ${
                         currentQObj.flagged
-                          ? 'bg-amber-500/20 text-amber-300 border-amber-500/50'
-                          : 'border-slate-800 bg-slate-900 text-slate-400 hover:text-slate-200'
+                          ? 'bg-amber-50 text-amber-800 border-amber-300 shadow-2xs'
+                          : 'border-slate-200 bg-white text-slate-600 hover:bg-slate-50'
                       }`}
                     >
-                      <Bookmark className={`h-3 w-3 sm:h-3.5 sm:w-3.5 ${currentQObj.flagged ? 'fill-amber-400' : ''}`} />
+                      <Bookmark className={`h-3 w-3 sm:h-3.5 sm:w-3.5 ${currentQObj.flagged ? 'fill-amber-400 text-amber-500' : ''}`} />
                       <span className="hidden xs:inline">Flag</span>
                     </button>
 
-                <button
-                  onClick={() => setShowNoteBox(!showNoteBox)}
-                  className={`flex items-center gap-1 rounded-lg px-2 sm:px-3 py-1 sm:py-1.5 text-xs font-semibold transition-all border ${
-                    currentQObj.note
-                      ? 'bg-indigo-600/20 text-indigo-300 border-indigo-500/40'
-                      : 'border-slate-800 bg-slate-900 text-slate-400 hover:text-slate-200'
-                  }`}
-                >
-                  <Edit3 className="h-3 w-3 sm:h-3.5 sm:w-3.5" />
-                  <span className="hidden xs:inline">Note</span>
-                </button>
+                    <button
+                      onClick={() => setShowNoteBox(!showNoteBox)}
+                      className={`flex items-center gap-1 rounded-lg px-2 sm:px-2.5 py-1 text-xs font-semibold transition-all border ${
+                        currentQObj.note
+                          ? 'bg-indigo-50 text-indigo-700 border-indigo-200'
+                          : 'border-slate-200 bg-white text-slate-600 hover:bg-slate-50'
+                      }`}
+                    >
+                      <Edit3 className="h-3 w-3 sm:h-3.5 sm:w-3.5" />
+                      <span className="hidden xs:inline">Note</span>
+                    </button>
 
-                {/* Show Answer Toggle for Practice Mode */}
-                {isPractice && !isSubjective && getCorrectAnswerForQ(currentQuestion) && (
-                  <button
-                    type="button"
-                    onClick={() => setRevealedAnswers(prev => ({ ...prev, [currentQuestion]: !prev[currentQuestion] }))}
-                    className={`flex items-center gap-1 rounded-lg px-2 sm:px-3 py-1 sm:py-1.5 text-xs font-semibold transition-all border ${
-                      revealedAnswers[currentQuestion]
-                        ? 'bg-emerald-600/20 text-emerald-300 border-emerald-500/50'
-                        : 'border-slate-800 bg-slate-900 text-slate-400 hover:text-slate-200'
-                    }`}
-                  >
-                    <BookOpen className="h-3 w-3 sm:h-3.5 sm:w-3.5 text-emerald-400" />
-                    <span className="hidden xs:inline">{revealedAnswers[currentQuestion] ? 'Hide' : 'Answer'}</span>
-                  </button>
+                    {/* Show Answer Toggle for Practice Mode */}
+                    {isPractice && !isSubjective && getCorrectAnswerForQ(currentQuestion) && (
+                      <button
+                        type="button"
+                        onClick={() => setRevealedAnswers(prev => ({ ...prev, [currentQuestion]: !prev[currentQuestion] }))}
+                        className={`flex items-center gap-1 rounded-lg px-2 sm:px-2.5 py-1 text-xs font-bold transition-all border ${
+                          revealedAnswers[currentQuestion]
+                            ? 'bg-emerald-100 text-emerald-800 border-emerald-300 shadow-2xs'
+                            : 'border-emerald-300 bg-emerald-50 text-emerald-800 hover:bg-emerald-100'
+                        }`}
+                      >
+                        <BookOpen className="h-3 w-3 sm:h-3.5 sm:w-3.5 text-emerald-600" />
+                        <span>{revealedAnswers[currentQuestion] ? 'Hide Answer' : 'See Right Answer'}</span>
+                      </button>
+                    )}
+                  </div>
+                </div>
+
+                {/* Certainty & 50:50 Elimination Tracker (Suggested Feature) */}
+                {!isSubjective && (
+                  <div className="mt-2.5 pt-2 border-t border-slate-100 flex items-center justify-between text-xs">
+                    <span className="text-[11px] font-semibold text-slate-500">Elimination Certainty:</span>
+                    <div className="flex items-center gap-1">
+                      {(['sure', '50-50', 'guess'] as const).map(conf => (
+                        <button
+                          key={conf}
+                          type="button"
+                          onClick={() => handleSetConfidence(currentQuestion, conf)}
+                          className={`px-2 py-0.5 rounded-md text-[10px] sm:text-[11px] font-semibold transition-all border ${
+                            currentQObj.confidence === conf
+                              ? conf === 'sure'
+                                ? 'bg-emerald-100 border-emerald-400 text-emerald-800 font-bold shadow-2xs'
+                                : conf === '50-50'
+                                ? 'bg-amber-100 border-amber-400 text-amber-800 font-bold shadow-2xs'
+                                : 'bg-violet-100 border-violet-400 text-violet-800 font-bold shadow-2xs'
+                              : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-50'
+                          }`}
+                        >
+                          {conf === 'sure' ? '🎯 Sure' : conf === '50-50' ? '⚖️ 50:50' : '🎲 Guess'}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
                 )}
-              </div>
-            </div>
 
             {/* Answer Options A, B, C, D (for Objective) */}
             {!isSubjective ? (
-              <div className="mt-3 sm:mt-5 grid grid-cols-4 gap-2 sm:gap-3">
+              <div className="mt-3 sm:mt-4 grid grid-cols-4 gap-2 sm:gap-3">
                 {['A', 'B', 'C', 'D'].map(opt => {
                   const isSelected = currentQObj.selected?.toUpperCase() === opt;
                   const correctAns = getCorrectAnswerForQ(currentQuestion);
                   const isRevealed = revealedAnswers[currentQuestion];
                   const isCorrectChoice = correctAns && opt === correctAns;
 
-                  let btnStyle = 'border-slate-800 bg-[#070b14] text-slate-200 hover:border-slate-600 hover:bg-slate-900';
+                  let btnStyle = 'border-slate-300 bg-white text-slate-800 hover:border-slate-400 hover:bg-slate-50 shadow-2xs';
 
                   if (isSelected) {
-                    btnStyle = 'border-indigo-500 bg-indigo-600 text-white font-bold ring-2 ring-indigo-500/40';
+                    btnStyle = 'border-indigo-600 bg-indigo-600 text-white font-bold ring-2 ring-indigo-500/30 shadow-xs';
                   }
 
                   // Practice mode live feedback: selected wrong is RED, correct is GREEN!
@@ -921,16 +998,16 @@ export function ExamSessionView({
                     if (currentQObj.selected && correctAns) {
                       if (isSelected) {
                         if (isCorrectChoice) {
-                          btnStyle = 'border-emerald-500 bg-emerald-600 text-white font-bold ring-2 ring-emerald-500/40';
+                          btnStyle = 'border-emerald-600 bg-emerald-600 text-white font-bold ring-2 ring-emerald-500/30 shadow-xs';
                         } else {
-                          btnStyle = 'border-rose-500 bg-rose-600 text-white font-bold ring-2 ring-rose-500/40';
+                          btnStyle = 'border-rose-600 bg-rose-600 text-white font-bold ring-2 ring-rose-500/30 shadow-xs';
                         }
                       } else if (isCorrectChoice) {
                         // Guide user to the correct choice with emerald highlight
-                        btnStyle = 'border-emerald-500 bg-emerald-950/70 text-emerald-300 font-bold ring-2 ring-emerald-500/40';
+                        btnStyle = 'border-2 border-emerald-500 bg-emerald-50 text-emerald-800 font-bold ring-2 ring-emerald-500/20';
                       }
                     } else if (isRevealed && isCorrectChoice) {
-                      btnStyle = 'border-emerald-500 bg-emerald-950/70 text-emerald-300 font-bold ring-2 ring-emerald-500/60';
+                      btnStyle = 'border-2 border-emerald-500 bg-emerald-50 text-emerald-800 font-bold ring-2 ring-emerald-500/30';
                     }
                   }
 
@@ -938,7 +1015,7 @@ export function ExamSessionView({
                     <button
                       key={opt}
                       onClick={() => handleSelectOption(currentQuestion, opt)}
-                      className={`flex h-11 sm:h-12 items-center justify-center rounded-xl border text-sm sm:text-base font-semibold transition-all ${btnStyle}`}
+                      className={`flex h-11 sm:h-12 items-center justify-center rounded-xl border text-sm sm:text-base font-bold transition-all ${btnStyle}`}
                     >
                       {opt}
                     </button>
@@ -948,25 +1025,25 @@ export function ExamSessionView({
             ) : (
               /* Dedicated Subjective Pen & Paper Question Marking */
               <div className="mt-3 sm:mt-4 space-y-3">
-                <div className="rounded-2xl border border-slate-800 bg-[#070b14] p-3.5 sm:p-4 space-y-3">
+                <div className="rounded-2xl border border-slate-200 bg-slate-50 p-3.5 sm:p-4 space-y-3">
                   <div className="flex items-center justify-between gap-2">
                     <div>
-                      <h4 className="text-xs sm:text-sm font-bold text-white flex items-center gap-1.5">
+                      <h4 className="text-xs sm:text-sm font-bold text-slate-900 flex items-center gap-1.5">
                         Subjective Question {currentQuestion}
-                        <span className="text-[10px] font-normal text-slate-400">(Pen & Paper)</span>
+                        <span className="text-[10px] font-normal text-slate-500">(Pen & Paper)</span>
                       </h4>
-                      <p className="text-[11px] text-slate-400">
+                      <p className="text-[11px] text-slate-500">
                         Write your response on paper, then mark your progress below:
                       </p>
                     </div>
 
                     <div className="flex items-center gap-1.5">
                       {currentQObj.selected === 'attempted' ? (
-                        <span className="inline-flex items-center gap-1 rounded-full bg-emerald-950/80 border border-emerald-600/70 px-2.5 py-0.5 text-[10px] font-bold text-emerald-300">
-                          <CheckCircle2 className="h-3 w-3" /> Written
+                        <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 border border-emerald-200 px-2.5 py-0.5 text-[10px] font-bold text-emerald-800">
+                          <CheckCircle2 className="h-3 w-3 text-emerald-600" /> Written
                         </span>
                       ) : (
-                        <span className="inline-flex items-center gap-1 rounded-full bg-slate-800/80 border border-slate-700 px-2.5 py-0.5 text-[10px] font-medium text-slate-400">
+                        <span className="inline-flex items-center gap-1 rounded-full bg-slate-100 border border-slate-200 px-2.5 py-0.5 text-[10px] font-medium text-slate-500">
                           Unattempted
                         </span>
                       )}
@@ -980,8 +1057,8 @@ export function ExamSessionView({
                       onClick={() => handleToggleSubjectiveAttempt(currentQuestion)}
                       className={`flex items-center justify-center gap-1.5 rounded-xl border px-3 py-2.5 text-xs font-semibold transition-all ${
                         currentQObj.selected === 'attempted'
-                          ? 'border-emerald-500 bg-emerald-600 text-white font-bold ring-2 ring-emerald-500/40 shadow-lg shadow-emerald-900/30'
-                          : 'border-slate-800 bg-slate-900 text-slate-300 hover:border-emerald-600/50 hover:bg-emerald-950/30 hover:text-emerald-300'
+                          ? 'border-emerald-600 bg-emerald-600 text-white font-bold ring-2 ring-emerald-500/30 shadow-xs'
+                          : 'border-slate-200 bg-white text-slate-700 hover:border-emerald-300 hover:bg-emerald-50'
                       }`}
                     >
                       <CheckCircle2 className="h-4 w-4 shrink-0" />
@@ -993,8 +1070,8 @@ export function ExamSessionView({
                       onClick={() => handleToggleFlag(currentQuestion)}
                       className={`flex items-center justify-center gap-1.5 rounded-xl border px-3 py-2.5 text-xs font-semibold transition-all ${
                         currentQObj.flagged
-                          ? 'border-amber-500 bg-amber-600 text-white font-bold ring-2 ring-amber-500/40'
-                          : 'border-slate-800 bg-slate-900 text-slate-300 hover:border-amber-600/50 hover:bg-amber-950/30 hover:text-amber-300'
+                          ? 'border-amber-400 bg-amber-500 text-white font-bold ring-2 ring-amber-500/30'
+                          : 'border-slate-200 bg-white text-slate-700 hover:border-amber-300 hover:bg-amber-50'
                       }`}
                     >
                       <Bookmark className="h-4 w-4 shrink-0" />
@@ -1004,7 +1081,7 @@ export function ExamSessionView({
                     <button
                       type="button"
                       onClick={() => handleClearSubjectiveStatus(currentQuestion)}
-                      className="col-span-2 sm:col-span-1 flex items-center justify-center gap-1.5 rounded-xl border border-slate-800 bg-slate-950 px-3 py-2.5 text-xs font-medium text-slate-400 hover:text-slate-200 hover:bg-slate-900 transition-colors"
+                      className="col-span-2 sm:col-span-1 flex items-center justify-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-xs font-medium text-slate-600 hover:text-slate-900 hover:bg-slate-50 transition-colors shadow-2xs"
                     >
                       Clear Status
                     </button>
@@ -1013,30 +1090,30 @@ export function ExamSessionView({
 
                 {/* In Mock Mode ONLY: Entire single booklet upload for future review */}
                 {mode === 'mock' && (
-                  <div className="rounded-2xl border border-violet-900/40 bg-violet-950/15 p-3.5 sm:p-4 space-y-2.5">
+                  <div className="rounded-2xl border border-violet-200 bg-violet-50/50 p-3.5 sm:p-4 space-y-2.5">
                     <div className="flex items-center justify-between gap-2">
                       <div className="flex items-center gap-2">
-                        <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-violet-500/20 text-violet-300 border border-violet-500/30 shrink-0">
+                        <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-violet-100 text-violet-700 border border-violet-200 shrink-0">
                           <UploadCloud className="h-4 w-4" />
                         </div>
                         <div>
-                          <h5 className="text-xs font-bold text-white">Full Answer Booklet Copy</h5>
-                          <p className="text-[11px] text-slate-400">Single upload for all answers (stored for future review)</p>
+                          <h5 className="text-xs font-bold text-slate-900">Full Answer Booklet Copy</h5>
+                          <p className="text-[11px] text-slate-500">Single upload for all answers (stored for future review)</p>
                         </div>
                       </div>
 
                       {fullBookletUrl && (
-                        <span className="inline-flex items-center gap-1 rounded-full bg-emerald-950/80 border border-emerald-600/70 px-2 py-0.5 text-[10px] font-bold text-emerald-300">
-                          <CheckCircle2 className="h-3 w-3" /> Booklet Attached
+                        <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 border border-emerald-200 px-2.5 py-0.5 text-[10px] font-bold text-emerald-800">
+                          <CheckCircle2 className="h-3 w-3 text-emerald-600" /> Booklet Attached
                         </span>
                       )}
                     </div>
 
                     {fullBookletUrl ? (
-                      <div className="rounded-xl border border-violet-800/50 bg-slate-950/80 p-2.5 flex items-center justify-between gap-2">
+                      <div className="rounded-xl border border-violet-200 bg-white p-2.5 flex items-center justify-between gap-2 shadow-2xs">
                         <div className="flex items-center gap-2 min-w-0">
-                          <FileText className="h-4 w-4 text-violet-400 shrink-0" />
-                          <span className="text-xs font-semibold text-slate-200 truncate">
+                          <FileText className="h-4 w-4 text-violet-600 shrink-0" />
+                          <span className="text-xs font-semibold text-slate-800 truncate">
                             {fullBookletName || 'Full_Answer_Booklet.pdf'}
                           </span>
                         </div>
@@ -1045,11 +1122,11 @@ export function ExamSessionView({
                             href={fullBookletUrl}
                             target="_blank"
                             rel="noopener noreferrer"
-                            className="flex items-center gap-1 rounded-lg bg-violet-600/30 border border-violet-500/40 px-2.5 py-1 text-[11px] font-semibold text-violet-200 hover:bg-violet-600 hover:text-white transition-colors"
+                            className="flex items-center gap-1 rounded-lg bg-violet-50 border border-violet-200 px-2.5 py-1 text-[11px] font-semibold text-violet-700 hover:bg-violet-100 transition-colors"
                           >
                             <ExternalLink className="h-3 w-3" /> View
                           </a>
-                          <label className="cursor-pointer rounded-lg border border-slate-700 bg-slate-800 px-2.5 py-1 text-[11px] font-semibold text-slate-300 hover:bg-slate-700 hover:text-white transition-colors">
+                          <label className="cursor-pointer rounded-lg border border-slate-200 bg-white px-2.5 py-1 text-[11px] font-semibold text-slate-700 hover:bg-slate-50 transition-colors shadow-2xs">
                             Replace
                             <input
                               type="file"
@@ -1065,14 +1142,14 @@ export function ExamSessionView({
                         </div>
                       </div>
                     ) : (
-                      <label className={`flex flex-col items-center justify-center rounded-xl border border-dashed border-violet-800/60 hover:border-violet-500 bg-slate-950/50 p-3 text-center cursor-pointer transition-all ${isUploadingScan ? 'opacity-60 pointer-events-none' : ''}`}>
+                      <label className={`flex flex-col items-center justify-center rounded-xl border border-dashed border-violet-300 hover:border-violet-500 bg-white p-3 text-center cursor-pointer transition-all ${isUploadingScan ? 'opacity-60 pointer-events-none' : ''}`}>
                         {isUploadingScan ? (
-                          <div className="flex items-center gap-2 text-violet-300 text-xs font-semibold py-1">
+                          <div className="flex items-center gap-2 text-violet-700 text-xs font-semibold py-1">
                             <Loader2 className="h-4 w-4 animate-spin" /> Uploading scanned booklet...
                           </div>
                         ) : (
-                          <div className="flex items-center gap-2 text-slate-300 text-xs font-semibold">
-                            <FileUp className="h-4 w-4 text-violet-400" />
+                          <div className="flex items-center gap-2 text-slate-700 text-xs font-semibold">
+                            <FileUp className="h-4 w-4 text-violet-600" />
                             <span>Attach Complete Scanned Answer Booklet (PDF)</span>
                           </div>
                         )}
@@ -1091,74 +1168,74 @@ export function ExamSessionView({
                   </div>
                 )}
 
-                {/* In Practice Mode: Compare with Model Solution PDF (NO upload here!) */}
+                {/* In Practice Mode: Compare with Model Solution PDF */}
                 {isPractice && paper.exsUrl && (
-                  <div className="rounded-xl border border-indigo-900/40 bg-indigo-950/30 p-3 flex items-center justify-between gap-2">
-                    <div className="flex items-center gap-2 text-xs text-indigo-300">
-                      <BookOpen className="h-4 w-4 text-indigo-400 shrink-0" />
+                  <div className="rounded-xl border border-indigo-200 bg-indigo-50/60 p-3 flex items-center justify-between gap-2">
+                    <div className="flex items-center gap-2 text-xs text-indigo-900 font-medium">
+                      <BookOpen className="h-4 w-4 text-indigo-600 shrink-0" />
                       <span>Compare with Model Answer / Synopsis:</span>
                     </div>
                     <button
                       onClick={() => setSolutionModalOpen(true)}
-                      className="flex items-center gap-1.5 rounded-lg bg-indigo-600 px-3 py-1.5 text-xs font-bold text-white hover:bg-indigo-500 shadow-md shadow-indigo-600/30 transition-all shrink-0"
+                      className="flex items-center gap-1.5 rounded-lg bg-indigo-600 px-3 py-1.5 text-xs font-bold text-white hover:bg-indigo-700 shadow-xs transition-all shrink-0"
                     >
                       <BookOpen className="h-3.5 w-3.5" />
-                      Detailed Solution
+                      Solution Key
                     </button>
                   </div>
                 )}
               </div>
             )}
 
-            {/* Practice Mode Live Feedback Banner + Detailed Solution Button (Objective) */}
+            {/* Practice Mode Live Feedback Banner + Detailed Solution Key Link (Objective) */}
             {isPractice && !isSubjective && (currentQObj.selected || revealedAnswers[currentQuestion]) && getCorrectAnswerForQ(currentQuestion) && (() => {
               const correctAns = getCorrectAnswerForQ(currentQuestion)!;
               const hasSelected = !!currentQObj.selected;
               const isCorrect = hasSelected && currentQObj.selected!.toUpperCase().trim() === correctAns;
 
               return (
-                <div className={`mt-2.5 rounded-xl border p-2.5 text-xs flex flex-wrap items-center justify-between gap-2 animate-in fade-in ${
+                <div className={`mt-3 rounded-xl border p-3 text-xs flex flex-wrap items-center justify-between gap-2 shadow-2xs animate-in fade-in ${
                   !hasSelected
-                    ? 'border-indigo-800/80 bg-indigo-950/40 text-indigo-300'
+                    ? 'border-indigo-200 bg-indigo-50/80 text-indigo-900'
                     : isCorrect 
-                      ? 'border-emerald-800/80 bg-emerald-950/40 text-emerald-300' 
-                      : 'border-rose-800/80 bg-rose-950/40 text-rose-300'
+                      ? 'border-emerald-200 bg-emerald-50/80 text-emerald-900' 
+                      : 'border-rose-200 bg-rose-50/80 text-rose-900'
                 }`}>
-                  <div className="flex items-center gap-1.5">
+                  <div className="flex items-center gap-2">
                     {!hasSelected ? (
-                      <BookOpen className="h-4 w-4 text-indigo-400 shrink-0" />
+                      <BookOpen className="h-4 w-4 text-indigo-600 shrink-0" />
                     ) : isCorrect ? (
-                      <CheckCircle2 className="h-4 w-4 text-emerald-400 shrink-0" />
+                      <CheckCircle2 className="h-4 w-4 text-emerald-600 shrink-0" />
                     ) : (
-                      <XCircle className="h-4 w-4 text-rose-400 shrink-0" />
+                      <XCircle className="h-4 w-4 text-rose-600 shrink-0" />
                     )}
-                    <span>
+                    <span className="font-semibold">
                       {!hasSelected 
-                        ? `Answer Key: Correct option is Option ${correctAns}`
+                        ? `Answer Key: Right answer is Option ${correctAns}`
                         : isCorrect 
-                          ? 'Correct!' 
-                          : `Wrong Answer • Correct is Option ${correctAns}`}
+                          ? '✓ Correct Answer! Well done.' 
+                          : `✗ Incorrect • Right answer is Option ${correctAns}`}
                     </span>
                   </div>
 
                   {paper.exsUrl && (
                     <button
                       onClick={() => setSolutionModalOpen(true)}
-                      className="flex items-center gap-1 rounded-lg bg-indigo-600/30 border border-indigo-500/40 px-2 py-0.5 text-[11px] font-bold text-indigo-300 hover:bg-indigo-600 hover:text-white transition-all shadow-sm"
+                      className="flex items-center gap-1 rounded-lg bg-white border border-indigo-200 px-2.5 py-1 text-[11px] font-bold text-indigo-700 hover:bg-indigo-50 transition-all shadow-2xs"
                     >
-                      <BookOpen className="h-3 w-3" />
-                      Detailed Solution
+                      <BookOpen className="h-3 w-3 text-indigo-600" />
+                      View Solution Key
                     </button>
                   )}
                 </div>
               );
             })()}
 
-            {/* Optional Scratchpad (Only shown when user explicitly toggles pencil icon) */}
+            {/* Optional Scratchpad */}
             {showNoteBox && (
-              <div className="mt-3 rounded-xl border border-slate-800 bg-[#070b14] p-2.5 sm:p-3.5 space-y-1.5">
+              <div className="mt-3 rounded-xl border border-slate-200 bg-slate-50 p-2.5 sm:p-3.5 space-y-1.5 shadow-2xs">
                 <div className="flex items-center justify-between text-xs">
-                  <span className="font-semibold text-slate-300">
+                  <span className="font-semibold text-slate-800">
                     Rough Scratchpad for Question {currentQuestion} (Optional)
                   </span>
                   <span className="text-[10px] text-slate-500">Draft keywords only</span>
@@ -1168,7 +1245,7 @@ export function ExamSessionView({
                   onChange={e => handleUpdateNote(currentQuestion, e.target.value)}
                   placeholder="Optional: Jot down outline points or trick keywords while writing by hand..."
                   rows={2}
-                  className="w-full rounded-lg border border-slate-800 bg-slate-950 p-2 sm:p-2.5 text-xs text-slate-200 placeholder-slate-600 focus:outline-none focus:border-indigo-500 resize-none"
+                  className="w-full rounded-lg border border-slate-200 bg-white p-2 sm:p-2.5 text-xs text-slate-800 placeholder-slate-400 focus:outline-none focus:border-indigo-500 resize-none"
                 />
               </div>
             )}
@@ -1178,7 +1255,7 @@ export function ExamSessionView({
               <button
                 disabled={currentQuestion <= 1}
                 onClick={() => setCurrentQuestion(prev => Math.max(1, (prev || 1) - 1))}
-                className="flex items-center gap-1 rounded-xl border border-slate-800 bg-slate-900 px-3 py-1.5 text-xs font-semibold text-slate-300 hover:bg-slate-800 disabled:opacity-40 disabled:pointer-events-none transition-colors"
+                className="flex items-center gap-1 rounded-xl border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-40 disabled:pointer-events-none transition-colors shadow-2xs"
               >
                 <ChevronLeft className="h-3.5 w-3.5" /> Prev
               </button>
@@ -1186,7 +1263,7 @@ export function ExamSessionView({
               {!isSubjective && (
                 <button
                   onClick={() => handleClearSelection(currentQuestion)}
-                  className="text-xs text-slate-400 hover:text-slate-200 transition-colors font-medium px-2 py-1"
+                  className="text-xs text-slate-500 hover:text-slate-800 transition-colors font-medium px-2 py-1"
                 >
                   Clear Selection
                 </button>
@@ -1195,7 +1272,7 @@ export function ExamSessionView({
               <button
                 disabled={currentQuestion >= paper.totalQuestions}
                 onClick={() => setCurrentQuestion(prev => Math.min(paper.totalQuestions, (prev || 1) + 1))}
-                className="flex items-center gap-1 rounded-xl border border-slate-800 bg-slate-900 px-3 py-1.5 text-xs font-semibold text-slate-300 hover:bg-slate-800 disabled:opacity-40 disabled:pointer-events-none transition-colors"
+                className="flex items-center gap-1 rounded-xl border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-40 disabled:pointer-events-none transition-colors shadow-2xs"
               >
                 Next <ChevronRight className="h-3.5 w-3.5" />
               </button>
@@ -1209,20 +1286,20 @@ export function ExamSessionView({
             
             <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-3 gap-2">
               <div className="flex items-center justify-between">
-                <span className="font-bold text-white text-xs shrink-0">Question Palette</span>
-                <span className="text-[11px] text-slate-400 sm:hidden">
+                <span className="font-bold text-slate-900 text-xs shrink-0">Question Palette</span>
+                <span className="text-[11px] text-slate-500 sm:hidden">
                   {filteredQuestionNumbers.length} Qs
                 </span>
               </div>
-              <div className="flex items-center gap-1 bg-slate-950 p-0.5 rounded-lg border border-slate-800 overflow-x-auto max-w-full">
+              <div className="flex items-center gap-1 bg-slate-100 p-0.5 rounded-lg border border-slate-200 overflow-x-auto max-w-full">
                 {(['all', 'attempted', 'unattempted', 'flagged'] as const).map(tab => (
                   <button
                     key={tab}
                     onClick={() => setFilterMode(tab)}
                     className={`rounded-md px-2 py-0.5 capitalize transition-all text-[11px] shrink-0 ${
                       filterMode === tab 
-                        ? 'bg-indigo-600 text-white font-semibold' 
-                        : 'text-slate-400 hover:text-slate-200'
+                        ? 'bg-indigo-600 text-white font-semibold shadow-2xs' 
+                        : 'text-slate-600 hover:text-slate-900'
                     }`}
                   >
                     {tab}
@@ -1239,29 +1316,29 @@ export function ExamSessionView({
                 const isAnswered = isQuestionAnswered(q);
                 const isFlagged = q?.flagged;
 
-                let badgeColor = 'bg-[#0e1424] text-slate-400 border-slate-800 hover:border-slate-700';
+                let badgeColor = 'bg-white text-slate-700 border-slate-200 hover:bg-slate-100 hover:border-slate-300 shadow-2xs';
 
                 if (isAnswered) {
                   // In Practice mode: wrong answers are shown in RED, correct in GREEN!
                   if (isPractice && !isSubjective) {
                     if (q?.isCorrect === false) {
-                      badgeColor = 'bg-rose-950/70 text-rose-300 border-rose-600 font-semibold';
+                      badgeColor = 'bg-rose-600 text-white border-rose-600 font-semibold shadow-2xs';
                     } else if (q?.isCorrect === true) {
-                      badgeColor = 'bg-emerald-950/70 text-emerald-300 border-emerald-600 font-semibold';
+                      badgeColor = 'bg-emerald-600 text-white border-emerald-600 font-semibold shadow-2xs';
                     } else {
-                      badgeColor = 'bg-emerald-950/60 text-emerald-300 border-emerald-600 font-semibold';
+                      badgeColor = 'bg-emerald-600 text-white border-emerald-600 font-semibold shadow-2xs';
                     }
                   } else {
-                    badgeColor = 'bg-emerald-950/60 text-emerald-300 border-emerald-600 font-semibold';
+                    badgeColor = 'bg-indigo-600 text-white border-indigo-600 font-semibold shadow-2xs';
                   }
                 }
 
                 if (isFlagged) {
-                  badgeColor = 'bg-amber-950/60 text-amber-300 border-amber-500 font-semibold';
+                  badgeColor = 'bg-amber-100 text-amber-900 border-amber-300 font-semibold shadow-2xs';
                 }
 
                 if (isCurrent) {
-                  badgeColor += ' ring-2 ring-indigo-500 border-indigo-400 text-white font-bold scale-105';
+                  badgeColor += ' ring-2 ring-indigo-600 border-indigo-600 scale-105 font-bold';
                 }
 
                 return (
@@ -1272,7 +1349,7 @@ export function ExamSessionView({
                   >
                     <span>{qNo}</span>
                     {q?.note && (
-                      <span className="absolute -top-1 -right-1 h-2 w-2 rounded-full bg-indigo-500" />
+                      <span className="absolute -top-1 -right-1 h-2 w-2 rounded-full bg-indigo-600" />
                     )}
                   </button>
                 );
@@ -1284,27 +1361,27 @@ export function ExamSessionView({
 
       {/* Exam Paused Overlay Modal */}
       {isPaused && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/85 backdrop-blur-md animate-in fade-in">
-          <div className="relative w-full max-w-md rounded-2xl border border-slate-800 bg-slate-900 p-6 shadow-2xl text-center space-y-4">
-            <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-amber-500/20 text-amber-400 border border-amber-500/40">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm animate-in fade-in">
+          <div className="relative w-full max-w-md rounded-3xl border border-slate-200 bg-white p-6 shadow-2xl text-center space-y-4">
+            <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-amber-50 text-amber-600 border border-amber-200">
               <Pause className="h-7 w-7" />
             </div>
 
             <div>
-              <h2 className="text-xl font-bold text-white">Exam Paused</h2>
-              <p className="text-xs text-slate-400 mt-1">
+              <h2 className="text-xl font-bold text-slate-900">Exam Paused</h2>
+              <p className="text-xs text-slate-500 mt-1">
                 Emergency or quick break? Timer is frozen and your answers are saved.
               </p>
             </div>
 
-            <div className="grid grid-cols-2 gap-2 rounded-xl bg-slate-950 p-3 text-xs border border-slate-800">
+            <div className="grid grid-cols-2 gap-2 rounded-xl bg-slate-50 p-3 text-xs border border-slate-200">
               <div>
                 <span className="block text-slate-500 text-[11px]">Progress</span>
-                <span className="font-bold text-white">{currentQuestion !== null ? `Q${currentQuestion}` : 'Overview'} of {paper.totalQuestions}</span>
+                <span className="font-bold text-slate-800">{currentQuestion !== null ? `Q${currentQuestion}` : 'Overview'} of {paper.totalQuestions}</span>
               </div>
               <div>
                 <span className="block text-slate-500 text-[11px]">Time Remaining</span>
-                <span className="font-bold text-indigo-300 font-mono">
+                <span className="font-bold text-indigo-700 font-mono">
                   {formatTimeSeconds(remainingSeconds)}
                 </span>
               </div>
@@ -1313,14 +1390,14 @@ export function ExamSessionView({
             <div className="flex flex-col gap-2 pt-2">
               <button
                 onClick={() => setIsPaused(false)}
-                className="flex items-center justify-center gap-2 rounded-xl bg-indigo-600 py-3 text-xs font-bold text-white shadow-lg shadow-indigo-600/30 hover:bg-indigo-500 transition-all"
+                className="flex items-center justify-center gap-2 rounded-xl bg-indigo-600 py-3 text-xs font-bold text-white shadow-xs hover:bg-indigo-700 transition-all"
               >
                 <Play className="h-4 w-4 fill-current" /> Resume Exam
               </button>
 
               <button
                 onClick={handleSaveDraftAndExit}
-                className="flex items-center justify-center gap-2 rounded-xl border border-slate-700 bg-slate-800 py-2.5 text-xs font-semibold text-slate-300 hover:bg-slate-700 transition-all"
+                className="flex items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white py-2.5 text-xs font-semibold text-slate-700 hover:bg-slate-50 transition-all shadow-2xs"
               >
                 <Save className="h-3.5 w-3.5" /> Save & Exit to Resume Later
               </button>
@@ -1339,30 +1416,30 @@ export function ExamSessionView({
 
       {/* Objective Exam Assessment & Submission Review Screen */}
       {showFinishConfirm && (
-        <div className="fixed inset-0 z-50 overflow-y-auto bg-slate-950/95 backdrop-blur-md text-slate-100 flex flex-col font-sans animate-in fade-in duration-200">
+        <div className="fixed inset-0 z-50 overflow-y-auto bg-slate-900/40 backdrop-blur-sm text-slate-800 flex flex-col font-sans animate-in fade-in duration-200">
           {/* Top Bar */}
-          <div className="sticky top-0 z-20 border-b border-slate-800 bg-slate-900/90 backdrop-blur-md px-4 py-3 sm:px-6">
+          <div className="sticky top-0 z-20 border-b border-slate-200 bg-white/95 backdrop-blur-md px-4 py-3 sm:px-6 shadow-2xs">
             <div className="max-w-7xl mx-auto flex items-center justify-between gap-3">
               <div className="flex items-center gap-3 min-w-0">
                 <button
                   onClick={() => setShowFinishConfirm(false)}
-                  className="flex items-center gap-1.5 rounded-xl border border-slate-700 bg-slate-800 px-3 py-1.5 text-xs font-semibold text-slate-300 hover:bg-slate-700 hover:text-white transition-colors shrink-0"
+                  className="flex items-center gap-1.5 rounded-xl border border-slate-200 bg-slate-50 px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-100 transition-colors shadow-2xs shrink-0"
                 >
                   <ArrowLeft className="h-4 w-4" /> Return to Exam
                 </button>
                 <div className="min-w-0">
-                  <h2 className="text-base sm:text-lg font-bold text-white truncate">
+                  <h2 className="text-base sm:text-lg font-bold text-slate-900 truncate">
                     Exam Assessment & Submission Review
                   </h2>
-                  <p className="text-xs text-slate-400 truncate">
+                  <p className="text-xs text-slate-500 truncate">
                     {paper.label} • {paper.year} • {paper.category.toUpperCase()}
                   </p>
                 </div>
               </div>
 
               <div className="flex items-center gap-2 sm:gap-3 shrink-0">
-                <div className="hidden sm:flex items-center gap-1.5 rounded-xl bg-slate-800 px-3 py-1.5 border border-slate-700 text-xs text-slate-300 font-mono">
-                  <Clock className="h-3.5 w-3.5 text-indigo-400" />
+                <div className="hidden sm:flex items-center gap-1.5 rounded-xl bg-slate-100 px-3 py-1.5 border border-slate-200 text-xs text-slate-700 font-mono">
+                  <Clock className="h-3.5 w-3.5 text-indigo-600" />
                   <span>Time: {formatTimeSeconds(elapsedSeconds)}</span>
                 </div>
                 <button
@@ -1370,7 +1447,7 @@ export function ExamSessionView({
                     setShowFinishConfirm(false);
                     handleFinishExam();
                   }}
-                  className="rounded-xl bg-indigo-600 px-4 sm:px-6 py-2 text-xs sm:text-sm font-bold text-white shadow-lg shadow-indigo-600/30 hover:bg-indigo-500 transition-all flex items-center gap-2"
+                  className="rounded-xl bg-indigo-600 px-4 sm:px-6 py-2 text-xs sm:text-sm font-bold text-white shadow-xs hover:bg-indigo-700 transition-all flex items-center gap-2"
                 >
                   <span>Finalize & Submit Exam</span>
                   <ArrowRight className="h-4 w-4" />
@@ -1380,162 +1457,164 @@ export function ExamSessionView({
           </div>
 
           {/* Assessment Body */}
-          <div className="flex-1 max-w-7xl mx-auto w-full p-4 sm:p-6 lg:p-8 space-y-6">
-            {/* KPI Overview Cards */}
-            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 sm:gap-4">
-              <div className="rounded-2xl border border-emerald-500/30 bg-emerald-950/20 p-4">
-                <div className="text-xs text-emerald-300 font-medium">Attempted</div>
-                <div className="text-2xl font-extrabold text-emerald-400 mt-1">
-                  {attemptedCount}
-                  <span className="text-xs font-normal text-slate-400 ml-1">/ {paper.totalQuestions}</span>
-                </div>
-                <div className="text-[11px] text-slate-400 mt-0.5">
-                  {Math.round((attemptedCount / (paper.totalQuestions || 1)) * 100)}% answered
-                </div>
-              </div>
-
-              <div className="rounded-2xl border border-slate-800 bg-slate-900/80 p-4">
-                <div className="text-xs text-slate-400 font-medium">Skipped</div>
-                <div className="text-2xl font-extrabold text-slate-300 mt-1">
-                  {unattemptedCount}
-                </div>
-                <div className="text-[11px] text-slate-400 mt-0.5">
-                  0 penalty incurred
-                </div>
-              </div>
-
-              <div className="rounded-2xl border border-amber-500/30 bg-amber-950/20 p-4">
-                <div className="text-xs text-amber-300 font-medium">Flagged</div>
-                <div className="text-2xl font-extrabold text-amber-400 mt-1">
-                  {flaggedCount}
-                </div>
-                <div className="text-[11px] text-slate-400 mt-0.5">
-                  Marked for review
-                </div>
-              </div>
-
-              <div className="rounded-2xl border border-violet-500/30 bg-violet-950/20 p-4">
-                <div className="text-xs text-violet-300 font-medium">Alterations</div>
-                <div className="text-2xl font-extrabold text-violet-400 mt-1">
-                  {alteredCount}
-                </div>
-                <div className="text-[11px] text-slate-400 mt-0.5">
-                  Option changes
-                </div>
-              </div>
-
-              <div className="rounded-2xl border border-slate-800 bg-slate-900/80 p-4">
-                <div className="text-xs text-slate-400 font-medium">Time Elapsed</div>
-                <div className="text-2xl font-extrabold text-indigo-300 font-mono mt-1">
-                  {formatTimeSeconds(elapsedSeconds)}
-                </div>
-                <div className="text-[11px] text-slate-400 mt-0.5">
-                  {isOvertime ? `Overtime +${formatTimeSeconds(overtimeSeconds)}` : `${timeLimitMinutes}m limit`}
-                </div>
-              </div>
-
-              <div className="rounded-2xl border border-slate-800 bg-slate-900/80 p-4">
-                <div className="text-xs text-slate-400 font-medium">Average Pace</div>
-                <div className="text-2xl font-extrabold text-white font-mono mt-1">
-                  {attemptedCount > 0 ? Math.round(elapsedSeconds / attemptedCount) : 0}s
-                </div>
-                <div className="text-[11px] text-slate-400 mt-0.5">
-                  per attempted Q
-                </div>
-              </div>
-            </div>
-
-            {/* Question Response Palette Grid */}
-            <div className="rounded-2xl border border-slate-800 bg-slate-900/80 p-5 sm:p-6 space-y-4">
-              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 border-b border-slate-800 pb-3">
-                <div>
-                  <h3 className="text-sm font-bold text-white">
-                    Question Response Palette (Interactive)
-                  </h3>
-                  <p className="text-xs text-slate-400">
-                    Click any question badge below to return to that question in the paper.
-                  </p>
-                </div>
-                <div className="flex items-center gap-3 text-xs flex-wrap">
-                  <div className="flex items-center gap-1.5">
-                    <span className="h-4 w-4 rounded bg-emerald-500/20 border border-emerald-500/40 text-[10px] font-bold text-emerald-300 flex items-center justify-center">A</span>
-                    <span className="text-slate-400">Attempted</span>
+          <div className="flex-1 bg-slate-50/60 p-4 sm:p-6 lg:p-8">
+            <div className="max-w-7xl mx-auto space-y-6">
+              {/* KPI Overview Cards */}
+              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 sm:gap-4">
+                <div className="rounded-2xl border border-emerald-200 bg-emerald-50/60 p-4 shadow-2xs">
+                  <div className="text-xs text-emerald-800 font-semibold">Attempted</div>
+                  <div className="text-2xl font-extrabold text-emerald-700 mt-1">
+                    {attemptedCount}
+                    <span className="text-xs font-normal text-slate-500 ml-1">/ {paper.totalQuestions}</span>
                   </div>
-                  <div className="flex items-center gap-1.5">
-                    <span className="h-4 w-4 rounded bg-amber-500/20 border border-amber-500/40 text-[10px] font-bold text-amber-300 flex items-center justify-center">⚑</span>
-                    <span className="text-slate-400">Flagged</span>
+                  <div className="text-[11px] text-emerald-600 mt-0.5">
+                    {Math.round((attemptedCount / (paper.totalQuestions || 1)) * 100)}% answered
                   </div>
-                  <div className="flex items-center gap-1.5">
-                    <span className="h-4 w-4 rounded bg-slate-800 border border-slate-700 text-[10px] text-slate-400 flex items-center justify-center">—</span>
-                    <span className="text-slate-400">Skipped</span>
+                </div>
+
+                <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-2xs">
+                  <div className="text-xs text-slate-600 font-semibold">Skipped</div>
+                  <div className="text-2xl font-extrabold text-slate-700 mt-1">
+                    {unattemptedCount}
+                  </div>
+                  <div className="text-[11px] text-slate-400 mt-0.5">
+                    0 penalty incurred
+                  </div>
+                </div>
+
+                <div className="rounded-2xl border border-amber-200 bg-amber-50/60 p-4 shadow-2xs">
+                  <div className="text-xs text-amber-800 font-semibold">Flagged</div>
+                  <div className="text-2xl font-extrabold text-amber-700 mt-1">
+                    {flaggedCount}
+                  </div>
+                  <div className="text-[11px] text-amber-600 mt-0.5">
+                    Marked for review
+                  </div>
+                </div>
+
+                <div className="rounded-2xl border border-violet-200 bg-violet-50/60 p-4 shadow-2xs">
+                  <div className="text-xs text-violet-800 font-semibold">Alterations</div>
+                  <div className="text-2xl font-extrabold text-violet-700 mt-1">
+                    {alteredCount}
+                  </div>
+                  <div className="text-[11px] text-violet-600 mt-0.5">
+                    Option changes
+                  </div>
+                </div>
+
+                <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-2xs">
+                  <div className="text-xs text-slate-600 font-semibold">Time Elapsed</div>
+                  <div className="text-2xl font-extrabold text-indigo-700 font-mono mt-1">
+                    {formatTimeSeconds(elapsedSeconds)}
+                  </div>
+                  <div className="text-[11px] text-slate-500 mt-0.5">
+                    {isOvertime ? `Overtime +${formatTimeSeconds(overtimeSeconds)}` : `${timeLimitMinutes}m limit`}
+                  </div>
+                </div>
+
+                <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-2xs">
+                  <div className="text-xs text-slate-600 font-semibold">Average Pace</div>
+                  <div className="text-2xl font-extrabold text-slate-900 font-mono mt-1">
+                    {attemptedCount > 0 ? Math.round(elapsedSeconds / attemptedCount) : 0}s
+                  </div>
+                  <div className="text-[11px] text-slate-500 mt-0.5">
+                    per attempted Q
                   </div>
                 </div>
               </div>
 
-              <div className="grid grid-cols-5 sm:grid-cols-8 md:grid-cols-10 lg:grid-cols-12 gap-2">
-                {Array.from({ length: paper.totalQuestions }, (_, i) => i + 1).map(qNo => {
-                  const qObj = answers[qNo];
-                  const isAtt = !!qObj?.selected;
-                  const isFlag = !!qObj?.flagged;
-
-                  return (
-                    <button
-                      key={qNo}
-                      onClick={() => {
-                        setShowFinishConfirm(false);
-                        setCurrentQuestion(qNo);
-                      }}
-                      className={`flex flex-col items-center justify-center rounded-xl p-2 border transition-all text-center ${
-                        isFlag
-                          ? 'border-amber-500/60 bg-amber-950/30 text-amber-200 hover:border-amber-400'
-                          : isAtt
-                          ? 'border-emerald-500/50 bg-emerald-950/30 text-emerald-200 hover:border-emerald-400'
-                          : 'border-slate-800 bg-slate-950/60 text-slate-400 hover:border-slate-700'
-                      }`}
-                    >
-                      <span className="text-[11px] font-mono text-slate-400">Q{qNo}</span>
-                      <span className="text-xs font-bold mt-0.5">
-                        {isAtt ? qObj.selected : '—'}
-                      </span>
-                      {isFlag && (
-                        <span className="text-[9px] text-amber-400 mt-0.5">⚑ review</span>
-                      )}
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-
-            {/* Bottom Evaluation Policy & Finalize Confirmation */}
-            <div className="rounded-2xl border border-indigo-500/30 bg-gradient-to-r from-indigo-950/40 via-slate-900 to-slate-900 p-5 sm:p-6 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-              <div className="flex items-center gap-3">
-                <div className="rounded-xl bg-indigo-500/20 p-2.5 text-indigo-400 shrink-0">
-                  <CheckCircle2 className="h-6 w-6" />
+              {/* Question Response Palette Grid */}
+              <div className="rounded-2xl border border-slate-200 bg-white p-5 sm:p-6 shadow-2xs space-y-4">
+                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 border-b border-slate-100 pb-3">
+                  <div>
+                    <h3 className="text-sm font-bold text-slate-900">
+                      Question Response Palette (Interactive)
+                    </h3>
+                    <p className="text-xs text-slate-500">
+                      Click any question badge below to return to that question in the paper.
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-3 text-xs flex-wrap">
+                    <div className="flex items-center gap-1.5">
+                      <span className="h-4 w-4 rounded bg-emerald-100 border border-emerald-300 text-[10px] font-bold text-emerald-700 flex items-center justify-center">A</span>
+                      <span className="text-slate-600">Attempted</span>
+                    </div>
+                    <div className="flex items-center gap-1.5">
+                      <span className="h-4 w-4 rounded bg-amber-100 border border-amber-300 text-[10px] font-bold text-amber-700 flex items-center justify-center">⚑</span>
+                      <span className="text-slate-600">Flagged</span>
+                    </div>
+                    <div className="flex items-center gap-1.5">
+                      <span className="h-4 w-4 rounded bg-slate-100 border border-slate-200 text-[10px] text-slate-500 flex items-center justify-center">—</span>
+                      <span className="text-slate-600">Skipped</span>
+                    </div>
+                  </div>
                 </div>
-                <div>
-                  <h4 className="text-sm font-bold text-white">Ready for Official Evaluation?</h4>
-                  <p className="text-xs text-slate-300 mt-0.5">
-                    Your answers will be evaluated against the answer key. Correct answers: +{paper.correctMarks}m, Incorrect: -{paper.incorrectMarks}m. Full scorecard, pace nuances, and explanations will be shown next.
-                  </p>
+
+                <div className="grid grid-cols-5 sm:grid-cols-8 md:grid-cols-10 lg:grid-cols-12 gap-2">
+                  {Array.from({ length: paper.totalQuestions }, (_, i) => i + 1).map(qNo => {
+                    const qObj = answers[qNo];
+                    const isAtt = !!qObj?.selected;
+                    const isFlag = !!qObj?.flagged;
+
+                    return (
+                      <button
+                        key={qNo}
+                        onClick={() => {
+                          setShowFinishConfirm(false);
+                          setCurrentQuestion(qNo);
+                        }}
+                        className={`flex flex-col items-center justify-center rounded-xl p-2 border transition-all text-center shadow-2xs ${
+                          isFlag
+                            ? 'border-amber-300 bg-amber-50/70 text-amber-900 hover:border-amber-400'
+                            : isAtt
+                            ? 'border-emerald-300 bg-emerald-50/70 text-emerald-900 hover:border-emerald-400'
+                            : 'border-slate-200 bg-slate-50 text-slate-600 hover:border-slate-300 hover:bg-white'
+                        }`}
+                      >
+                        <span className="text-[11px] font-mono text-slate-500">Q{qNo}</span>
+                        <span className="text-xs font-bold mt-0.5">
+                          {isAtt ? qObj.selected : '—'}
+                        </span>
+                        {isFlag && (
+                          <span className="text-[9px] text-amber-700 font-semibold mt-0.5">⚑ review</span>
+                        )}
+                      </button>
+                    );
+                  })}
                 </div>
               </div>
 
-              <div className="flex items-center gap-3 shrink-0">
-                <button
-                  onClick={() => setShowFinishConfirm(false)}
-                  className="rounded-xl border border-slate-700 bg-slate-800 px-4 py-2.5 text-xs font-semibold text-slate-300 hover:bg-slate-700 transition-colors"
-                >
-                  Return to Exam
-                </button>
-                <button
-                  onClick={() => {
-                    setShowFinishConfirm(false);
-                    handleFinishExam();
-                  }}
-                  className="rounded-xl bg-indigo-600 px-6 py-2.5 text-xs font-bold text-white shadow-lg shadow-indigo-600/30 hover:bg-indigo-500 transition-all"
-                >
-                  Confirm & Finalize
-                </button>
+              {/* Bottom Evaluation Policy & Finalize Confirmation */}
+              <div className="rounded-2xl border border-indigo-200 bg-gradient-to-r from-indigo-50/70 via-white to-white p-5 sm:p-6 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 shadow-2xs">
+                <div className="flex items-center gap-3">
+                  <div className="rounded-xl bg-indigo-100 p-2.5 text-indigo-600 shrink-0">
+                    <CheckCircle2 className="h-6 w-6" />
+                  </div>
+                  <div>
+                    <h4 className="text-sm font-bold text-slate-900">Ready for Official Evaluation?</h4>
+                    <p className="text-xs text-slate-600 mt-0.5">
+                      Your answers will be evaluated against the answer key. Correct answers: +{paper.correctMarks}m, Incorrect: -{paper.incorrectMarks}m. Full scorecard, pace nuances, and explanations will be shown next.
+                    </p>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-3 shrink-0">
+                  <button
+                    onClick={() => setShowFinishConfirm(false)}
+                    className="rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-xs font-semibold text-slate-700 hover:bg-slate-50 transition-colors shadow-2xs"
+                  >
+                    Return to Exam
+                  </button>
+                  <button
+                    onClick={() => {
+                      setShowFinishConfirm(false);
+                      handleFinishExam();
+                    }}
+                    className="rounded-xl bg-indigo-600 px-6 py-2.5 text-xs font-bold text-white shadow-xs hover:bg-indigo-700 transition-all"
+                  >
+                    Confirm & Finalize
+                  </button>
+                </div>
               </div>
             </div>
           </div>
@@ -1544,70 +1623,72 @@ export function ExamSessionView({
 
       {/* Subjective Mains Scan & Upload Phase */}
       {isScanUploadPhase && (
-        <div className="fixed inset-0 z-50 overflow-y-auto bg-slate-950/95 backdrop-blur-md text-slate-100 flex flex-col font-sans animate-in fade-in duration-200">
-          <div className="sticky top-0 z-20 border-b border-slate-800 bg-slate-900/90 backdrop-blur-md px-4 py-3 sm:px-6">
+        <div className="fixed inset-0 z-50 overflow-y-auto bg-slate-900/40 backdrop-blur-sm text-slate-800 flex flex-col font-sans animate-in fade-in duration-200">
+          <div className="sticky top-0 z-20 border-b border-slate-200 bg-white/95 backdrop-blur-md px-4 py-3 sm:px-6 shadow-2xs">
             <div className="max-w-4xl mx-auto flex items-center justify-between">
               <button
                 onClick={() => setIsScanUploadPhase(false)}
-                className="flex items-center gap-1.5 rounded-xl border border-slate-700 bg-slate-800 px-3 py-1.5 text-xs font-semibold text-slate-300 hover:bg-slate-700 transition-colors"
+                className="flex items-center gap-1.5 rounded-xl border border-slate-200 bg-slate-50 px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-100 transition-colors shadow-2xs"
               >
                 <ArrowLeft className="h-4 w-4" /> Back to Session
               </button>
-              <h2 className="text-sm sm:text-base font-bold text-white">
+              <h2 className="text-sm sm:text-base font-bold text-slate-900">
                 Mains Answer Booklet Submission
               </h2>
             </div>
           </div>
 
-          <div className="flex-1 max-w-4xl mx-auto w-full p-4 sm:p-6 lg:p-8 space-y-6">
-            <div className="rounded-2xl border border-slate-800 bg-slate-900 p-6 space-y-4">
-              <div className="flex items-center gap-3">
-                <div className="rounded-xl bg-violet-500/20 p-2.5 text-violet-400 shrink-0">
-                  <UploadCloud className="h-6 w-6" />
+          <div className="flex-1 bg-slate-50/60 p-4 sm:p-6 lg:p-8">
+            <div className="max-w-4xl mx-auto space-y-6">
+              <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-2xs space-y-4">
+                <div className="flex items-center gap-3">
+                  <div className="rounded-xl bg-violet-100 p-2.5 text-violet-600 shrink-0">
+                    <UploadCloud className="h-6 w-6" />
+                  </div>
+                  <div>
+                    <h3 className="text-base font-bold text-slate-900">Upload Handwritten Answer Copy</h3>
+                    <p className="text-xs text-slate-500">Scan your written answer booklet and upload PDF copy</p>
+                  </div>
                 </div>
-                <div>
-                  <h3 className="text-base font-bold text-white">Upload Handwritten Answer Copy</h3>
-                  <p className="text-xs text-slate-400">Scan your written answer booklet and upload PDF copy</p>
+
+                <div className="rounded-xl bg-slate-50 p-4 border border-slate-200 text-xs text-slate-600 space-y-1">
+                  <p>⏱ Exam writing time concluded: <strong>{formatTimeSeconds(elapsedSeconds)}</strong></p>
+                  <p>You have grace buffer to scan your handwritten pages and attach your submission copy.</p>
                 </div>
-              </div>
 
-              <div className="rounded-xl bg-slate-950 p-4 border border-slate-800 text-xs text-slate-300 space-y-1">
-                <p>⏱ Exam writing time concluded: <strong>{formatTimeSeconds(elapsedSeconds)}</strong></p>
-                <p>You have grace buffer to scan your handwritten pages and attach your submission copy.</p>
-              </div>
+                <label className="flex flex-col items-center justify-center rounded-2xl border-2 border-dashed border-slate-300 bg-slate-50/50 p-8 text-center cursor-pointer hover:border-violet-500 hover:bg-violet-50/20 transition-all">
+                  <FileUp className="h-10 w-10 text-violet-600 mb-2" />
+                  <span className="text-sm font-bold text-slate-900">
+                    {userSubmissionFile ? userSubmissionFile.name : 'Choose Scanned Answer Copy (PDF)'}
+                  </span>
+                  <span className="text-xs text-slate-500 mt-1">
+                    {userSubmissionFile ? `${(userSubmissionFile.size / 1024 / 1024).toFixed(2)} MB` : 'Drop PDF here or browse'}
+                  </span>
+                  <input
+                    type="file"
+                    accept=".pdf"
+                    onChange={e => setUserSubmissionFile(e.target.files?.[0] || null)}
+                    className="hidden"
+                  />
+                </label>
 
-              <label className="flex flex-col items-center justify-center rounded-2xl border-2 border-dashed border-slate-700 bg-slate-950 p-8 text-center cursor-pointer hover:border-violet-500 transition-all">
-                <FileUp className="h-10 w-10 text-violet-400 mb-2" />
-                <span className="text-sm font-bold text-white">
-                  {userSubmissionFile ? userSubmissionFile.name : 'Choose Scanned Answer Copy (PDF)'}
-                </span>
-                <span className="text-xs text-slate-500 mt-1">
-                  {userSubmissionFile ? `${(userSubmissionFile.size / 1024 / 1024).toFixed(2)} MB` : 'Drop PDF here or browse'}
-                </span>
-                <input
-                  type="file"
-                  accept=".pdf"
-                  onChange={e => setUserSubmissionFile(e.target.files?.[0] || null)}
-                  className="hidden"
-                />
-              </label>
-
-              <div className="flex items-center justify-between pt-2">
-                <button
-                  onClick={() => setIsScanUploadPhase(false)}
-                  className="rounded-xl px-4 py-2 text-xs font-semibold text-slate-400 hover:bg-slate-800"
-                >
-                  Back to Session
-                </button>
-                <button
-                  onClick={() => {
-                    const blobUrl = userSubmissionFile ? URL.createObjectURL(userSubmissionFile) : undefined;
-                    handleFinishExam(blobUrl);
-                  }}
-                  className="rounded-xl bg-indigo-600 px-6 py-2.5 text-xs font-bold text-white hover:bg-indigo-500 shadow-lg shadow-indigo-600/30"
-                >
-                  {userSubmissionFile ? 'Save Copy & Finish' : 'Skip & Finish'}
-                </button>
+                <div className="flex items-center justify-between pt-2">
+                  <button
+                    onClick={() => setIsScanUploadPhase(false)}
+                    className="rounded-xl px-4 py-2 text-xs font-semibold text-slate-600 hover:bg-slate-100"
+                  >
+                    Back to Session
+                  </button>
+                  <button
+                    onClick={() => {
+                      const blobUrl = userSubmissionFile ? URL.createObjectURL(userSubmissionFile) : undefined;
+                      handleFinishExam(blobUrl);
+                    }}
+                    className="rounded-xl bg-indigo-600 px-6 py-2.5 text-xs font-bold text-white hover:bg-indigo-700 shadow-xs"
+                  >
+                    {userSubmissionFile ? 'Save Copy & Finish' : 'Skip & Finish'}
+                  </button>
+                </div>
               </div>
             </div>
           </div>

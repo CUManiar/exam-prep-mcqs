@@ -21,11 +21,14 @@ export interface QuestionPaper {
   isCustom?: boolean;
 }
 
+export type ConfidenceLevel = 'sure' | '50-50' | 'guess';
+
 export interface QuestionAnswer {
   questionNo: number;
   selected: string | null;
   correctAnswer?: string;
   isCorrect?: boolean | null;
+  confidence?: ConfidenceLevel;
   flagged?: boolean;
   note?: string;
   timeSpentSeconds?: number;

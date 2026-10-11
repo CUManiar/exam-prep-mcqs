@@ -56,6 +56,22 @@ export function generateAttemptReportMarkdown(attempt: Attempt): string {
   const harmLoss = ((attempt.alteredHarmCount || 0) * (correctMarksPerQ + incorrectMarksPerQ)).toFixed(2);
   const netAlterationMarks = (parseFloat(benefitGain) - parseFloat(harmLoss)).toFixed(2);
 
+  // Confidence & Tag calculations
+  const sureQs = questionList.filter(q => q.confidence === 'sure');
+  const sureCorrect = sureQs.filter(q => q.selected && q.isCorrect === true).length;
+  const sureWrong = sureQs.filter(q => q.selected && q.isCorrect === false).length;
+  const sureAcc = sureQs.length > 0 ? Math.round((sureCorrect / sureQs.length) * 100) : 0;
+
+  const fiftyQs = questionList.filter(q => q.confidence === '50-50');
+  const fiftyCorrect = fiftyQs.filter(q => q.selected && q.isCorrect === true).length;
+  const fiftyWrong = fiftyQs.filter(q => q.selected && q.isCorrect === false).length;
+  const fiftyAcc = fiftyQs.length > 0 ? Math.round((fiftyCorrect / fiftyQs.length) * 100) : 0;
+
+  const guessQs = questionList.filter(q => q.confidence === 'guess');
+  const guessCorrect = guessQs.filter(q => q.selected && q.isCorrect === true).length;
+  const guessWrong = guessQs.filter(q => q.selected && q.isCorrect === false).length;
+  const guessAcc = guessQs.length > 0 ? Math.round((guessCorrect / guessQs.length) * 100) : 0;
+
   const lines: string[] = [
     `# UNION PUBLIC SERVICE COMMISSION (UPSC)`,
     `## Civil Services Examination (CSE) — Candidate Assessment Report`,
@@ -107,6 +123,16 @@ export function generateAttemptReportMarkdown(attempt: Attempt): string {
     parseFloat(grossMarks) > 0 
       ? `*Negative marking penalty reduced gross score by **${Math.round((parseFloat(penaltyMarks) / parseFloat(grossMarks)) * 100)}%** (loss of ${penaltyMarks} marks).*`
       : `*Negative marking penalties strictly deducted according to UPSC scheme.*`,
+    ``,
+    `---`,
+    ``,
+    `## 🎯 Confidence & Tag Accuracy Breakdown`,
+    ``,
+    `| Confidence Tag | Total Tagged | Correct | Incorrect | Accuracy % |`,
+    `| :--- | :---: | :---: | :---: | :---: |`,
+    `| **🎯 Sure** | **${sureQs.length}** | ${sureCorrect} | ${sureWrong} | **${sureAcc}%** |`,
+    `| **⚖️ 50:50** | **${fiftyQs.length}** | ${fiftyCorrect} | ${fiftyWrong} | **${fiftyAcc}%** |`,
+    `| **🎲 Guess** | **${guessQs.length}** | ${guessCorrect} | ${guessWrong} | **${guessAcc}%** |`,
     ``,
     `---`,
     ``,
@@ -175,36 +201,39 @@ export function generateAttemptReportMarkdown(attempt: Attempt): string {
   lines.push(
     `---`,
     ``,
-    `## 📋 Detailed Question-by-Question Response Sheet`,
+    `## 📋 Question Assessment Table`,
     ``,
-    `| Q# | Candidate Choice | Official Answer Key | Result | Marks Delta | Time | Alterations | Question Note |`,
-    `| :---: | :---: | :---: | :---: | :---: | :---: | :---: | :--- |`
+    `| Question | Tag | Right / Wrong | Your Answer | Correct Answer | Marks | Note Added |`,
+    `| :---: | :---: | :---: | :---: | :---: | :---: | :--- |`
   );
 
   for (let qNo = 1; qNo <= attempt.totalQuestions; qNo++) {
     const q = attempt.answers[qNo];
-    const selected = q?.selected || '—';
-    const key = q?.correctAnswer || '—';
+    const selected = q?.selected ? `Option ${q.selected}` : '—';
+    const key = q?.correctAnswer ? `Option ${q.correctAnswer}` : '—';
     let status = '⚪ Skipped';
     let marksDelta = '0.00';
 
     if (q?.selected) {
       if (q.isCorrect === true) {
-        status = '✅ Correct';
+        status = '✅ Right';
         marksDelta = `+${correctMarksPerQ.toFixed(2)}`;
       } else if (q.isCorrect === false) {
-        status = '❌ Incorrect';
+        status = '❌ Wrong';
         marksDelta = `-${incorrectMarksPerQ.toFixed(2)}`;
       } else {
         status = 'Submitted';
       }
     }
 
-    const timeSpent = q?.timeSpentSeconds ? `${q.timeSpentSeconds}s` : '0s';
-    const changes = q?.changesCount ? `${q.changesCount}x (${q.answerHistory?.join('→') || ''})` : '—';
+    let confTag = '—';
+    if (q?.confidence === 'sure') confTag = '🎯 Sure';
+    else if (q?.confidence === '50-50') confTag = '⚖️ 50:50';
+    else if (q?.confidence === 'guess') confTag = '🎲 Guess';
+
     const note = q?.note ? q.note.replace(/\|/g, '\\|') : '—';
 
-    lines.push(`| ${qNo} | **${selected}** | **${key}** | ${status} | \`${marksDelta}\` | ${timeSpent} | ${changes} | ${note} |`);
+    lines.push(`| Q${qNo} | ${confTag} | ${status} | **${selected}** | **${key}** | \`${marksDelta}\` | ${note} |`);
   }
 
   lines.push(
