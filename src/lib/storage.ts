@@ -4,7 +4,39 @@ import { INITIAL_PAPERS, parseAnswerKeyText, getStandardTimeMinutes } from './de
 const STORAGE_KEYS = {
   ATTEMPTS: 'exam_prep_attempts_v2',
   CUSTOM_PAPERS: 'exam_prep_custom_papers_v2',
+  ACTIVE_PAGE: 'exam_prep_active_page_v1',
+  SELECTED_ATTEMPT_ID: 'exam_prep_selected_attempt_id_v1',
 };
+
+// Retrieve saved active page & attempt ID to retain screen across page refreshes
+export function getSavedActivePage(): { page: string | null; attemptId: string | null } {
+  if (typeof window === 'undefined') return { page: null, attemptId: null };
+  try {
+    const page = sessionStorage.getItem(STORAGE_KEYS.ACTIVE_PAGE) || localStorage.getItem(STORAGE_KEYS.ACTIVE_PAGE);
+    const attemptId = sessionStorage.getItem(STORAGE_KEYS.SELECTED_ATTEMPT_ID) || localStorage.getItem(STORAGE_KEYS.SELECTED_ATTEMPT_ID);
+    return { page, attemptId };
+  } catch {
+    return { page: null, attemptId: null };
+  }
+}
+
+// Persist active page & selected attempt ID
+export function saveActivePageState(page: string, attemptId?: string | null): void {
+  if (typeof window === 'undefined') return;
+  try {
+    sessionStorage.setItem(STORAGE_KEYS.ACTIVE_PAGE, page);
+    localStorage.setItem(STORAGE_KEYS.ACTIVE_PAGE, page);
+    if (attemptId) {
+      sessionStorage.setItem(STORAGE_KEYS.SELECTED_ATTEMPT_ID, attemptId);
+      localStorage.setItem(STORAGE_KEYS.SELECTED_ATTEMPT_ID, attemptId);
+    } else {
+      sessionStorage.removeItem(STORAGE_KEYS.SELECTED_ATTEMPT_ID);
+      localStorage.removeItem(STORAGE_KEYS.SELECTED_ATTEMPT_ID);
+    }
+  } catch (e) {
+    console.error('Failed to save active page state:', e);
+  }
+}
 
 // Synchronously get cached attempts from localStorage for instant UI rendering
 export function getAttempts(): Attempt[] {

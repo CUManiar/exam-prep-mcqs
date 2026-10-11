@@ -14,7 +14,9 @@ import {
   getActiveDraft,
   loadActiveDraftFromServer,
   saveActiveDraft,
-  clearActiveDraft
+  clearActiveDraft,
+  getSavedActivePage,
+  saveActivePageState
 } from '../lib/storage';
 
 import { Navbar } from '../components/Navbar';
@@ -27,7 +29,16 @@ import { AttemptDetailView } from '../components/AttemptDetailView';
 import { ConfirmationModal, ConfirmationModalProps } from '../components/ConfirmationModal';
 
 export default function App() {
-  const [activePage, setActivePage] = useState<ActivePage>('dashboard');
+  const [activePage, setActivePage] = useState<ActivePage>(() => {
+    if (typeof window !== 'undefined') {
+      const saved = getSavedActivePage();
+      const validPages: ActivePage[] = ['dashboard', 'papers', 'history', 'upload', 'attempt-detail', 'session'];
+      if (saved.page && validPages.includes(saved.page as ActivePage)) {
+        return saved.page as ActivePage;
+      }
+    }
+    return 'dashboard';
+  });
   const [papers, setPapers] = useState<QuestionPaper[]>([]);
   const [attempts, setAttempts] = useState<Attempt[]>([]);
   const [activeDraft, setActiveDraft] = useState<ActiveSessionDraft | null>(null);
@@ -57,16 +68,32 @@ export default function App() {
   // Selected Attempt for Dedicated Detail View
   const [selectedAttemptForDetail, setSelectedAttemptForDetail] = useState<Attempt | null>(null);
 
+  // Synchronize active page and attempt detail ID whenever changed so refresh stays on the same page
+  useEffect(() => {
+    saveActivePageState(activePage, selectedAttemptForDetail?.id);
+  }, [activePage, selectedAttemptForDetail]);
+
   // Load data on mount
   useEffect(() => {
     loadAllData();
   }, []);
 
   const loadAllData = async () => {
+    const saved = getSavedActivePage();
+
     // 1. Initial local cache for instant render
-    setAttempts(getAttempts());
+    const cachedAttempts = getAttempts();
+    setAttempts(cachedAttempts);
     const localDraft = getActiveDraft();
     setActiveDraft(localDraft);
+
+    // Initial restore of attempt detail if cached
+    if (saved.page === 'attempt-detail' && saved.attemptId) {
+      const cachedMatch = cachedAttempts.find(a => a.id === saved.attemptId);
+      if (cachedMatch) {
+        setSelectedAttemptForDetail(cachedMatch);
+      }
+    }
     
     // 2. Fetch server persisted attempts, papers & cross-device draft
     const [serverAttempts, loadedPapers, serverDraft] = await Promise.all([
@@ -78,16 +105,30 @@ export default function App() {
     setPapers(loadedPapers);
 
     const effectiveDraft = localDraft || serverDraft;
-    if (effectiveDraft) {
+    if (effectiveDraft && !effectiveDraft.isExited) {
       setActiveDraft(effectiveDraft);
       // Auto-resume exam if refreshed, lost connection, or accidental tab reload
-      if (!effectiveDraft.isExited) {
-        const matchingPaper = loadedPapers.find(p => p.id === effectiveDraft.paperId);
-        if (matchingPaper) {
-          setActiveSession({ paper: matchingPaper, mode: effectiveDraft.mode });
-          setActivePage('session');
-        }
+      const matchingPaper = loadedPapers.find(p => p.id === effectiveDraft.paperId);
+      if (matchingPaper) {
+        setActiveSession({ paper: matchingPaper, mode: effectiveDraft.mode });
+        setActivePage('session');
+        return;
       }
+    }
+
+    // 3. Keep user on their active screen across page refresh
+    if (saved.page === 'attempt-detail' && saved.attemptId) {
+      const allAttempts = serverAttempts.length > 0 ? serverAttempts : cachedAttempts;
+      const matchingAttempt = allAttempts.find(a => a.id === saved.attemptId);
+      if (matchingAttempt) {
+        setSelectedAttemptForDetail(matchingAttempt);
+        setActivePage('attempt-detail');
+        return;
+      }
+    }
+
+    if (saved.page && ['dashboard', 'papers', 'history', 'upload'].includes(saved.page)) {
+      setActivePage(saved.page as ActivePage);
     }
   };
 
