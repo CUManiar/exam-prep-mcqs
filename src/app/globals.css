@@ -103,6 +103,11 @@ label,
 
 /* Print Styles for Attempt Reports */
 @media print {
+  @page {
+    margin: 10mm 12mm;
+    size: auto;
+  }
+
   body {
     background: #ffffff !important;
     color: #0f172a !important;
@@ -115,6 +120,20 @@ label,
   .print-hidden,
   [data-print-hidden="true"] {
     display: none !important;
+  }
+
+  table {
+    border-collapse: collapse !important;
+    width: 100% !important;
+  }
+
+  thead {
+    display: table-header-group !important;
+  }
+
+  tr, td, th {
+    break-inside: avoid !important;
+    page-break-inside: avoid !important;
   }
 
   /* Force background and borders to clean high-contrast monochrome/light style */

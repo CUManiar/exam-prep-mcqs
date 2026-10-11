@@ -243,30 +243,193 @@ export function AttemptDetailView({
   return (
     <div className={`mx-auto ${showPaperSplit && matchedPaper?.qpUrl ? 'max-w-[1920px] px-3 sm:px-6' : 'max-w-5xl px-4 sm:px-6'} py-6 space-y-6 text-slate-800 font-sans animate-in fade-in duration-200 print:text-black print:bg-white print:p-0 print:space-y-4 print:max-w-none`}>
       
-      {/* Official Examination Header for Print & PDF Export */}
-      <div className="hidden print:block pb-5 mb-5 border-b-2 border-slate-900 text-black">
-        <div className="text-center space-y-1">
-          <div className="text-[11px] font-black uppercase tracking-widest text-slate-800">
+      {/* =========================================================================
+          PRINT & EXPORT PDF REPORT (CLEAN, UNCLUTTERED EXECUTIVE FORMAT)
+          Top: Performance widgets summary
+          Bottom: Clean tabular format with Question | Right/Wrong | Your Answer | Correct Answer | Marks | Note added
+         ========================================================================= */}
+      <div className="hidden print:block space-y-6 text-slate-900 bg-white">
+        {/* Official Examination Header */}
+        <div className="pb-4 border-b-2 border-slate-900 text-center space-y-1">
+          <div className="text-[11px] font-black uppercase tracking-widest text-slate-600">
             UNION PUBLIC SERVICE COMMISSION (UPSC)
           </div>
-          <div className="text-base font-black text-black uppercase tracking-wider">
+          <div className="text-base font-black text-slate-900 uppercase tracking-wider">
             CIVIL SERVICES EXAMINATION — OFFICIAL CANDIDATE ASSESSMENT REPORT
           </div>
-          <h1 className="text-2xl font-extrabold text-black pt-1">
+          <h1 className="text-xl font-extrabold text-slate-900 pt-0.5">
             {attempt.paperLabel}
           </h1>
-          <div className="flex flex-wrap justify-center items-center gap-3 text-xs font-semibold text-slate-700 pt-2 border-t border-slate-300 mt-2">
-            <span><strong>Exam Stage:</strong> {attempt.category.toUpperCase()} ({attempt.examType.toUpperCase()})</span>
+          <div className="flex flex-wrap justify-center items-center gap-3 text-xs font-semibold text-slate-600 pt-2 border-t border-slate-200 mt-2">
+            <span><strong>Stage:</strong> {attempt.category.toUpperCase()} ({attempt.examType.toUpperCase()})</span>
             <span>•</span>
-            <span><strong>Max Marks:</strong> {attempt.maxScore}</span>
-            <span>•</span>
-            <span><strong>Prescribed Time:</strong> {attempt.timeMinutes || 120} Mins</span>
+            <span><strong>Mode:</strong> {attempt.mode === 'mock' ? 'Timed Mock' : 'Practice Set'}</span>
             <span>•</span>
             <span><strong>Attempted:</strong> {formatDateTime(attempt.startedAt)}</span>
             <span>•</span>
             <span><strong>Duration:</strong> {formatTimeSeconds(attempt.durationSeconds)}</span>
             <span>•</span>
-            <span><strong>Ref ID:</strong> {attempt.id}</span>
+            <span><strong>Reference ID:</strong> {attempt.id}</span>
+          </div>
+        </div>
+
+        {/* TOP WIDGETS SUMMARY */}
+        <div className="space-y-3">
+          <div className="text-xs font-bold uppercase tracking-wider text-slate-700">
+            Performance & Score Overview
+          </div>
+          <div className="grid grid-cols-5 gap-3">
+            {/* Widget 1: Final Score */}
+            <div className="rounded-xl border border-slate-300 bg-slate-50 p-3 text-center">
+              <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500 block">Final Score</span>
+              <div className="text-xl font-extrabold text-slate-900 font-mono mt-0.5">
+                {attempt.score} <span className="text-xs font-normal text-slate-500">/ {attempt.maxScore}</span>
+              </div>
+              <span className="text-[10px] font-semibold text-indigo-700 mt-0.5 block">
+                {Math.round((attempt.score / (attempt.maxScore || 1)) * 1000) / 10}% Marks
+              </span>
+            </div>
+
+            {/* Widget 2: Accuracy */}
+            <div className="rounded-xl border border-slate-300 bg-slate-50 p-3 text-center">
+              <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500 block">Accuracy</span>
+              <div className="text-xl font-extrabold text-emerald-700 font-mono mt-0.5">
+                {attempt.accuracyPct}%
+              </div>
+              <span className="text-[10px] text-slate-500 mt-0.5 block">
+                {attempt.correct} / {attempt.answered} answered
+              </span>
+            </div>
+
+            {/* Widget 3: Correct vs Wrong */}
+            <div className="rounded-xl border border-slate-300 bg-slate-50 p-3 text-center">
+              <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500 block">Correct / Wrong</span>
+              <div className="text-xl font-extrabold text-slate-900 font-mono mt-0.5">
+                <span className="text-emerald-700">{attempt.correct}</span>
+                <span className="text-slate-400 mx-1">/</span>
+                <span className="text-rose-700">{attempt.incorrect}</span>
+              </div>
+              <span className="text-[10px] text-slate-500 mt-0.5 block">
+                +{grossCorrectMarks}m / -{negativePenaltyMarks}m
+              </span>
+            </div>
+
+            {/* Widget 4: Attempt Coverage */}
+            <div className="rounded-xl border border-slate-300 bg-slate-50 p-3 text-center">
+              <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500 block">Questions</span>
+              <div className="text-xl font-extrabold text-slate-900 font-mono mt-0.5">
+                {attempt.answered} <span className="text-xs font-normal text-slate-500">/ {attempt.totalQuestions}</span>
+              </div>
+              <span className="text-[10px] text-slate-500 mt-0.5 block">
+                {attempt.unattempted} Skipped
+              </span>
+            </div>
+
+            {/* Widget 5: Pace */}
+            <div className="rounded-xl border border-slate-300 bg-slate-50 p-3 text-center">
+              <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500 block">Average Pace</span>
+              <div className="text-xl font-extrabold text-slate-900 font-mono mt-0.5">
+                {avgTimePerQ}s
+              </div>
+              <span className="text-[10px] text-slate-500 mt-0.5 block">
+                per attempted question
+              </span>
+            </div>
+          </div>
+
+          {attempt.generalNotes && attempt.generalNotes.trim() && (
+            <div className="rounded-lg border border-slate-200 bg-slate-50 p-2.5 text-xs text-slate-700">
+              <strong className="text-slate-900">Candidate Reflection Note:</strong> {attempt.generalNotes.trim()}
+            </div>
+          )}
+        </div>
+
+        {/* BOTTOM TABULAR FORMAT */}
+        <div className="space-y-2 pt-2">
+          <div className="flex items-center justify-between">
+            <div className="text-xs font-bold uppercase tracking-wider text-slate-700">
+              Question Assessment Table ({attempt.totalQuestions} Questions)
+            </div>
+            <div className="text-[11px] text-slate-500 font-medium">
+              Correct: +{correctMarksPerQ}m | Negative: -{incorrectMarksPerQ}m
+            </div>
+          </div>
+
+          <table className="w-full border-collapse border border-slate-300 text-left text-xs">
+            <thead>
+              <tr className="bg-slate-100 text-slate-800 border-b border-slate-300 text-[11px] uppercase tracking-wider font-bold">
+                <th className="py-2 px-3 border-r border-slate-300 text-center w-16">Question</th>
+                <th className="py-2 px-3 border-r border-slate-300 text-center w-28">Right / Wrong</th>
+                <th className="py-2 px-3 border-r border-slate-300 text-center w-28">Your Answer</th>
+                <th className="py-2 px-3 border-r border-slate-300 text-center w-28">Correct Answer</th>
+                <th className="py-2 px-3 border-r border-slate-300 text-center w-20">Marks</th>
+                <th className="py-2 px-3">Note Added</th>
+              </tr>
+            </thead>
+            <tbody>
+              {Array.from({ length: attempt.totalQuestions }, (_, i) => i + 1).map(qNo => {
+                const q = attempt.answers[qNo];
+                const isAnswered = q?.selected !== null && q?.selected !== undefined;
+                const isCorrect = isAnswered && q?.isCorrect === true;
+                const isWrong = isAnswered && q?.isCorrect === false;
+
+                let statusBadge = (
+                  <span className="text-slate-500 font-medium text-[11px]">Skipped</span>
+                );
+                let marksText = <span className="text-slate-400 font-mono text-[11px]">0.00</span>;
+
+                if (isCorrect) {
+                  statusBadge = (
+                    <span className="font-bold text-emerald-800 text-[11px]">Right</span>
+                  );
+                  marksText = (
+                    <span className="font-bold text-emerald-700 font-mono text-[11px]">+{correctMarksPerQ}</span>
+                  );
+                } else if (isWrong) {
+                  statusBadge = (
+                    <span className="font-bold text-rose-800 text-[11px]">Wrong</span>
+                  );
+                  marksText = (
+                    <span className="font-bold text-rose-700 font-mono text-[11px]">-{incorrectMarksPerQ}</span>
+                  );
+                }
+
+                return (
+                  <tr 
+                    key={qNo} 
+                    className="border-b border-slate-200 even:bg-slate-50/60 print:break-inside-avoid"
+                  >
+                    <td className="py-1.5 px-3 border-r border-slate-200 text-center font-mono font-bold text-slate-900">
+                      Q{qNo}
+                    </td>
+                    <td className="py-1.5 px-3 border-r border-slate-200 text-center">
+                      {statusBadge}
+                    </td>
+                    <td className="py-1.5 px-3 border-r border-slate-200 text-center font-mono font-semibold">
+                      {q?.selected ? `Option ${q.selected}` : '—'}
+                    </td>
+                    <td className="py-1.5 px-3 border-r border-slate-200 text-center font-mono font-bold text-slate-800">
+                      {q?.correctAnswer ? `Option ${q.correctAnswer}` : '—'}
+                    </td>
+                    <td className="py-1.5 px-3 border-r border-slate-200 text-center font-mono">
+                      {marksText}
+                    </td>
+                    <td className="py-1.5 px-3 text-slate-700 text-[11px]">
+                      {q?.note && q.note.trim() ? (
+                        <span className="text-slate-800 font-medium">{q.note.trim()}</span>
+                      ) : (
+                        <span className="text-slate-400">—</span>
+                      )}
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+
+          <div className="pt-3 text-[10px] text-slate-500 flex justify-between items-center border-t border-slate-200">
+            <span>Generated from UPSC CSE Practice Platform</span>
+            <span>Attempt Reference: {attempt.id}</span>
           </div>
         </div>
       </div>
@@ -299,10 +462,10 @@ export function AttemptDetailView({
             <>
               <button
                 onClick={() => setShowPaperSplit(!showPaperSplit)}
-                className={`hidden lg:flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-bold transition-all shadow-sm ${
+                className={`hidden lg:flex items-center gap-1.5 rounded-xl px-3 py-1.5 text-xs font-bold transition-all shadow-2xs ${
                   showPaperSplit
-                    ? 'bg-gradient-to-r from-indigo-600 to-violet-600 text-white shadow-indigo-500/25 ring-1 ring-indigo-400/50'
-                    : 'border border-slate-700 bg-slate-900 text-slate-300 hover:bg-slate-800 hover:text-white'
+                    ? 'bg-indigo-600 text-white shadow-xs'
+                    : 'border border-slate-200 bg-white text-slate-700 hover:bg-slate-50 hover:text-slate-900'
                 }`}
                 title="Toggle side-by-side view with Question Paper PDF"
               >
@@ -312,7 +475,7 @@ export function AttemptDetailView({
 
               <button
                 onClick={() => setMobilePaperModalOpen(true)}
-                className="flex lg:hidden items-center gap-1.5 rounded-lg border border-indigo-500/30 bg-indigo-500/10 px-3 py-1.5 text-xs font-semibold text-indigo-300 hover:bg-indigo-500/20"
+                className="flex lg:hidden items-center gap-1.5 rounded-xl border border-indigo-200 bg-indigo-50 px-3 py-1.5 text-xs font-semibold text-indigo-700 hover:bg-indigo-100"
                 title="Open Question Paper PDF in modal"
               >
                 <BookOpen className="h-3.5 w-3.5" />
@@ -325,7 +488,7 @@ export function AttemptDetailView({
           <div className="relative">
             <button
               onClick={() => setShowExportMenu(!showExportMenu)}
-              className="flex items-center gap-1.5 rounded-lg bg-indigo-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-indigo-500 transition-colors shadow-sm"
+              className="flex items-center gap-1.5 rounded-xl bg-indigo-600 px-3.5 py-2 text-xs font-semibold text-white hover:bg-indigo-700 transition-colors shadow-xs"
             >
               <Download className="h-3.5 w-3.5" />
               <span>Export</span>
@@ -338,27 +501,27 @@ export function AttemptDetailView({
                   className="fixed inset-0 z-40" 
                   onClick={() => setShowExportMenu(false)} 
                 />
-                <div className="absolute right-0 mt-1.5 z-50 w-52 rounded-xl border border-slate-800 bg-slate-900 p-1.5 shadow-xl space-y-1">
-                  <button
-                    onClick={() => {
-                      exportAttemptAsMarkdown(attempt);
-                      setShowExportMenu(false);
-                    }}
-                    className="flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-xs font-medium text-slate-300 hover:bg-slate-800 hover:text-white transition-colors"
-                  >
-                    <FileText className="h-3.5 w-3.5 text-indigo-400" />
-                    <span>Download Markdown (.md)</span>
-                  </button>
-
+                <div className="absolute right-0 mt-1.5 z-50 w-56 rounded-xl border border-slate-200 bg-white p-1.5 shadow-lg space-y-1">
                   <button
                     onClick={() => {
                       handlePrint();
                       setShowExportMenu(false);
                     }}
-                    className="flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-xs font-medium text-slate-300 hover:bg-slate-800 hover:text-white transition-colors"
+                    className="flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50 hover:text-slate-900 transition-colors"
                   >
-                    <Printer className="h-3.5 w-3.5 text-emerald-400" />
+                    <Printer className="h-3.5 w-3.5 text-indigo-600" />
                     <span>Print / Save as PDF</span>
+                  </button>
+
+                  <button
+                    onClick={() => {
+                      exportAttemptAsMarkdown(attempt);
+                      setShowExportMenu(false);
+                    }}
+                    className="flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50 hover:text-slate-900 transition-colors"
+                  >
+                    <FileText className="h-3.5 w-3.5 text-indigo-600" />
+                    <span>Download Markdown (.md)</span>
                   </button>
 
                   <button
@@ -366,9 +529,9 @@ export function AttemptDetailView({
                       exportAttemptAsJSON(attempt);
                       setShowExportMenu(false);
                     }}
-                    className="flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-xs font-medium text-slate-300 hover:bg-slate-800 hover:text-white transition-colors"
+                    className="flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50 hover:text-slate-900 transition-colors"
                   >
-                    <Download className="h-3.5 w-3.5 text-amber-400" />
+                    <Download className="h-3.5 w-3.5 text-amber-600" />
                     <span>Download JSON (.json)</span>
                   </button>
 
@@ -377,9 +540,9 @@ export function AttemptDetailView({
                       handleCopySummary();
                       setShowExportMenu(false);
                     }}
-                    className="flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-xs font-medium text-slate-300 hover:bg-slate-800 hover:text-white transition-colors"
+                    className="flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50 hover:text-slate-900 transition-colors"
                   >
-                    <Copy className="h-3.5 w-3.5 text-indigo-400" />
+                    <Copy className="h-3.5 w-3.5 text-indigo-600" />
                     <span>Copy Summary to Clipboard</span>
                   </button>
                 </div>
@@ -390,7 +553,7 @@ export function AttemptDetailView({
           {matchedPaper?.exsUrl && (
             <button
               onClick={() => setSolutionModalOpen(true)}
-              className="flex items-center gap-1.5 rounded-lg border border-indigo-500/30 bg-indigo-500/10 px-3 py-1.5 text-xs font-semibold text-indigo-300 hover:bg-indigo-500/20 transition-colors"
+              className="flex items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-indigo-700 hover:bg-indigo-50 transition-colors shadow-2xs"
             >
               <BookOpen className="h-3.5 w-3.5" />
               <span>Solution Key</span>
@@ -400,7 +563,7 @@ export function AttemptDetailView({
           {attempt.userSubmissionPdfUrl && (
             <button
               onClick={() => setSubmissionModalOpen(true)}
-              className="flex items-center gap-1.5 rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-3 py-1.5 text-xs font-semibold text-emerald-300 hover:bg-emerald-500/20 transition-colors"
+              className="flex items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-emerald-700 hover:bg-emerald-50 transition-colors shadow-2xs"
             >
               <FileText className="h-3.5 w-3.5" />
               <span>Answer Booklet</span>
@@ -409,7 +572,7 @@ export function AttemptDetailView({
 
           <button
             onClick={() => onDelete(attempt.id)}
-            className="flex items-center gap-1.5 rounded-lg border border-rose-900/40 bg-rose-950/20 px-2.5 py-1.5 text-xs font-semibold text-rose-400 hover:bg-rose-900/40 transition-colors"
+            className="flex items-center gap-1.5 rounded-xl border border-rose-200 bg-rose-50 px-2.5 py-1.5 text-xs font-semibold text-rose-600 hover:bg-rose-100 transition-colors shadow-2xs"
             title="Delete this attempt"
           >
             <Trash2 className="h-3.5 w-3.5" />
@@ -426,7 +589,7 @@ export function AttemptDetailView({
       )}
 
       {/* Main Content Area: Split View Container */}
-      <div className={`flex flex-col ${showPaperSplit && matchedPaper?.qpUrl ? 'lg:flex-row' : ''} gap-6 items-start`}>
+      <div className={`flex flex-col ${showPaperSplit && matchedPaper?.qpUrl ? 'lg:flex-row' : ''} gap-6 items-start print:hidden`}>
 
         {/* Left Side: Sticky Question Paper PDF Viewer (Desktop Only) */}
         {showPaperSplit && matchedPaper?.qpUrl && (

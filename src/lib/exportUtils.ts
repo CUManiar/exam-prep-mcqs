@@ -175,36 +175,34 @@ export function generateAttemptReportMarkdown(attempt: Attempt): string {
   lines.push(
     `---`,
     ``,
-    `## 📋 Detailed Question-by-Question Response Sheet`,
+    `## 📋 Question Assessment Table`,
     ``,
-    `| Q# | Candidate Choice | Official Answer Key | Result | Marks Delta | Time | Alterations | Question Note |`,
-    `| :---: | :---: | :---: | :---: | :---: | :---: | :---: | :--- |`
+    `| Question | Right / Wrong | Your Answer | Correct Answer | Marks | Note Added |`,
+    `| :---: | :---: | :---: | :---: | :---: | :--- |`
   );
 
   for (let qNo = 1; qNo <= attempt.totalQuestions; qNo++) {
     const q = attempt.answers[qNo];
-    const selected = q?.selected || '—';
-    const key = q?.correctAnswer || '—';
+    const selected = q?.selected ? `Option ${q.selected}` : '—';
+    const key = q?.correctAnswer ? `Option ${q.correctAnswer}` : '—';
     let status = '⚪ Skipped';
     let marksDelta = '0.00';
 
     if (q?.selected) {
       if (q.isCorrect === true) {
-        status = '✅ Correct';
+        status = '✅ Right';
         marksDelta = `+${correctMarksPerQ.toFixed(2)}`;
       } else if (q.isCorrect === false) {
-        status = '❌ Incorrect';
+        status = '❌ Wrong';
         marksDelta = `-${incorrectMarksPerQ.toFixed(2)}`;
       } else {
         status = 'Submitted';
       }
     }
 
-    const timeSpent = q?.timeSpentSeconds ? `${q.timeSpentSeconds}s` : '0s';
-    const changes = q?.changesCount ? `${q.changesCount}x (${q.answerHistory?.join('→') || ''})` : '—';
     const note = q?.note ? q.note.replace(/\|/g, '\\|') : '—';
 
-    lines.push(`| ${qNo} | **${selected}** | **${key}** | ${status} | \`${marksDelta}\` | ${timeSpent} | ${changes} | ${note} |`);
+    lines.push(`| Q${qNo} | ${status} | **${selected}** | **${key}** | \`${marksDelta}\` | ${note} |`);
   }
 
   lines.push(
