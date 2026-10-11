@@ -1,6 +1,25 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { put, del, list } from '@vercel/blob';
+import {
+  getAppEnvironment,
+  isProdEnv,
+  isLocalEnv,
+  getProdApiUrl,
+  APP_ENVIRONMENTS,
+  DEFAULT_PROD_URL,
+  type AppEnvironment,
+} from './config';
+
+export {
+  getAppEnvironment,
+  isProdEnv,
+  isLocalEnv,
+  getProdApiUrl,
+  APP_ENVIRONMENTS,
+  DEFAULT_PROD_URL,
+  type AppEnvironment,
+};
 
 /**
  * Automatically locate Vercel Blob credentials.
@@ -106,10 +125,26 @@ export async function deleteFile(fileUrlOrName: string): Promise<void> {
 }
 
 /**
+ * Helper to write safely to local public/data/ directory
+ */
+function writeLocalDiskFile<T>(filename: string, data: T): void {
+  try {
+    const localDir = path.join(process.cwd(), 'public', 'data');
+    if (!fs.existsSync(localDir)) {
+      fs.mkdirSync(localDir, { recursive: true });
+    }
+    fs.writeFileSync(path.join(localDir, filename), JSON.stringify(data, null, 2), 'utf-8');
+  } catch (err) {
+    console.warn(`Local file write fallback failed:`, err);
+  }
+}
+
+/**
  * Read JSON metadata store (papers.json, attempts.json, active_draft.json).
- * Checks Vercel Blob first; if empty or not enabled, falls back to local files.
+ * Checks Vercel Blob first; if empty or not enabled, checks PROD if in PROD mode, then falls back to local files.
  */
 export async function readJsonStore<T>(filename: string, defaultValue: T): Promise<T> {
+  // 1. Direct Vercel Blob read if credentials exist
   if (isBlobEnabled()) {
     try {
       const listOptions: any = { prefix: filename };
@@ -129,7 +164,42 @@ export async function readJsonStore<T>(filename: string, defaultValue: T): Promi
     }
   }
 
-  // Local fallback / Git bundled files
+  // 2. If running locally in PROD mode (without direct Blob credentials), fetch from live PROD API
+  if (isProdEnv() && !process.env.VERCEL && !getBlobToken()) {
+    try {
+      const prodUrl = getProdApiUrl();
+      if (filename === 'attempts.json') {
+        const res = await fetch(`${prodUrl}/api/attempts`, {
+          redirect: 'follow',
+          cache: 'no-store',
+          headers: { Accept: 'application/json' },
+        });
+        if (res.ok) {
+          const json = await res.json();
+          if (json.ok && Array.isArray(json.attempts)) {
+            writeLocalDiskFile(filename, json.attempts);
+            return json.attempts as unknown as T;
+          }
+        }
+      } else if (filename === 'active_draft.json') {
+        const res = await fetch(`${prodUrl}/api/draft`, {
+          redirect: 'follow',
+          cache: 'no-store',
+          headers: { Accept: 'application/json' },
+        });
+        if (res.ok) {
+          const json = await res.json();
+          if (json.ok) {
+            return json.draft as unknown as T;
+          }
+        }
+      }
+    } catch (err) {
+      console.warn(`Remote fetch for ${filename} from PROD (${getProdApiUrl()}) failed, using local:`, err);
+    }
+  }
+
+  // 3. Local filesystem fallback / cache
   const localPath = path.join(process.cwd(), 'public', 'data', filename);
   if (fs.existsSync(localPath)) {
     try {
@@ -164,15 +234,7 @@ export async function writeJsonStore<T>(filename: string, data: T): Promise<void
 
   // Local filesystem fallback (only when running locally outside Vercel)
   if (!process.env.VERCEL) {
-    try {
-      const localDir = path.join(process.cwd(), 'public', 'data');
-      if (!fs.existsSync(localDir)) {
-        fs.mkdirSync(localDir, { recursive: true });
-      }
-      fs.writeFileSync(path.join(localDir, filename), JSON.stringify(data, null, 2), 'utf-8');
-    } catch (err) {
-      console.warn(`Local file write fallback failed:`, err);
-    }
+    writeLocalDiskFile(filename, data);
   }
 }
 
@@ -197,3 +259,4 @@ export async function deleteJsonStore(filename: string): Promise<void> {
     } catch {}
   }
 }
+

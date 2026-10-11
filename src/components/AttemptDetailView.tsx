@@ -1,9 +1,10 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { Attempt, QuestionPaper } from '../lib/types';
 import { formatTimeSeconds, formatDateTime } from '../lib/defaults';
 import { DetailedSolutionModal } from './DetailedSolutionModal';
+import { PdfViewer } from './PdfViewer';
 import { 
   ArrowLeft, 
   Clock, 
@@ -20,14 +21,19 @@ import {
   Trash2, 
   BookOpen, 
   RotateCcw,
-  Sliders,
-  Sparkles,
-  Download,
-  Printer,
-  Copy,
-  Check,
-  Share2,
-  ChevronDown
+  Download, 
+  Printer, 
+  Copy, 
+  Check, 
+  ChevronDown,
+  ChevronRight,
+  ArrowUpDown,
+  Filter,
+  Lightbulb,
+  Columns,
+  ExternalLink,
+  Maximize2,
+  Minimize2
 } from 'lucide-react';
 import { 
   exportAttemptAsMarkdown, 
@@ -50,7 +56,9 @@ export function AttemptDetailView({
   onUpdate,
   onDelete,
 }: AttemptDetailViewProps) {
-  const [filterTab, setFilterTab] = useState<'all' | 'correct' | 'incorrect' | 'skipped' | 'flagged' | 'altered' | 'slow'>('all');
+  const [filterTab, setFilterTab] = useState<'all' | 'incorrect' | 'correct' | 'skipped' | 'flagged' | 'altered' | 'slow'>('all');
+  const [sortOption, setSortOption] = useState<'qno_asc' | 'qno_desc' | 'time_desc' | 'time_asc'>('qno_asc');
+  const [expandedQuestions, setExpandedQuestions] = useState<Record<number, boolean>>({});
   const [editingGeneralNote, setEditingGeneralNote] = useState<boolean>(false);
   const [generalNote, setGeneralNote] = useState<string>(attempt.generalNotes || '');
   const [editingQNote, setEditingQNote] = useState<number | null>(null);
@@ -59,6 +67,8 @@ export function AttemptDetailView({
   const [submissionModalOpen, setSubmissionModalOpen] = useState<boolean>(false);
   const [showExportMenu, setShowExportMenu] = useState<boolean>(false);
   const [copiedToast, setCopiedToast] = useState<boolean>(false);
+  const [showPaperSplit, setShowPaperSplit] = useState<boolean>(true);
+  const [mobilePaperModalOpen, setMobilePaperModalOpen] = useState<boolean>(false);
 
   // Match corresponding paper for solution PDF with backwards compatibility
   const matchedPaper = papers.find(p => 
@@ -95,23 +105,47 @@ export function AttemptDetailView({
     setEditingQNote(null);
   };
 
-  const questionList = Array.from({ length: attempt.totalQuestions }, (_, i) => i + 1).map(qNo => {
-    return attempt.answers[qNo] || {
-      questionNo: qNo,
-      selected: null,
-      correctAnswer: undefined,
-      isCorrect: null,
-      flagged: false,
-      note: '',
-      timeSpentSeconds: 0,
-      changesCount: 0,
-      answerHistory: [],
-    };
-  });
+  const toggleQuestionExpand = (qNo: number) => {
+    setExpandedQuestions(prev => ({
+      ...prev,
+      [qNo]: !prev[qNo]
+    }));
+  };
 
-  // Calculate scenarios & averages
-  const grossCorrectMarks = attempt.correct * attempt.correctMarks;
-  const negativePenaltyMarks = attempt.incorrect * attempt.incorrectMarks;
+  const expandAll = () => {
+    const allExpanded: Record<number, boolean> = {};
+    for (let i = 1; i <= attempt.totalQuestions; i++) {
+      allExpanded[i] = true;
+    }
+    setExpandedQuestions(allExpanded);
+  };
+
+  const collapseAll = () => {
+    setExpandedQuestions({});
+  };
+
+  // Build complete question list
+  const questionList = useMemo(() => {
+    return Array.from({ length: attempt.totalQuestions }, (_, i) => i + 1).map(qNo => {
+      return attempt.answers[qNo] || {
+        questionNo: qNo,
+        selected: null,
+        correctAnswer: undefined,
+        isCorrect: null,
+        flagged: false,
+        note: '',
+        timeSpentSeconds: 0,
+        changesCount: 0,
+        answerHistory: [],
+      };
+    });
+  }, [attempt]);
+
+  // Derived metrics & negative markings
+  const correctMarksPerQ = attempt.correctMarks || 2.0;
+  const incorrectMarksPerQ = attempt.incorrectMarks || 0.667;
+  const grossCorrectMarks = Math.round((attempt.correct * correctMarksPerQ) * 100) / 100;
+  const negativePenaltyMarks = Math.round((attempt.incorrect * incorrectMarksPerQ) * 100) / 100;
 
   const activeSolvingSeconds = Math.max(0, attempt.durationSeconds - (attempt.idleTimeSeconds || 0));
   const avgTimePerQ = attempt.avgTimePerQuestion || 
@@ -119,55 +153,183 @@ export function AttemptDetailView({
   const avgTimeCorrect = attempt.avgTimeCorrect || 0;
   const avgTimeIncorrect = attempt.avgTimeIncorrect || 0;
 
-  const alteredQuestions = questionList.filter(q => q.changesCount && q.changesCount > 0);
-  const slowQuestions = questionList.filter(q => (q.timeSpentSeconds || 0) >= 90);
+  const alteredQuestions = useMemo(() => questionList.filter(q => q.changesCount && q.changesCount > 0), [questionList]);
+  const slowQuestions = useMemo(() => questionList.filter(q => (q.timeSpentSeconds || 0) >= 90), [questionList]);
+  const flaggedQuestions = useMemo(() => questionList.filter(q => q.flagged), [questionList]);
 
-  // Filtered list
-  const filteredQuestions = questionList.filter(q => {
-    if (filterTab === 'correct') return q.selected && q.isCorrect === true;
-    if (filterTab === 'incorrect') return q.selected && q.isCorrect === false;
-    if (filterTab === 'skipped') return !q.selected;
-    if (filterTab === 'flagged') return q.flagged;
-    if (filterTab === 'altered') return q.changesCount && q.changesCount > 0;
-    if (filterTab === 'slow') return (q.timeSpentSeconds || 0) >= 90;
-    return true;
-  });
+  // Net alteration mark impact
+  const benefitGain = (attempt.alteredBenefitCount || 0) * (correctMarksPerQ + incorrectMarksPerQ);
+  const harmLoss = (attempt.alteredHarmCount || 0) * (correctMarksPerQ + incorrectMarksPerQ);
+  const netAlterationMarks = Math.round((benefitGain - harmLoss) * 100) / 100;
+
+  // Filtered & Sorted questions
+  const filteredQuestions = useMemo(() => {
+    let list = questionList.filter(q => {
+      if (filterTab === 'correct') return q.selected && q.isCorrect === true;
+      if (filterTab === 'incorrect') return q.selected && q.isCorrect === false;
+      if (filterTab === 'skipped') return !q.selected;
+      if (filterTab === 'flagged') return q.flagged;
+      if (filterTab === 'altered') return q.changesCount && q.changesCount > 0;
+      if (filterTab === 'slow') return (q.timeSpentSeconds || 0) >= 90;
+      return true;
+    });
+
+    list.sort((a, b) => {
+      if (sortOption === 'qno_asc') return a.questionNo - b.questionNo;
+      if (sortOption === 'qno_desc') return b.questionNo - a.questionNo;
+      if (sortOption === 'time_desc') return (b.timeSpentSeconds || 0) - (a.timeSpentSeconds || 0);
+      if (sortOption === 'time_asc') return (a.timeSpentSeconds || 0) - (b.timeSpentSeconds || 0);
+      return 0;
+    });
+
+    return list;
+  }, [questionList, filterTab, sortOption]);
+
+  // Section 7: Practical Review Summary recommendations (Up to 3, strictly data-driven)
+  const reviewSuggestions = useMemo(() => {
+    const list: { id: string; title: string; desc: string; targetTab: typeof filterTab }[] = [];
+
+    if (attempt.incorrect > 0) {
+      list.push({
+        id: 'review_incorrect',
+        title: `Review ${attempt.incorrect} Incorrect Answers`,
+        desc: `Negative penalties cost you -${negativePenaltyMarks} marks. Identify whether mistakes were due to misreading, conceptual gaps, or wild guesses.`,
+        targetTab: 'incorrect',
+      });
+    }
+
+    if (slowQuestions.length > 0) {
+      const totalSlowSec = slowQuestions.reduce((acc, q) => acc + (q.timeSpentSeconds || 0), 0);
+      list.push({
+        id: 'review_slow',
+        title: `Revisit ${slowQuestions.length} Slow Questions (>90s)`,
+        desc: `These questions consumed ${formatTimeSeconds(totalSlowSec)} of your exam time. Practice eliminating two options faster to avoid pacing traps.`,
+        targetTab: 'slow',
+      });
+    }
+
+    if ((attempt.alteredHarmCount || 0) > (attempt.alteredBenefitCount || 0)) {
+      list.push({
+        id: 'review_altered_harm',
+        title: `Inspect ${attempt.alteredHarmCount} Harmful Answer Changes`,
+        desc: `Changing answers from correct to incorrect caused a net loss of marks. Trust your initial intuition unless you find concrete proof to revise.`,
+        targetTab: 'altered',
+      });
+    } else if (flaggedQuestions.length > 0) {
+      list.push({
+        id: 'review_flagged',
+        title: `Evaluate ${flaggedQuestions.length} Flagged Questions`,
+        desc: `Review the items you were doubtful about to determine if your 50:50 elimination strategy worked.`,
+        targetTab: 'flagged',
+      });
+    } else if (attempt.unattempted > 0) {
+      list.push({
+        id: 'review_skipped',
+        title: `Assess ${attempt.unattempted} Skipped Questions`,
+        desc: `Verify whether any of these were manageable questions that you skipped due to early hesitation or time pressure.`,
+        targetTab: 'skipped',
+      });
+    }
+
+    return list.slice(0, 3);
+  }, [attempt, negativePenaltyMarks, slowQuestions, flaggedQuestions]);
+
+  // Proportions for horizontal segmented bar
+  const totalQ = attempt.totalQuestions || 100;
+  const correctPct = Math.round((attempt.correct / totalQ) * 100);
+  const incorrectPct = Math.round((attempt.incorrect / totalQ) * 100);
+  const skippedPct = Math.max(0, 100 - correctPct - incorrectPct);
 
   return (
-    <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8 space-y-8 animate-in fade-in duration-300">
+    <div className={`mx-auto ${showPaperSplit && matchedPaper?.qpUrl ? 'max-w-[1920px] px-3 sm:px-6' : 'max-w-5xl px-4 sm:px-6'} py-6 space-y-6 text-slate-100 font-sans animate-in fade-in duration-200 print:text-black print:bg-white print:p-0 print:space-y-4 print:max-w-none`}>
       
-      {/* Top Navigation & Actions */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 border-b border-slate-800 pb-5 print:hidden">
+      {/* Official Examination Header for Print & PDF Export */}
+      <div className="hidden print:block pb-5 mb-5 border-b-2 border-slate-900 text-black">
+        <div className="text-center space-y-1">
+          <div className="text-[11px] font-black uppercase tracking-widest text-slate-800">
+            UNION PUBLIC SERVICE COMMISSION (UPSC)
+          </div>
+          <div className="text-base font-black text-black uppercase tracking-wider">
+            CIVIL SERVICES EXAMINATION — OFFICIAL CANDIDATE ASSESSMENT REPORT
+          </div>
+          <h1 className="text-2xl font-extrabold text-black pt-1">
+            {attempt.paperLabel}
+          </h1>
+          <div className="flex flex-wrap justify-center items-center gap-3 text-xs font-semibold text-slate-700 pt-2 border-t border-slate-300 mt-2">
+            <span><strong>Exam Stage:</strong> {attempt.category.toUpperCase()} ({attempt.examType.toUpperCase()})</span>
+            <span>•</span>
+            <span><strong>Max Marks:</strong> {attempt.maxScore}</span>
+            <span>•</span>
+            <span><strong>Prescribed Time:</strong> {attempt.timeMinutes || 120} Mins</span>
+            <span>•</span>
+            <span><strong>Attempted:</strong> {formatDateTime(attempt.startedAt)}</span>
+            <span>•</span>
+            <span><strong>Duration:</strong> {formatTimeSeconds(attempt.durationSeconds)}</span>
+            <span>•</span>
+            <span><strong>Ref ID:</strong> {attempt.id}</span>
+          </div>
+        </div>
+      </div>
+
+      {/* 1. Header Bar & Actions (Clean, restrained, professional) */}
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 border-b border-slate-800 pb-4 print:hidden">
         <div className="flex items-center gap-3">
           <button
             onClick={onBack}
-            className="flex items-center gap-1.5 rounded-xl border border-slate-700 bg-slate-900 px-3.5 py-2 text-xs font-semibold text-slate-300 hover:bg-slate-800 hover:text-white transition-all shadow-sm"
+            className="flex items-center gap-1.5 rounded-lg border border-slate-700 bg-slate-900 px-3 py-1.5 text-xs font-semibold text-slate-300 hover:bg-slate-800 hover:text-white transition-colors"
           >
-            <ArrowLeft className="h-4 w-4" /> Back to History
+            <ArrowLeft className="h-3.5 w-3.5" /> Back
           </button>
           <div>
             <div className="flex items-center gap-2">
-              <span className="text-[10px] uppercase font-bold px-2 py-0.5 rounded bg-indigo-500/10 text-indigo-400 border border-indigo-500/20">
-                Mock Exam Assessment Report
+              <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded bg-indigo-500/10 text-indigo-400 border border-indigo-500/20">
+                Mock Assessment Report
               </span>
-              <span className="text-xs text-slate-500">{formatDateTime(attempt.startedAt)}</span>
+              <span className="text-xs text-slate-400">{formatDateTime(attempt.startedAt)}</span>
             </div>
-            <h1 className="mt-1 text-2xl font-extrabold text-white tracking-tight">
+            <h1 className="text-xl sm:text-2xl font-bold text-white tracking-tight mt-0.5">
               {attempt.paperLabel}
             </h1>
           </div>
         </div>
 
-        <div className="flex items-center gap-2.5 flex-wrap">
-          {/* Export Report Dropdown */}
+        <div className="flex items-center gap-2 flex-wrap">
+          {/* Question Paper Preview Toggle (Desktop Side-by-Side & Mobile Modal) */}
+          {matchedPaper?.qpUrl && (
+            <>
+              <button
+                onClick={() => setShowPaperSplit(!showPaperSplit)}
+                className={`hidden lg:flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-bold transition-all shadow-sm ${
+                  showPaperSplit
+                    ? 'bg-gradient-to-r from-indigo-600 to-violet-600 text-white shadow-indigo-500/25 ring-1 ring-indigo-400/50'
+                    : 'border border-slate-700 bg-slate-900 text-slate-300 hover:bg-slate-800 hover:text-white'
+                }`}
+                title="Toggle side-by-side view with Question Paper PDF"
+              >
+                <Columns className="h-3.5 w-3.5" />
+                <span>{showPaperSplit ? 'Side-by-Side: ON' : 'Preview Paper PDF'}</span>
+              </button>
+
+              <button
+                onClick={() => setMobilePaperModalOpen(true)}
+                className="flex lg:hidden items-center gap-1.5 rounded-lg border border-indigo-500/30 bg-indigo-500/10 px-3 py-1.5 text-xs font-semibold text-indigo-300 hover:bg-indigo-500/20"
+                title="Open Question Paper PDF in modal"
+              >
+                <BookOpen className="h-3.5 w-3.5" />
+                <span>View Paper PDF</span>
+              </button>
+            </>
+          )}
+
+          {/* Export Dropdown */}
           <div className="relative">
             <button
               onClick={() => setShowExportMenu(!showExportMenu)}
-              className="flex items-center gap-1.5 rounded-xl bg-indigo-600 px-3.5 py-2 text-xs font-bold text-white shadow-md shadow-indigo-600/30 hover:bg-indigo-500 transition-all"
+              className="flex items-center gap-1.5 rounded-lg bg-indigo-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-indigo-500 transition-colors shadow-sm"
             >
-              <Download className="h-4 w-4" />
-              <span>Export Report</span>
-              <ChevronDown className={`h-3.5 w-3.5 transition-transform ${showExportMenu ? 'rotate-180' : ''}`} />
+              <Download className="h-3.5 w-3.5" />
+              <span>Export</span>
+              <ChevronDown className={`h-3 w-3 transition-transform ${showExportMenu ? 'rotate-180' : ''}`} />
             </button>
 
             {showExportMenu && (
@@ -176,19 +338,16 @@ export function AttemptDetailView({
                   className="fixed inset-0 z-40" 
                   onClick={() => setShowExportMenu(false)} 
                 />
-                <div className="absolute right-0 mt-2 z-50 w-60 rounded-2xl border border-slate-700 bg-slate-900 p-2 shadow-2xl space-y-1">
+                <div className="absolute right-0 mt-1.5 z-50 w-52 rounded-xl border border-slate-800 bg-slate-900 p-1.5 shadow-xl space-y-1">
                   <button
                     onClick={() => {
                       exportAttemptAsMarkdown(attempt);
                       setShowExportMenu(false);
                     }}
-                    className="flex w-full items-center gap-2.5 rounded-xl px-3 py-2 text-xs font-semibold text-slate-200 hover:bg-slate-800 hover:text-white transition-colors"
+                    className="flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-xs font-medium text-slate-300 hover:bg-slate-800 hover:text-white transition-colors"
                   >
-                    <FileText className="h-4 w-4 text-indigo-400 shrink-0" />
-                    <div className="text-left">
-                      <div>Download Report (.md)</div>
-                      <div className="text-[10px] text-slate-400 font-normal">Formatted text & response sheet</div>
-                    </div>
+                    <FileText className="h-3.5 w-3.5 text-indigo-400" />
+                    <span>Download Markdown (.md)</span>
                   </button>
 
                   <button
@@ -196,13 +355,10 @@ export function AttemptDetailView({
                       handlePrint();
                       setShowExportMenu(false);
                     }}
-                    className="flex w-full items-center gap-2.5 rounded-xl px-3 py-2 text-xs font-semibold text-slate-200 hover:bg-slate-800 hover:text-white transition-colors"
+                    className="flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-xs font-medium text-slate-300 hover:bg-slate-800 hover:text-white transition-colors"
                   >
-                    <Printer className="h-4 w-4 text-emerald-400 shrink-0" />
-                    <div className="text-left">
-                      <div>Print / Save as PDF</div>
-                      <div className="text-[10px] text-slate-400 font-normal">Clean high-contrast A4 printout</div>
-                    </div>
+                    <Printer className="h-3.5 w-3.5 text-emerald-400" />
+                    <span>Print / Save as PDF</span>
                   </button>
 
                   <button
@@ -210,29 +366,21 @@ export function AttemptDetailView({
                       exportAttemptAsJSON(attempt);
                       setShowExportMenu(false);
                     }}
-                    className="flex w-full items-center gap-2.5 rounded-xl px-3 py-2 text-xs font-semibold text-slate-200 hover:bg-slate-800 hover:text-white transition-colors"
+                    className="flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-xs font-medium text-slate-300 hover:bg-slate-800 hover:text-white transition-colors"
                   >
-                    <Download className="h-4 w-4 text-amber-400 shrink-0" />
-                    <div className="text-left">
-                      <div>Download Raw Data (.json)</div>
-                      <div className="text-[10px] text-slate-400 font-normal">Full attempt record & questions</div>
-                    </div>
+                    <Download className="h-3.5 w-3.5 text-amber-400" />
+                    <span>Download JSON (.json)</span>
                   </button>
-
-                  <div className="border-t border-slate-800 my-1" />
 
                   <button
                     onClick={() => {
                       handleCopySummary();
                       setShowExportMenu(false);
                     }}
-                    className="flex w-full items-center gap-2.5 rounded-xl px-3 py-2 text-xs font-semibold text-slate-200 hover:bg-slate-800 hover:text-white transition-colors"
+                    className="flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-xs font-medium text-slate-300 hover:bg-slate-800 hover:text-white transition-colors"
                   >
-                    <Copy className="h-4 w-4 text-violet-400 shrink-0" />
-                    <div className="text-left">
-                      <div>Copy Summary</div>
-                      <div className="text-[10px] text-slate-400 font-normal">Markdown snippet to clipboard</div>
-                    </div>
+                    <Copy className="h-3.5 w-3.5 text-indigo-400" />
+                    <span>Copy Summary to Clipboard</span>
                   </button>
                 </div>
               </>
@@ -242,256 +390,384 @@ export function AttemptDetailView({
           {matchedPaper?.exsUrl && (
             <button
               onClick={() => setSolutionModalOpen(true)}
-              className="flex items-center gap-1.5 rounded-xl bg-indigo-600/20 border border-indigo-500/40 px-3.5 py-2 text-xs font-bold text-indigo-300 hover:bg-indigo-600 hover:text-white transition-all"
+              className="flex items-center gap-1.5 rounded-lg border border-indigo-500/30 bg-indigo-500/10 px-3 py-1.5 text-xs font-semibold text-indigo-300 hover:bg-indigo-500/20 transition-colors"
             >
-              <BookOpen className="h-4 w-4" />
-              Detailed Solution
+              <BookOpen className="h-3.5 w-3.5" />
+              <span>Solution Key</span>
             </button>
           )}
+
           {attempt.userSubmissionPdfUrl && (
             <button
               onClick={() => setSubmissionModalOpen(true)}
-              className="flex items-center gap-1.5 rounded-xl bg-emerald-600/20 border border-emerald-500/40 px-3.5 py-2 text-xs font-bold text-emerald-300 hover:bg-emerald-600 hover:text-white transition-all"
+              className="flex items-center gap-1.5 rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-3 py-1.5 text-xs font-semibold text-emerald-300 hover:bg-emerald-500/20 transition-colors"
             >
-              <FileText className="h-4 w-4" />
-              My Answer Booklet
+              <FileText className="h-3.5 w-3.5" />
+              <span>Answer Booklet</span>
             </button>
           )}
+
           <button
             onClick={() => onDelete(attempt.id)}
-            className="flex items-center gap-1.5 rounded-xl border border-rose-900/40 bg-rose-950/20 px-3 py-2 text-xs font-semibold text-rose-400 hover:bg-rose-900/40 transition-colors"
+            className="flex items-center gap-1.5 rounded-lg border border-rose-900/40 bg-rose-950/20 px-2.5 py-1.5 text-xs font-semibold text-rose-400 hover:bg-rose-900/40 transition-colors"
+            title="Delete this attempt"
           >
-            <Trash2 className="h-4 w-4" /> Delete
-          </button>
-        </div>
-      </div>
-
-      {/* Assessment Completed Banner / Scorecard Ribbon */}
-      <div className="rounded-2xl border border-indigo-500/30 bg-gradient-to-r from-indigo-950/40 via-slate-900/90 to-slate-900/70 p-4 sm:p-5 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 shadow-sm">
-        <div className="flex items-center gap-3.5">
-          <div className="rounded-xl bg-indigo-500/20 p-2.5 text-indigo-400 shrink-0">
-            <CheckCircle2 className="h-6 w-6" />
-          </div>
-          <div>
-            <div className="flex items-center gap-2">
-              <h2 className="text-base font-bold text-white">Assessment Complete & Evaluated</h2>
-              <span className="text-[10px] font-semibold bg-emerald-500/20 text-emerald-400 px-2 py-0.5 rounded-full border border-emerald-500/30">
-                Official Result
-              </span>
-            </div>
-            <p className="text-xs text-slate-300 mt-0.5">
-              Scored against the UPSC official answer key with negative marking applied. Review breakdown below or export this specific attempt.
-            </p>
-          </div>
-        </div>
-
-        <div className="flex items-center gap-2 shrink-0 print:hidden">
-          <button
-            onClick={() => exportAttemptAsMarkdown(attempt)}
-            className="flex items-center gap-1.5 rounded-xl border border-slate-700 bg-slate-800 px-3 py-1.5 text-xs font-semibold text-slate-200 hover:bg-slate-700 transition-colors"
-          >
-            <Download className="h-3.5 w-3.5 text-indigo-400" /> Export .md
-          </button>
-          <button
-            onClick={handlePrint}
-            className="flex items-center gap-1.5 rounded-xl border border-slate-700 bg-slate-800 px-3 py-1.5 text-xs font-semibold text-slate-200 hover:bg-slate-700 transition-colors"
-          >
-            <Printer className="h-3.5 w-3.5 text-emerald-400" /> Print PDF
+            <Trash2 className="h-3.5 w-3.5" />
           </button>
         </div>
       </div>
 
       {/* Copy Notification Toast */}
       {copiedToast && (
-        <div className="fixed bottom-6 right-6 z-50 rounded-xl bg-emerald-600 px-4 py-2.5 text-xs font-bold text-white shadow-xl animate-in fade-in slide-in-from-bottom-2 flex items-center gap-2">
+        <div className="fixed bottom-6 right-6 z-50 rounded-xl bg-emerald-600 px-4 py-2 text-xs font-bold text-white shadow-xl animate-in fade-in flex items-center gap-2">
           <Check className="h-4 w-4" />
-          <span>Attempt performance summary copied to clipboard!</span>
+          <span>Summary copied to clipboard</span>
         </div>
       )}
 
-      {/* Primary KPI Ribbon */}
-      <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
-        
-        {/* Net Score */}
-        <div className="rounded-2xl border border-slate-800 bg-slate-900/80 p-5 backdrop-blur-sm shadow-sm">
-          <div className="flex items-center justify-between text-slate-400 mb-2">
-            <span className="text-xs font-medium uppercase tracking-wider">Final Net Score</span>
-            <Award className="h-4 w-4 text-amber-400" />
+      {/* Main Content Area: Split View Container */}
+      <div className={`flex flex-col ${showPaperSplit && matchedPaper?.qpUrl ? 'lg:flex-row' : ''} gap-6 items-start`}>
+
+        {/* Left Side: Sticky Question Paper PDF Viewer (Desktop Only) */}
+        {showPaperSplit && matchedPaper?.qpUrl && (
+          <div className="hidden lg:flex flex-col w-full lg:w-1/2 sticky top-20 h-[calc(100vh-6.5rem)] rounded-2xl overflow-hidden border border-slate-800 bg-slate-950 shadow-2xl shrink-0 print:hidden z-10">
+            <div className="flex items-center justify-between px-4 py-2.5 bg-slate-900/95 border-b border-slate-800 shrink-0">
+              <div className="flex items-center gap-2 text-xs font-bold text-slate-200">
+                <BookOpen className="h-4 w-4 text-indigo-400" />
+                <span className="truncate max-w-[260px]">{matchedPaper.label}</span>
+                <span className="text-[10px] px-1.5 py-0.5 rounded bg-indigo-500/10 text-indigo-400 border border-indigo-500/20 uppercase font-mono font-bold">
+                  Question Paper
+                </span>
+              </div>
+              <div className="flex items-center gap-2">
+                <a
+                  href={matchedPaper.qpUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex items-center gap-1 text-[11px] font-semibold text-slate-400 hover:text-white px-2 py-1 rounded bg-slate-800 hover:bg-slate-700 transition-colors"
+                  title="Open PDF in external browser tab"
+                >
+                  <ExternalLink className="h-3 w-3" />
+                  <span>Popout</span>
+                </a>
+                <button
+                  onClick={() => setShowPaperSplit(false)}
+                  className="text-xs font-bold text-slate-400 hover:text-rose-400 px-2 py-1 rounded hover:bg-slate-800 transition-colors"
+                  title="Hide question paper split view"
+                >
+                  ✕ Hide
+                </button>
+              </div>
+            </div>
+            <div className="flex-1 min-h-0 bg-slate-950">
+              <PdfViewer url={matchedPaper.qpUrl} title={matchedPaper.label} />
+            </div>
           </div>
-          <div className="text-3xl font-extrabold text-white">
-            {attempt.score}
-            <span className="text-sm font-normal text-slate-500 ml-1.5">/ {attempt.maxScore}</span>
+        )}
+
+        {/* Right Side: Assessment Report & Responses */}
+        <div className={`w-full ${showPaperSplit && matchedPaper?.qpUrl ? 'lg:w-1/2' : 'max-w-5xl mx-auto'} space-y-6 min-w-0`}>
+
+      {/* 2. SIMPLE SCORE SUMMARY (Compact, clear, final score most prominent) */}
+      <div className="rounded-xl border border-slate-800 bg-slate-900/90 p-5 space-y-4 shadow-sm">
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-slate-800/80 pb-4">
+          {/* Most prominent metric: Final Score */}
+          <div className="flex items-baseline gap-2">
+            <span className="text-xs uppercase font-bold tracking-wider text-slate-400">Final Score:</span>
+            <span className="text-3xl sm:text-4xl font-extrabold text-white tracking-tight">
+              {attempt.score}
+            </span>
+            <span className="text-base font-semibold text-slate-400">
+              / {attempt.maxScore}
+            </span>
+            <span className="ml-2 text-xs text-indigo-400 font-semibold bg-indigo-950/50 border border-indigo-800/40 px-2 py-0.5 rounded">
+              {Math.round((attempt.score / (attempt.maxScore || 1)) * 1000) / 10}%
+            </span>
           </div>
-          <div className="mt-1 text-[11px] text-slate-400">
-            {Math.round((attempt.score / (attempt.maxScore || 1)) * 1000) / 10}% of max score
+
+          {/* Key metrics row */}
+          <div className="grid grid-cols-2 sm:grid-cols-5 gap-3 text-xs">
+            {/* Accuracy */}
+            <div className="bg-slate-950/80 border border-slate-800 rounded-lg p-2.5">
+              <span className="text-[11px] text-slate-400 block">Accuracy</span>
+              <span className="text-base font-bold text-emerald-400 font-mono">
+                {attempt.accuracyPct}%
+              </span>
+            </div>
+
+            {/* Correct */}
+            <div className="bg-slate-950/80 border border-slate-800 rounded-lg p-2.5">
+              <span className="text-[11px] text-slate-400 block">Correct</span>
+              <span className="text-base font-bold text-emerald-400 font-mono">
+                {attempt.correct}
+              </span>
+            </div>
+
+            {/* Incorrect */}
+            <div className="bg-slate-950/80 border border-slate-800 rounded-lg p-2.5">
+              <span className="text-[11px] text-slate-400 block">Incorrect</span>
+              <span className="text-base font-bold text-rose-400 font-mono">
+                {attempt.incorrect}
+              </span>
+            </div>
+
+            {/* Skipped */}
+            <div className="bg-slate-950/80 border border-slate-800 rounded-lg p-2.5">
+              <span className="text-[11px] text-slate-400 block">Skipped</span>
+              <span className="text-base font-bold text-slate-300 font-mono">
+                {attempt.unattempted}
+              </span>
+            </div>
+
+            {/* Avg Pace */}
+            <div className="bg-slate-950/80 border border-slate-800 rounded-lg p-2.5 col-span-2 sm:col-span-1">
+              <span className="text-[11px] text-slate-400 block">Avg Pace</span>
+              <span className="text-base font-bold text-indigo-300 font-mono">
+                {avgTimePerQ}s <span className="text-[10px] font-normal text-slate-400">/Q</span>
+              </span>
+            </div>
           </div>
         </div>
 
-        {/* Accuracy */}
-        <div className="rounded-2xl border border-slate-800 bg-slate-900/80 p-5 backdrop-blur-sm shadow-sm">
-          <div className="flex items-center justify-between text-slate-400 mb-2">
-            <span className="text-xs font-medium uppercase tracking-wider">Accuracy</span>
-            <Target className="h-4 w-4 text-emerald-400" />
+        {/* Horizontal Segmented Bar (Simple, clear, no bulky circular dials) */}
+        <div className="space-y-1.5 pt-1">
+          <div className="flex items-center justify-between text-xs text-slate-400">
+            <span>Question Outcome Distribution ({totalQ} Total Questions)</span>
+            <span>Total Time: {formatTimeSeconds(attempt.durationSeconds)}</span>
           </div>
-          <div className="text-3xl font-extrabold text-emerald-400">
-            {attempt.accuracyPct}%
-          </div>
-          <div className="mt-1 text-[11px] text-slate-400">
-            {attempt.correct} correct out of {attempt.answered} attempted
-          </div>
-        </div>
 
-        {/* Avg Time / Q */}
-        <div className="rounded-2xl border border-slate-800 bg-slate-900/80 p-5 backdrop-blur-sm shadow-sm">
-          <div className="flex items-center justify-between text-slate-400 mb-2">
-            <span className="text-xs font-medium uppercase tracking-wider">Average Pace</span>
-            <Clock className="h-4 w-4 text-indigo-400" />
+          <div className="h-2.5 w-full rounded-full bg-slate-800 overflow-hidden flex">
+            {attempt.correct > 0 && (
+              <div
+                style={{ width: `${correctPct}%` }}
+                className="bg-emerald-500 h-full"
+                title={`Correct: ${attempt.correct} (${correctPct}%)`}
+              />
+            )}
+            {attempt.incorrect > 0 && (
+              <div
+                style={{ width: `${incorrectPct}%` }}
+                className="bg-rose-500 h-full"
+                title={`Incorrect: ${attempt.incorrect} (${incorrectPct}%)`}
+              />
+            )}
+            {attempt.unattempted > 0 && (
+              <div
+                style={{ width: `${skippedPct}%` }}
+                className="bg-slate-600 h-full"
+                title={`Skipped: ${attempt.unattempted} (${skippedPct}%)`}
+              />
+            )}
           </div>
-          <div className="text-3xl font-extrabold text-indigo-300 font-mono">
-            {avgTimePerQ}s
-            <span className="text-xs font-normal text-slate-500 ml-1">/ Q</span>
-          </div>
-          <div className="mt-1 text-[11px] text-slate-400">
-            Total: {formatTimeSeconds(attempt.durationSeconds)}
-          </div>
-        </div>
 
-        {/* Questions Breakdown */}
-        <div className="rounded-2xl border border-slate-800 bg-slate-900/80 p-5 backdrop-blur-sm shadow-sm">
-          <div className="flex items-center justify-between text-slate-400 mb-2">
-            <span className="text-xs font-medium uppercase tracking-wider">Breakdown</span>
-            <Zap className="h-4 w-4 text-violet-400" />
-          </div>
-          <div className="text-xl font-bold text-white mt-1">
-            <span className="text-emerald-400">{attempt.correct}C</span> •{' '}
-            <span className="text-rose-400">{attempt.incorrect}W</span> •{' '}
-            <span className="text-slate-400">{attempt.unattempted}S</span>
-          </div>
-          <div className="mt-2 text-[11px] text-slate-400">
-            {attempt.unattempted} skipped (0 penalty)
+          <div className="flex items-center gap-4 text-[11px] text-slate-400 pt-0.5">
+            <span className="flex items-center gap-1.5">
+              <span className="h-2 w-2 rounded-full bg-emerald-500" />
+              <strong className="text-emerald-400 font-medium">{attempt.correct} Correct</strong> ({correctPct}%)
+            </span>
+            <span className="flex items-center gap-1.5">
+              <span className="h-2 w-2 rounded-full bg-rose-500" />
+              <strong className="text-rose-400 font-medium">{attempt.incorrect} Incorrect</strong> ({incorrectPct}%)
+            </span>
+            <span className="flex items-center gap-1.5">
+              <span className="h-2 w-2 rounded-full bg-slate-500" />
+              <strong className="text-slate-300 font-medium">{attempt.unattempted} Skipped</strong> ({skippedPct}%)
+            </span>
           </div>
         </div>
       </div>
 
-      {/* Scenario Nuance Breakdown Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
-        
-        {/* Scenario 1: Time Nuances */}
-        <div className="rounded-2xl border border-slate-800 bg-slate-900 p-5 space-y-4">
-          <div className="flex items-center gap-2">
-            <div className="rounded-lg bg-indigo-500/10 p-2 text-indigo-400">
-              <Clock className="h-4 w-4" />
+      {/* 3. SIMPLE MARKS BREAKDOWN (Direct horizontal comparison of penalties) */}
+      <div className="rounded-xl border border-slate-800 bg-slate-900/60 p-4 space-y-3">
+        <div className="text-xs font-bold text-slate-400 uppercase tracking-wider">
+          Marks Breakdown & Negative Marking Drag
+        </div>
+
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+          {/* Gross Marks */}
+          <div className="rounded-lg bg-emerald-950/20 border border-emerald-900/40 p-3">
+            <div className="text-[11px] font-semibold text-emerald-400">Gross Marks Earned</div>
+            <div className="text-2xl font-bold text-emerald-300 font-mono mt-0.5">
+              +{grossCorrectMarks}
             </div>
-            <div>
-              <h3 className="text-sm font-bold text-white">Time & Speed Nuances</h3>
-              <p className="text-[11px] text-slate-400">Pacing comparison on answers</p>
+            <div className="text-[11px] text-slate-400 mt-1">
+              {attempt.correct} correct × {attempt.correctMarks} marks
             </div>
           </div>
 
-          <div className="space-y-2.5 text-xs">
-            <div className="flex items-center justify-between p-2.5 rounded-xl bg-slate-950 border border-slate-800">
-              <span className="text-slate-400">Time on Correct Qs:</span>
-              <span className="font-bold text-emerald-400 font-mono">
+          {/* Penalties */}
+          <div className="rounded-lg bg-rose-950/20 border border-rose-900/40 p-3">
+            <div className="text-[11px] font-semibold text-rose-400">Marks Deducted (Negative Marking)</div>
+            <div className="text-2xl font-bold text-rose-300 font-mono mt-0.5">
+              -{negativePenaltyMarks}
+            </div>
+            <div className="text-[11px] text-slate-400 mt-1">
+              {attempt.incorrect} incorrect × {attempt.incorrectMarks} penalty
+            </div>
+          </div>
+
+          {/* Net Marks */}
+          <div className="rounded-lg bg-indigo-950/20 border border-indigo-900/40 p-3">
+            <div className="text-[11px] font-semibold text-indigo-300">Final Net Score</div>
+            <div className="text-2xl font-bold text-white font-mono mt-0.5">
+              {attempt.score} <span className="text-xs font-normal text-slate-400">/ {attempt.maxScore}</span>
+            </div>
+            <div className="text-[11px] text-slate-400 mt-1">
+              {grossCorrectMarks > 0 
+                ? `Penalties eroded ${Math.round((negativePenaltyMarks / grossCorrectMarks) * 100)}% of gross marks`
+                : 'Scored with official negative marking'
+              }
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* 4 & 5. TIME ANALYSIS & ANSWER CHANGE ANALYSIS (Side-by-side, compact) */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        
+        {/* 4. Time Analysis */}
+        <div className="rounded-xl border border-slate-800 bg-slate-900/60 p-4 space-y-3">
+          <div className="flex items-center justify-between">
+            <div className="text-xs font-bold text-slate-400 uppercase tracking-wider">
+              Time Analysis
+            </div>
+            {slowQuestions.length > 0 && (
+              <button
+                onClick={() => setFilterTab('slow')}
+                className="text-[11px] font-semibold text-amber-400 hover:text-amber-300 bg-amber-950/30 border border-amber-800/40 rounded px-2 py-0.5 transition-colors"
+              >
+                View {slowQuestions.length} Slow Qs →
+              </button>
+            )}
+          </div>
+
+          <div className="grid grid-cols-2 gap-2 text-xs">
+            <div className="p-2.5 rounded-lg bg-slate-950 border border-slate-800/80">
+              <span className="text-[11px] text-slate-400 block">Average Pace</span>
+              <span className="font-bold text-white font-mono text-sm">{avgTimePerQ}s / Q</span>
+            </div>
+            <div className="p-2.5 rounded-lg bg-slate-950 border border-slate-800/80">
+              <span className="text-[11px] text-slate-400 block">Pace on Correct Qs</span>
+              <span className="font-bold text-emerald-400 font-mono text-sm">
                 {avgTimeCorrect > 0 ? `${avgTimeCorrect}s avg` : '—'}
               </span>
             </div>
-            <div className="flex items-center justify-between p-2.5 rounded-xl bg-slate-950 border border-slate-800">
-              <span className="text-slate-400">Time on Incorrect Qs:</span>
-              <span className="font-bold text-rose-400 font-mono">
+            <div className="p-2.5 rounded-lg bg-slate-950 border border-slate-800/80">
+              <span className="text-[11px] text-slate-400 block">Pace on Incorrect Qs</span>
+              <span className="font-bold text-rose-400 font-mono text-sm">
                 {avgTimeIncorrect > 0 ? `${avgTimeIncorrect}s avg` : '—'}
               </span>
             </div>
-            <div className="flex items-center justify-between p-2.5 rounded-xl bg-slate-950 border border-slate-800">
-              <span className="text-slate-400">Slow Questions (&gt;90s):</span>
-              <span className="font-bold text-amber-400">
+            <div className="p-2.5 rounded-lg bg-slate-950 border border-slate-800/80">
+              <span className="text-[11px] text-slate-400 block">Slow Questions (&gt;90s)</span>
+              <span className={`font-bold font-mono text-sm ${slowQuestions.length > 0 ? 'text-amber-400' : 'text-slate-300'}`}>
                 {slowQuestions.length} questions
               </span>
             </div>
-            {attempt.idleTimeSeconds !== undefined && attempt.idleTimeSeconds > 0 && (
-              <div className="flex items-center justify-between p-2.5 rounded-xl bg-slate-950 border border-slate-800">
-                <span className="text-slate-400">Instructions / Overview:</span>
-                <span className="font-bold text-indigo-300 font-mono">
-                  {formatTimeSeconds(attempt.idleTimeSeconds)}
-                </span>
-              </div>
+          </div>
+          {attempt.idleTimeSeconds !== undefined && attempt.idleTimeSeconds > 0 && (
+            <div className="text-[11px] text-slate-400 bg-slate-950 p-2 rounded-lg border border-slate-800/80 flex justify-between">
+              <span>Cover & Instructions Reading Buffer:</span>
+              <span className="font-mono text-indigo-300">{formatTimeSeconds(attempt.idleTimeSeconds)}</span>
+            </div>
+          )}
+        </div>
+
+        {/* 5. Answer Change Analysis (Second-Guessing Impact) */}
+        <div className="rounded-xl border border-slate-800 bg-slate-900/60 p-4 space-y-3">
+          <div className="flex items-center justify-between">
+            <div className="text-xs font-bold text-slate-400 uppercase tracking-wider">
+              Answer Changes (Second-Guessing)
+            </div>
+            {alteredQuestions.length > 0 && (
+              <button
+                onClick={() => setFilterTab('altered')}
+                className="text-[11px] font-semibold text-indigo-400 hover:text-indigo-300 bg-indigo-950/30 border border-indigo-800/40 rounded px-2 py-0.5 transition-colors"
+              >
+                View {alteredQuestions.length} Changed Qs →
+              </button>
             )}
           </div>
-        </div>
 
-        {/* Scenario 2: Second-Guessing / Alteration Nuances */}
-        <div className="rounded-2xl border border-slate-800 bg-slate-900 p-5 space-y-4">
-          <div className="flex items-center gap-2">
-            <div className="rounded-lg bg-amber-500/10 p-2 text-amber-400">
-              <RotateCcw className="h-4 w-4" />
+          <div className="grid grid-cols-2 gap-2 text-xs">
+            <div className="p-2.5 rounded-lg bg-slate-950 border border-slate-800/80">
+              <span className="text-[11px] text-slate-400 block">Answers Changed</span>
+              <span className="font-bold text-white font-mono text-sm">{alteredQuestions.length} questions</span>
             </div>
-            <div>
-              <h3 className="text-sm font-bold text-white">Second-Guessing Impact</h3>
-              <p className="text-[11px] text-slate-400">Altered answers evaluation</p>
+            <div className="p-2.5 rounded-lg bg-slate-950 border border-slate-800/80">
+              <span className="text-[11px] text-slate-400 block">Wrong → Right</span>
+              <span className="font-bold text-emerald-400 font-mono text-sm">+{attempt.alteredBenefitCount || 0} beneficial</span>
             </div>
-          </div>
-
-          <div className="space-y-2.5 text-xs">
-            <div className="flex items-center justify-between p-2.5 rounded-xl bg-slate-950 border border-slate-800">
-              <span className="text-slate-400">Total Altered Answers:</span>
-              <span className="font-bold text-white">{alteredQuestions.length}</span>
+            <div className="p-2.5 rounded-lg bg-slate-950 border border-slate-800/80">
+              <span className="text-[11px] text-slate-400 block">Right → Wrong</span>
+              <span className="font-bold text-rose-400 font-mono text-sm">-{attempt.alteredHarmCount || 0} harmful</span>
             </div>
-            <div className="flex items-center justify-between p-2.5 rounded-xl bg-slate-950 border border-slate-800">
-              <span className="text-slate-400">Wrong → Right (Benefited):</span>
-              <span className="font-bold text-emerald-400">
-                +{attempt.alteredBenefitCount || 0}
-              </span>
-            </div>
-            <div className="flex items-center justify-between p-2.5 rounded-xl bg-slate-950 border border-slate-800">
-              <span className="text-slate-400">Right → Wrong (Harmed):</span>
-              <span className="font-bold text-rose-400">
-                -{attempt.alteredHarmCount || 0}
+            <div className="p-2.5 rounded-lg bg-slate-950 border border-slate-800/80">
+              <span className="text-[11px] text-slate-400 block">Net Marks Impact</span>
+              <span className={`font-bold font-mono text-sm ${netAlterationMarks > 0 ? 'text-emerald-400' : netAlterationMarks < 0 ? 'text-rose-400' : 'text-slate-300'}`}>
+                {netAlterationMarks > 0 ? `+${netAlterationMarks}` : netAlterationMarks} marks
               </span>
             </div>
           </div>
-        </div>
-
-        {/* Scenario 3: Negative Marking Drag */}
-        <div className="rounded-2xl border border-slate-800 bg-slate-900 p-5 space-y-4">
-          <div className="flex items-center gap-2">
-            <div className="rounded-lg bg-rose-500/10 p-2 text-rose-400">
-              <TrendingUp className="h-4 w-4" />
-            </div>
-            <div>
-              <h3 className="text-sm font-bold text-white">Marks & Negative Damage</h3>
-              <p className="text-[11px] text-slate-400">Impact of penalties on score</p>
-            </div>
-          </div>
-
-          <div className="space-y-2.5 text-xs">
-            <div className="flex items-center justify-between p-2.5 rounded-xl bg-slate-950 border border-slate-800">
-              <span className="text-slate-400">Gross Marks Gained:</span>
-              <span className="font-bold text-emerald-400">+{Math.round(grossCorrectMarks * 100) / 100}</span>
-            </div>
-            <div className="flex items-center justify-between p-2.5 rounded-xl bg-slate-950 border border-slate-800">
-              <span className="text-slate-400">Lost to Negatives:</span>
-              <span className="font-bold text-rose-400">-{Math.round(negativePenaltyMarks * 100) / 100}</span>
-            </div>
-            <div className="flex items-center justify-between p-2.5 rounded-xl bg-slate-950 border border-slate-800">
-              <span className="text-slate-400">Net Final Marks:</span>
-              <span className="font-bold text-white">{attempt.score}</span>
-            </div>
+          <div className="text-[11px] text-slate-400 bg-slate-950 p-2 rounded-lg border border-slate-800/80">
+            {alteredQuestions.length === 0 ? (
+              <span>No answers were altered during this attempt.</span>
+            ) : netAlterationMarks < 0 ? (
+              <span className="text-rose-400">Second-guessing cost net marks. Review revised questions below.</span>
+            ) : (
+              <span className="text-emerald-400">Revisions yielded net positive marks gain.</span>
+            )}
           </div>
         </div>
       </div>
 
-      {/* Attempt Observations & Notes */}
-      <div className="rounded-2xl border border-slate-800 bg-slate-900 p-5 space-y-3">
+      {/* 7. PRACTICAL REVIEW SUMMARY ("What to Review" - Actionable, supported by data) */}
+      {reviewSuggestions.length > 0 && (
+        <div className="rounded-xl border border-slate-800 bg-slate-900/80 p-4 space-y-3">
+          <div className="flex items-center gap-2">
+            <Lightbulb className="h-4 w-4 text-amber-400" />
+            <h3 className="text-xs font-bold text-white uppercase tracking-wider">
+              What to Review
+            </h3>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+            {reviewSuggestions.map(item => (
+              <div 
+                key={item.id} 
+                className="rounded-lg bg-slate-950 p-3 border border-slate-800/80 flex flex-col justify-between gap-2"
+              >
+                <div>
+                  <h4 className="text-xs font-bold text-white">{item.title}</h4>
+                  <p className="text-[11px] text-slate-400 mt-1 leading-relaxed">{item.desc}</p>
+                </div>
+                <button
+                  onClick={() => setFilterTab(item.targetTab)}
+                  className="self-start text-[11px] font-semibold text-indigo-400 hover:text-indigo-300 transition-colors pt-1"
+                >
+                  Filter questions →
+                </button>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* 8. OVERALL ATTEMPT NOTES */}
+      <div className="rounded-xl border border-slate-800 bg-slate-900/60 p-4 space-y-2">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <FileText className="h-4 w-4 text-indigo-400" />
-            <h3 className="text-sm font-bold text-white">Overall Attempt Insights & Notes</h3>
+            <FileText className="h-3.5 w-3.5 text-indigo-400" />
+            <h3 className="text-xs font-bold text-slate-300 uppercase tracking-wider">
+              Overall Attempt Notes
+            </h3>
           </div>
           {!editingGeneralNote && (
             <button
               onClick={() => setEditingGeneralNote(true)}
               className="text-xs text-indigo-400 hover:text-indigo-300 flex items-center gap-1 font-semibold"
             >
-              <Edit3 className="h-3.5 w-3.5" /> Edit Note
+              <Edit3 className="h-3 w-3" /> {attempt.generalNotes ? 'Edit' : '+ Add Note'}
             </button>
           )}
         </div>
@@ -501,174 +777,315 @@ export function AttemptDetailView({
             <textarea
               value={generalNote}
               onChange={e => setGeneralNote(e.target.value)}
-              placeholder="Record takeaways, time-management challenges, or topics needing revision..."
-              rows={3}
-              className="w-full rounded-xl border border-slate-700 bg-slate-950 p-3 text-xs text-white focus:border-indigo-500 focus:outline-none"
+              placeholder="Jot down overall strategy observations, time-management challenges, or topics needing revision..."
+              rows={2}
+              className="w-full rounded-lg border border-slate-700 bg-slate-950 p-2.5 text-xs text-white focus:border-indigo-500 focus:outline-none"
             />
             <div className="flex justify-end gap-2">
               <button
                 onClick={() => setEditingGeneralNote(false)}
-                className="rounded-lg px-3 py-1 text-xs text-slate-400 hover:bg-slate-800"
+                className="rounded px-2.5 py-1 text-xs text-slate-400 hover:bg-slate-800"
               >
                 Cancel
               </button>
               <button
                 onClick={handleSaveGeneralNote}
-                className="rounded-lg bg-indigo-600 px-4 py-1 text-xs font-bold text-white hover:bg-indigo-500"
+                className="rounded bg-indigo-600 px-3 py-1 text-xs font-bold text-white hover:bg-indigo-500"
               >
-                Save
+                Save Note
               </button>
             </div>
           </div>
         ) : (
-          <p className="text-xs text-slate-300 italic bg-slate-950/60 p-3 rounded-xl border border-slate-800/80">
-            {attempt.generalNotes || 'No notes added for this attempt. Click "Edit Note" to jot down reflections and strategy changes.'}
+          <p className="text-xs text-slate-300 italic bg-slate-950/60 p-2.5 rounded-lg border border-slate-800/80">
+            {attempt.generalNotes || 'No overall notes recorded for this attempt. Click "+ Add Note" to jot down strategy reflections.'}
           </p>
         )}
       </div>
 
-      {/* Per-Question Nuance Explorer */}
-      <div className="rounded-2xl border border-slate-800 bg-slate-900 p-5 space-y-5">
+      {/* 6. QUESTION REVIEW — THE MOST IMPORTANT SECTION (Compact, scannable table/list) */}
+      <div className="rounded-xl border border-slate-800 bg-slate-900/90 p-4 space-y-4">
         
-        {/* Filter Navigation */}
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 border-b border-slate-800 pb-4">
+        {/* Controls: Filter Tabs & Sorting */}
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-800/80 pb-3">
           <div>
-            <h3 className="text-base font-bold text-white">Nuance Per Question</h3>
-            <p className="text-xs text-slate-400">Inspect time spent, response alterations, and notes</p>
+            <h3 className="text-sm font-bold text-white">
+              Question Review ({filteredQuestions.length} of {attempt.totalQuestions})
+            </h3>
+            <p className="text-[11px] text-slate-400">
+              Click any question row to expand answer comparison and notes
+            </p>
           </div>
 
-          <div className="flex items-center gap-1 bg-slate-950 p-1 rounded-xl border border-slate-800 text-xs overflow-x-auto">
-            {(['all', 'correct', 'incorrect', 'skipped', 'flagged', 'altered', 'slow'] as const).map(tab => (
-              <button
-                key={tab}
-                onClick={() => setFilterTab(tab)}
-                className={`rounded-lg px-2.5 py-1 capitalize transition-all shrink-0 ${
-                  filterTab === tab
-                    ? 'bg-indigo-600 text-white font-semibold'
-                    : 'text-slate-400 hover:text-slate-200'
-                }`}
+          <div className="flex items-center gap-2 flex-wrap">
+            {/* Filter Tabs */}
+            <div className="flex items-center gap-1 bg-slate-950 p-1 rounded-lg border border-slate-800 text-xs overflow-x-auto">
+              {[
+                { id: 'all' as const, label: `All (${totalQ})`, color: '' },
+                { id: 'incorrect' as const, label: `Incorrect (${attempt.incorrect})`, color: 'text-rose-400' },
+                { id: 'correct' as const, label: `Correct (${attempt.correct})`, color: 'text-emerald-400' },
+                { id: 'skipped' as const, label: `Skipped (${attempt.unattempted})`, color: '' },
+                { id: 'flagged' as const, label: `Flagged (${flaggedQuestions.length})`, color: 'text-amber-400' },
+                { id: 'altered' as const, label: `Changed (${alteredQuestions.length})`, color: '' },
+                { id: 'slow' as const, label: `Slow (${slowQuestions.length})`, color: 'text-amber-400' },
+              ].map(tab => (
+                <button
+                  key={tab.id}
+                  onClick={() => setFilterTab(tab.id)}
+                  className={`rounded px-2 py-1 transition-colors whitespace-nowrap text-[11px] ${
+                    filterTab === tab.id
+                      ? 'bg-indigo-600 text-white font-bold'
+                      : 'text-slate-400 hover:text-slate-200'
+                  }`}
+                >
+                  <span className={filterTab !== tab.id && tab.color ? tab.color : ''}>{tab.label}</span>
+                </button>
+              ))}
+            </div>
+
+            {/* Sort Dropdown */}
+            <div className="flex items-center gap-1 bg-slate-950 px-2 py-1 rounded-lg border border-slate-800 text-xs">
+              <ArrowUpDown className="h-3 w-3 text-slate-400" />
+              <select
+                value={sortOption}
+                onChange={e => setSortOption(e.target.value as any)}
+                className="bg-transparent text-slate-300 text-[11px] font-medium focus:outline-none cursor-pointer"
               >
-                {tab === 'slow' ? 'Slow (>90s)' : tab}
-              </button>
-            ))}
+                <option value="qno_asc" className="bg-slate-900">Q1 → Q{totalQ}</option>
+                <option value="qno_desc" className="bg-slate-900">Q{totalQ} → Q1</option>
+                <option value="time_desc" className="bg-slate-900">Time (Longest First)</option>
+                <option value="time_asc" className="bg-slate-900">Time (Fastest First)</option>
+              </select>
+            </div>
+
+            {/* Expand / Collapse All */}
+            <button
+              onClick={Object.keys(expandedQuestions).length > 0 ? collapseAll : expandAll}
+              className="text-[11px] text-slate-400 hover:text-slate-200 bg-slate-950 px-2.5 py-1 rounded-lg border border-slate-800 transition-colors whitespace-nowrap"
+            >
+              {Object.keys(expandedQuestions).length > 0 ? 'Collapse All' : 'Expand All'}
+            </button>
           </div>
         </div>
 
-        {/* Questions Grid / Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          {filteredQuestions.map(q => {
-            const isAnswered = q.selected !== null;
-            const isCorrect = q.selected && q.isCorrect === true;
-            const isWrong = q.selected && q.isCorrect === false;
+        {/* Compact Questions List (Table / List hybrid) */}
+        {filteredQuestions.length === 0 ? (
+          <div className="text-center py-8 text-xs text-slate-400">
+            No questions match the selected filter.
+          </div>
+        ) : (
+          <div className="space-y-1.5">
+            {filteredQuestions.map(q => {
+              const isAnswered = q.selected !== null;
+              const isCorrect = q.selected && q.isCorrect === true;
+              const isWrong = q.selected && q.isCorrect === false;
+              const isExpanded = !!expandedQuestions[q.questionNo];
+              const isSlow = (q.timeSpentSeconds || 0) >= 90;
 
-            return (
-              <div
-                key={q.questionNo}
-                className="rounded-2xl border border-slate-800 bg-slate-950 p-4 space-y-3 hover:border-slate-700 transition-all"
-              >
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <span className="font-bold text-white text-base">
-                      Q{q.questionNo}
-                    </span>
-                    {q.flagged && (
-                      <span className="flex items-center gap-1 text-[10px] font-semibold text-amber-400 bg-amber-950/40 border border-amber-800/40 px-1.5 py-0.5 rounded">
-                        <Bookmark className="h-3 w-3 fill-amber-400" /> Flagged
+              return (
+                <div 
+                  key={q.questionNo}
+                  className={`rounded-lg border transition-all ${
+                    isExpanded 
+                      ? 'border-indigo-500/40 bg-slate-950' 
+                      : 'border-slate-800/80 bg-slate-950/70 hover:border-slate-700 hover:bg-slate-950'
+                  }`}
+                >
+                  {/* Scannable Row Header */}
+                  <div
+                    onClick={() => toggleQuestionExpand(q.questionNo)}
+                    className="p-2.5 sm:px-3.5 flex items-center justify-between gap-3 cursor-pointer select-none"
+                  >
+                    {/* Left: Q# & Result badge */}
+                    <div className="flex items-center gap-2.5 min-w-0">
+                      <span className="font-bold font-mono text-xs sm:text-sm text-white w-9 sm:w-11 shrink-0">
+                        Q{q.questionNo}
                       </span>
-                    )}
-                    {q.changesCount && q.changesCount > 0 ? (
-                      <span className="text-[10px] font-semibold text-amber-400 bg-amber-950/30 border border-amber-800/30 px-1.5 py-0.5 rounded">
-                        Altered {q.changesCount}x ({q.answerHistory?.join('→')})
-                      </span>
-                    ) : null}
-                  </div>
 
-                  <div className="flex items-center gap-2">
-                    {q.timeSpentSeconds && q.timeSpentSeconds > 0 ? (
-                      <span className={`text-xs font-mono font-semibold px-2 py-0.5 rounded ${
-                        q.timeSpentSeconds >= 90 ? 'text-rose-400 bg-rose-950/40' : 'text-indigo-300 bg-slate-900'
-                      }`}>
-                        ⏱ {q.timeSpentSeconds}s
-                      </span>
-                    ) : null}
+                      {/* Result Badge */}
+                      {isCorrect && (
+                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[11px] font-bold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 shrink-0">
+                          <CheckCircle2 className="h-3 w-3" /> Correct
+                        </span>
+                      )}
+                      {isWrong && (
+                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[11px] font-bold bg-rose-500/10 text-rose-400 border border-rose-500/20 shrink-0">
+                          <XCircle className="h-3 w-3" /> Incorrect
+                        </span>
+                      )}
+                      {!isAnswered && (
+                        <span className="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-medium bg-slate-800 text-slate-400 border border-slate-700 shrink-0">
+                          Skipped
+                        </span>
+                      )}
 
-                    {isCorrect && (
-                      <span className="flex items-center gap-1 text-xs font-semibold text-emerald-400 bg-emerald-950/40 px-2 py-0.5 rounded border border-emerald-800/40">
-                        <CheckCircle2 className="h-3.5 w-3.5" /> Correct
-                      </span>
-                    )}
-                    {isWrong && (
-                      <span className="flex items-center gap-1 text-xs font-semibold text-rose-400 bg-rose-950/40 px-2 py-0.5 rounded border border-rose-800/40">
-                        <XCircle className="h-3.5 w-3.5" /> Incorrect
-                      </span>
-                    )}
-                    {!isAnswered && (
-                      <span className="text-xs text-slate-500 font-medium px-2 py-0.5 rounded bg-slate-900">
-                        Skipped
-                      </span>
-                    )}
-                  </div>
-                </div>
-
-                <div className="flex items-center gap-6 text-xs bg-slate-900/60 p-2.5 rounded-xl border border-slate-800/60">
-                  <div>
-                    <span className="text-slate-500">Your Selection: </span>
-                    <strong className="text-white text-sm">{q.selected || '—'}</strong>
-                  </div>
-                  <div>
-                    <span className="text-slate-500">Correct Answer: </span>
-                    <strong className="text-emerald-400 text-sm">{q.correctAnswer || '—'}</strong>
-                  </div>
-                </div>
-
-                {/* Per-Question Notes */}
-                <div className="pt-2 border-t border-slate-900">
-                  {editingQNote === q.questionNo ? (
-                    <div className="space-y-2">
-                      <textarea
-                        value={qNoteText}
-                        onChange={e => setQNoteText(e.target.value)}
-                        placeholder="Write question note..."
-                        rows={2}
-                        className="w-full rounded-xl border border-slate-700 bg-slate-900 p-2 text-xs text-slate-200 focus:outline-none focus:border-indigo-500"
-                      />
-                      <div className="flex justify-end gap-2">
-                        <button
-                          onClick={() => setEditingQNote(null)}
-                          className="rounded px-2.5 py-0.5 text-xs text-slate-400 hover:bg-slate-800"
-                        >
-                          Cancel
-                        </button>
-                        <button
-                          onClick={() => handleSaveQuestionNote(q.questionNo)}
-                          className="rounded bg-indigo-600 px-3 py-0.5 text-xs font-bold text-white hover:bg-indigo-500"
-                        >
-                          Save
-                        </button>
-                      </div>
+                      {/* Flags & Changed status tags */}
+                      {q.flagged && (
+                        <span className="hidden xs:inline-flex items-center gap-0.5 text-[10px] font-semibold text-amber-400 bg-amber-500/10 border border-amber-500/20 px-1.5 py-0.5 rounded shrink-0">
+                          <Bookmark className="h-2.5 w-2.5 fill-amber-400" /> Flagged
+                        </span>
+                      )}
+                      {q.changesCount && q.changesCount > 0 ? (
+                        <span className="hidden sm:inline-flex items-center gap-0.5 text-[10px] font-semibold text-indigo-300 bg-indigo-500/10 border border-indigo-500/20 px-1.5 py-0.5 rounded shrink-0">
+                          <RotateCcw className="h-2.5 w-2.5" /> Altered ({q.answerHistory?.join('→')})
+                        </span>
+                      ) : null}
                     </div>
-                  ) : (
-                    <div className="flex items-center justify-between text-xs">
-                      <span className="text-slate-400 italic truncate max-w-[280px]">
-                        {q.note ? `Note: ${q.note}` : 'No question note'}
-                      </span>
-                      <button
-                        onClick={() => {
-                          setEditingQNote(q.questionNo);
-                          setQNoteText(q.note || '');
-                        }}
-                        className="text-[11px] text-indigo-400 hover:text-indigo-300 font-semibold"
-                      >
-                        {q.note ? 'Edit Note' : '+ Add Note'}
-                      </button>
+
+                    {/* Right: Answer comparison & Time */}
+                    <div className="flex items-center gap-3 sm:gap-4 shrink-0 text-xs">
+                      {/* Selection vs Key */}
+                      <div className="flex items-center gap-2 font-mono">
+                        <span className="text-slate-400 text-[11px]">You:</span>
+                        <span className={`font-bold ${isCorrect ? 'text-emerald-400' : isWrong ? 'text-rose-400' : 'text-slate-400'}`}>
+                          {q.selected || '—'}
+                        </span>
+                        <span className="text-slate-600">/</span>
+                        <span className="text-slate-400 text-[11px]">Key:</span>
+                        <span className="font-bold text-emerald-400">
+                          {q.correctAnswer || '—'}
+                        </span>
+                      </div>
+
+                      {/* Time taken */}
+                      <div className="w-16 sm:w-20 text-right">
+                        {q.timeSpentSeconds && q.timeSpentSeconds > 0 ? (
+                          <span className={`inline-flex items-center gap-1 font-mono text-[11px] font-semibold px-1.5 py-0.5 rounded ${
+                            isSlow 
+                              ? 'text-amber-400 bg-amber-500/10 border border-amber-500/20' 
+                              : 'text-slate-300 bg-slate-900'
+                          }`}>
+                            <Clock className="h-2.5 w-2.5" />
+                            {q.timeSpentSeconds}s
+                          </span>
+                        ) : (
+                          <span className="text-slate-600 font-mono text-[11px]">0s</span>
+                        )}
+                      </div>
+
+                      {/* Note indicator */}
+                      {q.note && (
+                        <span className="text-indigo-400 hidden sm:inline" title="Has question note">
+                          <FileText className="h-3 w-3" />
+                        </span>
+                      )}
+
+                      {/* Expand Chevron */}
+                      <ChevronRight className={`h-3.5 w-3.5 text-slate-400 transition-transform ${isExpanded ? 'rotate-90' : ''}`} />
+                    </div>
+                  </div>
+
+                  {/* Expanded Detail Panel */}
+                  {isExpanded && (
+                    <div className="border-t border-slate-800/80 p-3.5 sm:p-4 bg-slate-900/60 space-y-3 text-xs animate-in fade-in duration-150">
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        {/* Scoring Details */}
+                        <div className="space-y-1 bg-slate-950 p-2.5 rounded-lg border border-slate-800">
+                          <span className="text-[10px] uppercase font-bold text-slate-400 tracking-wider">Evaluation Impact</span>
+                          <div className="text-xs pt-0.5">
+                            {isCorrect && (
+                              <span className="text-emerald-400 font-semibold">
+                                +{correctMarksPerQ} marks gained for correct answer.
+                              </span>
+                            )}
+                            {isWrong && (
+                              <span className="text-rose-400 font-semibold">
+                                -{incorrectMarksPerQ} marks deducted for incorrect answer (marked &quot;{q.selected}&quot;, official is &quot;{q.correctAnswer}&quot;).
+                              </span>
+                            )}
+                            {!isAnswered && (
+                              <span className="text-slate-400">
+                                Question unattempted. 0 marks deducted (official key is &quot;{q.correctAnswer}&quot;).
+                              </span>
+                            )}
+                          </div>
+
+                          {q.answerHistory && q.answerHistory.length > 1 && (
+                            <div className="text-[11px] text-indigo-300 pt-1">
+                              <strong>Answer Sequence:</strong> {q.answerHistory.join(' → ')}
+                            </div>
+                          )}
+                        </div>
+
+                        {/* Pace & Timing Context */}
+                        <div className="space-y-1 bg-slate-950 p-2.5 rounded-lg border border-slate-800">
+                          <span className="text-[10px] uppercase font-bold text-slate-400 tracking-wider">Pacing Context</span>
+                          <div className="text-xs pt-0.5 text-slate-300">
+                            Time spent: <strong className="font-mono text-white">{q.timeSpentSeconds || 0} seconds</strong>
+                            {isSlow ? (
+                              <span className="text-amber-400 ml-1">
+                                (Slow: exceeded 90s target by {(q.timeSpentSeconds || 0) - 90}s)
+                              </span>
+                            ) : (
+                              <span className="text-slate-400 ml-1">
+                                (Within healthy pacing range)
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Question Note Section */}
+                      <div className="pt-1">
+                        {editingQNote === q.questionNo ? (
+                          <div className="space-y-2">
+                            <textarea
+                              value={qNoteText}
+                              onChange={e => setQNoteText(e.target.value)}
+                              placeholder="Write key learnings or revision notes for Question..."
+                              rows={2}
+                              className="w-full rounded-lg border border-slate-700 bg-slate-950 p-2.5 text-xs text-slate-200 focus:outline-none focus:border-indigo-500"
+                            />
+                            <div className="flex justify-end gap-2">
+                              <button
+                                onClick={() => setEditingQNote(null)}
+                                className="rounded px-2.5 py-1 text-xs text-slate-400 hover:bg-slate-800"
+                              >
+                                Cancel
+                              </button>
+                              <button
+                                onClick={() => handleSaveQuestionNote(q.questionNo)}
+                                className="rounded bg-indigo-600 px-3 py-1 text-xs font-bold text-white hover:bg-indigo-500"
+                              >
+                                Save Note
+                              </button>
+                            </div>
+                          </div>
+                        ) : (
+                          <div className="flex items-center justify-between bg-slate-950 p-2.5 rounded-lg border border-slate-800">
+                            <span className="text-slate-300 italic text-[11px] truncate max-w-md">
+                              {q.note ? `Note: ${q.note}` : 'No note added for this question.'}
+                            </span>
+                            <button
+                              onClick={() => {
+                                setEditingQNote(q.questionNo);
+                                setQNoteText(q.note || '');
+                              }}
+                              className="text-[11px] font-semibold text-indigo-400 hover:text-indigo-300 shrink-0"
+                            >
+                              {q.note ? 'Edit Note' : '+ Add Note'}
+                            </button>
+                          </div>
+                        )}
+                      </div>
                     </div>
                   )}
                 </div>
-              </div>
-            );
-          })}
+              );
+            })}
+          </div>
+        )}
         </div>
       </div>
+      </div>
+
+      {/* Mobile Question Paper Modal */}
+      <DetailedSolutionModal
+        isOpen={mobilePaperModalOpen}
+        onClose={() => setMobilePaperModalOpen(false)}
+        pdfUrl={matchedPaper?.qpUrl}
+        paperTitle={`${attempt.paperLabel} - Question Paper`}
+      />
 
       {/* Detailed Solution Modal */}
       <DetailedSolutionModal

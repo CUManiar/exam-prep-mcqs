@@ -163,8 +163,8 @@ export function Navbar({ activePage, onNavigate, onDataReload, isInExam }: Navba
         <div className="flex items-center gap-2.5 shrink-0">
           
           {/* Always Visible Current Date & Time (One Line Only) */}
-          <div className="hidden sm:flex items-center gap-2 rounded-xl border border-slate-800 bg-slate-900/90 px-3 py-1.5 text-xs font-mono text-indigo-300 shadow-inner whitespace-nowrap shrink-0">
-            <Clock className="h-3.5 w-3.5 text-indigo-400 animate-pulse shrink-0" />
+          <div className="hidden sm:flex items-center gap-2 rounded-xl border border-slate-800 bg-slate-900/70 px-3 py-1.5 text-xs font-mono text-slate-300 shadow-inner whitespace-nowrap shrink-0">
+            <Clock className="h-3.5 w-3.5 text-slate-400 shrink-0" />
             <span>{currentDateTime || 'Loading time...'}</span>
           </div>
 
@@ -181,6 +181,13 @@ export function Navbar({ activePage, onNavigate, onDataReload, isInExam }: Navba
 
             {showBackupMenu && (
               <div className="absolute right-0 mt-2 w-48 rounded-2xl border border-slate-800 bg-slate-900 p-2 shadow-2xl z-50 animate-in fade-in">
+                <div className="mb-2 px-2 py-1 rounded-lg bg-slate-950 border border-slate-800/80 text-[10px] font-semibold text-slate-400 flex items-center justify-between">
+                  <span>Target Env</span>
+                  <span className="flex items-center gap-1 font-mono text-xs font-bold text-indigo-400">
+                    <span className="h-1.5 w-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
+                    {(typeof window !== 'undefined' && localStorage.getItem('exam_prep_environment')) || 'PROD'}
+                  </span>
+                </div>
                 {backupMsg && (
                   <div className="mb-2 rounded-lg bg-emerald-500/10 p-1.5 text-[11px] font-semibold text-emerald-400 flex items-center gap-1">
                     <Check className="h-3.5 w-3.5" /> {backupMsg}
