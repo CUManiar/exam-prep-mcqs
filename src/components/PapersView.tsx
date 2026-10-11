@@ -60,26 +60,32 @@ export function PapersView({ papers, onStartExam, onNavigateUpload, onDeletePape
   });
 
   return (
-    <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8 space-y-6 animate-in fade-in">
+    <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8 space-y-7 animate-in fade-in">
       
       {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 border-b border-slate-800 pb-5">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 border-b border-slate-800/80 pb-5">
         <div>
-          <h1 className="text-2xl font-bold text-white tracking-tight">Question Papers Repository</h1>
-          <p className="text-xs text-slate-400 mt-1">
-            Browse and practice 15+ years of UPSC Prelims (GS 1 & CSAT) and Mains papers
+          <div className="flex items-center gap-2 mb-1">
+            <BookOpen className="h-4 w-4 text-indigo-400" />
+            <span className="text-[11px] font-bold uppercase tracking-wider text-indigo-400 font-mono">
+              Official Papers Repository
+            </span>
+          </div>
+          <h1 className="text-2xl font-black text-white tracking-tight">Question Papers Repository</h1>
+          <p className="text-xs text-slate-400 mt-0.5">
+            Browse, test, and practice 15+ years of UPSC Prelims (GS 1 & CSAT) and Mains question papers
           </p>
         </div>
         <button
           onClick={onNavigateUpload}
-          className="self-start sm:self-auto rounded-xl bg-indigo-600 px-4 py-2 text-xs font-semibold text-white shadow-md shadow-indigo-600/30 hover:bg-indigo-500 transition-all"
+          className="self-start sm:self-auto rounded-xl bg-gradient-to-r from-indigo-600 to-violet-600 px-4 py-2 text-xs font-bold text-white shadow-md shadow-indigo-600/30 hover:from-indigo-500 hover:to-violet-500 transition-all flex items-center gap-1.5"
         >
-          + Upload New Paper
+          <span>+ Upload Custom Paper</span>
         </button>
       </div>
 
       {/* Filter / Segregation Bar */}
-      <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 bg-slate-900 p-3.5 rounded-2xl border border-slate-800">
+      <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 glass-card p-3.5 rounded-2xl">
         
         {/* Search */}
         <div className="relative flex-1 min-w-[200px]">
@@ -89,24 +95,24 @@ export function PapersView({ papers, onStartExam, onNavigateUpload, onDeletePape
             value={searchQuery}
             onChange={e => setSearchQuery(e.target.value)}
             placeholder="Search papers by keyword, subject or year..."
-            className="w-full rounded-xl border border-slate-700 bg-slate-950 pl-9 pr-4 py-2 text-xs text-white placeholder-slate-500 focus:border-indigo-500 focus:outline-none"
+            className="w-full rounded-xl border border-slate-700/80 bg-slate-950/80 pl-9 pr-4 py-2 text-xs text-white placeholder-slate-500 focus:border-indigo-500 focus:outline-none transition-colors"
           />
         </div>
 
         {/* Category Pill Switcher */}
-        <div className="flex items-center gap-1 bg-slate-950 p-1 rounded-xl border border-slate-800 text-xs font-semibold">
+        <div className="flex items-center gap-1 bg-slate-950/90 p-1 rounded-xl border border-slate-800 text-xs font-semibold">
           <button
             onClick={() => setSelectedCategory('all')}
             className={`rounded-lg px-3 py-1.5 transition-all ${
-              selectedCategory === 'all' ? 'bg-indigo-600 text-white' : 'text-slate-400 hover:text-white'
+              selectedCategory === 'all' ? 'bg-gradient-to-r from-indigo-600 to-violet-600 text-white shadow-sm' : 'text-slate-400 hover:text-white'
             }`}
           >
-            All
+            All Papers
           </button>
           <button
             onClick={() => setSelectedCategory('prelims')}
             className={`rounded-lg px-3 py-1.5 transition-all ${
-              selectedCategory === 'prelims' ? 'bg-indigo-600 text-white' : 'text-slate-400 hover:text-white'
+              selectedCategory === 'prelims' ? 'bg-gradient-to-r from-indigo-600 to-violet-600 text-white shadow-sm' : 'text-slate-400 hover:text-white'
             }`}
           >
             Prelims
@@ -114,7 +120,7 @@ export function PapersView({ papers, onStartExam, onNavigateUpload, onDeletePape
           <button
             onClick={() => setSelectedCategory('mains')}
             className={`rounded-lg px-3 py-1.5 transition-all ${
-              selectedCategory === 'mains' ? 'bg-indigo-600 text-white' : 'text-slate-400 hover:text-white'
+              selectedCategory === 'mains' ? 'bg-gradient-to-r from-indigo-600 to-violet-600 text-white shadow-sm' : 'text-slate-400 hover:text-white'
             }`}
           >
             Mains
@@ -125,9 +131,9 @@ export function PapersView({ papers, onStartExam, onNavigateUpload, onDeletePape
         <select
           value={selectedYear}
           onChange={e => setSelectedYear(e.target.value)}
-          className="rounded-xl border border-slate-700 bg-slate-950 px-3 py-2 text-xs text-slate-200 focus:outline-none focus:border-indigo-500"
+          className="rounded-xl border border-slate-700/80 bg-slate-950/80 px-3 py-2 text-xs text-slate-200 focus:outline-none focus:border-indigo-500 transition-colors"
         >
-          <option value="all">All Years</option>
+          <option value="all">All Years (15+ Yrs)</option>
           {SUPPORTED_YEARS.map(yr => (
             <option key={yr} value={yr}>{yr}</option>
           ))}
@@ -139,11 +145,11 @@ export function PapersView({ papers, onStartExam, onNavigateUpload, onDeletePape
         {filteredPapers.map(paper => (
           <div
             key={paper.id}
-            className="flex flex-col justify-between rounded-2xl border border-slate-800 bg-slate-900 p-5 shadow-sm hover:border-indigo-500/40 transition-all group"
+            className="flex flex-col justify-between glass-card glass-card-hover rounded-2xl p-5 shadow-sm group"
           >
             <div>
               <div className="flex items-center justify-between">
-                <span className="rounded-md border border-slate-700 bg-slate-800 px-2.5 py-0.5 text-xs font-bold text-slate-200">
+                <span className="rounded-md border border-slate-700/80 bg-slate-800/80 px-2.5 py-0.5 text-xs font-bold text-slate-200 font-mono">
                   {paper.year}
                 </span>
                 <span className={`text-[10px] uppercase font-bold px-2 py-0.5 rounded ${
@@ -160,7 +166,7 @@ export function PapersView({ papers, onStartExam, onNavigateUpload, onDeletePape
               </h3>
 
               <div className="mt-2.5 flex flex-wrap items-center gap-3 text-xs text-slate-400">
-                <span className="flex items-center gap-1">
+                <span className="flex items-center gap-1 font-mono">
                   <FileText className="h-3.5 w-3.5 text-slate-500" />
                   {paper.totalQuestions} Questions
                 </span>
@@ -169,24 +175,24 @@ export function PapersView({ papers, onStartExam, onNavigateUpload, onDeletePape
               </div>
 
               {paper.examType === 'objective' && (
-                <div className="mt-1 text-[11px] text-slate-500">
-                  Marking: +{paper.correctMarks} / -{paper.incorrectMarks}
+                <div className="mt-1.5 text-[11px] text-slate-400 font-mono">
+                  Marking Scheme: <span className="text-emerald-400">+{paper.correctMarks}</span> / <span className="text-rose-400">-{paper.incorrectMarks}</span>
                 </div>
               )}
             </div>
 
-            <div className="mt-6 space-y-2 pt-4 border-t border-slate-800">
+            <div className="mt-5 space-y-2 pt-4 border-t border-slate-800/80">
               <div className="grid grid-cols-2 gap-2">
                 <button
                   onClick={() => onStartExam(paper, 'practice')}
-                  className="flex items-center justify-center gap-1.5 rounded-xl bg-emerald-600/20 border border-emerald-500/30 py-2.5 text-xs font-bold text-emerald-300 hover:bg-emerald-600 hover:text-white transition-all"
+                  className="flex items-center justify-center gap-1.5 rounded-xl bg-emerald-500/10 border border-emerald-500/30 py-2.5 text-xs font-bold text-emerald-300 hover:bg-emerald-600 hover:text-white transition-all"
                 >
                   <Play className="h-3.5 w-3.5 fill-current" />
                   Practice
                 </button>
                 <button
                   onClick={() => onStartExam(paper, 'mock')}
-                  className="flex items-center justify-center gap-1.5 rounded-xl bg-indigo-600/20 border border-indigo-500/30 py-2.5 text-xs font-bold text-indigo-300 hover:bg-indigo-600 hover:text-white transition-all"
+                  className="flex items-center justify-center gap-1.5 rounded-xl bg-gradient-to-r from-indigo-600 to-violet-600 py-2.5 text-xs font-bold text-white hover:from-indigo-500 hover:to-violet-500 transition-all shadow-md shadow-indigo-600/20"
                 >
                   <Clock className="h-3.5 w-3.5" />
                   Mock Exam
@@ -198,27 +204,25 @@ export function PapersView({ papers, onStartExam, onNavigateUpload, onDeletePape
                   href={paper.qpUrl}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="flex items-center justify-center gap-1.5 flex-1 rounded-xl border border-slate-800 bg-slate-950 py-1.5 text-[11px] font-medium text-slate-400 hover:text-slate-200 hover:bg-slate-800 transition-colors"
+                  className="flex-1 flex items-center justify-center gap-1 rounded-xl border border-slate-700/80 bg-slate-800/60 py-1.5 text-[11px] font-semibold text-slate-300 hover:bg-slate-700 hover:text-white transition-colors"
                 >
                   <ExternalLink className="h-3 w-3" />
-                  View PDF
+                  <span>Preview PDF</span>
                 </a>
-
-                {/* Edit Rules Button */}
-                {onUpdatePaper && (
+                {paper.isCustom && onUpdatePaper && (
                   <button
                     onClick={() => handleOpenEdit(paper)}
-                    className="rounded-xl border border-slate-800 bg-slate-950 px-2.5 py-1.5 text-[11px] font-medium text-indigo-300 hover:bg-slate-800 transition-colors"
+                    className="rounded-xl border border-slate-700/80 bg-slate-800/60 px-2.5 py-1.5 text-[11px] font-semibold text-slate-300 hover:bg-slate-700 hover:text-white transition-colors"
+                    title="Edit Paper Rules"
                   >
-                    Edit Rules
+                    Edit
                   </button>
                 )}
-
-                {/* Delete Paper Button */}
-                {onDeletePaper && (
+                {paper.isCustom && onDeletePaper && (
                   <button
                     onClick={() => onDeletePaper(paper.id)}
-                    className="rounded-xl border border-rose-900/40 bg-rose-950/20 px-2.5 py-1.5 text-[11px] font-medium text-rose-400 hover:bg-rose-900/40 transition-colors"
+                    className="rounded-xl border border-rose-900/40 bg-rose-950/20 px-2.5 py-1.5 text-[11px] font-semibold text-rose-400 hover:bg-rose-900/40 transition-colors"
+                    title="Delete Paper"
                   >
                     Delete
                   </button>
@@ -228,6 +232,7 @@ export function PapersView({ papers, onStartExam, onNavigateUpload, onDeletePape
           </div>
         ))}
       </div>
+
 
       {/* Edit Paper Rules Modal */}
       {editingPaper && (

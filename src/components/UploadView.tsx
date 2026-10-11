@@ -161,12 +161,18 @@ export function UploadView({ onPaperUploaded, onNavigatePapers }: UploadViewProp
   };
 
   return (
-    <div className="mx-auto max-w-4xl px-4 py-8 sm:px-6 lg:px-8 space-y-6 animate-in fade-in">
+    <div className="mx-auto max-w-4xl px-4 py-8 sm:px-6 lg:px-8 space-y-7 animate-in fade-in">
       
       {/* Header */}
-      <div className="border-b border-slate-800 pb-5">
-        <h1 className="text-2xl font-bold text-white tracking-tight">Upload Examination Paper</h1>
-        <p className="text-xs text-slate-400 mt-1">
+      <div className="border-b border-slate-800/80 pb-5">
+        <div className="flex items-center gap-2 mb-1">
+          <UploadCloud className="h-4 w-4 text-indigo-400" />
+          <span className="text-[11px] font-bold uppercase tracking-wider text-indigo-400 font-mono">
+            Paper Intake Studio
+          </span>
+        </div>
+        <h1 className="text-2xl font-black text-white tracking-tight">Upload Examination Paper</h1>
+        <p className="text-xs text-slate-400 mt-0.5">
           Upload Prelims (Objective MCQs) or Mains (Subjective Answer Writing) papers with automated rules
         </p>
       </div>
@@ -185,18 +191,18 @@ export function UploadView({ onPaperUploaded, onNavigatePapers }: UploadViewProp
       <form onSubmit={handleUploadAll} className="space-y-6">
         
         {/* Step 1: Exam Type Selector */}
-        <div className="rounded-2xl border border-slate-800 bg-slate-900 p-5 space-y-3">
-          <label className="block text-xs font-bold text-white uppercase tracking-wider">
+        <div className="glass-card rounded-2xl p-5 space-y-3.5">
+          <label className="block text-xs font-bold text-slate-300 uppercase tracking-wider">
             1. Select Exam Type
           </label>
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-2 gap-3.5">
             <button
               type="button"
               onClick={() => handleExamTypeChange('objective')}
               className={`p-4 rounded-xl border text-left transition-all ${
                 examType === 'objective'
-                  ? 'border-indigo-500 bg-indigo-600/20 text-white ring-2 ring-indigo-500/40'
-                  : 'border-slate-800 bg-slate-950 text-slate-400 hover:border-slate-700'
+                  ? 'border-indigo-500 bg-indigo-600/20 text-white ring-2 ring-indigo-500/40 shadow-lg shadow-indigo-500/10'
+                  : 'border-slate-800 bg-slate-950/70 text-slate-400 hover:border-slate-700'
               }`}
             >
               <div className="font-bold text-sm text-white">Objective Exam (Prelims)</div>
@@ -208,8 +214,8 @@ export function UploadView({ onPaperUploaded, onNavigatePapers }: UploadViewProp
               onClick={() => handleExamTypeChange('subjective')}
               className={`p-4 rounded-xl border text-left transition-all ${
                 examType === 'subjective'
-                  ? 'border-indigo-500 bg-indigo-600/20 text-white ring-2 ring-indigo-500/40'
-                  : 'border-slate-800 bg-slate-950 text-slate-400 hover:border-slate-700'
+                  ? 'border-indigo-500 bg-indigo-600/20 text-white ring-2 ring-indigo-500/40 shadow-lg shadow-indigo-500/10'
+                  : 'border-slate-800 bg-slate-950/70 text-slate-400 hover:border-slate-700'
               }`}
             >
               <div className="font-bold text-sm text-white">Subjective Exam (Mains)</div>
@@ -219,7 +225,7 @@ export function UploadView({ onPaperUploaded, onNavigatePapers }: UploadViewProp
         </div>
 
         {/* Step 2: Paper Metadata & Paper-Specific Marking Rules */}
-        <div className="rounded-2xl border border-slate-800 bg-slate-900 p-5 space-y-4">
+        <div className="glass-card rounded-2xl p-5 space-y-4">
           <div className="flex items-center justify-between">
             <h2 className="text-sm font-bold text-white flex items-center gap-2">
               <Sliders className="h-4 w-4 text-indigo-400" />

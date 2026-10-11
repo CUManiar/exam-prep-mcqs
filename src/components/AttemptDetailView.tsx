@@ -4,6 +4,7 @@ import React, { useState, useMemo } from 'react';
 import { Attempt, QuestionPaper } from '../lib/types';
 import { formatTimeSeconds, formatDateTime } from '../lib/defaults';
 import { DetailedSolutionModal } from './DetailedSolutionModal';
+import { PdfViewer } from './PdfViewer';
 import { 
   ArrowLeft, 
   Clock, 
@@ -28,7 +29,11 @@ import {
   ChevronRight,
   ArrowUpDown,
   Filter,
-  Lightbulb
+  Lightbulb,
+  Columns,
+  ExternalLink,
+  Maximize2,
+  Minimize2
 } from 'lucide-react';
 import { 
   exportAttemptAsMarkdown, 
@@ -62,6 +67,8 @@ export function AttemptDetailView({
   const [submissionModalOpen, setSubmissionModalOpen] = useState<boolean>(false);
   const [showExportMenu, setShowExportMenu] = useState<boolean>(false);
   const [copiedToast, setCopiedToast] = useState<boolean>(false);
+  const [showPaperSplit, setShowPaperSplit] = useState<boolean>(true);
+  const [mobilePaperModalOpen, setMobilePaperModalOpen] = useState<boolean>(false);
 
   // Match corresponding paper for solution PDF with backwards compatibility
   const matchedPaper = papers.find(p => 
@@ -234,7 +241,7 @@ export function AttemptDetailView({
   const skippedPct = Math.max(0, 100 - correctPct - incorrectPct);
 
   return (
-    <div className="mx-auto max-w-6xl px-4 py-6 sm:px-6 space-y-6 text-slate-100 font-sans animate-in fade-in duration-200 print:text-black print:bg-white print:p-0 print:space-y-4 print:max-w-none">
+    <div className={`mx-auto ${showPaperSplit && matchedPaper?.qpUrl ? 'max-w-[1920px] px-3 sm:px-6' : 'max-w-5xl px-4 sm:px-6'} py-6 space-y-6 text-slate-100 font-sans animate-in fade-in duration-200 print:text-black print:bg-white print:p-0 print:space-y-4 print:max-w-none`}>
       
       {/* Official Examination Header for Print & PDF Export */}
       <div className="hidden print:block pb-5 mb-5 border-b-2 border-slate-900 text-black">
@@ -287,6 +294,33 @@ export function AttemptDetailView({
         </div>
 
         <div className="flex items-center gap-2 flex-wrap">
+          {/* Question Paper Preview Toggle (Desktop Side-by-Side & Mobile Modal) */}
+          {matchedPaper?.qpUrl && (
+            <>
+              <button
+                onClick={() => setShowPaperSplit(!showPaperSplit)}
+                className={`hidden lg:flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-bold transition-all shadow-sm ${
+                  showPaperSplit
+                    ? 'bg-gradient-to-r from-indigo-600 to-violet-600 text-white shadow-indigo-500/25 ring-1 ring-indigo-400/50'
+                    : 'border border-slate-700 bg-slate-900 text-slate-300 hover:bg-slate-800 hover:text-white'
+                }`}
+                title="Toggle side-by-side view with Question Paper PDF"
+              >
+                <Columns className="h-3.5 w-3.5" />
+                <span>{showPaperSplit ? 'Side-by-Side: ON' : 'Preview Paper PDF'}</span>
+              </button>
+
+              <button
+                onClick={() => setMobilePaperModalOpen(true)}
+                className="flex lg:hidden items-center gap-1.5 rounded-lg border border-indigo-500/30 bg-indigo-500/10 px-3 py-1.5 text-xs font-semibold text-indigo-300 hover:bg-indigo-500/20"
+                title="Open Question Paper PDF in modal"
+              >
+                <BookOpen className="h-3.5 w-3.5" />
+                <span>View Paper PDF</span>
+              </button>
+            </>
+          )}
+
           {/* Export Dropdown */}
           <div className="relative">
             <button
@@ -390,6 +424,49 @@ export function AttemptDetailView({
           <span>Summary copied to clipboard</span>
         </div>
       )}
+
+      {/* Main Content Area: Split View Container */}
+      <div className={`flex flex-col ${showPaperSplit && matchedPaper?.qpUrl ? 'lg:flex-row' : ''} gap-6 items-start`}>
+
+        {/* Left Side: Sticky Question Paper PDF Viewer (Desktop Only) */}
+        {showPaperSplit && matchedPaper?.qpUrl && (
+          <div className="hidden lg:flex flex-col w-full lg:w-1/2 sticky top-20 h-[calc(100vh-6.5rem)] rounded-2xl overflow-hidden border border-slate-800 bg-slate-950 shadow-2xl shrink-0 print:hidden z-10">
+            <div className="flex items-center justify-between px-4 py-2.5 bg-slate-900/95 border-b border-slate-800 shrink-0">
+              <div className="flex items-center gap-2 text-xs font-bold text-slate-200">
+                <BookOpen className="h-4 w-4 text-indigo-400" />
+                <span className="truncate max-w-[260px]">{matchedPaper.label}</span>
+                <span className="text-[10px] px-1.5 py-0.5 rounded bg-indigo-500/10 text-indigo-400 border border-indigo-500/20 uppercase font-mono font-bold">
+                  Question Paper
+                </span>
+              </div>
+              <div className="flex items-center gap-2">
+                <a
+                  href={matchedPaper.qpUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex items-center gap-1 text-[11px] font-semibold text-slate-400 hover:text-white px-2 py-1 rounded bg-slate-800 hover:bg-slate-700 transition-colors"
+                  title="Open PDF in external browser tab"
+                >
+                  <ExternalLink className="h-3 w-3" />
+                  <span>Popout</span>
+                </a>
+                <button
+                  onClick={() => setShowPaperSplit(false)}
+                  className="text-xs font-bold text-slate-400 hover:text-rose-400 px-2 py-1 rounded hover:bg-slate-800 transition-colors"
+                  title="Hide question paper split view"
+                >
+                  ✕ Hide
+                </button>
+              </div>
+            </div>
+            <div className="flex-1 min-h-0 bg-slate-950">
+              <PdfViewer url={matchedPaper.qpUrl} title={matchedPaper.label} />
+            </div>
+          </div>
+        )}
+
+        {/* Right Side: Assessment Report & Responses */}
+        <div className={`w-full ${showPaperSplit && matchedPaper?.qpUrl ? 'lg:w-1/2' : 'max-w-5xl mx-auto'} space-y-6 min-w-0`}>
 
       {/* 2. SIMPLE SCORE SUMMARY (Compact, clear, final score most prominent) */}
       <div className="rounded-xl border border-slate-800 bg-slate-900/90 p-5 space-y-4 shadow-sm">
@@ -998,7 +1075,17 @@ export function AttemptDetailView({
             })}
           </div>
         )}
+        </div>
       </div>
+      </div>
+
+      {/* Mobile Question Paper Modal */}
+      <DetailedSolutionModal
+        isOpen={mobilePaperModalOpen}
+        onClose={() => setMobilePaperModalOpen(false)}
+        pdfUrl={matchedPaper?.qpUrl}
+        paperTitle={`${attempt.paperLabel} - Question Paper`}
+      />
 
       {/* Detailed Solution Modal */}
       <DetailedSolutionModal
