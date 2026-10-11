@@ -18,6 +18,9 @@ interface PdfViewerProps {
   title?: string;
   className?: string;
   showToolbar?: boolean;
+  initialMode?: 'canvas' | 'native';
+  currentMode?: 'canvas' | 'native';
+  onModeChange?: (mode: 'canvas' | 'native') => void;
 }
 
 export function PdfViewer({
@@ -25,9 +28,19 @@ export function PdfViewer({
   title = 'Question Paper PDF',
   className = 'w-full h-full flex-1 min-h-0',
   showToolbar = true,
+  initialMode = 'native',
+  currentMode,
+  onModeChange,
 }: PdfViewerProps) {
-  // Mode: 'canvas' (PDF.js in-browser engine - unlimited size, mobile friendly) or 'native' (browser iframe)
-  const [viewMode, setViewMode] = useState<'canvas' | 'native'>('canvas');
+  // Mode: 'canvas' (PDF.js in-browser engine - unlimited size, mobile friendly) or 'native' (browser continuous document)
+  const [internalViewMode, setInternalViewMode] = useState<'canvas' | 'native'>(initialMode);
+  const viewMode = currentMode !== undefined ? currentMode : internalViewMode;
+
+  const setViewMode = (mode: 'canvas' | 'native' | ((prev: 'canvas' | 'native') => 'canvas' | 'native')) => {
+    const nextMode = typeof mode === 'function' ? mode(viewMode) : mode;
+    setInternalViewMode(nextMode);
+    if (onModeChange) onModeChange(nextMode);
+  };
   const [pdfDoc, setPdfDoc] = useState<any>(null);
   const [numPages, setNumPages] = useState<number>(0);
   const [pageNum, setPageNum] = useState<number>(1);
@@ -446,14 +459,21 @@ export function PdfViewer({
           )}
         </div>
       ) : (
-        /* Native Browser Iframe (Fallback) */
-        <div className="relative flex-1 w-full h-full min-h-0 overflow-hidden bg-slate-950">
-          <iframe
-            src={absoluteUrl}
-            title={title}
-            className="w-full h-full border-0 bg-slate-950"
-            style={{ WebkitOverflowScrolling: 'touch' }}
-          />
+        /* Native Browser PDF Engine (Continuous Document Scrolling) */
+        <div className="relative flex-1 w-full h-full min-h-0 bg-slate-100 overflow-visible">
+          <object
+            data={`${absoluteUrl}#view=FitH&toolbar=1&navpanes=0`}
+            type="application/pdf"
+            className="w-full h-full block min-h-full"
+            style={{ width: '100%', height: '100%', minHeight: '100%' }}
+          >
+            <iframe
+              src={`${absoluteUrl}#view=FitH&toolbar=1&navpanes=0`}
+              title={title}
+              className="w-full h-full border-0 block"
+              style={{ width: '100%', height: '100%', minHeight: '100%', WebkitOverflowScrolling: 'touch' }}
+            />
+          </object>
         </div>
       )}
     </div>
