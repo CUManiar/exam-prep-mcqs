@@ -24,12 +24,16 @@ import {
   clearActiveDraft,
 } from "../lib/storage";
 import { ConfirmationModal } from "../components/ConfirmationModal";
+import { ProUpgradeModal } from "../components/ProUpgradeModal";
+import { isUserPro } from "../lib/razorpay";
 
 interface AppContextType {
   papers: QuestionPaper[];
   attempts: Attempt[];
   activeDraft: ActiveSessionDraft | null;
   isLoading: boolean;
+  isPro: boolean;
+  openProUpgradeModal: (targetPaperLabel?: string) => void;
   loadAllData: () => Promise<void>;
   handleStartExam: (paper: QuestionPaper, mode: "practice" | "mock") => void;
   handleResumeDraft: (draft: ActiveSessionDraft) => void;
@@ -53,6 +57,21 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     null,
   );
   const [isLoading, setIsLoading] = useState<boolean>(true);
+  const [isPro, setIsPro] = useState<boolean>(false);
+  const [proModalOpen, setProModalOpen] = useState<boolean>(false);
+  const [proModalTarget, setProModalTarget] = useState<string | undefined>(undefined);
+
+  useEffect(() => {
+    setIsPro(isUserPro());
+    const onProChange = () => setIsPro(isUserPro());
+    window.addEventListener("pro-status-changed", onProChange);
+    return () => window.removeEventListener("pro-status-changed", onProChange);
+  }, []);
+
+  const openProUpgradeModal = (targetPaperLabel?: string) => {
+    setProModalTarget(targetPaperLabel);
+    setProModalOpen(true);
+  };
 
   // Modern Confirmation & Alert Modal state
   const [modalConfig, setModalConfig] = useState<{
@@ -102,8 +121,12 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     loadAllData();
   }, [loadAllData]);
 
-  // Start exam session
+  // Start exam session - Gated for Freemium (Free: 2026 Prelims, Pro: 2011-2025 & Mains)
   const handleStartExam = (paper: QuestionPaper, mode: "practice" | "mock") => {
+    if (paper.year !== "2026" && !isUserPro()) {
+      openProUpgradeModal(paper.label);
+      return;
+    }
     clearActiveDraft();
     setActiveDraft(null);
     router.push(`/exam?paperId=${encodeURIComponent(paper.id)}&mode=${mode}`);
@@ -219,6 +242,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         attempts,
         activeDraft,
         isLoading,
+        isPro,
+        openProUpgradeModal,
         loadAllData,
         handleStartExam,
         handleResumeDraft,
@@ -243,6 +268,13 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         variant={modalConfig.variant}
         onConfirm={modalConfig.onConfirm}
         onCancel={() => setModalConfig((prev) => ({ ...prev, isOpen: false }))}
+      />
+
+      <ProUpgradeModal
+        isOpen={proModalOpen}
+        onClose={() => setProModalOpen(false)}
+        targetPaperLabel={proModalTarget}
+        onSuccess={() => setIsPro(true)}
       />
     </AppContext.Provider>
   );

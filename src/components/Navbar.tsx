@@ -5,6 +5,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { ActivePage } from "../lib/types";
 import { exportAllData, importAllData } from "../lib/storage";
+import { useApp } from "../context/AppContext";
 import {
   LayoutDashboard,
   BookOpen,
@@ -15,6 +16,7 @@ import {
   Upload,
   Database,
   Check,
+  Sparkles,
 } from "lucide-react";
 
 interface NavbarProps {
@@ -31,6 +33,7 @@ export function Navbar({
   isInExam: propIsInExam,
 }: NavbarProps) {
   const pathname = usePathname();
+  const { isPro, openProUpgradeModal } = useApp();
   const [currentDateTime, setCurrentDateTime] = useState<string>("");
   const [showBackupMenu, setShowBackupMenu] = useState<boolean>(false);
   const [backupMsg, setBackupMsg] = useState<string | null>(null);
@@ -194,6 +197,23 @@ export function Navbar({
             <Clock className="h-3.5 w-3.5 text-slate-500 shrink-0" />
             <span>{currentDateTime || "Loading time..."}</span>
           </div>
+
+          {/* Freemium Pro Status / Upgrade CTA */}
+          {isPro ? (
+            <div className="flex items-center gap-1.5 rounded-xl border border-amber-300 bg-amber-50/90 px-3 py-1.5 text-xs font-bold text-amber-900 shadow-xs whitespace-nowrap shrink-0">
+              <Sparkles className="h-3.5 w-3.5 text-amber-500 fill-amber-400 shrink-0" />
+              <span>PRO Member</span>
+            </div>
+          ) : (
+            <button
+              onClick={() => openProUpgradeModal()}
+              className="cursor-pointer flex items-center gap-1.5 rounded-xl bg-gradient-to-r from-amber-500 via-indigo-600 to-indigo-700 hover:from-amber-600 hover:to-indigo-800 px-3 py-1.5 text-xs font-bold text-white shadow-xs hover:shadow-sm transition-all whitespace-nowrap shrink-0 active:scale-[0.98]"
+              title="Unlock complete 15+ years UPSC paper vault with Razorpay"
+            >
+              <Sparkles className="h-3.5 w-3.5 text-amber-200 fill-amber-200 shrink-0" />
+              <span>Upgrade (₹999)</span>
+            </button>
+          )}
 
           {/* Backup & Sync button */}
           <div className="relative shrink-0">

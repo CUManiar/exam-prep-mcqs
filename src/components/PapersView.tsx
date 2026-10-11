@@ -10,6 +10,7 @@ import {
 } from "../lib/defaults";
 import { attachToPaperOnServer } from "../lib/storage";
 import { DetailedSolutionModal } from "./DetailedSolutionModal";
+import { useApp } from "../context/AppContext";
 import {
   BookOpen,
   Search,
@@ -28,6 +29,8 @@ import {
   Trash2,
   Settings2,
   ChevronRight,
+  Lock,
+  Sparkles,
 } from "lucide-react";
 
 interface PapersViewProps {
@@ -45,6 +48,7 @@ export function PapersView({
   onDeletePaper,
   onUpdatePaper,
 }: PapersViewProps) {
+  const { isPro, openProUpgradeModal } = useApp();
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedCategory, setSelectedCategory] = useState<
     "all" | "prelims" | "mains"
@@ -278,6 +282,35 @@ export function PapersView({
         </select>
       </div>
 
+      {/* Freemium Vault Announcement Banner */}
+      {!isPro && (
+        <div className="rounded-2xl border border-amber-200 bg-gradient-to-r from-amber-50 via-indigo-50/40 to-white p-4 sm:p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4 shadow-xs animate-in fade-in">
+          <div className="flex items-start gap-3">
+            <div className="rounded-xl bg-amber-100 p-2 text-amber-700 shrink-0 mt-0.5">
+              <Sparkles className="h-5 w-5 text-amber-600 fill-amber-400" />
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <h3 className="text-sm font-bold text-slate-900">
+                  Free Tier: 2026 Prelims Papers (GS I & CSAT)
+                </h3>
+                <span className="rounded-full bg-emerald-100 text-emerald-800 px-2 py-0.2 text-[10px] font-extrabold">FREE FOREVER</span>
+              </div>
+              <p className="text-xs text-slate-500 mt-1 leading-relaxed">
+                Full real-time timer, answer keys, confidence tagging & evaluation included. Unlock the 15+ years archive (2011–2025) and all Mains papers with Lifetime Pro (₹999).
+              </p>
+            </div>
+          </div>
+          <button
+            onClick={() => openProUpgradeModal()}
+            className="cursor-pointer shrink-0 rounded-xl bg-indigo-600 hover:bg-indigo-700 active:scale-[0.98] px-4 py-2.5 text-xs font-bold text-white transition-all shadow-xs flex items-center justify-center gap-1.5"
+          >
+            <Lock className="h-3.5 w-3.5" />
+            <span>Unlock 15-Year Vault (₹999)</span>
+          </button>
+        </div>
+      )}
+
       {/* Papers Grid */}
       {filteredPapers.length === 0 ? (
         <div className="bi-card rounded-2xl p-12 text-center border-dashed border-slate-300">
@@ -306,9 +339,17 @@ export function PapersView({
                 <div>
                   {/* Top Header Row: Year & Category Tag */}
                   <div className="flex items-center justify-between">
-                    <span className="rounded-md bg-slate-100 px-2.5 py-0.5 text-xs font-bold text-slate-700 font-mono">
-                      {paper.year}
-                    </span>
+                    <div className="flex items-center gap-2">
+                      <span className="rounded-md bg-slate-100 px-2.5 py-0.5 text-xs font-bold text-slate-700 font-mono">
+                        {paper.year}
+                      </span>
+                      {paper.year !== "2026" && !isPro && (
+                        <span className="inline-flex items-center gap-1 rounded-full bg-amber-50 px-2 py-0.5 text-[10px] font-bold text-amber-800 border border-amber-200">
+                          <Lock className="h-2.5 w-2.5 text-amber-600" />
+                          <span>PRO</span>
+                        </span>
+                      )}
+                    </div>
                     <span
                       className={`text-[10px] font-extrabold uppercase px-2.5 py-0.5 rounded-full ${
                         paper.examType === "subjective"

@@ -4,11 +4,19 @@ import React, { Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useApp } from "../../context/AppContext";
 import { ExamSessionView } from "../../components/ExamSessionView";
+import { Lock } from "lucide-react";
 
 function ExamSessionContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const { papers, activeDraft, handleFinishExamSession, isLoading } = useApp();
+  const {
+    papers,
+    activeDraft,
+    handleFinishExamSession,
+    isLoading,
+    isPro,
+    openProUpgradeModal,
+  } = useApp();
 
   const paperId = searchParams.get("paperId") || activeDraft?.paperId;
   const modeParam =
@@ -42,6 +50,39 @@ function ExamSessionContent() {
         >
           ← Return to Question Papers
         </button>
+      </div>
+    );
+  }
+
+  // Check if paper is locked in Freemium tier
+  if (paper.year !== "2026" && !isPro) {
+    return (
+      <div className="mx-auto max-w-xl px-4 py-20 text-center space-y-6">
+        <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-2xl bg-amber-100 text-amber-700 shadow-sm">
+          <Lock className="h-8 w-8" />
+        </div>
+        <div className="space-y-2">
+          <h2 className="text-2xl font-extrabold text-slate-900">
+            Pro Vault Paper Locked
+          </h2>
+          <p className="text-sm text-slate-600">
+            <strong>{paper.label}</strong> belongs to the Pro Archive. Free tier includes all 2026 Prelims papers.
+          </p>
+        </div>
+        <div className="flex items-center justify-center gap-3">
+          <button
+            onClick={() => openProUpgradeModal(paper.label)}
+            className="cursor-pointer px-5 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-xs font-bold text-white shadow-sm"
+          >
+            Unlock with Pro (₹999)
+          </button>
+          <button
+            onClick={() => router.push("/papers")}
+            className="cursor-pointer px-4 py-2.5 rounded-xl border border-slate-300 bg-white hover:bg-slate-50 text-xs font-bold text-slate-700"
+          >
+            Browse Free Papers
+          </button>
+        </div>
       </div>
     );
   }
