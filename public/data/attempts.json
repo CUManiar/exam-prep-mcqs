@@ -1,0 +1,1341 @@
+[
+  {
+    "id": "attempt_1791706305149",
+    "paperId": "2026_prelims_general_studies_paper_i",
+    "paperLabel": "2026 – Prelims GS I",
+    "category": "prelims",
+    "examType": "objective",
+    "mode": "mock",
+    "startedAt": "2026-10-11T06:36:48.149Z",
+    "finishedAt": "2026-10-11T08:11:45.149Z",
+    "totalQuestions": 100,
+    "totalMarks": 200,
+    "correctMarks": 2,
+    "incorrectMarks": 0.667,
+    "timeMinutes": 120,
+    "durationSeconds": 5697,
+    "overtimeSeconds": 0,
+    "answered": 100,
+    "correct": 40,
+    "incorrect": 60,
+    "unattempted": 0,
+    "score": 39.98,
+    "maxScore": 200,
+    "accuracyPct": 40,
+    "avgTimePerQuestion": 57,
+    "avgTimeCorrect": 62,
+    "avgTimeIncorrect": 53,
+    "alteredCount": 5,
+    "alteredHarmCount": 1,
+    "alteredBenefitCount": 2,
+    "answers": {
+      "1": {
+        "questionNo": 1,
+        "selected": "D",
+        "correctAnswer": "D",
+        "isCorrect": true,
+        "flagged": false,
+        "note": "I had seen this question earlier",
+        "timeSpentSeconds": 64,
+        "changesCount": 0,
+        "answerHistory": [
+          "D"
+        ]
+      },
+      "2": {
+        "questionNo": 2,
+        "selected": "C",
+        "correctAnswer": "A",
+        "isCorrect": false,
+        "flagged": false,
+        "note": "A -> Don't hthink so\nB -> can't be, british can't think good of Indians\nC -> May be\nD -> Not clicking\n---\nElimination method",
+        "timeSpentSeconds": 95,
+        "changesCount": 0,
+        "answerHistory": [
+          "C"
+        ]
+      },
+      "3": {
+        "questionNo": 3,
+        "selected": "C",
+        "correctAnswer": "C",
+        "isCorrect": true,
+        "flagged": true,
+        "note": "Pure Guess",
+        "timeSpentSeconds": 66,
+        "changesCount": 0,
+        "answerHistory": [
+          "C"
+        ]
+      },
+      "4": {
+        "questionNo": 4,
+        "selected": "D",
+        "correctAnswer": "B",
+        "isCorrect": false,
+        "flagged": true,
+        "note": "Pure Guess",
+        "timeSpentSeconds": 49,
+        "changesCount": 0,
+        "answerHistory": [
+          "D"
+        ]
+      },
+      "5": {
+        "questionNo": 5,
+        "selected": "A",
+        "correctAnswer": "B",
+        "isCorrect": false,
+        "flagged": false,
+        "note": "Elimination -> Yaksha, Manushya and Tiryanch are there, or may be I'm hallucinating",
+        "timeSpentSeconds": 63,
+        "changesCount": 0,
+        "answerHistory": [
+          "A"
+        ]
+      },
+      "6": {
+        "questionNo": 6,
+        "selected": "D",
+        "correctAnswer": "A",
+        "isCorrect": false,
+        "flagged": false,
+        "note": "Pure Guess",
+        "timeSpentSeconds": 103,
+        "changesCount": 0,
+        "answerHistory": [
+          "D"
+        ]
+      },
+      "7": {
+        "questionNo": 7,
+        "selected": "A",
+        "correctAnswer": "D",
+        "isCorrect": false,
+        "flagged": false,
+        "note": "Pure Guess",
+        "timeSpentSeconds": 14,
+        "changesCount": 0,
+        "answerHistory": [
+          "A"
+        ]
+      },
+      "8": {
+        "questionNo": 8,
+        "selected": "D",
+        "correctAnswer": "A",
+        "isCorrect": false,
+        "flagged": false,
+        "note": "All seems true to me",
+        "timeSpentSeconds": 87,
+        "changesCount": 0,
+        "answerHistory": [
+          "D"
+        ]
+      },
+      "9": {
+        "questionNo": 9,
+        "selected": "A",
+        "correctAnswer": "C",
+        "isCorrect": false,
+        "flagged": false,
+        "note": "D -> Definitely wrong as Bardoli isn't part of Saurashtra\nC -> Bardoli Satyagraha was not about land revenue \n---\nA or B not sure, hence going with A as sounds more closer to reality.",
+        "timeSpentSeconds": 130,
+        "changesCount": 0,
+        "answerHistory": [
+          "A"
+        ]
+      },
+      "10": {
+        "questionNo": 10,
+        "selected": "A",
+        "correctAnswer": "C",
+        "isCorrect": false,
+        "flagged": false,
+        "note": "Pure Guess",
+        "timeSpentSeconds": 83,
+        "changesCount": 1,
+        "answerHistory": [
+          "B",
+          "A"
+        ]
+      },
+      "11": {
+        "questionNo": 11,
+        "selected": "B",
+        "correctAnswer": "D",
+        "isCorrect": false,
+        "flagged": false,
+        "note": "No idea about Pleistocene period -> Pure Guess",
+        "timeSpentSeconds": 80,
+        "changesCount": 0,
+        "answerHistory": [
+          "B"
+        ]
+      },
+      "12": {
+        "questionNo": 12,
+        "selected": "D",
+        "correctAnswer": "A",
+        "isCorrect": false,
+        "flagged": false,
+        "note": "Pure Guess",
+        "timeSpentSeconds": 40,
+        "changesCount": 0,
+        "answerHistory": [
+          "D"
+        ]
+      },
+      "13": {
+        "questionNo": 13,
+        "selected": "C",
+        "correctAnswer": "C",
+        "isCorrect": true,
+        "flagged": false,
+        "note": "Pure Guess",
+        "timeSpentSeconds": 51,
+        "changesCount": 0,
+        "answerHistory": [
+          "C"
+        ]
+      },
+      "14": {
+        "questionNo": 14,
+        "selected": "B",
+        "correctAnswer": "B",
+        "isCorrect": true,
+        "flagged": false,
+        "note": "Pure Guess",
+        "timeSpentSeconds": 121,
+        "changesCount": 0,
+        "answerHistory": [
+          "B"
+        ]
+      },
+      "15": {
+        "questionNo": 15,
+        "selected": "B",
+        "correctAnswer": "B",
+        "isCorrect": true,
+        "flagged": false,
+        "note": "Pure Guess",
+        "timeSpentSeconds": 15,
+        "changesCount": 0,
+        "answerHistory": [
+          "B"
+        ]
+      },
+      "16": {
+        "questionNo": 16,
+        "selected": "D",
+        "correctAnswer": "B",
+        "isCorrect": false,
+        "flagged": false,
+        "note": "Pure Guess",
+        "timeSpentSeconds": 64,
+        "changesCount": 0,
+        "answerHistory": [
+          "D"
+        ]
+      },
+      "17": {
+        "questionNo": 17,
+        "selected": "A",
+        "correctAnswer": "A",
+        "isCorrect": true,
+        "flagged": false,
+        "note": "Pure Guess",
+        "timeSpentSeconds": 66,
+        "changesCount": 0,
+        "answerHistory": [
+          "A",
+          "A"
+        ]
+      },
+      "18": {
+        "questionNo": 18,
+        "selected": "B",
+        "correctAnswer": "D",
+        "isCorrect": false,
+        "flagged": false,
+        "note": "Pure Guess",
+        "timeSpentSeconds": 117,
+        "changesCount": 0,
+        "answerHistory": [
+          "B"
+        ]
+      },
+      "19": {
+        "questionNo": 19,
+        "selected": "B",
+        "correctAnswer": "D",
+        "isCorrect": false,
+        "flagged": false,
+        "note": "Pure Guess",
+        "timeSpentSeconds": 14,
+        "changesCount": 0,
+        "answerHistory": [
+          "B"
+        ]
+      },
+      "20": {
+        "questionNo": 20,
+        "selected": "B",
+        "correctAnswer": "B",
+        "isCorrect": true,
+        "flagged": false,
+        "note": "Pure Guess",
+        "timeSpentSeconds": 15,
+        "changesCount": 0,
+        "answerHistory": [
+          "B"
+        ]
+      },
+      "21": {
+        "questionNo": 21,
+        "selected": "B",
+        "correctAnswer": "B",
+        "isCorrect": true,
+        "flagged": false,
+        "note": "Pure Guess",
+        "timeSpentSeconds": 85,
+        "changesCount": 0,
+        "answerHistory": [
+          "B"
+        ]
+      },
+      "22": {
+        "questionNo": 22,
+        "selected": "C",
+        "correctAnswer": "B",
+        "isCorrect": false,
+        "flagged": false,
+        "note": "Pure Guess",
+        "timeSpentSeconds": 25,
+        "changesCount": 0,
+        "answerHistory": [
+          "C"
+        ]
+      },
+      "23": {
+        "questionNo": 23,
+        "selected": "C",
+        "correctAnswer": "D",
+        "isCorrect": false,
+        "flagged": false,
+        "note": "Pure Guess",
+        "timeSpentSeconds": 44,
+        "changesCount": 0,
+        "answerHistory": [
+          "C"
+        ]
+      },
+      "24": {
+        "questionNo": 24,
+        "selected": "D",
+        "correctAnswer": "D",
+        "isCorrect": true,
+        "flagged": false,
+        "note": "B, C eliminated as its ask about trade and logistics and Option 2 is about heritage. 1 is ambiguous only statement 3 is sounding logical thus D",
+        "timeSpentSeconds": 107,
+        "changesCount": 0,
+        "answerHistory": [
+          "D"
+        ]
+      },
+      "25": {
+        "questionNo": 25,
+        "selected": "A",
+        "correctAnswer": "C",
+        "isCorrect": false,
+        "flagged": false,
+        "note": "Indus not in 3 countries\nSutlej is 2 countries\nTeesta - Don't know\n\nBased on elimination derived A. Also, I don't think Brahmaputra has any distributaries and it flows through China, India and Bangladesh by originating in China of Tibetan Plateau",
+        "timeSpentSeconds": 111,
+        "changesCount": 0,
+        "answerHistory": [
+          "A"
+        ]
+      },
+      "26": {
+        "questionNo": 26,
+        "selected": "C",
+        "correctAnswer": "C",
+        "isCorrect": true,
+        "flagged": false,
+        "note": "Elimination approach",
+        "timeSpentSeconds": 106,
+        "changesCount": 0,
+        "answerHistory": [
+          "C"
+        ]
+      },
+      "27": {
+        "questionNo": 27,
+        "selected": "B",
+        "correctAnswer": "A",
+        "isCorrect": false,
+        "flagged": false,
+        "note": "Pure Guess",
+        "timeSpentSeconds": 24,
+        "changesCount": 0,
+        "answerHistory": [
+          "B"
+        ]
+      },
+      "28": {
+        "questionNo": 28,
+        "selected": "D",
+        "correctAnswer": "D",
+        "isCorrect": true,
+        "flagged": false,
+        "note": "Pure Guess",
+        "timeSpentSeconds": 39,
+        "changesCount": 0,
+        "answerHistory": [
+          "D"
+        ]
+      },
+      "29": {
+        "questionNo": 29,
+        "selected": "C",
+        "correctAnswer": "C",
+        "isCorrect": true,
+        "flagged": false,
+        "note": "Pure Guess",
+        "timeSpentSeconds": 29,
+        "changesCount": 0,
+        "answerHistory": [
+          "C"
+        ]
+      },
+      "30": {
+        "questionNo": 30,
+        "selected": "C",
+        "correctAnswer": "B",
+        "isCorrect": false,
+        "flagged": false,
+        "note": "Pure Guess",
+        "timeSpentSeconds": 65,
+        "changesCount": 0,
+        "answerHistory": [
+          "C"
+        ]
+      },
+      "31": {
+        "questionNo": 31,
+        "selected": "B",
+        "correctAnswer": "A",
+        "isCorrect": false,
+        "flagged": false,
+        "note": "Pure Guess -> Pure news question no recall",
+        "timeSpentSeconds": 53,
+        "changesCount": 0,
+        "answerHistory": [
+          "B"
+        ]
+      },
+      "32": {
+        "questionNo": 32,
+        "selected": "B",
+        "correctAnswer": "B",
+        "isCorrect": true,
+        "flagged": false,
+        "note": "Pure Guess",
+        "timeSpentSeconds": 29,
+        "changesCount": 0,
+        "answerHistory": [
+          "B"
+        ]
+      },
+      "33": {
+        "questionNo": 33,
+        "selected": "A",
+        "correctAnswer": "B",
+        "isCorrect": false,
+        "flagged": false,
+        "note": "Pure Guess",
+        "timeSpentSeconds": 85,
+        "changesCount": 0,
+        "answerHistory": [
+          "A"
+        ]
+      },
+      "34": {
+        "questionNo": 34,
+        "selected": "B",
+        "correctAnswer": "B",
+        "isCorrect": true,
+        "flagged": false,
+        "note": "Pure Guess",
+        "timeSpentSeconds": 29,
+        "changesCount": 0,
+        "answerHistory": [
+          "B"
+        ]
+      },
+      "35": {
+        "questionNo": 35,
+        "selected": "B",
+        "correctAnswer": "B",
+        "isCorrect": true,
+        "flagged": false,
+        "note": "Sheer logical conviction",
+        "timeSpentSeconds": 60,
+        "changesCount": 0,
+        "answerHistory": [
+          "B"
+        ]
+      },
+      "36": {
+        "questionNo": 36,
+        "selected": "C",
+        "correctAnswer": "B",
+        "isCorrect": false,
+        "flagged": false,
+        "note": "Pure Guess -> No idea",
+        "timeSpentSeconds": 43,
+        "changesCount": 0,
+        "answerHistory": [
+          "C"
+        ]
+      },
+      "37": {
+        "questionNo": 37,
+        "selected": "D",
+        "correctAnswer": "C",
+        "isCorrect": false,
+        "flagged": false,
+        "note": "Pure Guess",
+        "timeSpentSeconds": 28,
+        "changesCount": 0,
+        "answerHistory": [
+          "D"
+        ]
+      },
+      "38": {
+        "questionNo": 38,
+        "selected": "C",
+        "correctAnswer": "B",
+        "isCorrect": false,
+        "flagged": false,
+        "note": "Pure Guess",
+        "timeSpentSeconds": 110,
+        "changesCount": 0,
+        "answerHistory": [
+          "C"
+        ]
+      },
+      "39": {
+        "questionNo": 39,
+        "selected": "D",
+        "correctAnswer": "B",
+        "isCorrect": false,
+        "flagged": false,
+        "note": "Pure Guess",
+        "timeSpentSeconds": 22,
+        "changesCount": 0,
+        "answerHistory": [
+          "D"
+        ]
+      },
+      "40": {
+        "questionNo": 40,
+        "selected": "C",
+        "correctAnswer": "C",
+        "isCorrect": true,
+        "flagged": false,
+        "note": "Pure Guess",
+        "timeSpentSeconds": 54,
+        "changesCount": 0,
+        "answerHistory": [
+          "C"
+        ]
+      },
+      "41": {
+        "questionNo": 41,
+        "selected": "D",
+        "correctAnswer": "C",
+        "isCorrect": false,
+        "flagged": false,
+        "note": "Pure Guess",
+        "timeSpentSeconds": 58,
+        "changesCount": 0,
+        "answerHistory": [
+          "D"
+        ]
+      },
+      "42": {
+        "questionNo": 42,
+        "selected": "B",
+        "correctAnswer": "B",
+        "isCorrect": true,
+        "flagged": false,
+        "note": "I know this. Statement 3 is sheer ridicule and wrong. Stmt 1 and 2 are correct.",
+        "timeSpentSeconds": 54,
+        "changesCount": 0,
+        "answerHistory": [
+          "B"
+        ]
+      },
+      "43": {
+        "questionNo": 43,
+        "selected": "D",
+        "correctAnswer": "C",
+        "isCorrect": false,
+        "flagged": false,
+        "note": "All 3 statements seems correct to me",
+        "timeSpentSeconds": 43,
+        "changesCount": 0,
+        "answerHistory": [
+          "D"
+        ]
+      },
+      "44": {
+        "questionNo": 44,
+        "selected": "B",
+        "correctAnswer": "B",
+        "isCorrect": true,
+        "flagged": false,
+        "note": "I had solved this couple of days back when skimming through papers",
+        "timeSpentSeconds": 29,
+        "changesCount": 0,
+        "answerHistory": [
+          "B"
+        ]
+      },
+      "45": {
+        "questionNo": 45,
+        "selected": "B",
+        "correctAnswer": "B",
+        "isCorrect": true,
+        "flagged": false,
+        "note": "Pure Guess",
+        "timeSpentSeconds": 36,
+        "changesCount": 0,
+        "answerHistory": [
+          "B"
+        ]
+      },
+      "46": {
+        "questionNo": 46,
+        "selected": "C",
+        "correctAnswer": "C",
+        "isCorrect": true,
+        "flagged": false,
+        "note": "Statement 3 is incorrect, no private player has developed fuel for any GSLV",
+        "timeSpentSeconds": 60,
+        "changesCount": 0,
+        "answerHistory": [
+          "C"
+        ]
+      },
+      "47": {
+        "questionNo": 47,
+        "selected": "D",
+        "correctAnswer": "B",
+        "isCorrect": false,
+        "flagged": false,
+        "note": "Pure Guess",
+        "timeSpentSeconds": 19,
+        "changesCount": 0,
+        "answerHistory": [
+          "D"
+        ]
+      },
+      "48": {
+        "questionNo": 48,
+        "selected": "D",
+        "correctAnswer": "B",
+        "isCorrect": false,
+        "flagged": false,
+        "note": "Pure Guess",
+        "timeSpentSeconds": 24,
+        "changesCount": 0,
+        "answerHistory": [
+          "D"
+        ]
+      },
+      "49": {
+        "questionNo": 49,
+        "selected": "C",
+        "correctAnswer": "C",
+        "isCorrect": true,
+        "flagged": false,
+        "note": "",
+        "timeSpentSeconds": 20,
+        "changesCount": 0,
+        "answerHistory": [
+          "C"
+        ]
+      },
+      "50": {
+        "questionNo": 50,
+        "selected": "B",
+        "correctAnswer": "B",
+        "isCorrect": true,
+        "flagged": false,
+        "note": "Pure Guess",
+        "timeSpentSeconds": 110,
+        "changesCount": 0,
+        "answerHistory": [
+          "B"
+        ]
+      },
+      "51": {
+        "questionNo": 51,
+        "selected": "A",
+        "correctAnswer": "C",
+        "isCorrect": false,
+        "flagged": false,
+        "note": "Spirit of Civil Servent",
+        "timeSpentSeconds": 27,
+        "changesCount": 0,
+        "answerHistory": [
+          "A"
+        ]
+      },
+      "52": {
+        "questionNo": 52,
+        "selected": "A",
+        "correctAnswer": "A",
+        "isCorrect": true,
+        "flagged": false,
+        "note": "Eliminated of B, C and D due to Statement 2 is not a good option",
+        "timeSpentSeconds": 136,
+        "changesCount": 0,
+        "answerHistory": [
+          "A"
+        ]
+      },
+      "53": {
+        "questionNo": 53,
+        "selected": "B",
+        "correctAnswer": "B",
+        "isCorrect": true,
+        "flagged": false,
+        "note": "Statement 1's action is bizarre because nothing is yet proven in court of the law hence option A and D are out. Statement 2, removing the contractor from the list would be biased and unequal opportunity break. Hence left Option is B -> Statement 3 only",
+        "timeSpentSeconds": 192,
+        "changesCount": 0,
+        "answerHistory": [
+          "B"
+        ]
+      },
+      "54": {
+        "questionNo": 54,
+        "selected": "B",
+        "correctAnswer": "D",
+        "isCorrect": false,
+        "flagged": false,
+        "note": "Pure Guess",
+        "timeSpentSeconds": 132,
+        "changesCount": 0,
+        "answerHistory": [
+          "B"
+        ]
+      },
+      "55": {
+        "questionNo": 55,
+        "selected": "A",
+        "correctAnswer": "B",
+        "isCorrect": false,
+        "flagged": false,
+        "note": "",
+        "timeSpentSeconds": 36,
+        "changesCount": 0,
+        "answerHistory": [
+          "A"
+        ]
+      },
+      "56": {
+        "questionNo": 56,
+        "selected": "C",
+        "correctAnswer": "B",
+        "isCorrect": false,
+        "flagged": false,
+        "note": "Pure Guess",
+        "timeSpentSeconds": 52,
+        "changesCount": 0,
+        "answerHistory": [
+          "C"
+        ]
+      },
+      "57": {
+        "questionNo": 57,
+        "selected": "D",
+        "correctAnswer": "A",
+        "isCorrect": false,
+        "flagged": false,
+        "note": "",
+        "timeSpentSeconds": 53,
+        "changesCount": 0,
+        "answerHistory": [
+          "D"
+        ]
+      },
+      "58": {
+        "questionNo": 58,
+        "selected": "C",
+        "correctAnswer": "C",
+        "isCorrect": true,
+        "flagged": false,
+        "note": "Pure Guess",
+        "timeSpentSeconds": 23,
+        "changesCount": 0,
+        "answerHistory": [
+          "C"
+        ]
+      },
+      "59": {
+        "questionNo": 59,
+        "selected": "B",
+        "correctAnswer": "D",
+        "isCorrect": false,
+        "flagged": false,
+        "note": "Pure Guess",
+        "timeSpentSeconds": 65,
+        "changesCount": 0,
+        "answerHistory": [
+          "B"
+        ]
+      },
+      "60": {
+        "questionNo": 60,
+        "selected": "A",
+        "correctAnswer": "A",
+        "isCorrect": true,
+        "flagged": false,
+        "note": "Pure Guess",
+        "timeSpentSeconds": 89,
+        "changesCount": 0,
+        "answerHistory": [
+          "A"
+        ]
+      },
+      "61": {
+        "questionNo": 61,
+        "selected": "A",
+        "correctAnswer": "D",
+        "isCorrect": false,
+        "flagged": false,
+        "note": "Pure Guess",
+        "timeSpentSeconds": 3,
+        "changesCount": 0,
+        "answerHistory": [
+          "A"
+        ]
+      },
+      "62": {
+        "questionNo": 62,
+        "selected": "A",
+        "correctAnswer": "D",
+        "isCorrect": false,
+        "flagged": false,
+        "note": "Statement 3 I'm not sure but 1 and 2 are correct thus going with all correct option",
+        "timeSpentSeconds": 72,
+        "changesCount": 0,
+        "answerHistory": [
+          "A"
+        ]
+      },
+      "63": {
+        "questionNo": 63,
+        "selected": "A",
+        "correctAnswer": "A",
+        "isCorrect": true,
+        "flagged": false,
+        "note": "Elimination method",
+        "timeSpentSeconds": 50,
+        "changesCount": 0,
+        "answerHistory": [
+          "A"
+        ]
+      },
+      "64": {
+        "questionNo": 64,
+        "selected": "B",
+        "correctAnswer": "D",
+        "isCorrect": false,
+        "flagged": false,
+        "note": "Pure Guess",
+        "timeSpentSeconds": 56,
+        "changesCount": 0,
+        "answerHistory": [
+          "B"
+        ]
+      },
+      "65": {
+        "questionNo": 65,
+        "selected": "A",
+        "correctAnswer": "D",
+        "isCorrect": false,
+        "flagged": false,
+        "note": "Eliminated option B as 3rd statement sounds true to me.",
+        "timeSpentSeconds": 155,
+        "changesCount": 0,
+        "answerHistory": [
+          "A"
+        ]
+      },
+      "66": {
+        "questionNo": 66,
+        "selected": "B",
+        "correctAnswer": "A",
+        "isCorrect": false,
+        "flagged": false,
+        "note": "Pure Guess",
+        "timeSpentSeconds": 30,
+        "changesCount": 0,
+        "answerHistory": [
+          "B"
+        ]
+      },
+      "67": {
+        "questionNo": 67,
+        "selected": "B",
+        "correctAnswer": "B",
+        "isCorrect": true,
+        "flagged": false,
+        "note": "Elimination approach",
+        "timeSpentSeconds": 99,
+        "changesCount": 0,
+        "answerHistory": [
+          "B"
+        ]
+      },
+      "68": {
+        "questionNo": 68,
+        "selected": "A",
+        "correctAnswer": "A",
+        "isCorrect": true,
+        "flagged": false,
+        "note": "Pure Guess",
+        "timeSpentSeconds": 53,
+        "changesCount": 0,
+        "answerHistory": [
+          "A"
+        ]
+      },
+      "69": {
+        "questionNo": 69,
+        "selected": "B",
+        "correctAnswer": "C",
+        "isCorrect": false,
+        "flagged": false,
+        "note": "Pure Guess",
+        "timeSpentSeconds": 143,
+        "changesCount": 0,
+        "answerHistory": [
+          "B"
+        ]
+      },
+      "70": {
+        "questionNo": 70,
+        "selected": "B",
+        "correctAnswer": "A",
+        "isCorrect": false,
+        "flagged": false,
+        "note": "Pure Guess",
+        "timeSpentSeconds": 36,
+        "changesCount": 0,
+        "answerHistory": [
+          "B"
+        ]
+      },
+      "71": {
+        "questionNo": 71,
+        "selected": "C",
+        "correctAnswer": "B",
+        "isCorrect": false,
+        "flagged": false,
+        "note": "Pure Guess",
+        "timeSpentSeconds": 15,
+        "changesCount": 0,
+        "answerHistory": [
+          "C"
+        ]
+      },
+      "72": {
+        "questionNo": 72,
+        "selected": "C",
+        "correctAnswer": "C",
+        "isCorrect": true,
+        "flagged": false,
+        "note": "Pure Guess",
+        "timeSpentSeconds": 89,
+        "changesCount": 0,
+        "answerHistory": [
+          "C"
+        ]
+      },
+      "73": {
+        "questionNo": 73,
+        "selected": "C",
+        "correctAnswer": "D",
+        "isCorrect": false,
+        "flagged": false,
+        "note": "Pure Guess",
+        "timeSpentSeconds": 33,
+        "changesCount": 0,
+        "answerHistory": [
+          "C"
+        ]
+      },
+      "74": {
+        "questionNo": 74,
+        "selected": "B",
+        "correctAnswer": "B",
+        "isCorrect": true,
+        "flagged": false,
+        "note": "Pure Guess",
+        "timeSpentSeconds": 17,
+        "changesCount": 0,
+        "answerHistory": [
+          "B"
+        ]
+      },
+      "75": {
+        "questionNo": 75,
+        "selected": "D",
+        "correctAnswer": "C",
+        "isCorrect": false,
+        "flagged": false,
+        "note": "Pure Guess",
+        "timeSpentSeconds": 59,
+        "changesCount": 0,
+        "answerHistory": [
+          "D"
+        ]
+      },
+      "76": {
+        "questionNo": 76,
+        "selected": "C",
+        "correctAnswer": "C",
+        "isCorrect": true,
+        "flagged": false,
+        "note": "Pure Guess",
+        "timeSpentSeconds": 218,
+        "changesCount": 0,
+        "answerHistory": [
+          "C"
+        ]
+      },
+      "77": {
+        "questionNo": 77,
+        "selected": "C",
+        "correctAnswer": "B",
+        "isCorrect": false,
+        "flagged": false,
+        "note": "Pure Guess - Not even read fully",
+        "timeSpentSeconds": 25,
+        "changesCount": 0,
+        "answerHistory": [
+          "C"
+        ]
+      },
+      "78": {
+        "questionNo": 78,
+        "selected": "A",
+        "correctAnswer": "B",
+        "isCorrect": false,
+        "flagged": false,
+        "note": "Pure Guess",
+        "timeSpentSeconds": 42,
+        "changesCount": 0,
+        "answerHistory": [
+          "A"
+        ]
+      },
+      "79": {
+        "questionNo": 79,
+        "selected": "C",
+        "correctAnswer": "C",
+        "isCorrect": true,
+        "flagged": false,
+        "note": "Pure Guess ",
+        "timeSpentSeconds": 58,
+        "changesCount": 0,
+        "answerHistory": [
+          "C"
+        ]
+      },
+      "80": {
+        "questionNo": 80,
+        "selected": "A",
+        "correctAnswer": "C",
+        "isCorrect": false,
+        "flagged": false,
+        "note": "Pure Guess ",
+        "timeSpentSeconds": 36,
+        "changesCount": 1,
+        "answerHistory": [
+          "C",
+          "A"
+        ]
+      },
+      "81": {
+        "questionNo": 81,
+        "selected": "A",
+        "correctAnswer": "C",
+        "isCorrect": false,
+        "flagged": false,
+        "note": "Pure Guess",
+        "timeSpentSeconds": 38,
+        "changesCount": 0,
+        "answerHistory": [
+          "A"
+        ]
+      },
+      "82": {
+        "questionNo": 82,
+        "selected": "B",
+        "correctAnswer": "C",
+        "isCorrect": false,
+        "flagged": false,
+        "note": "Pure Guess",
+        "timeSpentSeconds": 17,
+        "changesCount": 0,
+        "answerHistory": [
+          "B"
+        ]
+      },
+      "83": {
+        "questionNo": 83,
+        "selected": "C",
+        "correctAnswer": "C",
+        "isCorrect": true,
+        "flagged": false,
+        "note": "Pure Guess",
+        "timeSpentSeconds": 27,
+        "changesCount": 0,
+        "answerHistory": [
+          "C"
+        ]
+      },
+      "84": {
+        "questionNo": 84,
+        "selected": "C",
+        "correctAnswer": "A",
+        "isCorrect": false,
+        "flagged": false,
+        "note": "Pure Guess",
+        "timeSpentSeconds": 18,
+        "changesCount": 0,
+        "answerHistory": [
+          "C"
+        ]
+      },
+      "85": {
+        "questionNo": 85,
+        "selected": "C",
+        "correctAnswer": "A",
+        "isCorrect": false,
+        "flagged": false,
+        "note": "Pure Guess",
+        "timeSpentSeconds": 27,
+        "changesCount": 0,
+        "answerHistory": [
+          "C"
+        ]
+      },
+      "86": {
+        "questionNo": 86,
+        "selected": "B",
+        "correctAnswer": "C",
+        "isCorrect": false,
+        "flagged": false,
+        "note": "",
+        "timeSpentSeconds": 41,
+        "changesCount": 0,
+        "answerHistory": [
+          "B"
+        ]
+      },
+      "87": {
+        "questionNo": 87,
+        "selected": "B",
+        "correctAnswer": "A",
+        "isCorrect": false,
+        "flagged": false,
+        "note": "",
+        "timeSpentSeconds": 59,
+        "changesCount": 0,
+        "answerHistory": [
+          "B"
+        ]
+      },
+      "88": {
+        "questionNo": 88,
+        "selected": "C",
+        "correctAnswer": "C",
+        "isCorrect": true,
+        "flagged": false,
+        "note": "Pure Guess",
+        "timeSpentSeconds": 41,
+        "changesCount": 1,
+        "answerHistory": [
+          "D",
+          "C"
+        ]
+      },
+      "89": {
+        "questionNo": 89,
+        "selected": "C",
+        "correctAnswer": "C",
+        "isCorrect": true,
+        "flagged": false,
+        "note": "",
+        "timeSpentSeconds": 44,
+        "changesCount": 0,
+        "answerHistory": [
+          "C"
+        ]
+      },
+      "90": {
+        "questionNo": 90,
+        "selected": "D",
+        "correctAnswer": "D",
+        "isCorrect": true,
+        "flagged": false,
+        "note": "",
+        "timeSpentSeconds": 49,
+        "changesCount": 1,
+        "answerHistory": [
+          "C",
+          "D"
+        ]
+      },
+      "91": {
+        "questionNo": 91,
+        "selected": "C",
+        "correctAnswer": "A",
+        "isCorrect": false,
+        "flagged": false,
+        "note": "",
+        "timeSpentSeconds": 31,
+        "changesCount": 0,
+        "answerHistory": [
+          "C"
+        ]
+      },
+      "92": {
+        "questionNo": 92,
+        "selected": "C",
+        "correctAnswer": "C",
+        "isCorrect": true,
+        "flagged": false,
+        "note": "",
+        "timeSpentSeconds": 25,
+        "changesCount": 0,
+        "answerHistory": [
+          "C"
+        ]
+      },
+      "93": {
+        "questionNo": 93,
+        "selected": "A",
+        "correctAnswer": "B",
+        "isCorrect": false,
+        "flagged": false,
+        "note": "Pure Guess",
+        "timeSpentSeconds": 28,
+        "changesCount": 0,
+        "answerHistory": [
+          "A"
+        ]
+      },
+      "94": {
+        "questionNo": 94,
+        "selected": "B",
+        "correctAnswer": "B",
+        "isCorrect": true,
+        "flagged": false,
+        "note": "",
+        "timeSpentSeconds": 33,
+        "changesCount": 0,
+        "answerHistory": [
+          "B"
+        ]
+      },
+      "95": {
+        "questionNo": 95,
+        "selected": "C",
+        "correctAnswer": "A",
+        "isCorrect": false,
+        "flagged": false,
+        "note": "Pure Guess",
+        "timeSpentSeconds": 27,
+        "changesCount": 0,
+        "answerHistory": [
+          "C"
+        ]
+      },
+      "96": {
+        "questionNo": 96,
+        "selected": "C",
+        "correctAnswer": "C",
+        "isCorrect": true,
+        "flagged": false,
+        "note": "Pure Guess",
+        "timeSpentSeconds": 10,
+        "changesCount": 0,
+        "answerHistory": [
+          "C"
+        ]
+      },
+      "97": {
+        "questionNo": 97,
+        "selected": "A",
+        "correctAnswer": "C",
+        "isCorrect": false,
+        "flagged": false,
+        "note": "",
+        "timeSpentSeconds": 22,
+        "changesCount": 0,
+        "answerHistory": [
+          "A"
+        ]
+      },
+      "98": {
+        "questionNo": 98,
+        "selected": "C",
+        "correctAnswer": "D",
+        "isCorrect": false,
+        "flagged": false,
+        "note": "Pure Guess",
+        "timeSpentSeconds": 75,
+        "changesCount": 2,
+        "answerHistory": [
+          "C",
+          "D",
+          "C"
+        ]
+      },
+      "99": {
+        "questionNo": 99,
+        "selected": "B",
+        "correctAnswer": "A",
+        "isCorrect": false,
+        "flagged": false,
+        "note": "Pure Guess",
+        "timeSpentSeconds": 34,
+        "changesCount": 0,
+        "answerHistory": [
+          "B"
+        ]
+      },
+      "100": {
+        "questionNo": 100,
+        "selected": "C",
+        "correctAnswer": "A",
+        "isCorrect": false,
+        "flagged": false,
+        "note": "Pure Guess",
+        "timeSpentSeconds": 19,
+        "changesCount": 0,
+        "answerHistory": [
+          "C"
+        ]
+      }
+    }
+  }
+]

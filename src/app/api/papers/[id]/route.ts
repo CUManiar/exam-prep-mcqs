@@ -1,5 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { readJsonStore, writeJsonStore, deleteFile } from '@/lib/cloudStorage';
+import {
+  readJsonStore,
+  writeJsonStore,
+  deleteFile,
+  isProdEnv,
+  getProdApiUrl,
+  getBlobToken,
+} from '@/lib/cloudStorage';
 
 export async function DELETE(
   req: NextRequest,
@@ -8,6 +15,18 @@ export async function DELETE(
   try {
     const { id } = await params;
     const cleanId = id.toLowerCase();
+
+    // Forward to PROD if configured
+    if (isProdEnv() && !process.env.VERCEL && !getBlobToken()) {
+      try {
+        await fetch(`${getProdApiUrl()}/api/papers/${cleanId}`, {
+          method: 'DELETE',
+          redirect: 'follow',
+        });
+      } catch (err) {
+        console.warn('Failed forwarding paper DELETE to PROD:', err);
+      }
+    }
 
     // 1. Remove from papers.json
     const customMeta = await readJsonStore<Record<string, any>>('papers.json', {});
@@ -38,6 +57,20 @@ export async function PATCH(
     const cleanId = id.toLowerCase();
     const body = await req.json();
 
+    // Forward to PROD if configured
+    if (isProdEnv() && !process.env.VERCEL && !getBlobToken()) {
+      try {
+        await fetch(`${getProdApiUrl()}/api/papers/${cleanId}`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(body),
+          redirect: 'follow',
+        });
+      } catch (err) {
+        console.warn('Failed forwarding paper PATCH to PROD:', err);
+      }
+    }
+
     const customMeta = await readJsonStore<Record<string, any>>('papers.json', {});
     const current = customMeta[cleanId] || { id: cleanId };
     const updated = {
@@ -56,3 +89,4 @@ export async function PATCH(
     return NextResponse.json({ ok: false, error: err.message }, { status: 500 });
   }
 }
+

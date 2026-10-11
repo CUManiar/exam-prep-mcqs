@@ -1,6 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { Attempt } from '../../../../lib/types';
-import { readJsonStore, writeJsonStore } from '@/lib/cloudStorage';
+import {
+  readJsonStore,
+  writeJsonStore,
+  isProdEnv,
+  getProdApiUrl,
+  getBlobToken,
+} from '@/lib/cloudStorage';
 
 export async function DELETE(
   req: NextRequest,
@@ -8,6 +14,19 @@ export async function DELETE(
 ) {
   try {
     const { id } = await params;
+
+    // Forward to PROD if running locally in PROD mode
+    if (isProdEnv() && !process.env.VERCEL && !getBlobToken()) {
+      try {
+        await fetch(`${getProdApiUrl()}/api/attempts/${id}`, {
+          method: 'DELETE',
+          redirect: 'follow',
+        });
+      } catch (err) {
+        console.warn(`[Attempts API] Failed to forward DELETE to PROD:`, err);
+      }
+    }
+
     const currentList = await readJsonStore<Attempt[]>('attempts.json', []);
     const updated = currentList.filter(a => a.id !== id);
     await writeJsonStore('attempts.json', updated);
@@ -24,6 +43,21 @@ export async function PATCH(
   try {
     const { id } = await params;
     const updates = await req.json();
+
+    // Forward to PROD if running locally in PROD mode
+    if (isProdEnv() && !process.env.VERCEL && !getBlobToken()) {
+      try {
+        await fetch(`${getProdApiUrl()}/api/attempts/${id}`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(updates),
+          redirect: 'follow',
+        });
+      } catch (err) {
+        console.warn(`[Attempts API] Failed to forward PATCH to PROD:`, err);
+      }
+    }
+
     const list = await readJsonStore<Attempt[]>('attempts.json', []);
     const idx = list.findIndex(a => a.id === id);
     if (idx >= 0) {
@@ -36,3 +70,4 @@ export async function PATCH(
     return NextResponse.json({ ok: false, error: err.message }, { status: 500 });
   }
 }
+

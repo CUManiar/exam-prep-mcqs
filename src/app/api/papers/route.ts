@@ -3,7 +3,15 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { QuestionPaper, ExamCategory, ExamType } from '../../../lib/types';
 import { INITIAL_PAPERS, getStandardTimeMinutes } from '../../../lib/defaults';
-import { readJsonStore, writeJsonStore, isBlobEnabled } from '@/lib/cloudStorage';
+import {
+  readJsonStore,
+  writeJsonStore,
+  isBlobEnabled,
+  getAppEnvironment,
+  isProdEnv,
+  getProdApiUrl,
+  getBlobToken,
+} from '@/lib/cloudStorage';
 
 const DATA_DIR = path.join(process.cwd(), 'public', 'data');
 
@@ -25,6 +33,31 @@ function parseAnswerKeyFile(filePath: string): Record<number, string> {
 
 export async function GET(req: NextRequest) {
   try {
+    const currentEnv = getAppEnvironment();
+
+    // If running in PROD mode locally without blob token, try fetching all papers directly from PROD
+    if (isProdEnv() && !process.env.VERCEL && !getBlobToken()) {
+      try {
+        const res = await fetch(`${getProdApiUrl()}/api/papers`, {
+          redirect: 'follow',
+          cache: 'no-store',
+        });
+        if (res.ok) {
+          const data = await res.json();
+          if (data.ok && Array.isArray(data.papers)) {
+            return NextResponse.json({
+              ok: true,
+              papers: data.papers,
+              environment: currentEnv,
+              source: 'PROD_REMOTE',
+            });
+          }
+        }
+      } catch (err) {
+        console.warn('Failed fetching papers from PROD, using local fallback:', err);
+      }
+    }
+
     // 1. Read stored custom metadata from Cloud Storage (Vercel Blob) or local fallback
     const customMeta = await readJsonStore<Record<string, QuestionPaper>>('papers.json', {});
 
@@ -58,9 +91,15 @@ export async function GET(req: NextRequest) {
       return a.subject.localeCompare(b.subject);
     });
 
-    return NextResponse.json({ ok: true, papers: allPapers });
+    return NextResponse.json({
+      ok: true,
+      papers: allPapers,
+      environment: currentEnv,
+      source: isBlobEnabled() ? 'BLOB_STORE' : 'LOCAL_STORE',
+    });
   } catch (err: any) {
     console.error('Papers API error:', err);
     return NextResponse.json({ ok: false, error: err.message }, { status: 500 });
   }
 }
+

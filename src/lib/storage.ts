@@ -28,6 +28,9 @@ export async function loadAttemptsFromServer(): Promise<Attempt[]> {
       if (data.ok && Array.isArray(data.attempts)) {
         if (typeof window !== 'undefined') {
           localStorage.setItem(STORAGE_KEYS.ATTEMPTS, JSON.stringify(data.attempts));
+          if (data.environment) {
+            localStorage.setItem('exam_prep_environment', data.environment);
+          }
         }
         return data.attempts.filter((a: Attempt) => a.mode === 'mock');
       }
