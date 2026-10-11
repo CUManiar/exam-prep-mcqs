@@ -25,7 +25,9 @@ import {
   Bookmark, 
   Pause, 
   Play, 
-  Save 
+  Save,
+  ArrowLeft,
+  ArrowRight
 } from 'lucide-react';
 
 interface ExamSessionViewProps {
@@ -353,6 +355,7 @@ export function ExamSessionView({
   const attemptedCount = allAnswerValues.filter(a => isQuestionAnswered(a)).length;
   const flaggedCount = allAnswerValues.filter(a => a.flagged).length;
   const unattemptedCount = paper.totalQuestions - attemptedCount;
+  const alteredCount = allAnswerValues.filter(a => (a.changesCount || 0) > 0).length;
 
   // Filtered question numbers for the grid
   const filteredQuestionNumbers = Array.from({ length: paper.totalQuestions }, (_, i) => i + 1).filter(qNo => {
@@ -1214,48 +1217,206 @@ export function ExamSessionView({
         paperTitle={paper.label}
       />
 
-      {/* Objective Exam Finish Confirmation */}
+      {/* Objective Exam Assessment & Submission Review Screen */}
       {showFinishConfirm && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in">
-          <div className="relative w-full max-w-md rounded-2xl border border-slate-800 bg-slate-900 p-6 shadow-2xl">
-            <h3 className="text-lg font-bold text-white mb-2">
-              Submit your examination?
-            </h3>
-            <p className="text-xs text-slate-400 mb-4">
-              Here is your submission summary for {paper.label}:
-            </p>
+        <div className="fixed inset-0 z-50 overflow-y-auto bg-slate-950/95 backdrop-blur-md text-slate-100 flex flex-col font-sans animate-in fade-in duration-200">
+          {/* Top Bar */}
+          <div className="sticky top-0 z-20 border-b border-slate-800 bg-slate-900/90 backdrop-blur-md px-4 py-3 sm:px-6">
+            <div className="max-w-7xl mx-auto flex items-center justify-between gap-3">
+              <div className="flex items-center gap-3 min-w-0">
+                <button
+                  onClick={() => setShowFinishConfirm(false)}
+                  className="flex items-center gap-1.5 rounded-xl border border-slate-700 bg-slate-800 px-3 py-1.5 text-xs font-semibold text-slate-300 hover:bg-slate-700 hover:text-white transition-colors shrink-0"
+                >
+                  <ArrowLeft className="h-4 w-4" /> Return to Exam
+                </button>
+                <div className="min-w-0">
+                  <h2 className="text-base sm:text-lg font-bold text-white truncate">
+                    Exam Assessment & Submission Review
+                  </h2>
+                  <p className="text-xs text-slate-400 truncate">
+                    {paper.label} • {paper.year} • {paper.category.toUpperCase()}
+                  </p>
+                </div>
+              </div>
 
-            <div className="grid grid-cols-3 gap-2.5 mb-5 text-center">
-              <div className="rounded-xl border border-emerald-900/40 bg-emerald-950/20 p-2.5">
-                <div className="text-lg font-bold text-emerald-400">{attemptedCount}</div>
-                <div className="text-[11px] text-slate-400">Attempted</div>
+              <div className="flex items-center gap-2 sm:gap-3 shrink-0">
+                <div className="hidden sm:flex items-center gap-1.5 rounded-xl bg-slate-800 px-3 py-1.5 border border-slate-700 text-xs text-slate-300 font-mono">
+                  <Clock className="h-3.5 w-3.5 text-indigo-400" />
+                  <span>Time: {formatTimeSeconds(elapsedSeconds)}</span>
+                </div>
+                <button
+                  onClick={() => {
+                    setShowFinishConfirm(false);
+                    handleFinishExam();
+                  }}
+                  className="rounded-xl bg-indigo-600 px-4 sm:px-6 py-2 text-xs sm:text-sm font-bold text-white shadow-lg shadow-indigo-600/30 hover:bg-indigo-500 transition-all flex items-center gap-2"
+                >
+                  <span>Finalize & Submit Exam</span>
+                  <ArrowRight className="h-4 w-4" />
+                </button>
               </div>
-              <div className="rounded-xl border border-slate-800 bg-slate-950 p-2.5">
-                <div className="text-lg font-bold text-slate-300">{unattemptedCount}</div>
-                <div className="text-[11px] text-slate-400">Skipped</div>
+            </div>
+          </div>
+
+          {/* Assessment Body */}
+          <div className="flex-1 max-w-7xl mx-auto w-full p-4 sm:p-6 lg:p-8 space-y-6">
+            {/* KPI Overview Cards */}
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 sm:gap-4">
+              <div className="rounded-2xl border border-emerald-500/30 bg-emerald-950/20 p-4">
+                <div className="text-xs text-emerald-300 font-medium">Attempted</div>
+                <div className="text-2xl font-extrabold text-emerald-400 mt-1">
+                  {attemptedCount}
+                  <span className="text-xs font-normal text-slate-400 ml-1">/ {paper.totalQuestions}</span>
+                </div>
+                <div className="text-[11px] text-slate-400 mt-0.5">
+                  {Math.round((attemptedCount / (paper.totalQuestions || 1)) * 100)}% answered
+                </div>
               </div>
-              <div className="rounded-xl border border-amber-900/40 bg-amber-950/20 p-2.5">
-                <div className="text-lg font-bold text-amber-400">{flaggedCount}</div>
-                <div className="text-[11px] text-slate-400">Flagged</div>
+
+              <div className="rounded-2xl border border-slate-800 bg-slate-900/80 p-4">
+                <div className="text-xs text-slate-400 font-medium">Skipped</div>
+                <div className="text-2xl font-extrabold text-slate-300 mt-1">
+                  {unattemptedCount}
+                </div>
+                <div className="text-[11px] text-slate-400 mt-0.5">
+                  0 penalty incurred
+                </div>
+              </div>
+
+              <div className="rounded-2xl border border-amber-500/30 bg-amber-950/20 p-4">
+                <div className="text-xs text-amber-300 font-medium">Flagged</div>
+                <div className="text-2xl font-extrabold text-amber-400 mt-1">
+                  {flaggedCount}
+                </div>
+                <div className="text-[11px] text-slate-400 mt-0.5">
+                  Marked for review
+                </div>
+              </div>
+
+              <div className="rounded-2xl border border-violet-500/30 bg-violet-950/20 p-4">
+                <div className="text-xs text-violet-300 font-medium">Alterations</div>
+                <div className="text-2xl font-extrabold text-violet-400 mt-1">
+                  {alteredCount}
+                </div>
+                <div className="text-[11px] text-slate-400 mt-0.5">
+                  Option changes
+                </div>
+              </div>
+
+              <div className="rounded-2xl border border-slate-800 bg-slate-900/80 p-4">
+                <div className="text-xs text-slate-400 font-medium">Time Elapsed</div>
+                <div className="text-2xl font-extrabold text-indigo-300 font-mono mt-1">
+                  {formatTimeSeconds(elapsedSeconds)}
+                </div>
+                <div className="text-[11px] text-slate-400 mt-0.5">
+                  {isOvertime ? `Overtime +${formatTimeSeconds(overtimeSeconds)}` : `${paper.timeMinutes}m limit`}
+                </div>
+              </div>
+
+              <div className="rounded-2xl border border-slate-800 bg-slate-900/80 p-4">
+                <div className="text-xs text-slate-400 font-medium">Average Pace</div>
+                <div className="text-2xl font-extrabold text-white font-mono mt-1">
+                  {attemptedCount > 0 ? Math.round(elapsedSeconds / attemptedCount) : 0}s
+                </div>
+                <div className="text-[11px] text-slate-400 mt-0.5">
+                  per attempted Q
+                </div>
               </div>
             </div>
 
-            <div className="flex items-center justify-end gap-3">
-              <button
-                onClick={() => setShowFinishConfirm(false)}
-                className="rounded-lg border border-slate-700 bg-slate-800 px-4 py-2 text-xs font-semibold text-slate-300 hover:bg-slate-700"
-              >
-                Continue Exam
-              </button>
-              <button
-                onClick={() => {
-                  setShowFinishConfirm(false);
-                  handleFinishExam();
-                }}
-                className="rounded-lg bg-indigo-600 px-5 py-2 text-xs font-bold text-white shadow-lg shadow-indigo-600/30 hover:bg-indigo-500"
-              >
-                Confirm & Submit
-              </button>
+            {/* Question Response Palette Grid */}
+            <div className="rounded-2xl border border-slate-800 bg-slate-900/80 p-5 sm:p-6 space-y-4">
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 border-b border-slate-800 pb-3">
+                <div>
+                  <h3 className="text-sm font-bold text-white">
+                    Question Response Palette (Interactive)
+                  </h3>
+                  <p className="text-xs text-slate-400">
+                    Click any question badge below to return to that question in the paper.
+                  </p>
+                </div>
+                <div className="flex items-center gap-3 text-xs flex-wrap">
+                  <div className="flex items-center gap-1.5">
+                    <span className="h-4 w-4 rounded bg-emerald-500/20 border border-emerald-500/40 text-[10px] font-bold text-emerald-300 flex items-center justify-center">A</span>
+                    <span className="text-slate-400">Attempted</span>
+                  </div>
+                  <div className="flex items-center gap-1.5">
+                    <span className="h-4 w-4 rounded bg-amber-500/20 border border-amber-500/40 text-[10px] font-bold text-amber-300 flex items-center justify-center">⚑</span>
+                    <span className="text-slate-400">Flagged</span>
+                  </div>
+                  <div className="flex items-center gap-1.5">
+                    <span className="h-4 w-4 rounded bg-slate-800 border border-slate-700 text-[10px] text-slate-400 flex items-center justify-center">—</span>
+                    <span className="text-slate-400">Skipped</span>
+                  </div>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-5 sm:grid-cols-8 md:grid-cols-10 lg:grid-cols-12 gap-2">
+                {Array.from({ length: paper.totalQuestions }, (_, i) => i + 1).map(qNo => {
+                  const qObj = answers[qNo];
+                  const isAtt = !!qObj?.selected;
+                  const isFlag = !!qObj?.flagged;
+
+                  return (
+                    <button
+                      key={qNo}
+                      onClick={() => {
+                        setShowFinishConfirm(false);
+                        setCurrentQuestion(qNo);
+                      }}
+                      className={`flex flex-col items-center justify-center rounded-xl p-2 border transition-all text-center ${
+                        isFlag
+                          ? 'border-amber-500/60 bg-amber-950/30 text-amber-200 hover:border-amber-400'
+                          : isAtt
+                          ? 'border-emerald-500/50 bg-emerald-950/30 text-emerald-200 hover:border-emerald-400'
+                          : 'border-slate-800 bg-slate-950/60 text-slate-400 hover:border-slate-700'
+                      }`}
+                    >
+                      <span className="text-[11px] font-mono text-slate-400">Q{qNo}</span>
+                      <span className="text-xs font-bold mt-0.5">
+                        {isAtt ? qObj.selected : '—'}
+                      </span>
+                      {isFlag && (
+                        <span className="text-[9px] text-amber-400 mt-0.5">⚑ review</span>
+                      )}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* Bottom Evaluation Policy & Finalize Confirmation */}
+            <div className="rounded-2xl border border-indigo-500/30 bg-gradient-to-r from-indigo-950/40 via-slate-900 to-slate-900 p-5 sm:p-6 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+              <div className="flex items-center gap-3">
+                <div className="rounded-xl bg-indigo-500/20 p-2.5 text-indigo-400 shrink-0">
+                  <CheckCircle2 className="h-6 w-6" />
+                </div>
+                <div>
+                  <h4 className="text-sm font-bold text-white">Ready for Official Evaluation?</h4>
+                  <p className="text-xs text-slate-300 mt-0.5">
+                    Your answers will be evaluated against the answer key. Correct answers: +{paper.correctMarks}m, Incorrect: -{paper.incorrectMarks}m. Full scorecard, pace nuances, and explanations will be shown next.
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-3 shrink-0">
+                <button
+                  onClick={() => setShowFinishConfirm(false)}
+                  className="rounded-xl border border-slate-700 bg-slate-800 px-4 py-2.5 text-xs font-semibold text-slate-300 hover:bg-slate-700 transition-colors"
+                >
+                  Return to Exam
+                </button>
+                <button
+                  onClick={() => {
+                    setShowFinishConfirm(false);
+                    handleFinishExam();
+                  }}
+                  className="rounded-xl bg-indigo-600 px-6 py-2.5 text-xs font-bold text-white shadow-lg shadow-indigo-600/30 hover:bg-indigo-500 transition-all"
+                >
+                  Confirm & Finalize
+                </button>
+              </div>
             </div>
           </div>
         </div>
@@ -1263,55 +1424,71 @@ export function ExamSessionView({
 
       {/* Subjective Mains Scan & Upload Phase */}
       {isScanUploadPhase && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/85 backdrop-blur-md animate-in fade-in">
-          <div className="relative w-full max-w-lg rounded-3xl border border-slate-800 bg-slate-900 p-6 shadow-2xl space-y-4">
-            <div className="flex items-center gap-3">
-              <div className="rounded-xl bg-violet-500/20 p-2.5 text-violet-400">
-                <UploadCloud className="h-6 w-6" />
-              </div>
-              <div>
-                <h3 className="text-base font-bold text-white">Upload Handwritten Answer Copy</h3>
-                <p className="text-xs text-slate-400">Scan your written answer booklet and upload PDF copy</p>
-              </div>
-            </div>
-
-            <div className="rounded-xl bg-slate-950 p-4 border border-slate-800 text-xs text-slate-300 space-y-1">
-              <p>⏱ Exam writing time concluded: <strong>{formatTimeSeconds(elapsedSeconds)}</strong></p>
-              <p>You have grace buffer to scan your handwritten pages and attach your submission copy.</p>
-            </div>
-
-            <label className="flex flex-col items-center justify-center rounded-2xl border-2 border-dashed border-slate-700 bg-slate-950 p-6 text-center cursor-pointer hover:border-violet-500 transition-all">
-              <FileUp className="h-8 w-8 text-violet-400 mb-2" />
-              <span className="text-xs font-bold text-white">
-                {userSubmissionFile ? userSubmissionFile.name : 'Choose Scanned Answer Copy (PDF)'}
-              </span>
-              <span className="text-[11px] text-slate-500 mt-1">
-                {userSubmissionFile ? `${(userSubmissionFile.size / 1024 / 1024).toFixed(2)} MB` : 'Drop PDF here or browse'}
-              </span>
-              <input
-                type="file"
-                accept=".pdf"
-                onChange={e => setUserSubmissionFile(e.target.files?.[0] || null)}
-                className="hidden"
-              />
-            </label>
-
-            <div className="flex items-center justify-between pt-2">
+        <div className="fixed inset-0 z-50 overflow-y-auto bg-slate-950/95 backdrop-blur-md text-slate-100 flex flex-col font-sans animate-in fade-in duration-200">
+          <div className="sticky top-0 z-20 border-b border-slate-800 bg-slate-900/90 backdrop-blur-md px-4 py-3 sm:px-6">
+            <div className="max-w-4xl mx-auto flex items-center justify-between">
               <button
                 onClick={() => setIsScanUploadPhase(false)}
-                className="rounded-xl px-4 py-2 text-xs font-semibold text-slate-400 hover:bg-slate-800"
+                className="flex items-center gap-1.5 rounded-xl border border-slate-700 bg-slate-800 px-3 py-1.5 text-xs font-semibold text-slate-300 hover:bg-slate-700 transition-colors"
               >
-                Back to Session
+                <ArrowLeft className="h-4 w-4" /> Back to Session
               </button>
-              <button
-                onClick={() => {
-                  const blobUrl = userSubmissionFile ? URL.createObjectURL(userSubmissionFile) : undefined;
-                  handleFinishExam(blobUrl);
-                }}
-                className="rounded-xl bg-indigo-600 px-6 py-2.5 text-xs font-bold text-white hover:bg-indigo-500 shadow-lg shadow-indigo-600/30"
-              >
-                {userSubmissionFile ? 'Save Copy & Finish' : 'Skip & Finish'}
-              </button>
+              <h2 className="text-sm sm:text-base font-bold text-white">
+                Mains Answer Booklet Submission
+              </h2>
+            </div>
+          </div>
+
+          <div className="flex-1 max-w-4xl mx-auto w-full p-4 sm:p-6 lg:p-8 space-y-6">
+            <div className="rounded-2xl border border-slate-800 bg-slate-900 p-6 space-y-4">
+              <div className="flex items-center gap-3">
+                <div className="rounded-xl bg-violet-500/20 p-2.5 text-violet-400 shrink-0">
+                  <UploadCloud className="h-6 w-6" />
+                </div>
+                <div>
+                  <h3 className="text-base font-bold text-white">Upload Handwritten Answer Copy</h3>
+                  <p className="text-xs text-slate-400">Scan your written answer booklet and upload PDF copy</p>
+                </div>
+              </div>
+
+              <div className="rounded-xl bg-slate-950 p-4 border border-slate-800 text-xs text-slate-300 space-y-1">
+                <p>⏱ Exam writing time concluded: <strong>{formatTimeSeconds(elapsedSeconds)}</strong></p>
+                <p>You have grace buffer to scan your handwritten pages and attach your submission copy.</p>
+              </div>
+
+              <label className="flex flex-col items-center justify-center rounded-2xl border-2 border-dashed border-slate-700 bg-slate-950 p-8 text-center cursor-pointer hover:border-violet-500 transition-all">
+                <FileUp className="h-10 w-10 text-violet-400 mb-2" />
+                <span className="text-sm font-bold text-white">
+                  {userSubmissionFile ? userSubmissionFile.name : 'Choose Scanned Answer Copy (PDF)'}
+                </span>
+                <span className="text-xs text-slate-500 mt-1">
+                  {userSubmissionFile ? `${(userSubmissionFile.size / 1024 / 1024).toFixed(2)} MB` : 'Drop PDF here or browse'}
+                </span>
+                <input
+                  type="file"
+                  accept=".pdf"
+                  onChange={e => setUserSubmissionFile(e.target.files?.[0] || null)}
+                  className="hidden"
+                />
+              </label>
+
+              <div className="flex items-center justify-between pt-2">
+                <button
+                  onClick={() => setIsScanUploadPhase(false)}
+                  className="rounded-xl px-4 py-2 text-xs font-semibold text-slate-400 hover:bg-slate-800"
+                >
+                  Back to Session
+                </button>
+                <button
+                  onClick={() => {
+                    const blobUrl = userSubmissionFile ? URL.createObjectURL(userSubmissionFile) : undefined;
+                    handleFinishExam(blobUrl);
+                  }}
+                  className="rounded-xl bg-indigo-600 px-6 py-2.5 text-xs font-bold text-white hover:bg-indigo-500 shadow-lg shadow-indigo-600/30"
+                >
+                  {userSubmissionFile ? 'Save Copy & Finish' : 'Skip & Finish'}
+                </button>
+              </div>
             </div>
           </div>
         </div>

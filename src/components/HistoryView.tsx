@@ -3,7 +3,8 @@
 import React, { useState } from 'react';
 import { Attempt } from '../lib/types';
 import { formatTimeSeconds, formatDateTime } from '../lib/defaults';
-import { History, Search, Eye, Award, Clock, ArrowRight } from 'lucide-react';
+import { History, Search, Eye, Award, Clock, ArrowRight, Download } from 'lucide-react';
+import { exportAttemptAsMarkdown } from '../lib/exportUtils';
 
 interface HistoryViewProps {
   attempts: Attempt[];
@@ -96,13 +97,25 @@ export function HistoryView({ attempts, onViewAttempt, onDeleteAttempt }: Histor
                 </div>
               </div>
 
-              <div className="mt-4 pt-3 border-t border-slate-800/80 flex items-center justify-between text-xs">
-                <span className="text-slate-400">
+              <div className="mt-4 pt-3 border-t border-slate-800/80 flex items-center justify-between text-xs gap-2">
+                <span className="text-slate-400 truncate">
                   {att.correct}C • {att.incorrect}W • {att.unattempted}S
                 </span>
-                <span className="text-indigo-400 group-hover:text-indigo-300 font-semibold flex items-center gap-1">
-                  View Full Nuance <ArrowRight className="h-3.5 w-3.5" />
-                </span>
+                <div className="flex items-center gap-2 shrink-0">
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      exportAttemptAsMarkdown(att);
+                    }}
+                    title="Export Attempt Report (.md)"
+                    className="flex items-center gap-1 rounded-lg border border-slate-700 bg-slate-800 px-2 py-1 text-[11px] font-semibold text-slate-300 hover:bg-slate-700 hover:text-white transition-colors"
+                  >
+                    <Download className="h-3 w-3 text-indigo-400" /> Export
+                  </button>
+                  <span className="text-indigo-400 group-hover:text-indigo-300 font-semibold flex items-center gap-1">
+                    Review <ArrowRight className="h-3.5 w-3.5" />
+                  </span>
+                </div>
               </div>
             </div>
           ))}

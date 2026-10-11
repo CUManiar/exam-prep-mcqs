@@ -31,3 +31,71 @@ body {
 ::-webkit-scrollbar-thumb:hover {
   background: #475569;
 }
+
+/* Print Styles for Attempt Reports */
+@media print {
+  body {
+    background: #ffffff !important;
+    color: #0f172a !important;
+  }
+
+  /* Hide interactive or navigation elements */
+  header,
+  nav,
+  button,
+  .print-hidden,
+  [data-print-hidden="true"] {
+    display: none !important;
+  }
+
+  /* Force background and borders to clean high-contrast monochrome/light style */
+  .bg-slate-900,
+  .bg-slate-950,
+  .bg-slate-900\/80,
+  .bg-slate-900\/60,
+  .bg-slate-900\/95,
+  .bg-emerald-950\/20,
+  .bg-rose-950\/20,
+  .bg-amber-950\/20,
+  .bg-indigo-950\/20 {
+    background: #ffffff !important;
+    border: 1px solid #cbd5e1 !important;
+    color: #0f172a !important;
+    box-shadow: none !important;
+  }
+
+  .text-white,
+  .text-slate-100,
+  .text-slate-200,
+  .text-slate-300 {
+    color: #0f172a !important;
+  }
+
+  .text-slate-400,
+  .text-slate-500 {
+    color: #475569 !important;
+  }
+
+  .border-slate-800,
+  .border-slate-700,
+  .border-slate-600 {
+    border-color: #cbd5e1 !important;
+  }
+
+  .text-emerald-400 {
+    color: #047857 !important;
+  }
+
+  .text-rose-400 {
+    color: #b91c1c !important;
+  }
+
+  .text-indigo-400,
+  .text-indigo-300 {
+    color: #3730a3 !important;
+  }
+
+  .text-amber-400 {
+    color: #b45309 !important;
+  }
+}

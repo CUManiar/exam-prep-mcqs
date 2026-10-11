@@ -21,8 +21,19 @@ import {
   BookOpen, 
   RotateCcw,
   Sliders,
-  Sparkles
+  Sparkles,
+  Download,
+  Printer,
+  Copy,
+  Check,
+  Share2,
+  ChevronDown
 } from 'lucide-react';
+import { 
+  exportAttemptAsMarkdown, 
+  exportAttemptAsJSON, 
+  copyAttemptSummaryToClipboard 
+} from '../lib/exportUtils';
 
 interface AttemptDetailViewProps {
   attempt: Attempt;
@@ -46,6 +57,8 @@ export function AttemptDetailView({
   const [qNoteText, setQNoteText] = useState<string>('');
   const [solutionModalOpen, setSolutionModalOpen] = useState<boolean>(false);
   const [submissionModalOpen, setSubmissionModalOpen] = useState<boolean>(false);
+  const [showExportMenu, setShowExportMenu] = useState<boolean>(false);
+  const [copiedToast, setCopiedToast] = useState<boolean>(false);
 
   // Match corresponding paper for solution PDF with backwards compatibility
   const matchedPaper = papers.find(p => 
@@ -53,6 +66,18 @@ export function AttemptDetailView({
     (attempt.paperId && p.id.toLowerCase().replace(/general_studies_paper_i(i?)/, (_, g) => g ? 'gsii_csat' : 'gs_i') === attempt.paperId.toLowerCase()) ||
     (attempt.paperLabel && p.label.toLowerCase() === attempt.paperLabel.toLowerCase())
   );
+
+  const handleCopySummary = async () => {
+    const success = await copyAttemptSummaryToClipboard(attempt);
+    if (success) {
+      setCopiedToast(true);
+      setTimeout(() => setCopiedToast(false), 2500);
+    }
+  };
+
+  const handlePrint = () => {
+    window.print();
+  };
 
   const handleSaveGeneralNote = () => {
     const updated = { ...attempt, generalNotes: generalNote };
@@ -111,7 +136,7 @@ export function AttemptDetailView({
     <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8 space-y-8 animate-in fade-in duration-300">
       
       {/* Top Navigation & Actions */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 border-b border-slate-800 pb-5">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 border-b border-slate-800 pb-5 print:hidden">
         <div className="flex items-center gap-3">
           <button
             onClick={onBack}
@@ -122,7 +147,7 @@ export function AttemptDetailView({
           <div>
             <div className="flex items-center gap-2">
               <span className="text-[10px] uppercase font-bold px-2 py-0.5 rounded bg-indigo-500/10 text-indigo-400 border border-indigo-500/20">
-                Mock Exam Deep Analysis
+                Mock Exam Assessment Report
               </span>
               <span className="text-xs text-slate-500">{formatDateTime(attempt.startedAt)}</span>
             </div>
@@ -132,7 +157,87 @@ export function AttemptDetailView({
           </div>
         </div>
 
-        <div className="flex items-center gap-2.5">
+        <div className="flex items-center gap-2.5 flex-wrap">
+          {/* Export Report Dropdown */}
+          <div className="relative">
+            <button
+              onClick={() => setShowExportMenu(!showExportMenu)}
+              className="flex items-center gap-1.5 rounded-xl bg-indigo-600 px-3.5 py-2 text-xs font-bold text-white shadow-md shadow-indigo-600/30 hover:bg-indigo-500 transition-all"
+            >
+              <Download className="h-4 w-4" />
+              <span>Export Report</span>
+              <ChevronDown className={`h-3.5 w-3.5 transition-transform ${showExportMenu ? 'rotate-180' : ''}`} />
+            </button>
+
+            {showExportMenu && (
+              <>
+                <div 
+                  className="fixed inset-0 z-40" 
+                  onClick={() => setShowExportMenu(false)} 
+                />
+                <div className="absolute right-0 mt-2 z-50 w-60 rounded-2xl border border-slate-700 bg-slate-900 p-2 shadow-2xl space-y-1">
+                  <button
+                    onClick={() => {
+                      exportAttemptAsMarkdown(attempt);
+                      setShowExportMenu(false);
+                    }}
+                    className="flex w-full items-center gap-2.5 rounded-xl px-3 py-2 text-xs font-semibold text-slate-200 hover:bg-slate-800 hover:text-white transition-colors"
+                  >
+                    <FileText className="h-4 w-4 text-indigo-400 shrink-0" />
+                    <div className="text-left">
+                      <div>Download Report (.md)</div>
+                      <div className="text-[10px] text-slate-400 font-normal">Formatted text & response sheet</div>
+                    </div>
+                  </button>
+
+                  <button
+                    onClick={() => {
+                      handlePrint();
+                      setShowExportMenu(false);
+                    }}
+                    className="flex w-full items-center gap-2.5 rounded-xl px-3 py-2 text-xs font-semibold text-slate-200 hover:bg-slate-800 hover:text-white transition-colors"
+                  >
+                    <Printer className="h-4 w-4 text-emerald-400 shrink-0" />
+                    <div className="text-left">
+                      <div>Print / Save as PDF</div>
+                      <div className="text-[10px] text-slate-400 font-normal">Clean high-contrast A4 printout</div>
+                    </div>
+                  </button>
+
+                  <button
+                    onClick={() => {
+                      exportAttemptAsJSON(attempt);
+                      setShowExportMenu(false);
+                    }}
+                    className="flex w-full items-center gap-2.5 rounded-xl px-3 py-2 text-xs font-semibold text-slate-200 hover:bg-slate-800 hover:text-white transition-colors"
+                  >
+                    <Download className="h-4 w-4 text-amber-400 shrink-0" />
+                    <div className="text-left">
+                      <div>Download Raw Data (.json)</div>
+                      <div className="text-[10px] text-slate-400 font-normal">Full attempt record & questions</div>
+                    </div>
+                  </button>
+
+                  <div className="border-t border-slate-800 my-1" />
+
+                  <button
+                    onClick={() => {
+                      handleCopySummary();
+                      setShowExportMenu(false);
+                    }}
+                    className="flex w-full items-center gap-2.5 rounded-xl px-3 py-2 text-xs font-semibold text-slate-200 hover:bg-slate-800 hover:text-white transition-colors"
+                  >
+                    <Copy className="h-4 w-4 text-violet-400 shrink-0" />
+                    <div className="text-left">
+                      <div>Copy Summary</div>
+                      <div className="text-[10px] text-slate-400 font-normal">Markdown snippet to clipboard</div>
+                    </div>
+                  </button>
+                </div>
+              </>
+            )}
+          </div>
+
           {matchedPaper?.exsUrl && (
             <button
               onClick={() => setSolutionModalOpen(true)}
@@ -159,6 +264,49 @@ export function AttemptDetailView({
           </button>
         </div>
       </div>
+
+      {/* Assessment Completed Banner / Scorecard Ribbon */}
+      <div className="rounded-2xl border border-indigo-500/30 bg-gradient-to-r from-indigo-950/40 via-slate-900/90 to-slate-900/70 p-4 sm:p-5 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 shadow-sm">
+        <div className="flex items-center gap-3.5">
+          <div className="rounded-xl bg-indigo-500/20 p-2.5 text-indigo-400 shrink-0">
+            <CheckCircle2 className="h-6 w-6" />
+          </div>
+          <div>
+            <div className="flex items-center gap-2">
+              <h2 className="text-base font-bold text-white">Assessment Complete & Evaluated</h2>
+              <span className="text-[10px] font-semibold bg-emerald-500/20 text-emerald-400 px-2 py-0.5 rounded-full border border-emerald-500/30">
+                Official Result
+              </span>
+            </div>
+            <p className="text-xs text-slate-300 mt-0.5">
+              Scored against the UPSC official answer key with negative marking applied. Review breakdown below or export this specific attempt.
+            </p>
+          </div>
+        </div>
+
+        <div className="flex items-center gap-2 shrink-0 print:hidden">
+          <button
+            onClick={() => exportAttemptAsMarkdown(attempt)}
+            className="flex items-center gap-1.5 rounded-xl border border-slate-700 bg-slate-800 px-3 py-1.5 text-xs font-semibold text-slate-200 hover:bg-slate-700 transition-colors"
+          >
+            <Download className="h-3.5 w-3.5 text-indigo-400" /> Export .md
+          </button>
+          <button
+            onClick={handlePrint}
+            className="flex items-center gap-1.5 rounded-xl border border-slate-700 bg-slate-800 px-3 py-1.5 text-xs font-semibold text-slate-200 hover:bg-slate-700 transition-colors"
+          >
+            <Printer className="h-3.5 w-3.5 text-emerald-400" /> Print PDF
+          </button>
+        </div>
+      </div>
+
+      {/* Copy Notification Toast */}
+      {copiedToast && (
+        <div className="fixed bottom-6 right-6 z-50 rounded-xl bg-emerald-600 px-4 py-2.5 text-xs font-bold text-white shadow-xl animate-in fade-in slide-in-from-bottom-2 flex items-center gap-2">
+          <Check className="h-4 w-4" />
+          <span>Attempt performance summary copied to clipboard!</span>
+        </div>
+      )}
 
       {/* Primary KPI Ribbon */}
       <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
