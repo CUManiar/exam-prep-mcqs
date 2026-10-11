@@ -66,22 +66,64 @@ export async function uploadFile(
 ): Promise<string> {
   const cleanPath = pathname.replace(/^\/+/, "");
 
-  if (isBlobEnabled()) {
-    const putOptions: any = {
-      access: "public",
-      addRandomSuffix: false,
-      contentType,
-    };
-    const token = getBlobToken();
-    if (token) {
-      putOptions.token = token;
-    }
+  // 1. Primary Cloud Storage: Supabase Storage bucket 'papers'
+  if (
+    process.env.NEXT_PUBLIC_SUPABASE_URL &&
+    process.env.SUPABASE_SERVICE_ROLE_KEY
+  ) {
+    try {
+      const { createClient } = await import("@supabase/supabase-js");
+      const supabase = createClient(
+        process.env.NEXT_PUBLIC_SUPABASE_URL,
+        process.env.SUPABASE_SERVICE_ROLE_KEY,
+      );
 
-    const blob = await put(cleanPath, body, putOptions);
-    return blob.url;
+      let buffer: Buffer;
+      if (Buffer.isBuffer(body)) {
+        buffer = body;
+      } else if (typeof body === "string") {
+        buffer = Buffer.from(body, "utf-8");
+      } else {
+        const ab = await (body as Blob).arrayBuffer();
+        buffer = Buffer.from(ab);
+      }
+
+      const { error } = await supabase.storage
+        .from("papers")
+        .upload(cleanPath, buffer, {
+          contentType,
+          upsert: true,
+        });
+
+      if (!error) {
+        const { data } = supabase.storage
+          .from("papers")
+          .getPublicUrl(cleanPath);
+        return data.publicUrl;
+      }
+      console.warn("Supabase storage upload error:", error);
+    } catch (err) {
+      console.warn("Failed uploading to Supabase storage, falling back:", err);
+    }
   }
 
-  // Local filesystem fallback (Mac local development)
+  // 2. Legacy fallback: Vercel Blob if token available
+  const blobToken = getBlobToken();
+  if (blobToken) {
+    try {
+      const blob = await put(cleanPath, body, {
+        access: "public",
+        addRandomSuffix: false,
+        contentType,
+        token: blobToken,
+      });
+      return blob.url;
+    } catch (err) {
+      console.warn("Vercel blob fallback error:", err);
+    }
+  }
+
+  // 3. Local filesystem fallback (Mac local development)
   const localDir = path.join(process.cwd(), "public", "data");
   if (!fs.existsSync(localDir)) {
     fs.mkdirSync(localDir, { recursive: true });
@@ -106,18 +148,40 @@ export async function uploadFile(
 export async function deleteFile(fileUrlOrName: string): Promise<void> {
   if (!fileUrlOrName) return;
 
-  if (isBlobEnabled()) {
+  // 1. Primary: Supabase Storage bucket 'papers'
+  if (
+    process.env.NEXT_PUBLIC_SUPABASE_URL &&
+    process.env.SUPABASE_SERVICE_ROLE_KEY
+  ) {
     try {
-      const delOptions: any = {};
-      const token = getBlobToken();
-      if (token) delOptions.token = token;
-      await del(fileUrlOrName, delOptions);
+      const { createClient } = await import("@supabase/supabase-js");
+      const supabase = createClient(
+        process.env.NEXT_PUBLIC_SUPABASE_URL,
+        process.env.SUPABASE_SERVICE_ROLE_KEY,
+      );
+      let storageKey = fileUrlOrName;
+      if (storageKey.includes("/papers/")) {
+        const parts = storageKey.split("/papers/");
+        storageKey = parts[parts.length - 1];
+      }
+      storageKey = storageKey.replace(/^\/+/, "");
+      await supabase.storage.from("papers").remove([storageKey]);
+    } catch (err) {
+      console.warn("Supabase storage delete warning:", err);
+    }
+  }
+
+  // 2. Vercel Blob delete if token exists
+  const token = getBlobToken();
+  if (token) {
+    try {
+      await del(fileUrlOrName, { token });
     } catch (err) {
       console.warn("Blob delete warning:", err);
     }
-    return;
   }
 
+  // 3. Local file delete fallback
   const filename = path.basename(fileUrlOrName);
   const localPath = path.join(process.cwd(), "public", "data", filename);
   if (fs.existsSync(localPath)) {

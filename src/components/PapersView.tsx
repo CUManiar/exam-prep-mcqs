@@ -1,15 +1,18 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
+import { createPortal } from "react-dom";
 import { QuestionPaper } from "../lib/types";
 import {
   SUPPORTED_YEARS,
   hasAnswerKey,
   hasSolution,
   parseAnswerKeyText,
+  isPaperFree,
 } from "../lib/defaults";
 import { attachToPaperOnServer } from "../lib/storage";
 import { DetailedSolutionModal } from "./DetailedSolutionModal";
+import { useApp } from "../context/AppContext";
 import {
   BookOpen,
   Search,
@@ -28,6 +31,8 @@ import {
   Trash2,
   Settings2,
   ChevronRight,
+  Lock,
+  Sparkles,
 } from "lucide-react";
 
 interface PapersViewProps {
@@ -45,13 +50,19 @@ export function PapersView({
   onDeletePaper,
   onUpdatePaper,
 }: PapersViewProps) {
+  const { isPro, openProUpgradeModal } = useApp();
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedCategory, setSelectedCategory] = useState<
     "all" | "prelims" | "mains"
   >("all");
   const [selectedYear, setSelectedYear] = useState<string>("all");
+  const [mounted, setMounted] = useState(false);
   const [viewingSolutionPaper, setViewingSolutionPaper] =
     useState<QuestionPaper | null>(null);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   // Edit paper rules modal
   const [editingPaper, setEditingPaper] = useState<QuestionPaper | null>(null);
@@ -77,11 +88,6 @@ export function PapersView({
   );
   const [isSubmittingAttach, setIsSubmittingAttach] = useState<boolean>(false);
   const [attachError, setAttachError] = useState<string | null>(null);
-
-  // Delete confirmation modal
-  const [deletingPaper, setDeletingPaper] = useState<QuestionPaper | null>(
-    null,
-  );
 
   const handleOpenEdit = (p: QuestionPaper) => {
     setEditingPaper(p);
@@ -166,12 +172,6 @@ export function PapersView({
     }
   };
 
-  const handleConfirmDelete = () => {
-    if (!deletingPaper || !onDeletePaper) return;
-    onDeletePaper(deletingPaper.id);
-    setDeletingPaper(null);
-  };
-
   const filteredPapers = papers.filter((p) => {
     const matchesCat =
       selectedCategory === "all" || p.category === selectedCategory;
@@ -200,9 +200,10 @@ export function PapersView({
             Question Papers
           </h1>
           <p className="text-xs sm:text-sm text-slate-500 mt-1 max-w-2xl">
-            Past 15+ years of UPSC Civil Services Prelims (General Studies &
-            CSAT) and Mains papers. Attach answer keys or solutions directly to
-            any paper.
+            Official UPSC Civil Services Prelims & Mains archive (2024, 2025,
+            2026). Attempt 2026 Prelims papers free forever, or upgrade to Pro
+            to unlock the full 3-year archive and unlimited custom paper
+            uploads.
           </p>
         </div>
 
@@ -278,6 +279,40 @@ export function PapersView({
         </select>
       </div>
 
+      {/* Freemium Vault Announcement Banner */}
+      {!isPro && (
+        <div className="rounded-2xl border border-amber-200 bg-gradient-to-r from-amber-50 via-indigo-50/40 to-white p-4 sm:p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4 shadow-xs animate-in fade-in">
+          <div className="flex items-start gap-3">
+            <div className="rounded-xl bg-amber-100 p-2 text-amber-700 shrink-0 mt-0.5">
+              <Sparkles className="h-5 w-5 text-amber-600 fill-amber-400" />
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <h3 className="text-sm font-bold text-slate-900">
+                  Free Tier: 2026 Prelims Papers (GS I & CSAT)
+                </h3>
+                <span className="rounded-full bg-emerald-100 text-emerald-800 px-2 py-0.2 text-[10px] font-extrabold">
+                  FREE FOREVER
+                </span>
+              </div>
+              <p className="text-xs text-slate-500 mt-1 leading-relaxed">
+                Full real-time countdown timer, answer keys, confidence tagging
+                & automated evaluation included. Unlock the complete 2024, 2025,
+                and 2026 Prelims & Mains archive + unlimited custom paper
+                uploads with Lifetime Pro (₹999).
+              </p>
+            </div>
+          </div>
+          <button
+            onClick={() => openProUpgradeModal()}
+            className="cursor-pointer shrink-0 rounded-xl bg-indigo-600 hover:bg-indigo-700 active:scale-[0.98] px-4 py-2.5 text-xs font-bold text-white transition-all shadow-xs flex items-center justify-center gap-1.5"
+          >
+            <Lock className="h-3.5 w-3.5" />
+            <span>Unlock Pro Vault (₹999)</span>
+          </button>
+        </div>
+      )}
+
       {/* Papers Grid */}
       {filteredPapers.length === 0 ? (
         <div className="bi-card rounded-2xl p-12 text-center border-dashed border-slate-300">
@@ -298,17 +333,27 @@ export function PapersView({
               Object.keys(paper.answerKey || {}).length ||
               (keyPresent ? paper.totalQuestions : 0);
 
+            const isLocked = !isPro && !isPaperFree(paper);
+
             return (
               <div
                 key={paper.id}
-                className="flex flex-col justify-between bi-card p-5 group hover:border-indigo-300 transition-all shadow-xs"
+                className="flex flex-col h-full justify-between bi-card p-5 group hover:border-indigo-300 transition-all shadow-xs"
               >
                 <div>
                   {/* Top Header Row: Year & Category Tag */}
                   <div className="flex items-center justify-between">
-                    <span className="rounded-md bg-slate-100 px-2.5 py-0.5 text-xs font-bold text-slate-700 font-mono">
-                      {paper.year}
-                    </span>
+                    <div className="flex items-center gap-2">
+                      <span className="rounded-md bg-slate-100 px-2.5 py-0.5 text-xs font-bold text-slate-700 font-mono">
+                        {paper.year}
+                      </span>
+                      {isLocked && (
+                        <span className="inline-flex items-center gap-1 rounded-full bg-amber-50 px-2 py-0.5 text-[10px] font-bold text-amber-800 border border-amber-200">
+                          <Lock className="h-2.5 w-2.5 text-amber-600" />
+                          <span>PRO</span>
+                        </span>
+                      )}
+                    </div>
                     <span
                       className={`text-[10px] font-extrabold uppercase px-2.5 py-0.5 rounded-full ${
                         paper.examType === "subjective"
@@ -322,10 +367,12 @@ export function PapersView({
                     </span>
                   </div>
 
-                  {/* Title */}
-                  <h3 className="mt-3 text-base font-bold text-slate-900 group-hover:text-indigo-600 transition-colors leading-snug">
-                    {paper.label}
-                  </h3>
+                  {/* Standardized Title Container */}
+                  <div className="mt-3 min-h-[44px] flex items-start">
+                    <h3 className="text-base font-bold text-slate-900 group-hover:text-indigo-600 transition-colors leading-snug line-clamp-2">
+                      {paper.label}
+                    </h3>
+                  </div>
 
                   {/* Meta details */}
                   <div className="mt-2 flex items-center gap-2 text-xs text-slate-500 font-medium">
@@ -336,11 +383,10 @@ export function PapersView({
                     <span>{paper.totalMarks} Marks</span>
                   </div>
 
-                  {/* Prominent Resource Status Indicators */}
-                  <div className="mt-3.5 pt-3 border-t border-slate-100 flex flex-wrap items-center gap-2">
-                    {/* Answer Key Badge */}
-                    {paper.examType === "objective" &&
-                      (keyPresent ? (
+                  {/* Prominent Resource Status Indicators - Standard Single Row */}
+                  <div className="mt-3.5 pt-3 border-t border-slate-100 h-7 flex items-center gap-2">
+                    {paper.examType === "objective" ? (
+                      keyPresent ? (
                         <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200/60">
                           <CheckCircle2 className="h-3.5 w-3.5 text-emerald-600" />
                           <span>Key Attached ({keyCount} Qs)</span>
@@ -350,13 +396,17 @@ export function PapersView({
                           <AlertCircle className="h-3.5 w-3.5 text-amber-600" />
                           <span>Key Missing</span>
                         </div>
-                      ))}
+                      )
+                    ) : (
+                      <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-violet-50 text-violet-700 border border-violet-200/60">
+                        <span>Subjective Paper</span>
+                      </div>
+                    )}
 
-                    {/* Solution Badge / Button */}
                     {solutionPresent ? (
                       <button
                         onClick={() => setViewingSolutionPaper(paper)}
-                        className="cursor-pointer inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-indigo-50 text-indigo-700 border border-indigo-200/80 hover:bg-indigo-100 hover:border-indigo-300 transition-colors shadow-2xs group/sol"
+                        className="cursor-pointer inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-indigo-50 text-indigo-700 border border-indigo-200/80 hover:bg-indigo-100 hover:border-indigo-300 transition-colors shadow-2xs group/sol"
                         title="Click to view attached solution booklet"
                       >
                         <FileText className="h-3.5 w-3.5 text-indigo-600" />
@@ -371,43 +421,64 @@ export function PapersView({
                   </div>
                 </div>
 
-                {/* All Action Buttons */}
-                <div className="mt-5 space-y-2.5">
+                {/* All Action Buttons pinned to bottom with consistent height */}
+                <div className="mt-5 space-y-2.5 pt-2 border-t border-slate-100">
                   {/* Row 1: Practice & Mock Exam */}
                   <div className="grid grid-cols-2 gap-2">
-                    {keyPresent || paper.examType === "subjective" ? (
-                      <button
-                        onClick={() => onStartExam(paper, "practice")}
-                        className="cursor-pointer flex items-center justify-center gap-1.5 rounded-xl border border-slate-200 bg-slate-50/80 py-2.5 text-xs font-bold text-slate-700 hover:bg-slate-100 hover:text-slate-900 transition-colors"
-                      >
-                        <Play className="h-3.5 w-3.5 text-slate-500" />
-                        <span>Practice</span>
-                      </button>
+                    {isLocked ? (
+                      <>
+                        <button
+                          onClick={() => openProUpgradeModal(paper.label)}
+                          className="cursor-pointer flex items-center justify-center gap-1.5 rounded-xl border border-amber-200 bg-amber-50/70 py-2.5 text-xs font-bold text-amber-900 hover:bg-amber-100 transition-colors"
+                        >
+                          <Lock className="h-3.5 w-3.5 text-amber-600" />
+                          <span>Practice</span>
+                        </button>
+                        <button
+                          onClick={() => openProUpgradeModal(paper.label)}
+                          className="cursor-pointer flex items-center justify-center gap-1.5 rounded-xl bg-amber-600 hover:bg-amber-700 py-2.5 text-xs font-bold text-white transition-all shadow-xs"
+                        >
+                          <Lock className="h-3.5 w-3.5" />
+                          <span>Mock Exam</span>
+                        </button>
+                      </>
                     ) : (
-                      <button
-                        onClick={() =>
-                          handleOpenAttachModal(paper, "key", true)
-                        }
-                        title="Practice mode requires an answer key. Click to attach answer key."
-                        className="cursor-pointer flex items-center justify-center gap-1.5 rounded-xl border border-amber-200 bg-amber-50 py-2.5 text-xs font-bold text-amber-800 hover:bg-amber-100 transition-colors"
-                      >
-                        <AlertTriangle className="h-3.5 w-3.5 text-amber-600" />
-                        <span>Practice (Add Key)</span>
-                      </button>
-                    )}
+                      <>
+                        {keyPresent || paper.examType === "subjective" ? (
+                          <button
+                            onClick={() => onStartExam(paper, "practice")}
+                            className="cursor-pointer flex items-center justify-center gap-1.5 rounded-xl border border-slate-200 bg-slate-50/80 py-2.5 text-xs font-bold text-slate-700 hover:bg-slate-100 hover:text-slate-900 transition-colors"
+                          >
+                            <Play className="h-3.5 w-3.5 text-slate-500" />
+                            <span>Practice</span>
+                          </button>
+                        ) : (
+                          <button
+                            onClick={() =>
+                              handleOpenAttachModal(paper, "key", true)
+                            }
+                            title="Practice mode requires an answer key. Click to attach answer key."
+                            className="cursor-pointer flex items-center justify-center gap-1.5 rounded-xl border border-amber-200 bg-amber-50 py-2.5 text-xs font-bold text-amber-800 hover:bg-amber-100 transition-colors"
+                          >
+                            <AlertTriangle className="h-3.5 w-3.5 text-amber-600" />
+                            <span>Practice (Add Key)</span>
+                          </button>
+                        )}
 
-                    <button
-                      onClick={() => onStartExam(paper, "mock")}
-                      className="cursor-pointer flex items-center justify-center gap-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 py-2.5 text-xs font-bold text-white transition-all shadow-xs"
-                    >
-                      <Clock className="h-3.5 w-3.5" />
-                      <span>Mock Exam</span>
-                    </button>
+                        <button
+                          onClick={() => onStartExam(paper, "mock")}
+                          className="cursor-pointer flex items-center justify-center gap-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 py-2.5 text-xs font-bold text-white transition-all shadow-xs"
+                        >
+                          <Clock className="h-3.5 w-3.5" />
+                          <span>Mock Exam</span>
+                        </button>
+                      </>
+                    )}
                   </div>
 
-                  {/* Row 2: Prominent Attach Actions */}
+                  {/* Row 2: Standardized 2-Button Grid across all cards */}
                   <div className="grid grid-cols-2 gap-2 pt-2 border-t border-slate-100">
-                    {paper.examType === "objective" && (
+                    {paper.examType === "objective" ? (
                       <button
                         onClick={() => handleOpenAttachModal(paper, "key")}
                         className="cursor-pointer flex items-center justify-center gap-1.5 rounded-xl border border-slate-200 bg-white hover:border-indigo-300 hover:bg-indigo-50/50 py-2 text-xs font-bold text-indigo-700 transition-colors shadow-2xs"
@@ -416,13 +487,20 @@ export function PapersView({
                         <Key className="h-3.5 w-3.5 text-indigo-600" />
                         <span>{keyPresent ? "Update Key" : "Attach Key"}</span>
                       </button>
+                    ) : (
+                      <button
+                        onClick={() => handleOpenAttachModal(paper, "solution")}
+                        className="cursor-pointer flex items-center justify-center gap-1.5 rounded-xl border border-slate-200 bg-white hover:border-violet-300 hover:bg-violet-50/50 py-2 text-xs font-bold text-violet-700 transition-colors shadow-2xs"
+                        title="Attach model answer key for subjective evaluation"
+                      >
+                        <FileText className="h-3.5 w-3.5 text-violet-600" />
+                        <span>Model Key</span>
+                      </button>
                     )}
 
                     <button
                       onClick={() => handleOpenAttachModal(paper, "solution")}
-                      className={`cursor-pointer flex items-center justify-center gap-1.5 rounded-xl border border-slate-200 bg-white hover:border-indigo-300 hover:bg-indigo-50/50 py-2 text-xs font-bold text-slate-700 transition-colors shadow-2xs ${
-                        paper.examType === "subjective" ? "col-span-2" : ""
-                      }`}
+                      className="cursor-pointer flex items-center justify-center gap-1.5 rounded-xl border border-slate-200 bg-white hover:border-indigo-300 hover:bg-indigo-50/50 py-2 text-xs font-bold text-slate-700 transition-colors shadow-2xs"
                       title="Upload or replace official solution PDF booklet"
                     >
                       <FileUp className="h-3.5 w-3.5 text-indigo-600" />
@@ -434,8 +512,8 @@ export function PapersView({
                     </button>
                   </div>
 
-                  {/* Row 3: Utility Links (PDF preview, Solution preview, Edit Rules, Delete) */}
-                  <div className="flex items-center justify-between text-xs pt-1">
+                  {/* Row 3: Utility Links */}
+                  <div className="flex items-center justify-between text-xs pt-1 h-6">
                     <div className="flex items-center gap-3">
                       <a
                         href={paper.qpUrl}
@@ -472,9 +550,9 @@ export function PapersView({
 
                       {onDeletePaper && (
                         <button
-                          onClick={() => setDeletingPaper(paper)}
+                          onClick={() => onDeletePaper(paper.id)}
                           className="cursor-pointer text-[11px] font-semibold text-rose-500 hover:text-rose-700 transition-colors flex items-center gap-0.5"
-                          title="Delete this paper from repository"
+                          title="Remove this paper from your dashboard"
                         >
                           <Trash2 className="h-3 w-3" />
                           Delete
@@ -490,369 +568,332 @@ export function PapersView({
       )}
 
       {/* Attach Answer Key / Solution Modal */}
-      {attachingPaper && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-xs animate-in fade-in">
-          <div className="relative w-full max-w-lg rounded-2xl border border-slate-200 bg-white p-6 shadow-2xl space-y-4">
-            <div className="flex items-start justify-between border-b border-slate-100 pb-3">
-              <div>
-                <h3 className="text-base font-bold text-slate-900 flex items-center gap-2">
-                  <Upload className="h-4.5 w-4.5 text-indigo-600" />
-                  Attach Files for {attachingPaper.label}
-                </h3>
-                <p className="text-xs text-slate-500 mt-0.5">
-                  Attach answer key or official solution PDF booklet
-                </p>
+      {attachingPaper &&
+        mounted &&
+        createPortal(
+          <div className="fixed inset-0 z-[9999] overflow-y-auto flex min-h-full items-start sm:items-center justify-center p-3 sm:p-6 py-8 sm:py-12 bg-slate-900/60 backdrop-blur-xs animate-in fade-in">
+            <div className="relative my-auto w-full max-w-lg rounded-2xl border border-slate-200 bg-white p-6 shadow-2xl space-y-4">
+              <div className="flex items-start justify-between border-b border-slate-100 pb-3">
+                <div>
+                  <h3 className="text-base font-bold text-slate-900 flex items-center gap-2">
+                    <Upload className="h-4.5 w-4.5 text-indigo-600" />
+                    Attach Files for {attachingPaper.label}
+                  </h3>
+                  <p className="text-xs text-slate-500 mt-0.5">
+                    Attach answer key or official solution PDF booklet
+                  </p>
+                </div>
+                <button
+                  onClick={() => setAttachingPaper(null)}
+                  className="cursor-pointer text-slate-400 hover:text-slate-700 p-1 rounded-lg transition-colors"
+                >
+                  <X className="h-4.5 w-4.5" />
+                </button>
               </div>
-              <button
-                onClick={() => setAttachingPaper(null)}
-                className="cursor-pointer text-slate-400 hover:text-slate-700 p-1 rounded-lg transition-colors"
-              >
-                <X className="h-4.5 w-4.5" />
-              </button>
-            </div>
 
-            {/* Modal Tab Switcher */}
-            <div className="flex items-center gap-2 bg-slate-100 p-1 rounded-xl border border-slate-200/80 text-xs font-semibold">
-              {attachingPaper.examType === "objective" && (
+              {/* Modal Tab Switcher */}
+              <div className="flex items-center gap-2 bg-slate-100 p-1 rounded-xl border border-slate-200/80 text-xs font-semibold">
+                {attachingPaper.examType === "objective" && (
+                  <button
+                    type="button"
+                    onClick={() => setModalActiveTab("key")}
+                    className={`cursor-pointer flex-1 py-2 rounded-lg flex items-center justify-center gap-1.5 transition-colors ${
+                      modalActiveTab === "key"
+                        ? "bg-white text-indigo-700 shadow-xs font-bold"
+                        : "text-slate-600 hover:text-slate-900"
+                    }`}
+                  >
+                    <Key className="h-3.5 w-3.5" />
+                    <span>1. Answer Key</span>
+                  </button>
+                )}
                 <button
                   type="button"
-                  onClick={() => setModalActiveTab("key")}
+                  onClick={() => setModalActiveTab("solution")}
                   className={`cursor-pointer flex-1 py-2 rounded-lg flex items-center justify-center gap-1.5 transition-colors ${
-                    modalActiveTab === "key"
+                    modalActiveTab === "solution"
                       ? "bg-white text-indigo-700 shadow-xs font-bold"
                       : "text-slate-600 hover:text-slate-900"
                   }`}
                 >
-                  <Key className="h-3.5 w-3.5" />
-                  <span>1. Answer Key</span>
+                  <FileText className="h-3.5 w-3.5" />
+                  <span>2. Solution PDF</span>
                 </button>
+              </div>
+
+              {attachPromptReason && (
+                <div className="flex items-start gap-2 rounded-xl bg-amber-50 border border-amber-200 p-3 text-xs text-amber-800 font-medium">
+                  <AlertTriangle className="h-4 w-4 shrink-0 mt-0.5 text-amber-600" />
+                  <span>{attachPromptReason}</span>
+                </div>
               )}
-              <button
-                type="button"
-                onClick={() => setModalActiveTab("solution")}
-                className={`cursor-pointer flex-1 py-2 rounded-lg flex items-center justify-center gap-1.5 transition-colors ${
-                  modalActiveTab === "solution"
-                    ? "bg-white text-indigo-700 shadow-xs font-bold"
-                    : "text-slate-600 hover:text-slate-900"
-                }`}
-              >
-                <FileText className="h-3.5 w-3.5" />
-                <span>2. Solution PDF</span>
-              </button>
-            </div>
 
-            {attachPromptReason && (
-              <div className="flex items-start gap-2 rounded-xl bg-amber-50 border border-amber-200 p-3 text-xs text-amber-800 font-medium">
-                <AlertTriangle className="h-4 w-4 shrink-0 mt-0.5 text-amber-600" />
-                <span>{attachPromptReason}</span>
-              </div>
-            )}
+              {attachError && (
+                <div className="flex items-start gap-2 rounded-xl bg-rose-50 border border-rose-200 p-3 text-xs text-rose-800 font-medium">
+                  <AlertCircle className="h-4 w-4 shrink-0 mt-0.5 text-rose-600" />
+                  <span>{attachError}</span>
+                </div>
+              )}
 
-            {attachError && (
-              <div className="flex items-start gap-2 rounded-xl bg-rose-50 border border-rose-200 p-3 text-xs text-rose-800 font-medium">
-                <AlertCircle className="h-4 w-4 shrink-0 mt-0.5 text-rose-600" />
-                <span>{attachError}</span>
-              </div>
-            )}
-
-            {/* Tab 1: Answer Key Form */}
-            {modalActiveTab === "key" &&
-              attachingPaper.examType === "objective" && (
-                <div className="space-y-3">
-                  <div className="flex items-center justify-between">
-                    <span className="text-xs font-bold text-slate-800">
-                      Answer Key Input
-                    </span>
-                    <div className="flex items-center bg-slate-100 p-0.5 rounded-lg border border-slate-200 text-[11px] font-semibold">
-                      <button
-                        type="button"
-                        onClick={() => setAttachAkMode("paste")}
-                        className={`cursor-pointer px-2.5 py-1 rounded-md transition-colors ${
-                          attachAkMode === "paste"
-                            ? "bg-white text-indigo-700 font-bold shadow-2xs"
-                            : "text-slate-600 hover:text-slate-900"
-                        }`}
-                      >
-                        Paste Text
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => setAttachAkMode("upload")}
-                        className={`cursor-pointer px-2.5 py-1 rounded-md transition-colors ${
-                          attachAkMode === "upload"
-                            ? "bg-white text-indigo-700 font-bold shadow-2xs"
-                            : "text-slate-600 hover:text-slate-900"
-                        }`}
-                      >
-                        Upload .txt
-                      </button>
-                    </div>
-                  </div>
-
-                  {attachAkMode === "upload" ? (
-                    <label className="cursor-pointer flex flex-col items-center justify-center rounded-xl border border-dashed border-slate-300 bg-slate-50 p-6 text-xs font-medium text-slate-700 hover:border-indigo-500 hover:bg-slate-100/60 transition-colors">
-                      <FileUp className="h-7 w-7 text-indigo-600 mb-2" />
-                      <span className="font-semibold">
-                        {attachAkFile
-                          ? attachAkFile.name
-                          : "Select .txt answer key file"}
+              {/* Tab 1: Answer Key Form */}
+              {modalActiveTab === "key" &&
+                attachingPaper.examType === "objective" && (
+                  <div className="space-y-3">
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs font-bold text-slate-800">
+                        Answer Key Input
                       </span>
-                      <span className="text-[10px] text-slate-400 mt-0.5">
-                        Click to browse your device
-                      </span>
-                      <input
-                        type="file"
-                        accept=".txt"
-                        onChange={(e) =>
-                          setAttachAkFile(e.target.files?.[0] || null)
-                        }
-                        className="hidden"
-                      />
-                    </label>
-                  ) : (
-                    <div>
-                      <textarea
-                        value={attachAkText}
-                        onChange={(e) => setAttachAkText(e.target.value)}
-                        placeholder={`1. a\n2. c\n3. d\n4. b\n...\n100. a`}
-                        rows={6}
-                        className="w-full rounded-xl border border-slate-200 bg-slate-50 p-3 font-mono text-xs text-slate-800 placeholder-slate-400 focus:outline-none focus:border-indigo-500 focus:bg-white"
-                      />
-                      <div className="flex items-center justify-between text-[11px] text-slate-500 mt-1 font-mono">
-                        <span>
-                          Recognized:{" "}
-                          <strong className="text-emerald-700 font-bold">
-                            {
-                              Object.keys(parseAnswerKeyText(attachAkText))
-                                .length
-                            }
-                          </strong>{" "}
-                          questions
-                        </span>
-                        <span>
-                          Target: {attachingPaper.totalQuestions} Questions
-                        </span>
+                      <div className="flex items-center bg-slate-100 p-0.5 rounded-lg border border-slate-200 text-[11px] font-semibold">
+                        <button
+                          type="button"
+                          onClick={() => setAttachAkMode("paste")}
+                          className={`cursor-pointer px-2.5 py-1 rounded-md transition-colors ${
+                            attachAkMode === "paste"
+                              ? "bg-white text-indigo-700 font-bold shadow-2xs"
+                              : "text-slate-600 hover:text-slate-900"
+                          }`}
+                        >
+                          Paste Text
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setAttachAkMode("upload")}
+                          className={`cursor-pointer px-2.5 py-1 rounded-md transition-colors ${
+                            attachAkMode === "upload"
+                              ? "bg-white text-indigo-700 font-bold shadow-2xs"
+                              : "text-slate-600 hover:text-slate-900"
+                          }`}
+                        >
+                          Upload .txt
+                        </button>
                       </div>
                     </div>
-                  )}
+
+                    {attachAkMode === "upload" ? (
+                      <label className="cursor-pointer flex flex-col items-center justify-center rounded-xl border border-dashed border-slate-300 bg-slate-50 p-6 text-xs font-medium text-slate-700 hover:border-indigo-500 hover:bg-slate-100/60 transition-colors">
+                        <FileUp className="h-7 w-7 text-indigo-600 mb-2" />
+                        <span className="font-semibold">
+                          {attachAkFile
+                            ? attachAkFile.name
+                            : "Select .txt answer key file"}
+                        </span>
+                        <span className="text-[10px] text-slate-400 mt-0.5">
+                          Click to browse your device
+                        </span>
+                        <input
+                          type="file"
+                          accept=".txt"
+                          onChange={(e) =>
+                            setAttachAkFile(e.target.files?.[0] || null)
+                          }
+                          className="hidden"
+                        />
+                      </label>
+                    ) : (
+                      <div>
+                        <textarea
+                          value={attachAkText}
+                          onChange={(e) => setAttachAkText(e.target.value)}
+                          placeholder={`1. a\n2. c\n3. d\n4. b\n...\n100. a`}
+                          rows={6}
+                          className="w-full rounded-xl border border-slate-200 bg-slate-50 p-3 font-mono text-xs text-slate-800 placeholder-slate-400 focus:outline-none focus:border-indigo-500 focus:bg-white"
+                        />
+                        <div className="flex items-center justify-between text-[11px] text-slate-500 mt-1 font-mono">
+                          <span>
+                            Recognized:{" "}
+                            <strong className="text-emerald-700 font-bold">
+                              {
+                                Object.keys(parseAnswerKeyText(attachAkText))
+                                  .length
+                              }
+                            </strong>{" "}
+                            questions
+                          </span>
+                          <span>
+                            Target: {attachingPaper.totalQuestions} Questions
+                          </span>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )}
+
+              {/* Tab 2: Solution PDF Form */}
+              {modalActiveTab === "solution" && (
+                <div className="space-y-3">
+                  <div>
+                    <span className="text-xs font-bold text-slate-800 block">
+                      Official Solution Booklet
+                    </span>
+                    <p className="text-[11px] text-slate-500 mt-0.5">
+                      Upload a PDF containing detailed model answers and
+                      explanations.
+                    </p>
+                  </div>
+
+                  <label className="cursor-pointer flex flex-col items-center justify-center rounded-xl border border-dashed border-slate-300 bg-slate-50 p-6 text-center hover:border-indigo-500 hover:bg-slate-100/60 transition-colors">
+                    <FileUp className="h-7 w-7 text-indigo-600 mb-2" />
+                    <span className="text-xs font-bold text-slate-800 truncate max-w-[280px]">
+                      {attachExsFile
+                        ? attachExsFile.name
+                        : attachingPaper.exsUrl
+                          ? "Choose new PDF to replace current solution"
+                          : "Select solution .pdf document"}
+                    </span>
+                    <span className="text-[10px] text-slate-400 mt-0.5">
+                      PDF format only
+                    </span>
+                    <input
+                      type="file"
+                      accept=".pdf"
+                      onChange={(e) =>
+                        setAttachExsFile(e.target.files?.[0] || null)
+                      }
+                      className="hidden"
+                    />
+                  </label>
                 </div>
               )}
 
-            {/* Tab 2: Solution PDF Form */}
-            {modalActiveTab === "solution" && (
-              <div className="space-y-3">
-                <div>
-                  <span className="text-xs font-bold text-slate-800 block">
-                    Official Solution Booklet
-                  </span>
-                  <p className="text-[11px] text-slate-500 mt-0.5">
-                    Upload a PDF containing detailed model answers and
-                    explanations.
-                  </p>
-                </div>
-
-                <label className="cursor-pointer flex flex-col items-center justify-center rounded-xl border border-dashed border-slate-300 bg-slate-50 p-6 text-center hover:border-indigo-500 hover:bg-slate-100/60 transition-colors">
-                  <FileUp className="h-7 w-7 text-indigo-600 mb-2" />
-                  <span className="text-xs font-bold text-slate-800 truncate max-w-[280px]">
-                    {attachExsFile
-                      ? attachExsFile.name
-                      : attachingPaper.exsUrl
-                        ? "Choose new PDF to replace current solution"
-                        : "Select solution .pdf document"}
-                  </span>
-                  <span className="text-[10px] text-slate-400 mt-0.5">
-                    PDF format only
-                  </span>
-                  <input
-                    type="file"
-                    accept=".pdf"
-                    onChange={(e) =>
-                      setAttachExsFile(e.target.files?.[0] || null)
-                    }
-                    className="hidden"
-                  />
-                </label>
-              </div>
-            )}
-
-            {/* Modal Actions */}
-            <div className="flex items-center justify-end gap-2 pt-3 border-t border-slate-100">
-              <button
-                type="button"
-                onClick={() => setAttachingPaper(null)}
-                className="cursor-pointer px-4 py-2 rounded-xl text-xs font-bold text-slate-500 hover:text-slate-800 transition-colors"
-              >
-                Cancel
-              </button>
-              <button
-                type="button"
-                disabled={
-                  isSubmittingAttach ||
-                  (modalActiveTab === "key" &&
-                    !attachAkText.trim() &&
-                    !attachAkFile) ||
-                  (modalActiveTab === "solution" && !attachExsFile)
-                }
-                onClick={handleSaveAttachment}
-                className="cursor-pointer px-5 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-xs font-bold text-white disabled:opacity-40 transition-all shadow-xs"
-              >
-                {isSubmittingAttach ? "Saving..." : "Save Attachment"}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Delete Paper Confirmation Modal */}
-      {deletingPaper && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-xs animate-in fade-in">
-          <div className="relative w-full max-w-md rounded-2xl border border-slate-200 bg-white p-6 shadow-2xl space-y-4">
-            <div className="flex items-start gap-3">
-              <div className="p-2.5 rounded-xl bg-rose-50 border border-rose-100 text-rose-600 shrink-0">
-                <Trash2 className="h-5 w-5" />
-              </div>
-              <div>
-                <h3 className="text-base font-bold text-slate-900">
-                  Delete Question Paper?
-                </h3>
-                <p className="text-xs text-slate-500 mt-1 leading-relaxed">
-                  Are you sure you want to delete{" "}
-                  <span className="text-slate-800 font-bold">
-                    &quot;{deletingPaper.label}&quot;
-                  </span>{" "}
-                  from your question papers library? All associated PDF and
-                  answer key links will be permanently removed.
-                </p>
+              {/* Modal Actions */}
+              <div className="flex items-center justify-end gap-2 pt-3 border-t border-slate-100">
+                <button
+                  type="button"
+                  onClick={() => setAttachingPaper(null)}
+                  className="cursor-pointer px-4 py-2 rounded-xl text-xs font-bold text-slate-500 hover:text-slate-800 transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  disabled={
+                    isSubmittingAttach ||
+                    (modalActiveTab === "key" &&
+                      !attachAkText.trim() &&
+                      !attachAkFile) ||
+                    (modalActiveTab === "solution" && !attachExsFile)
+                  }
+                  onClick={handleSaveAttachment}
+                  className="cursor-pointer px-5 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-xs font-bold text-white disabled:opacity-40 transition-all shadow-xs"
+                >
+                  {isSubmittingAttach ? "Saving..." : "Save Attachment"}
+                </button>
               </div>
             </div>
-
-            <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-100">
-              <button
-                type="button"
-                onClick={() => setDeletingPaper(null)}
-                className="cursor-pointer px-4 py-2 rounded-xl text-xs font-bold text-slate-500 hover:text-slate-800 transition-colors"
-              >
-                Cancel
-              </button>
-              <button
-                type="button"
-                onClick={handleConfirmDelete}
-                className="cursor-pointer px-5 py-2 rounded-xl bg-rose-600 hover:bg-rose-700 text-xs font-bold text-white transition-all shadow-xs"
-              >
-                Delete Paper
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+          </div>,
+          document.body,
+        )}
 
       {/* Edit Paper Rules Modal */}
-      {editingPaper && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-xs animate-in fade-in">
-          <div className="relative w-full max-w-md rounded-2xl border border-slate-200 bg-white p-6 shadow-2xl space-y-4">
-            <div>
-              <h3 className="text-base font-bold text-slate-900">
-                Edit Paper Rules
-              </h3>
-              <p className="text-xs text-slate-500 mt-0.5">
-                {editingPaper.label}
-              </p>
-            </div>
-
-            <div className="space-y-3 text-xs">
+      {editingPaper &&
+        mounted &&
+        createPortal(
+          <div className="fixed inset-0 z-[9999] overflow-y-auto flex min-h-full items-start sm:items-center justify-center p-3 sm:p-6 py-8 sm:py-12 bg-slate-900/60 backdrop-blur-xs animate-in fade-in">
+            <div className="relative my-auto w-full max-w-md rounded-2xl border border-slate-200 bg-white p-6 shadow-2xl space-y-4">
               <div>
-                <label className="block text-slate-700 mb-1 font-bold">
-                  Total Questions
-                </label>
-                <input
-                  type="number"
-                  value={editTotalQuestions}
-                  onChange={(e) =>
-                    setEditTotalQuestions(parseInt(e.target.value) || 0)
-                  }
-                  className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3.5 py-2 text-slate-800 text-xs focus:outline-none focus:border-indigo-500 focus:bg-white"
-                />
+                <h3 className="text-base font-bold text-slate-900">
+                  Edit Paper Rules
+                </h3>
+                <p className="text-xs text-slate-500 mt-0.5">
+                  {editingPaper.label}
+                </p>
               </div>
 
-              <div>
-                <label className="block text-slate-700 mb-1 font-bold">
-                  Total Marks
-                </label>
-                <input
-                  type="number"
-                  value={editTotalMarks}
-                  onChange={(e) =>
-                    setEditTotalMarks(parseFloat(e.target.value) || 0)
-                  }
-                  className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3.5 py-2 text-slate-800 text-xs focus:outline-none focus:border-indigo-500 focus:bg-white"
-                />
-              </div>
-
-              <div>
-                <label className="block text-slate-700 mb-1 font-bold">
-                  Time (Minutes)
-                </label>
-                <input
-                  type="number"
-                  value={editTimeMinutes}
-                  onChange={(e) =>
-                    setEditTimeMinutes(parseInt(e.target.value) || 0)
-                  }
-                  className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3.5 py-2 text-slate-800 text-xs focus:outline-none focus:border-indigo-500 focus:bg-white"
-                />
-              </div>
-
-              {editingPaper.examType === "objective" && (
-                <div className="grid grid-cols-2 gap-3">
-                  <div>
-                    <label className="block text-slate-700 mb-1 font-bold">
-                      Correct Marks (+)
-                    </label>
-                    <input
-                      type="number"
-                      step="0.01"
-                      value={editCorrectMarks}
-                      onChange={(e) =>
-                        setEditCorrectMarks(parseFloat(e.target.value) || 0)
-                      }
-                      className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3.5 py-2 text-slate-800 text-xs focus:outline-none focus:border-indigo-500 focus:bg-white"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-slate-700 mb-1 font-bold">
-                      Negative Penalty (-)
-                    </label>
-                    <input
-                      type="number"
-                      step="0.001"
-                      value={editIncorrectMarks}
-                      onChange={(e) =>
-                        setEditIncorrectMarks(parseFloat(e.target.value) || 0)
-                      }
-                      className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3.5 py-2 text-slate-800 text-xs focus:outline-none focus:border-indigo-500 focus:bg-white"
-                    />
-                  </div>
+              <div className="space-y-3 text-xs">
+                <div>
+                  <label className="block text-slate-700 mb-1 font-bold">
+                    Total Questions
+                  </label>
+                  <input
+                    type="number"
+                    value={editTotalQuestions}
+                    onChange={(e) =>
+                      setEditTotalQuestions(parseInt(e.target.value) || 0)
+                    }
+                    className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3.5 py-2 text-slate-800 text-xs focus:outline-none focus:border-indigo-500 focus:bg-white"
+                  />
                 </div>
-              )}
-            </div>
 
-            <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-100">
-              <button
-                onClick={() => setEditingPaper(null)}
-                className="cursor-pointer px-4 py-2 rounded-xl text-xs font-bold text-slate-500 hover:text-slate-800 transition-colors"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={handleSaveEdit}
-                className="cursor-pointer px-5 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-xs font-bold text-white transition-all shadow-xs"
-              >
-                Save Changes
-              </button>
+                <div>
+                  <label className="block text-slate-700 mb-1 font-bold">
+                    Total Marks
+                  </label>
+                  <input
+                    type="number"
+                    value={editTotalMarks}
+                    onChange={(e) =>
+                      setEditTotalMarks(parseFloat(e.target.value) || 0)
+                    }
+                    className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3.5 py-2 text-slate-800 text-xs focus:outline-none focus:border-indigo-500 focus:bg-white"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-slate-700 mb-1 font-bold">
+                    Time (Minutes)
+                  </label>
+                  <input
+                    type="number"
+                    value={editTimeMinutes}
+                    onChange={(e) =>
+                      setEditTimeMinutes(parseInt(e.target.value) || 0)
+                    }
+                    className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3.5 py-2 text-slate-800 text-xs focus:outline-none focus:border-indigo-500 focus:bg-white"
+                  />
+                </div>
+
+                {editingPaper.examType === "objective" && (
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-slate-700 mb-1 font-bold">
+                        Correct Marks (+)
+                      </label>
+                      <input
+                        type="number"
+                        step="0.01"
+                        value={editCorrectMarks}
+                        onChange={(e) =>
+                          setEditCorrectMarks(parseFloat(e.target.value) || 0)
+                        }
+                        className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3.5 py-2 text-slate-800 text-xs focus:outline-none focus:border-indigo-500 focus:bg-white"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-slate-700 mb-1 font-bold">
+                        Negative Penalty (-)
+                      </label>
+                      <input
+                        type="number"
+                        step="0.001"
+                        value={editIncorrectMarks}
+                        onChange={(e) =>
+                          setEditIncorrectMarks(parseFloat(e.target.value) || 0)
+                        }
+                        className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3.5 py-2 text-slate-800 text-xs focus:outline-none focus:border-indigo-500 focus:bg-white"
+                      />
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-100">
+                <button
+                  onClick={() => setEditingPaper(null)}
+                  className="cursor-pointer px-4 py-2 rounded-xl text-xs font-bold text-slate-500 hover:text-slate-800 transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleSaveEdit}
+                  className="cursor-pointer px-5 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-xs font-bold text-white transition-all shadow-xs"
+                >
+                  Save Changes
+                </button>
+              </div>
             </div>
-          </div>
-        </div>
-      )}
+          </div>,
+          document.body,
+        )}
 
       {/* Detailed Solution Modal */}
       <DetailedSolutionModal

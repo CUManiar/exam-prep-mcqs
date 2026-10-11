@@ -25,6 +25,10 @@ export async function POST(req: NextRequest) {
       parseInt(formData.get("timeMinutes") as string) ||
       (examType === "objective" ? 120 : 180);
     const answerKeyTextInput = (formData.get("answerKeyText") as string) || "";
+    const userId = (formData.get("userId") as string) || "";
+    const isUserUpload = Boolean(
+      userId && userId !== "null" && userId !== "undefined",
+    );
 
     const cleanYear = year.replace(/[^0-9]/g, "");
     const cleanName = identifier
@@ -41,9 +45,20 @@ export async function POST(req: NextRequest) {
     }
 
     const catFolder = examType === "objective" ? "prelims" : "mains";
-    const qpFileName = `papers/${cleanYear}/${catFolder}/${cleanName}.pdf`;
-    const akFileName = `answer_keys/${cleanYear}/${catFolder}/${cleanName}.txt`;
-    const exsFileName = `solutions/${cleanYear}/${catFolder}/${cleanName}.pdf`;
+    const paperId = isUserUpload
+      ? `custom_${userId.slice(0, 8)}_${cleanYear}_${cleanName}`
+      : `${cleanYear}_${cleanName}`;
+
+    // Isolated storage path: User papers reside under custom-papers/${userId}/...
+    const qpFileName = isUserUpload
+      ? `custom-papers/${userId}/${paperId}/paper.pdf`
+      : `papers/${cleanYear}/${catFolder}/${cleanName}.pdf`;
+    const akFileName = isUserUpload
+      ? `custom-papers/${userId}/${paperId}/answer_key.txt`
+      : `answer_keys/${cleanYear}/${catFolder}/${cleanName}.txt`;
+    const exsFileName = isUserUpload
+      ? `custom-papers/${userId}/${paperId}/solution.pdf`
+      : `solutions/${cleanYear}/${catFolder}/${cleanName}.pdf`;
 
     // 1. Process Question Paper (.pdf) -> prefix: qp
     let qpUrl = "";
@@ -93,15 +108,9 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    // 4. Persist to papers metadata store (Vercel Blob / Local)
-    const papersMeta = await readJsonStore<Record<string, any>>(
-      "papers.json",
-      {},
-    );
-
-    const paperId = `${cleanYear}_${cleanName}`;
     const paperObj = {
       id: paperId,
+      userId: isUserUpload ? userId : undefined,
       year: cleanYear,
       category: examType === "objective" ? "prelims" : "mains",
       examType,
@@ -121,8 +130,54 @@ export async function POST(req: NextRequest) {
       updatedAt: new Date().toISOString(),
     };
 
-    papersMeta[paperId] = paperObj;
-    await writeJsonStore("papers.json", papersMeta);
+    // 4. If user upload: Persist to Supabase custom_papers table
+    if (
+      isUserUpload &&
+      process.env.NEXT_PUBLIC_SUPABASE_URL &&
+      process.env.SUPABASE_SERVICE_ROLE_KEY
+    ) {
+      try {
+        const { createClient } = await import("@supabase/supabase-js");
+        const supabase = createClient(
+          process.env.NEXT_PUBLIC_SUPABASE_URL,
+          process.env.SUPABASE_SERVICE_ROLE_KEY,
+        );
+        await supabase.from("custom_papers").upsert({
+          id: paperId,
+          user_id: userId,
+          title: label || `${cleanYear} – ${subject}`,
+          year: parseInt(cleanYear) || 2026,
+          subject,
+          stage: catFolder,
+          exam_type: examType,
+          label: label || `${cleanYear} – ${subject}`,
+          total_questions: totalQuestions,
+          total_marks: totalMarks,
+          correct_marks: correctMarks,
+          incorrect_marks: incorrectMarks,
+          time_minutes: timeMinutes,
+          qp_url: qpUrl,
+          ak_url: akUrl || null,
+          exs_url: exsUrl || null,
+          answer_key: parsedKey,
+          answer_key_text: answerKeyContent || null,
+          updated_at: new Date().toISOString(),
+        });
+      } catch (dbErr) {
+        console.warn(
+          "Failed saving custom paper to Supabase custom_papers table:",
+          dbErr,
+        );
+      }
+    } else {
+      // 5. Admin / shared upload: Persist to papers metadata store
+      const papersMeta = await readJsonStore<Record<string, any>>(
+        "papers.json",
+        {},
+      );
+      papersMeta[paperId] = paperObj;
+      await writeJsonStore("papers.json", papersMeta);
+    }
 
     return NextResponse.json({ ok: true, paper: paperObj });
   } catch (err: any) {

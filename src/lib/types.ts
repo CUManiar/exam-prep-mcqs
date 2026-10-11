@@ -19,6 +19,7 @@ export interface QuestionPaper {
   answerKeyText?: string;
   answerKey: Record<number, string>;
   isCustom?: boolean;
+  userId?: string;
 }
 
 export type ConfidenceLevel = "sure" | "50-50" | "guess";
@@ -74,12 +75,7 @@ export interface Attempt {
 }
 
 export type ActivePage =
-  | "dashboard"
-  | "papers"
-  | "session"
-  | "history"
-  | "upload"
-  | "attempt-detail";
+  "dashboard" | "papers" | "session" | "history" | "upload" | "attempt-detail";
 
 export interface ActiveSessionDraft {
   paperId: string;
