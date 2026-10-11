@@ -295,7 +295,8 @@ export function LandingView({
                 Inside the UPSC Exam Simulator
               </h3>
               <p className="text-xs text-slate-500">
-                See how question papers, the live simulator, and evaluation reports work together.
+                See how question papers, the live simulator, and evaluation
+                reports work together.
               </p>
             </div>
 
@@ -305,20 +306,31 @@ export function LandingView({
                 <div className="flex items-center justify-between pb-3 border-b border-slate-100">
                   <div className="flex items-center gap-2">
                     <span className="h-2 w-2 rounded-full bg-indigo-600" />
-                    <span className="text-xs font-bold text-slate-800">1. Question Papers Archive</span>
+                    <span className="text-xs font-bold text-slate-800">
+                      1. Question Papers Archive
+                    </span>
                   </div>
-                  <span className="text-[10px] font-mono text-slate-400">2024–2026 Archive</span>
+                  <span className="text-[10px] font-mono text-slate-400">
+                    2024–2026 Archive
+                  </span>
                 </div>
 
                 {/* Visual Mockup Card */}
                 <div className="rounded-2xl border border-slate-200 bg-slate-50/70 p-4 space-y-3 font-sans">
                   <div className="flex items-center justify-between text-xs">
-                    <span className="rounded-md bg-white border border-slate-200 px-2 py-0.5 font-bold font-mono text-slate-700">2026</span>
-                    <span className="text-[10px] font-bold text-indigo-700 bg-indigo-50 px-2 py-0.5 rounded-full border border-indigo-200">GS I</span>
+                    <span className="rounded-md bg-white border border-slate-200 px-2 py-0.5 font-bold font-mono text-slate-700">
+                      2026
+                    </span>
+                    <span className="text-[10px] font-bold text-indigo-700 bg-indigo-50 px-2 py-0.5 rounded-full border border-indigo-200">
+                      GS I
+                    </span>
                   </div>
-                  <h4 className="text-sm font-bold text-slate-900">2026 – Prelims General Studies I</h4>
+                  <h4 className="text-sm font-bold text-slate-900">
+                    2026 – Prelims General Studies I
+                  </h4>
                   <div className="flex items-center gap-2 text-[11px] text-slate-500">
-                    <span>100 Questions</span> • <span>120 mins</span> • <span>200 Marks</span>
+                    <span>100 Questions</span> • <span>120 mins</span> •{" "}
+                    <span>200 Marks</span>
                   </div>
                   <div className="grid grid-cols-2 gap-2 pt-1">
                     <div className="rounded-lg bg-emerald-50 border border-emerald-200 px-2.5 py-1 text-[11px] font-semibold text-emerald-700 flex items-center gap-1">
@@ -330,7 +342,9 @@ export function LandingView({
                   </div>
                 </div>
                 <p className="text-xs text-slate-500 leading-relaxed">
-                  Filter papers by stage (Prelims or Mains) and year. Every paper has exact questions, duration, and mark weightings configured.
+                  Filter papers by stage (Prelims or Mains) and year. Every
+                  paper has exact questions, duration, and mark weightings
+                  configured.
                 </p>
               </div>
 
@@ -339,35 +353,61 @@ export function LandingView({
                 <div className="flex items-center justify-between pb-3 border-b border-slate-100">
                   <div className="flex items-center gap-2">
                     <span className="h-2 w-2 rounded-full bg-emerald-600" />
-                    <span className="text-xs font-bold text-slate-800">2. Live Exam Hall Simulator</span>
+                    <span className="text-xs font-bold text-slate-800">
+                      2. Live Exam Hall Simulator
+                    </span>
                   </div>
-                  <span className="text-[10px] font-mono text-emerald-700 font-bold">120:00 Countdown</span>
+                  <span className="text-[10px] font-mono text-emerald-700 font-bold">
+                    120:00 Countdown
+                  </span>
                 </div>
 
                 {/* Visual Mockup Simulator Bar */}
                 <div className="rounded-2xl border border-slate-200 bg-slate-50/70 p-4 space-y-3 font-sans">
                   <div className="flex items-center justify-between bg-white rounded-xl p-2.5 border border-slate-200 shadow-2xs">
-                    <span className="text-xs font-bold text-slate-800">2026 – Prelims GS I</span>
+                    <span className="text-xs font-bold text-slate-800">
+                      2026 – Prelims GS I
+                    </span>
                     <span className="font-mono text-xs font-bold text-indigo-700 bg-indigo-50 px-2 py-0.5 rounded-lg border border-indigo-200">
                       ⏱ 01:58:24
                     </span>
                   </div>
                   <div className="flex items-center gap-1.5 overflow-x-auto text-xs py-1">
-                    <span className="h-7 w-7 rounded-lg bg-indigo-600 text-white font-mono font-bold flex items-center justify-center text-[11px]">1</span>
-                    <span className="h-7 w-7 rounded-lg bg-emerald-100 text-emerald-800 font-mono font-bold flex items-center justify-center text-[11px]">2</span>
-                    <span className="h-7 w-7 rounded-lg bg-amber-100 text-amber-800 font-mono font-bold flex items-center justify-center text-[11px]">3</span>
-                    <span className="h-7 w-7 rounded-lg bg-white border border-slate-200 text-slate-600 font-mono font-bold flex items-center justify-center text-[11px]">4</span>
-                    <span className="h-7 w-7 rounded-lg bg-white border border-slate-200 text-slate-600 font-mono font-bold flex items-center justify-center text-[11px]">5</span>
+                    <span className="h-7 w-7 rounded-lg bg-indigo-600 text-white font-mono font-bold flex items-center justify-center text-[11px]">
+                      1
+                    </span>
+                    <span className="h-7 w-7 rounded-lg bg-emerald-100 text-emerald-800 font-mono font-bold flex items-center justify-center text-[11px]">
+                      2
+                    </span>
+                    <span className="h-7 w-7 rounded-lg bg-amber-100 text-amber-800 font-mono font-bold flex items-center justify-center text-[11px]">
+                      3
+                    </span>
+                    <span className="h-7 w-7 rounded-lg bg-white border border-slate-200 text-slate-600 font-mono font-bold flex items-center justify-center text-[11px]">
+                      4
+                    </span>
+                    <span className="h-7 w-7 rounded-lg bg-white border border-slate-200 text-slate-600 font-mono font-bold flex items-center justify-center text-[11px]">
+                      5
+                    </span>
                   </div>
                   <div className="grid grid-cols-4 gap-2 text-center text-xs font-mono font-bold pt-1">
-                    <div className="rounded-xl border border-slate-200 bg-white py-1.5">A</div>
-                    <div className="rounded-xl border border-indigo-600 bg-indigo-600 text-white py-1.5">B</div>
-                    <div className="rounded-xl border border-slate-200 bg-white py-1.5">C</div>
-                    <div className="rounded-xl border border-slate-200 bg-white py-1.5">D</div>
+                    <div className="rounded-xl border border-slate-200 bg-white py-1.5">
+                      A
+                    </div>
+                    <div className="rounded-xl border border-indigo-600 bg-indigo-600 text-white py-1.5">
+                      B
+                    </div>
+                    <div className="rounded-xl border border-slate-200 bg-white py-1.5">
+                      C
+                    </div>
+                    <div className="rounded-xl border border-slate-200 bg-white py-1.5">
+                      D
+                    </div>
                   </div>
                 </div>
                 <p className="text-xs text-slate-500 leading-relaxed">
-                  Real question paper PDF displayed side-by-side with response bubbles, confidence tags (Sure / 50:50 / Guess), and section flags.
+                  Real question paper PDF displayed side-by-side with response
+                  bubbles, confidence tags (Sure / 50:50 / Guess), and section
+                  flags.
                 </p>
               </div>
 
@@ -376,9 +416,13 @@ export function LandingView({
                 <div className="flex items-center justify-between pb-3 border-b border-slate-100">
                   <div className="flex items-center gap-2">
                     <span className="h-2 w-2 rounded-full bg-purple-600" />
-                    <span className="text-xs font-bold text-slate-800">3. Official PDF-Style Assessment</span>
+                    <span className="text-xs font-bold text-slate-800">
+                      3. Official PDF-Style Assessment
+                    </span>
                   </div>
-                  <span className="text-[10px] font-mono text-slate-400">Question Table</span>
+                  <span className="text-[10px] font-mono text-slate-400">
+                    Question Table
+                  </span>
                 </div>
 
                 {/* Visual Mockup Table */}
@@ -392,21 +436,31 @@ export function LandingView({
                   </div>
                   <div className="grid grid-cols-5 items-center font-mono text-xs bg-white p-2 rounded-xl border border-slate-200/80">
                     <span className="font-bold text-slate-900">Q1</span>
-                    <span className="text-[10px] font-bold text-emerald-700 bg-emerald-50 px-1.5 py-0.5 rounded border border-emerald-200 w-fit">Correct</span>
+                    <span className="text-[10px] font-bold text-emerald-700 bg-emerald-50 px-1.5 py-0.5 rounded border border-emerald-200 w-fit">
+                      Correct
+                    </span>
                     <span className="font-bold text-emerald-700">D</span>
                     <span className="font-bold text-emerald-700">D</span>
-                    <span className="text-[10px] text-slate-500 font-sans truncate">Seen earlier</span>
+                    <span className="text-[10px] text-slate-500 font-sans truncate">
+                      Seen earlier
+                    </span>
                   </div>
                   <div className="grid grid-cols-5 items-center font-mono text-xs bg-white p-2 rounded-xl border border-slate-200/80">
                     <span className="font-bold text-slate-900">Q2</span>
-                    <span className="text-[10px] font-bold text-rose-700 bg-rose-50 px-1.5 py-0.5 rounded border border-rose-200 w-fit">Wrong</span>
+                    <span className="text-[10px] font-bold text-rose-700 bg-rose-50 px-1.5 py-0.5 rounded border border-rose-200 w-fit">
+                      Wrong
+                    </span>
                     <span className="font-bold text-rose-700">C</span>
                     <span className="font-bold text-emerald-700">A</span>
-                    <span className="text-[10px] text-slate-500 font-sans truncate">Elimination</span>
+                    <span className="text-[10px] text-slate-500 font-sans truncate">
+                      Elimination
+                    </span>
                   </div>
                 </div>
                 <p className="text-xs text-slate-500 leading-relaxed">
-                  Every attempted question is mapped against the official key with negative mark calculations and your personal revision notes.
+                  Every attempted question is mapped against the official key
+                  with negative mark calculations and your personal revision
+                  notes.
                 </p>
               </div>
 
@@ -415,19 +469,28 @@ export function LandingView({
                 <div className="flex items-center justify-between pb-3 border-b border-slate-100">
                   <div className="flex items-center gap-2">
                     <span className="h-2 w-2 rounded-full bg-amber-600" />
-                    <span className="text-xs font-bold text-slate-800">4. Custom Test Series Uploads</span>
+                    <span className="text-xs font-bold text-slate-800">
+                      4. Custom Test Series Uploads
+                    </span>
                   </div>
-                  <span className="text-[10px] font-mono text-amber-700 font-bold">Sets A, B, C, D</span>
+                  <span className="text-[10px] font-mono text-amber-700 font-bold">
+                    Sets A, B, C, D
+                  </span>
                 </div>
 
                 {/* Visual Mockup Ingestion */}
                 <div className="rounded-2xl border border-slate-200 bg-slate-50/70 p-4 space-y-2.5 text-xs">
                   <div className="flex items-center justify-between text-xs bg-white p-2.5 rounded-xl border border-slate-200">
-                    <span className="font-bold text-slate-800">Coaching Mock Test Paper</span>
-                    <span className="text-[10px] font-bold text-purple-700 bg-purple-50 px-2 py-0.5 rounded-full border border-purple-200">Set B</span>
+                    <span className="font-bold text-slate-800">
+                      Coaching Mock Test Paper
+                    </span>
+                    <span className="text-[10px] font-bold text-purple-700 bg-purple-50 px-2 py-0.5 rounded-full border border-purple-200">
+                      Set B
+                    </span>
                   </div>
                   <div className="rounded-xl border border-dashed border-slate-300 p-3 text-center bg-white text-[11px] text-slate-500">
-                    Upload Question Paper PDF + Paste Answer Key Text (1. A, 2. B, 3. C...)
+                    Upload Question Paper PDF + Paste Answer Key Text (1. A, 2.
+                    B, 3. C...)
                   </div>
                   <div className="flex items-center justify-between text-[11px] font-medium text-slate-600 px-1">
                     <span>• Instant Auto-Scoring</span>
@@ -435,7 +498,9 @@ export function LandingView({
                   </div>
                 </div>
                 <p className="text-xs text-slate-500 leading-relaxed">
-                  Take tests from VisionIAS, ForumIAS, or Vajiram. Upload the question paper PDF and attach the answer key for instant evaluation.
+                  Take tests from VisionIAS, ForumIAS, or Vajiram. Upload the
+                  question paper PDF and attach the answer key for instant
+                  evaluation.
                 </p>
               </div>
             </div>
