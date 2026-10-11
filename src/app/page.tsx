@@ -13,6 +13,7 @@ import {
   updatePaperOnServer,
   getActiveDraft,
   loadActiveDraftFromServer,
+  saveActiveDraft,
   clearActiveDraft
 } from '../lib/storage';
 
@@ -64,7 +65,8 @@ export default function App() {
   const loadAllData = async () => {
     // 1. Initial local cache for instant render
     setAttempts(getAttempts());
-    setActiveDraft(getActiveDraft());
+    const localDraft = getActiveDraft();
+    setActiveDraft(localDraft);
     
     // 2. Fetch server persisted attempts, papers & cross-device draft
     const [serverAttempts, loadedPapers, serverDraft] = await Promise.all([
@@ -74,13 +76,24 @@ export default function App() {
     ]);
     setAttempts(serverAttempts);
     setPapers(loadedPapers);
-    if (serverDraft) {
-      setActiveDraft(serverDraft);
+
+    const effectiveDraft = localDraft || serverDraft;
+    if (effectiveDraft) {
+      setActiveDraft(effectiveDraft);
+      // Auto-resume exam if refreshed, lost connection, or accidental tab reload
+      if (!effectiveDraft.isExited) {
+        const matchingPaper = loadedPapers.find(p => p.id === effectiveDraft.paperId);
+        if (matchingPaper) {
+          setActiveSession({ paper: matchingPaper, mode: effectiveDraft.mode });
+          setActivePage('session');
+        }
+      }
     }
   };
 
   // Launching an exam uses the paper's preconfigured rules directly!
   const handleStartExam = (paper: QuestionPaper, mode: 'practice' | 'mock') => {
+    setActiveDraft(null);
     setActiveSession({ paper, mode });
     setActivePage('session');
   };
@@ -89,6 +102,9 @@ export default function App() {
   const handleResumeDraft = (draft: ActiveSessionDraft) => {
     const paper = papers.find(p => p.id === draft.paperId);
     if (paper) {
+      const resumedDraft = { ...draft, isExited: false };
+      saveActiveDraft(resumedDraft);
+      setActiveDraft(resumedDraft);
       setActiveSession({ paper, mode: draft.mode });
       setActivePage('session');
     }
@@ -126,7 +142,12 @@ export default function App() {
   };
 
   const handleExitExamSession = () => {
-    setActiveDraft(getActiveDraft());
+    const current = getActiveDraft();
+    if (current) {
+      const exitedDraft = { ...current, isExited: true, pausedAt: new Date().toISOString() };
+      saveActiveDraft(exitedDraft);
+      setActiveDraft(exitedDraft);
+    }
     setActiveSession(null);
     setActivePage('papers');
   };

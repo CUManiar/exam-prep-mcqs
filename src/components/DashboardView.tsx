@@ -141,11 +141,13 @@ export function DashboardView({
             <div>
               <div className="flex items-center gap-2">
                 <span className="text-xs font-bold uppercase tracking-wider text-amber-400">Ongoing Paused Mock Exam</span>
-                <span className="text-[11px] text-slate-400">Paused {new Date(activeDraft.pausedAt).toLocaleTimeString()}</span>
+                <span className="text-[11px] text-slate-400">
+                  {activeDraft.pausedAt ? `Paused ${new Date(activeDraft.pausedAt).toLocaleTimeString()}` : 'In Progress'}
+                </span>
               </div>
               <h2 className="text-sm font-bold text-white mt-0.5">{activeDraft.paperLabel}</h2>
               <p className="text-xs text-slate-400">
-                Resuming will continue at <strong>Question {activeDraft.currentQuestion}</strong> with your saved answers and exact timer.
+                Resuming will continue at <strong>{activeDraft.currentQuestion ? `Question ${activeDraft.currentQuestion}` : 'Instructions Overview'}</strong> with your saved answers and exact timer.
               </p>
             </div>
           </div>

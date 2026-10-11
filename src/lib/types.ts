@@ -82,4 +82,5 @@ export interface ActiveSessionDraft {
   qTimeSpent: Record<number, number>;
   idleTimeSeconds?: number;
   pausedAt: string;
+  isExited?: boolean;
 }
