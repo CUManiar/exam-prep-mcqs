@@ -85,8 +85,10 @@ export const INITIAL_PAPERS: QuestionPaper[] = [
     correctMarks: 2,
     incorrectMarks: 0.667,
     timeMinutes: 120,
-    qpUrl: "/papers/2026/prelims/general_studies_paper_i.pdf",
-    akUrl: "/answer_keys/2026/prelims/general_studies_paper_i.txt",
+    qpUrl:
+      "https://ysfxntczlyomrpiuutmo.supabase.co/storage/v1/object/public/papers/papers/2026/prelims/general_studies_paper_i.pdf",
+    akUrl:
+      "https://ysfxntczlyomrpiuutmo.supabase.co/storage/v1/object/public/papers/answer_keys/2026/prelims/general_studies_paper_i.txt",
     answerKeyText:
       "1. D\n2. A\n3. C\n4. B\n5. B\n6. A\n7. D\n8. A\n9. C\n10. C\n11. D\n12. A\n13. C\n14. B\n15. B\n16. B\n17. A\n18. D\n19. D\n20. B\n21. B\n22. B\n23. D\n24. D\n25. C\n26. C\n27. A\n28. D\n29. C\n30. B\n31. A\n32. B\n33. B\n34. B\n35. B\n36. B\n37. C\n38. B\n39. B\n40. C\n41. C\n42. B\n43. C\n44. B\n45. B\n46. C\n47. B\n48. B\n49. C\n50. B\n51. C\n52. A\n53. B\n54. D\n55. B\n56. B\n57. A\n58. C\n59. D\n60. A\n61. D\n62. D\n63. A\n64. D\n65. D\n66. A\n67. B\n68. A\n69. C\n70. A\n71. B\n72. C\n73. D\n74. B\n75. C\n76. C\n77. B\n78. B\n79. C\n80. C\n81. C\n82. C\n83. C\n84. A\n85. A\n86. C\n87. A\n88. C\n89. C\n90. D\n91. A\n92. C\n93. B\n94. B\n95. A\n96. C\n97. C\n98. D\n99. A\n100. A",
     answerKey: {
@@ -204,8 +206,10 @@ export const INITIAL_PAPERS: QuestionPaper[] = [
     correctMarks: 2.5,
     incorrectMarks: 0.833,
     timeMinutes: 120,
-    qpUrl: "/papers/2026/prelims/general_studies_paper_ii.pdf",
-    akUrl: "/answer_keys/2026/prelims/general_studies_paper_ii.txt",
+    qpUrl:
+      "https://ysfxntczlyomrpiuutmo.supabase.co/storage/v1/object/public/papers/papers/2026/prelims/general_studies_paper_ii.pdf",
+    akUrl:
+      "https://ysfxntczlyomrpiuutmo.supabase.co/storage/v1/object/public/papers/answer_keys/2026/prelims/general_studies_paper_ii.txt",
     exsUrl: "/solutions/2026/prelims/general_studies_paper_ii.pdf",
     answerKeyText:
       "1. a\n2. d\n3. c\n4. d\n5. a\n6. a\n7. a\n8. b\n9. d\n10. d\n11. d\n12. b\n13. d\n14. a\n15. b\n16. a\n17. a\n18. d\n19. b\n20. c\n21. b\n22. b\n23. b\n24. a\n25. b\n26. b\n27. d\n28. b\n29. c\n30. b\n31. d\n32. a\n33. d\n34. c\n35. b\n36. a\n37. a\n38. b\n39. b\n40. c\n41. c\n42. c\n43. b\n44. d\n45. c\n46. c\n47. c\n48. d\n49. b\n50. d\n51. a\n52. c\n53. d\n54. c\n55. d\n56. d\n57. d\n58. b\n59. c\n60. d\n61. c\n62. b\n63. a\n64. c\n65. a\n66. b\n67. b\n68. a\n69. a\n70. a\n71. d\n72. b\n73. c\n74. c\n75. d\n76. c\n77. d\n78. a\n79. b\n80. d",
@@ -304,7 +308,8 @@ export const INITIAL_PAPERS: QuestionPaper[] = [
     correctMarks: 0,
     incorrectMarks: 0,
     timeMinutes: 180,
-    qpUrl: "/papers/2026/mains/essay.pdf",
+    qpUrl:
+      "https://ysfxntczlyomrpiuutmo.supabase.co/storage/v1/object/public/papers/papers/2026/mains/essay.pdf",
     answerKey: {},
   },
   {
@@ -319,7 +324,8 @@ export const INITIAL_PAPERS: QuestionPaper[] = [
     correctMarks: 0,
     incorrectMarks: 0,
     timeMinutes: 180,
-    qpUrl: "/papers/2026/mains/general_studies_paper_i.pdf",
+    qpUrl:
+      "https://ysfxntczlyomrpiuutmo.supabase.co/storage/v1/object/public/papers/papers/2026/mains/general_studies_paper_i.pdf",
     answerKey: {},
   },
   {
@@ -334,7 +340,8 @@ export const INITIAL_PAPERS: QuestionPaper[] = [
     correctMarks: 0,
     incorrectMarks: 0,
     timeMinutes: 180,
-    qpUrl: "/papers/2026/mains/general_studies_paper_ii.pdf",
+    qpUrl:
+      "https://ysfxntczlyomrpiuutmo.supabase.co/storage/v1/object/public/papers/papers/2026/mains/general_studies_paper_ii.pdf",
     answerKey: {},
   },
   {
@@ -349,7 +356,8 @@ export const INITIAL_PAPERS: QuestionPaper[] = [
     correctMarks: 0,
     incorrectMarks: 0,
     timeMinutes: 180,
-    qpUrl: "/papers/2026/mains/general_studies_paper_iii.pdf",
+    qpUrl:
+      "https://ysfxntczlyomrpiuutmo.supabase.co/storage/v1/object/public/papers/papers/2026/mains/general_studies_paper_iii.pdf",
     answerKey: {},
   },
   {
@@ -364,7 +372,8 @@ export const INITIAL_PAPERS: QuestionPaper[] = [
     correctMarks: 0,
     incorrectMarks: 0,
     timeMinutes: 180,
-    qpUrl: "/papers/2026/mains/general_studies_paper_iv.pdf",
+    qpUrl:
+      "https://ysfxntczlyomrpiuutmo.supabase.co/storage/v1/object/public/papers/papers/2026/mains/general_studies_paper_iv.pdf",
     answerKey: {},
   },
   {
@@ -379,7 +388,8 @@ export const INITIAL_PAPERS: QuestionPaper[] = [
     correctMarks: 0,
     incorrectMarks: 0,
     timeMinutes: 180,
-    qpUrl: "/papers/2026/mains/geography_paper_i.pdf",
+    qpUrl:
+      "https://ysfxntczlyomrpiuutmo.supabase.co/storage/v1/object/public/papers/papers/2026/mains/geography_paper_i.pdf",
     answerKey: {},
   },
   {
@@ -394,7 +404,8 @@ export const INITIAL_PAPERS: QuestionPaper[] = [
     correctMarks: 0,
     incorrectMarks: 0,
     timeMinutes: 180,
-    qpUrl: "/papers/2026/mains/geography_paper_ii.pdf",
+    qpUrl:
+      "https://ysfxntczlyomrpiuutmo.supabase.co/storage/v1/object/public/papers/papers/2026/mains/geography_paper_ii.pdf",
     answerKey: {},
   },
   {
@@ -409,7 +420,8 @@ export const INITIAL_PAPERS: QuestionPaper[] = [
     correctMarks: 0,
     incorrectMarks: 0,
     timeMinutes: 180,
-    qpUrl: "/papers/2026/mains/gujarati_compulsory.pdf",
+    qpUrl:
+      "https://ysfxntczlyomrpiuutmo.supabase.co/storage/v1/object/public/papers/papers/2026/mains/gujarati_compulsory.pdf",
     answerKey: {},
   },
   {
@@ -424,7 +436,8 @@ export const INITIAL_PAPERS: QuestionPaper[] = [
     correctMarks: 0,
     incorrectMarks: 0,
     timeMinutes: 180,
-    qpUrl: "/papers/2026/mains/gujarati_literature_paper_i.pdf",
+    qpUrl:
+      "https://ysfxntczlyomrpiuutmo.supabase.co/storage/v1/object/public/papers/papers/2026/mains/gujarati_literature_paper_i.pdf",
     answerKey: {},
   },
   {
@@ -439,7 +452,8 @@ export const INITIAL_PAPERS: QuestionPaper[] = [
     correctMarks: 0,
     incorrectMarks: 0,
     timeMinutes: 180,
-    qpUrl: "/papers/2026/mains/gujarati_literature_paper_ii.pdf",
+    qpUrl:
+      "https://ysfxntczlyomrpiuutmo.supabase.co/storage/v1/object/public/papers/papers/2026/mains/gujarati_literature_paper_ii.pdf",
     answerKey: {},
   },
   {
@@ -455,7 +469,7 @@ export const INITIAL_PAPERS: QuestionPaper[] = [
     incorrectMarks: 0,
     timeMinutes: 180,
     qpUrl:
-      "/papers/2026/mains/political_science_and_international_relations_paper_i.pdf",
+      "https://ysfxntczlyomrpiuutmo.supabase.co/storage/v1/object/public/papers/papers/2026/mains/political_science_and_international_relations_paper_i.pdf",
     answerKey: {},
   },
   {
@@ -471,7 +485,7 @@ export const INITIAL_PAPERS: QuestionPaper[] = [
     incorrectMarks: 0,
     timeMinutes: 180,
     qpUrl:
-      "/papers/2026/mains/political_science_and_international_relations_paper_ii.pdf",
+      "https://ysfxntczlyomrpiuutmo.supabase.co/storage/v1/object/public/papers/papers/2026/mains/political_science_and_international_relations_paper_ii.pdf",
     answerKey: {},
   },
   {
@@ -486,7 +500,8 @@ export const INITIAL_PAPERS: QuestionPaper[] = [
     correctMarks: 0,
     incorrectMarks: 0,
     timeMinutes: 180,
-    qpUrl: "/papers/2026/mains/sociology_paper_i.pdf",
+    qpUrl:
+      "https://ysfxntczlyomrpiuutmo.supabase.co/storage/v1/object/public/papers/papers/2026/mains/sociology_paper_i.pdf",
     answerKey: {},
   },
   {
@@ -501,7 +516,8 @@ export const INITIAL_PAPERS: QuestionPaper[] = [
     correctMarks: 0,
     incorrectMarks: 0,
     timeMinutes: 180,
-    qpUrl: "/papers/2026/mains/sociology_paper_ii.pdf",
+    qpUrl:
+      "https://ysfxntczlyomrpiuutmo.supabase.co/storage/v1/object/public/papers/papers/2026/mains/sociology_paper_ii.pdf",
     answerKey: {},
   },
   {
@@ -516,8 +532,10 @@ export const INITIAL_PAPERS: QuestionPaper[] = [
     correctMarks: 2,
     incorrectMarks: 0.667,
     timeMinutes: 120,
-    qpUrl: "/papers/2025/prelims/general_studies_paper_i.pdf",
-    akUrl: "/answer_keys/2025/prelims/general_studies_paper_i.txt",
+    qpUrl:
+      "https://ysfxntczlyomrpiuutmo.supabase.co/storage/v1/object/public/papers/papers/2025/prelims/general_studies_paper_i.pdf",
+    akUrl:
+      "https://ysfxntczlyomrpiuutmo.supabase.co/storage/v1/object/public/papers/answer_keys/2025/prelims/general_studies_paper_i.txt",
     answerKeyText:
       "1. C \n2. D \n3. B \n4. B \n5. B \n6. C \n7. A \n8. A \n9. A \n10. A \n11. C \n12. A \n13. B \n14. A \n15. B \n16. C \n17. C \n18. D \n19. C \n20. C \n21. C \n22. D \n23. A \n24. D \n25. C \n26. C \n27. A \n28. B \n29. C \n30. C \n31. C \n32. D \n33. C \n34. B \n35. B \n36. B \n37. B \n38. B \n39. B \n40. B \n41. C \n42. B \n43. C \n44. C \n45. B \n46. C \n47. C \n48. D \n49. D \n50. B \n51. C\n52. C\n53. B\n54. A\n55. C\n56. B\n57. D\n58. D\n59. D\n60. A\n61. D\n62. A\n63. A\n64. B\n65. A\n66. A\n67. D\n68. C\n69. C\n70. D\n71. B\n72. C\n73. B\n74. A\n75. C\n76. D\n77. A\n78. A\n79. C\n80. D\n81. B\n82. B\n83. A\n84. B\n85. A\n86. A\n87. C\n88. D\n89. D\n90. A\n91. C\n92. D\n93. C\n94. D\n95. C\n96. B\n97. C\n98. A\n99. C\n100. B",
     answerKey: {
@@ -635,8 +653,10 @@ export const INITIAL_PAPERS: QuestionPaper[] = [
     correctMarks: 2.5,
     incorrectMarks: 0.833,
     timeMinutes: 120,
-    qpUrl: "/papers/2025/prelims/general_studies_paper_ii.pdf",
-    akUrl: "/answer_keys/2025/prelims/general_studies_paper_ii.txt",
+    qpUrl:
+      "https://ysfxntczlyomrpiuutmo.supabase.co/storage/v1/object/public/papers/papers/2025/prelims/general_studies_paper_ii.pdf",
+    akUrl:
+      "https://ysfxntczlyomrpiuutmo.supabase.co/storage/v1/object/public/papers/answer_keys/2025/prelims/general_studies_paper_ii.txt",
     exsUrl: "/solutions/2025/prelims/general_studies_paper_ii.pdf",
     answerKeyText:
       "1. C  \n2. D  \n3. D  \n4. A  \n5. C  \n6. A  \n7. C  \n8. B  \n9. D  \n10. A  \n11. D  \n12. A  \n13. D  \n14. A  \n15. C  \n16. C  \n17. B  \n18. C  \n19. D  \n20. C  \n21. A  \n22. D  \n23. A  \n24. D  \n25. C  \n26. D  \n27. B  \n28. D  \n29. B  \n30. C  \n31. D  \n32. A  \n33. B  \n34. B  \n35. B  \n36. B  \n37. B  \n38. B  \n39. C  \n40. B  \n41. B  \n42. A  \n43. C  \n44. B  \n45. D  \n46. C  \n47. C  \n48. D  \n49. A  \n50. C  \n51. B  \n52. C  \n53. D  \n54. D  \n55. C  \n56. A  \n57. D  \n58. B  \n59. B  \n60. C  \n61. A  \n62. C  \n63. C  \n64. C  \n65. C  \n66. B  \n67. A  \n68. D  \n69. D  \n70. D  \n71. B  \n72. D  \n73. D  \n74. B  \n75. D  \n76. C  \n77. C  \n78. A  \n79. A  \n80. C",
@@ -735,7 +755,8 @@ export const INITIAL_PAPERS: QuestionPaper[] = [
     correctMarks: 0,
     incorrectMarks: 0,
     timeMinutes: 180,
-    qpUrl: "/papers/2025/mains/essay.pdf",
+    qpUrl:
+      "https://ysfxntczlyomrpiuutmo.supabase.co/storage/v1/object/public/papers/papers/2025/mains/essay.pdf",
     answerKey: {},
   },
   {
@@ -750,7 +771,8 @@ export const INITIAL_PAPERS: QuestionPaper[] = [
     correctMarks: 0,
     incorrectMarks: 0,
     timeMinutes: 180,
-    qpUrl: "/papers/2025/mains/general_studies_paper_i.pdf",
+    qpUrl:
+      "https://ysfxntczlyomrpiuutmo.supabase.co/storage/v1/object/public/papers/papers/2025/mains/general_studies_paper_i.pdf",
     answerKey: {},
   },
   {
@@ -765,7 +787,8 @@ export const INITIAL_PAPERS: QuestionPaper[] = [
     correctMarks: 0,
     incorrectMarks: 0,
     timeMinutes: 180,
-    qpUrl: "/papers/2025/mains/general_studies_paper_ii.pdf",
+    qpUrl:
+      "https://ysfxntczlyomrpiuutmo.supabase.co/storage/v1/object/public/papers/papers/2025/mains/general_studies_paper_ii.pdf",
     answerKey: {},
   },
   {
@@ -780,7 +803,8 @@ export const INITIAL_PAPERS: QuestionPaper[] = [
     correctMarks: 0,
     incorrectMarks: 0,
     timeMinutes: 180,
-    qpUrl: "/papers/2025/mains/general_studies_paper_iii.pdf",
+    qpUrl:
+      "https://ysfxntczlyomrpiuutmo.supabase.co/storage/v1/object/public/papers/papers/2025/mains/general_studies_paper_iii.pdf",
     answerKey: {},
   },
   {
@@ -795,7 +819,8 @@ export const INITIAL_PAPERS: QuestionPaper[] = [
     correctMarks: 0,
     incorrectMarks: 0,
     timeMinutes: 180,
-    qpUrl: "/papers/2025/mains/general_studies_paper_iv.pdf",
+    qpUrl:
+      "https://ysfxntczlyomrpiuutmo.supabase.co/storage/v1/object/public/papers/papers/2025/mains/general_studies_paper_iv.pdf",
     answerKey: {},
   },
   {
@@ -810,7 +835,8 @@ export const INITIAL_PAPERS: QuestionPaper[] = [
     correctMarks: 0,
     incorrectMarks: 0,
     timeMinutes: 180,
-    qpUrl: "/papers/2025/mains/geography_paper_i.pdf",
+    qpUrl:
+      "https://ysfxntczlyomrpiuutmo.supabase.co/storage/v1/object/public/papers/papers/2025/mains/geography_paper_i.pdf",
     answerKey: {},
   },
   {
@@ -825,7 +851,8 @@ export const INITIAL_PAPERS: QuestionPaper[] = [
     correctMarks: 0,
     incorrectMarks: 0,
     timeMinutes: 180,
-    qpUrl: "/papers/2025/mains/geography_paper_ii.pdf",
+    qpUrl:
+      "https://ysfxntczlyomrpiuutmo.supabase.co/storage/v1/object/public/papers/papers/2025/mains/geography_paper_ii.pdf",
     answerKey: {},
   },
   {
@@ -840,7 +867,8 @@ export const INITIAL_PAPERS: QuestionPaper[] = [
     correctMarks: 0,
     incorrectMarks: 0,
     timeMinutes: 180,
-    qpUrl: "/papers/2025/mains/gujarati_compulsory.pdf",
+    qpUrl:
+      "https://ysfxntczlyomrpiuutmo.supabase.co/storage/v1/object/public/papers/papers/2025/mains/gujarati_compulsory.pdf",
     answerKey: {},
   },
   {
@@ -855,7 +883,8 @@ export const INITIAL_PAPERS: QuestionPaper[] = [
     correctMarks: 0,
     incorrectMarks: 0,
     timeMinutes: 180,
-    qpUrl: "/papers/2025/mains/gujarati_literature_paper_i.pdf",
+    qpUrl:
+      "https://ysfxntczlyomrpiuutmo.supabase.co/storage/v1/object/public/papers/papers/2025/mains/gujarati_literature_paper_i.pdf",
     answerKey: {},
   },
   {
@@ -870,7 +899,8 @@ export const INITIAL_PAPERS: QuestionPaper[] = [
     correctMarks: 0,
     incorrectMarks: 0,
     timeMinutes: 180,
-    qpUrl: "/papers/2025/mains/gujarati_literature_paper_ii.pdf",
+    qpUrl:
+      "https://ysfxntczlyomrpiuutmo.supabase.co/storage/v1/object/public/papers/papers/2025/mains/gujarati_literature_paper_ii.pdf",
     answerKey: {},
   },
   {
@@ -886,7 +916,7 @@ export const INITIAL_PAPERS: QuestionPaper[] = [
     incorrectMarks: 0,
     timeMinutes: 180,
     qpUrl:
-      "/papers/2025/mains/political_science_and_international_relation_paper_i.pdf",
+      "https://ysfxntczlyomrpiuutmo.supabase.co/storage/v1/object/public/papers/papers/2025/mains/political_science_and_international_relation_paper_i.pdf",
     answerKey: {},
   },
   {
@@ -902,7 +932,7 @@ export const INITIAL_PAPERS: QuestionPaper[] = [
     incorrectMarks: 0,
     timeMinutes: 180,
     qpUrl:
-      "/papers/2025/mains/political_science_and_international_relation_paper_ii.pdf",
+      "https://ysfxntczlyomrpiuutmo.supabase.co/storage/v1/object/public/papers/papers/2025/mains/political_science_and_international_relation_paper_ii.pdf",
     answerKey: {},
   },
   {
@@ -917,7 +947,8 @@ export const INITIAL_PAPERS: QuestionPaper[] = [
     correctMarks: 0,
     incorrectMarks: 0,
     timeMinutes: 180,
-    qpUrl: "/papers/2025/mains/sociology_paper_i.pdf",
+    qpUrl:
+      "https://ysfxntczlyomrpiuutmo.supabase.co/storage/v1/object/public/papers/papers/2025/mains/sociology_paper_i.pdf",
     answerKey: {},
   },
   {
@@ -932,7 +963,8 @@ export const INITIAL_PAPERS: QuestionPaper[] = [
     correctMarks: 0,
     incorrectMarks: 0,
     timeMinutes: 180,
-    qpUrl: "/papers/2025/mains/sociology_paper_ii.pdf",
+    qpUrl:
+      "https://ysfxntczlyomrpiuutmo.supabase.co/storage/v1/object/public/papers/papers/2025/mains/sociology_paper_ii.pdf",
     answerKey: {},
   },
   {
@@ -947,7 +979,8 @@ export const INITIAL_PAPERS: QuestionPaper[] = [
     correctMarks: 2,
     incorrectMarks: 0.667,
     timeMinutes: 120,
-    qpUrl: "/papers/2024/prelims/general_studies_paper_i.pdf",
+    qpUrl:
+      "https://ysfxntczlyomrpiuutmo.supabase.co/storage/v1/object/public/papers/papers/2024/prelims/general_studies_paper_i.pdf",
     answerKey: {},
   },
   {
@@ -962,7 +995,8 @@ export const INITIAL_PAPERS: QuestionPaper[] = [
     correctMarks: 2.5,
     incorrectMarks: 0.833,
     timeMinutes: 120,
-    qpUrl: "/papers/2024/prelims/general_studies_paper_ii.pdf",
+    qpUrl:
+      "https://ysfxntczlyomrpiuutmo.supabase.co/storage/v1/object/public/papers/papers/2024/prelims/general_studies_paper_ii.pdf",
     answerKey: {},
   },
   {
@@ -977,7 +1011,8 @@ export const INITIAL_PAPERS: QuestionPaper[] = [
     correctMarks: 0,
     incorrectMarks: 0,
     timeMinutes: 180,
-    qpUrl: "/papers/2024/mains/essay.pdf",
+    qpUrl:
+      "https://ysfxntczlyomrpiuutmo.supabase.co/storage/v1/object/public/papers/papers/2024/mains/essay.pdf",
     answerKey: {},
   },
   {
@@ -992,7 +1027,8 @@ export const INITIAL_PAPERS: QuestionPaper[] = [
     correctMarks: 0,
     incorrectMarks: 0,
     timeMinutes: 180,
-    qpUrl: "/papers/2024/mains/general_studies_paper_i.pdf",
+    qpUrl:
+      "https://ysfxntczlyomrpiuutmo.supabase.co/storage/v1/object/public/papers/papers/2024/mains/general_studies_paper_i.pdf",
     answerKey: {},
   },
   {
@@ -1007,7 +1043,8 @@ export const INITIAL_PAPERS: QuestionPaper[] = [
     correctMarks: 0,
     incorrectMarks: 0,
     timeMinutes: 180,
-    qpUrl: "/papers/2024/mains/general_studies_paper_ii.pdf",
+    qpUrl:
+      "https://ysfxntczlyomrpiuutmo.supabase.co/storage/v1/object/public/papers/papers/2024/mains/general_studies_paper_ii.pdf",
     answerKey: {},
   },
   {
@@ -1022,7 +1059,8 @@ export const INITIAL_PAPERS: QuestionPaper[] = [
     correctMarks: 0,
     incorrectMarks: 0,
     timeMinutes: 180,
-    qpUrl: "/papers/2024/mains/general_studies_paper_iii.pdf",
+    qpUrl:
+      "https://ysfxntczlyomrpiuutmo.supabase.co/storage/v1/object/public/papers/papers/2024/mains/general_studies_paper_iii.pdf",
     answerKey: {},
   },
   {
@@ -1037,7 +1075,8 @@ export const INITIAL_PAPERS: QuestionPaper[] = [
     correctMarks: 0,
     incorrectMarks: 0,
     timeMinutes: 180,
-    qpUrl: "/papers/2024/mains/general_studies_paper_iv.pdf",
+    qpUrl:
+      "https://ysfxntczlyomrpiuutmo.supabase.co/storage/v1/object/public/papers/papers/2024/mains/general_studies_paper_iv.pdf",
     answerKey: {},
   },
   {
@@ -1052,7 +1091,8 @@ export const INITIAL_PAPERS: QuestionPaper[] = [
     correctMarks: 0,
     incorrectMarks: 0,
     timeMinutes: 180,
-    qpUrl: "/papers/2024/mains/geography_paper_i.pdf",
+    qpUrl:
+      "https://ysfxntczlyomrpiuutmo.supabase.co/storage/v1/object/public/papers/papers/2024/mains/geography_paper_i.pdf",
     answerKey: {},
   },
   {
@@ -1067,7 +1107,8 @@ export const INITIAL_PAPERS: QuestionPaper[] = [
     correctMarks: 0,
     incorrectMarks: 0,
     timeMinutes: 180,
-    qpUrl: "/papers/2024/mains/geography_paper_ii.pdf",
+    qpUrl:
+      "https://ysfxntczlyomrpiuutmo.supabase.co/storage/v1/object/public/papers/papers/2024/mains/geography_paper_ii.pdf",
     answerKey: {},
   },
   {
@@ -1082,7 +1123,8 @@ export const INITIAL_PAPERS: QuestionPaper[] = [
     correctMarks: 0,
     incorrectMarks: 0,
     timeMinutes: 180,
-    qpUrl: "/papers/2024/mains/gujarati_compulsory.pdf",
+    qpUrl:
+      "https://ysfxntczlyomrpiuutmo.supabase.co/storage/v1/object/public/papers/papers/2024/mains/gujarati_compulsory.pdf",
     answerKey: {},
   },
   {
@@ -1097,7 +1139,8 @@ export const INITIAL_PAPERS: QuestionPaper[] = [
     correctMarks: 0,
     incorrectMarks: 0,
     timeMinutes: 180,
-    qpUrl: "/papers/2024/mains/gujarati_literature_paper_i.pdf",
+    qpUrl:
+      "https://ysfxntczlyomrpiuutmo.supabase.co/storage/v1/object/public/papers/papers/2024/mains/gujarati_literature_paper_i.pdf",
     answerKey: {},
   },
   {
@@ -1112,7 +1155,8 @@ export const INITIAL_PAPERS: QuestionPaper[] = [
     correctMarks: 0,
     incorrectMarks: 0,
     timeMinutes: 180,
-    qpUrl: "/papers/2024/mains/gujarati_literature_paper_ii.pdf",
+    qpUrl:
+      "https://ysfxntczlyomrpiuutmo.supabase.co/storage/v1/object/public/papers/papers/2024/mains/gujarati_literature_paper_ii.pdf",
     answerKey: {},
   },
   {
@@ -1128,7 +1172,7 @@ export const INITIAL_PAPERS: QuestionPaper[] = [
     incorrectMarks: 0,
     timeMinutes: 180,
     qpUrl:
-      "/papers/2024/mains/political_science_and_international_relations_paper_i.pdf",
+      "https://ysfxntczlyomrpiuutmo.supabase.co/storage/v1/object/public/papers/papers/2024/mains/political_science_and_international_relations_paper_i.pdf",
     answerKey: {},
   },
   {
@@ -1144,7 +1188,7 @@ export const INITIAL_PAPERS: QuestionPaper[] = [
     incorrectMarks: 0,
     timeMinutes: 180,
     qpUrl:
-      "/papers/2024/mains/political_science_and_international_relations_paper_ii.pdf",
+      "https://ysfxntczlyomrpiuutmo.supabase.co/storage/v1/object/public/papers/papers/2024/mains/political_science_and_international_relations_paper_ii.pdf",
     answerKey: {},
   },
   {
@@ -1159,7 +1203,8 @@ export const INITIAL_PAPERS: QuestionPaper[] = [
     correctMarks: 0,
     incorrectMarks: 0,
     timeMinutes: 180,
-    qpUrl: "/papers/2024/mains/sociology_paper_i.pdf",
+    qpUrl:
+      "https://ysfxntczlyomrpiuutmo.supabase.co/storage/v1/object/public/papers/papers/2024/mains/sociology_paper_i.pdf",
     answerKey: {},
   },
   {
@@ -1174,7 +1219,8 @@ export const INITIAL_PAPERS: QuestionPaper[] = [
     correctMarks: 0,
     incorrectMarks: 0,
     timeMinutes: 180,
-    qpUrl: "/papers/2024/mains/sociology_paper_ii.pdf",
+    qpUrl:
+      "https://ysfxntczlyomrpiuutmo.supabase.co/storage/v1/object/public/papers/papers/2024/mains/sociology_paper_ii.pdf",
     answerKey: {},
   },
 ];

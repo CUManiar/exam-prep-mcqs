@@ -18,6 +18,7 @@ export default function AttemptDetailPage({
     handleUpdateAttempt,
     handleDeleteAttempt,
     isLoading,
+    currentUser,
   } = useApp();
 
   const attempt = attempts.find((a) => a.id === resolvedParams.id);
@@ -39,10 +40,10 @@ export default function AttemptDetailPage({
           deleted.
         </p>
         <button
-          onClick={() => router.push("/history")}
+          onClick={() => router.push(currentUser ? "/history" : "/")}
           className="cursor-pointer px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-xs font-semibold text-white shadow-sm"
         >
-          ← Return to Mock History
+          {currentUser ? "← Return to Mock History" : "← Return to Home"}
         </button>
       </div>
     );
@@ -52,11 +53,11 @@ export default function AttemptDetailPage({
     <AttemptDetailView
       attempt={attempt}
       papers={papers}
-      onBack={() => router.push("/history")}
+      onBack={() => router.push(currentUser ? "/history" : "/")}
       onUpdate={handleUpdateAttempt}
       onDelete={(delId) => {
         handleDeleteAttempt(delId);
-        router.push("/history");
+        router.push(currentUser ? "/history" : "/");
       }}
     />
   );

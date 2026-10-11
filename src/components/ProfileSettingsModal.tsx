@@ -136,7 +136,7 @@ export function ProfileSettingsModal({
                     {currentUser?.email || "Not logged in (Local Storage Only)"}
                   </p>
                   <div className="mt-1.5 flex items-center gap-2">
-                    {isPro ? (
+                    {currentUser && isPro ? (
                       <span className="inline-flex items-center gap-1 rounded-full bg-amber-100 px-2.5 py-0.5 text-[10px] font-extrabold text-amber-900 border border-amber-300">
                         <Sparkles className="h-3 w-3 text-amber-600 fill-amber-500" />
                         PRO VAULT LIFETIME

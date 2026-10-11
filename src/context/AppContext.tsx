@@ -89,13 +89,27 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     useState<boolean>(false);
 
   useEffect(() => {
-    setIsPro(isUserPro());
-    const onProChange = () => setIsPro(isUserPro());
+    if (currentUser) {
+      setIsPro(isUserPro());
+    } else {
+      setIsPro(false);
+    }
+    const onProChange = () => {
+      if (currentUser) {
+        setIsPro(isUserPro());
+      } else {
+        setIsPro(false);
+      }
+    };
     window.addEventListener("pro-status-changed", onProChange);
     return () => window.removeEventListener("pro-status-changed", onProChange);
-  }, []);
+  }, [currentUser]);
 
   const openProUpgradeModal = (targetPaperLabel?: string) => {
+    if (!currentUser) {
+      openAuthModal();
+      return;
+    }
     setProModalTarget(targetPaperLabel);
     setProModalOpen(true);
   };
@@ -165,6 +179,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     }
 
     // Guest / Anonymous User: Isolated local browser storage only
+    setUserPro(false);
+    setIsPro(false);
     const cachedAttempts = getAttempts();
     setAttempts(cachedAttempts);
     const localDraft = getActiveDraft();
@@ -197,6 +213,9 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
           setUserPro(true);
           setIsPro(true);
         }
+      } else {
+        setUserPro(false);
+        setIsPro(false);
       }
       loadAllData();
     });
@@ -207,8 +226,13 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   }, [loadAllData]);
 
   // Start exam session - Gated for Freemium (Free: 2026 Prelims GS I & CSAT, Pro: all other papers)
+  // Mock mode requires user account / login
   const handleStartExam = (paper: QuestionPaper, mode: "practice" | "mock") => {
-    if (!isPaperFree(paper) && !isUserPro()) {
+    if (mode === "mock" && !currentUser) {
+      openAuthModal();
+      return;
+    }
+    if (!isPaperFree(paper) && !isPro) {
       openProUpgradeModal(paper.label);
       return;
     }
@@ -253,12 +277,10 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
   // Finishing exam session
   const handleFinishExamSession = (attempt: Attempt) => {
-    if (attempt.mode === "mock") {
-      saveAttempt(attempt);
-      setAttempts(getAttempts());
-      if (currentUser) {
-        saveUserAttemptToSupabase(attempt, currentUser.id);
-      }
+    saveAttempt(attempt);
+    setAttempts(getAttempts());
+    if (currentUser) {
+      saveUserAttemptToSupabase(attempt, currentUser.id);
     }
     clearActiveDraft();
     setActiveDraft(null);
@@ -266,8 +288,9 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       clearUserDraftFromSupabase(currentUser.id);
     }
 
-    // If user is not logged in, prompt them to save results to their account
-    if (!currentUser) {
+    // Practice mode allows immediate direct review without login!
+    // Mock mode prompts user to sign in to save test attempt.
+    if (!currentUser && attempt.mode === "mock") {
       setGuestCompletionAttempt(attempt);
       setGuestCompletionModalOpen(true);
       return;

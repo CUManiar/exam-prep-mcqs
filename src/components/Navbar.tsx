@@ -208,7 +208,7 @@ export function Navbar({
           </div>
 
           {/* Freemium Pro Status / Upgrade CTA */}
-          {isPro ? (
+          {currentUser && isPro ? (
             <div className="flex items-center gap-1.5 rounded-xl border border-amber-300 bg-amber-50/90 px-3 py-1.5 text-xs font-bold text-amber-900 shadow-xs whitespace-nowrap shrink-0">
               <Sparkles className="h-3.5 w-3.5 text-amber-500 fill-amber-400 shrink-0" />
               <span>PRO Member</span>
@@ -313,17 +313,19 @@ export function Navbar({
             </button>
           )}
 
-          {/* Quick Settings Icon Button */}
-          <button
-            onClick={() => {
-              setProfileModalTab("settings");
-              setShowProfileModal(true);
-            }}
-            title="Preferences & Settings"
-            className="cursor-pointer flex items-center justify-center h-8 w-8 rounded-xl border border-slate-200 bg-white hover:border-slate-300 hover:bg-slate-50 text-slate-500 hover:text-slate-800 transition-colors shadow-2xs shrink-0"
-          >
-            <SettingsIcon className="h-4 w-4" />
-          </button>
+          {/* Quick Settings Icon Button - Logged in users only */}
+          {currentUser && (
+            <button
+              onClick={() => {
+                setProfileModalTab("settings");
+                setShowProfileModal(true);
+              }}
+              title="Preferences & Settings"
+              className="cursor-pointer flex items-center justify-center h-8 w-8 rounded-xl border border-slate-200 bg-white hover:border-slate-300 hover:bg-slate-50 text-slate-500 hover:text-slate-800 transition-colors shadow-2xs shrink-0"
+            >
+              <SettingsIcon className="h-4 w-4" />
+            </button>
+          )}
         </div>
       </div>
 

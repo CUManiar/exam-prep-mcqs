@@ -1,14 +1,16 @@
 import { Client } from 'pg';
 
-const connectionString =
+const rawConnectionString =
   process.env.POSTGRES_URL_NON_POOLING ||
   process.env.POSTGRES_PRISMA_URL ||
   process.env.POSTGRES_URL;
 
-if (!connectionString) {
+if (!rawConnectionString) {
   console.error('No Postgres connection string found in .env.local');
   process.exit(1);
 }
+
+const connectionString = rawConnectionString.split('?')[0];
 
 const client = new Client({
   connectionString,

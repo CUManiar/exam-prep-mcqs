@@ -74,12 +74,7 @@ export interface Attempt {
 }
 
 export type ActivePage =
-  | "dashboard"
-  | "papers"
-  | "session"
-  | "history"
-  | "upload"
-  | "attempt-detail";
+  "dashboard" | "papers" | "session" | "history" | "upload" | "attempt-detail";
 
 export interface ActiveSessionDraft {
   paperId: string;

@@ -81,6 +81,47 @@ export async function uploadFile(
     return blob.url;
   }
 
+  // Cloud Storage via Supabase Storage if configured
+  if (
+    process.env.NEXT_PUBLIC_SUPABASE_URL &&
+    process.env.SUPABASE_SERVICE_ROLE_KEY
+  ) {
+    try {
+      const { createClient } = await import("@supabase/supabase-js");
+      const supabase = createClient(
+        process.env.NEXT_PUBLIC_SUPABASE_URL,
+        process.env.SUPABASE_SERVICE_ROLE_KEY,
+      );
+
+      let buffer: Buffer;
+      if (Buffer.isBuffer(body)) {
+        buffer = body;
+      } else if (typeof body === "string") {
+        buffer = Buffer.from(body, "utf-8");
+      } else {
+        const ab = await (body as Blob).arrayBuffer();
+        buffer = Buffer.from(ab);
+      }
+
+      const { error } = await supabase.storage
+        .from("papers")
+        .upload(cleanPath, buffer, {
+          contentType,
+          upsert: true,
+        });
+
+      if (!error) {
+        const { data } = supabase.storage
+          .from("papers")
+          .getPublicUrl(cleanPath);
+        return data.publicUrl;
+      }
+      console.warn("Supabase storage upload error:", error);
+    } catch (err) {
+      console.warn("Failed uploading to Supabase storage, falling back:", err);
+    }
+  }
+
   // Local filesystem fallback (Mac local development)
   const localDir = path.join(process.cwd(), "public", "data");
   if (!fs.existsSync(localDir)) {
