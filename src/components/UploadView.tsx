@@ -1,8 +1,8 @@
 'use client';
 
 import React, { useState } from 'react';
-import { QuestionPaper, ExamType, ExamCategory } from '../lib/types';
-import { parseAnswerKeyText, SUPPORTED_YEARS } from '../lib/defaults';
+import { QuestionPaper, ExamType } from '../lib/types';
+import { SUPPORTED_YEARS } from '../lib/defaults';
 import { saveCustomPaper } from '../lib/storage';
 import { 
   UploadCloud, 
@@ -10,10 +10,9 @@ import {
   CheckCircle2, 
   AlertCircle, 
   FileUp, 
-  Sparkles, 
-  BookOpen, 
   Sliders,
-  HelpCircle
+  Check,
+  X
 } from 'lucide-react';
 
 interface UploadViewProps {
@@ -40,6 +39,7 @@ export function UploadView({ onPaperUploaded, onNavigatePapers }: UploadViewProp
   // Files
   const [qpFile, setQpFile] = useState<File | null>(null);
   const [akFile, setAkFile] = useState<File | null>(null);
+  const [akMode, setAkMode] = useState<'upload' | 'paste'>('paste');
   const [akText, setAkText] = useState<string>('');
   const [exsFile, setExsFile] = useState<File | null>(null);
 
@@ -87,10 +87,6 @@ export function UploadView({ onPaperUploaded, onNavigatePapers }: UploadViewProp
   const cleanYear = year.replace(/[^0-9]/g, '');
   const cleanName = paperIdentifier.toLowerCase().replace(/[^a-z0-9_]/g, '_').replace(/_+/g, '_').replace(/^_|_$/g, '');
 
-  const qpFileName = cleanYear && cleanName ? `qp_${cleanYear}_${cleanName}.pdf` : 'qp_{year}_{file_name}.pdf';
-  const akFileName = cleanYear && cleanName ? `ak_${cleanYear}_${cleanName}.txt` : 'ak_{year}_{file_name}.txt';
-  const exsFileName = cleanYear && cleanName ? `exs_${cleanYear}_${cleanName}.pdf` : 'exs_{year}_{file_name}.pdf';
-
   const handleUploadAll = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!cleanYear || !cleanName) {
@@ -123,10 +119,10 @@ export function UploadView({ onPaperUploaded, onNavigatePapers }: UploadViewProp
       formData.append('timeMinutes', String(timeMinutes || (examType === 'objective' ? 120 : 180)));
       
       formData.append('qpFile', qpFile);
-      if (akFile) {
+      if (akFile && akMode === 'upload') {
         formData.append('akFile', akFile);
       }
-      if (akText) {
+      if (akText && akMode === 'paste') {
         formData.append('answerKeyText', akText);
       }
       if (exsFile) {
@@ -140,7 +136,7 @@ export function UploadView({ onPaperUploaded, onNavigatePapers }: UploadViewProp
 
       const data = await res.json();
       if (!res.ok || !data.ok) {
-        throw new Error(data.error || 'Server failed to save paper to disk.');
+        throw new Error(data.error || 'Server failed to save paper.');
       }
 
       const newPaper: QuestionPaper = data.paper;
@@ -148,11 +144,11 @@ export function UploadView({ onPaperUploaded, onNavigatePapers }: UploadViewProp
       onPaperUploaded(newPaper);
 
       setStatusMsg({ 
-        text: `Successfully saved to data folder & repository: "${newPaper.label}" with ${newPaper.totalQuestions} Questions!` 
+        text: `Paper saved successfully: "${newPaper.label}" (${newPaper.totalQuestions} Questions).` 
       });
       setTimeout(() => {
         onNavigatePapers();
-      }, 1200);
+      }, 1000);
     } catch (err: any) {
       setStatusMsg({ text: err.message || 'Failed to save paper.', isError: true });
     } finally {
@@ -161,27 +157,26 @@ export function UploadView({ onPaperUploaded, onNavigatePapers }: UploadViewProp
   };
 
   return (
-    <div className="mx-auto max-w-4xl px-4 py-8 sm:px-6 lg:px-8 space-y-7 animate-in fade-in">
+    <div className="mx-auto max-w-4xl px-4 py-8 sm:px-6 lg:px-8 space-y-6 animate-in fade-in">
       
       {/* Header */}
-      <div className="border-b border-slate-800/80 pb-5">
+      <div className="pb-4 border-b border-slate-800/80">
         <div className="flex items-center gap-2 mb-1">
-          <UploadCloud className="h-4 w-4 text-indigo-400" />
-          <span className="text-[11px] font-bold uppercase tracking-wider text-indigo-400 font-mono">
-            Paper Intake Studio
+          <span className="text-[11px] font-semibold uppercase tracking-wider text-indigo-400 font-mono">
+            Paper Management
           </span>
         </div>
-        <h1 className="text-2xl font-black text-white tracking-tight">Upload Examination Paper</h1>
-        <p className="text-xs text-slate-400 mt-0.5">
-          Upload Prelims (Objective MCQs) or Mains (Subjective Answer Writing) papers with automated rules
+        <h1 className="text-2xl font-bold text-white tracking-tight">Upload Question Paper</h1>
+        <p className="text-xs text-slate-400 mt-1">
+          Add custom Prelims (Objective MCQs with automated scoring) or Mains (Subjective Answer Writing) papers to your repository.
         </p>
       </div>
 
       {statusMsg && (
-        <div className={`flex items-center gap-2 rounded-xl p-3.5 text-xs font-semibold ${
+        <div className={`flex items-center gap-2 rounded-xl p-3 text-xs font-medium border ${
           statusMsg.isError 
-            ? 'bg-rose-500/10 border border-rose-500/30 text-rose-300' 
-            : 'bg-emerald-500/10 border border-emerald-500/30 text-emerald-300'
+            ? 'bg-rose-500/10 border-rose-500/20 text-rose-300' 
+            : 'bg-emerald-500/10 border-emerald-500/20 text-emerald-300'
         }`}>
           {statusMsg.isError ? <AlertCircle className="h-4 w-4 shrink-0" /> : <CheckCircle2 className="h-4 w-4 shrink-0" />}
           <span>{statusMsg.text}</span>
@@ -191,22 +186,27 @@ export function UploadView({ onPaperUploaded, onNavigatePapers }: UploadViewProp
       <form onSubmit={handleUploadAll} className="space-y-6">
         
         {/* Step 1: Exam Type Selector */}
-        <div className="glass-card rounded-2xl p-5 space-y-3.5">
+        <div className="glass-card rounded-2xl p-5 border border-white/[0.06] space-y-3">
           <label className="block text-xs font-bold text-slate-300 uppercase tracking-wider">
-            1. Select Exam Type
+            1. Select Exam Format
           </label>
-          <div className="grid grid-cols-2 gap-3.5">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <button
               type="button"
               onClick={() => handleExamTypeChange('objective')}
               className={`p-4 rounded-xl border text-left transition-all ${
                 examType === 'objective'
-                  ? 'border-indigo-500 bg-indigo-600/20 text-white ring-2 ring-indigo-500/40 shadow-lg shadow-indigo-500/10'
-                  : 'border-slate-800 bg-slate-950/70 text-slate-400 hover:border-slate-700'
+                  ? 'border-indigo-500/80 bg-indigo-500/[0.08] text-white shadow-sm ring-1 ring-indigo-500/30'
+                  : 'border-slate-800 bg-slate-950/60 text-slate-400 hover:border-slate-700 hover:text-slate-200'
               }`}
             >
-              <div className="font-bold text-sm text-white">Objective Exam (Prelims)</div>
-              <div className="text-xs text-slate-400 mt-0.5">MCQ format with OMR sheet, live scoring & negative marking</div>
+              <div className="flex items-center justify-between">
+                <span className="font-semibold text-sm text-white">Objective (Prelims)</span>
+                {examType === 'objective' && <Check className="h-4 w-4 text-indigo-400" />}
+              </div>
+              <p className="text-xs text-slate-400 mt-1">
+                Multiple-choice questions with interactive OMR sheet, auto-evaluation, and negative marking.
+              </p>
             </button>
 
             <button
@@ -214,36 +214,40 @@ export function UploadView({ onPaperUploaded, onNavigatePapers }: UploadViewProp
               onClick={() => handleExamTypeChange('subjective')}
               className={`p-4 rounded-xl border text-left transition-all ${
                 examType === 'subjective'
-                  ? 'border-indigo-500 bg-indigo-600/20 text-white ring-2 ring-indigo-500/40 shadow-lg shadow-indigo-500/10'
-                  : 'border-slate-800 bg-slate-950/70 text-slate-400 hover:border-slate-700'
+                  ? 'border-indigo-500/80 bg-indigo-500/[0.08] text-white shadow-sm ring-1 ring-indigo-500/30'
+                  : 'border-slate-800 bg-slate-950/60 text-slate-400 hover:border-slate-700 hover:text-slate-200'
               }`}
             >
-              <div className="font-bold text-sm text-white">Subjective Exam (Mains)</div>
-              <div className="text-xs text-slate-400 mt-0.5">Answer writing format with post-exam handwritten copy upload</div>
+              <div className="flex items-center justify-between">
+                <span className="font-semibold text-sm text-white">Subjective (Mains)</span>
+                {examType === 'subjective' && <Check className="h-4 w-4 text-indigo-400" />}
+              </div>
+              <p className="text-xs text-slate-400 mt-1">
+                Descriptive answer writing questions with post-exam handwritten PDF submission.
+              </p>
             </button>
           </div>
         </div>
 
-        {/* Step 2: Paper Metadata & Paper-Specific Marking Rules */}
-        <div className="glass-card rounded-2xl p-5 space-y-4">
+        {/* Step 2: Paper Metadata & Scoring Rules */}
+        <div className="glass-card rounded-2xl p-5 border border-white/[0.06] space-y-4">
           <div className="flex items-center justify-between">
-            <h2 className="text-sm font-bold text-white flex items-center gap-2">
-              <Sliders className="h-4 w-4 text-indigo-400" />
-              2. Paper Parameters & Rules
+            <h2 className="text-xs font-bold text-slate-300 uppercase tracking-wider flex items-center gap-2">
+              <Sliders className="h-3.5 w-3.5 text-indigo-400" />
+              2. Paper Metadata & Rules
             </h2>
-            <span className="text-[11px] text-slate-400">Rules configured permanently for this paper</span>
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
             {/* Year Selector */}
             <div>
-              <label className="block text-xs font-semibold text-slate-300 mb-1">
-                Year <span className="text-rose-400">*</span>
+              <label className="block text-xs font-medium text-slate-300 mb-1">
+                Year
               </label>
               <select
                 value={year}
                 onChange={e => setYear(e.target.value)}
-                className="w-full rounded-xl border border-slate-700 bg-slate-950 px-3.5 py-2 text-sm text-white focus:outline-none focus:border-indigo-500"
+                className="w-full rounded-xl border border-slate-800 bg-slate-950/80 px-3 py-2 text-xs text-white focus:outline-none focus:border-indigo-500/80"
               >
                 {SUPPORTED_YEARS.map(yr => (
                   <option key={yr} value={yr}>{yr}</option>
@@ -253,19 +257,19 @@ export function UploadView({ onPaperUploaded, onNavigatePapers }: UploadViewProp
 
             {/* Subject Preset */}
             <div>
-              <label className="block text-xs font-semibold text-slate-300 mb-1">
-                Paper Preset <span className="text-rose-400">*</span>
+              <label className="block text-xs font-medium text-slate-300 mb-1">
+                Paper Preset
               </label>
               <select
                 value={subjectPreset}
                 onChange={e => handlePresetChange(e.target.value)}
-                className="w-full rounded-xl border border-slate-700 bg-slate-950 px-3.5 py-2 text-sm text-white focus:outline-none focus:border-indigo-500"
+                className="w-full rounded-xl border border-slate-800 bg-slate-950/80 px-3 py-2 text-xs text-white focus:outline-none focus:border-indigo-500/80"
               >
                 {examType === 'objective' ? (
                   <>
                     <option value="GS I">Prelims GS I (100 Qs • 200 Marks)</option>
                     <option value="GS II CSAT">Prelims GS II CSAT (80 Qs • 200 Marks)</option>
-                    <option value="Custom">Custom Objective Paper / Section</option>
+                    <option value="Custom">Custom Objective Paper</option>
                   </>
                 ) : (
                   <>
@@ -274,92 +278,92 @@ export function UploadView({ onPaperUploaded, onNavigatePapers }: UploadViewProp
                     <option value="Mains GS III">Mains GS III (20 Qs • 250 Marks)</option>
                     <option value="Mains GS IV">Mains GS IV (Ethics • 250 Marks)</option>
                     <option value="Mains Essay">Mains Essay (250 Marks)</option>
-                    <option value="Custom">Custom Subjective / Optional Paper</option>
+                    <option value="Custom">Custom Subjective Paper</option>
                   </>
                 )}
               </select>
             </div>
 
-            {/* Custom Subject Name (Shown when Custom preset selected) */}
-            {subjectPreset === 'Custom' && (
-              <div>
-                <label className="block text-xs font-semibold text-slate-300 mb-1">
-                  Custom Subject / Paper Title <span className="text-rose-400">*</span>
-                </label>
-                <input
-                  type="text"
-                  value={customSubject}
-                  onChange={e => {
-                    setCustomSubject(e.target.value);
-                    const clean = e.target.value.toLowerCase().replace(/[^a-z0-9_]/g, '_').replace(/_+/g, '_');
-                    if (clean) setPaperIdentifier(clean);
-                  }}
-                  placeholder="e.g. Sociology Optional Paper 1, Sectional Test"
-                  className="w-full rounded-xl border border-indigo-500/50 bg-slate-950 px-3.5 py-2 text-sm text-white focus:outline-none focus:border-indigo-400 ring-1 ring-indigo-500/30"
-                  required
-                />
-              </div>
-            )}
-
             {/* Paper Identifier */}
             <div>
-              <label className="block text-xs font-semibold text-slate-300 mb-1">
-                Identifier Name <span className="text-rose-400">*</span>
+              <label className="block text-xs font-medium text-slate-300 mb-1">
+                Identifier Tag
               </label>
               <input
                 type="text"
                 value={paperIdentifier}
                 onChange={e => setPaperIdentifier(e.target.value)}
                 placeholder="prelims_gs_i"
-                className="w-full rounded-xl border border-slate-700 bg-slate-950 px-3.5 py-2 text-sm text-white focus:outline-none focus:border-indigo-500"
+                className="w-full rounded-xl border border-slate-800 bg-slate-950/80 px-3 py-2 text-xs text-white focus:outline-none focus:border-indigo-500/80 font-mono"
                 required
               />
             </div>
           </div>
 
-          {/* Exam Rules Controls */}
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 pt-2 border-t border-slate-800">
+          {/* Custom Subject Name if selected */}
+          {subjectPreset === 'Custom' && (
             <div>
-              <label className="block text-[11px] font-semibold text-slate-400 mb-1">Total Questions</label>
+              <label className="block text-xs font-medium text-slate-300 mb-1">
+                Custom Subject / Paper Title
+              </label>
+              <input
+                type="text"
+                value={customSubject}
+                onChange={e => {
+                  setCustomSubject(e.target.value);
+                  const clean = e.target.value.toLowerCase().replace(/[^a-z0-9_]/g, '_').replace(/_+/g, '_');
+                  if (clean) setPaperIdentifier(clean);
+                }}
+                placeholder="e.g. Sociology Optional Paper 1"
+                className="w-full rounded-xl border border-indigo-500/40 bg-slate-950 px-3 py-2 text-xs text-white focus:outline-none focus:border-indigo-400"
+                required
+              />
+            </div>
+          )}
+
+          {/* Marking scheme and rules grid */}
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 pt-3 border-t border-slate-800/80">
+            <div>
+              <label className="block text-[11px] font-medium text-slate-400 mb-1">Total Questions</label>
               <input
                 type="number"
                 value={totalQuestions}
                 onChange={e => setTotalQuestions(parseInt(e.target.value) || 0)}
-                className="w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-1.5 text-xs text-white"
+                className="w-full rounded-lg border border-slate-800 bg-slate-950 px-3 py-1.5 text-xs text-white font-mono focus:outline-none focus:border-indigo-500/80"
               />
             </div>
 
             <div>
-              <label className="block text-[11px] font-semibold text-slate-400 mb-1">Exam Duration (Mins)</label>
+              <label className="block text-[11px] font-medium text-slate-400 mb-1">Time (Minutes)</label>
               <input
                 type="number"
                 value={timeMinutes}
                 onChange={e => setTimeMinutes(parseInt(e.target.value) || 0)}
-                className="w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-1.5 text-xs text-white"
+                className="w-full rounded-lg border border-slate-800 bg-slate-950 px-3 py-1.5 text-xs text-white font-mono focus:outline-none focus:border-indigo-500/80"
               />
             </div>
 
             {examType === 'objective' && (
               <>
                 <div>
-                  <label className="block text-[11px] font-semibold text-slate-400 mb-1">Correct Marks (+)</label>
+                  <label className="block text-[11px] font-medium text-slate-400 mb-1">Correct Marks (+)</label>
                   <input
                     type="number"
                     step="0.01"
                     value={correctMarks}
                     onChange={e => setCorrectMarks(parseFloat(e.target.value) || 0)}
-                    className="w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-1.5 text-xs text-white"
+                    className="w-full rounded-lg border border-slate-800 bg-slate-950 px-3 py-1.5 text-xs text-white font-mono focus:outline-none focus:border-indigo-500/80"
                   />
                 </div>
 
                 <div>
-                  <label className="block text-[11px] font-semibold text-slate-400 mb-1">Penalty Marks (-)</label>
+                  <label className="block text-[11px] font-medium text-slate-400 mb-1">Penalty Marks (-)</label>
                   <input
                     type="number"
                     step="0.001"
                     value={incorrectMarks}
                     onChange={e => setIncorrectMarks(parseFloat(e.target.value) || 0)}
-                    className="w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-1.5 text-xs text-white"
+                    className="w-full rounded-lg border border-slate-800 bg-slate-950 px-3 py-1.5 text-xs text-white font-mono focus:outline-none focus:border-indigo-500/80"
                   />
                 </div>
               </>
@@ -367,107 +371,129 @@ export function UploadView({ onPaperUploaded, onNavigatePapers }: UploadViewProp
           </div>
         </div>
 
-        {/* Step 3: Files Section */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          
-          {/* Question Paper PDF */}
-          <div className="rounded-2xl border border-slate-800 bg-slate-900 p-5 space-y-3">
-            <div className="flex items-center justify-between">
-              <span className="rounded bg-indigo-500/20 border border-indigo-500/40 px-2 py-0.5 text-[11px] font-bold text-indigo-300">
-                prefix: qp_
-              </span>
-              <span className="text-[11px] text-slate-500">.pdf only</span>
-            </div>
-            <h3 className="text-sm font-bold text-white">Question Paper (Required)</h3>
-            <p className="text-[11px] text-slate-400">PDF of actual question paper</p>
+        {/* Step 3: Files & Attachments */}
+        <div className="glass-card rounded-2xl p-5 border border-white/[0.06] space-y-4">
+          <h2 className="text-xs font-bold text-slate-300 uppercase tracking-wider">
+            3. Documents & Answer Keys
+          </h2>
 
-            <label className="flex flex-col items-center justify-center rounded-xl border-2 border-dashed border-slate-700 bg-slate-950/80 p-4 text-center cursor-pointer hover:border-indigo-500 transition-all">
-              <FileUp className="h-6 w-6 text-indigo-400 mb-1" />
-              <span className="text-xs font-semibold text-slate-200">
-                {qpFile ? qpFile.name : 'Choose QP PDF'}
-              </span>
-              <span className="text-[10px] text-slate-500 mt-0.5">
-                {qpFile ? `${(qpFile.size / 1024 / 1024).toFixed(2)} MB` : 'Drop or browse'}
-              </span>
-              <input
-                type="file"
-                accept=".pdf"
-                onChange={e => setQpFile(e.target.files?.[0] || null)}
-                className="hidden"
-              />
-            </label>
-          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            {/* Question Paper PDF */}
+            <div className="rounded-xl border border-slate-800 bg-slate-950/60 p-4 space-y-2">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-semibold text-white">Question Paper PDF</span>
+                <span className="text-[10px] text-indigo-400 font-mono">Required</span>
+              </div>
+              <p className="text-[11px] text-slate-400">Official question paper in PDF format.</p>
 
-          {/* Model Solution / Explanations PDF */}
-          <div className="rounded-2xl border border-slate-800 bg-slate-900 p-5 space-y-3">
-            <div className="flex items-center justify-between">
-              <span className="rounded bg-amber-500/20 border border-amber-500/40 px-2 py-0.5 text-[11px] font-bold text-amber-300">
-                prefix: exs_
-              </span>
-              <span className="text-[11px] text-slate-500">.pdf</span>
-            </div>
-            <h3 className="text-sm font-bold text-white">Detailed Solution (Optional)</h3>
-            <p className="text-[11px] text-slate-400">Official solution & explanations booklet</p>
-
-            <label className="flex flex-col items-center justify-center rounded-xl border-2 border-dashed border-slate-700 bg-slate-950/80 p-4 text-center cursor-pointer hover:border-amber-500 transition-all">
-              <FileUp className="h-6 w-6 text-amber-400 mb-1" />
-              <span className="text-xs font-semibold text-slate-200">
-                {exsFile ? exsFile.name : 'Choose Solution PDF'}
-              </span>
-              <span className="text-[10px] text-slate-500 mt-0.5">
-                {exsFile ? `${(exsFile.size / 1024 / 1024).toFixed(2)} MB` : 'Optional'}
-              </span>
-              <input
-                type="file"
-                accept=".pdf"
-                onChange={e => setExsFile(e.target.files?.[0] || null)}
-                className="hidden"
-              />
-            </label>
-          </div>
-        </div>
-
-        {/* Step 4: Answer Key (For Objective MCQs only) */}
-        {examType === 'objective' && (
-          <div className="rounded-2xl border border-slate-800 bg-slate-900 p-5 space-y-3">
-            <div className="flex items-center justify-between">
-              <h3 className="text-sm font-bold text-white">Answer Key (Upload File OR Paste Below)</h3>
-              <span className="text-[11px] text-slate-400">prefix: ak_</span>
-            </div>
-
-            <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
-              <label className="flex items-center justify-center gap-2 rounded-xl border border-slate-700 bg-slate-950 px-4 py-2 text-xs font-semibold text-slate-200 cursor-pointer hover:bg-slate-800">
-                <FileUp className="h-4 w-4 text-emerald-400" />
-                {akFile ? akFile.name : 'Upload .txt Key'}
+              <label className="flex flex-col items-center justify-center rounded-xl border border-dashed border-slate-700 bg-slate-900/50 p-4 text-center cursor-pointer hover:border-indigo-500/80 transition-colors">
+                <FileUp className="h-5 w-5 text-indigo-400 mb-1" />
+                <span className="text-xs font-medium text-slate-200 truncate max-w-[220px]">
+                  {qpFile ? qpFile.name : 'Choose PDF File'}
+                </span>
+                <span className="text-[10px] text-slate-500 mt-0.5">
+                  {qpFile ? `${(qpFile.size / 1024 / 1024).toFixed(2)} MB` : 'Click to browse'}
+                </span>
                 <input
                   type="file"
-                  accept=".txt"
-                  onChange={e => setAkFile(e.target.files?.[0] || null)}
+                  accept=".pdf"
+                  onChange={e => setQpFile(e.target.files?.[0] || null)}
                   className="hidden"
                 />
               </label>
-              <span className="text-xs text-slate-500 text-center">or copy-paste text below:</span>
             </div>
 
-            <textarea
-              value={akText}
-              onChange={e => setAkText(e.target.value)}
-              placeholder={`1. d\n2. a\n3. b\n4. d\n...\n100. c`}
-              rows={4}
-              className="w-full rounded-xl border border-slate-700 bg-slate-950 p-3 font-mono text-xs text-white focus:outline-none focus:border-indigo-500"
-            />
+            {/* Model Solution / Explanations PDF */}
+            <div className="rounded-xl border border-slate-800 bg-slate-950/60 p-4 space-y-2">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-semibold text-white">Solution Booklet</span>
+                <span className="text-[10px] text-slate-500 font-mono">Optional</span>
+              </div>
+              <p className="text-[11px] text-slate-400">Detailed explanation or answer hints PDF.</p>
+
+              <label className="flex flex-col items-center justify-center rounded-xl border border-dashed border-slate-700 bg-slate-900/50 p-4 text-center cursor-pointer hover:border-slate-500 transition-colors">
+                <FileUp className="h-5 w-5 text-slate-400 mb-1" />
+                <span className="text-xs font-medium text-slate-200 truncate max-w-[220px]">
+                  {exsFile ? exsFile.name : 'Choose Solution PDF'}
+                </span>
+                <span className="text-[10px] text-slate-500 mt-0.5">
+                  {exsFile ? `${(exsFile.size / 1024 / 1024).toFixed(2)} MB` : 'Optional'}
+                </span>
+                <input
+                  type="file"
+                  accept=".pdf"
+                  onChange={e => setExsFile(e.target.files?.[0] || null)}
+                  className="hidden"
+                />
+              </label>
+            </div>
           </div>
-        )}
+
+          {/* Answer Key (For Objective MCQs only) */}
+          {examType === 'objective' && (
+            <div className="rounded-xl border border-slate-800 bg-slate-950/60 p-4 space-y-3 pt-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h3 className="text-xs font-semibold text-white">Answer Key</h3>
+                  <p className="text-[11px] text-slate-400">Provide official answer choices for automatic evaluation.</p>
+                </div>
+
+                {/* Tab Switcher */}
+                <div className="flex items-center bg-slate-900 p-0.5 rounded-lg border border-slate-800 text-[11px]">
+                  <button
+                    type="button"
+                    onClick={() => setAkMode('paste')}
+                    className={`px-2.5 py-1 rounded-md transition-colors ${
+                      akMode === 'paste' ? 'bg-slate-800 text-white font-medium' : 'text-slate-400 hover:text-white'
+                    }`}
+                  >
+                    Paste Text
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setAkMode('upload')}
+                    className={`px-2.5 py-1 rounded-md transition-colors ${
+                      akMode === 'upload' ? 'bg-slate-800 text-white font-medium' : 'text-slate-400 hover:text-white'
+                    }`}
+                  >
+                    Upload .txt
+                  </button>
+                </div>
+              </div>
+
+              {akMode === 'upload' ? (
+                <label className="flex items-center justify-center gap-2 rounded-xl border border-dashed border-slate-700 bg-slate-900/50 p-4 text-xs font-medium text-slate-300 cursor-pointer hover:border-slate-500">
+                  <FileUp className="h-4 w-4 text-slate-400" />
+                  <span>{akFile ? akFile.name : 'Select .txt answer key file'}</span>
+                  <input
+                    type="file"
+                    accept=".txt"
+                    onChange={e => setAkFile(e.target.files?.[0] || null)}
+                    className="hidden"
+                  />
+                </label>
+              ) : (
+                <textarea
+                  value={akText}
+                  onChange={e => setAkText(e.target.value)}
+                  placeholder={`1. a\n2. c\n3. d\n4. b\n...\n100. a`}
+                  rows={4}
+                  className="w-full rounded-xl border border-slate-800 bg-slate-900/80 p-3 font-mono text-xs text-white placeholder-slate-600 focus:outline-none focus:border-indigo-500/80"
+                />
+              )}
+            </div>
+          )}
+        </div>
 
         {/* Submit */}
         <div className="flex justify-end pt-2">
           <button
             type="submit"
             disabled={isSubmitting || !qpFile || !cleanYear || !cleanName}
-            className="flex items-center gap-2 rounded-xl bg-indigo-600 px-7 py-3 text-sm font-bold text-white shadow-xl shadow-indigo-600/30 hover:bg-indigo-500 disabled:opacity-40 disabled:pointer-events-none transition-all"
+            className="flex items-center gap-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 px-6 py-2.5 text-xs font-semibold text-white shadow-sm disabled:opacity-40 disabled:pointer-events-none transition-all"
           >
             <UploadCloud className="h-4 w-4" />
-            {isSubmitting ? 'Configuring Paper...' : 'Save Paper to Repository'}
+            {isSubmitting ? 'Saving Paper...' : 'Save Paper to Repository'}
           </button>
         </div>
       </form>

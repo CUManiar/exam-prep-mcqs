@@ -33,3 +33,6 @@ prelims.db*
 tmp/
 server.js
 
+# Active drafts / user state
+public/data/active_draft.json
+

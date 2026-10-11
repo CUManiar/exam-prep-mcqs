@@ -163,8 +163,8 @@ export function Navbar({ activePage, onNavigate, onDataReload, isInExam }: Navba
         <div className="flex items-center gap-2.5 shrink-0">
           
           {/* Always Visible Current Date & Time (One Line Only) */}
-          <div className="hidden sm:flex items-center gap-2 rounded-xl border border-slate-800 bg-slate-900/90 px-3 py-1.5 text-xs font-mono text-indigo-300 shadow-inner whitespace-nowrap shrink-0">
-            <Clock className="h-3.5 w-3.5 text-indigo-400 animate-pulse shrink-0" />
+          <div className="hidden sm:flex items-center gap-2 rounded-xl border border-slate-800 bg-slate-900/70 px-3 py-1.5 text-xs font-mono text-slate-300 shadow-inner whitespace-nowrap shrink-0">
+            <Clock className="h-3.5 w-3.5 text-slate-400 shrink-0" />
             <span>{currentDateTime || 'Loading time...'}</span>
           </div>
 
