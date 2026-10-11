@@ -2,7 +2,8 @@
 
 import React, { useState } from 'react';
 import { Attempt, QuestionPaper, ActiveSessionDraft } from '../lib/types';
-import { formatTimeSeconds, formatDateTime, hasAnswerKey } from '../lib/defaults';
+import { formatTimeSeconds, formatDateTime, hasAnswerKey, hasSolution } from '../lib/defaults';
+import { DetailedSolutionModal } from './DetailedSolutionModal';
 import { 
   Play, 
   Clock, 
@@ -50,6 +51,7 @@ export function DashboardView({
 }: DashboardViewProps) {
   const [activeTab, setActiveTab] = useState<'all' | 'prelims' | 'mains'>('all');
   const [searchQuery, setSearchQuery] = useState<string>('');
+  const [viewingSolutionPaper, setViewingSolutionPaper] = useState<QuestionPaper | null>(null);
 
   // 1. Evaluated mock attempts
   const mockAttempts = attempts.filter(a => a.mode === 'mock');
@@ -118,40 +120,9 @@ export function DashboardView({
           <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight text-slate-900">
             Dashboard
           </h1>
-        </div>
-
-        {/* Segmented Tab Filter */}
-        <div className="inline-flex rounded-xl bg-slate-100 p-1 border border-slate-200/80 text-xs font-semibold self-start sm:self-auto shadow-inner">
-          <button
-            onClick={() => setActiveTab('all')}
-            className={`px-3.5 py-1.5 rounded-lg transition-all ${
-              activeTab === 'all' 
-                ? 'bg-white text-indigo-700 shadow-xs font-bold' 
-                : 'text-slate-600 hover:text-slate-900'
-            }`}
-          >
-            All Papers ({papers.length})
-          </button>
-          <button
-            onClick={() => setActiveTab('prelims')}
-            className={`px-3.5 py-1.5 rounded-lg transition-all ${
-              activeTab === 'prelims' 
-                ? 'bg-white text-indigo-700 shadow-xs font-bold' 
-                : 'text-slate-600 hover:text-slate-900'
-            }`}
-          >
-            Prelims GS
-          </button>
-          <button
-            onClick={() => setActiveTab('mains')}
-            className={`px-3.5 py-1.5 rounded-lg transition-all ${
-              activeTab === 'mains' 
-                ? 'bg-white text-indigo-700 shadow-xs font-bold' 
-                : 'text-slate-600 hover:text-slate-900'
-            }`}
-          >
-            Mains
-          </button>
+          <p className="text-xs text-slate-500 mt-1">
+            Preparation analytics, cutoff benchmarks, and test series tracking
+          </p>
         </div>
       </div>
 
@@ -625,13 +596,47 @@ export function DashboardView({
         </div>
       )}
 
-      {/* 6. Spacious Question Papers Archive & Launchpad */}
+      {/* 6. Question Papers & Launchpad */}
       <div className="space-y-4">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-          <div>
+          <div className="flex flex-col sm:flex-row sm:items-center gap-3">
             <h2 className="text-lg font-extrabold text-slate-900 tracking-tight">
-              Question Papers Archive
+              Question Papers
             </h2>
+
+            {/* Segmented Category Filter Inline */}
+            <div className="inline-flex rounded-xl bg-slate-100 p-1 border border-slate-200/80 text-xs font-semibold shadow-inner self-start sm:self-auto">
+              <button
+                onClick={() => setActiveTab('all')}
+                className={`px-3 py-1.5 rounded-lg transition-all ${
+                  activeTab === 'all' 
+                    ? 'bg-white text-indigo-700 shadow-xs font-bold' 
+                    : 'text-slate-600 hover:text-slate-900'
+                }`}
+              >
+                All Papers ({papers.length})
+              </button>
+              <button
+                onClick={() => setActiveTab('prelims')}
+                className={`px-3 py-1.5 rounded-lg transition-all ${
+                  activeTab === 'prelims' 
+                    ? 'bg-white text-indigo-700 shadow-xs font-bold' 
+                    : 'text-slate-600 hover:text-slate-900'
+                }`}
+              >
+                Prelims GS
+              </button>
+              <button
+                onClick={() => setActiveTab('mains')}
+                className={`px-3 py-1.5 rounded-lg transition-all ${
+                  activeTab === 'mains' 
+                    ? 'bg-white text-indigo-700 shadow-xs font-bold' 
+                    : 'text-slate-600 hover:text-slate-900'
+                }`}
+              >
+                Mains
+              </button>
+            </div>
           </div>
 
           {/* Quick Search */}
@@ -651,6 +656,7 @@ export function DashboardView({
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
           {filteredPapers.slice(0, 12).map(paper => {
             const keyPresent = hasAnswerKey(paper);
+            const solutionPresent = hasSolution(paper);
 
             return (
               <div
@@ -679,8 +685,8 @@ export function DashboardView({
                     <span>{paper.totalMarks} Marks</span>
                   </div>
 
-                  {/* Key status badge */}
-                  <div className="mt-3 flex items-center gap-2">
+                  {/* Key & Solution status badges */}
+                  <div className="mt-3 flex items-center gap-2 flex-wrap">
                     {paper.examType === 'objective' && (
                       keyPresent ? (
                         <span className="inline-flex items-center gap-1.5 text-[11px] font-semibold text-emerald-700 bg-emerald-50 border border-emerald-200/60 px-2.5 py-0.5 rounded-full">
@@ -691,6 +697,17 @@ export function DashboardView({
                           <AlertCircle className="h-3 w-3 text-amber-600" /> Key Needed
                         </span>
                       )
+                    )}
+
+                    {solutionPresent && (
+                      <button
+                        onClick={() => setViewingSolutionPaper(paper)}
+                        className="cursor-pointer inline-flex items-center gap-1 text-[11px] font-semibold text-indigo-700 bg-indigo-50 border border-indigo-200/60 px-2.5 py-0.5 rounded-full hover:bg-indigo-100 hover:border-indigo-300 transition-colors shadow-2xs"
+                        title="Click to view solution booklet"
+                      >
+                        <FileText className="h-3 w-3 text-indigo-600" />
+                        <span>Solution Key</span>
+                      </button>
                     )}
                   </div>
                 </div>
@@ -722,18 +739,30 @@ export function DashboardView({
                   </div>
 
                   <div className="flex items-center justify-between text-xs pt-0.5">
-                    <a
-                      href={paper.qpUrl}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="cursor-pointer inline-flex items-center gap-1 text-[11px] text-slate-400 hover:text-indigo-600 transition-colors"
-                    >
-                      <ExternalLink className="h-3 w-3" />
-                      <span>Preview PDF</span>
-                    </a>
+                    <div className="flex items-center gap-3">
+                      <a
+                        href={paper.qpUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="cursor-pointer inline-flex items-center gap-1 text-[11px] text-slate-400 hover:text-indigo-600 transition-colors"
+                      >
+                        <ExternalLink className="h-3 w-3" />
+                        <span>PDF</span>
+                      </a>
+                      {solutionPresent && (
+                        <button
+                          onClick={() => setViewingSolutionPaper(paper)}
+                          className="cursor-pointer inline-flex items-center gap-1 text-[11px] text-indigo-600 hover:text-indigo-800 font-semibold transition-colors"
+                          title="Open solution key PDF booklet"
+                        >
+                          <FileText className="h-3 w-3" />
+                          <span>Solution</span>
+                        </button>
+                      )}
+                    </div>
                     <button
                       onClick={onNavigatePapers}
-                      className="cursor-pointer text-[11px] text-indigo-600 hover:text-indigo-800 font-bold transition-colors"
+                      className="cursor-pointer text-[11px] text-slate-500 hover:text-indigo-600 font-semibold transition-colors"
                     >
                       Manage Paper →
                     </button>
@@ -756,6 +785,14 @@ export function DashboardView({
           </div>
         )}
       </div>
+
+      {/* Detailed Solution Modal */}
+      <DetailedSolutionModal
+        isOpen={!!viewingSolutionPaper}
+        onClose={() => setViewingSolutionPaper(null)}
+        pdfUrl={viewingSolutionPaper?.exsUrl}
+        paperTitle={`${viewingSolutionPaper?.label || ''} - Solution Key`}
+      />
 
     </div>
   );

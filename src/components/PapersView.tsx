@@ -4,6 +4,7 @@ import React, { useState } from 'react';
 import { QuestionPaper } from '../lib/types';
 import { SUPPORTED_YEARS, hasAnswerKey, hasSolution, parseAnswerKeyText } from '../lib/defaults';
 import { attachToPaperOnServer } from '../lib/storage';
+import { DetailedSolutionModal } from './DetailedSolutionModal';
 import { 
   BookOpen, 
   Search, 
@@ -36,6 +37,7 @@ export function PapersView({ papers, onStartExam, onNavigateUpload, onDeletePape
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<'all' | 'prelims' | 'mains'>('all');
   const [selectedYear, setSelectedYear] = useState<string>('all');
+  const [viewingSolutionPaper, setViewingSolutionPaper] = useState<QuestionPaper | null>(null);
 
   // Edit paper rules modal
   const [editingPaper, setEditingPaper] = useState<QuestionPaper | null>(null);
@@ -307,14 +309,19 @@ export function PapersView({ papers, onStartExam, onNavigateUpload, onDeletePape
                       )
                     )}
 
-                    {/* Solution Badge */}
+                    {/* Solution Badge / Button */}
                     {solutionPresent ? (
-                      <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-indigo-50 text-indigo-700 border border-indigo-200/60">
+                      <button
+                        onClick={() => setViewingSolutionPaper(paper)}
+                        className="cursor-pointer inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-indigo-50 text-indigo-700 border border-indigo-200/80 hover:bg-indigo-100 hover:border-indigo-300 transition-colors shadow-2xs group/sol"
+                        title="Click to view attached solution booklet"
+                      >
                         <FileText className="h-3.5 w-3.5 text-indigo-600" />
-                        <span>Solution Attached</span>
-                      </div>
+                        <span>Solution Key</span>
+                        <ExternalLink className="h-3 w-3 opacity-60 group-hover/sol:opacity-100" />
+                      </button>
                     ) : (
-                      <div className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-medium text-slate-400 border border-slate-200">
+                      <div className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-medium text-slate-400 border border-slate-200">
                         <span>No Solution</span>
                       </div>
                     )}
@@ -379,18 +386,31 @@ export function PapersView({ papers, onStartExam, onNavigateUpload, onDeletePape
                     </button>
                   </div>
 
-                  {/* Row 3: Utility Links (PDF preview, Edit Rules, Delete) */}
+                  {/* Row 3: Utility Links (PDF preview, Solution preview, Edit Rules, Delete) */}
                   <div className="flex items-center justify-between text-xs pt-1">
-                    <a
-                      href={paper.qpUrl}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="cursor-pointer inline-flex items-center gap-1 text-[11px] font-semibold text-slate-500 hover:text-indigo-600 transition-colors"
-                      title="Open Question Paper PDF in new tab"
-                    >
-                      <ExternalLink className="h-3 w-3" />
-                      <span>View PDF</span>
-                    </a>
+                    <div className="flex items-center gap-3">
+                      <a
+                        href={paper.qpUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="cursor-pointer inline-flex items-center gap-1 text-[11px] font-semibold text-slate-500 hover:text-indigo-600 transition-colors"
+                        title="Open Question Paper PDF in new tab"
+                      >
+                        <ExternalLink className="h-3 w-3" />
+                        <span>View PDF</span>
+                      </a>
+
+                      {solutionPresent && (
+                        <button
+                          onClick={() => setViewingSolutionPaper(paper)}
+                          className="cursor-pointer inline-flex items-center gap-1 text-[11px] font-semibold text-indigo-600 hover:text-indigo-800 transition-colors"
+                          title="Open attached solution PDF booklet"
+                        >
+                          <BookOpen className="h-3 w-3" />
+                          <span>View Solution</span>
+                        </button>
+                      )}
+                    </div>
 
                     <div className="flex items-center gap-2.5">
                       <button
@@ -706,6 +726,14 @@ export function PapersView({ papers, onStartExam, onNavigateUpload, onDeletePape
           </div>
         </div>
       )}
+
+      {/* Detailed Solution Modal */}
+      <DetailedSolutionModal
+        isOpen={!!viewingSolutionPaper}
+        onClose={() => setViewingSolutionPaper(null)}
+        pdfUrl={viewingSolutionPaper?.exsUrl}
+        paperTitle={`${viewingSolutionPaper?.label || ''} - Solution Key`}
+      />
     </div>
   );
 }
