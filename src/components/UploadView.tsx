@@ -4,6 +4,7 @@ import React, { useState } from "react";
 import { QuestionPaper, ExamType } from "../lib/types";
 import { SUPPORTED_YEARS, hasAnswerKey, hasSolution } from "../lib/defaults";
 import { saveCustomPaper, attachToPaperOnServer } from "../lib/storage";
+import { useApp } from "../context/AppContext";
 import {
   UploadCloud,
   FileText,
@@ -35,6 +36,7 @@ export function UploadView({
   onDeletePaper,
   onNavigatePapers,
 }: UploadViewProps) {
+  const { currentUser } = useApp();
   // Main View Mode: 'create' or 'update'
   const [viewMode, setViewMode] = useState<"create" | "update">("create");
 
@@ -209,6 +211,9 @@ export function UploadView({
       }
       if (exsFile) {
         formData.append("exsFile", exsFile);
+      }
+      if (currentUser?.id) {
+        formData.append("userId", currentUser.id);
       }
 
       const res = await fetch("/api/upload", {

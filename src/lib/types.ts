@@ -19,6 +19,7 @@ export interface QuestionPaper {
   answerKeyText?: string;
   answerKey: Record<number, string>;
   isCustom?: boolean;
+  userId?: string;
 }
 
 export type ConfidenceLevel = "sure" | "50-50" | "guess";

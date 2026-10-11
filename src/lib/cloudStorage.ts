@@ -66,22 +66,7 @@ export async function uploadFile(
 ): Promise<string> {
   const cleanPath = pathname.replace(/^\/+/, "");
 
-  if (isBlobEnabled()) {
-    const putOptions: any = {
-      access: "public",
-      addRandomSuffix: false,
-      contentType,
-    };
-    const token = getBlobToken();
-    if (token) {
-      putOptions.token = token;
-    }
-
-    const blob = await put(cleanPath, body, putOptions);
-    return blob.url;
-  }
-
-  // Cloud Storage via Supabase Storage if configured
+  // 1. Primary Cloud Storage: Supabase Storage bucket 'papers'
   if (
     process.env.NEXT_PUBLIC_SUPABASE_URL &&
     process.env.SUPABASE_SERVICE_ROLE_KEY
@@ -122,7 +107,23 @@ export async function uploadFile(
     }
   }
 
-  // Local filesystem fallback (Mac local development)
+  // 2. Legacy fallback: Vercel Blob if token available
+  const blobToken = getBlobToken();
+  if (blobToken) {
+    try {
+      const blob = await put(cleanPath, body, {
+        access: "public",
+        addRandomSuffix: false,
+        contentType,
+        token: blobToken,
+      });
+      return blob.url;
+    } catch (err) {
+      console.warn("Vercel blob fallback error:", err);
+    }
+  }
+
+  // 3. Local filesystem fallback (Mac local development)
   const localDir = path.join(process.cwd(), "public", "data");
   if (!fs.existsSync(localDir)) {
     fs.mkdirSync(localDir, { recursive: true });
@@ -147,18 +148,40 @@ export async function uploadFile(
 export async function deleteFile(fileUrlOrName: string): Promise<void> {
   if (!fileUrlOrName) return;
 
-  if (isBlobEnabled()) {
+  // 1. Primary: Supabase Storage bucket 'papers'
+  if (
+    process.env.NEXT_PUBLIC_SUPABASE_URL &&
+    process.env.SUPABASE_SERVICE_ROLE_KEY
+  ) {
     try {
-      const delOptions: any = {};
-      const token = getBlobToken();
-      if (token) delOptions.token = token;
-      await del(fileUrlOrName, delOptions);
+      const { createClient } = await import("@supabase/supabase-js");
+      const supabase = createClient(
+        process.env.NEXT_PUBLIC_SUPABASE_URL,
+        process.env.SUPABASE_SERVICE_ROLE_KEY,
+      );
+      let storageKey = fileUrlOrName;
+      if (storageKey.includes("/papers/")) {
+        const parts = storageKey.split("/papers/");
+        storageKey = parts[parts.length - 1];
+      }
+      storageKey = storageKey.replace(/^\/+/, "");
+      await supabase.storage.from("papers").remove([storageKey]);
+    } catch (err) {
+      console.warn("Supabase storage delete warning:", err);
+    }
+  }
+
+  // 2. Vercel Blob delete if token exists
+  const token = getBlobToken();
+  if (token) {
+    try {
+      await del(fileUrlOrName, { token });
     } catch (err) {
       console.warn("Blob delete warning:", err);
     }
-    return;
   }
 
+  // 3. Local file delete fallback
   const filename = path.basename(fileUrlOrName);
   const localPath = path.join(process.cwd(), "public", "data", filename);
   if (fs.existsSync(localPath)) {

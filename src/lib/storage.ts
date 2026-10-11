@@ -10,7 +10,32 @@ const STORAGE_KEYS = {
   CUSTOM_PAPERS: "exam_prep_custom_papers_v2",
   ACTIVE_PAGE: "exam_prep_active_page_v1",
   SELECTED_ATTEMPT_ID: "exam_prep_selected_attempt_id_v1",
+  HIDDEN_PAPERS: "exam_prep_hidden_papers_v1",
 };
+
+export function getLocalHiddenPaperIds(userId?: string): string[] {
+  if (typeof window === "undefined") return [];
+  try {
+    const key = `${STORAGE_KEYS.HIDDEN_PAPERS}_${userId || "guest"}`;
+    const raw = localStorage.getItem(key);
+    return raw ? JSON.parse(raw) : [];
+  } catch {
+    return [];
+  }
+}
+
+export function saveLocalHiddenPaperIds(
+  hiddenIds: string[],
+  userId?: string,
+): void {
+  if (typeof window === "undefined") return;
+  try {
+    const key = `${STORAGE_KEYS.HIDDEN_PAPERS}_${userId || "guest"}`;
+    localStorage.setItem(key, JSON.stringify(hiddenIds));
+  } catch (err) {
+    console.error("Failed saving hidden papers locally:", err);
+  }
+}
 
 // Retrieve saved active page & attempt ID to retain screen across page refreshes
 export function getSavedActivePage(): {

@@ -33,10 +33,31 @@ export async function POST(req: NextRequest) {
     // 2. Delete user ongoing drafts from public.drafts
     await adminSupabase.from("drafts").delete().eq("user_id", userId);
 
-    // 3. Delete user profile from public.profiles
+    // 3. Delete user custom papers from public.custom_papers
+    await adminSupabase.from("custom_papers").delete().eq("user_id", userId);
+
+    // 3.5 Clean up user custom files in storage
+    try {
+      const { data: userFiles } = await adminSupabase.storage
+        .from("papers")
+        .list(`custom-papers/${userId}`);
+      if (userFiles && userFiles.length > 0) {
+        const filePaths = userFiles.map(
+          (f) => `custom-papers/${userId}/${f.name}`,
+        );
+        await adminSupabase.storage.from("papers").remove(filePaths);
+      }
+    } catch (storageErr) {
+      console.warn(
+        "Storage cleanup warning during account deletion:",
+        storageErr,
+      );
+    }
+
+    // 4. Delete user profile from public.profiles
     await adminSupabase.from("profiles").delete().eq("id", userId);
 
-    // 4. Delete user account from Supabase Auth
+    // 5. Delete user account from Supabase Auth
     const { error: authDeleteError } =
       await adminSupabase.auth.admin.deleteUser(userId);
 

@@ -56,9 +56,9 @@ export function ConfirmationModal({
   const currentVariant = iconVariants[variant];
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md animate-in fade-in duration-150">
+    <div className="fixed inset-0 z-50 overflow-y-auto flex min-h-full items-start sm:items-center justify-center p-3 sm:p-6 py-8 sm:py-12 bg-black/80 backdrop-blur-md animate-in fade-in duration-150">
       <div
-        className="relative w-full max-w-md rounded-2xl border border-slate-800 bg-slate-900 p-6 shadow-2xl animate-in zoom-in-95 duration-150 space-y-4"
+        className="relative my-auto w-full max-w-md rounded-2xl border border-slate-800 bg-slate-900 p-6 shadow-2xl animate-in zoom-in-95 duration-150 space-y-4"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Close Button */}

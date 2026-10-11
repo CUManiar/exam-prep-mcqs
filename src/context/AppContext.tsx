@@ -22,6 +22,8 @@ import {
   loadActiveDraftFromServer,
   saveActiveDraft,
   clearActiveDraft,
+  getLocalHiddenPaperIds,
+  saveLocalHiddenPaperIds,
 } from "../lib/storage";
 import { ConfirmationModal } from "../components/ConfirmationModal";
 import { ProUpgradeModal } from "../components/ProUpgradeModal";
@@ -41,6 +43,10 @@ import {
   fetchUserDraftFromSupabase,
   saveUserDraftToSupabase,
   clearUserDraftFromSupabase,
+  hideUserPaperInSupabase,
+  restoreUserHiddenPapersInSupabase,
+  fetchUserCustomPapersFromSupabase,
+  deleteUserCustomPaperFromSupabase,
 } from "../lib/supabase";
 
 interface AppContextType {
@@ -64,6 +70,8 @@ interface AppContextType {
   handlePaperUploaded: (newPaper: QuestionPaper) => Promise<void>;
   handleDeletePaper: (paperId: string) => void;
   handleUpdatePaper: (paper: QuestionPaper) => Promise<void>;
+  hiddenPaperIds: string[];
+  handleRestoreHiddenPapers: () => Promise<void>;
 }
 
 const AppContext = createContext<AppContextType | null>(null);
@@ -71,6 +79,7 @@ const AppContext = createContext<AppContextType | null>(null);
 export function AppProvider({ children }: { children: React.ReactNode }) {
   const router = useRouter();
   const [papers, setPapers] = useState<QuestionPaper[]>([]);
+  const [hiddenPaperIds, setHiddenPaperIds] = useState<string[]>([]);
   const [attempts, setAttempts] = useState<Attempt[]>([]);
   const [activeDraft, setActiveDraft] = useState<ActiveSessionDraft | null>(
     null,
@@ -151,18 +160,40 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     setCurrentUser(user);
 
     if (user) {
-      // Authenticated User: Load their isolated attempts, drafts and profile from Supabase
+      // Authenticated User: Load their isolated attempts, drafts, custom papers, and profile from Supabase
       try {
-        const [userAttempts, userDraft, loadedPapers, profile] =
-          await Promise.all([
-            fetchUserAttemptsFromSupabase(user.id),
-            fetchUserDraftFromSupabase(user.id),
-            getAllPapers(),
-            getUserProfile(user.id),
-          ]);
+        const [
+          userAttempts,
+          userDraft,
+          loadedPapers,
+          userCustomPapers,
+          profile,
+        ] = await Promise.all([
+          fetchUserAttemptsFromSupabase(user.id),
+          fetchUserDraftFromSupabase(user.id),
+          getAllPapers(),
+          fetchUserCustomPapersFromSupabase(user.id),
+          getUserProfile(user.id),
+        ]);
         setAttempts(userAttempts);
         setActiveDraft(userDraft);
-        setPapers(loadedPapers);
+
+        const hidden = Array.isArray(profile?.hidden_paper_ids)
+          ? profile.hidden_paper_ids
+          : getLocalHiddenPaperIds(user.id);
+        setHiddenPaperIds(hidden);
+
+        // Merge global papers and user's custom papers, deduplicating by ID
+        const merged = [
+          ...userCustomPapers,
+          ...loadedPapers.filter(
+            (p) => !userCustomPapers.some((cp) => cp.id === p.id),
+          ),
+        ];
+        // Filter out papers hidden by this specific user
+        const visiblePapers = merged.filter((p) => !hidden.includes(p.id));
+        setPapers(visiblePapers);
+
         if (profile?.is_pro) {
           setUserPro(true);
           setIsPro(true);
@@ -187,8 +218,10 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     setActiveDraft(localDraft);
 
     try {
+      const hidden = getLocalHiddenPaperIds();
+      setHiddenPaperIds(hidden);
       const loadedPapers = await getAllPapers();
-      setPapers(loadedPapers);
+      setPapers(loadedPapers.filter((p) => !hidden.includes(p.id)));
     } catch (err) {
       console.warn("Failed loading papers from server:", err);
     } finally {
@@ -339,25 +372,86 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
   // Paper uploaded handler
   const handlePaperUploaded = async (newPaper: QuestionPaper) => {
-    const freshPapers = await getAllPapers();
-    setPapers(freshPapers);
+    await loadAllData();
   };
 
-  // Delete paper handler
+  // Restore hidden papers handler
+  const handleRestoreHiddenPapers = async () => {
+    if (currentUser) {
+      await restoreUserHiddenPapersInSupabase(currentUser.id);
+    }
+    saveLocalHiddenPaperIds([], currentUser?.id);
+    setHiddenPaperIds([]);
+    await loadAllData();
+  };
+
+  // Delete / Hide paper handler
   const handleDeletePaper = (paperId: string) => {
+    const targetPaper = papers.find((p) => p.id === paperId);
+    const isAdmin = currentUser?.user_metadata?.role === "admin";
+    const isOwnCustomPaper =
+      Boolean(targetPaper?.isCustom) &&
+      Boolean(targetPaper?.userId) &&
+      targetPaper?.userId === currentUser?.id;
+
+    if (isOwnCustomPaper && currentUser) {
+      // 1. User deleting their own personal custom paper
+      setModalConfig({
+        isOpen: true,
+        title: "Delete Custom Paper?",
+        message: `Permanently delete your custom paper "${targetPaper?.label || paperId}" from your vault? This cannot be undone.`,
+        confirmText: "Delete My Paper",
+        cancelText: "Cancel",
+        variant: "danger",
+        onConfirm: async () => {
+          setModalConfig((prev) => ({ ...prev, isOpen: false }));
+          await deleteUserCustomPaperFromSupabase(paperId, currentUser.id);
+          await loadAllData();
+        },
+      });
+      return;
+    }
+
+    if (!isAdmin) {
+      // 2. Non-admin user: Hide paper from their dashboard ONLY (NEVER delete shared storage files!)
+      setModalConfig({
+        isOpen: true,
+        title: "Hide Paper from Dashboard?",
+        message: `Remove "${targetPaper?.label || "this paper"}" from your dashboard view? As an aspirant, this hides the paper from your view. Shared platform papers remain available for other students and are not deleted from storage.`,
+        confirmText: "Hide Paper",
+        cancelText: "Cancel",
+        variant: "warning",
+        onConfirm: async () => {
+          setModalConfig((prev) => ({ ...prev, isOpen: false }));
+          if (currentUser) {
+            await hideUserPaperInSupabase(currentUser.id, paperId);
+          }
+          const currentHidden = getLocalHiddenPaperIds(currentUser?.id);
+          if (!currentHidden.includes(paperId)) {
+            saveLocalHiddenPaperIds(
+              [...currentHidden, paperId],
+              currentUser?.id,
+            );
+          }
+          setHiddenPaperIds((prev) => [...prev, paperId]);
+          setPapers((prev) => prev.filter((p) => p.id !== paperId));
+        },
+      });
+      return;
+    }
+
+    // 3. Admin user: Global system deletion
     setModalConfig({
       isOpen: true,
-      title: "Delete Question Paper?",
-      message:
-        "Are you sure you want to delete this paper and its files from the repository? Associated PDF and answer files will be removed.",
-      confirmText: "Delete Paper",
+      title: "Delete Paper Globally (Admin)",
+      message: `As an administrator, deleting "${targetPaper?.label || paperId}" will remove it permanently for all users across the platform. Proceed?`,
+      confirmText: "Delete Globally",
       cancelText: "Cancel",
       variant: "danger",
       onConfirm: async () => {
         setModalConfig((prev) => ({ ...prev, isOpen: false }));
         await deletePaperFromServer(paperId);
-        const freshPapers = await getAllPapers();
-        setPapers(freshPapers);
+        await loadAllData();
       },
     });
   };
@@ -392,6 +486,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         handlePaperUploaded,
         handleDeletePaper,
         handleUpdatePaper,
+        hiddenPaperIds,
+        handleRestoreHiddenPapers,
       }}
     >
       {children}

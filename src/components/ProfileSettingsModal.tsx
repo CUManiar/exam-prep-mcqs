@@ -42,6 +42,8 @@ export function ProfileSettingsModal({
     handleSignOut,
     openAuthModal,
     loadAllData,
+    hiddenPaperIds,
+    handleRestoreHiddenPapers,
   } = useApp();
 
   const [activeTab, setActiveTab] = useState<"profile" | "settings">(
@@ -130,9 +132,9 @@ export function ProfileSettingsModal({
       onClick={(e) => {
         if (e.target === e.currentTarget) onClose();
       }}
-      className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-900/60 backdrop-blur-xs animate-in fade-in"
+      className="fixed inset-0 z-50 overflow-y-auto bg-slate-900/60 backdrop-blur-xs flex min-h-full items-start sm:items-center justify-center p-3 sm:p-6 py-8 sm:py-12 animate-in fade-in"
     >
-      <div className="relative w-full max-w-xl max-h-[90vh] flex flex-col rounded-3xl border border-slate-200 bg-white shadow-2xl overflow-hidden animate-in zoom-in-95 duration-150">
+      <div className="relative my-auto w-full max-w-xl max-h-[calc(100dvh-4rem)] flex flex-col rounded-3xl border border-slate-200 bg-white shadow-2xl overflow-hidden animate-in zoom-in-95 duration-150">
         {/* Accent Bar */}
         <div className="h-1.5 w-full bg-gradient-to-r from-indigo-500 via-purple-500 to-amber-500 shrink-0" />
 
@@ -354,6 +356,37 @@ export function ProfileSettingsModal({
                   </div>
                 )}
               </div>
+
+              {/* Hidden Papers Restoration */}
+              {hiddenPaperIds && hiddenPaperIds.length > 0 && (
+                <div className="space-y-2">
+                  <h4 className="text-xs font-bold text-slate-800 uppercase tracking-wider">
+                    Hidden Question Papers
+                  </h4>
+                  <div className="rounded-2xl border border-indigo-100 bg-indigo-50/50 p-4 flex items-center justify-between gap-3">
+                    <div>
+                      <span className="text-xs font-bold text-slate-800 block">
+                        Hidden Papers ({hiddenPaperIds.length})
+                      </span>
+                      <span className="text-[11px] text-slate-500 block">
+                        You have hidden {hiddenPaperIds.length} paper
+                        {hiddenPaperIds.length > 1 ? "s" : ""} from your
+                        dashboard.
+                      </span>
+                    </div>
+                    <button
+                      onClick={async () => {
+                        if (handleRestoreHiddenPapers) {
+                          await handleRestoreHiddenPapers();
+                        }
+                      }}
+                      className="cursor-pointer shrink-0 rounded-xl border border-indigo-200 bg-white hover:bg-indigo-50 px-3 py-1.5 text-xs font-semibold text-indigo-700 shadow-2xs transition-colors"
+                    >
+                      Restore All
+                    </button>
+                  </div>
+                </div>
+              )}
 
               {/* Account Management & Danger Zone */}
               {currentUser && (

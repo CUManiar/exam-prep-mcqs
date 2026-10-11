@@ -1,5 +1,5 @@
 import { createClient, SupabaseClient, User } from "@supabase/supabase-js";
-import { Attempt, ActiveSessionDraft } from "./types";
+import { Attempt, ActiveSessionDraft, QuestionPaper } from "./types";
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || "";
 const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || "";
@@ -25,6 +25,7 @@ export interface UserProfile {
   is_pro: boolean;
   pro_purchased_at?: string;
   razorpay_payment_id?: string;
+  hidden_paper_ids?: string[];
 }
 
 // Check current authenticated user
@@ -212,6 +213,151 @@ export async function clearUserDraftFromSupabase(
 
     return !error;
   } catch {
+    return false;
+  }
+}
+
+// Hide a paper for specific user in Supabase
+export async function hideUserPaperInSupabase(
+  userId: string,
+  paperId: string,
+): Promise<string[]> {
+  const supabase = getSupabaseClient();
+  if (!supabase) return [];
+  try {
+    const profile = await getUserProfile(userId);
+    const current = profile?.hidden_paper_ids || [];
+    if (!current.includes(paperId)) {
+      const updated = [...current, paperId];
+      await supabase
+        .from("profiles")
+        .update({
+          hidden_paper_ids: updated,
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", userId);
+      return updated;
+    }
+    return current;
+  } catch (err) {
+    console.warn("Failed hiding paper in Supabase:", err);
+    return [];
+  }
+}
+
+// Restore all hidden papers for user
+export async function restoreUserHiddenPapersInSupabase(
+  userId: string,
+): Promise<boolean> {
+  const supabase = getSupabaseClient();
+  if (!supabase) return false;
+  try {
+    const { error } = await supabase
+      .from("profiles")
+      .update({
+        hidden_paper_ids: [],
+        updated_at: new Date().toISOString(),
+      })
+      .eq("id", userId);
+    return !error;
+  } catch (err) {
+    console.warn("Failed restoring hidden papers:", err);
+    return false;
+  }
+}
+
+// Fetch user's isolated custom papers from Supabase
+export async function fetchUserCustomPapersFromSupabase(
+  userId: string,
+): Promise<QuestionPaper[]> {
+  const supabase = getSupabaseClient();
+  if (!supabase) return [];
+  try {
+    const { data, error } = await supabase
+      .from("custom_papers")
+      .select("*")
+      .eq("user_id", userId)
+      .order("created_at", { ascending: false });
+
+    if (error || !data) return [];
+    return data.map((row) => ({
+      id: row.id,
+      year: String(row.year),
+      category: (row.stage || "prelims") as any,
+      examType: (row.exam_type || "objective") as any,
+      subject: row.subject,
+      label: row.label || `${row.year} – ${row.subject}`,
+      totalQuestions: row.total_questions || 100,
+      totalMarks: Number(row.total_marks) || 200,
+      correctMarks: Number(row.correct_marks) || 2.0,
+      incorrectMarks: Number(row.incorrect_marks) || 0.667,
+      timeMinutes: row.time_minutes || 120,
+      qpUrl: row.qp_url,
+      akUrl: row.ak_url || undefined,
+      exsUrl: row.exs_url || undefined,
+      answerKey: row.answer_key || {},
+      answerKeyText: row.answer_key_text || undefined,
+      isCustom: true,
+      userId: row.user_id,
+    }));
+  } catch (err) {
+    console.warn("Failed fetching user custom papers from Supabase:", err);
+    return [];
+  }
+}
+
+// Save or update user's isolated custom paper in Supabase
+export async function saveUserCustomPaperToSupabase(
+  paper: QuestionPaper,
+  userId: string,
+): Promise<boolean> {
+  const supabase = getSupabaseClient();
+  if (!supabase) return false;
+  try {
+    const { error } = await supabase.from("custom_papers").upsert({
+      id: paper.id,
+      user_id: userId,
+      title: paper.label,
+      year: parseInt(paper.year) || 2026,
+      subject: paper.subject,
+      stage: paper.category,
+      exam_type: paper.examType,
+      label: paper.label,
+      total_questions: paper.totalQuestions,
+      total_marks: paper.totalMarks,
+      correct_marks: paper.correctMarks,
+      incorrect_marks: paper.incorrectMarks,
+      time_minutes: paper.timeMinutes,
+      qp_url: paper.qpUrl,
+      ak_url: paper.akUrl || null,
+      exs_url: paper.exsUrl || null,
+      answer_key: paper.answerKey || {},
+      answer_key_text: paper.answerKeyText || null,
+      updated_at: new Date().toISOString(),
+    });
+    return !error;
+  } catch (err) {
+    console.warn("Failed saving user custom paper to Supabase:", err);
+    return false;
+  }
+}
+
+// Delete user's isolated custom paper from Supabase
+export async function deleteUserCustomPaperFromSupabase(
+  paperId: string,
+  userId: string,
+): Promise<boolean> {
+  const supabase = getSupabaseClient();
+  if (!supabase) return false;
+  try {
+    const { error } = await supabase
+      .from("custom_papers")
+      .delete()
+      .eq("id", paperId)
+      .eq("user_id", userId);
+    return !error;
+  } catch (err) {
+    console.warn("Failed deleting user custom paper from Supabase:", err);
     return false;
   }
 }
