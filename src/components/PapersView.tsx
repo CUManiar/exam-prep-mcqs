@@ -1,8 +1,8 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import { createPortal } from "react-dom";
-import { QuestionPaper } from "../lib/types";
+import { QuestionPaper, Attempt } from "../lib/types";
 import {
   SUPPORTED_YEARS,
   hasAnswerKey,
@@ -52,12 +52,15 @@ export function PapersView({
   onDeletePaper,
   onUpdatePaper,
 }: PapersViewProps) {
-  const { isPro, openProUpgradeModal } = useApp();
+  const { isPro, openProUpgradeModal, attempts = [] } = useApp();
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedCategory, setSelectedCategory] = useState<
     "all" | "prelims" | "mains" | "custom"
   >("all");
   const [selectedYear, setSelectedYear] = useState<string>("all");
+  const [selectedAttemptFilter, setSelectedAttemptFilter] = useState<
+    "all" | "attempted" | "unattempted" | "mock" | "practice"
+  >("all");
   const [mounted, setMounted] = useState(false);
   const [viewingSolutionPaper, setViewingSolutionPaper] =
     useState<QuestionPaper | null>(null);
@@ -176,6 +179,39 @@ export function PapersView({
 
   const customPapersCount = papers.filter(isUserUploadedPaper).length;
 
+  const attemptsByPaperId = useMemo(() => {
+    const map = new Map<string, Attempt[]>();
+    attempts.forEach((a) => {
+      const list = map.get(a.paperId) || [];
+      list.push(a);
+      map.set(a.paperId, list);
+    });
+    return map;
+  }, [attempts]);
+
+  const attemptedCount = useMemo(() => {
+    return papers.filter((p) => (attemptsByPaperId.get(p.id) || []).length > 0)
+      .length;
+  }, [papers, attemptsByPaperId]);
+
+  const unattemptedCount = useMemo(() => {
+    return papers.filter(
+      (p) => (attemptsByPaperId.get(p.id) || []).length === 0,
+    ).length;
+  }, [papers, attemptsByPaperId]);
+
+  const mockAttemptedCount = useMemo(() => {
+    return papers.filter((p) =>
+      (attemptsByPaperId.get(p.id) || []).some((a) => a.mode === "mock"),
+    ).length;
+  }, [papers, attemptsByPaperId]);
+
+  const practiceAttemptedCount = useMemo(() => {
+    return papers.filter((p) =>
+      (attemptsByPaperId.get(p.id) || []).some((a) => a.mode === "practice"),
+    ).length;
+  }, [papers, attemptsByPaperId]);
+
   const filteredPapers = papers.filter((p) => {
     let matchesCat = true;
     if (selectedCategory === "prelims")
@@ -191,7 +227,20 @@ export function PapersView({
     const matchesSearch =
       p.label.toLowerCase().includes(searchQuery.toLowerCase()) ||
       p.subject.toLowerCase().includes(searchQuery.toLowerCase());
-    return matchesCat && matchesYear && matchesSearch;
+
+    let matchesAttempt = true;
+    const paperAtts = attemptsByPaperId.get(p.id) || [];
+    if (selectedAttemptFilter === "attempted") {
+      matchesAttempt = paperAtts.length > 0;
+    } else if (selectedAttemptFilter === "unattempted") {
+      matchesAttempt = paperAtts.length === 0;
+    } else if (selectedAttemptFilter === "mock") {
+      matchesAttempt = paperAtts.some((a) => a.mode === "mock");
+    } else if (selectedAttemptFilter === "practice") {
+      matchesAttempt = paperAtts.some((a) => a.mode === "practice");
+    }
+
+    return matchesCat && matchesYear && matchesSearch && matchesAttempt;
   });
 
   return (
@@ -296,19 +345,39 @@ export function PapersView({
           </button>
         </div>
 
-        {/* Year Dropdown */}
-        <select
-          value={selectedYear}
-          onChange={(e) => setSelectedYear(e.target.value)}
-          className="cursor-pointer rounded-xl border border-slate-200 bg-white px-3.5 py-2 text-xs font-semibold text-slate-700 focus:outline-none focus:border-indigo-500 transition-colors shadow-xs"
-        >
-          <option value="all">All Years</option>
-          {SUPPORTED_YEARS.map((yr) => (
-            <option key={yr} value={yr}>
-              {yr}
+        {/* Dropdown Filters */}
+        <div className="flex items-center gap-2 flex-wrap">
+          {/* Attempt Filter Dropdown */}
+          <select
+            value={selectedAttemptFilter}
+            onChange={(e) => setSelectedAttemptFilter(e.target.value as any)}
+            className="cursor-pointer rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-700 focus:outline-none focus:border-indigo-500 transition-colors shadow-xs"
+          >
+            <option value="all">All Attempts ({papers.length})</option>
+            <option value="attempted">Attempted ({attemptedCount})</option>
+            <option value="unattempted">
+              Unattempted ({unattemptedCount})
             </option>
-          ))}
-        </select>
+            <option value="mock">Mock Only ({mockAttemptedCount})</option>
+            <option value="practice">
+              Practice Only ({practiceAttemptedCount})
+            </option>
+          </select>
+
+          {/* Year Dropdown */}
+          <select
+            value={selectedYear}
+            onChange={(e) => setSelectedYear(e.target.value)}
+            className="cursor-pointer rounded-xl border border-slate-200 bg-white px-3.5 py-2 text-xs font-semibold text-slate-700 focus:outline-none focus:border-indigo-500 transition-colors shadow-xs"
+          >
+            <option value="all">All Years</option>
+            {SUPPORTED_YEARS.map((yr) => (
+              <option key={yr} value={yr}>
+                {yr}
+              </option>
+            ))}
+          </select>
+        </div>
       </div>
 
       {/* Freemium Vault Announcement Banner */}
@@ -393,6 +462,16 @@ export function PapersView({
 
             const isLocked = !isPro && !isPaperFree(paper);
 
+            const paperAtts = attemptsByPaperId.get(paper.id) || [];
+            const mockAtts = paperAtts.filter((a) => a.mode === "mock");
+            const practiceAtts = paperAtts.filter((a) => a.mode === "practice");
+            const hasMock = mockAtts.length > 0;
+            const hasPractice = practiceAtts.length > 0;
+            const bestMock = mockAtts.reduce(
+              (best, cur) => (cur.score > (best?.score ?? -999) ? cur : best),
+              null as Attempt | null,
+            );
+
             return (
               <div
                 key={paper.id}
@@ -401,13 +480,32 @@ export function PapersView({
                 <div>
                   {/* Top Header Row: Year & Category Tag */}
                   <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-1.5 flex-wrap">
                       <span className="rounded-md bg-slate-100 px-2.5 py-0.5 text-xs font-bold text-slate-700 font-mono">
                         {paper.year}
                       </span>
                       {isCustom && (
                         <span className="text-[10px] uppercase font-bold text-purple-700 bg-purple-50 px-2 py-0.5 rounded-md border border-purple-200/60 font-mono">
                           User Uploaded
+                        </span>
+                      )}
+                      {paperAtts.length > 0 ? (
+                        hasMock ? (
+                          <span className="text-[10px] uppercase font-extrabold text-indigo-700 bg-indigo-50 px-2 py-0.5 rounded-md border border-indigo-200/60 font-mono">
+                            Mocked{" "}
+                            {mockAtts.length > 1 ? `(${mockAtts.length}x)` : ""}
+                          </span>
+                        ) : (
+                          <span className="text-[10px] uppercase font-extrabold text-teal-700 bg-teal-50 px-2 py-0.5 rounded-md border border-teal-200/60 font-mono">
+                            Practiced{" "}
+                            {practiceAtts.length > 1
+                              ? `(${practiceAtts.length}x)`
+                              : ""}
+                          </span>
+                        )
+                      ) : (
+                        <span className="text-[10px] font-medium text-slate-400 bg-slate-50 px-2 py-0.5 rounded-md border border-slate-200 font-mono">
+                          Unattempted
                         </span>
                       )}
                       {isLocked && (
@@ -449,6 +547,27 @@ export function PapersView({
                     <span className="text-slate-300">•</span>
                     <span>{paper.totalMarks} Marks</span>
                   </div>
+
+                  {/* Attempt Status Banner if attempted */}
+                  {paperAtts.length > 0 && (
+                    <div className="mt-2.5 flex items-center justify-between rounded-xl bg-indigo-50/70 border border-indigo-100/90 px-3 py-1.5 text-xs">
+                      <div className="flex items-center gap-1.5 min-w-0">
+                        <CheckCircle2 className="h-3.5 w-3.5 text-indigo-600 shrink-0" />
+                        <span className="font-bold text-indigo-900 truncate text-[11px]">
+                          {hasMock && hasPractice
+                            ? `Mock (${mockAtts.length}x) • Practice (${practiceAtts.length}x)`
+                            : hasMock
+                              ? `Mock Attempted (${mockAtts.length === 1 ? "1x" : `${mockAtts.length}x`})`
+                              : `Practice Session (${practiceAtts.length === 1 ? "1x" : `${practiceAtts.length}x`})`}
+                        </span>
+                      </div>
+                      {bestMock && (
+                        <span className="text-[10px] font-mono font-bold text-emerald-800 bg-emerald-50 px-2 py-0.5 rounded-md border border-emerald-200/60 shadow-2xs shrink-0">
+                          Best: {bestMock.score}/{paper.totalMarks}
+                        </span>
+                      )}
+                    </div>
+                  )}
 
                   {/* Prominent Resource Status Indicators - Standard Single Row */}
                   <div className="mt-3.5 pt-3 border-t border-slate-100 h-7 flex items-center gap-2">
