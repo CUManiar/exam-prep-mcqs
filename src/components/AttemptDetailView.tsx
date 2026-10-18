@@ -10,6 +10,7 @@ import {
 } from "../lib/defaults";
 import { DetailedSolutionModal } from "./DetailedSolutionModal";
 import { PdfViewer } from "./PdfViewer";
+import { useApp } from "../context/AppContext";
 import {
   ArrowLeft,
   Clock,
@@ -93,6 +94,27 @@ export function AttemptDetailView({
   const [solutionModalOpen, setSolutionModalOpen] = useState<boolean>(false);
   const [submissionModalOpen, setSubmissionModalOpen] =
     useState<boolean>(false);
+
+  const {
+    handleStartExam,
+    attempts: allAttempts = [],
+    handleViewAttemptDetail,
+  } = useApp();
+
+  // Find all mock attempts for this same paper
+  const relatedAttempts = useMemo(() => {
+    return allAttempts
+      .filter((a) => a.paperId === attempt.paperId && a.mode === "mock")
+      .sort(
+        (a, b) =>
+          new Date(a.startedAt).getTime() - new Date(b.startedAt).getTime(),
+      );
+  }, [allAttempts, attempt.paperId]);
+
+  const currentAttemptIndex = relatedAttempts.findIndex(
+    (a) => a.id === attempt.id,
+  );
+  const totalRelatedAttempts = relatedAttempts.length;
   const [showExportMenu, setShowExportMenu] = useState<boolean>(false);
   const [copiedToast, setCopiedToast] = useState<boolean>(false);
   const [showPaperSplit, setShowPaperSplit] = useState<boolean>(false);
@@ -908,6 +930,17 @@ export function AttemptDetailView({
             </button>
           )}
 
+          {matchedPaper && (
+            <button
+              onClick={() => handleStartExam(matchedPaper, "mock")}
+              className="flex items-center gap-1.5 rounded-xl border border-indigo-200 bg-indigo-50/80 px-3.5 py-2 text-xs font-bold text-indigo-700 hover:bg-indigo-600 hover:text-white transition-all shadow-xs cursor-pointer"
+              title="Start a new mock attempt for this paper"
+            >
+              <RotateCcw className="h-3.5 w-3.5" />
+              <span>Re-attempt Mock</span>
+            </button>
+          )}
+
           <button
             onClick={() => onDelete(attempt.id)}
             className="flex items-center gap-1.5 rounded-xl border border-rose-200 bg-rose-50 px-2.5 py-1.5 text-xs font-semibold text-rose-600 hover:bg-rose-100 transition-colors shadow-2xs"
@@ -917,6 +950,56 @@ export function AttemptDetailView({
           </button>
         </div>
       </div>
+
+      {/* Multi-Attempt History Switcher (if paper has multiple mock attempts) */}
+      {totalRelatedAttempts > 1 && (
+        <div className="screen-only rounded-2xl border border-indigo-100 bg-gradient-to-r from-indigo-50/60 via-white to-purple-50/50 p-3 sm:p-4 shadow-xs">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
+            <div className="flex items-center gap-2">
+              <span className="flex h-6 w-6 items-center justify-center rounded-lg bg-indigo-600 text-white text-xs font-bold shadow-xs">
+                {currentAttemptIndex + 1}
+              </span>
+              <div>
+                <p className="text-xs font-bold text-slate-900">
+                  Attempt #{currentAttemptIndex + 1} of {totalRelatedAttempts}{" "}
+                  on this Paper
+                </p>
+                <p className="text-[11px] text-slate-500">
+                  Switch between historical attempts to compare your preparation
+                  and score progress
+                </p>
+              </div>
+            </div>
+
+            {/* Quick Switch Attempt Pills */}
+            <div className="flex items-center gap-1.5 flex-wrap">
+              {relatedAttempts.map((rel, idx) => {
+                const isCurrent = rel.id === attempt.id;
+                return (
+                  <button
+                    key={rel.id}
+                    onClick={() => {
+                      if (!isCurrent) {
+                        handleViewAttemptDetail(rel);
+                      }
+                    }}
+                    className={`flex items-center gap-1 px-2.5 py-1 rounded-xl text-xs font-bold transition-all ${
+                      isCurrent
+                        ? "bg-indigo-600 text-white shadow-xs"
+                        : "bg-white border border-slate-200 text-slate-700 hover:border-indigo-300 hover:text-indigo-600"
+                    }`}
+                  >
+                    <span>#{idx + 1}</span>
+                    <span className="text-[10px] font-medium opacity-85">
+                      ({rel.score.toFixed(1)} pts)
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Copy Notification Toast */}
       {copiedToast && (
