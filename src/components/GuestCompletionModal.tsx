@@ -1,20 +1,10 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import { ArrowRight, Lock, Trophy, UserCheck } from "lucide-react";
+import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
-import { Attempt } from "../lib/types";
-import {
-  Trophy,
-  Sparkles,
-  CheckCircle2,
-  ArrowRight,
-  Lock,
-  UserCheck,
-  Clock,
-  Target,
-  X,
-} from "lucide-react";
 import { formatTimeSeconds } from "../lib/defaults";
+import { Attempt } from "../lib/types";
 
 interface GuestCompletionModalProps {
   isOpen: boolean;

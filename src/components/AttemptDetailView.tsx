@@ -2,7 +2,12 @@
 
 import React, { useState, useMemo, useEffect } from "react";
 import { Attempt, QuestionPaper } from "../lib/types";
-import { formatTimeSeconds, formatDateTime } from "../lib/defaults";
+import {
+  formatTimeSeconds,
+  formatDateTime,
+  getPaperDisplayTitle,
+  formatCustomIdentifier,
+} from "../lib/defaults";
 import { DetailedSolutionModal } from "./DetailedSolutionModal";
 import { PdfViewer } from "./PdfViewer";
 import {
@@ -39,6 +44,8 @@ import {
 } from "lucide-react";
 import {
   exportAttemptAsJSON,
+  exportAttemptAsMarkdown,
+  exportAttemptAsPrintPDF,
   copyAttemptSummaryToClipboard,
 } from "../lib/exportUtils";
 
@@ -101,18 +108,109 @@ export function AttemptDetailView({
   }, []);
 
   // Match corresponding paper for solution PDF with backwards compatibility
-  const matchedPaper = papers.find(
-    (p) =>
-      p.id === attempt.paperId ||
-      (attempt.paperId &&
-        p.id
-          .toLowerCase()
-          .replace(/general_studies_paper_i(i?)/, (_, g) =>
-            g ? "gsii_csat" : "gs_i",
-          ) === attempt.paperId.toLowerCase()) ||
-      (attempt.paperLabel &&
-        p.label.toLowerCase() === attempt.paperLabel.toLowerCase()),
-  );
+  const matchedPaper = useMemo(() => {
+    // 1. Direct ID match first
+    const byId = papers.find(
+      (p) =>
+        p.id === attempt.paperId ||
+        p.id.toLowerCase() === (attempt.paperId || "").toLowerCase(),
+    );
+    if (byId) return byId;
+
+    // 2. Only match canonical papers if NOT a user custom paper
+    if (!attempt.paperId?.startsWith("custom_")) {
+      const canonicalMatch = papers.find(
+        (p) =>
+          p.id
+            .toLowerCase()
+            .replace(/general_studies_paper_i(i?)/, (_, g) =>
+              g ? "gsii_csat" : "gs_i",
+            ) === (attempt.paperId || "").toLowerCase(),
+      );
+      if (canonicalMatch) return canonicalMatch;
+
+      if (attempt.paperLabel) {
+        const byLabel = papers.find(
+          (p) => p.label.toLowerCase() === attempt.paperLabel.toLowerCase(),
+        );
+        if (byLabel) return byLabel;
+      }
+    }
+    return undefined;
+  }, [papers, attempt.paperId, attempt.paperLabel]);
+
+  const displayPaperTitle = useMemo(() => {
+    if (matchedPaper) {
+      return getPaperDisplayTitle(matchedPaper);
+    }
+    if (attempt.paperId?.startsWith("custom_")) {
+      const fromId = formatCustomIdentifier(attempt.paperId);
+      if (fromId) return fromId;
+    }
+    if (
+      attempt.paperLabel &&
+      !attempt.paperLabel.match(
+        /^\d{4}\s*[-–—]\s*(GS\s*I|GS\s*II\s*CSAT|Mains.*)$/i,
+      )
+    ) {
+      return attempt.paperLabel;
+    }
+    const fromId = formatCustomIdentifier(attempt.paperId);
+    if (fromId) return fromId;
+    return attempt.paperLabel || "Assessment Report";
+  }, [matchedPaper, attempt.paperLabel, attempt.paperId]);
+
+  const effectiveMaxScore = useMemo(() => {
+    const calculatedMax =
+      attempt.totalQuestions > 0 &&
+      attempt.correctMarks &&
+      attempt.correctMarks > 0
+        ? Math.round(attempt.totalQuestions * attempt.correctMarks * 100) / 100
+        : null;
+
+    if (matchedPaper?.totalMarks && matchedPaper.totalMarks > 0) {
+      if (
+        calculatedMax &&
+        matchedPaper.totalMarks === 200 &&
+        calculatedMax !== 200
+      ) {
+        return calculatedMax;
+      }
+      return matchedPaper.totalMarks;
+    }
+
+    if (calculatedMax && (attempt.maxScore === 200 || !attempt.maxScore)) {
+      return calculatedMax;
+    }
+
+    if (attempt.totalMarks && attempt.totalMarks > 0) {
+      if (
+        calculatedMax &&
+        attempt.totalMarks === 200 &&
+        calculatedMax !== 200
+      ) {
+        return calculatedMax;
+      }
+      return attempt.totalMarks;
+    }
+
+    if (calculatedMax) {
+      return calculatedMax;
+    }
+
+    return attempt.maxScore || 200;
+  }, [
+    matchedPaper?.totalMarks,
+    attempt.totalMarks,
+    attempt.totalQuestions,
+    attempt.correctMarks,
+    attempt.maxScore,
+  ]);
+
+  const scorePct = useMemo(() => {
+    if (!effectiveMaxScore || effectiveMaxScore <= 0) return "0.0";
+    return Math.max(0, (attempt.score / effectiveMaxScore) * 100).toFixed(1);
+  }, [attempt.score, effectiveMaxScore]);
 
   const handleCopySummary = async () => {
     const success = await copyAttemptSummaryToClipboard(attempt);
@@ -123,7 +221,12 @@ export function AttemptDetailView({
   };
 
   const handlePrint = () => {
-    window.print();
+    exportAttemptAsPrintPDF(
+      attempt,
+      matchedPaper?.explanations,
+      displayPaperTitle,
+      effectiveMaxScore,
+    );
   };
 
   const handleSaveGeneralNote = () => {
@@ -383,17 +486,14 @@ export function AttemptDetailView({
           Top: Performance widgets summary
           Bottom: Clean tabular format with Question | Right/Wrong | Your Answer | Correct Answer | Marks | Note added
          ========================================================================= */}
-      <div className="hidden print:block space-y-6 text-slate-900 bg-white">
-        {/* Official Examination Header */}
+      <div className="print-only space-y-6 text-slate-900 bg-white">
+        {/* Examination Assessment Header */}
         <div className="pb-4 border-b-2 border-slate-900 text-center space-y-1">
           <div className="text-[11px] font-black uppercase tracking-widest text-slate-600">
-            UNION PUBLIC SERVICE COMMISSION (UPSC)
-          </div>
-          <div className="text-base font-black text-slate-900 uppercase tracking-wider">
-            CIVIL SERVICES EXAMINATION — OFFICIAL CANDIDATE ASSESSMENT REPORT
+            CANDIDATE ASSESSMENT REPORT
           </div>
           <h1 className="text-xl font-extrabold text-slate-900 pt-0.5">
-            {attempt.paperLabel}
+            {displayPaperTitle}
           </h1>
           <div className="flex flex-wrap justify-center items-center gap-3 text-xs font-semibold text-slate-600 pt-2 border-t border-slate-200 mt-2">
             <span>
@@ -435,13 +535,11 @@ export function AttemptDetailView({
               <div className="text-xl font-extrabold text-slate-900 font-mono mt-0.5">
                 {attempt.score}{" "}
                 <span className="text-xs font-normal text-slate-500">
-                  / {attempt.maxScore}
+                  / {effectiveMaxScore}
                 </span>
               </div>
               <span className="text-[10px] font-semibold text-indigo-700 mt-0.5 block">
-                {Math.round((attempt.score / (attempt.maxScore || 1)) * 1000) /
-                  10}
-                % Marks
+                {scorePct}% Marks
               </span>
             </div>
 
@@ -643,12 +741,23 @@ export function AttemptDetailView({
                       {marksText}
                     </td>
                     <td className="py-1.5 px-3 text-slate-700 text-[11px]">
+                      {(q?.explanation ||
+                        matchedPaper?.explanations?.[qNo]) && (
+                        <div className="text-indigo-950 font-normal mb-1">
+                          <strong className="font-semibold text-indigo-900">
+                            Expl:
+                          </strong>{" "}
+                          {q?.explanation || matchedPaper?.explanations?.[qNo]}
+                        </div>
+                      )}
                       {q?.note && q.note.trim() ? (
                         <span className="text-slate-800 font-medium">
-                          {q.note.trim()}
+                          <strong>Note:</strong> {q.note.trim()}
                         </span>
                       ) : (
-                        <span className="text-slate-400">—</span>
+                        !(
+                          q?.explanation || matchedPaper?.explanations?.[qNo]
+                        ) && <span className="text-slate-400">—</span>
                       )}
                     </td>
                   </tr>
@@ -658,14 +767,14 @@ export function AttemptDetailView({
           </table>
 
           <div className="pt-3 text-[10px] text-slate-500 flex justify-between items-center border-t border-slate-200">
-            <span>Generated from UPSC CSE Practice Platform</span>
+            <span>Candidate Assessment Record</span>
             <span>Attempt Reference: {attempt.id}</span>
           </div>
         </div>
       </div>
 
       {/* 1. Header Bar & Actions (Clean, restrained, professional) */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 border-b border-slate-200/80 pb-4 print:hidden">
+      <div className="screen-only flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 border-b border-slate-200/80 pb-4">
         <div className="flex items-center gap-3">
           <button
             onClick={onBack}
@@ -683,7 +792,7 @@ export function AttemptDetailView({
               </span>
             </div>
             <h1 className="text-xl sm:text-2xl font-extrabold text-slate-900 tracking-tight mt-0.5">
-              {attempt.paperLabel}
+              {displayPaperTitle}
             </h1>
           </div>
         </div>
@@ -730,27 +839,16 @@ export function AttemptDetailView({
                   className="fixed inset-0 z-40"
                   onClick={() => setShowExportMenu(false)}
                 />
-                <div className="absolute right-0 mt-1.5 z-50 w-56 rounded-xl border border-slate-200 bg-white p-1.5 shadow-lg space-y-1">
+                <div className="absolute right-0 mt-1.5 z-50 min-w-[280px] w-max max-w-xs rounded-2xl border border-slate-200 bg-white p-2 shadow-2xl space-y-1">
                   <button
                     onClick={() => {
                       handlePrint();
                       setShowExportMenu(false);
                     }}
-                    className="flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50 hover:text-slate-900 transition-colors"
+                    className="flex w-full items-center gap-2.5 rounded-xl px-3 py-2 text-xs font-bold text-slate-800 bg-slate-100 hover:bg-slate-200/80 transition-colors cursor-pointer whitespace-nowrap"
                   >
-                    <Printer className="h-3.5 w-3.5 text-indigo-600" />
-                    <span>Print / Save as PDF</span>
-                  </button>
-
-                  <button
-                    onClick={() => {
-                      exportAttemptAsJSON(attempt);
-                      setShowExportMenu(false);
-                    }}
-                    className="flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50 hover:text-slate-900 transition-colors"
-                  >
-                    <Download className="h-3.5 w-3.5 text-amber-600" />
-                    <span>Download JSON (.json)</span>
+                    <Printer className="h-4 w-4 text-indigo-600 shrink-0" />
+                    <span>Export to PDF</span>
                   </button>
 
                   <button
@@ -758,10 +856,32 @@ export function AttemptDetailView({
                       handleCopySummary();
                       setShowExportMenu(false);
                     }}
-                    className="flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50 hover:text-slate-900 transition-colors"
+                    className="flex w-full items-center gap-2.5 rounded-xl px-3 py-2 text-xs font-medium text-slate-700 hover:bg-slate-50 hover:text-slate-900 transition-colors cursor-pointer whitespace-nowrap"
                   >
-                    <Copy className="h-3.5 w-3.5 text-indigo-600" />
-                    <span>Copy Summary to Clipboard</span>
+                    <Copy className="h-4 w-4 text-indigo-600 shrink-0" />
+                    <span>Copy Summary to Clipboard (.md)</span>
+                  </button>
+
+                  <button
+                    onClick={() => {
+                      exportAttemptAsMarkdown(attempt);
+                      setShowExportMenu(false);
+                    }}
+                    className="flex w-full items-center gap-2.5 rounded-xl px-3 py-2 text-xs font-medium text-slate-700 hover:bg-slate-50 hover:text-slate-900 transition-colors cursor-pointer whitespace-nowrap"
+                  >
+                    <FileText className="h-4 w-4 text-emerald-600 shrink-0" />
+                    <span>Download Markdown (.md)</span>
+                  </button>
+
+                  <button
+                    onClick={() => {
+                      exportAttemptAsJSON(attempt);
+                      setShowExportMenu(false);
+                    }}
+                    className="flex w-full items-center gap-2.5 rounded-xl px-3 py-2 text-xs font-medium text-slate-700 hover:bg-slate-50 hover:text-slate-900 transition-colors cursor-pointer whitespace-nowrap"
+                  >
+                    <Download className="h-4 w-4 text-amber-600 shrink-0" />
+                    <span>Download JSON (.json)</span>
                   </button>
                 </div>
               </>
@@ -808,17 +928,17 @@ export function AttemptDetailView({
 
       {/* Main Content Area: Split View Container (Desktop Side-by-Side, Tablet/Mobile Vertical) */}
       <div
-        className={`flex flex-col ${showPaperSplit && matchedPaper?.qpUrl ? "xl:flex-row" : ""} gap-6 items-start print:hidden`}
+        className={`screen-only flex flex-col ${showPaperSplit && matchedPaper?.qpUrl ? "xl:flex-row" : ""} gap-6 items-start`}
       >
         {/* Question Paper PDF Viewer (Desktop Side-by-Side, Tablet/Mobile Vertical on Top) */}
         {showPaperSplit && matchedPaper?.qpUrl && (
-          <div className="flex flex-col w-full xl:w-1/2 xl:sticky xl:top-20 h-[50vh] sm:h-[60vh] xl:h-[calc(100vh-6.5rem)] rounded-2xl overflow-hidden border border-slate-200 bg-white shadow-md shrink-0 print:hidden z-10">
+          <div className="flex flex-col w-full xl:w-1/2 xl:sticky xl:top-20 h-[50vh] sm:h-[60vh] xl:h-[calc(100vh-6.5rem)] rounded-2xl overflow-hidden border border-slate-200 bg-white shadow-md shrink-0 z-10">
             {/* Unified Light Toolbar */}
             <div className="flex items-center justify-between px-3.5 py-2.5 bg-white border-b border-slate-200 shrink-0 gap-2">
               <div className="flex items-center gap-2 text-xs font-bold text-slate-800 min-w-0">
                 <BookOpen className="h-4 w-4 text-indigo-600 shrink-0" />
                 <span className="truncate max-w-[160px] sm:max-w-[240px]">
-                  {matchedPaper.label}
+                  {getPaperDisplayTitle(matchedPaper)}
                 </span>
                 <span className="text-[10px] px-2 py-0.5 rounded-full bg-indigo-50 text-indigo-700 border border-indigo-200 uppercase font-mono font-bold shrink-0">
                   Question Paper
@@ -865,7 +985,7 @@ export function AttemptDetailView({
             <div className="flex-1 min-h-0 bg-slate-100 w-full h-full relative">
               <PdfViewer
                 url={matchedPaper.qpUrl}
-                title={matchedPaper.label}
+                title={getPaperDisplayTitle(matchedPaper)}
                 showToolbar={false}
                 currentMode={pdfMode}
                 onModeChange={setPdfMode}
@@ -894,13 +1014,10 @@ export function AttemptDetailView({
                   {attempt.score}
                 </span>
                 <span className="text-base font-semibold text-slate-500 font-mono">
-                  / {attempt.maxScore}
+                  / {effectiveMaxScore}
                 </span>
                 <span className="ml-2 text-xs text-indigo-700 font-bold bg-indigo-50 border border-indigo-200 px-2 py-0.5 rounded-full">
-                  {Math.round(
-                    (attempt.score / (attempt.maxScore || 1)) * 1000,
-                  ) / 10}
-                  %
+                  {scorePct}%
                 </span>
               </div>
 
@@ -1072,7 +1189,7 @@ export function AttemptDetailView({
                       <div className="text-2xl font-extrabold text-slate-900 font-mono mt-0.5">
                         {attempt.score}{" "}
                         <span className="text-xs font-normal text-slate-500">
-                          / {attempt.maxScore}
+                          / {effectiveMaxScore}
                         </span>
                       </div>
                       <div className="text-[11px] text-indigo-700/80 mt-1">
@@ -1787,6 +1904,27 @@ export function AttemptDetailView({
                                   </div>
                                 </div>
 
+                                {/* Official Question Explanation */}
+                                {(q.explanation ||
+                                  matchedPaper?.explanations?.[
+                                    q.questionNo
+                                  ]) && (
+                                  <div className="space-y-1 bg-indigo-50/80 p-3.5 rounded-xl border border-indigo-200/90 shadow-2xs">
+                                    <div className="flex items-center gap-1.5 text-[11px] uppercase font-bold text-indigo-900 tracking-wider">
+                                      <BookOpen className="h-3.5 w-3.5 text-indigo-700" />
+                                      <span>
+                                        Official Explanation & Key Insights
+                                      </span>
+                                    </div>
+                                    <p className="text-xs text-indigo-950 font-normal leading-relaxed whitespace-pre-wrap pt-0.5">
+                                      {q.explanation ||
+                                        matchedPaper?.explanations?.[
+                                          q.questionNo
+                                        ]}
+                                    </p>
+                                  </div>
+                                )}
+
                                 {/* Edit Question Note */}
                                 <div className="pt-1">
                                   {editingQNote === q.questionNo ? (
@@ -1862,7 +2000,7 @@ export function AttemptDetailView({
         isOpen={mobilePaperModalOpen}
         onClose={() => setMobilePaperModalOpen(false)}
         pdfUrl={matchedPaper?.qpUrl}
-        paperTitle={`${attempt.paperLabel} - Question Paper`}
+        paperTitle={`${displayPaperTitle} - Question Paper`}
       />
 
       {/* Detailed Solution Modal */}
@@ -1870,7 +2008,7 @@ export function AttemptDetailView({
         isOpen={solutionModalOpen}
         onClose={() => setSolutionModalOpen(false)}
         pdfUrl={matchedPaper?.exsUrl}
-        paperTitle={attempt.paperLabel}
+        paperTitle={displayPaperTitle}
       />
 
       {/* User Submission Booklet Modal */}
@@ -1878,7 +2016,7 @@ export function AttemptDetailView({
         isOpen={submissionModalOpen}
         onClose={() => setSubmissionModalOpen(false)}
         pdfUrl={attempt.userSubmissionPdfUrl}
-        paperTitle={`${attempt.paperLabel} - My Answer Booklet`}
+        paperTitle={`${displayPaperTitle} - My Answer Booklet`}
       />
     </div>
   );

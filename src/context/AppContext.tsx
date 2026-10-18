@@ -24,12 +24,17 @@ import {
   clearActiveDraft,
   getLocalHiddenPaperIds,
   saveLocalHiddenPaperIds,
+  removeLocalCustomPaper,
 } from "../lib/storage";
 import { ConfirmationModal } from "../components/ConfirmationModal";
 import { ProUpgradeModal } from "../components/ProUpgradeModal";
 import { AuthModal } from "../components/AuthModal";
 import { GuestCompletionModal } from "../components/GuestCompletionModal";
-import { isPaperFree } from "../lib/defaults";
+import {
+  isPaperFree,
+  isUserUploadedPaper,
+  getPaperDisplayTitle,
+} from "../lib/defaults";
 import { isUserPro, setUserPro } from "../lib/razorpay";
 import { User } from "@supabase/supabase-js";
 import {
@@ -388,36 +393,47 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   // Delete / Hide paper handler
   const handleDeletePaper = (paperId: string) => {
     const targetPaper = papers.find((p) => p.id === paperId);
+    const isCustomPaper = targetPaper
+      ? isUserUploadedPaper(targetPaper)
+      : paperId.startsWith("custom_");
     const isAdmin = currentUser?.user_metadata?.role === "admin";
-    const isOwnCustomPaper =
-      Boolean(targetPaper?.isCustom) &&
-      Boolean(targetPaper?.userId) &&
-      targetPaper?.userId === currentUser?.id;
+    const paperName = targetPaper ? getPaperDisplayTitle(targetPaper) : paperId;
 
-    if (isOwnCustomPaper && currentUser) {
-      // 1. User deleting their own personal custom paper
+    // 1. User uploaded custom paper: ALWAYS Hard Delete to free up repository storage
+    if (isCustomPaper) {
       setModalConfig({
         isOpen: true,
         title: "Delete Custom Paper?",
-        message: `Permanently delete your custom paper "${targetPaper?.label || paperId}" from your vault? This cannot be undone.`,
-        confirmText: "Delete My Paper",
+        message: `Permanently delete "${paperName}"? All question PDFs, answer keys, and records will be hard deleted from storage to free repository space. This cannot be undone.`,
+        confirmText: "Delete Permanently",
         cancelText: "Cancel",
         variant: "danger",
         onConfirm: async () => {
           setModalConfig((prev) => ({ ...prev, isOpen: false }));
-          await deleteUserCustomPaperFromSupabase(paperId, currentUser.id);
-          await loadAllData();
+          try {
+            // Hard delete files from cloud storage, Supabase, and metadata store
+            await deletePaperFromServer(paperId);
+            if (currentUser?.id) {
+              await deleteUserCustomPaperFromSupabase(paperId, currentUser.id);
+            }
+            removeLocalCustomPaper(paperId);
+            setPapers((prev) => prev.filter((p) => p.id !== paperId));
+          } catch (err) {
+            console.error("Failed to hard delete paper:", err);
+          } finally {
+            await loadAllData();
+          }
         },
       });
       return;
     }
 
+    // 2. Non-admin user: Hide official UPSC archive paper from their dashboard ONLY
     if (!isAdmin) {
-      // 2. Non-admin user: Hide paper from their dashboard ONLY (NEVER delete shared storage files!)
       setModalConfig({
         isOpen: true,
         title: "Remove Paper?",
-        message: `Are you sure you want to remove "${targetPaper?.label || "this paper"}"? It won't be visible for you anymore.`,
+        message: `Are you sure you want to remove "${paperName}"? It won't be visible for you anymore.`,
         confirmText: "Remove Paper",
         cancelText: "Cancel",
         variant: "warning",
@@ -444,7 +460,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     setModalConfig({
       isOpen: true,
       title: "Delete Paper Globally (Admin)",
-      message: `As an administrator, deleting "${targetPaper?.label || paperId}" will remove it permanently for all users across the platform. Proceed?`,
+      message: `As an administrator, deleting "${paperName}" will remove it permanently for all users across the platform. Proceed?`,
       confirmText: "Delete Globally",
       cancelText: "Cancel",
       variant: "danger",

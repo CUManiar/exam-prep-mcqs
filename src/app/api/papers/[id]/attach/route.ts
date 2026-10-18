@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { uploadFile, readJsonStore, writeJsonStore } from "@/lib/cloudStorage";
-import { INITIAL_PAPERS } from "@/lib/defaults";
+import { INITIAL_PAPERS, parseAnswerKeyDetailed } from "@/lib/defaults";
 
 export async function POST(
   req: NextRequest,
@@ -62,6 +62,9 @@ export async function POST(
     let parsedKey: Record<number, string> = {
       ...(currentPaper.answerKey || {}),
     };
+    let parsedExplanations: Record<number, string> = {
+      ...(currentPaper.explanations || {}),
+    };
 
     if (akContent && akContent.trim().length > 0) {
       const akFileName = `answer_keys/${year}/${cat}/${cleanName}.txt`;
@@ -71,17 +74,13 @@ export async function POST(
         "text/plain;charset=utf-8",
       );
 
-      // Parse answers into key numbers
-      const lines = akContent.split("\n");
-      const freshParsed: Record<number, string> = {};
-      for (const line of lines) {
-        const m = line.trim().match(/^(\d+)[\.\)\s\-\:\t]+\s*([A-Da-d])/);
-        if (m) {
-          freshParsed[parseInt(m[1], 10)] = m[2].toUpperCase();
-        }
+      // Parse answers and explanations
+      const detailed = parseAnswerKeyDetailed(akContent);
+      if (Object.keys(detailed.answers).length > 0) {
+        parsedKey = detailed.answers;
       }
-      if (Object.keys(freshParsed).length > 0) {
-        parsedKey = freshParsed;
+      if (Object.keys(detailed.explanations).length > 0) {
+        parsedExplanations = detailed.explanations;
       }
     }
 
@@ -119,6 +118,10 @@ export async function POST(
       answerKeyText: akContent || currentPaper.answerKeyText,
       answerKey:
         Object.keys(parsedKey).length > 0 ? parsedKey : currentPaper.answerKey,
+      explanations:
+        Object.keys(parsedExplanations).length > 0
+          ? parsedExplanations
+          : currentPaper.explanations,
       updatedAt: new Date().toISOString(),
     };
 

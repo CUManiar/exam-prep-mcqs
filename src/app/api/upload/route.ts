@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { uploadFile, readJsonStore, writeJsonStore } from "@/lib/cloudStorage";
+import { parseAnswerKeyDetailed } from "@/lib/defaults";
 
 export async function POST(req: NextRequest) {
   try {
@@ -9,45 +10,85 @@ export async function POST(req: NextRequest) {
     const examType = (formData.get("examType") as string) || "objective";
     const subject = (formData.get("subject") as string) || "GS I";
     const label = (formData.get("label") as string) || "";
+    const titleInput = (formData.get("title") as string) || "";
     const totalQuestions =
       parseInt(formData.get("totalQuestions") as string) ||
       (examType === "objective" ? 100 : 20);
-    const totalMarks =
-      parseFloat(formData.get("totalMarks") as string) ||
-      (examType === "objective" ? 200 : 250);
     const correctMarks =
       parseFloat(formData.get("correctMarks") as string) ||
       (examType === "objective" ? 2.0 : 0);
     const incorrectMarks =
-      parseFloat(formData.get("incorrectMarks") as string) ||
-      (examType === "objective" ? 0.667 : 0);
+      parseFloat(formData.get("incorrectMarks") as string) || 0;
     const timeMinutes =
       parseInt(formData.get("timeMinutes") as string) ||
       (examType === "objective" ? 120 : 180);
+    const totalMarksInput = parseFloat(formData.get("totalMarks") as string);
+    const totalMarks =
+      !isNaN(totalMarksInput) && totalMarksInput > 0
+        ? totalMarksInput
+        : examType === "objective"
+          ? totalQuestions * correctMarks
+          : 250;
     const answerKeyTextInput = (formData.get("answerKeyText") as string) || "";
     const userId = (formData.get("userId") as string) || "";
     const isUserUpload = Boolean(
       userId && userId !== "null" && userId !== "undefined",
     );
+    const isCustomUpload =
+      formData.get("isCustom") === "true" ||
+      isUserUpload ||
+      subject === "Custom Practice" ||
+      !formData.get("identifier");
 
-    const cleanYear = year.replace(/[^0-9]/g, "");
-    const cleanName = identifier
+    const cleanYear =
+      year.replace(/[^0-9]/g, "") || String(new Date().getFullYear());
+
+    // User-entered identifier/title resolution
+    let paperTitle = "";
+    if (
+      label &&
+      !label.match(/^\d{4}\s*–\s*(GS\s*I|GS\s*II\s*CSAT|Mains.*)$/i)
+    ) {
+      paperTitle = label.trim();
+    } else if (
+      titleInput &&
+      !titleInput.match(/^\d{4}\s*–\s*(GS\s*I|GS\s*II\s*CSAT|Mains.*)$/i)
+    ) {
+      paperTitle = titleInput.trim();
+    } else if (identifier && !identifier.startsWith("prelims_")) {
+      paperTitle = identifier.trim();
+    } else if (label) {
+      paperTitle = label.trim();
+    } else if (identifier) {
+      paperTitle = identifier.trim();
+    } else {
+      paperTitle = `${cleanYear} – ${subject}`;
+    }
+
+    let cleanName = identifier
       .toLowerCase()
       .replace(/[^a-z0-9_]/g, "_")
       .replace(/_+/g, "_")
       .replace(/^_|_$/g, "");
 
-    if (!cleanYear || !cleanName) {
-      return NextResponse.json(
-        { ok: false, error: "Invalid year or identifier name" },
-        { status: 400 },
-      );
+    if (!cleanName && paperTitle) {
+      cleanName = paperTitle
+        .toLowerCase()
+        .replace(/[^a-z0-9_]/g, "_")
+        .replace(/_+/g, "_")
+        .replace(/^_|_$/g, "")
+        .slice(0, 40);
+    }
+    if (!cleanName) {
+      cleanName = `paper_${Date.now().toString(36)}`;
     }
 
     const catFolder = examType === "objective" ? "prelims" : "mains";
     const paperId = isUserUpload
       ? `custom_${userId.slice(0, 8)}_${cleanYear}_${cleanName}`
-      : `${cleanYear}_${cleanName}`;
+      : isCustomUpload
+        ? `custom_${cleanYear}_${cleanName}_${Date.now().toString(36)}`
+        : `${cleanYear}_${cleanName}`;
 
     // Isolated storage path: User papers reside under custom-papers/${userId}/...
     const qpFileName = isUserUpload
@@ -96,17 +137,11 @@ export async function POST(req: NextRequest) {
       exsUrl = await uploadFile(exsFileName, exsBuffer, "application/pdf");
     }
 
-    // Parse Answer Key into structured object
-    const parsedKey: Record<number, string> = {};
-    if (answerKeyContent) {
-      const lines = answerKeyContent.split("\n");
-      for (const line of lines) {
-        const m = line.trim().match(/^(\d+)[\.\)\s\-\:]+([A-Da-d])/);
-        if (m) {
-          parsedKey[parseInt(m[1])] = m[2].toUpperCase();
-        }
-      }
-    }
+    // Parse Answer Key into structured object (supports 1. a """ explanation """)
+    const { answers: parsedKey, explanations: parsedExplanations } =
+      answerKeyContent
+        ? parseAnswerKeyDetailed(answerKeyContent)
+        : { answers: {}, explanations: {} };
 
     const paperObj = {
       id: paperId,
@@ -114,8 +149,9 @@ export async function POST(req: NextRequest) {
       year: cleanYear,
       category: examType === "objective" ? "prelims" : "mains",
       examType,
-      subject,
-      label: label || `${cleanYear} – ${subject}`,
+      subject: isCustomUpload || isUserUpload ? paperTitle : subject,
+      label: paperTitle,
+      title: paperTitle,
       totalQuestions,
       totalMarks,
       correctMarks,
@@ -126,6 +162,7 @@ export async function POST(req: NextRequest) {
       exsUrl,
       answerKeyText: answerKeyContent,
       answerKey: parsedKey,
+      explanations: parsedExplanations,
       isCustom: true,
       updatedAt: new Date().toISOString(),
     };
@@ -145,12 +182,12 @@ export async function POST(req: NextRequest) {
         await supabase.from("custom_papers").upsert({
           id: paperId,
           user_id: userId,
-          title: label || `${cleanYear} – ${subject}`,
+          title: paperTitle,
           year: parseInt(cleanYear) || 2026,
-          subject,
+          subject: paperTitle,
           stage: catFolder,
           exam_type: examType,
-          label: label || `${cleanYear} – ${subject}`,
+          label: paperTitle,
           total_questions: totalQuestions,
           total_marks: totalMarks,
           correct_marks: correctMarks,

@@ -107,6 +107,23 @@ label,
   background: #94a3b8;
 }
 
+/* Print-only / screen-only visibility helpers (use instead of Tailwind print:block/print:hidden
+   which lack !important and can't override Tailwind's `hidden` class) */
+.print-only {
+  display: none !important;
+}
+.screen-only {
+  /* screen: render normally (inherit/revert to natural display) */
+}
+@media print {
+  .print-only {
+    display: block !important;
+  }
+  .screen-only {
+    display: none !important;
+  }
+}
+
 /* Print Styles for Attempt Reports */
 @media print {
   @page {
@@ -114,7 +131,11 @@ label,
     size: auto;
   }
 
+  html,
   body {
+    overflow: visible !important;
+    height: auto !important;
+    min-height: 0 !important;
     background: #ffffff !important;
     color: #0f172a !important;
   }

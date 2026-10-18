@@ -2,6 +2,7 @@ import { Attempt, QuestionPaper, ActiveSessionDraft } from "./types";
 import {
   INITIAL_PAPERS,
   parseAnswerKeyText,
+  parseAnswerKeyDetailed,
   getStandardTimeMinutes,
 } from "./defaults";
 
@@ -228,16 +229,23 @@ export async function deletePaperFromServer(paperId: string): Promise<boolean> {
   try {
     const res = await fetch(`/api/papers/${paperId}`, { method: "DELETE" });
     if (res.ok) {
-      if (typeof window !== "undefined") {
-        const list = getCustomPapers().filter((p) => p.id !== paperId);
-        localStorage.setItem(STORAGE_KEYS.CUSTOM_PAPERS, JSON.stringify(list));
-      }
+      removeLocalCustomPaper(paperId);
       return true;
     }
   } catch (err) {
     console.error("Failed to delete paper on server:", err);
   }
   return false;
+}
+
+export function removeLocalCustomPaper(paperId: string): void {
+  if (typeof window === "undefined") return;
+  try {
+    const list = getCustomPapers().filter((p) => p.id !== paperId);
+    localStorage.setItem(STORAGE_KEYS.CUSTOM_PAPERS, JSON.stringify(list));
+  } catch (err) {
+    console.error("Failed removing local custom paper:", err);
+  }
 }
 
 // Update paper rules (Server + local)
@@ -341,8 +349,17 @@ export async function getAllPapers(): Promise<QuestionPaper[]> {
   // Ensure ALL papers have their answer keys populated
   await Promise.all(
     papers.map(async (p) => {
-      // If already populated, check if we need to do anything
+      // If already populated, check if we need to parse explanations if missing
       if (p.answerKey && Object.keys(p.answerKey).length > 0) {
+        if (
+          (!p.explanations || Object.keys(p.explanations).length === 0) &&
+          p.answerKeyText
+        ) {
+          const detailed = parseAnswerKeyDetailed(p.answerKeyText);
+          if (Object.keys(detailed.explanations).length > 0) {
+            p.explanations = detailed.explanations;
+          }
+        }
         return;
       }
 
@@ -353,12 +370,22 @@ export async function getAllPapers(): Promise<QuestionPaper[]> {
         Object.keys(matchingDefault.answerKey || {}).length > 0
       ) {
         p.answerKey = { ...matchingDefault.answerKey };
+        if (matchingDefault.explanations) {
+          p.explanations = { ...matchingDefault.explanations };
+        }
         return;
       }
 
       // Parse from answerKeyText if available
       if (p.answerKeyText) {
-        p.answerKey = parseAnswerKeyText(p.answerKeyText);
+        const detailed = parseAnswerKeyDetailed(p.answerKeyText);
+        p.answerKey = detailed.answers;
+        if (Object.keys(detailed.explanations).length > 0) {
+          p.explanations = {
+            ...(p.explanations || {}),
+            ...detailed.explanations,
+          };
+        }
         return;
       }
 
@@ -369,7 +396,14 @@ export async function getAllPapers(): Promise<QuestionPaper[]> {
           if (res.ok) {
             const text = await res.text();
             p.answerKeyText = text;
-            p.answerKey = parseAnswerKeyText(text);
+            const detailed = parseAnswerKeyDetailed(text);
+            p.answerKey = detailed.answers;
+            if (Object.keys(detailed.explanations).length > 0) {
+              p.explanations = {
+                ...(p.explanations || {}),
+                ...detailed.explanations,
+              };
+            }
           }
         } catch (fetchErr) {
           console.warn(`Failed to fetch akUrl for paper ${p.id}:`, fetchErr);
