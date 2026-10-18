@@ -610,12 +610,26 @@ export function exportAttemptAsPrintPDF(
   </div>
 
   <script>
-    setTimeout(function() {
-      try {
-        window.focus();
-        window.print();
-      } catch(e) {}
-    }, 300);
+    (function() {
+      var triggered = false;
+      function doPrint() {
+        if (triggered) return;
+        triggered = true;
+        try {
+          window.focus();
+          window.print();
+        } catch(e) {}
+      }
+
+      if (document.readyState === 'complete') {
+        setTimeout(doPrint, 250);
+      } else {
+        window.addEventListener('load', function() {
+          setTimeout(doPrint, 250);
+        });
+        setTimeout(doPrint, 1000);
+      }
+    })();
   </script>
 </body>
 </html>`;
@@ -627,13 +641,6 @@ export function exportAttemptAsPrintPDF(
       printWindow.document.write(html);
       printWindow.document.close();
       printWindow.focus();
-      setTimeout(() => {
-        try {
-          printWindow.print();
-        } catch (e) {
-          console.warn("Print popup auto-trigger failed:", e);
-        }
-      }, 350);
     } else {
       // Fallback: popup blocked by browser
       window.print();

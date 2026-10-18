@@ -74,7 +74,7 @@ export function ExamSessionView({
   const [filterMode, setFilterMode] = useState<
     "all" | "attempted" | "unattempted" | "flagged"
   >("all");
-  const [showNoteBox, setShowNoteBox] = useState<boolean>(false);
+  const [showNoteBox, setShowNoteBox] = useState<boolean>(true);
   const [showFinishConfirm, setShowFinishConfirm] = useState<boolean>(false);
   const [solutionModalOpen, setSolutionModalOpen] = useState<boolean>(false);
   const [mobileTab, setMobileTab] = useState<"paper" | "split" | "omr">(
@@ -125,6 +125,20 @@ export function ExamSessionView({
   // Initialize questions unless resuming from draft
   useEffect(() => {
     if (initialDraft?.answers && Object.keys(initialDraft.answers).length > 0) {
+      if (mode === "mock") {
+        setAnswers((prev) => {
+          const updated = { ...prev };
+          let changed = false;
+          for (const k of Object.keys(updated)) {
+            const numKey = Number(k);
+            if (updated[numKey] && !updated[numKey].confidence) {
+              updated[numKey] = { ...updated[numKey], confidence: "sure" };
+              changed = true;
+            }
+          }
+          return changed ? updated : prev;
+        });
+      }
       return;
     }
     const initial: Record<number, QuestionAnswer> = {};
@@ -141,6 +155,7 @@ export function ExamSessionView({
         correctAnswer: correct,
         isCorrect: null,
         flagged: false,
+        confidence: mode === "mock" ? "sure" : undefined,
         note: "",
         timeSpentSeconds: 0,
         changesCount: 0,
@@ -148,7 +163,7 @@ export function ExamSessionView({
       };
     }
     setAnswers(initial);
-  }, [paper, initialDraft]);
+  }, [paper, initialDraft, mode]);
 
   // Robust answer key hydration effect: fetches/parses if empty, attaches to answers
   useEffect(() => {
@@ -257,6 +272,7 @@ export function ExamSessionView({
       const current = prev[qNo] || {
         questionNo: qNo,
         selected: null,
+        confidence: mode === "mock" ? "sure" : undefined,
         changesCount: 0,
         answerHistory: [],
       };
@@ -295,6 +311,8 @@ export function ExamSessionView({
           selected: newSelected,
           correctAnswer: correct,
           isCorrect,
+          confidence:
+            current.confidence ?? (mode === "mock" ? "sure" : undefined),
           changesCount,
           answerHistory,
         },
@@ -309,13 +327,23 @@ export function ExamSessionView({
 
   const handleSetConfidence = (qNo: number, confidence: ConfidenceLevel) => {
     setAnswers((prev) => {
-      const current = prev[qNo] || { questionNo: qNo, selected: null };
+      const current = prev[qNo] || {
+        questionNo: qNo,
+        selected: null,
+        confidence: mode === "mock" ? "sure" : undefined,
+      };
+      const activeConf =
+        current.confidence ?? (mode === "mock" ? "sure" : undefined);
       return {
         ...prev,
         [qNo]: {
           ...current,
           confidence:
-            current.confidence === confidence ? undefined : confidence,
+            activeConf === confidence
+              ? mode === "mock"
+                ? "sure"
+                : undefined
+              : confidence,
         },
       };
     });
@@ -323,13 +351,19 @@ export function ExamSessionView({
 
   const handleClearSelection = (qNo: number) => {
     setAnswers((prev) => {
-      const current = prev[qNo] || { questionNo: qNo, selected: null };
+      const current = prev[qNo] || {
+        questionNo: qNo,
+        selected: null,
+        confidence: mode === "mock" ? "sure" : undefined,
+      };
       return {
         ...prev,
         [qNo]: {
           ...current,
           selected: null,
           isCorrect: null,
+          confidence:
+            current.confidence ?? (mode === "mock" ? "sure" : undefined),
         },
       };
     });
@@ -560,6 +594,7 @@ export function ExamSessionView({
 
       finalAnswers[i] = {
         ...a,
+        confidence: a.confidence ?? (mode === "mock" ? "sure" : undefined),
         correctAnswer: correctAns,
         explanation: paper.explanations?.[i],
         isCorrect,
@@ -628,6 +663,7 @@ export function ExamSessionView({
     questionNo: currentQuestion || 1,
     selected: null,
     flagged: false,
+    confidence: mode === "mock" ? "sure" : undefined,
     note: "",
   };
 
@@ -1058,7 +1094,7 @@ export function ExamSessionView({
                     <button
                       onClick={() => setShowNoteBox(!showNoteBox)}
                       className={`flex items-center gap-1 rounded-lg px-2 sm:px-2.5 py-1 text-xs font-semibold transition-all border ${
-                        currentQObj.note
+                        showNoteBox || currentQObj.note
                           ? "bg-indigo-50 text-indigo-700 border-indigo-200"
                           : "border-slate-200 bg-white text-slate-600 hover:bg-slate-50"
                       }`}
@@ -1103,30 +1139,35 @@ export function ExamSessionView({
                       Elimination Certainty:
                     </span>
                     <div className="flex items-center gap-1">
-                      {(["sure", "50-50", "guess"] as const).map((conf) => (
-                        <button
-                          key={conf}
-                          type="button"
-                          onClick={() =>
-                            handleSetConfidence(currentQuestion, conf)
-                          }
-                          className={`px-2 py-0.5 rounded-md text-[10px] sm:text-[11px] font-semibold transition-all border ${
-                            currentQObj.confidence === conf
-                              ? conf === "sure"
-                                ? "bg-emerald-100 border-emerald-400 text-emerald-800 font-bold shadow-2xs"
-                                : conf === "50-50"
-                                  ? "bg-amber-100 border-amber-400 text-amber-800 font-bold shadow-2xs"
-                                  : "bg-violet-100 border-violet-400 text-violet-800 font-bold shadow-2xs"
-                              : "bg-white border-slate-200 text-slate-600 hover:bg-slate-50"
-                          }`}
-                        >
-                          {conf === "sure"
-                            ? "🎯 Sure"
-                            : conf === "50-50"
-                              ? "⚖️ 50:50"
-                              : "🎲 Guess"}
-                        </button>
-                      ))}
+                      {(["sure", "50-50", "guess"] as const).map((conf) => {
+                        const isConfSelected =
+                          (currentQObj.confidence ??
+                            (mode === "mock" ? "sure" : undefined)) === conf;
+                        return (
+                          <button
+                            key={conf}
+                            type="button"
+                            onClick={() =>
+                              handleSetConfidence(currentQuestion, conf)
+                            }
+                            className={`px-2 py-0.5 rounded-md text-[10px] sm:text-[11px] font-semibold transition-all border ${
+                              isConfSelected
+                                ? conf === "sure"
+                                  ? "bg-emerald-100 border-emerald-400 text-emerald-800 font-bold shadow-2xs"
+                                  : conf === "50-50"
+                                    ? "bg-amber-100 border-amber-400 text-amber-800 font-bold shadow-2xs"
+                                    : "bg-violet-100 border-violet-400 text-violet-800 font-bold shadow-2xs"
+                                : "bg-white border-slate-200 text-slate-600 hover:bg-slate-50"
+                            }`}
+                          >
+                            {conf === "sure"
+                              ? "🎯 Sure"
+                              : conf === "50-50"
+                                ? "⚖️ 50:50"
+                                : "🎲 Guess"}
+                          </button>
+                        );
+                      })}
                     </div>
                   </div>
                 )}
