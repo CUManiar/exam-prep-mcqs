@@ -9,20 +9,21 @@ export function parseAnswerKeyDetailed(text: string): {
   if (!text) return { answers, explanations };
 
   // Supports:
-  // 1. a """ multiline or single line explanation""",
-  // 2. c """ some explanation""",
-  // and backward-compatible:
-  // 1. a,
-  // 2. c
-  // 1: A, 1) B, 1 - C
-  const pattern = /(\d+)[\.\)\s\-\:\t]+\s*([A-Da-d])(?:\s*"""([\s\S]*?)""")?/g;
+  // 1. a """ multiline or single line explanation """,
+  // 2. c """ some explanation """,
+  // Supports """ delimiter, 3+ quotes, smart/curly quotes [“"”], and backward-compatible formats
+  const pattern =
+    /(\d+)[\.\)\s\-\:\t]+\s*([A-Da-d])(?:\s*[\"“”]{3,}([\s\S]*?)[\"“”]{3,})?/g;
   let match: RegExpExecArray | null;
   while ((match = pattern.exec(text)) !== null) {
     const qNo = parseInt(match[1], 10);
     const ans = match[2].toUpperCase();
     answers[qNo] = ans;
     if (match[3] !== undefined) {
-      explanations[qNo] = match[3].trim();
+      const cleaned = match[3].replace(/^[\"“”\s]+|[\"“”\s,]+$/g, "").trim();
+      if (cleaned.length > 0) {
+        explanations[qNo] = cleaned;
+      }
     }
   }
   return { answers, explanations };

@@ -8,6 +8,7 @@ import {
   hasAnswerKey,
   hasSolution,
   parseAnswerKeyText,
+  parseAnswerKeyDetailed,
   isPaperFree,
   isUserUploadedPaper,
   getPaperDisplayTitle,
@@ -871,21 +872,33 @@ export function PapersView({
                           rows={6}
                           className="w-full rounded-xl border border-slate-200 bg-slate-50 p-3 font-mono text-xs text-slate-800 placeholder-slate-400 focus:outline-none focus:border-indigo-500 focus:bg-white"
                         />
-                        <div className="flex items-center justify-between text-[11px] text-slate-500 mt-1 font-mono">
-                          <span>
-                            Recognized:{" "}
-                            <strong className="text-emerald-700 font-bold">
-                              {
-                                Object.keys(parseAnswerKeyText(attachAkText))
-                                  .length
-                              }
-                            </strong>{" "}
-                            questions
-                          </span>
-                          <span>
-                            Target: {attachingPaper.totalQuestions} Questions
-                          </span>
-                        </div>
+                        {(() => {
+                          const detailed = parseAnswerKeyDetailed(attachAkText);
+                          const ansCount = Object.keys(detailed.answers).length;
+                          const expCount = Object.keys(
+                            detailed.explanations,
+                          ).length;
+                          return (
+                            <div className="flex flex-wrap items-center justify-between text-[11px] text-slate-500 mt-1 font-mono gap-1">
+                              <span>
+                                Recognized:{" "}
+                                <strong className="text-emerald-700 font-bold">
+                                  {ansCount}
+                                </strong>{" "}
+                                answers
+                                {expCount > 0 && (
+                                  <span className="ml-1.5 text-indigo-700 font-bold bg-indigo-50 border border-indigo-200 px-1.5 py-0.2 rounded">
+                                    💡 {expCount} explanations
+                                  </span>
+                                )}
+                              </span>
+                              <span>
+                                Target: {attachingPaper.totalQuestions}{" "}
+                                Questions
+                              </span>
+                            </div>
+                          );
+                        })()}
                       </div>
                     )}
                   </div>

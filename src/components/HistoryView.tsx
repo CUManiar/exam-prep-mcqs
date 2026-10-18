@@ -1,26 +1,24 @@
 "use client";
 
-import React, { useState, useMemo } from "react";
-import { Attempt } from "../lib/types";
-import { formatTimeSeconds, formatDateTime } from "../lib/defaults";
-import { useApp } from "../context/AppContext";
 import {
-  History,
-  Search,
-  Clock,
-  ArrowRight,
-  Download,
-  CheckCircle2,
   AlertTriangle,
-  ChevronRight,
   Award,
-  Target,
-  Zap,
-  RotateCcw,
-  TrendingUp,
-  Layers,
   Check,
+  CheckCircle2,
+  ChevronRight,
+  Clock,
+  History,
+  Layers,
+  RotateCcw,
+  Search,
+  Target,
+  TrendingUp,
+  Zap,
 } from "lucide-react";
+import { useMemo, useState } from "react";
+import { useApp } from "../context/AppContext";
+import { formatDateTime, formatTimeSeconds } from "../lib/defaults";
+import { Attempt } from "../lib/types";
 
 interface HistoryViewProps {
   attempts: Attempt[];
