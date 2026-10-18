@@ -16,6 +16,7 @@ import {
 } from "../lib/defaults";
 import { saveActiveDraft, clearActiveDraft } from "../lib/storage";
 import { DetailedSolutionModal } from "./DetailedSolutionModal";
+import { ConfirmationModal } from "./ConfirmationModal";
 import { PdfViewer } from "./PdfViewer";
 import {
   Clock,
@@ -39,6 +40,9 @@ import {
   Save,
   ArrowLeft,
   ArrowRight,
+  Maximize2,
+  Minimize2,
+  RotateCcw,
 } from "lucide-react";
 
 interface ExamSessionViewProps {
@@ -97,6 +101,64 @@ export function ExamSessionView({
   const [fullBookletName, setFullBookletName] = useState<string | undefined>(
     undefined,
   );
+
+  const [showExitConfirm, setShowExitConfirm] = useState<boolean>(false);
+  const [isFullscreen, setIsFullscreen] = useState<boolean>(false);
+
+  // Auto-request fullscreen for Mock Exam mode
+  useEffect(() => {
+    if (mode === "mock" && typeof document !== "undefined") {
+      const enterFull = async () => {
+        try {
+          if (
+            !document.fullscreenElement &&
+            document.documentElement.requestFullscreen
+          ) {
+            await document.documentElement.requestFullscreen();
+            setIsFullscreen(true);
+          }
+        } catch {
+          // Browser security policy might require explicit user gesture
+        }
+      };
+      enterFull();
+    }
+
+    const handleFullscreenChange = () => {
+      setIsFullscreen(!!document.fullscreenElement);
+    };
+    document.addEventListener("fullscreenchange", handleFullscreenChange);
+    return () =>
+      document.removeEventListener("fullscreenchange", handleFullscreenChange);
+  }, [mode]);
+
+  const toggleFullscreen = async () => {
+    try {
+      if (!document.fullscreenElement) {
+        await document.documentElement.requestFullscreen();
+        setIsFullscreen(true);
+      } else {
+        await document.exitFullscreen();
+        setIsFullscreen(false);
+      }
+    } catch {}
+  };
+
+  const handleAttemptExit = () => {
+    if (mode === "mock") {
+      setShowExitConfirm(true);
+    } else {
+      // Practice mode: allow smooth direct exit
+      onExit();
+    }
+  };
+
+  const handleConfirmExit = () => {
+    setShowExitConfirm(false);
+    // When user exits mock test midway, it is NOT counted in attempts
+    clearActiveDraft();
+    onExit();
+  };
 
   const timeLimitMinutes =
     paper.timeMinutes || getStandardTimeMinutes(paper.category, paper.examType);
@@ -676,8 +738,8 @@ export function ExamSessionView({
           {/* Exit, Pause & Title */}
           <div className="flex items-center gap-1.5 sm:gap-2 min-w-0">
             <button
-              onClick={onExit}
-              className="flex items-center gap-1 rounded-lg border border-slate-200 bg-white px-2 py-1 text-xs font-semibold text-slate-700 hover:bg-slate-50 transition-colors shrink-0 shadow-2xs"
+              onClick={handleAttemptExit}
+              className="flex items-center gap-1 rounded-lg border border-slate-200 bg-white px-2 py-1 text-xs font-semibold text-slate-700 hover:bg-slate-50 transition-colors shrink-0 shadow-2xs cursor-pointer"
             >
               ← Exit
             </button>
@@ -723,6 +785,30 @@ export function ExamSessionView({
 
           {/* Timer & Finish Button */}
           <div className="flex items-center gap-2 shrink-0">
+            {/* Fullscreen Toggle */}
+            <button
+              type="button"
+              onClick={toggleFullscreen}
+              title={
+                isFullscreen
+                  ? "Exit Fullscreen"
+                  : "Enter Fullscreen (UPSC Exam Mode)"
+              }
+              className="hidden sm:flex items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-2.5 py-1 text-xs font-semibold text-slate-700 hover:bg-slate-50 transition-colors shadow-2xs cursor-pointer"
+            >
+              {isFullscreen ? (
+                <>
+                  <Minimize2 className="h-3.5 w-3.5 text-slate-600" />
+                  <span className="hidden md:inline">Exit Full</span>
+                </>
+              ) : (
+                <>
+                  <Maximize2 className="h-3.5 w-3.5 text-slate-600" />
+                  <span className="hidden md:inline">Fullscreen</span>
+                </>
+              )}
+            </button>
+
             {/* Continuous Timer (HH:MM:SS format) */}
             <div
               className={`flex items-center gap-1.5 rounded-xl px-2.5 sm:px-3 py-1 font-mono text-xs sm:text-sm font-bold transition-all shadow-2xs ${
@@ -2033,6 +2119,18 @@ export function ExamSessionView({
           </div>
         </div>
       )}
+
+      {/* Exit Confirmation Modal for Ongoing Mock Exam */}
+      <ConfirmationModal
+        isOpen={showExitConfirm}
+        title="Exit Mock Exam?"
+        message="Are you sure you want to exit? Your exam is currently ongoing. Exiting midway will not count this as an attempt, and unfinished progress will be discarded."
+        confirmText="Exit Exam"
+        cancelText="Resume Test"
+        variant="warning"
+        onConfirm={handleConfirmExit}
+        onCancel={() => setShowExitConfirm(false)}
+      />
     </div>
   );
 }
