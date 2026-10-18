@@ -361,7 +361,10 @@ export function exportAttemptAsPrintPDF(
       ? Math.round(activeSolvingSeconds / attempt.answered)
       : 0);
 
-  const questionList = Array.from({ length: attempt.totalQuestions }, (_, i) => i + 1).map((qNo) => {
+  const questionList = Array.from(
+    { length: attempt.totalQuestions },
+    (_, i) => i + 1,
+  ).map((qNo) => {
     return (
       attempt.answers[qNo] || {
         questionNo: qNo,
@@ -377,12 +380,15 @@ export function exportAttemptAsPrintPDF(
     );
   });
 
-  const slowQuestions = questionList.filter((q) => (q.timeSpentSeconds || 0) >= 90);
+  const slowQuestions = questionList.filter(
+    (q) => (q.timeSpentSeconds || 0) >= 90,
+  );
   const avgTimeCorrect = attempt.avgTimeCorrect || 0;
   const avgTimeIncorrect = attempt.avgTimeIncorrect || 0;
-  const penaltyDragPct = grossCorrectMarks > 0
-    ? Math.round((negativePenaltyMarks / grossCorrectMarks) * 100)
-    : 0;
+  const penaltyDragPct =
+    grossCorrectMarks > 0
+      ? Math.round((negativePenaltyMarks / grossCorrectMarks) * 100)
+      : 0;
 
   // Build question rows
   const rows = Array.from({ length: attempt.totalQuestions }, (_, i) => i + 1)
@@ -572,11 +578,15 @@ export function exportAttemptAsPrintPDF(
         <span class="stat-label">Slow Questions (&gt;90s):</span>
         <span class="stat-val" style="color:${slowQuestions.length > 0 ? "#b45309" : "#64748b"};">${slowQuestions.length} questions</span>
       </div>
-      ${(attempt.alteredCount || 0) > 0 ? `
+      ${
+        (attempt.alteredCount || 0) > 0
+          ? `
       <div class="stat-row" style="border-top:1px dashed #cbd5e1;padding-top:2px;margin-top:2px;">
         <span class="stat-label">Answers Revised:</span>
         <span class="stat-val">${attempt.alteredCount} (${attempt.alteredBenefitCount || 0} beneficial, ${attempt.alteredHarmCount || 0} harmful)</span>
-      </div>` : ""}
+      </div>`
+          : ""
+      }
     </div>
   </div>
 

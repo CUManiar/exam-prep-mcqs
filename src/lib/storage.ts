@@ -351,13 +351,24 @@ export async function getAllPapers(): Promise<QuestionPaper[]> {
     papers.map(async (p) => {
       // If already populated, check if we need to parse explanations if missing
       if (p.answerKey && Object.keys(p.answerKey).length > 0) {
-        if (
-          (!p.explanations || Object.keys(p.explanations).length === 0) &&
-          p.answerKeyText
-        ) {
-          const detailed = parseAnswerKeyDetailed(p.answerKeyText);
-          if (Object.keys(detailed.explanations).length > 0) {
-            p.explanations = detailed.explanations;
+        if (!p.explanations || Object.keys(p.explanations).length === 0) {
+          if (p.answerKeyText) {
+            const detailed = parseAnswerKeyDetailed(p.answerKeyText);
+            if (Object.keys(detailed.explanations).length > 0) {
+              p.explanations = detailed.explanations;
+            }
+          } else if (p.akUrl) {
+            try {
+              const res = await fetch(p.akUrl);
+              if (res.ok) {
+                const text = await res.text();
+                p.answerKeyText = text;
+                const detailed = parseAnswerKeyDetailed(text);
+                if (Object.keys(detailed.explanations).length > 0) {
+                  p.explanations = detailed.explanations;
+                }
+              }
+            } catch {}
           }
         }
         return;

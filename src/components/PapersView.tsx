@@ -1,13 +1,14 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import { createPortal } from "react-dom";
-import { QuestionPaper } from "../lib/types";
+import { QuestionPaper, Attempt } from "../lib/types";
 import {
   SUPPORTED_YEARS,
   hasAnswerKey,
   hasSolution,
   parseAnswerKeyText,
+  parseAnswerKeyDetailed,
   isPaperFree,
   isUserUploadedPaper,
   getPaperDisplayTitle,
@@ -52,12 +53,15 @@ export function PapersView({
   onDeletePaper,
   onUpdatePaper,
 }: PapersViewProps) {
-  const { isPro, openProUpgradeModal } = useApp();
+  const { isPro, openProUpgradeModal, attempts = [] } = useApp();
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedCategory, setSelectedCategory] = useState<
     "all" | "prelims" | "mains" | "custom"
   >("all");
   const [selectedYear, setSelectedYear] = useState<string>("all");
+  const [selectedAttemptFilter, setSelectedAttemptFilter] = useState<
+    "all" | "attempted" | "unattempted" | "mock" | "practice"
+  >("all");
   const [mounted, setMounted] = useState(false);
   const [viewingSolutionPaper, setViewingSolutionPaper] =
     useState<QuestionPaper | null>(null);
@@ -176,6 +180,39 @@ export function PapersView({
 
   const customPapersCount = papers.filter(isUserUploadedPaper).length;
 
+  const attemptsByPaperId = useMemo(() => {
+    const map = new Map<string, Attempt[]>();
+    attempts.forEach((a) => {
+      const list = map.get(a.paperId) || [];
+      list.push(a);
+      map.set(a.paperId, list);
+    });
+    return map;
+  }, [attempts]);
+
+  const attemptedCount = useMemo(() => {
+    return papers.filter((p) => (attemptsByPaperId.get(p.id) || []).length > 0)
+      .length;
+  }, [papers, attemptsByPaperId]);
+
+  const unattemptedCount = useMemo(() => {
+    return papers.filter(
+      (p) => (attemptsByPaperId.get(p.id) || []).length === 0,
+    ).length;
+  }, [papers, attemptsByPaperId]);
+
+  const mockAttemptedCount = useMemo(() => {
+    return papers.filter((p) =>
+      (attemptsByPaperId.get(p.id) || []).some((a) => a.mode === "mock"),
+    ).length;
+  }, [papers, attemptsByPaperId]);
+
+  const practiceAttemptedCount = useMemo(() => {
+    return papers.filter((p) =>
+      (attemptsByPaperId.get(p.id) || []).some((a) => a.mode === "practice"),
+    ).length;
+  }, [papers, attemptsByPaperId]);
+
   const filteredPapers = papers.filter((p) => {
     let matchesCat = true;
     if (selectedCategory === "prelims")
@@ -191,7 +228,20 @@ export function PapersView({
     const matchesSearch =
       p.label.toLowerCase().includes(searchQuery.toLowerCase()) ||
       p.subject.toLowerCase().includes(searchQuery.toLowerCase());
-    return matchesCat && matchesYear && matchesSearch;
+
+    let matchesAttempt = true;
+    const paperAtts = attemptsByPaperId.get(p.id) || [];
+    if (selectedAttemptFilter === "attempted") {
+      matchesAttempt = paperAtts.length > 0;
+    } else if (selectedAttemptFilter === "unattempted") {
+      matchesAttempt = paperAtts.length === 0;
+    } else if (selectedAttemptFilter === "mock") {
+      matchesAttempt = paperAtts.some((a) => a.mode === "mock");
+    } else if (selectedAttemptFilter === "practice") {
+      matchesAttempt = paperAtts.some((a) => a.mode === "practice");
+    }
+
+    return matchesCat && matchesYear && matchesSearch && matchesAttempt;
   });
 
   return (
@@ -296,19 +346,39 @@ export function PapersView({
           </button>
         </div>
 
-        {/* Year Dropdown */}
-        <select
-          value={selectedYear}
-          onChange={(e) => setSelectedYear(e.target.value)}
-          className="cursor-pointer rounded-xl border border-slate-200 bg-white px-3.5 py-2 text-xs font-semibold text-slate-700 focus:outline-none focus:border-indigo-500 transition-colors shadow-xs"
-        >
-          <option value="all">All Years</option>
-          {SUPPORTED_YEARS.map((yr) => (
-            <option key={yr} value={yr}>
-              {yr}
+        {/* Dropdown Filters */}
+        <div className="flex items-center gap-2 flex-wrap">
+          {/* Attempt Filter Dropdown */}
+          <select
+            value={selectedAttemptFilter}
+            onChange={(e) => setSelectedAttemptFilter(e.target.value as any)}
+            className="cursor-pointer rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-700 focus:outline-none focus:border-indigo-500 transition-colors shadow-xs"
+          >
+            <option value="all">All Attempts ({papers.length})</option>
+            <option value="attempted">Attempted ({attemptedCount})</option>
+            <option value="unattempted">
+              Unattempted ({unattemptedCount})
             </option>
-          ))}
-        </select>
+            <option value="mock">Mock Only ({mockAttemptedCount})</option>
+            <option value="practice">
+              Practice Only ({practiceAttemptedCount})
+            </option>
+          </select>
+
+          {/* Year Dropdown */}
+          <select
+            value={selectedYear}
+            onChange={(e) => setSelectedYear(e.target.value)}
+            className="cursor-pointer rounded-xl border border-slate-200 bg-white px-3.5 py-2 text-xs font-semibold text-slate-700 focus:outline-none focus:border-indigo-500 transition-colors shadow-xs"
+          >
+            <option value="all">All Years</option>
+            {SUPPORTED_YEARS.map((yr) => (
+              <option key={yr} value={yr}>
+                {yr}
+              </option>
+            ))}
+          </select>
+        </div>
       </div>
 
       {/* Freemium Vault Announcement Banner */}
@@ -393,6 +463,16 @@ export function PapersView({
 
             const isLocked = !isPro && !isPaperFree(paper);
 
+            const paperAtts = attemptsByPaperId.get(paper.id) || [];
+            const mockAtts = paperAtts.filter((a) => a.mode === "mock");
+            const practiceAtts = paperAtts.filter((a) => a.mode === "practice");
+            const hasMock = mockAtts.length > 0;
+            const hasPractice = practiceAtts.length > 0;
+            const bestMock = mockAtts.reduce(
+              (best, cur) => (cur.score > (best?.score ?? -999) ? cur : best),
+              null as Attempt | null,
+            );
+
             return (
               <div
                 key={paper.id}
@@ -401,7 +481,7 @@ export function PapersView({
                 <div>
                   {/* Top Header Row: Year & Category Tag */}
                   <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-1.5 flex-wrap">
                       <span className="rounded-md bg-slate-100 px-2.5 py-0.5 text-xs font-bold text-slate-700 font-mono">
                         {paper.year}
                       </span>
@@ -434,11 +514,38 @@ export function PapersView({
                     </span>
                   </div>
 
-                  {/* Standardized Title Container */}
-                  <div className="mt-3 min-h-[44px] flex items-start">
-                    <h3 className="text-base font-bold text-slate-900 group-hover:text-indigo-600 transition-colors leading-snug line-clamp-2">
+                  {/* Standardized Title Container with Circular Attempt Chips */}
+                  <div className="mt-3 min-h-[44px] flex items-start gap-2">
+                    <h3 className="text-base font-bold text-slate-900 group-hover:text-indigo-600 transition-colors leading-snug line-clamp-2 flex-1">
                       {getPaperDisplayTitle(paper)}
                     </h3>
+
+                    {/* Circular Attempt Chips Beside Title */}
+                    <div className="flex items-center gap-1 shrink-0 mt-0.5">
+                      {hasMock && (
+                        <span
+                          title={`Mock Attempted: ${mockAtts.length} ${mockAtts.length === 1 ? "time" : "times"}${bestMock ? ` • Best Score: ${bestMock.score}/${paper.totalMarks}` : ""}`}
+                          className="inline-flex items-center justify-center gap-0.5 px-2 h-6 rounded-full bg-indigo-600 text-white text-[11px] font-extrabold shadow-xs shadow-indigo-600/30 cursor-default select-none animate-in zoom-in-75"
+                        >
+                          <span className="text-[9px] font-bold uppercase tracking-wider text-indigo-200">
+                            M
+                          </span>
+                          <span>{mockAtts.length}</span>
+                        </span>
+                      )}
+
+                      {hasPractice && (
+                        <span
+                          title={`Practiced: ${practiceAtts.length} ${practiceAtts.length === 1 ? "session" : "sessions"}`}
+                          className="inline-flex items-center justify-center gap-0.5 px-2 h-6 rounded-full bg-emerald-600 text-white text-[11px] font-extrabold shadow-xs shadow-emerald-600/30 cursor-default select-none animate-in zoom-in-75"
+                        >
+                          <span className="text-[9px] font-bold uppercase tracking-wider text-emerald-200">
+                            P
+                          </span>
+                          <span>{practiceAtts.length}</span>
+                        </span>
+                      )}
+                    </div>
                   </div>
 
                   {/* Meta details */}
@@ -765,21 +872,33 @@ export function PapersView({
                           rows={6}
                           className="w-full rounded-xl border border-slate-200 bg-slate-50 p-3 font-mono text-xs text-slate-800 placeholder-slate-400 focus:outline-none focus:border-indigo-500 focus:bg-white"
                         />
-                        <div className="flex items-center justify-between text-[11px] text-slate-500 mt-1 font-mono">
-                          <span>
-                            Recognized:{" "}
-                            <strong className="text-emerald-700 font-bold">
-                              {
-                                Object.keys(parseAnswerKeyText(attachAkText))
-                                  .length
-                              }
-                            </strong>{" "}
-                            questions
-                          </span>
-                          <span>
-                            Target: {attachingPaper.totalQuestions} Questions
-                          </span>
-                        </div>
+                        {(() => {
+                          const detailed = parseAnswerKeyDetailed(attachAkText);
+                          const ansCount = Object.keys(detailed.answers).length;
+                          const expCount = Object.keys(
+                            detailed.explanations,
+                          ).length;
+                          return (
+                            <div className="flex flex-wrap items-center justify-between text-[11px] text-slate-500 mt-1 font-mono gap-1">
+                              <span>
+                                Recognized:{" "}
+                                <strong className="text-emerald-700 font-bold">
+                                  {ansCount}
+                                </strong>{" "}
+                                answers
+                                {expCount > 0 && (
+                                  <span className="ml-1.5 text-indigo-700 font-bold bg-indigo-50 border border-indigo-200 px-1.5 py-0.2 rounded">
+                                    💡 {expCount} explanations
+                                  </span>
+                                )}
+                              </span>
+                              <span>
+                                Target: {attachingPaper.totalQuestions}{" "}
+                                Questions
+                              </span>
+                            </div>
+                          );
+                        })()}
                       </div>
                     )}
                   </div>
