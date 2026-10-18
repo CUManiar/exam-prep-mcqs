@@ -1,8 +1,14 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useMemo } from "react";
 import { QuestionPaper, ExamType } from "../lib/types";
-import { SUPPORTED_YEARS, hasAnswerKey, hasSolution } from "../lib/defaults";
+import {
+  SUPPORTED_YEARS,
+  hasAnswerKey,
+  hasSolution,
+  getPaperDisplayTitle,
+  isUserUploadedPaper,
+} from "../lib/defaults";
 import { saveCustomPaper, attachToPaperOnServer } from "../lib/storage";
 import { useApp } from "../context/AppContext";
 import {
@@ -20,6 +26,9 @@ import {
   Paperclip,
   RefreshCw,
   Zap,
+  Search,
+  ChevronDown,
+  X,
 } from "lucide-react";
 
 interface UploadViewProps {
@@ -48,6 +57,9 @@ export function UploadView({
   const [customTotalQuestions, setCustomTotalQuestions] = useState<string>("");
   const [customPositiveMarks, setCustomPositiveMarks] = useState<string>("");
   const [customNegativeMarks, setCustomNegativeMarks] = useState<string>("");
+  const [customTotalMarks, setCustomTotalMarks] = useState<string>("");
+  const [customTotalMarksEdited, setCustomTotalMarksEdited] =
+    useState<boolean>(false);
   const [customTimeMinutes, setCustomTimeMinutes] = useState<string>("");
   const [customQpFile, setCustomQpFile] = useState<File | null>(null);
   const [customAkMode, setCustomAkMode] = useState<"upload" | "paste">("paste");
@@ -59,6 +71,28 @@ export function UploadView({
   const [selectedPaperId, setSelectedPaperId] = useState<string>(
     papers[0]?.id || "",
   );
+  const [paperSearchQuery, setPaperSearchQuery] = useState<string>("");
+  const [isSearchSelectOpen, setIsSearchSelectOpen] = useState<boolean>(false);
+
+  // Filtered papers for Search-Select component in Update mode
+  const filteredUpdatePapers = useMemo(() => {
+    if (!paperSearchQuery.trim()) return papers;
+    const q = paperSearchQuery.toLowerCase().trim();
+    return papers.filter((p) => {
+      const displayTitle = getPaperDisplayTitle(p).toLowerCase();
+      const label = (p.label || "").toLowerCase();
+      const subject = (p.subject || "").toLowerCase();
+      const year = (p.year || "").toLowerCase();
+      const id = (p.id || "").toLowerCase();
+      return (
+        displayTitle.includes(q) ||
+        label.includes(q) ||
+        subject.includes(q) ||
+        year.includes(q) ||
+        id.includes(q)
+      );
+    });
+  }, [papers, paperSearchQuery]);
 
   // Preset Mode: Step 1 Exam Type
   const [examType, setExamType] = useState<ExamType>("objective");
@@ -132,6 +166,38 @@ export function UploadView({
     } else {
       handlePresetChange("Mains GS I");
     }
+  };
+
+  // Fast custom paper handlers with automatic Total Marks calculation (user can override)
+  const handleCustomQuestionsChange = (val: string) => {
+    setCustomTotalQuestions(val);
+    if (!customTotalMarksEdited) {
+      const q = parseFloat(val);
+      const pos = parseFloat(customPositiveMarks);
+      if (!isNaN(q) && q > 0 && !isNaN(pos) && pos > 0) {
+        setCustomTotalMarks(String(Math.round(q * pos * 10) / 10));
+      } else if (!val) {
+        setCustomTotalMarks("");
+      }
+    }
+  };
+
+  const handleCustomPositiveMarksChange = (val: string) => {
+    setCustomPositiveMarks(val);
+    if (!customTotalMarksEdited) {
+      const q = parseFloat(customTotalQuestions);
+      const pos = parseFloat(val);
+      if (!isNaN(q) && q > 0 && !isNaN(pos) && pos > 0) {
+        setCustomTotalMarks(String(Math.round(q * pos * 10) / 10));
+      } else if (!val) {
+        setCustomTotalMarks("");
+      }
+    }
+  };
+
+  const handleCustomTotalMarksChange = (val: string) => {
+    setCustomTotalMarksEdited(true);
+    setCustomTotalMarks(val);
   };
 
   // Load selected paper data into form when in Update mode
@@ -212,7 +278,12 @@ export function UploadView({
       );
       formData.append(
         "totalMarks",
-        String(totalMarks || (examType === "objective" ? 200 : 250)),
+        String(
+          totalMarks ||
+            (examType === "objective"
+              ? (totalQuestions || 100) * (correctMarks || 2)
+              : 250),
+        ),
       );
       formData.append(
         "correctMarks",
@@ -328,6 +399,12 @@ export function UploadView({
       const identifier = `${slug}_${Date.now().toString(36)}`;
       const curYear = String(new Date().getFullYear());
 
+      const parsedTotalMarks = parseFloat(customTotalMarks);
+      const finalTotalMarks =
+        !isNaN(parsedTotalMarks) && parsedTotalMarks > 0
+          ? parsedTotalMarks
+          : Math.round(qCount * posMarks * 10) / 10 || 100;
+
       const formData = new FormData();
       formData.append("year", curYear);
       formData.append("identifier", name);
@@ -336,10 +413,7 @@ export function UploadView({
       formData.append("label", name);
       formData.append("title", name);
       formData.append("totalQuestions", String(qCount));
-      formData.append(
-        "totalMarks",
-        String(Math.round(qCount * posMarks * 10) / 10),
-      );
+      formData.append("totalMarks", String(finalTotalMarks));
       formData.append("correctMarks", String(posMarks));
       formData.append("incorrectMarks", String(negMarks));
       formData.append("timeMinutes", String(time));
@@ -542,21 +616,137 @@ export function UploadView({
       {viewMode === "update" && (
         <div className="space-y-6">
           <div className="bi-card p-6 space-y-4">
-            <div>
+            <div className="relative">
               <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-2">
                 Select Paper to Update or Correct
               </label>
-              <select
-                value={selectedPaperId}
-                onChange={(e) => handleSelectPaperToUpdate(e.target.value)}
-                className="cursor-pointer w-full rounded-xl border border-slate-200 bg-slate-50 px-3.5 py-2.5 text-xs font-semibold text-slate-800 focus:outline-none focus:border-indigo-500 focus:bg-white"
+
+              {/* Search-Select Interactive Trigger */}
+              <button
+                type="button"
+                onClick={() => setIsSearchSelectOpen((prev) => !prev)}
+                className="cursor-pointer w-full flex items-center justify-between rounded-xl border border-slate-300 bg-white hover:bg-slate-50/80 px-4 py-3 text-xs font-semibold text-slate-800 transition-all focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 shadow-2xs"
               >
-                {papers.map((p) => (
-                  <option key={p.id} value={p.id}>
-                    {p.label} ({p.year} • {p.subject} • {p.totalQuestions} Qs)
-                  </option>
-                ))}
-              </select>
+                <div className="flex items-center gap-2.5 min-w-0">
+                  <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-indigo-50 text-indigo-600 shrink-0 border border-indigo-100">
+                    <FileText className="h-4 w-4" />
+                  </div>
+                  <div className="text-left truncate">
+                    {currentSelectedPaper ? (
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className="font-bold text-slate-900 text-xs">
+                          {getPaperDisplayTitle(currentSelectedPaper)}
+                        </span>
+                        <span className="text-[10px] font-mono font-medium px-2 py-0.5 rounded-full bg-slate-100 text-slate-600 border border-slate-200">
+                          {currentSelectedPaper.year} • {currentSelectedPaper.subject} • {currentSelectedPaper.totalQuestions} Qs
+                        </span>
+                        {isUserUploadedPaper(currentSelectedPaper) && (
+                          <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-50 text-amber-700 border border-amber-200">
+                            User Paper
+                          </span>
+                        )}
+                      </div>
+                    ) : (
+                      <span className="text-slate-400 font-normal">
+                        Click to search and select a paper...
+                      </span>
+                    )}
+                  </div>
+                </div>
+                <div className="flex items-center gap-1.5 shrink-0 text-slate-400">
+                  <ChevronDown
+                    className={`h-4 w-4 transition-transform duration-200 ${
+                      isSearchSelectOpen ? "rotate-180 text-indigo-600" : ""
+                    }`}
+                  />
+                </div>
+              </button>
+
+              {/* Search-Select Popover Menu */}
+              {isSearchSelectOpen && (
+                <>
+                  <div
+                    className="fixed inset-0 z-30"
+                    onClick={() => setIsSearchSelectOpen(false)}
+                  />
+                  <div className="absolute left-0 right-0 top-full mt-1.5 z-40 rounded-2xl border border-slate-200 bg-white p-2.5 shadow-xl animate-in fade-in duration-150">
+                    {/* Live search input filter */}
+                    <div className="relative mb-2">
+                      <Search className="absolute left-3 top-2.5 h-3.5 w-3.5 text-slate-400" />
+                      <input
+                        type="text"
+                        autoFocus
+                        value={paperSearchQuery}
+                        onChange={(e) => setPaperSearchQuery(e.target.value)}
+                        placeholder="Search paper name, subject, year..."
+                        className="w-full rounded-xl border border-slate-200 bg-slate-50 pl-9 pr-8 py-2 text-xs text-slate-800 placeholder:text-slate-400 focus:outline-none focus:bg-white focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500"
+                      />
+                      {paperSearchQuery && (
+                        <button
+                          type="button"
+                          onClick={() => setPaperSearchQuery("")}
+                          className="cursor-pointer absolute right-2.5 top-2.5 text-slate-400 hover:text-slate-600"
+                        >
+                          <X className="h-3.5 w-3.5" />
+                        </button>
+                      )}
+                    </div>
+
+                    {/* Filtered List of Papers */}
+                    <div className="max-h-64 overflow-y-auto space-y-1 pr-1">
+                      {filteredUpdatePapers.length === 0 ? (
+                        <div className="py-6 text-center text-xs text-slate-400">
+                          No papers found matching &quot;{paperSearchQuery}&quot;
+                        </div>
+                      ) : (
+                        filteredUpdatePapers.map((p) => {
+                          const isSelected = p.id === selectedPaperId;
+                          const isUser = isUserUploadedPaper(p);
+                          return (
+                            <button
+                              key={p.id}
+                              type="button"
+                              onClick={() => {
+                                handleSelectPaperToUpdate(p.id);
+                                setIsSearchSelectOpen(false);
+                                setPaperSearchQuery("");
+                              }}
+                              className={`cursor-pointer w-full flex items-center justify-between rounded-xl px-3 py-2.5 text-left text-xs transition-colors ${
+                                isSelected
+                                  ? "bg-indigo-50/90 text-indigo-900 font-bold border border-indigo-200"
+                                  : "hover:bg-slate-50 text-slate-700 border border-transparent"
+                              }`}
+                            >
+                              <div className="min-w-0 pr-2">
+                                <div className="flex items-center gap-2 flex-wrap">
+                                  <span className="font-semibold text-slate-900">
+                                    {getPaperDisplayTitle(p)}
+                                  </span>
+                                  {isUser ? (
+                                    <span className="text-[10px] font-bold px-1.5 py-0.2 rounded-md bg-amber-50 text-amber-700 border border-amber-200">
+                                      User Upload
+                                    </span>
+                                  ) : (
+                                    <span className="text-[10px] font-mono px-1.5 py-0.2 rounded-md bg-slate-100 text-slate-600 border border-slate-200">
+                                      {p.category.toUpperCase()}
+                                    </span>
+                                  )}
+                                </div>
+                                <div className="text-[11px] text-slate-500 font-normal mt-0.5">
+                                  {p.year} • {p.subject} • {p.totalQuestions} Qs • {p.timeMinutes || 120} mins
+                                </div>
+                              </div>
+                              {isSelected && (
+                                <Check className="h-4 w-4 text-indigo-600 shrink-0 ml-2" />
+                              )}
+                            </button>
+                          );
+                        })
+                      )}
+                    </div>
+                  </div>
+                </>
+              )}
             </div>
 
             {currentSelectedPaper && (
@@ -730,13 +920,18 @@ export function UploadView({
                         />
                       </label>
                     ) : (
-                      <textarea
-                        value={akText}
-                        onChange={(e) => setAkText(e.target.value)}
-                        placeholder={`1. a\n2. c\n3. d\n4. b\n...\n100. a`}
-                        rows={5}
-                        className="w-full rounded-xl border border-slate-200 bg-white p-3 font-mono text-xs text-slate-800 placeholder-slate-400 focus:outline-none focus:border-indigo-500 shadow-2xs"
-                      />
+                      <div className="space-y-1.5">
+                        <textarea
+                          value={akText}
+                          onChange={(e) => setAkText(e.target.value)}
+                          placeholder={`1. a,\n2. c """ Explanations can be enclosed in triple quotes """,\n3. d,\n4. b """ multiline\nexplanation also supported """`}
+                          rows={6}
+                          className="w-full rounded-xl border border-slate-200 bg-white p-3 font-mono text-xs text-slate-800 placeholder-slate-400 focus:outline-none focus:border-indigo-500 shadow-2xs leading-relaxed"
+                        />
+                        <p className="text-[11px] text-slate-500 leading-relaxed">
+                          Format: <code className="font-mono bg-slate-100 text-slate-700 px-1 py-0.5 rounded text-[10px]">1. a,</code> or with explanation: <code className="font-mono bg-slate-100 text-slate-700 px-1 py-0.5 rounded text-[10px]">1. a &quot;&quot;&quot; optional explanation &quot;&quot;&quot;,</code>
+                        </p>
+                      </div>
                     )}
                   </div>
                 )}
@@ -908,7 +1103,8 @@ export function UploadView({
                     Fast Custom Practice Paper
                   </h2>
                   <p className="text-xs text-slate-500">
-                    Direct practice upload. Name, total questions, positive & negative marking — no presets, nothing prefilled.
+                    Direct practice upload. Name, total questions, positive &
+                    negative marking — no presets, nothing prefilled.
                   </p>
                 </div>
               </div>
@@ -930,8 +1126,8 @@ export function UploadView({
               />
             </div>
 
-            {/* Rules Grid: Total Questions, Positive Marks, Negative Marks, Time */}
-            <div className="grid grid-cols-1 sm:grid-cols-4 gap-4 pt-1">
+            {/* Rules Grid: Total Questions, Positive Marks, Negative Marks, Total Marks, Time */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4 pt-1">
               <div>
                 <label className="block text-xs font-bold text-slate-700 mb-1.5">
                   Total Questions <span className="text-rose-500">*</span>
@@ -941,7 +1137,7 @@ export function UploadView({
                   min="1"
                   max="500"
                   value={customTotalQuestions}
-                  onChange={(e) => setCustomTotalQuestions(e.target.value)}
+                  onChange={(e) => handleCustomQuestionsChange(e.target.value)}
                   placeholder="e.g. 100"
                   className="w-full rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 text-xs font-mono text-slate-800 placeholder-slate-400 focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 shadow-xs"
                   required
@@ -959,7 +1155,9 @@ export function UploadView({
                   type="number"
                   step="any"
                   value={customPositiveMarks}
-                  onChange={(e) => setCustomPositiveMarks(e.target.value)}
+                  onChange={(e) =>
+                    handleCustomPositiveMarksChange(e.target.value)
+                  }
                   placeholder="e.g. 2"
                   className="w-full rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 text-xs font-mono text-slate-800 placeholder-slate-400 focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 shadow-xs"
                   required
@@ -989,7 +1187,26 @@ export function UploadView({
 
               <div>
                 <label className="block text-xs font-bold text-slate-700 mb-1.5">
-                  Time (Minutes) <span className="text-slate-400 font-normal">(Opt)</span>
+                  Total Marks <span className="text-rose-500">*</span>
+                </label>
+                <input
+                  type="number"
+                  step="any"
+                  value={customTotalMarks}
+                  onChange={(e) => handleCustomTotalMarksChange(e.target.value)}
+                  placeholder="e.g. 200 or 100"
+                  className="w-full rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 text-xs font-mono text-slate-800 placeholder-slate-400 focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 shadow-xs"
+                  required
+                />
+                <span className="text-[10px] text-slate-400 mt-1 block">
+                  Max marks (customizable)
+                </span>
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-slate-700 mb-1.5">
+                  Time (Minutes){" "}
+                  <span className="text-slate-400 font-normal">(Opt)</span>
                 </label>
                 <input
                   type="number"
@@ -1005,20 +1222,34 @@ export function UploadView({
             </div>
 
             {/* Live Calculation Preview Banner */}
-            {Boolean(customTotalQuestions && customPositiveMarks) && (
+            {Boolean(customTotalQuestions && (customPositiveMarks || customTotalMarks)) && (
               <div className="flex items-center gap-3 p-3 rounded-xl bg-indigo-50/70 border border-indigo-100 text-xs text-indigo-900">
                 <Check className="h-4 w-4 text-indigo-600 shrink-0" />
                 <div className="flex items-center gap-2 flex-wrap">
-                  <span className="font-semibold">Calculated Total Marks:</span>
+                  <span className="font-semibold">Paper Scoring Scheme:</span>
                   <span className="font-mono font-bold text-indigo-700 bg-white px-2 py-0.5 rounded border border-indigo-200">
-                    {Math.round(Number(customTotalQuestions) * Number(customPositiveMarks) * 10) / 10} Marks
+                    {customTotalMarks ||
+                      Math.round(
+                        Number(customTotalQuestions) *
+                          Number(customPositiveMarks) *
+                          10,
+                      ) / 10 ||
+                      0}{" "}
+                    Total Marks
                   </span>
                   <span className="text-slate-400">•</span>
                   <span>{customTotalQuestions} MCQs</span>
                   <span className="text-slate-400">•</span>
-                  <span>+{customPositiveMarks} / -{customNegativeMarks || 0}</span>
+                  <span>
+                    +{customPositiveMarks || 0} / -{customNegativeMarks || 0}
+                  </span>
                   <span className="text-slate-400">•</span>
                   <span>{customTimeMinutes || 120} Mins</span>
+                  {customTotalMarksEdited && (
+                    <span className="text-[10px] font-semibold text-amber-700 bg-amber-50 px-2 py-0.5 rounded border border-amber-200">
+                      User Defined
+                    </span>
+                  )}
                 </div>
               </div>
             )}
@@ -1048,7 +1279,9 @@ export function UploadView({
                 <label className="cursor-pointer flex flex-col items-center justify-center rounded-xl border border-dashed border-slate-300 bg-white p-4 text-center hover:border-indigo-500 hover:bg-slate-50 transition-colors shadow-2xs">
                   <FileUp className="h-6 w-6 text-indigo-600 mb-1" />
                   <span className="text-xs font-bold text-slate-700 truncate max-w-[220px]">
-                    {customQpFile ? customQpFile.name : "Choose Question Paper PDF"}
+                    {customQpFile
+                      ? customQpFile.name
+                      : "Choose Question Paper PDF"}
                   </span>
                   <span className="text-[10px] text-slate-400 mt-0.5">
                     {customQpFile
@@ -1058,7 +1291,9 @@ export function UploadView({
                   <input
                     type="file"
                     accept=".pdf"
-                    onChange={(e) => setCustomQpFile(e.target.files?.[0] || null)}
+                    onChange={(e) =>
+                      setCustomQpFile(e.target.files?.[0] || null)
+                    }
                     className="hidden"
                   />
                 </label>
@@ -1091,7 +1326,9 @@ export function UploadView({
                   <input
                     type="file"
                     accept=".pdf"
-                    onChange={(e) => setCustomExsFile(e.target.files?.[0] || null)}
+                    onChange={(e) =>
+                      setCustomExsFile(e.target.files?.[0] || null)
+                    }
                     className="hidden"
                   />
                 </label>
@@ -1111,7 +1348,8 @@ export function UploadView({
                     </span>
                   </div>
                   <p className="text-[11px] text-slate-500 mt-0.5">
-                    Enables immediate correct/wrong answers feedback during Practice mode & auto-evaluation.
+                    Enables immediate correct/wrong answers feedback during
+                    Practice mode & auto-evaluation.
                   </p>
                 </div>
 
@@ -1146,23 +1384,32 @@ export function UploadView({
                 <label className="cursor-pointer flex items-center justify-center gap-2 rounded-xl border border-dashed border-slate-300 bg-white p-4 text-xs font-semibold text-slate-700 hover:border-slate-500 shadow-2xs">
                   <FileUp className="h-4 w-4 text-slate-500" />
                   <span>
-                    {customAkFile ? customAkFile.name : "Select .txt answer key file"}
+                    {customAkFile
+                      ? customAkFile.name
+                      : "Select .txt answer key file"}
                   </span>
                   <input
                     type="file"
                     accept=".txt"
-                    onChange={(e) => setCustomAkFile(e.target.files?.[0] || null)}
+                    onChange={(e) =>
+                      setCustomAkFile(e.target.files?.[0] || null)
+                    }
                     className="hidden"
                   />
                 </label>
               ) : (
-                <textarea
-                  value={customAkText}
-                  onChange={(e) => setCustomAkText(e.target.value)}
-                  placeholder={"1. A\n2. C\n3. D\n4. B\n...\n100. A"}
-                  rows={4}
-                  className="w-full rounded-xl border border-slate-200 bg-white p-3 font-mono text-xs text-slate-800 placeholder-slate-400 focus:outline-none focus:border-indigo-500 shadow-2xs"
-                />
+                <div className="space-y-1.5">
+                  <textarea
+                    value={customAkText}
+                    onChange={(e) => setCustomAkText(e.target.value)}
+                    placeholder={`1. a,\n2. c """ Explanations can be enclosed in triple quotes """,\n3. d,\n4. b """ multiline\nexplanation also supported """`}
+                    rows={5}
+                    className="w-full rounded-xl border border-slate-200 bg-white p-3 font-mono text-xs text-slate-800 placeholder-slate-400 focus:outline-none focus:border-indigo-500 shadow-2xs leading-relaxed"
+                  />
+                  <p className="text-[11px] text-slate-500 leading-relaxed">
+                    Format: <code className="font-mono bg-slate-100 text-slate-700 px-1 py-0.5 rounded text-[10px]">1. a,</code> or with explanation: <code className="font-mono bg-slate-100 text-slate-700 px-1 py-0.5 rounded text-[10px]">1. a &quot;&quot;&quot; optional explanation &quot;&quot;&quot;,</code>
+                  </p>
+                </div>
               )}
             </div>
           </div>
@@ -1182,7 +1429,9 @@ export function UploadView({
               className="cursor-pointer flex items-center gap-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 px-6 py-2.5 text-xs font-bold text-white shadow-xs disabled:opacity-40 transition-all"
             >
               <UploadCloud className="h-4 w-4" />
-              {isSubmitting ? "Saving Paper..." : "Save Custom Paper & Start Practice"}
+              {isSubmitting
+                ? "Saving Paper..."
+                : "Save Custom Paper & Start Practice"}
             </button>
           </div>
         </form>

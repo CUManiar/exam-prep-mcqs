@@ -561,6 +561,7 @@ export function ExamSessionView({
       finalAnswers[i] = {
         ...a,
         correctAnswer: correctAns,
+        explanation: paper.explanations?.[i],
         isCorrect,
         timeSpentSeconds: spentSecs,
       };
@@ -1418,6 +1419,13 @@ export function ExamSessionView({
                             <BookOpen className="h-3 w-3 text-indigo-600" />
                             View Solution Key
                           </button>
+                        )}
+
+                        {paper.explanations?.[currentQuestion] && (
+                          <div className="w-full mt-2 pt-2 border-t border-slate-200/60 text-slate-800 bg-white/80 rounded-lg p-2.5 text-xs leading-relaxed font-normal whitespace-pre-wrap">
+                            <span className="font-bold text-slate-900 block mb-0.5">💡 Explanation & Key Concepts:</span>
+                            {paper.explanations[currentQuestion]}
+                          </div>
                         )}
                       </div>
                     );

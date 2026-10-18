@@ -2,7 +2,11 @@ import { NextRequest, NextResponse } from "next/server";
 import fs from "node:fs";
 import path from "node:path";
 import { QuestionPaper, ExamCategory, ExamType } from "../../../lib/types";
-import { INITIAL_PAPERS, getStandardTimeMinutes, formatCustomIdentifier } from "../../../lib/defaults";
+import {
+  INITIAL_PAPERS,
+  getStandardTimeMinutes,
+  formatCustomIdentifier,
+} from "../../../lib/defaults";
 import {
   readJsonStore,
   writeJsonStore,

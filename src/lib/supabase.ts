@@ -303,11 +303,17 @@ export async function fetchUserCustomPapersFromSupabase(
         subject: row.subject || paperLabel,
         label: paperLabel,
         title: paperLabel,
-        totalQuestions: row.total_questions || 100,
-        totalMarks: Number(row.total_marks) || 200,
+        totalQuestions: Number(row.total_questions) || 100,
+        totalMarks:
+          row.total_marks !== undefined &&
+          row.total_marks !== null &&
+          !isNaN(Number(row.total_marks)) &&
+          Number(row.total_marks) > 0
+            ? Number(row.total_marks)
+            : (Number(row.total_questions) || 0) * (Number(row.correct_marks) || 1) || 100,
         correctMarks: Number(row.correct_marks) || 2.0,
         incorrectMarks: Number(row.incorrect_marks) || 0.667,
-        timeMinutes: row.time_minutes || 120,
+        timeMinutes: Number(row.time_minutes) || 120,
         qpUrl: row.qp_url,
         akUrl: row.ak_url || undefined,
         exsUrl: row.exs_url || undefined,
@@ -331,7 +337,8 @@ export async function saveUserCustomPaperToSupabase(
   const supabase = getSupabaseClient();
   if (!supabase) return false;
   try {
-    const paperTitle = paper.label || paper.title || `${paper.year} – ${paper.subject}`;
+    const paperTitle =
+      paper.label || paper.title || `${paper.year} – ${paper.subject}`;
     const { error } = await supabase.from("custom_papers").upsert({
       id: paper.id,
       user_id: userId,

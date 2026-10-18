@@ -143,8 +143,10 @@ export function DashboardView({
   // Filter papers
   const filteredPapers = papers.filter((p) => {
     let matchesTab = true;
-    if (activeTab === "prelims") matchesTab = p.category === "prelims" && !isUserUploadedPaper(p);
-    else if (activeTab === "mains") matchesTab = p.category === "mains" && !isUserUploadedPaper(p);
+    if (activeTab === "prelims")
+      matchesTab = p.category === "prelims" && !isUserUploadedPaper(p);
+    else if (activeTab === "mains")
+      matchesTab = p.category === "mains" && !isUserUploadedPaper(p);
     else if (activeTab === "custom") matchesTab = isUserUploadedPaper(p);
 
     const matchesSearch =
@@ -800,7 +802,9 @@ export function DashboardView({
                   No User Uploaded Papers Found
                 </h3>
                 <p className="text-xs text-slate-500 mt-1 max-w-sm mx-auto">
-                  You haven&apos;t uploaded any custom papers yet. Upload mock test papers or coaching practice tests with custom marking rules anytime.
+                  You haven&apos;t uploaded any custom papers yet. Upload mock
+                  test papers or coaching practice tests with custom marking
+                  rules anytime.
                 </p>
                 <div className="mt-4">
                   <button
@@ -823,7 +827,8 @@ export function DashboardView({
                   No question papers match your filter
                 </h3>
                 <p className="text-xs text-slate-500 mt-1">
-                  Try adjusting your search query or selecting &quot;All Papers&quot;.
+                  Try adjusting your search query or selecting &quot;All
+                  Papers&quot;.
                 </p>
               </>
             )}
@@ -857,121 +862,121 @@ export function DashboardView({
                       </span>
                     </div>
 
-                  <h3 className="text-sm font-bold text-slate-900 mt-2.5 group-hover:text-indigo-600 transition-colors line-clamp-1">
-                    {getPaperDisplayTitle(paper)}
-                  </h3>
+                    <h3 className="text-sm font-bold text-slate-900 mt-2.5 group-hover:text-indigo-600 transition-colors line-clamp-1">
+                      {getPaperDisplayTitle(paper)}
+                    </h3>
 
-                  <div className="mt-1 flex items-center gap-2 text-xs text-slate-500">
-                    <span className="font-medium">
-                      {paper.totalQuestions} Questions
-                    </span>
-                    <span className="text-slate-300">•</span>
-                    <span>{paper.timeMinutes} Mins</span>
-                    <span className="text-slate-300">•</span>
-                    <span>{paper.totalMarks} Marks</span>
-                  </div>
+                    <div className="mt-1 flex items-center gap-2 text-xs text-slate-500">
+                      <span className="font-medium">
+                        {paper.totalQuestions} Questions
+                      </span>
+                      <span className="text-slate-300">•</span>
+                      <span>{paper.timeMinutes} Mins</span>
+                      <span className="text-slate-300">•</span>
+                      <span>{paper.totalMarks} Marks</span>
+                    </div>
 
-                  {/* Key & Solution status badges */}
-                  <div className="mt-3 flex items-center gap-2 flex-wrap">
-                    {paper.examType === "objective" &&
-                      (keyPresent ? (
-                        <span className="inline-flex items-center gap-1.5 text-[11px] font-semibold text-emerald-700 bg-emerald-50 border border-emerald-200/60 px-2.5 py-0.5 rounded-full">
-                          <CheckCircle2 className="h-3 w-3 text-emerald-600" />{" "}
-                          Key Available
-                        </span>
-                      ) : (
-                        <span className="inline-flex items-center gap-1.5 text-[11px] font-semibold text-amber-700 bg-amber-50 border border-amber-200/60 px-2.5 py-0.5 rounded-full">
-                          <AlertCircle className="h-3 w-3 text-amber-600" /> Key
-                          Needed
-                        </span>
-                      ))}
+                    {/* Key & Solution status badges */}
+                    <div className="mt-3 flex items-center gap-2 flex-wrap">
+                      {paper.examType === "objective" &&
+                        (keyPresent ? (
+                          <span className="inline-flex items-center gap-1.5 text-[11px] font-semibold text-emerald-700 bg-emerald-50 border border-emerald-200/60 px-2.5 py-0.5 rounded-full">
+                            <CheckCircle2 className="h-3 w-3 text-emerald-600" />{" "}
+                            Key Available
+                          </span>
+                        ) : (
+                          <span className="inline-flex items-center gap-1.5 text-[11px] font-semibold text-amber-700 bg-amber-50 border border-amber-200/60 px-2.5 py-0.5 rounded-full">
+                            <AlertCircle className="h-3 w-3 text-amber-600" />{" "}
+                            Key Needed
+                          </span>
+                        ))}
 
-                    {solutionPresent && (
-                      <button
-                        onClick={() => setViewingSolutionPaper(paper)}
-                        className="cursor-pointer inline-flex items-center gap-1 text-[11px] font-semibold text-indigo-700 bg-indigo-50 border border-indigo-200/60 px-2.5 py-0.5 rounded-full hover:bg-indigo-100 hover:border-indigo-300 transition-colors shadow-2xs"
-                        title="Click to view solution booklet"
-                      >
-                        <FileText className="h-3 w-3 text-indigo-600" />
-                        <span>Solution Key</span>
-                      </button>
-                    )}
-                  </div>
-                </div>
-
-                <div className="mt-5 pt-4 border-t border-slate-100 space-y-2.5">
-                  <div className="flex items-center gap-2">
-                    {keyPresent || paper.examType === "subjective" ? (
-                      <button
-                        onClick={() => onStartExam(paper, "practice")}
-                        className="cursor-pointer flex-1 rounded-xl border border-slate-200 bg-slate-50/80 py-2 text-xs font-bold text-slate-700 hover:bg-slate-100 hover:text-slate-900 transition-all text-center"
-                      >
-                        Practice
-                      </button>
-                    ) : (
-                      <button
-                        onClick={onNavigatePapers}
-                        title="Practice mode requires an answer key. Click to open Question Papers and attach."
-                        className="cursor-pointer flex-1 rounded-xl border border-amber-200 bg-amber-50 py-2 text-xs font-bold text-amber-800 hover:bg-amber-100 transition-all text-center"
-                      >
-                        Practice (Add Key)
-                      </button>
-                    )}
-                    <button
-                      onClick={() => onStartExam(paper, "mock")}
-                      className="cursor-pointer flex-1 rounded-xl bg-indigo-600 py-2 text-xs font-bold text-white hover:bg-indigo-700 transition-all text-center shadow-xs hover:shadow-sm"
-                    >
-                      Mock Test
-                    </button>
-                  </div>
-
-                  <div className="flex items-center justify-between text-xs pt-0.5">
-                    <div className="flex items-center gap-3">
-                      <a
-                        href={paper.qpUrl}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="cursor-pointer inline-flex items-center gap-1 text-[11px] text-slate-400 hover:text-indigo-600 transition-colors"
-                      >
-                        <ExternalLink className="h-3 w-3" />
-                        <span>PDF</span>
-                      </a>
                       {solutionPresent && (
                         <button
                           onClick={() => setViewingSolutionPaper(paper)}
-                          className="cursor-pointer inline-flex items-center gap-1 text-[11px] text-indigo-600 hover:text-indigo-800 font-semibold transition-colors"
-                          title="Open solution key PDF booklet"
+                          className="cursor-pointer inline-flex items-center gap-1 text-[11px] font-semibold text-indigo-700 bg-indigo-50 border border-indigo-200/60 px-2.5 py-0.5 rounded-full hover:bg-indigo-100 hover:border-indigo-300 transition-colors shadow-2xs"
+                          title="Click to view solution booklet"
                         >
-                          <FileText className="h-3 w-3" />
-                          <span>Solution</span>
+                          <FileText className="h-3 w-3 text-indigo-600" />
+                          <span>Solution Key</span>
                         </button>
                       )}
                     </div>
+                  </div>
+
+                  <div className="mt-5 pt-4 border-t border-slate-100 space-y-2.5">
                     <div className="flex items-center gap-2">
-                      {isCustom && onDeletePaper && (
+                      {keyPresent || paper.examType === "subjective" ? (
                         <button
-                          onClick={() => onDeletePaper(paper.id)}
-                          className="cursor-pointer inline-flex items-center gap-1 text-[11px] text-rose-500 hover:text-rose-700 font-semibold transition-colors"
-                          title="Permanently delete this paper and free storage"
+                          onClick={() => onStartExam(paper, "practice")}
+                          className="cursor-pointer flex-1 rounded-xl border border-slate-200 bg-slate-50/80 py-2 text-xs font-bold text-slate-700 hover:bg-slate-100 hover:text-slate-900 transition-all text-center"
                         >
-                          <Trash2 className="h-3 w-3" />
-                          <span>Delete</span>
+                          Practice
+                        </button>
+                      ) : (
+                        <button
+                          onClick={onNavigatePapers}
+                          title="Practice mode requires an answer key. Click to open Question Papers and attach."
+                          className="cursor-pointer flex-1 rounded-xl border border-amber-200 bg-amber-50 py-2 text-xs font-bold text-amber-800 hover:bg-amber-100 transition-all text-center"
+                        >
+                          Practice (Add Key)
                         </button>
                       )}
                       <button
-                        onClick={onNavigatePapers}
-                        className="cursor-pointer text-[11px] text-slate-500 hover:text-indigo-600 font-semibold transition-colors"
+                        onClick={() => onStartExam(paper, "mock")}
+                        className="cursor-pointer flex-1 rounded-xl bg-indigo-600 py-2 text-xs font-bold text-white hover:bg-indigo-700 transition-all text-center shadow-xs hover:shadow-sm"
                       >
-                        Manage Paper →
+                        Mock Test
                       </button>
+                    </div>
+
+                    <div className="flex items-center justify-between text-xs pt-0.5">
+                      <div className="flex items-center gap-3">
+                        <a
+                          href={paper.qpUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="cursor-pointer inline-flex items-center gap-1 text-[11px] text-slate-400 hover:text-indigo-600 transition-colors"
+                        >
+                          <ExternalLink className="h-3 w-3" />
+                          <span>PDF</span>
+                        </a>
+                        {solutionPresent && (
+                          <button
+                            onClick={() => setViewingSolutionPaper(paper)}
+                            className="cursor-pointer inline-flex items-center gap-1 text-[11px] text-indigo-600 hover:text-indigo-800 font-semibold transition-colors"
+                            title="Open solution key PDF booklet"
+                          >
+                            <FileText className="h-3 w-3" />
+                            <span>Solution</span>
+                          </button>
+                        )}
+                      </div>
+                      <div className="flex items-center gap-2">
+                        {isCustom && onDeletePaper && (
+                          <button
+                            onClick={() => onDeletePaper(paper.id)}
+                            className="cursor-pointer inline-flex items-center gap-1 text-[11px] text-rose-500 hover:text-rose-700 font-semibold transition-colors"
+                            title="Permanently delete this paper and free storage"
+                          >
+                            <Trash2 className="h-3 w-3" />
+                            <span>Delete</span>
+                          </button>
+                        )}
+                        <button
+                          onClick={onNavigatePapers}
+                          className="cursor-pointer text-[11px] text-slate-500 hover:text-indigo-600 font-semibold transition-colors"
+                        >
+                          Manage Paper →
+                        </button>
+                      </div>
                     </div>
                   </div>
                 </div>
-              </div>
-            );
-          })}
-        </div>
-      )}
+              );
+            })}
+          </div>
+        )}
 
         {filteredPapers.length > 12 && (
           <div className="text-center pt-4">

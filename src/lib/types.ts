@@ -19,6 +19,7 @@ export interface QuestionPaper {
   exsUrl?: string;
   answerKeyText?: string;
   answerKey: Record<number, string>;
+  explanations?: Record<number, string>;
   isCustom?: boolean;
   userId?: string;
 }
@@ -33,6 +34,7 @@ export interface QuestionAnswer {
   confidence?: ConfidenceLevel;
   flagged?: boolean;
   note?: string;
+  explanation?: string;
   timeSpentSeconds?: number;
   changesCount?: number;
   answerHistory?: string[];

@@ -114,7 +114,11 @@ label,
     size: auto;
   }
 
+  html,
   body {
+    overflow: visible !important;
+    height: auto !important;
+    min-height: 0 !important;
     background: #ffffff !important;
     color: #0f172a !important;
   }

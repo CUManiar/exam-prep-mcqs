@@ -30,7 +30,11 @@ import { ConfirmationModal } from "../components/ConfirmationModal";
 import { ProUpgradeModal } from "../components/ProUpgradeModal";
 import { AuthModal } from "../components/AuthModal";
 import { GuestCompletionModal } from "../components/GuestCompletionModal";
-import { isPaperFree, isUserUploadedPaper, getPaperDisplayTitle } from "../lib/defaults";
+import {
+  isPaperFree,
+  isUserUploadedPaper,
+  getPaperDisplayTitle,
+} from "../lib/defaults";
 import { isUserPro, setUserPro } from "../lib/razorpay";
 import { User } from "@supabase/supabase-js";
 import {

@@ -2,7 +2,11 @@
 
 import React, { useState, useMemo, useEffect } from "react";
 import { Attempt, QuestionPaper } from "../lib/types";
-import { formatTimeSeconds, formatDateTime, getPaperDisplayTitle } from "../lib/defaults";
+import {
+  formatTimeSeconds,
+  formatDateTime,
+  getPaperDisplayTitle,
+} from "../lib/defaults";
 import { DetailedSolutionModal } from "./DetailedSolutionModal";
 import { PdfViewer } from "./PdfViewer";
 import {
@@ -39,6 +43,8 @@ import {
 } from "lucide-react";
 import {
   exportAttemptAsJSON,
+  exportAttemptAsMarkdown,
+  exportAttemptAsPDF,
   copyAttemptSummaryToClipboard,
 } from "../lib/exportUtils";
 
@@ -643,12 +649,19 @@ export function AttemptDetailView({
                       {marksText}
                     </td>
                     <td className="py-1.5 px-3 text-slate-700 text-[11px]">
+                      {(q?.explanation || matchedPaper?.explanations?.[qNo]) && (
+                        <div className="text-indigo-950 font-normal mb-1">
+                          <strong className="font-semibold text-indigo-900">Expl:</strong> {q?.explanation || matchedPaper?.explanations?.[qNo]}
+                        </div>
+                      )}
                       {q?.note && q.note.trim() ? (
                         <span className="text-slate-800 font-medium">
-                          {q.note.trim()}
+                          <strong>Note:</strong> {q.note.trim()}
                         </span>
                       ) : (
-                        <span className="text-slate-400">—</span>
+                        !(q?.explanation || matchedPaper?.explanations?.[qNo]) && (
+                          <span className="text-slate-400">—</span>
+                        )
                       )}
                     </td>
                   </tr>
@@ -730,13 +743,13 @@ export function AttemptDetailView({
                   className="fixed inset-0 z-40"
                   onClick={() => setShowExportMenu(false)}
                 />
-                <div className="absolute right-0 mt-1.5 z-50 w-56 rounded-xl border border-slate-200 bg-white p-1.5 shadow-lg space-y-1">
+                <div className="absolute right-0 mt-1.5 z-50 w-64 rounded-xl border border-slate-200 bg-white p-1.5 shadow-lg space-y-1">
                   <button
                     onClick={() => {
                       handlePrint();
                       setShowExportMenu(false);
                     }}
-                    className="flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50 hover:text-slate-900 transition-colors"
+                    className="flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-xs font-bold text-slate-800 bg-slate-100 hover:bg-slate-200/80 transition-colors cursor-pointer"
                   >
                     <Printer className="h-3.5 w-3.5 text-indigo-600" />
                     <span>Print / Save as PDF</span>
@@ -744,13 +757,13 @@ export function AttemptDetailView({
 
                   <button
                     onClick={() => {
-                      exportAttemptAsJSON(attempt);
+                      exportAttemptAsPDF(attempt, matchedPaper?.explanations);
                       setShowExportMenu(false);
                     }}
-                    className="flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50 hover:text-slate-900 transition-colors"
+                    className="flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-xs font-semibold text-indigo-700 hover:bg-indigo-50 transition-colors cursor-pointer"
                   >
-                    <Download className="h-3.5 w-3.5 text-amber-600" />
-                    <span>Download JSON (.json)</span>
+                    <Download className="h-3.5 w-3.5 text-indigo-600" />
+                    <span>Download PDF Report (.pdf)</span>
                   </button>
 
                   <button
@@ -758,10 +771,32 @@ export function AttemptDetailView({
                       handleCopySummary();
                       setShowExportMenu(false);
                     }}
-                    className="flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50 hover:text-slate-900 transition-colors"
+                    className="flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50 hover:text-slate-900 transition-colors cursor-pointer"
                   >
                     <Copy className="h-3.5 w-3.5 text-indigo-600" />
-                    <span>Copy Summary to Clipboard</span>
+                    <span>Copy Summary to Clipboard (.md)</span>
+                  </button>
+
+                  <button
+                    onClick={() => {
+                      exportAttemptAsMarkdown(attempt);
+                      setShowExportMenu(false);
+                    }}
+                    className="flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50 hover:text-slate-900 transition-colors cursor-pointer"
+                  >
+                    <FileText className="h-3.5 w-3.5 text-emerald-600" />
+                    <span>Download Markdown (.md)</span>
+                  </button>
+
+                  <button
+                    onClick={() => {
+                      exportAttemptAsJSON(attempt);
+                      setShowExportMenu(false);
+                    }}
+                    className="flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50 hover:text-slate-900 transition-colors cursor-pointer"
+                  >
+                    <Download className="h-3.5 w-3.5 text-amber-600" />
+                    <span>Download JSON (.json)</span>
                   </button>
                 </div>
               </>
@@ -1786,6 +1821,19 @@ export function AttemptDetailView({
                                     </div>
                                   </div>
                                 </div>
+
+                                {/* Official Question Explanation */}
+                                {(q.explanation || matchedPaper?.explanations?.[q.questionNo]) && (
+                                  <div className="space-y-1 bg-indigo-50/80 p-3.5 rounded-xl border border-indigo-200/90 shadow-2xs">
+                                    <div className="flex items-center gap-1.5 text-[11px] uppercase font-bold text-indigo-900 tracking-wider">
+                                      <BookOpen className="h-3.5 w-3.5 text-indigo-700" />
+                                      <span>Official Explanation & Key Insights</span>
+                                    </div>
+                                    <p className="text-xs text-indigo-950 font-normal leading-relaxed whitespace-pre-wrap pt-0.5">
+                                      {q.explanation || matchedPaper?.explanations?.[q.questionNo]}
+                                    </p>
+                                  </div>
+                                )}
 
                                 {/* Edit Question Note */}
                                 <div className="pt-1">

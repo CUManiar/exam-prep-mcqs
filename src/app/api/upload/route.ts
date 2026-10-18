@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { uploadFile, readJsonStore, writeJsonStore } from "@/lib/cloudStorage";
+import { parseAnswerKeyDetailed } from "@/lib/defaults";
 
 export async function POST(req: NextRequest) {
   try {
@@ -44,9 +45,15 @@ export async function POST(req: NextRequest) {
 
     // User-entered identifier/title resolution
     let paperTitle = "";
-    if (label && !label.match(/^\d{4}\s*–\s*(GS\s*I|GS\s*II\s*CSAT|Mains.*)$/i)) {
+    if (
+      label &&
+      !label.match(/^\d{4}\s*–\s*(GS\s*I|GS\s*II\s*CSAT|Mains.*)$/i)
+    ) {
       paperTitle = label.trim();
-    } else if (titleInput && !titleInput.match(/^\d{4}\s*–\s*(GS\s*I|GS\s*II\s*CSAT|Mains.*)$/i)) {
+    } else if (
+      titleInput &&
+      !titleInput.match(/^\d{4}\s*–\s*(GS\s*I|GS\s*II\s*CSAT|Mains.*)$/i)
+    ) {
       paperTitle = titleInput.trim();
     } else if (identifier && !identifier.startsWith("prelims_")) {
       paperTitle = identifier.trim();
@@ -130,17 +137,11 @@ export async function POST(req: NextRequest) {
       exsUrl = await uploadFile(exsFileName, exsBuffer, "application/pdf");
     }
 
-    // Parse Answer Key into structured object
-    const parsedKey: Record<number, string> = {};
-    if (answerKeyContent) {
-      const lines = answerKeyContent.split("\n");
-      for (const line of lines) {
-        const m = line.trim().match(/^(\d+)[\.\)\s\-\:]+([A-Da-d])/);
-        if (m) {
-          parsedKey[parseInt(m[1])] = m[2].toUpperCase();
-        }
-      }
-    }
+    // Parse Answer Key into structured object (supports 1. a """ explanation """)
+    const { answers: parsedKey, explanations: parsedExplanations } =
+      answerKeyContent
+        ? parseAnswerKeyDetailed(answerKeyContent)
+        : { answers: {}, explanations: {} };
 
     const paperObj = {
       id: paperId,
@@ -161,6 +162,7 @@ export async function POST(req: NextRequest) {
       exsUrl,
       answerKeyText: answerKeyContent,
       answerKey: parsedKey,
+      explanations: parsedExplanations,
       isCustom: true,
       updatedAt: new Date().toISOString(),
     };

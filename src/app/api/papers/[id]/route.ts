@@ -128,7 +128,11 @@ export async function DELETE(
       } catch {}
     }
 
-    return NextResponse.json({ ok: true, deletedId: cleanId, hardDeleted: true });
+    return NextResponse.json({
+      ok: true,
+      deletedId: cleanId,
+      hardDeleted: true,
+    });
   } catch (err: any) {
     console.error("Delete paper error:", err);
     return NextResponse.json(

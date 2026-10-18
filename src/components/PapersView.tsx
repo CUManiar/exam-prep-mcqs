@@ -178,12 +178,16 @@ export function PapersView({
 
   const filteredPapers = papers.filter((p) => {
     let matchesCat = true;
-    if (selectedCategory === "prelims") matchesCat = p.category === "prelims" && !isUserUploadedPaper(p);
-    else if (selectedCategory === "mains") matchesCat = p.category === "mains" && !isUserUploadedPaper(p);
+    if (selectedCategory === "prelims")
+      matchesCat = p.category === "prelims" && !isUserUploadedPaper(p);
+    else if (selectedCategory === "mains")
+      matchesCat = p.category === "mains" && !isUserUploadedPaper(p);
     else if (selectedCategory === "custom") matchesCat = isUserUploadedPaper(p);
 
     const matchesYear =
-      selectedCategory === "custom" || selectedYear === "all" || p.year === selectedYear;
+      selectedCategory === "custom" ||
+      selectedYear === "all" ||
+      p.year === selectedYear;
     const matchesSearch =
       p.label.toLowerCase().includes(searchQuery.toLowerCase()) ||
       p.subject.toLowerCase().includes(searchQuery.toLowerCase());
@@ -351,7 +355,9 @@ export function PapersView({
                 No user uploaded papers found
               </h3>
               <p className="text-xs text-slate-500 mt-1 max-w-sm mx-auto">
-                You haven&apos;t uploaded any custom test papers yet. Upload mock test papers with custom question counts and scoring rules anytime.
+                You haven&apos;t uploaded any custom test papers yet. Upload
+                mock test papers with custom question counts and scoring rules
+                anytime.
               </p>
               <div className="mt-4">
                 <button
