@@ -8,6 +8,7 @@ export interface QuestionPaper {
   examType: ExamType; // 'objective' | 'subjective'
   subject: string; // 'GS I', 'GS II CSAT', 'Essay', 'GS I (Mains)', etc.
   label: string;
+  title?: string;
   totalQuestions: number; // 100 for GS1, 80 for GS2, 20 for Mains
   totalMarks: number; // 200 for GS1/GS2, 250 for Mains
   correctMarks: number; // 2.0 for GS1, 2.5 for GS2, 0 for subjective

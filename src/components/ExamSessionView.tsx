@@ -12,6 +12,7 @@ import {
   formatTimeSeconds,
   parseAnswerKeyText,
   getStandardTimeMinutes,
+  getPaperDisplayTitle,
 } from "../lib/defaults";
 import { saveActiveDraft, clearActiveDraft } from "../lib/storage";
 import { DetailedSolutionModal } from "./DetailedSolutionModal";
@@ -669,7 +670,7 @@ export function ExamSessionView({
 
             <div className="min-w-0 ml-1">
               <h1 className="text-xs sm:text-sm font-bold text-slate-900 truncate max-w-[120px] xs:max-w-[170px] sm:max-w-xs md:max-w-md">
-                {paper.label}
+                {getPaperDisplayTitle(paper)}
               </h1>
               <span
                 className={`block text-[9px] sm:text-[10px] font-semibold uppercase tracking-wider truncate ${
@@ -798,7 +799,7 @@ export function ExamSessionView({
         >
           <PdfViewer
             url={paper.qpUrl}
-            title={`${paper.label} - Question Paper`}
+            title={`${getPaperDisplayTitle(paper)} - Question Paper`}
             className="w-full flex-1 min-h-0"
           />
 
@@ -1657,7 +1658,7 @@ export function ExamSessionView({
                     Exam Assessment & Submission Review
                   </h2>
                   <p className="text-xs text-slate-500 truncate">
-                    {paper.label} • {paper.year} •{" "}
+                    {getPaperDisplayTitle(paper)} • {paper.year} •{" "}
                     {paper.category.toUpperCase()}
                   </p>
                 </div>

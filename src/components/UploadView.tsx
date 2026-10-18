@@ -19,6 +19,7 @@ import {
   Key,
   Paperclip,
   RefreshCw,
+  Zap,
 } from "lucide-react";
 
 interface UploadViewProps {
@@ -37,18 +38,32 @@ export function UploadView({
   onNavigatePapers,
 }: UploadViewProps) {
   const { currentUser } = useApp();
-  // Main View Mode: 'create' or 'update'
-  const [viewMode, setViewMode] = useState<"create" | "update">("create");
+  // Main View Mode: 'custom' (Fast practice upload) | 'preset' (Official UPSC) | 'update'
+  const [viewMode, setViewMode] = useState<"custom" | "preset" | "update">(
+    "custom",
+  );
+
+  // FAST CUSTOM PAPER STATES (Nothing prefilled!)
+  const [customPaperName, setCustomPaperName] = useState<string>("");
+  const [customTotalQuestions, setCustomTotalQuestions] = useState<string>("");
+  const [customPositiveMarks, setCustomPositiveMarks] = useState<string>("");
+  const [customNegativeMarks, setCustomNegativeMarks] = useState<string>("");
+  const [customTimeMinutes, setCustomTimeMinutes] = useState<string>("");
+  const [customQpFile, setCustomQpFile] = useState<File | null>(null);
+  const [customAkMode, setCustomAkMode] = useState<"upload" | "paste">("paste");
+  const [customAkText, setCustomAkText] = useState<string>("");
+  const [customAkFile, setCustomAkFile] = useState<File | null>(null);
+  const [customExsFile, setCustomExsFile] = useState<File | null>(null);
 
   // Selected paper for update mode
   const [selectedPaperId, setSelectedPaperId] = useState<string>(
     papers[0]?.id || "",
   );
 
-  // Step 1: Exam Type
+  // Preset Mode: Step 1 Exam Type
   const [examType, setExamType] = useState<ExamType>("objective");
 
-  // Paper rules & metadata
+  // Preset Mode: Paper rules & metadata
   const [year, setYear] = useState<string>("2026");
   const [subjectPreset, setSubjectPreset] = useState<string>("GS I");
   const [customSubject, setCustomSubject] = useState<string>("");
@@ -61,7 +76,7 @@ export function UploadView({
   const [incorrectMarks, setIncorrectMarks] = useState<number>(0.667);
   const [timeMinutes, setTimeMinutes] = useState<number>(120);
 
-  // Files
+  // Preset Mode Files
   const [qpFile, setQpFile] = useState<File | null>(null);
   const [akFile, setAkFile] = useState<File | null>(null);
   const [akMode, setAkMode] = useState<"upload" | "paste">("paste");
@@ -84,27 +99,29 @@ export function UploadView({
       setCorrectMarks(2.0);
       setIncorrectMarks(0.667);
       setTimeMinutes(120);
-      setPaperIdentifier("prelims_gs_i");
+      if (!paperIdentifier) setPaperIdentifier("UPSC Prelims GS I");
     } else if (preset === "GS II CSAT") {
       setTotalQuestions(80);
       setTotalMarks(200);
       setCorrectMarks(2.5);
       setIncorrectMarks(0.833);
       setTimeMinutes(120);
-      setPaperIdentifier("prelims_gsii_csat");
+      if (!paperIdentifier) setPaperIdentifier("UPSC Prelims GS II CSAT");
     } else if (preset.startsWith("Mains")) {
       setTotalQuestions(20);
       setTotalMarks(250);
       setCorrectMarks(0);
       setIncorrectMarks(0);
       setTimeMinutes(180);
-      setPaperIdentifier(preset.toLowerCase().replace(/\s+/g, "_"));
+      if (!paperIdentifier) setPaperIdentifier(preset);
     } else if (preset === "Custom") {
-      setPaperIdentifier(
-        examType === "objective"
-          ? "custom_objective_paper"
-          : "custom_mains_paper",
-      );
+      if (!paperIdentifier) {
+        setPaperIdentifier(
+          examType === "objective"
+            ? "Custom Practice Test"
+            : "Custom Mains Paper",
+        );
+      }
     }
   };
 
@@ -175,12 +192,20 @@ export function UploadView({
           ? customSubject.trim() || "Custom Paper"
           : subjectPreset;
 
+      const userIdentifier = paperIdentifier.trim();
+      const paperTitle =
+        userIdentifier ||
+        (subjectPreset === "Custom" ? customSubject.trim() : "") ||
+        `${cleanYear} – ${displaySubject}`;
+
       const formData = new FormData();
       formData.append("year", cleanYear);
-      formData.append("identifier", cleanName);
+      formData.append("identifier", userIdentifier || cleanName);
       formData.append("examType", examType);
-      formData.append("subject", displaySubject);
-      formData.append("label", `${cleanYear} – ${displaySubject}`);
+      formData.append("subject", userIdentifier || displaySubject);
+      formData.append("label", paperTitle);
+      formData.append("title", paperTitle);
+      formData.append("isCustom", "true");
       formData.append(
         "totalQuestions",
         String(totalQuestions || (examType === "objective" ? 100 : 20)),
@@ -239,6 +264,124 @@ export function UploadView({
     } catch (err: any) {
       setStatusMsg({
         text: err.message || "Failed to save paper.",
+        isError: true,
+      });
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  // Handle FAST CUSTOM paper upload (Nothing prefilled, instant practice setup)
+  const handleUploadFastCustomPaper = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const name = customPaperName.trim();
+    const qCount = parseInt(customTotalQuestions, 10);
+    const posMarks = parseFloat(customPositiveMarks);
+    const negMarks = parseFloat(customNegativeMarks);
+    const time = parseInt(customTimeMinutes, 10) || 120;
+
+    if (!name) {
+      setStatusMsg({
+        text: "Please enter the Name of the paper.",
+        isError: true,
+      });
+      return;
+    }
+    if (!qCount || qCount <= 0) {
+      setStatusMsg({
+        text: "Please enter a valid Total Questions count (e.g. 100, 50).",
+        isError: true,
+      });
+      return;
+    }
+    if (isNaN(posMarks) || posMarks < 0) {
+      setStatusMsg({
+        text: "Please enter positive marks per correct question (e.g. 2.0).",
+        isError: true,
+      });
+      return;
+    }
+    if (isNaN(negMarks) || negMarks < 0) {
+      setStatusMsg({
+        text: "Please enter negative marks penalty (e.g. 0.667 or 0).",
+        isError: true,
+      });
+      return;
+    }
+    if (!customQpFile) {
+      setStatusMsg({
+        text: "Please attach the Question Paper PDF file.",
+        isError: true,
+      });
+      return;
+    }
+
+    setIsSubmitting(true);
+    setStatusMsg(null);
+
+    try {
+      const slug = name
+        .toLowerCase()
+        .replace(/[^a-z0-9_]/g, "_")
+        .replace(/_+/g, "_")
+        .slice(0, 40);
+      const identifier = `${slug}_${Date.now().toString(36)}`;
+      const curYear = String(new Date().getFullYear());
+
+      const formData = new FormData();
+      formData.append("year", curYear);
+      formData.append("identifier", name);
+      formData.append("examType", "objective");
+      formData.append("subject", name);
+      formData.append("label", name);
+      formData.append("title", name);
+      formData.append("totalQuestions", String(qCount));
+      formData.append(
+        "totalMarks",
+        String(Math.round(qCount * posMarks * 10) / 10),
+      );
+      formData.append("correctMarks", String(posMarks));
+      formData.append("incorrectMarks", String(negMarks));
+      formData.append("timeMinutes", String(time));
+      formData.append("isCustom", "true");
+
+      formData.append("qpFile", customQpFile);
+      if (customAkFile && customAkMode === "upload") {
+        formData.append("akFile", customAkFile);
+      }
+      if (customAkText.trim() && customAkMode === "paste") {
+        formData.append("answerKeyText", customAkText.trim());
+      }
+      if (customExsFile) {
+        formData.append("exsFile", customExsFile);
+      }
+      if (currentUser?.id) {
+        formData.append("userId", currentUser.id);
+      }
+
+      const res = await fetch("/api/upload", {
+        method: "POST",
+        body: formData,
+      });
+
+      const data = await res.json();
+      if (!res.ok || !data.ok) {
+        throw new Error(data.error || "Server failed to save paper.");
+      }
+
+      const newPaper: QuestionPaper = data.paper;
+      saveCustomPaper(newPaper);
+      onPaperUploaded(newPaper);
+
+      setStatusMsg({
+        text: `Custom paper "${newPaper.label}" (${newPaper.totalQuestions} Questions) saved! Redirecting to Papers...`,
+      });
+      setTimeout(() => {
+        onNavigatePapers();
+      }, 900);
+    } catch (err: any) {
+      setStatusMsg({
+        text: err.message || "Failed to save custom paper.",
         isError: true,
       });
     } finally {
@@ -321,22 +464,37 @@ export function UploadView({
           </p>
         </div>
 
-        {/* View Mode Toggle: Upload New vs Update Existing */}
-        <div className="flex items-center gap-1 bg-slate-100 p-1 rounded-xl border border-slate-200/80 text-xs font-semibold shrink-0">
+        {/* View Mode Toggle: Fast Custom Upload vs UPSC Preset vs Update Existing */}
+        <div className="flex items-center gap-1 bg-slate-100 p-1 rounded-xl border border-slate-200/80 text-xs font-semibold shrink-0 flex-wrap">
           <button
             type="button"
             onClick={() => {
-              setViewMode("create");
+              setViewMode("custom");
               setStatusMsg(null);
             }}
             className={`cursor-pointer flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg transition-colors ${
-              viewMode === "create"
+              viewMode === "custom"
                 ? "bg-white text-indigo-700 shadow-xs font-bold"
                 : "text-slate-600 hover:text-slate-900"
             }`}
           >
-            <UploadCloud className="h-4 w-4" />
-            <span>Upload New Paper</span>
+            <Zap className="h-4 w-4 text-amber-500 fill-amber-400" />
+            <span>Fast Custom Paper</span>
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              setViewMode("preset");
+              setStatusMsg(null);
+            }}
+            className={`cursor-pointer flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg transition-colors ${
+              viewMode === "preset"
+                ? "bg-white text-indigo-700 shadow-xs font-bold"
+                : "text-slate-600 hover:text-slate-900"
+            }`}
+          >
+            <Sliders className="h-4 w-4 text-slate-500" />
+            <span>Official UPSC Preset</span>
           </button>
           <button
             type="button"
@@ -734,9 +892,306 @@ export function UploadView({
       )}
 
       {/* ============================================================== */}
-      {/* MODE 2: UPLOAD NEW PAPER */}
+      {/* MODE 1: FAST CUSTOM PRACTICE PAPER (NOTHING PREFILLED) */}
       {/* ============================================================== */}
-      {viewMode === "create" && (
+      {viewMode === "custom" && (
+        <form onSubmit={handleUploadFastCustomPaper} className="space-y-6">
+          {/* Section 1: Paper Details & Scoring Rules */}
+          <div className="bi-card p-6 space-y-5">
+            <div className="flex items-center justify-between pb-3 border-b border-slate-100">
+              <div className="flex items-center gap-2.5">
+                <div className="h-8 w-8 rounded-lg bg-amber-50 text-amber-600 flex items-center justify-center font-bold border border-amber-200/60">
+                  <Zap className="h-4 w-4 text-amber-500 fill-amber-400" />
+                </div>
+                <div>
+                  <h2 className="text-sm font-extrabold text-slate-900">
+                    Fast Custom Practice Paper
+                  </h2>
+                  <p className="text-xs text-slate-500">
+                    Direct practice upload. Name, total questions, positive & negative marking — no presets, nothing prefilled.
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            {/* Paper Title / Name */}
+            <div>
+              <label className="block text-xs font-bold text-slate-700 mb-1.5">
+                Name of the Paper <span className="text-rose-500">*</span>
+              </label>
+              <input
+                type="text"
+                value={customPaperName}
+                onChange={(e) => setCustomPaperName(e.target.value)}
+                placeholder="e.g. Vision IAS Full Length Mock 1 / Forum IAS Simulator 2 / Modern History Test"
+                className="w-full rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-xs text-slate-800 placeholder-slate-400 focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 shadow-xs"
+                required
+                autoFocus
+              />
+            </div>
+
+            {/* Rules Grid: Total Questions, Positive Marks, Negative Marks, Time */}
+            <div className="grid grid-cols-1 sm:grid-cols-4 gap-4 pt-1">
+              <div>
+                <label className="block text-xs font-bold text-slate-700 mb-1.5">
+                  Total Questions <span className="text-rose-500">*</span>
+                </label>
+                <input
+                  type="number"
+                  min="1"
+                  max="500"
+                  value={customTotalQuestions}
+                  onChange={(e) => setCustomTotalQuestions(e.target.value)}
+                  placeholder="e.g. 100"
+                  className="w-full rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 text-xs font-mono text-slate-800 placeholder-slate-400 focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 shadow-xs"
+                  required
+                />
+                <span className="text-[10px] text-slate-400 mt-1 block">
+                  e.g. 50, 100 MCQs
+                </span>
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-slate-700 mb-1.5">
+                  Positive Marks (+) <span className="text-rose-500">*</span>
+                </label>
+                <input
+                  type="number"
+                  step="any"
+                  value={customPositiveMarks}
+                  onChange={(e) => setCustomPositiveMarks(e.target.value)}
+                  placeholder="e.g. 2"
+                  className="w-full rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 text-xs font-mono text-slate-800 placeholder-slate-400 focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 shadow-xs"
+                  required
+                />
+                <span className="text-[10px] text-slate-400 mt-1 block">
+                  Per correct answer
+                </span>
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-slate-700 mb-1.5">
+                  Negative Penalty (-) <span className="text-rose-500">*</span>
+                </label>
+                <input
+                  type="number"
+                  step="any"
+                  value={customNegativeMarks}
+                  onChange={(e) => setCustomNegativeMarks(e.target.value)}
+                  placeholder="e.g. 0.667 or 0"
+                  className="w-full rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 text-xs font-mono text-slate-800 placeholder-slate-400 focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 shadow-xs"
+                  required
+                />
+                <span className="text-[10px] text-slate-400 mt-1 block">
+                  Per wrong MCQ (0 if none)
+                </span>
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-slate-700 mb-1.5">
+                  Time (Minutes) <span className="text-slate-400 font-normal">(Opt)</span>
+                </label>
+                <input
+                  type="number"
+                  value={customTimeMinutes}
+                  onChange={(e) => setCustomTimeMinutes(e.target.value)}
+                  placeholder="120"
+                  className="w-full rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 text-xs font-mono text-slate-800 placeholder-slate-400 focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 shadow-xs"
+                />
+                <span className="text-[10px] text-slate-400 mt-1 block">
+                  Defaults to 120 mins
+                </span>
+              </div>
+            </div>
+
+            {/* Live Calculation Preview Banner */}
+            {Boolean(customTotalQuestions && customPositiveMarks) && (
+              <div className="flex items-center gap-3 p-3 rounded-xl bg-indigo-50/70 border border-indigo-100 text-xs text-indigo-900">
+                <Check className="h-4 w-4 text-indigo-600 shrink-0" />
+                <div className="flex items-center gap-2 flex-wrap">
+                  <span className="font-semibold">Calculated Total Marks:</span>
+                  <span className="font-mono font-bold text-indigo-700 bg-white px-2 py-0.5 rounded border border-indigo-200">
+                    {Math.round(Number(customTotalQuestions) * Number(customPositiveMarks) * 10) / 10} Marks
+                  </span>
+                  <span className="text-slate-400">•</span>
+                  <span>{customTotalQuestions} MCQs</span>
+                  <span className="text-slate-400">•</span>
+                  <span>+{customPositiveMarks} / -{customNegativeMarks || 0}</span>
+                  <span className="text-slate-400">•</span>
+                  <span>{customTimeMinutes || 120} Mins</span>
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* Section 2: Documents & Answer Key */}
+          <div className="bi-card p-6 space-y-5">
+            <h2 className="text-xs font-bold text-slate-700 uppercase tracking-wider">
+              Documents & Answer Keys
+            </h2>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              {/* Question Paper PDF */}
+              <div className="rounded-xl border border-slate-200 bg-slate-50/80 p-4 space-y-2">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-bold text-slate-800">
+                    Question Paper PDF
+                  </span>
+                  <span className="text-[10px] font-bold text-indigo-600 font-mono">
+                    Required
+                  </span>
+                </div>
+                <p className="text-[11px] text-slate-500">
+                  Official practice / coaching test paper in PDF format.
+                </p>
+
+                <label className="cursor-pointer flex flex-col items-center justify-center rounded-xl border border-dashed border-slate-300 bg-white p-4 text-center hover:border-indigo-500 hover:bg-slate-50 transition-colors shadow-2xs">
+                  <FileUp className="h-6 w-6 text-indigo-600 mb-1" />
+                  <span className="text-xs font-bold text-slate-700 truncate max-w-[220px]">
+                    {customQpFile ? customQpFile.name : "Choose Question Paper PDF"}
+                  </span>
+                  <span className="text-[10px] text-slate-400 mt-0.5">
+                    {customQpFile
+                      ? `${(customQpFile.size / 1024 / 1024).toFixed(2)} MB • Click to replace`
+                      : "Click to browse (.pdf)"}
+                  </span>
+                  <input
+                    type="file"
+                    accept=".pdf"
+                    onChange={(e) => setCustomQpFile(e.target.files?.[0] || null)}
+                    className="hidden"
+                  />
+                </label>
+              </div>
+
+              {/* Solution Booklet PDF (Optional) */}
+              <div className="rounded-xl border border-slate-200 bg-slate-50/80 p-4 space-y-2">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-bold text-slate-800">
+                    Solution Booklet
+                  </span>
+                  <span className="text-[10px] text-slate-400 font-mono font-medium">
+                    Optional
+                  </span>
+                </div>
+                <p className="text-[11px] text-slate-500">
+                  Optional detailed explanations or hints PDF document.
+                </p>
+
+                <label className="cursor-pointer flex flex-col items-center justify-center rounded-xl border border-dashed border-slate-300 bg-white p-4 text-center hover:border-slate-500 hover:bg-slate-50 transition-colors shadow-2xs">
+                  <FileUp className="h-6 w-6 text-slate-500 mb-1" />
+                  <span className="text-xs font-bold text-slate-700 truncate max-w-[220px]">
+                    {customExsFile ? customExsFile.name : "Choose Solution PDF"}
+                  </span>
+                  <span className="text-[10px] text-slate-400 mt-0.5">
+                    {customExsFile
+                      ? `${(customExsFile.size / 1024 / 1024).toFixed(2)} MB • Click to replace`
+                      : "Optional (.pdf)"}
+                  </span>
+                  <input
+                    type="file"
+                    accept=".pdf"
+                    onChange={(e) => setCustomExsFile(e.target.files?.[0] || null)}
+                    className="hidden"
+                  />
+                </label>
+              </div>
+            </div>
+
+            {/* Answer Key (Paste text / upload) */}
+            <div className="rounded-xl border border-slate-200 bg-slate-50/80 p-4 space-y-3 pt-4">
+              <div className="flex items-center justify-between flex-wrap gap-2">
+                <div>
+                  <div className="flex items-center gap-1.5">
+                    <h3 className="text-xs font-bold text-slate-800">
+                      Answer Key
+                    </h3>
+                    <span className="text-[10px] font-semibold text-emerald-700 bg-emerald-50 px-2 py-0.2 rounded-full border border-emerald-200/60">
+                      Recommended for Practice
+                    </span>
+                  </div>
+                  <p className="text-[11px] text-slate-500 mt-0.5">
+                    Enables immediate correct/wrong answers feedback during Practice mode & auto-evaluation.
+                  </p>
+                </div>
+
+                {/* Tab Switcher */}
+                <div className="flex items-center bg-slate-100 p-0.5 rounded-lg border border-slate-200 text-[11px] font-semibold">
+                  <button
+                    type="button"
+                    onClick={() => setCustomAkMode("paste")}
+                    className={`cursor-pointer px-2.5 py-1 rounded-md transition-colors ${
+                      customAkMode === "paste"
+                        ? "bg-white text-indigo-700 font-bold shadow-2xs"
+                        : "text-slate-600 hover:text-slate-900"
+                    }`}
+                  >
+                    Paste Text
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setCustomAkMode("upload")}
+                    className={`cursor-pointer px-2.5 py-1 rounded-md transition-colors ${
+                      customAkMode === "upload"
+                        ? "bg-white text-indigo-700 font-bold shadow-2xs"
+                        : "text-slate-600 hover:text-slate-900"
+                    }`}
+                  >
+                    Upload .txt
+                  </button>
+                </div>
+              </div>
+
+              {customAkMode === "upload" ? (
+                <label className="cursor-pointer flex items-center justify-center gap-2 rounded-xl border border-dashed border-slate-300 bg-white p-4 text-xs font-semibold text-slate-700 hover:border-slate-500 shadow-2xs">
+                  <FileUp className="h-4 w-4 text-slate-500" />
+                  <span>
+                    {customAkFile ? customAkFile.name : "Select .txt answer key file"}
+                  </span>
+                  <input
+                    type="file"
+                    accept=".txt"
+                    onChange={(e) => setCustomAkFile(e.target.files?.[0] || null)}
+                    className="hidden"
+                  />
+                </label>
+              ) : (
+                <textarea
+                  value={customAkText}
+                  onChange={(e) => setCustomAkText(e.target.value)}
+                  placeholder={"1. A\n2. C\n3. D\n4. B\n...\n100. A"}
+                  rows={4}
+                  className="w-full rounded-xl border border-slate-200 bg-white p-3 font-mono text-xs text-slate-800 placeholder-slate-400 focus:outline-none focus:border-indigo-500 shadow-2xs"
+                />
+              )}
+            </div>
+          </div>
+
+          {/* Submit */}
+          <div className="flex justify-end pt-2">
+            <button
+              type="submit"
+              disabled={
+                isSubmitting ||
+                !customPaperName.trim() ||
+                !customTotalQuestions ||
+                !customPositiveMarks ||
+                !customNegativeMarks ||
+                !customQpFile
+              }
+              className="cursor-pointer flex items-center gap-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 px-6 py-2.5 text-xs font-bold text-white shadow-xs disabled:opacity-40 transition-all"
+            >
+              <UploadCloud className="h-4 w-4" />
+              {isSubmitting ? "Saving Paper..." : "Save Custom Paper & Start Practice"}
+            </button>
+          </div>
+        </form>
+      )}
+
+      {/* ============================================================== */}
+      {/* MODE 2: OFFICIAL UPSC PRESET (OPTIONAL ARCHIVAL) */}
+      {/* ============================================================== */}
+      {viewMode === "preset" && (
         <form onSubmit={handleUploadNewPaper} className="space-y-6">
           {/* Step 1: Exam Type Selector */}
           <div className="bi-card p-6 space-y-3">
@@ -866,14 +1321,14 @@ export function UploadView({
               {/* Paper Identifier */}
               <div>
                 <label className="block text-xs font-bold text-slate-700 mb-1">
-                  Identifier Tag
+                  Paper Title / Identifier
                 </label>
                 <input
                   type="text"
                   value={paperIdentifier}
                   onChange={(e) => setPaperIdentifier(e.target.value)}
-                  placeholder="prelims_gs_i"
-                  className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3.5 py-2 text-xs text-slate-800 focus:outline-none focus:border-indigo-500 focus:bg-white font-mono"
+                  placeholder="e.g. Vision IAS Mock 1, Polity Sectional, Test Series 4"
+                  className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3.5 py-2 text-xs text-slate-800 focus:outline-none focus:border-indigo-500 focus:bg-white font-medium"
                   required
                 />
               </div>

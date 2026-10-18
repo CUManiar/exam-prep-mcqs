@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import fs from "node:fs";
 import path from "node:path";
 import { QuestionPaper, ExamCategory, ExamType } from "../../../lib/types";
-import { INITIAL_PAPERS, getStandardTimeMinutes } from "../../../lib/defaults";
+import { INITIAL_PAPERS, getStandardTimeMinutes, formatCustomIdentifier } from "../../../lib/defaults";
 import {
   readJsonStore,
   writeJsonStore,
@@ -71,7 +71,17 @@ export async function GET(req: NextRequest) {
 
     // 2. Add valid papers from customMeta (user uploads)
     for (const [id, paper] of Object.entries(customMeta)) {
-      if (paper && paper.id && paper.label && paper.qpUrl) {
+      if (paper && paper.id && paper.qpUrl) {
+        if (
+          !paper.label ||
+          paper.label.match(/^\d{4}\s*–\s*(GS\s*I|GS\s*II\s*CSAT|Mains.*)$/i)
+        ) {
+          const fromId = formatCustomIdentifier(paper.id);
+          if (fromId) {
+            paper.label = fromId;
+            paper.title = fromId;
+          }
+        }
         allPapers.push(paper);
       }
     }

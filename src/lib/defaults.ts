@@ -63,11 +63,84 @@ export function formatDateTime(isoString: string): string {
 export const SUPPORTED_YEARS = ["2026", "2025", "2024"];
 
 /**
+ * Helper to extract clean human-readable identifier from custom paper id
+ */
+export function formatCustomIdentifier(paperId: string): string {
+  if (!paperId) return "";
+  // Case 1: custom_userId_year_identifier
+  const matchWithUser = paperId.match(/^custom_[a-f0-9]+_\d{4}_(.+)$/i);
+  if (matchWithUser && matchWithUser[1]) {
+    return matchWithUser[1]
+      .replace(/_/g, " ")
+      .replace(/\b\w/g, (c) => c.toUpperCase());
+  }
+  // Case 2: custom_year_identifier_timestamp
+  const matchWithTimestamp = paperId.match(/^custom_\d{4}_(.+)_[a-z0-9]+$/i);
+  if (matchWithTimestamp && matchWithTimestamp[1]) {
+    return matchWithTimestamp[1]
+      .replace(/_/g, " ")
+      .replace(/\b\w/g, (c) => c.toUpperCase());
+  }
+  // Case 3: custom_identifier
+  const matchGeneric = paperId.match(/^custom_(.+)$/i);
+  if (matchGeneric && matchGeneric[1]) {
+    return matchGeneric[1]
+      .replace(/_/g, " ")
+      .replace(/\b\w/g, (c) => c.toUpperCase());
+  }
+  return paperId;
+}
+
+/**
+ * Helper to identify if a paper was uploaded by the user
+ */
+export function isUserUploadedPaper(paper: QuestionPaper): boolean {
+  if (!paper || !paper.id) return false;
+  return Boolean(
+    paper.isCustom ||
+    paper.userId ||
+    paper.id.startsWith("custom_") ||
+    paper.subject === "Custom Practice"
+  );
+}
+
+/**
+ * Helper to get the user-facing title for any paper.
+ * For user-uploaded custom papers, guarantees that the user-entered Identifier / Name
+ * is displayed rather than hardcoded presets like "2026 – GS I".
+ */
+export function getPaperDisplayTitle(paper: QuestionPaper): string {
+  if (!paper) return "";
+  if (isUserUploadedPaper(paper)) {
+    // If paper.label or paper.title exists and is not the generic "2026 – GS I", use it
+    if (
+      paper.label &&
+      !paper.label.match(/^\d{4}\s*–\s*(GS\s*I|GS\s*II\s*CSAT|Mains.*)$/i)
+    ) {
+      return paper.label;
+    }
+    if (
+      paper.title &&
+      !paper.title.match(/^\d{4}\s*–\s*(GS\s*I|GS\s*II\s*CSAT|Mains.*)$/i)
+    ) {
+      return paper.title;
+    }
+    // Extract identifier from id
+    const fromId = formatCustomIdentifier(paper.id);
+    if (fromId) return fromId;
+  }
+  return paper.label || `${paper.year} – ${paper.subject}`;
+}
+
+/**
  * Checks if a question paper is part of the completely free tier.
- * Only 2026 Prelims papers (GS Paper I & CSAT Paper II) are free for all aspirants.
- * All other papers (2024, 2025, and all Mains papers) require Pro Vault access.
+ * Only 2026 Prelims papers (GS Paper I & CSAT Paper II) and all user-uploaded custom papers are free.
+ * Official archival papers (2024, 2025, and all Mains papers) require Pro Vault access.
  */
 export function isPaperFree(paper: QuestionPaper): boolean {
+  if (isUserUploadedPaper(paper)) {
+    return true;
+  }
   return paper.year === "2026" && paper.category === "prelims";
 }
 

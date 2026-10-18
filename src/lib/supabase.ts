@@ -280,26 +280,43 @@ export async function fetchUserCustomPapersFromSupabase(
       .order("created_at", { ascending: false });
 
     if (error || !data) return [];
-    return data.map((row) => ({
-      id: row.id,
-      year: String(row.year),
-      category: (row.stage || "prelims") as any,
-      examType: (row.exam_type || "objective") as any,
-      subject: row.subject,
-      label: row.label || `${row.year} – ${row.subject}`,
-      totalQuestions: row.total_questions || 100,
-      totalMarks: Number(row.total_marks) || 200,
-      correctMarks: Number(row.correct_marks) || 2.0,
-      incorrectMarks: Number(row.incorrect_marks) || 0.667,
-      timeMinutes: row.time_minutes || 120,
-      qpUrl: row.qp_url,
-      akUrl: row.ak_url || undefined,
-      exsUrl: row.exs_url || undefined,
-      answerKey: row.answer_key || {},
-      answerKeyText: row.answer_key_text || undefined,
-      isCustom: true,
-      userId: row.user_id,
-    }));
+    return data.map((row) => {
+      let paperLabel = row.label || row.title || "";
+      if (
+        !paperLabel ||
+        paperLabel.match(/^\d{4}\s*–\s*(GS\s*I|GS\s*II\s*CSAT|Mains.*)$/i)
+      ) {
+        const m = row.id.match(/^custom_[^_]+_\d{4}_(.+)$/);
+        if (m && m[1]) {
+          paperLabel = m[1]
+            .replace(/_/g, " ")
+            .replace(/\b\w/g, (c: string) => c.toUpperCase());
+        } else {
+          paperLabel = row.label || row.title || `${row.year} – ${row.subject}`;
+        }
+      }
+      return {
+        id: row.id,
+        year: String(row.year),
+        category: (row.stage || "prelims") as any,
+        examType: (row.exam_type || "objective") as any,
+        subject: row.subject || paperLabel,
+        label: paperLabel,
+        title: paperLabel,
+        totalQuestions: row.total_questions || 100,
+        totalMarks: Number(row.total_marks) || 200,
+        correctMarks: Number(row.correct_marks) || 2.0,
+        incorrectMarks: Number(row.incorrect_marks) || 0.667,
+        timeMinutes: row.time_minutes || 120,
+        qpUrl: row.qp_url,
+        akUrl: row.ak_url || undefined,
+        exsUrl: row.exs_url || undefined,
+        answerKey: row.answer_key || {},
+        answerKeyText: row.answer_key_text || undefined,
+        isCustom: true,
+        userId: row.user_id,
+      };
+    });
   } catch (err) {
     console.warn("Failed fetching user custom papers from Supabase:", err);
     return [];
@@ -314,15 +331,16 @@ export async function saveUserCustomPaperToSupabase(
   const supabase = getSupabaseClient();
   if (!supabase) return false;
   try {
+    const paperTitle = paper.label || paper.title || `${paper.year} – ${paper.subject}`;
     const { error } = await supabase.from("custom_papers").upsert({
       id: paper.id,
       user_id: userId,
-      title: paper.label,
+      title: paperTitle,
       year: parseInt(paper.year) || 2026,
-      subject: paper.subject,
+      subject: paper.subject || paperTitle,
       stage: paper.category,
       exam_type: paper.examType,
-      label: paper.label,
+      label: paperTitle,
       total_questions: paper.totalQuestions,
       total_marks: paper.totalMarks,
       correct_marks: paper.correctMarks,

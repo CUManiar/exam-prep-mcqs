@@ -2,7 +2,7 @@
 
 import React, { useState, useMemo, useEffect } from "react";
 import { Attempt, QuestionPaper } from "../lib/types";
-import { formatTimeSeconds, formatDateTime } from "../lib/defaults";
+import { formatTimeSeconds, formatDateTime, getPaperDisplayTitle } from "../lib/defaults";
 import { DetailedSolutionModal } from "./DetailedSolutionModal";
 import { PdfViewer } from "./PdfViewer";
 import {
@@ -818,7 +818,7 @@ export function AttemptDetailView({
               <div className="flex items-center gap-2 text-xs font-bold text-slate-800 min-w-0">
                 <BookOpen className="h-4 w-4 text-indigo-600 shrink-0" />
                 <span className="truncate max-w-[160px] sm:max-w-[240px]">
-                  {matchedPaper.label}
+                  {getPaperDisplayTitle(matchedPaper)}
                 </span>
                 <span className="text-[10px] px-2 py-0.5 rounded-full bg-indigo-50 text-indigo-700 border border-indigo-200 uppercase font-mono font-bold shrink-0">
                   Question Paper
@@ -865,7 +865,7 @@ export function AttemptDetailView({
             <div className="flex-1 min-h-0 bg-slate-100 w-full h-full relative">
               <PdfViewer
                 url={matchedPaper.qpUrl}
-                title={matchedPaper.label}
+                title={getPaperDisplayTitle(matchedPaper)}
                 showToolbar={false}
                 currentMode={pdfMode}
                 onModeChange={setPdfMode}

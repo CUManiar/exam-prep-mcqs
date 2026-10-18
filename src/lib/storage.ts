@@ -228,16 +228,23 @@ export async function deletePaperFromServer(paperId: string): Promise<boolean> {
   try {
     const res = await fetch(`/api/papers/${paperId}`, { method: "DELETE" });
     if (res.ok) {
-      if (typeof window !== "undefined") {
-        const list = getCustomPapers().filter((p) => p.id !== paperId);
-        localStorage.setItem(STORAGE_KEYS.CUSTOM_PAPERS, JSON.stringify(list));
-      }
+      removeLocalCustomPaper(paperId);
       return true;
     }
   } catch (err) {
     console.error("Failed to delete paper on server:", err);
   }
   return false;
+}
+
+export function removeLocalCustomPaper(paperId: string): void {
+  if (typeof window === "undefined") return;
+  try {
+    const list = getCustomPapers().filter((p) => p.id !== paperId);
+    localStorage.setItem(STORAGE_KEYS.CUSTOM_PAPERS, JSON.stringify(list));
+  } catch (err) {
+    console.error("Failed removing local custom paper:", err);
+  }
 }
 
 // Update paper rules (Server + local)

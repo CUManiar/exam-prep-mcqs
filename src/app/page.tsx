@@ -21,6 +21,7 @@ export default function RootPage() {
     openProUpgradeModal,
     isPro,
     isLoading,
+    handleDeletePaper,
   } = useApp();
 
   // While initializing session state, show clean loading state to avoid flashing dashboard
@@ -59,6 +60,7 @@ export default function RootPage() {
       activeDraft={activeDraft}
       onResumeDraft={handleResumeDraft}
       onDiscardDraft={handleDiscardDraft}
+      onDeletePaper={handleDeletePaper}
     />
   );
 }

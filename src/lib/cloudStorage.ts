@@ -148,6 +148,8 @@ export async function uploadFile(
 export async function deleteFile(fileUrlOrName: string): Promise<void> {
   if (!fileUrlOrName) return;
 
+  const cleanTarget = fileUrlOrName.split("?")[0].split("#")[0];
+
   // 1. Primary: Supabase Storage bucket 'papers'
   if (
     process.env.NEXT_PUBLIC_SUPABASE_URL &&
@@ -159,7 +161,7 @@ export async function deleteFile(fileUrlOrName: string): Promise<void> {
         process.env.NEXT_PUBLIC_SUPABASE_URL,
         process.env.SUPABASE_SERVICE_ROLE_KEY,
       );
-      let storageKey = fileUrlOrName;
+      let storageKey = cleanTarget;
       if (storageKey.includes("/papers/")) {
         const parts = storageKey.split("/papers/");
         storageKey = parts[parts.length - 1];
@@ -182,7 +184,7 @@ export async function deleteFile(fileUrlOrName: string): Promise<void> {
   }
 
   // 3. Local file delete fallback
-  const filename = path.basename(fileUrlOrName);
+  const filename = path.basename(cleanTarget);
   const localPath = path.join(process.cwd(), "public", "data", filename);
   if (fs.existsSync(localPath)) {
     try {
