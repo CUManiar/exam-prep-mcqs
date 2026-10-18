@@ -489,25 +489,6 @@ export function PapersView({
                           User Uploaded
                         </span>
                       )}
-                      {paperAtts.length > 0 ? (
-                        hasMock ? (
-                          <span className="text-[10px] uppercase font-extrabold text-indigo-700 bg-indigo-50 px-2 py-0.5 rounded-md border border-indigo-200/60 font-mono">
-                            Mocked{" "}
-                            {mockAtts.length > 1 ? `(${mockAtts.length}x)` : ""}
-                          </span>
-                        ) : (
-                          <span className="text-[10px] uppercase font-extrabold text-teal-700 bg-teal-50 px-2 py-0.5 rounded-md border border-teal-200/60 font-mono">
-                            Practiced{" "}
-                            {practiceAtts.length > 1
-                              ? `(${practiceAtts.length}x)`
-                              : ""}
-                          </span>
-                        )
-                      ) : (
-                        <span className="text-[10px] font-medium text-slate-400 bg-slate-50 px-2 py-0.5 rounded-md border border-slate-200 font-mono">
-                          Unattempted
-                        </span>
-                      )}
                       {isLocked && (
                         <span className="inline-flex items-center gap-1 rounded-full bg-amber-50 px-2 py-0.5 text-[10px] font-bold text-amber-800 border border-amber-200">
                           <Lock className="h-2.5 w-2.5 text-amber-600" />
@@ -532,11 +513,38 @@ export function PapersView({
                     </span>
                   </div>
 
-                  {/* Standardized Title Container */}
-                  <div className="mt-3 min-h-[44px] flex items-start">
-                    <h3 className="text-base font-bold text-slate-900 group-hover:text-indigo-600 transition-colors leading-snug line-clamp-2">
+                  {/* Standardized Title Container with Circular Attempt Chips */}
+                  <div className="mt-3 min-h-[44px] flex items-start gap-2">
+                    <h3 className="text-base font-bold text-slate-900 group-hover:text-indigo-600 transition-colors leading-snug line-clamp-2 flex-1">
                       {getPaperDisplayTitle(paper)}
                     </h3>
+
+                    {/* Circular Attempt Chips Beside Title */}
+                    <div className="flex items-center gap-1 shrink-0 mt-0.5">
+                      {hasMock && (
+                        <span
+                          title={`Mock Attempted: ${mockAtts.length} ${mockAtts.length === 1 ? "time" : "times"}${bestMock ? ` • Best Score: ${bestMock.score}/${paper.totalMarks}` : ""}`}
+                          className="inline-flex items-center justify-center gap-0.5 px-2 h-6 rounded-full bg-indigo-600 text-white text-[11px] font-extrabold shadow-xs shadow-indigo-600/30 cursor-default select-none animate-in zoom-in-75"
+                        >
+                          <span className="text-[9px] font-bold uppercase tracking-wider text-indigo-200">
+                            M
+                          </span>
+                          <span>{mockAtts.length}</span>
+                        </span>
+                      )}
+
+                      {hasPractice && (
+                        <span
+                          title={`Practiced: ${practiceAtts.length} ${practiceAtts.length === 1 ? "session" : "sessions"}`}
+                          className="inline-flex items-center justify-center gap-0.5 px-2 h-6 rounded-full bg-emerald-600 text-white text-[11px] font-extrabold shadow-xs shadow-emerald-600/30 cursor-default select-none animate-in zoom-in-75"
+                        >
+                          <span className="text-[9px] font-bold uppercase tracking-wider text-emerald-200">
+                            P
+                          </span>
+                          <span>{practiceAtts.length}</span>
+                        </span>
+                      )}
+                    </div>
                   </div>
 
                   {/* Meta details */}
@@ -547,27 +555,6 @@ export function PapersView({
                     <span className="text-slate-300">•</span>
                     <span>{paper.totalMarks} Marks</span>
                   </div>
-
-                  {/* Attempt Status Banner if attempted */}
-                  {paperAtts.length > 0 && (
-                    <div className="mt-2.5 flex items-center justify-between rounded-xl bg-indigo-50/70 border border-indigo-100/90 px-3 py-1.5 text-xs">
-                      <div className="flex items-center gap-1.5 min-w-0">
-                        <CheckCircle2 className="h-3.5 w-3.5 text-indigo-600 shrink-0" />
-                        <span className="font-bold text-indigo-900 truncate text-[11px]">
-                          {hasMock && hasPractice
-                            ? `Mock (${mockAtts.length}x) • Practice (${practiceAtts.length}x)`
-                            : hasMock
-                              ? `Mock Attempted (${mockAtts.length === 1 ? "1x" : `${mockAtts.length}x`})`
-                              : `Practice Session (${practiceAtts.length === 1 ? "1x" : `${practiceAtts.length}x`})`}
-                        </span>
-                      </div>
-                      {bestMock && (
-                        <span className="text-[10px] font-mono font-bold text-emerald-800 bg-emerald-50 px-2 py-0.5 rounded-md border border-emerald-200/60 shadow-2xs shrink-0">
-                          Best: {bestMock.score}/{paper.totalMarks}
-                        </span>
-                      )}
-                    </div>
-                  )}
 
                   {/* Prominent Resource Status Indicators - Standard Single Row */}
                   <div className="mt-3.5 pt-3 border-t border-slate-100 h-7 flex items-center gap-2">
