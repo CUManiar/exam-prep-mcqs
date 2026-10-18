@@ -34,6 +34,9 @@ export function HistoryView({
   const { papers, handleStartExam } = useApp();
   const [search, setSearch] = useState("");
   const [viewMode, setViewMode] = useState<"all" | "cumulative">("all");
+  const [selectedAttemptByPaper, setSelectedAttemptByPaper] = useState<
+    Record<string, string>
+  >({});
 
   // Only mock mode attempts are counted in official history
   const mockAttempts = attempts.filter((a) => a.mode === "mock");
@@ -220,7 +223,7 @@ export function HistoryView({
               }`}
             >
               <History className="h-3.5 w-3.5 text-indigo-600" />
-              <span>All Logs ({mockAttempts.length})</span>
+              <span>Exam Papers ({groupedByPaper.length})</span>
             </button>
             <button
               onClick={() => setViewMode("cumulative")}
@@ -519,7 +522,7 @@ export function HistoryView({
       ) : /* =========================================================================
            MODE 2: ALL ATTEMPTS CHRONOLOGICAL CARDS
            ========================================================================= */
-      filtered.length === 0 ? (
+      filteredGrouped.length === 0 ? (
         <div className="bi-card rounded-2xl p-12 text-center border-dashed border-slate-300">
           <History className="mx-auto h-12 w-12 text-slate-400 mb-3" />
           <h3 className="text-base font-bold text-slate-800">
@@ -532,27 +535,32 @@ export function HistoryView({
           </p>
         </div>
       ) : (
-        <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">
-          {filtered.map((att) => {
+        <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
+          {filteredGrouped.map((group) => {
+            const hasMultiple = group.attempts.length > 1;
+            const activeAttemptId =
+              selectedAttemptByPaper[group.paperId] || group.latestAttempt.id;
+            const activeAttempt =
+              group.attempts.find((a) => a.id === activeAttemptId) ||
+              group.latestAttempt;
+            const totalPaperAttempts = group.attempts.length;
+            const matchedPaper =
+              group.paper || papers.find((p) => p.id === group.paperId);
+
             const isCsat =
-              att.paperLabel.includes("CSAT") ||
-              att.paperLabel.includes("GS II");
+              group.paperLabel.includes("CSAT") ||
+              group.paperLabel.includes("GS II");
             const scoreColor =
-              att.score >= 90
+              activeAttempt.score >= 90
                 ? "text-emerald-700"
-                : att.score >= 66
+                : activeAttempt.score >= 66
                   ? "text-amber-700"
                   : "text-slate-800";
 
-            const attList = paperAttemptsChronological.get(att.paperId) || [];
-            const attemptIndex = attList.indexOf(att.id) + 1;
-            const totalPaperAttempts = attList.length;
-            const matchedPaper = papers.find((p) => p.id === att.paperId);
-
-            // Cutoff indicator badge
+            // Cutoff indicator badge for active attempt
             let cutoffBadge = null;
             if (isCsat) {
-              const qualified = att.score >= 66.67;
+              const qualified = activeAttempt.score >= 66.67;
               cutoffBadge = (
                 <span
                   className={`text-[10px] font-bold px-2.5 py-0.5 rounded-full flex items-center gap-1 ${
@@ -569,8 +577,8 @@ export function HistoryView({
                   {qualified ? "CSAT Qualified (33%+)" : "Below 33% Cutoff"}
                 </span>
               );
-            } else if (att.category === "prelims") {
-              const competitive = att.score >= 95;
+            } else if (activeAttempt.category === "prelims") {
+              const competitive = activeAttempt.score >= 95;
               cutoffBadge = (
                 <span
                   className={`text-[10px] font-bold px-2.5 py-0.5 rounded-full ${
@@ -586,102 +594,175 @@ export function HistoryView({
 
             return (
               <div
-                key={att.id}
-                onClick={() => onViewAttempt(att)}
-                className="cursor-pointer flex flex-col justify-between bi-card p-5 group hover:border-indigo-300 transition-all shadow-xs"
+                key={group.paperId}
+                className="relative group/stack flex flex-col"
               >
-                <div>
-                  {/* Top row: Status & Duration & Attempt Count */}
-                  <div className="flex items-center justify-between gap-2 flex-wrap">
-                    <div className="flex items-center gap-1.5 flex-wrap">
-                      {cutoffBadge || (
-                        <span className="text-[10px] font-bold px-2.5 py-0.5 rounded-full bg-slate-100 text-slate-700 border border-slate-200">
-                          Evaluated Mock
-                        </span>
-                      )}
-                      {totalPaperAttempts > 1 && (
-                        <span className="text-[10px] font-bold text-indigo-700 bg-indigo-50 px-2 py-0.5 rounded-md border border-indigo-200/60 font-mono">
-                          Attempt #{attemptIndex} of {totalPaperAttempts}
+                {/* 3D Stacked Background Line Layers for papers attempted more than once */}
+                {totalPaperAttempts > 2 && (
+                  <div
+                    aria-hidden="true"
+                    className="absolute -bottom-3 -right-3 left-3 top-3 rounded-2xl bg-indigo-50/70 border border-indigo-200/60 shadow-2xs transition-transform duration-200 group-hover/stack:translate-x-1 group-hover/stack:translate-y-1 -z-20 pointer-events-none"
+                  />
+                )}
+                {hasMultiple && (
+                  <div
+                    aria-hidden="true"
+                    className="absolute -bottom-1.5 -right-1.5 left-1.5 top-1.5 rounded-2xl bg-slate-100/90 border border-slate-300/80 shadow-2xs transition-transform duration-200 group-hover/stack:translate-x-0.5 group-hover/stack:translate-y-0.5 -z-10 pointer-events-none"
+                  />
+                )}
+
+                {/* Main Attempt Card */}
+                <div
+                  onClick={() => onViewAttempt(activeAttempt)}
+                  className="cursor-pointer relative flex flex-col justify-between bi-card p-5 group hover:border-indigo-300 transition-all shadow-xs bg-white rounded-2xl h-full flex-1"
+                >
+                  <div>
+                    {/* Top row: Status & Duration & Attempt Switcher */}
+                    <div className="flex items-center justify-between gap-2 flex-wrap">
+                      <div className="flex items-center gap-1.5 flex-wrap">
+                        {cutoffBadge || (
+                          <span className="text-[10px] font-bold px-2.5 py-0.5 rounded-full bg-slate-100 text-slate-700 border border-slate-200">
+                            Evaluated Mock
+                          </span>
+                        )}
+
+                        {hasMultiple ? (
+                          <div
+                            onClick={(e) => e.stopPropagation()}
+                            className="flex items-center gap-1 bg-indigo-50/80 p-0.5 rounded-lg border border-indigo-200/70 text-[10px] font-mono shadow-2xs"
+                            title="Switch attempt to inspect"
+                          >
+                            {group.attempts.map((att, idx) => {
+                              const isAttActive = att.id === activeAttempt.id;
+                              return (
+                                <button
+                                  key={att.id}
+                                  type="button"
+                                  onClick={() =>
+                                    setSelectedAttemptByPaper((prev) => ({
+                                      ...prev,
+                                      [group.paperId]: att.id,
+                                    }))
+                                  }
+                                  className={`px-2 py-0.5 rounded font-bold transition-all cursor-pointer ${
+                                    isAttActive
+                                      ? "bg-indigo-600 text-white shadow-xs"
+                                      : "text-indigo-700 hover:bg-indigo-100"
+                                  }`}
+                                  title={`View Attempt #${idx + 1}`}
+                                >
+                                  #{idx + 1}
+                                  {idx === totalPaperAttempts - 1 &&
+                                    " (Latest)"}
+                                </button>
+                              );
+                            })}
+                          </div>
+                        ) : (
+                          <span className="text-[10px] font-bold text-slate-500 bg-slate-100 px-2.5 py-0.5 rounded-md border border-slate-200 font-mono">
+                            Attempt #1 of 1
+                          </span>
+                        )}
+                      </div>
+
+                      <span className="text-xs text-slate-500 font-mono flex items-center gap-1 font-medium">
+                        <Clock className="h-3 w-3 text-slate-400" />
+                        {formatTimeSeconds(activeAttempt.durationSeconds)}
+                      </span>
+                    </div>
+
+                    {/* Title & Date */}
+                    <h3 className="mt-3 text-sm font-bold text-slate-900 group-hover:text-indigo-600 transition-colors leading-snug">
+                      {group.paperLabel}
+                    </h3>
+                    <div className="flex items-center justify-between text-xs text-slate-400 mt-0.5 font-medium flex-wrap gap-1">
+                      <span>{formatDateTime(activeAttempt.startedAt)}</span>
+                      {hasMultiple && group.scoreDelta !== 0 && (
+                        <span
+                          className={`text-[11px] font-bold font-mono ${
+                            group.scoreDelta > 0
+                              ? "text-emerald-700"
+                              : "text-rose-700"
+                          }`}
+                        >
+                          {group.scoreDelta > 0
+                            ? `+${group.scoreDelta}`
+                            : group.scoreDelta}{" "}
+                          pts trend
                         </span>
                       )}
                     </div>
-                    <span className="text-xs text-slate-500 font-mono flex items-center gap-1 font-medium">
-                      <Clock className="h-3 w-3 text-slate-400" />
-                      {formatTimeSeconds(att.durationSeconds)}
-                    </span>
+
+                    {/* Score & Accuracy Box */}
+                    <div className="mt-4 flex items-center justify-between rounded-xl bg-slate-50 p-3.5 border border-slate-200/70">
+                      <div>
+                        <span className="text-[10px] text-slate-400 uppercase font-bold tracking-wider">
+                          Net Score
+                        </span>
+                        <div
+                          className={`text-xl font-extrabold font-mono ${scoreColor} mt-0.5`}
+                        >
+                          {activeAttempt.score}{" "}
+                          <span className="text-xs text-slate-400 font-normal">
+                            / {activeAttempt.maxScore}
+                          </span>
+                        </div>
+                      </div>
+                      <div className="text-right">
+                        <span className="text-[10px] text-slate-400 uppercase font-bold tracking-wider">
+                          Accuracy
+                        </span>
+                        <div className="text-xl font-extrabold text-teal-700 font-mono mt-0.5">
+                          {activeAttempt.accuracyPct}%
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Question breakdown row */}
+                    <div className="mt-3 flex items-center justify-between text-[11px] font-mono text-slate-500 px-1 font-semibold">
+                      <span>
+                        <span className="text-emerald-600">
+                          {activeAttempt.correct}
+                        </span>{" "}
+                        Correct
+                      </span>
+                      <span className="text-slate-300">•</span>
+                      <span>
+                        <span className="text-rose-600">
+                          {activeAttempt.incorrect}
+                        </span>{" "}
+                        Wrong
+                      </span>
+                      <span className="text-slate-300">•</span>
+                      <span>
+                        <span className="text-slate-400">
+                          {activeAttempt.unattempted}
+                        </span>{" "}
+                        Skipped
+                      </span>
+                    </div>
                   </div>
 
-                  {/* Title & Date */}
-                  <h3 className="mt-3 text-sm font-bold text-slate-900 group-hover:text-indigo-600 transition-colors leading-snug">
-                    {att.paperLabel}
-                  </h3>
-                  <p className="text-xs text-slate-400 mt-0.5 font-medium">
-                    {formatDateTime(att.startedAt)}
-                  </p>
-
-                  {/* Score & Accuracy Box */}
-                  <div className="mt-4 flex items-center justify-between rounded-xl bg-slate-50 p-3.5 border border-slate-200/70">
-                    <div>
-                      <span className="text-[10px] text-slate-400 uppercase font-bold tracking-wider">
-                        Net Score
-                      </span>
-                      <div
-                        className={`text-xl font-extrabold font-mono ${scoreColor} mt-0.5`}
+                  {/* Bottom Actions: Re-attempt Mock + Review Assessment */}
+                  <div className="mt-5 pt-3 border-t border-slate-100 flex items-center justify-between gap-2 text-xs">
+                    {matchedPaper && (
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleStartExam(matchedPaper, "mock");
+                        }}
+                        className="cursor-pointer flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-100 hover:bg-indigo-50 text-slate-700 hover:text-indigo-700 border border-slate-200 hover:border-indigo-200 text-xs font-bold transition-all shadow-2xs active:scale-[0.98]"
+                        title={`Re-attempt ${group.paperLabel} in Mock Exam mode`}
                       >
-                        {att.score}{" "}
-                        <span className="text-xs text-slate-400 font-normal">
-                          / {att.maxScore}
-                        </span>
-                      </div>
-                    </div>
-                    <div className="text-right">
-                      <span className="text-[10px] text-slate-400 uppercase font-bold tracking-wider">
-                        Accuracy
-                      </span>
-                      <div className="text-xl font-extrabold text-teal-700 font-mono mt-0.5">
-                        {att.accuracyPct}%
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Question breakdown row */}
-                  <div className="mt-3 flex items-center justify-between text-[11px] font-mono text-slate-500 px-1 font-semibold">
-                    <span>
-                      <span className="text-emerald-600">{att.correct}</span>{" "}
-                      Correct
-                    </span>
-                    <span className="text-slate-300">•</span>
-                    <span>
-                      <span className="text-rose-600">{att.incorrect}</span>{" "}
-                      Wrong
-                    </span>
-                    <span className="text-slate-300">•</span>
-                    <span>
-                      <span className="text-slate-400">{att.unattempted}</span>{" "}
-                      Skipped
+                        <RotateCcw className="h-3.5 w-3.5 text-indigo-600" />
+                        <span>Re-attempt</span>
+                      </button>
+                    )}
+                    <span className="text-indigo-600 group-hover:text-indigo-800 font-bold text-xs flex items-center gap-0.5 group-hover:translate-x-0.5 transition-transform ml-auto">
+                      Review Assessment <ChevronRight className="h-3.5 w-3.5" />
                     </span>
                   </div>
-                </div>
-
-                {/* Bottom Actions: Re-attempt Mock + Review Assessment */}
-                <div className="mt-5 pt-3 border-t border-slate-100 flex items-center justify-between gap-2 text-xs">
-                  {matchedPaper && (
-                    <button
-                      type="button"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleStartExam(matchedPaper, "mock");
-                      }}
-                      className="cursor-pointer flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-100 hover:bg-indigo-50 text-slate-700 hover:text-indigo-700 border border-slate-200 hover:border-indigo-200 text-xs font-bold transition-all shadow-2xs active:scale-[0.98]"
-                      title={`Re-attempt ${att.paperLabel} in Mock Exam mode`}
-                    >
-                      <RotateCcw className="h-3.5 w-3.5 text-indigo-600" />
-                      <span>Re-attempt</span>
-                    </button>
-                  )}
-                  <span className="text-indigo-600 group-hover:text-indigo-800 font-bold text-xs flex items-center gap-0.5 group-hover:translate-x-0.5 transition-transform ml-auto">
-                    Review Assessment <ChevronRight className="h-3.5 w-3.5" />
-                  </span>
                 </div>
               </div>
             );
