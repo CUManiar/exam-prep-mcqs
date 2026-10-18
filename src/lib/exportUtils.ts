@@ -1,6 +1,5 @@
 import { Attempt } from "./types";
 import { formatDateTime, formatTimeSeconds } from "./defaults";
-import jsPDF from "jspdf";
 
 /**
  * Resolves a clear, official examination title and stage description.
@@ -325,6 +324,330 @@ export function generateAttemptReportMarkdown(attempt: Attempt): string {
 }
 
 /**
+ * Generates a clean standalone HTML string for the print/PDF report.
+ * Opened in a new window and auto-printed — bypasses CSS media query conflicts.
+ */
+export function exportAttemptAsPrintPDF(
+  attempt: Attempt,
+  paperExplanations?: Record<number, string>,
+  displayTitleOverride?: string,
+  maxScoreOverride?: number,
+): void {
+  const paperTitle =
+    displayTitleOverride || attempt.paperLabel || "Assessment Report";
+  const maxScore =
+    maxScoreOverride && maxScoreOverride > 0
+      ? maxScoreOverride
+      : attempt.maxScore > 0
+        ? attempt.maxScore
+        : 200;
+
+  const correctMarksPerQ = attempt.correctMarks || 2.0;
+  const incorrectMarksPerQ = attempt.incorrectMarks || 0.667;
+  const grossCorrectMarks =
+    Math.round(attempt.correct * correctMarksPerQ * 100) / 100;
+  const negativePenaltyMarks =
+    Math.round(attempt.incorrect * incorrectMarksPerQ * 100) / 100;
+  const scorePct =
+    maxScore > 0 ? ((attempt.score / maxScore) * 100).toFixed(1) : "0.0";
+
+  const activeSolvingSeconds = Math.max(
+    0,
+    attempt.durationSeconds - (attempt.idleTimeSeconds || 0),
+  );
+  const avgTimePerQ =
+    attempt.avgTimePerQuestion ||
+    (attempt.answered > 0
+      ? Math.round(activeSolvingSeconds / attempt.answered)
+      : 0);
+
+  const questionList = Array.from({ length: attempt.totalQuestions }, (_, i) => i + 1).map((qNo) => {
+    return (
+      attempt.answers[qNo] || {
+        questionNo: qNo,
+        selected: null,
+        correctAnswer: undefined,
+        isCorrect: null,
+        flagged: false,
+        note: "",
+        timeSpentSeconds: 0,
+        changesCount: 0,
+        answerHistory: [],
+      }
+    );
+  });
+
+  const slowQuestions = questionList.filter((q) => (q.timeSpentSeconds || 0) >= 90);
+  const avgTimeCorrect = attempt.avgTimeCorrect || 0;
+  const avgTimeIncorrect = attempt.avgTimeIncorrect || 0;
+  const penaltyDragPct = grossCorrectMarks > 0
+    ? Math.round((negativePenaltyMarks / grossCorrectMarks) * 100)
+    : 0;
+
+  // Build question rows
+  const rows = Array.from({ length: attempt.totalQuestions }, (_, i) => i + 1)
+    .map((qNo) => {
+      const q = attempt.answers[qNo];
+      const isAnswered = q?.selected !== null && q?.selected !== undefined;
+      const isCorrect = isAnswered && q?.isCorrect === true;
+      const isWrong = isAnswered && q?.isCorrect === false;
+
+      const tagLabel =
+        q?.confidence === "sure"
+          ? "🎯 Sure"
+          : q?.confidence === "50-50"
+            ? "⚖️ 50:50"
+            : q?.confidence === "guess"
+              ? "🎲 Guess"
+              : "—";
+
+      const statusLabel = isCorrect
+        ? "✅ Correct"
+        : isWrong
+          ? "❌ Wrong"
+          : "⚪ Skipped";
+      const statusColor = isCorrect
+        ? "#047857"
+        : isWrong
+          ? "#b91c1c"
+          : "#64748b";
+      const marksLabel = isCorrect
+        ? `+${correctMarksPerQ}`
+        : isWrong
+          ? `-${incorrectMarksPerQ}`
+          : "0.00";
+      const marksColor = isCorrect
+        ? "#047857"
+        : isWrong
+          ? "#b91c1c"
+          : "#94a3b8";
+
+      const timeText = q?.timeSpentSeconds ? `${q.timeSpentSeconds}s` : "—";
+      const changesText = q?.changesCount ? `${q.changesCount}x` : "—";
+
+      const expl = q?.explanation || paperExplanations?.[qNo] || "";
+      const note = q?.note?.trim() || "";
+      let noteCell = "—";
+      if (expl && note)
+        noteCell = `<strong>Expl:</strong> ${expl}<br/><span style="color:#475569;"><em>Note:</em> ${note}</span>`;
+      else if (expl) noteCell = `<strong>Expl:</strong> ${expl}`;
+      else if (note) noteCell = `<em>Note:</em> ${note}`;
+
+      return `<tr>
+      <td style="text-align:center;font-weight:700;font-family:monospace;">Q${qNo}</td>
+      <td style="text-align:center;font-size:10px;">${tagLabel}</td>
+      <td style="text-align:center;color:${statusColor};font-weight:700;font-size:11px;">${statusLabel}</td>
+      <td style="text-align:center;font-family:monospace;font-weight:700;font-size:11px;">${q?.selected ? `Option ${q.selected}` : "—"}</td>
+      <td style="text-align:center;font-family:monospace;font-weight:700;font-size:11px;color:#047857;">${q?.correctAnswer ? `Option ${q.correctAnswer}` : "—"}</td>
+      <td style="text-align:center;font-family:monospace;color:${marksColor};font-weight:700;">${marksLabel}</td>
+      <td style="text-align:center;font-size:10px;color:#64748b;font-family:monospace;">${timeText}</td>
+      <td style="font-size:11px;color:#334155;line-height:1.4;">${noteCell}</td>
+    </tr>`;
+    })
+    .join("\n");
+
+  const html = `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>${paperTitle} — Assessment Report</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Arial, sans-serif; font-size: 11px; color: #0f172a; background: #fff; padding: 10mm; }
+    h1 { font-size: 16px; font-weight: 900; margin-bottom: 2px; }
+    .header { text-align: center; border-bottom: 2px solid #0f172a; padding-bottom: 10px; margin-bottom: 12px; }
+    .header .label { font-size: 11px; font-weight: 900; text-transform: uppercase; letter-spacing: 0.15em; color: #334155; }
+    .header .subtitle { font-size: 16px; font-weight: 900; letter-spacing: -0.01em; margin: 3px 0; color: #0f172a; }
+    .meta { display: flex; flex-wrap: wrap; justify-content: center; gap: 6px 14px; font-size: 10px; color: #475569; font-weight: 600; margin-top: 6px; border-top: 1px solid #e2e8f0; padding-top: 6px; }
+    .widgets { display: grid; grid-template-columns: repeat(5, 1fr); gap: 6px; margin-bottom: 12px; }
+    .widget { border: 1px solid #cbd5e1; border-radius: 8px; background: #f8fafc; padding: 8px 6px; text-align: center; }
+    .widget-label { font-size: 8.5px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.08em; color: #64748b; display: block; margin-bottom: 2px; }
+    .widget-value { font-size: 16px; font-weight: 900; font-family: monospace; color: #0f172a; }
+    .widget-sub { font-size: 8.5px; color: #64748b; margin-top: 1px; }
+    .section-title { font-size: 9.5px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.08em; color: #334155; margin-bottom: 6px; }
+    .detail-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 12px; }
+    .card { border: 1px solid #cbd5e1; border-radius: 8px; background: #fff; padding: 8px 10px; }
+    .card-title { font-size: 9px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.06em; color: #475569; margin-bottom: 4px; border-bottom: 1px solid #f1f5f9; padding-bottom: 3px; }
+    .stat-row { display: flex; justify-content: space-between; align-items: center; padding: 2.5px 0; font-size: 10.5px; }
+    .stat-label { color: #64748b; font-weight: 500; }
+    .stat-val { font-weight: 700; font-family: monospace; color: #0f172a; }
+    .general-note { border: 1px solid #e2e8f0; border-radius: 8px; background: #f8fafc; padding: 6px 10px; font-size: 10.5px; color: #374151; margin-bottom: 10px; }
+    table { width: 100%; border-collapse: collapse; font-size: 10.5px; margin-bottom: 12px; }
+    thead tr { background: #f1f5f9; }
+    th { padding: 6px 5px; text-align: center; font-size: 9.5px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.04em; color: #374151; border: 1px solid #cbd5e1; }
+    td { padding: 4.5px 5px; border: 1px solid #e2e8f0; vertical-align: top; }
+    tr:nth-child(even) td { background: #f8fafc; }
+    .footer { font-size: 8.5px; color: #94a3b8; display: flex; justify-content: space-between; border-top: 1px solid #e2e8f0; padding-top: 6px; margin-top: 4px; }
+    @media print {
+      body { padding: 0; }
+      @page { margin: 8mm 10mm; size: auto; }
+      tr, td, th { break-inside: avoid; page-break-inside: avoid; }
+    }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <div class="label">Candidate Assessment Report</div>
+    <div class="subtitle">${paperTitle}</div>
+    <div style="font-size:11px;color:#64748b;font-weight:600;margin-top:2px;">${attempt.mode === "mock" ? "Timed Mock Examination" : "Practice Assessment Session"} · Objective Evaluated Record</div>
+    <div class="meta">
+      <span><strong>Attempted:</strong> ${formatDateTime(attempt.startedAt)}</span>
+      <span>•</span>
+      <span><strong>Duration:</strong> ${formatTimeSeconds(attempt.durationSeconds)}</span>
+      <span>•</span>
+      <span><strong>Marking Scheme:</strong> +${correctMarksPerQ} / -${incorrectMarksPerQ}</span>
+      <span>•</span>
+      <span><strong>Ref ID:</strong> ${attempt.id}</span>
+    </div>
+  </div>
+
+  <div class="section-title">Performance Summary</div>
+  <div class="widgets">
+    <div class="widget">
+      <span class="widget-label">Final Net Score</span>
+      <div class="widget-value">${attempt.score}<span style="font-size:10px;font-weight:400;color:#64748b;"> / ${maxScore}</span></div>
+      <div class="widget-sub" style="color:#3730a3;font-weight:700;">${scorePct}% Marks</div>
+    </div>
+    <div class="widget">
+      <span class="widget-label">Accuracy</span>
+      <div class="widget-value" style="color:#047857;">${attempt.accuracyPct}%</div>
+      <div class="widget-sub">${attempt.correct} / ${attempt.answered} answered</div>
+    </div>
+    <div class="widget">
+      <span class="widget-label">Correct / Wrong</span>
+      <div class="widget-value"><span style="color:#047857;">${attempt.correct}</span><span style="color:#cbd5e1;margin:0 2px;">/</span><span style="color:#b91c1c;">${attempt.incorrect}</span></div>
+      <div class="widget-sub">+${grossCorrectMarks}m / -${negativePenaltyMarks}m</div>
+    </div>
+    <div class="widget">
+      <span class="widget-label">Questions</span>
+      <div class="widget-value">${attempt.answered}<span style="font-size:10px;font-weight:400;color:#64748b;"> / ${attempt.totalQuestions}</span></div>
+      <div class="widget-sub">${attempt.unattempted} Skipped</div>
+    </div>
+    <div class="widget">
+      <span class="widget-label">Avg Pace</span>
+      <div class="widget-value">${avgTimePerQ}s</div>
+      <div class="widget-sub">per attempted</div>
+    </div>
+  </div>
+
+  <!-- Summary Detail Breakdown -->
+  <div class="detail-grid">
+    <!-- Marks Reconciliation -->
+    <div class="card">
+      <div class="card-title">Marks Breakdown &amp; Negative Marking Drag</div>
+      <div class="stat-row">
+        <span class="stat-label">Gross Marks Earned (+):</span>
+        <span class="stat-val" style="color:#047857;">+${grossCorrectMarks} marks (${attempt.correct} × ${correctMarksPerQ}m)</span>
+      </div>
+      <div class="stat-row">
+        <span class="stat-label">Penalties Deducted (−):</span>
+        <span class="stat-val" style="color:#b91c1c;">-${negativePenaltyMarks} marks (${attempt.incorrect} × ${incorrectMarksPerQ}m)</span>
+      </div>
+      <div class="stat-row" style="border-top:1px dashed #cbd5e1;padding-top:3px;margin-top:2px;">
+        <span class="stat-label" style="font-weight:700;color:#0f172a;">Final Net Marks:</span>
+        <span class="stat-val" style="font-size:12px;color:#1e1b4b;">${attempt.score} / ${maxScore} (${scorePct}%)</span>
+      </div>
+      <div style="font-size:9.5px;color:#64748b;margin-top:3px;">
+        ${grossCorrectMarks > 0 ? `*Negative penalties reduced gross score by <strong>${penaltyDragPct}%</strong>.*` : "*Scored with official negative marking scheme.*"}
+      </div>
+    </div>
+
+    <!-- Pacing & Question Management -->
+    <div class="card">
+      <div class="card-title">Pacing &amp; Time Diagnostics</div>
+      <div class="stat-row">
+        <span class="stat-label">Average Time per Question:</span>
+        <span class="stat-val">${avgTimePerQ}s</span>
+      </div>
+      <div class="stat-row">
+        <span class="stat-label">Pace on Correct Answers:</span>
+        <span class="stat-val" style="color:#047857;">${avgTimeCorrect > 0 ? `${avgTimeCorrect}s avg` : "—"}</span>
+      </div>
+      <div class="stat-row">
+        <span class="stat-label">Pace on Incorrect Answers:</span>
+        <span class="stat-val" style="color:#b91c1c;">${avgTimeIncorrect > 0 ? `${avgTimeIncorrect}s avg` : "—"}</span>
+      </div>
+      <div class="stat-row">
+        <span class="stat-label">Slow Questions (&gt;90s):</span>
+        <span class="stat-val" style="color:${slowQuestions.length > 0 ? "#b45309" : "#64748b"};">${slowQuestions.length} questions</span>
+      </div>
+      ${(attempt.alteredCount || 0) > 0 ? `
+      <div class="stat-row" style="border-top:1px dashed #cbd5e1;padding-top:2px;margin-top:2px;">
+        <span class="stat-label">Answers Revised:</span>
+        <span class="stat-val">${attempt.alteredCount} (${attempt.alteredBenefitCount || 0} beneficial, ${attempt.alteredHarmCount || 0} harmful)</span>
+      </div>` : ""}
+    </div>
+  </div>
+
+  ${attempt.generalNotes?.trim() ? `<div class="general-note"><strong>Candidate Notes:</strong> ${attempt.generalNotes.trim()}</div>` : ""}
+
+  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
+    <div class="section-title" style="margin-bottom:0;">Question-by-Question Evaluation Sheet (${attempt.totalQuestions} Questions)</div>
+    <div style="font-size:9.5px;color:#64748b;font-weight:600;">Correct: +${correctMarksPerQ}m | Negative: -${incorrectMarksPerQ}m</div>
+  </div>
+  <table>
+    <thead>
+      <tr>
+        <th style="width:42px;">Q#</th>
+        <th style="width:55px;">Tag</th>
+        <th style="width:68px;">Result</th>
+        <th style="width:72px;">Candidate Ans</th>
+        <th style="width:72px;">Answer Key</th>
+        <th style="width:48px;">Marks</th>
+        <th style="width:44px;">Time</th>
+        <th>Explanation &amp; Candidate Notes</th>
+      </tr>
+    </thead>
+    <tbody>
+      ${rows}
+    </tbody>
+  </table>
+
+  <div class="footer">
+    <span>Candidate Assessment Record</span>
+    <span>Attempt Ref: ${attempt.id}</span>
+  </div>
+
+  <script>
+    setTimeout(function() {
+      try {
+        window.focus();
+        window.print();
+      } catch(e) {}
+    }, 300);
+  </script>
+</body>
+</html>`;
+
+  try {
+    const printWindow = window.open("", "_blank");
+    if (printWindow) {
+      printWindow.document.open();
+      printWindow.document.write(html);
+      printWindow.document.close();
+      printWindow.focus();
+      setTimeout(() => {
+        try {
+          printWindow.print();
+        } catch (e) {
+          console.warn("Print popup auto-trigger failed:", e);
+        }
+      }, 350);
+    } else {
+      // Fallback: popup blocked by browser
+      window.print();
+    }
+  } catch (err) {
+    console.error(
+      "exportAttemptAsPrintPDF error, falling back to window.print():",
+      err,
+    );
+    window.print();
+  }
+}
+
+/**
  * Downloads text/file content to user device
  */
 export function downloadFile(
@@ -381,7 +704,10 @@ export async function copyAttemptSummaryToClipboard(
       return true;
     }
   } catch (err) {
-    console.warn("Primary clipboard writeText failed, falling back to execCommand", err);
+    console.warn(
+      "Primary clipboard writeText failed, falling back to execCommand",
+      err,
+    );
   }
 
   try {
@@ -400,329 +726,4 @@ export async function copyAttemptSummaryToClipboard(
     console.error("Fallback clipboard copy failed:", fallbackErr);
     return false;
   }
-}
-
-/**
- * Generates and downloads a genuine, executive PDF assessment report (.pdf) using jsPDF
- */
-export function exportAttemptAsPDF(
-  attempt: Attempt,
-  explanations?: Record<number, string>,
-) {
-  const doc = new jsPDF({
-    orientation: "portrait",
-    unit: "mm",
-    format: "a4",
-  });
-
-  const pageWidth = 210;
-  const pageHeight = 297;
-  const margin = 14;
-  const contentWidth = pageWidth - margin * 2; // 182mm
-
-  const correctMarksPerQ = attempt.correctMarks || 2.0;
-  const incorrectMarksPerQ = attempt.incorrectMarks || 0.667;
-  const grossMarks = ((attempt.correct || 0) * correctMarksPerQ).toFixed(2);
-  const penaltyMarks = ((attempt.incorrect || 0) * incorrectMarksPerQ).toFixed(2);
-  const scorePct =
-    attempt.maxScore > 0
-      ? ((attempt.score / attempt.maxScore) * 100).toFixed(1)
-      : "0.0";
-  const activeSolvingSeconds = Math.max(
-    0,
-    attempt.durationSeconds - (attempt.idleTimeSeconds || 0),
-  );
-  const avgPace =
-    attempt.avgTimePerQuestion ||
-    (attempt.answered > 0
-      ? Math.round(activeSolvingSeconds / attempt.answered)
-      : 0);
-
-  // Helper to draw top banner
-  const drawPageHeader = (isFirstPage: boolean) => {
-    doc.setFillColor(30, 41, 59); // slate-800
-    doc.rect(0, 0, pageWidth, isFirstPage ? 24 : 12, "F");
-
-    doc.setTextColor(255, 255, 255);
-    doc.setFont("helvetica", "bold");
-    doc.setFontSize(isFirstPage ? 11 : 9);
-    doc.text(
-      "UNION PUBLIC SERVICE COMMISSION (UPSC) — CIVIL SERVICES EXAMINATION",
-      margin,
-      isFirstPage ? 10 : 8,
-    );
-
-    if (isFirstPage) {
-      doc.setFont("helvetica", "normal");
-      doc.setFontSize(8);
-      doc.setTextColor(203, 213, 225); // slate-300
-      doc.text(
-        "Official Candidate Assessment & Evaluation Report",
-        margin,
-        17,
-      );
-    }
-  };
-
-  drawPageHeader(true);
-  let y = 32;
-
-  // Paper Title
-  doc.setTextColor(15, 23, 42); // slate-900
-  doc.setFont("helvetica", "bold");
-  doc.setFontSize(13);
-  const titleLines = doc.splitTextToSize(attempt.paperLabel || "UPSC Examination", contentWidth);
-  doc.text(titleLines, margin, y);
-  y += titleLines.length * 6 + 2;
-
-  // Metadata row (Mode, Date, Time Spent, Total Questions)
-  doc.setFont("helvetica", "normal");
-  doc.setFontSize(8);
-  doc.setTextColor(71, 85, 105); // slate-600
-  const dateStr = formatDateTime(attempt.startedAt);
-  const durStr = formatTimeSeconds(attempt.durationSeconds);
-  const modeStr = attempt.mode === "mock" ? "Official Mock Test" : "Practice Session";
-  doc.text(`Mode: ${modeStr}   |   Attempt Date: ${dateStr}   |   Time Spent: ${durStr}`, margin, y);
-  y += 5;
-  doc.text(`Reference ID: ${attempt.id}   |   Total Questions: ${attempt.totalQuestions} Qs   |   Prescribed Time: ${attempt.timeMinutes || 120} mins`, margin, y);
-  y += 7;
-
-  // KPI Scorecard Cards (4 horizontal boxes)
-  const boxWidth = (contentWidth - 9) / 4;
-  const boxHeight = 17;
-
-  // 1. Final Score
-  doc.setFillColor(248, 250, 252); // slate-50
-  doc.setDrawColor(203, 213, 225); // slate-300
-  doc.roundedRect(margin, y, boxWidth, boxHeight, 2, 2, "FD");
-  doc.setFontSize(7);
-  doc.setFont("helvetica", "bold");
-  doc.setTextColor(100, 116, 139);
-  doc.text("FINAL SCORE", margin + 3, y + 4.5);
-  doc.setFontSize(11);
-  doc.setTextColor(67, 56, 202); // indigo-700
-  const scoreText = `${attempt.score}`;
-  doc.text(scoreText, margin + 3, y + 11.5);
-  doc.setFontSize(7.5);
-  doc.setTextColor(100, 116, 139);
-  doc.text(`/ ${attempt.maxScore} (${scorePct}%)`, margin + 3 + doc.getTextWidth(`${scoreText} `), y + 11.5);
-
-  // 2. Accuracy
-  const x2 = margin + boxWidth + 3;
-  doc.setFillColor(248, 250, 252);
-  doc.roundedRect(x2, y, boxWidth, boxHeight, 2, 2, "FD");
-  doc.setFontSize(7);
-  doc.setFont("helvetica", "bold");
-  doc.setTextColor(100, 116, 139);
-  doc.text("ACCURACY", x2 + 3, y + 4.5);
-  doc.setFontSize(11);
-  doc.setTextColor(4, 120, 87); // emerald-700
-  doc.text(`${attempt.accuracyPct}%`, x2 + 3, y + 11.5);
-  doc.setFontSize(7);
-  doc.setFont("helvetica", "normal");
-  doc.setTextColor(100, 116, 139);
-  doc.text(`${attempt.correct} of ${attempt.answered} correct`, x2 + 3, y + 15);
-
-  // 3. Attempt Breakdown
-  const x3 = x2 + boxWidth + 3;
-  doc.setFillColor(248, 250, 252);
-  doc.roundedRect(x3, y, boxWidth, boxHeight, 2, 2, "FD");
-  doc.setFontSize(7);
-  doc.setFont("helvetica", "bold");
-  doc.setTextColor(100, 116, 139);
-  doc.text("ATTEMPT RATIO", x3 + 3, y + 4.5);
-  doc.setFontSize(9);
-  doc.setTextColor(15, 23, 42);
-  doc.text(`${attempt.answered} / ${attempt.totalQuestions}`, x3 + 3, y + 10.5);
-  doc.setFontSize(6.5);
-  doc.setFont("helvetica", "normal");
-  doc.setTextColor(100, 116, 139);
-  doc.text(`Right: ${attempt.correct} | Wrong: ${attempt.incorrect} | Skip: ${attempt.unattempted}`, x3 + 3, y + 15);
-
-  // 4. Marks Reconciliation
-  const x4 = x3 + boxWidth + 3;
-  doc.setFillColor(248, 250, 252);
-  doc.roundedRect(x4, y, boxWidth, boxHeight, 2, 2, "FD");
-  doc.setFontSize(7);
-  doc.setFont("helvetica", "bold");
-  doc.setTextColor(100, 116, 139);
-  doc.text("MARKS BREAKDOWN", x4 + 3, y + 4.5);
-  doc.setFontSize(7.5);
-  doc.setFont("helvetica", "normal");
-  doc.setTextColor(4, 120, 87);
-  doc.text(`Gross (+): +${grossMarks}`, x4 + 3, y + 10);
-  doc.setTextColor(185, 28, 28);
-  doc.text(`Penalty (-): -${penaltyMarks}`, x4 + 3, y + 14.5);
-
-  y += boxHeight + 7;
-
-  // Table header helper
-  const colQ = margin;
-  const colTag = margin + 11;
-  const colStatus = margin + 27;
-  const colUser = margin + 46;
-  const colKey = margin + 64;
-  const colMarks = margin + 82;
-  const colExpl = margin + 98;
-
-  const drawTableHeader = (currY: number) => {
-    doc.setFillColor(241, 245, 249); // slate-100
-    doc.rect(margin, currY, contentWidth, 6.5, "F");
-    doc.setDrawColor(203, 213, 225);
-    doc.line(margin, currY + 6.5, margin + contentWidth, currY + 6.5);
-
-    doc.setFont("helvetica", "bold");
-    doc.setFontSize(7.5);
-    doc.setTextColor(51, 65, 85); // slate-700
-
-    doc.text("Q#", colQ + 1.5, currY + 4.5);
-    doc.text("Tag", colTag + 1, currY + 4.5);
-    doc.text("Result", colStatus + 1, currY + 4.5);
-    doc.text("Your Choice", colUser + 1, currY + 4.5);
-    doc.text("Answer Key", colKey + 1, currY + 4.5);
-    doc.text("Marks", colMarks + 1, currY + 4.5);
-    doc.text("Explanation & Notes", colExpl + 1, currY + 4.5);
-    return currY + 6.5;
-  };
-
-  doc.setFont("helvetica", "bold");
-  doc.setFontSize(9.5);
-  doc.setTextColor(15, 23, 42);
-  doc.text("Question-by-Question Evaluation & Explanations", margin, y);
-  y += 4;
-
-  y = drawTableHeader(y);
-
-  // Rows
-  const totalQuestions = attempt.totalQuestions || 100;
-  for (let qNo = 1; qNo <= totalQuestions; qNo++) {
-    const q = attempt.answers[qNo];
-    const userSelected = q?.selected ? q.selected.toUpperCase() : "—";
-    const correctKey = q?.correctAnswer ? q.correctAnswer.toUpperCase() : "—";
-
-    let resultText = "Skipped";
-    let marksText = "0.00";
-    if (q?.selected) {
-      if (q.isCorrect === true) {
-        resultText = "Correct";
-        marksText = `+${correctMarksPerQ.toFixed(2)}`;
-      } else if (q.isCorrect === false) {
-        resultText = "Wrong";
-        marksText = `-${incorrectMarksPerQ.toFixed(2)}`;
-      }
-    }
-
-    let tagText = "—";
-    if (q?.confidence === "sure") tagText = "Sure";
-    else if (q?.confidence === "50-50") tagText = "50:50";
-    else if (q?.confidence === "guess") tagText = "Guess";
-
-    // Explanation / Note text
-    const expl = q?.explanation || explanations?.[qNo] || "";
-    let explText = "";
-    if (expl && q?.note) {
-      explText = `${expl}\n[Note: ${q.note}]`;
-    } else if (expl) {
-      explText = expl;
-    } else if (q?.note) {
-      explText = `Note: ${q.note}`;
-    }
-
-    // Measure text height
-    doc.setFont("helvetica", "normal");
-    doc.setFontSize(7);
-    const explLines = explText ? doc.splitTextToSize(explText, 80) : [];
-    const minRowHeight = 6;
-    const explHeight = explLines.length > 0 ? explLines.length * 3.2 + 2 : minRowHeight;
-    const rowHeight = Math.max(minRowHeight, explHeight);
-
-    // Page break check
-    if (y + rowHeight > pageHeight - 14) {
-      doc.addPage();
-      drawPageHeader(false);
-      y = drawTableHeader(16);
-    }
-
-    // Zebra striping
-    if (qNo % 2 === 0) {
-      doc.setFillColor(248, 250, 252);
-      doc.rect(margin, y, contentWidth, rowHeight, "F");
-    }
-
-    // Border line bottom
-    doc.setDrawColor(226, 232, 240);
-    doc.line(margin, y + rowHeight, margin + contentWidth, y + rowHeight);
-
-    // Q#
-    doc.setFont("helvetica", "bold");
-    doc.setFontSize(7.5);
-    doc.setTextColor(15, 23, 42);
-    doc.text(`Q${qNo}`, colQ + 1.5, y + 4.2);
-
-    // Tag
-    doc.setFont("helvetica", "normal");
-    doc.setFontSize(7);
-    doc.setTextColor(100, 116, 139);
-    doc.text(tagText, colTag + 1, y + 4.2);
-
-    // Result with color
-    doc.setFont("helvetica", "bold");
-    if (resultText === "Correct") {
-      doc.setTextColor(4, 120, 87);
-    } else if (resultText === "Wrong") {
-      doc.setTextColor(185, 28, 28);
-    } else {
-      doc.setTextColor(148, 163, 184);
-    }
-    doc.text(resultText, colStatus + 1, y + 4.2);
-
-    // Choice & Key
-    doc.setFont("helvetica", "normal");
-    doc.setTextColor(15, 23, 42);
-    doc.text(userSelected, colUser + 3, y + 4.2);
-    doc.setFont("helvetica", "bold");
-    doc.setTextColor(4, 120, 87);
-    doc.text(correctKey, colKey + 3, y + 4.2);
-
-    // Marks
-    doc.setFont("helvetica", "normal");
-    if (marksText.startsWith("+")) doc.setTextColor(4, 120, 87);
-    else if (marksText.startsWith("-")) doc.setTextColor(185, 28, 28);
-    else doc.setTextColor(148, 163, 184);
-    doc.text(marksText, colMarks + 1, y + 4.2);
-
-    // Explanation / Note
-    if (explLines.length > 0) {
-      doc.setFont("helvetica", "normal");
-      doc.setFontSize(7);
-      doc.setTextColor(51, 65, 85);
-      doc.text(explLines, colExpl + 1, y + 3.8);
-    } else {
-      doc.setTextColor(203, 213, 225);
-      doc.text("—", colExpl + 1, y + 4.2);
-    }
-
-    y += rowHeight;
-  }
-
-  // Footer on all pages
-  const totalPages = doc.getNumberOfPages();
-  for (let p = 1; p <= totalPages; p++) {
-    doc.setPage(p);
-    doc.setFont("helvetica", "normal");
-    doc.setFontSize(7);
-    doc.setTextColor(148, 163, 184); // slate-400
-    doc.text(
-      `Generated by UPSC CSE Practice Studio • Confidential Assessment Record`,
-      margin,
-      pageHeight - 6,
-    );
-    const pageStr = `Page ${p} of ${totalPages}`;
-    doc.text(pageStr, pageWidth - margin - doc.getTextWidth(pageStr), pageHeight - 6);
-  }
-
-  const safeTitle = (attempt.paperLabel || "upsc_mock")
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, "_");
-  doc.save(`${safeTitle}_assessment_report.pdf`);
 }

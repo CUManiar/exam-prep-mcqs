@@ -1423,7 +1423,9 @@ export function ExamSessionView({
 
                         {paper.explanations?.[currentQuestion] && (
                           <div className="w-full mt-2 pt-2 border-t border-slate-200/60 text-slate-800 bg-white/80 rounded-lg p-2.5 text-xs leading-relaxed font-normal whitespace-pre-wrap">
-                            <span className="font-bold text-slate-900 block mb-0.5">💡 Explanation & Key Concepts:</span>
+                            <span className="font-bold text-slate-900 block mb-0.5">
+                              💡 Explanation & Key Concepts:
+                            </span>
                             {paper.explanations[currentQuestion]}
                           </div>
                         )}

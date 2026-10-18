@@ -310,7 +310,8 @@ export async function fetchUserCustomPapersFromSupabase(
           !isNaN(Number(row.total_marks)) &&
           Number(row.total_marks) > 0
             ? Number(row.total_marks)
-            : (Number(row.total_questions) || 0) * (Number(row.correct_marks) || 1) || 100,
+            : (Number(row.total_questions) || 0) *
+                (Number(row.correct_marks) || 1) || 100,
         correctMarks: Number(row.correct_marks) || 2.0,
         incorrectMarks: Number(row.incorrect_marks) || 0.667,
         timeMinutes: Number(row.time_minutes) || 120,

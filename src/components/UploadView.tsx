@@ -638,7 +638,9 @@ export function UploadView({
                           {getPaperDisplayTitle(currentSelectedPaper)}
                         </span>
                         <span className="text-[10px] font-mono font-medium px-2 py-0.5 rounded-full bg-slate-100 text-slate-600 border border-slate-200">
-                          {currentSelectedPaper.year} • {currentSelectedPaper.subject} • {currentSelectedPaper.totalQuestions} Qs
+                          {currentSelectedPaper.year} •{" "}
+                          {currentSelectedPaper.subject} •{" "}
+                          {currentSelectedPaper.totalQuestions} Qs
                         </span>
                         {isUserUploadedPaper(currentSelectedPaper) && (
                           <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-50 text-amber-700 border border-amber-200">
@@ -696,7 +698,8 @@ export function UploadView({
                     <div className="max-h-64 overflow-y-auto space-y-1 pr-1">
                       {filteredUpdatePapers.length === 0 ? (
                         <div className="py-6 text-center text-xs text-slate-400">
-                          No papers found matching &quot;{paperSearchQuery}&quot;
+                          No papers found matching &quot;{paperSearchQuery}
+                          &quot;
                         </div>
                       ) : (
                         filteredUpdatePapers.map((p) => {
@@ -733,7 +736,8 @@ export function UploadView({
                                   )}
                                 </div>
                                 <div className="text-[11px] text-slate-500 font-normal mt-0.5">
-                                  {p.year} • {p.subject} • {p.totalQuestions} Qs • {p.timeMinutes || 120} mins
+                                  {p.year} • {p.subject} • {p.totalQuestions} Qs
+                                  • {p.timeMinutes || 120} mins
                                 </div>
                               </div>
                               {isSelected && (
@@ -929,7 +933,15 @@ export function UploadView({
                           className="w-full rounded-xl border border-slate-200 bg-white p-3 font-mono text-xs text-slate-800 placeholder-slate-400 focus:outline-none focus:border-indigo-500 shadow-2xs leading-relaxed"
                         />
                         <p className="text-[11px] text-slate-500 leading-relaxed">
-                          Format: <code className="font-mono bg-slate-100 text-slate-700 px-1 py-0.5 rounded text-[10px]">1. a,</code> or with explanation: <code className="font-mono bg-slate-100 text-slate-700 px-1 py-0.5 rounded text-[10px]">1. a &quot;&quot;&quot; optional explanation &quot;&quot;&quot;,</code>
+                          Format:{" "}
+                          <code className="font-mono bg-slate-100 text-slate-700 px-1 py-0.5 rounded text-[10px]">
+                            1. a,
+                          </code>{" "}
+                          or with explanation:{" "}
+                          <code className="font-mono bg-slate-100 text-slate-700 px-1 py-0.5 rounded text-[10px]">
+                            1. a &quot;&quot;&quot; optional explanation
+                            &quot;&quot;&quot;,
+                          </code>
                         </p>
                       </div>
                     )}
@@ -1222,7 +1234,9 @@ export function UploadView({
             </div>
 
             {/* Live Calculation Preview Banner */}
-            {Boolean(customTotalQuestions && (customPositiveMarks || customTotalMarks)) && (
+            {Boolean(
+              customTotalQuestions && (customPositiveMarks || customTotalMarks),
+            ) && (
               <div className="flex items-center gap-3 p-3 rounded-xl bg-indigo-50/70 border border-indigo-100 text-xs text-indigo-900">
                 <Check className="h-4 w-4 text-indigo-600 shrink-0" />
                 <div className="flex items-center gap-2 flex-wrap">
@@ -1407,7 +1421,15 @@ export function UploadView({
                     className="w-full rounded-xl border border-slate-200 bg-white p-3 font-mono text-xs text-slate-800 placeholder-slate-400 focus:outline-none focus:border-indigo-500 shadow-2xs leading-relaxed"
                   />
                   <p className="text-[11px] text-slate-500 leading-relaxed">
-                    Format: <code className="font-mono bg-slate-100 text-slate-700 px-1 py-0.5 rounded text-[10px]">1. a,</code> or with explanation: <code className="font-mono bg-slate-100 text-slate-700 px-1 py-0.5 rounded text-[10px]">1. a &quot;&quot;&quot; optional explanation &quot;&quot;&quot;,</code>
+                    Format:{" "}
+                    <code className="font-mono bg-slate-100 text-slate-700 px-1 py-0.5 rounded text-[10px]">
+                      1. a,
+                    </code>{" "}
+                    or with explanation:{" "}
+                    <code className="font-mono bg-slate-100 text-slate-700 px-1 py-0.5 rounded text-[10px]">
+                      1. a &quot;&quot;&quot; optional explanation
+                      &quot;&quot;&quot;,
+                    </code>
                   </p>
                 </div>
               )}

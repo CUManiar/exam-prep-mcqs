@@ -1,11 +1,10 @@
 "use client";
 
-import { ArrowRight, Lock, Trophy, UserCheck, Download } from "lucide-react";
+import { ArrowRight, Lock, Trophy, UserCheck } from "lucide-react";
 import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import { formatTimeSeconds } from "../lib/defaults";
 import { Attempt } from "../lib/types";
-import { exportAttemptAsPDF } from "../lib/exportUtils";
 
 interface GuestCompletionModalProps {
   isOpen: boolean;
@@ -104,14 +103,6 @@ export function GuestCompletionModal({
 
         {/* Action Buttons */}
         <div className="space-y-2.5 pt-2">
-          <button
-            onClick={() => exportAttemptAsPDF(attempt)}
-            className="cursor-pointer w-full flex items-center justify-center gap-2 rounded-xl border border-indigo-200 bg-indigo-50/80 hover:bg-indigo-100/80 py-2.5 text-xs font-bold text-indigo-700 transition-colors"
-          >
-            <Download className="h-4 w-4 text-indigo-600" />
-            <span>Download PDF Report (.pdf)</span>
-          </button>
-
           <button
             onClick={onOpenAuth}
             className="cursor-pointer w-full flex items-center justify-center gap-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 active:scale-[0.98] py-3 text-sm font-bold text-white transition-all shadow-md hover:shadow-indigo-500/25"

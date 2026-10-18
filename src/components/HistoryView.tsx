@@ -54,6 +54,15 @@ export function HistoryView({
         ) / 10
       : 0;
 
+  const avgMaxScore =
+    totalMocks > 0
+      ? Math.round(
+          (mockAttempts.reduce((acc, a) => acc + (a.maxScore || 200), 0) /
+            totalMocks) *
+            10,
+        ) / 10
+      : 200;
+
   return (
     <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8 space-y-8 animate-in fade-in duration-200">
       {/* Header */}
@@ -118,7 +127,7 @@ export function HistoryView({
               <div className="text-2xl font-extrabold text-slate-900 font-mono mt-0.5">
                 {avgScore}{" "}
                 <span className="text-xs text-slate-400 font-normal">
-                  / 200
+                  / {avgMaxScore}
                 </span>
               </div>
             </div>
