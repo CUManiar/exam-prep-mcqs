@@ -1189,6 +1189,16 @@ export function ExamSessionView({
                     <span className="text-base sm:text-xl font-bold text-slate-900">
                       Question {currentQuestion}
                     </span>
+                    {currentQObj.selected && !isSubjective && (
+                      <span className="inline-flex items-center gap-1 rounded-lg bg-indigo-50 border border-indigo-200 px-2 py-0.5 text-xs font-bold text-indigo-700 shadow-2xs">
+                        <span className="text-[10px] uppercase font-semibold text-indigo-400">
+                          Selected:
+                        </span>
+                        <span className="font-black text-indigo-800">
+                          {currentQObj.selected.toUpperCase()}
+                        </span>
+                      </span>
+                    )}
                     <span className="text-xs text-slate-500 font-medium">
                       of {paper.totalQuestions}
                     </span>
@@ -1865,11 +1875,29 @@ export function ExamSessionView({
                     onClick={() =>
                       setCurrentQuestion(currentQuestion === qNo ? null : qNo)
                     }
-                    className={`relative flex h-9 sm:h-10 items-center justify-center rounded-xl border text-xs transition-all ${badgeColor}`}
+                    className={`relative flex h-9 sm:h-10 items-center justify-center rounded-xl border text-xs transition-all gap-1 px-1 ${badgeColor}`}
+                    title={
+                      q?.selected
+                        ? `Question ${qNo} (Selected: Option ${q.selected})`
+                        : `Question ${qNo} (Unattempted)`
+                    }
                   >
-                    <span>{qNo}</span>
+                    <span className="font-bold leading-none">{qNo}</span>
+                    {q?.selected && !isSubjective && (
+                      <span
+                        className={`inline-flex items-center justify-center min-w-[14px] h-4 px-1 rounded text-[10px] font-black uppercase leading-none shadow-2xs ${
+                          isAnswered
+                            ? "bg-black/25 text-white"
+                            : isFlagged
+                              ? "bg-amber-900/20 text-amber-950"
+                              : "bg-slate-200 text-slate-800"
+                        }`}
+                      >
+                        {q.selected}
+                      </span>
+                    )}
                     {q?.note && (
-                      <span className="absolute -top-1 -right-1 h-2 w-2 rounded-full bg-indigo-600" />
+                      <span className="absolute -top-1 -right-1 h-2 w-2 rounded-full bg-indigo-600 ring-1 ring-white" />
                     )}
                   </button>
                 );
