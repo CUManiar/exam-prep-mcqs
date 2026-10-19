@@ -54,6 +54,7 @@ export type FilterTabType =
   | "all"
   | "sure"
   | "50-50"
+  | "elimination"
   | "guess"
   | "incorrect"
   | "correct"
@@ -381,6 +382,27 @@ export function AttemptDetailView({
       ? Math.round((fiftyFiftyCorrect / fiftyFiftyQuestions.length) * 100)
       : 0;
 
+  const eliminationQuestions = useMemo(
+    () => questionList.filter((q) => q.confidence === "elimination"),
+    [questionList],
+  );
+  const eliminationCorrect = useMemo(
+    () =>
+      eliminationQuestions.filter((q) => q.selected && q.isCorrect === true)
+        .length,
+    [eliminationQuestions],
+  );
+  const eliminationWrong = useMemo(
+    () =>
+      eliminationQuestions.filter((q) => q.selected && q.isCorrect === false)
+        .length,
+    [eliminationQuestions],
+  );
+  const eliminationAccuracy =
+    eliminationQuestions.length > 0
+      ? Math.round((eliminationCorrect / eliminationQuestions.length) * 100)
+      : 0;
+
   const guessQuestions = useMemo(
     () => questionList.filter((q) => q.confidence === "guess"),
     [questionList],
@@ -413,6 +435,7 @@ export function AttemptDetailView({
     let list = questionList.filter((q) => {
       if (filterTab === "sure") return q.confidence === "sure";
       if (filterTab === "50-50") return q.confidence === "50-50";
+      if (filterTab === "elimination") return q.confidence === "elimination";
       if (filterTab === "guess") return q.confidence === "guess";
       if (filterTab === "correct") return q.selected && q.isCorrect === true;
       if (filterTab === "incorrect") return q.selected && q.isCorrect === false;
@@ -694,6 +717,12 @@ export function AttemptDetailView({
                   tagBadge = (
                     <span className="font-semibold text-amber-800 text-[11px]">
                       ⚖️ 50:50
+                    </span>
+                  );
+                } else if (q?.confidence === "elimination") {
+                  tagBadge = (
+                    <span className="font-semibold text-sky-800 text-[11px]">
+                      ✂️ Elimination
                     </span>
                   );
                 } else if (q?.confidence === "guess") {
@@ -1517,7 +1546,7 @@ export function AttemptDetailView({
           </div>
 
           {/* CONFIDENCE & TAG ANALYTICS WIDGETS (INTERACTIVE FILTERS) */}
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
             {/* Sure Widget */}
             <div
               role="button"
@@ -1609,6 +1638,57 @@ export function AttemptDetailView({
               <div className="mt-2 flex items-center justify-between text-[11px] text-slate-500 pt-1.5 border-t border-slate-100 font-medium">
                 <span className="text-rose-600 font-semibold">
                   {fiftyFiftyWrong} wrong
+                </span>
+                <span className="text-[10px] text-slate-400">
+                  Click to filter
+                </span>
+              </div>
+            </div>
+
+            {/* Elimination Widget */}
+            <div
+              role="button"
+              tabIndex={0}
+              onClick={() =>
+                setFilterTab((prev) =>
+                  prev === "elimination" ? "all" : "elimination",
+                )
+              }
+              className={`p-3.5 rounded-2xl border transition-all cursor-pointer select-none bi-card ${
+                filterTab === "elimination"
+                  ? "border-sky-500 bg-sky-50/60 ring-2 ring-sky-500/20 shadow-xs"
+                  : "border-slate-200 bg-white hover:border-sky-300 hover:bg-sky-50/20"
+              }`}
+            >
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-1.5 text-xs font-bold text-sky-800 uppercase tracking-wider">
+                  <span>✂️ Elimination</span>
+                  {filterTab === "elimination" && (
+                    <span className="text-[10px] bg-sky-100 text-sky-800 border border-sky-300 px-1.5 py-0.2 rounded font-bold lowercase">
+                      active
+                    </span>
+                  )}
+                </div>
+                <span className="text-[11px] font-mono text-slate-500 font-semibold">
+                  {eliminationQuestions.length} Tagged
+                </span>
+              </div>
+
+              <div className="mt-2 flex items-baseline justify-between">
+                <div className="text-lg sm:text-xl font-extrabold text-slate-900 font-mono">
+                  {eliminationCorrect}{" "}
+                  <span className="text-xs font-normal text-slate-500">
+                    / {eliminationQuestions.length} Correct
+                  </span>
+                </div>
+                <div className="text-xs font-bold text-sky-700 font-mono">
+                  {eliminationAccuracy}%
+                </div>
+              </div>
+
+              <div className="mt-2 flex items-center justify-between text-[11px] text-slate-500 pt-1.5 border-t border-slate-100 font-medium">
+                <span className="text-rose-600 font-semibold">
+                  {eliminationWrong} wrong
                 </span>
                 <span className="text-[10px] text-slate-400">
                   Click to filter
@@ -1729,6 +1809,11 @@ export function AttemptDetailView({
                     color: "text-amber-700 font-semibold",
                   },
                   {
+                    id: "elimination" as const,
+                    label: `✂️ Elimination (${eliminationQuestions.length})`,
+                    color: "text-sky-700 font-semibold",
+                  },
+                  {
                     id: "guess" as const,
                     label: `🎲 Guess (${guessQuestions.length})`,
                     color: "text-purple-700 font-semibold",
@@ -1835,7 +1920,9 @@ export function AttemptDetailView({
                                     ? "🎯 Sure"
                                     : q.confidence === "50-50"
                                       ? "⚖️ 50:50"
-                                      : "🎲 Guess"}
+                                      : q.confidence === "elimination"
+                                        ? "✂️ Elimination"
+                                        : "🎲 Guess"}
                                 </div>
                               )}
                             </td>

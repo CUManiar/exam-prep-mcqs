@@ -432,8 +432,7 @@ export function ExamSessionView({
           selected: newSelected,
           correctAnswer: correct,
           isCorrect,
-          confidence:
-            current.confidence ?? (mode === "mock" ? "sure" : undefined),
+          confidence: newSelected ? (current.confidence ?? "sure") : undefined,
           changesCount,
           answerHistory,
         },
@@ -451,20 +450,17 @@ export function ExamSessionView({
       const current = prev[qNo] || {
         questionNo: qNo,
         selected: null,
-        confidence: mode === "mock" ? "sure" : undefined,
       };
-      const activeConf =
-        current.confidence ?? (mode === "mock" ? "sure" : undefined);
+      // Confidence tags only apply when an answer is selected
+      if (!current.selected) {
+        return prev;
+      }
+      const activeConf = current.confidence;
       return {
         ...prev,
         [qNo]: {
           ...current,
-          confidence:
-            activeConf === confidence
-              ? mode === "mock"
-                ? "sure"
-                : undefined
-              : confidence,
+          confidence: activeConf === confidence ? undefined : confidence,
         },
       };
     });
@@ -475,7 +471,6 @@ export function ExamSessionView({
       const current = prev[qNo] || {
         questionNo: qNo,
         selected: null,
-        confidence: mode === "mock" ? "sure" : undefined,
       };
       return {
         ...prev,
@@ -483,8 +478,7 @@ export function ExamSessionView({
           ...current,
           selected: null,
           isCorrect: null,
-          confidence:
-            current.confidence ?? (mode === "mock" ? "sure" : undefined),
+          confidence: undefined,
         },
       };
     });
@@ -727,7 +721,7 @@ export function ExamSessionView({
 
       finalAnswers[i] = {
         ...a,
-        confidence: a.confidence ?? (mode === "mock" ? "sure" : undefined),
+        confidence: a.selected ? (a.confidence ?? "sure") : undefined,
         correctAnswer: correctAns,
         explanation:
           sessionExplanations[i] || paper.explanations?.[i] || undefined,
@@ -1366,6 +1360,15 @@ export function ExamSessionView({
                                 "text-slate-600 hover:text-amber-700 hover:bg-amber-50/60",
                             },
                             {
+                              id: "elimination",
+                              label: "Elimination",
+                              icon: "✂️",
+                              activeClass:
+                                "bg-sky-600 text-white shadow-xs font-bold ring-2 ring-sky-500/25",
+                              inactiveClass:
+                                "text-slate-600 hover:text-sky-700 hover:bg-sky-50/60",
+                            },
+                            {
                               id: "guess",
                               label: "Guess",
                               icon: "🎲",
@@ -1376,10 +1379,9 @@ export function ExamSessionView({
                             },
                           ] as const
                         ).map((conf) => {
+                          const isAnswered = !!currentQObj.selected;
                           const isConfSelected =
-                            (currentQObj.confidence ??
-                              (mode === "mock" ? "sure" : undefined)) ===
-                            conf.id;
+                            isAnswered && currentQObj.confidence === conf.id;
                           return (
                             <button
                               key={conf.id}
@@ -1387,10 +1389,18 @@ export function ExamSessionView({
                               onClick={() =>
                                 handleSetConfidence(currentQuestion, conf.id)
                               }
-                              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer active:scale-95 ${
-                                isConfSelected
-                                  ? conf.activeClass
-                                  : conf.inactiveClass
+                              disabled={!isAnswered}
+                              title={
+                                !isAnswered
+                                  ? "Select an option first to apply certainty tag"
+                                  : `Mark certainty: ${conf.label}`
+                              }
+                              className={`flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-lg text-xs font-semibold transition-all active:scale-95 ${
+                                !isAnswered
+                                  ? "opacity-40 cursor-not-allowed text-slate-400"
+                                  : isConfSelected
+                                    ? `${conf.activeClass} cursor-pointer`
+                                    : `${conf.inactiveClass} cursor-pointer`
                               }`}
                             >
                               <span className="text-xs">{conf.icon}</span>
