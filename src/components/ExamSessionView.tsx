@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback, useMemo } from "react";
 import {
   QuestionPaper,
   Attempt,
@@ -15,7 +15,13 @@ import {
   getStandardTimeMinutes,
   getPaperDisplayTitle,
 } from "../lib/defaults";
-import { saveActiveDraft, clearActiveDraft } from "../lib/storage";
+import {
+  saveActiveDraft,
+  clearActiveDraft,
+  getActiveDraft,
+} from "../lib/storage";
+import { saveUserDraftToSupabase } from "../lib/supabase";
+import { useApp } from "../context/AppContext";
 import { DetailedSolutionModal } from "./DetailedSolutionModal";
 import { ConfirmationModal } from "./ConfirmationModal";
 import { PdfViewer } from "./PdfViewer";
@@ -61,21 +67,40 @@ export function ExamSessionView({
   onFinish,
   onExit,
 }: ExamSessionViewProps) {
-  const [currentQuestion, setCurrentQuestion] = useState<number | null>(
-    initialDraft?.currentQuestion ?? null,
-  );
-  const [answers, setAnswers] = useState<Record<number, QuestionAnswer>>(
-    initialDraft?.answers || {},
-  );
-  const [elapsedSeconds, setElapsedSeconds] = useState<number>(
-    initialDraft?.elapsedSeconds || 0,
-  );
-  const [idleTimeSeconds, setIdleTimeSeconds] = useState<number>(
-    initialDraft?.idleTimeSeconds || 0,
-  );
-  const [qTimeSpent, setQTimeSpent] = useState<Record<number, number>>(
-    initialDraft?.qTimeSpent || {},
-  );
+  const { currentUser } = useApp();
+
+  const effectiveDraft = useMemo(() => {
+    if (initialDraft && initialDraft.paperId === paper.id) {
+      return initialDraft;
+    }
+    const local = typeof window !== "undefined" ? getActiveDraft() : null;
+    if (local && local.paperId === paper.id) {
+      return local;
+    }
+    return null;
+  }, [initialDraft, paper.id]);
+
+  const [currentQuestion, setCurrentQuestion] = useState<number | null>(() => {
+    return effectiveDraft?.currentQuestion ?? null;
+  });
+  const [answers, setAnswers] = useState<Record<number, QuestionAnswer>>(() => {
+    if (
+      effectiveDraft?.answers &&
+      Object.keys(effectiveDraft.answers).length > 0
+    ) {
+      return effectiveDraft.answers;
+    }
+    return {};
+  });
+  const [elapsedSeconds, setElapsedSeconds] = useState<number>(() => {
+    return effectiveDraft?.elapsedSeconds || 0;
+  });
+  const [idleTimeSeconds, setIdleTimeSeconds] = useState<number>(() => {
+    return effectiveDraft?.idleTimeSeconds || 0;
+  });
+  const [qTimeSpent, setQTimeSpent] = useState<Record<number, number>>(() => {
+    return effectiveDraft?.qTimeSpent || {};
+  });
   const [filterMode, setFilterMode] = useState<
     "all" | "attempted" | "unattempted" | "flagged"
   >("all");
@@ -198,46 +223,52 @@ export function ExamSessionView({
 
   // Initialize questions unless resuming from draft
   useEffect(() => {
-    if (initialDraft?.answers && Object.keys(initialDraft.answers).length > 0) {
-      if (mode === "mock") {
-        setAnswers((prev) => {
-          const updated = { ...prev };
-          let changed = false;
-          for (const k of Object.keys(updated)) {
-            const numKey = Number(k);
-            if (updated[numKey] && !updated[numKey].confidence) {
-              updated[numKey] = { ...updated[numKey], confidence: "sure" };
-              changed = true;
-            }
-          }
-          return changed ? updated : prev;
-        });
-      }
+    const draftAnswers = effectiveDraft?.answers;
+    if (draftAnswers && Object.keys(draftAnswers).length > 0) {
+      setAnswers((prev) => {
+        // If prev already has active selections or notes, preserve them
+        const hasExisting = Object.values(prev).some(
+          (a) => a.selected !== null || (a.note && a.note.trim().length > 0),
+        );
+        if (hasExisting) return prev;
+        return draftAnswers;
+      });
       return;
     }
-    const initial: Record<number, QuestionAnswer> = {};
-    for (let i = 1; i <= paper.totalQuestions; i++) {
-      const rawCorrect = paper.answerKey
-        ? paper.answerKey[i] || paper.answerKey[String(i)]
-        : undefined;
-      const correct = rawCorrect
-        ? String(rawCorrect).toUpperCase().trim()
-        : undefined;
-      initial[i] = {
-        questionNo: i,
-        selected: null,
-        correctAnswer: correct,
-        isCorrect: null,
-        flagged: false,
-        confidence: mode === "mock" ? "sure" : undefined,
-        note: "",
-        timeSpentSeconds: 0,
-        changesCount: 0,
-        answerHistory: [],
-      };
-    }
-    setAnswers(initial);
-  }, [paper, initialDraft, mode]);
+
+    setAnswers((prev) => {
+      // If questions are already initialized in state, do not overwrite!
+      if (Object.keys(prev).length >= paper.totalQuestions) {
+        return prev;
+      }
+      const initial: Record<number, QuestionAnswer> = {};
+      for (let i = 1; i <= paper.totalQuestions; i++) {
+        if (prev[i]) {
+          initial[i] = prev[i];
+          continue;
+        }
+        const rawCorrect = paper.answerKey
+          ? paper.answerKey[i] || paper.answerKey[String(i)]
+          : undefined;
+        const correct = rawCorrect
+          ? String(rawCorrect).toUpperCase().trim()
+          : undefined;
+        initial[i] = {
+          questionNo: i,
+          selected: null,
+          correctAnswer: correct,
+          isCorrect: null,
+          flagged: false,
+          confidence: undefined,
+          note: "",
+          timeSpentSeconds: 0,
+          changesCount: 0,
+          answerHistory: [],
+        };
+      }
+      return initial;
+    });
+  }, [paper, effectiveDraft, mode]);
 
   // Robust answer key & explanation hydration effect: fetches/parses if empty, attaches to answers & sessionExplanations
   useEffect(() => {
@@ -487,9 +518,13 @@ export function ExamSessionView({
     });
   };
 
-  // Real-time automatic persistence to localStorage & server
+  // Real-time automatic persistence to localStorage, Supabase & server
   const persistSessionDraft = useCallback(
     (overrides?: Partial<ActiveSessionDraft>) => {
+      // Guard against saving an empty state over valid stored progress
+      const answersEntries = Object.values(answers);
+      if (answersEntries.length === 0) return;
+
       const draft: ActiveSessionDraft = {
         paperId: paper.id,
         paperLabel: paper.label,
@@ -504,6 +539,12 @@ export function ExamSessionView({
         ...overrides,
       };
       saveActiveDraft(draft);
+
+      if (currentUser?.id) {
+        saveUserDraftToSupabase(draft, currentUser.id).catch((e) =>
+          console.warn("Supabase draft sync error:", e),
+        );
+      }
     },
     [
       paper.id,
@@ -515,6 +556,7 @@ export function ExamSessionView({
       qTimeSpent,
       idleTimeSeconds,
       isPaused,
+      currentUser?.id,
     ],
   );
 
@@ -537,7 +579,8 @@ export function ExamSessionView({
     const handleBeforeUnload = (e: BeforeUnloadEvent) => {
       persistSessionDraft();
       e.preventDefault();
-      e.returnValue = "";
+      e.returnValue =
+        "Exam in progress. Your progress and notes are saved, but are you sure you want to refresh?";
     };
 
     window.addEventListener("beforeunload", handleBeforeUnload);

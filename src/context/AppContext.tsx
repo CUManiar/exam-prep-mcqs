@@ -87,7 +87,9 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const [hiddenPaperIds, setHiddenPaperIds] = useState<string[]>([]);
   const [attempts, setAttempts] = useState<Attempt[]>([]);
   const [activeDraft, setActiveDraft] = useState<ActiveSessionDraft | null>(
-    null,
+    () => {
+      return typeof window !== "undefined" ? getActiveDraft() : null;
+    },
   );
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [isPro, setIsPro] = useState<boolean>(false);
@@ -181,7 +183,38 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
           getUserProfile(user.id),
         ]);
         setAttempts(userAttempts);
-        setActiveDraft(userDraft);
+
+        // Intelligently merge Supabase draft with local draft:
+        // Never wipe out active in-progress local exam work if Supabase is stale or null
+        const localDraft = getActiveDraft();
+        let bestDraft = userDraft;
+        if (localDraft && localDraft.paperId) {
+          if (!userDraft) {
+            bestDraft = localDraft;
+            saveUserDraftToSupabase(localDraft, user.id);
+          } else {
+            const localAnswersCount = Object.values(
+              localDraft.answers || {},
+            ).filter(
+              (a) => a.selected !== null || (a.note && a.note.trim()),
+            ).length;
+            const userAnswersCount = Object.values(
+              userDraft.answers || {},
+            ).filter(
+              (a) => a.selected !== null || (a.note && a.note.trim()),
+            ).length;
+
+            if (
+              localAnswersCount >= userAnswersCount ||
+              (localDraft.elapsedSeconds || 0) >=
+                (userDraft.elapsedSeconds || 0)
+            ) {
+              bestDraft = localDraft;
+              saveUserDraftToSupabase(localDraft, user.id);
+            }
+          }
+        }
+        setActiveDraft(bestDraft);
 
         const hidden = Array.isArray(profile?.hidden_paper_ids)
           ? profile.hidden_paper_ids
