@@ -31,6 +31,9 @@ import {
   X,
   Sparkles,
   BookOpen,
+  Eye,
+  EyeOff,
+  Lightbulb,
 } from "lucide-react";
 import { parseQuestionnaireMarkdown } from "../lib/markdownPaperParser";
 import { parseAnswerKeyDetailed } from "../lib/defaults";
@@ -60,11 +63,12 @@ export function UploadView({
     "custom",
   );
 
-  // FAST CUSTOM PAPER STATES (Nothing prefilled!)
+  // FAST CUSTOM PAPER STATES
   const [customPaperName, setCustomPaperName] = useState<string>("");
   const [customTotalQuestions, setCustomTotalQuestions] = useState<string>("");
-  const [customPositiveMarks, setCustomPositiveMarks] = useState<string>("");
-  const [customNegativeMarks, setCustomNegativeMarks] = useState<string>("");
+  const [customPositiveMarks, setCustomPositiveMarks] = useState<string>("2");
+  const [customNegativeMarks, setCustomNegativeMarks] =
+    useState<string>("0.667");
   const [customTotalMarks, setCustomTotalMarks] = useState<string>("");
   const [customTotalMarksEdited, setCustomTotalMarksEdited] =
     useState<boolean>(false);
@@ -75,14 +79,24 @@ export function UploadView({
   const [customQpMarkdown, setCustomQpMarkdown] = useState<string>("");
   const [customQpFile, setCustomQpFile] = useState<File | null>(null);
 
-  const detectedQuestionsCount = useMemo(() => {
-    if (!customQpMarkdown.trim()) return 0;
-    return parseQuestionnaireMarkdown(customQpMarkdown).length;
+  const detectedQuestions = useMemo(() => {
+    if (!customQpMarkdown.trim()) return [];
+    return parseQuestionnaireMarkdown(customQpMarkdown);
   }, [customQpMarkdown]);
+
+  const detectedQuestionsCount = detectedQuestions.length;
+
   const [customAkMode, setCustomAkMode] = useState<"upload" | "paste">("paste");
   const [customAkText, setCustomAkText] = useState<string>("");
   const [customAkFile, setCustomAkFile] = useState<File | null>(null);
   const [customExsFile, setCustomExsFile] = useState<File | null>(null);
+
+  const detectedAnswerKey = useMemo(() => {
+    if (!customAkText.trim()) return { answers: {}, explanations: {} };
+    return parseAnswerKeyDetailed(customAkText);
+  }, [customAkText]);
+
+  const [showMarkdownPreview, setShowMarkdownPreview] = useState<boolean>(true);
 
   // Selected paper for update mode
   const [selectedPaperId, setSelectedPaperId] = useState<string>(
@@ -363,9 +377,20 @@ export function UploadView({
   const handleUploadFastCustomPaper = async (e: React.FormEvent) => {
     e.preventDefault();
     const name = customPaperName.trim();
-    const qCount = parseInt(customTotalQuestions, 10);
-    const posMarks = parseFloat(customPositiveMarks);
-    const negMarks = parseFloat(customNegativeMarks);
+    const parsedQCount = parseInt(customTotalQuestions, 10);
+    const qCount =
+      !isNaN(parsedQCount) && parsedQCount > 0
+        ? parsedQCount
+        : customQpFormat === "markdown"
+          ? detectedQuestionsCount
+          : 0;
+
+    const parsedPos = parseFloat(customPositiveMarks);
+    const posMarks = !isNaN(parsedPos) && parsedPos >= 0 ? parsedPos : 2.0;
+
+    const parsedNeg = parseFloat(customNegativeMarks);
+    const negMarks = !isNaN(parsedNeg) && parsedNeg >= 0 ? parsedNeg : 0.667;
+
     const time = parseInt(customTimeMinutes, 10) || 120;
 
     if (!name) {
@@ -377,21 +402,7 @@ export function UploadView({
     }
     if (!qCount || qCount <= 0) {
       setStatusMsg({
-        text: "Please enter a valid Total Questions count (e.g. 100, 50, 5).",
-        isError: true,
-      });
-      return;
-    }
-    if (isNaN(posMarks) || posMarks < 0) {
-      setStatusMsg({
-        text: "Please enter positive marks per correct question (e.g. 2.0).",
-        isError: true,
-      });
-      return;
-    }
-    if (isNaN(negMarks) || negMarks < 0) {
-      setStatusMsg({
-        text: "Please enter negative marks penalty (e.g. 0.667 or 0).",
+        text: "Please enter or provide questions (e.g. 5, 50, 100 MCQs).",
         isError: true,
       });
       return;
@@ -1373,7 +1384,12 @@ export function UploadView({
                     </button>
                     <button
                       type="button"
-                      onClick={() => setCustomQpFormat("markdown")}
+                      onClick={() => {
+                        setCustomQpFormat("markdown");
+                        if (!customPositiveMarks) setCustomPositiveMarks("2");
+                        if (!customNegativeMarks)
+                          setCustomNegativeMarks("0.667");
+                      }}
                       className={`cursor-pointer px-2.5 py-1 rounded-md transition-colors ${
                         customQpFormat === "markdown"
                           ? "bg-white text-purple-700 font-bold shadow-2xs"
@@ -1425,18 +1441,19 @@ export function UploadView({
                       <button
                         type="button"
                         onClick={() => {
-                          setCustomQpMarkdown(SAMPLE_QUESTIONNAIRE_TEXT);
+                          setCustomPaperName(
+                            "2026 – High-Yield Mock (Markdown Interactive)",
+                          );
                           setCustomTotalQuestions("5");
-                          if (!customAkText.trim()) {
-                            setCustomAkText(SAMPLE_ANSWER_KEY_TEXT);
-                          }
-                          if (!customPaperName.trim()) {
-                            setCustomPaperName(
-                              "2026 – High-Yield Mock (Markdown Interactive)",
-                            );
-                          }
+                          setCustomPositiveMarks("2");
+                          setCustomNegativeMarks("0.667");
+                          setCustomTotalMarks("10");
+                          setCustomTimeMinutes("15");
+                          setCustomQpMarkdown(SAMPLE_QUESTIONNAIRE_TEXT);
+                          setCustomAkText(SAMPLE_ANSWER_KEY_TEXT);
+                          setShowMarkdownPreview(true);
                         }}
-                        className="cursor-pointer inline-flex items-center gap-1 text-[11px] font-bold text-purple-700 bg-purple-50 hover:bg-purple-100 px-2 py-0.5 rounded-md border border-purple-200 transition-colors"
+                        className="cursor-pointer inline-flex items-center gap-1 text-[11px] font-bold text-purple-700 bg-purple-50 hover:bg-purple-100 px-2.5 py-1 rounded-md border border-purple-200 shadow-2xs transition-colors"
                       >
                         <Sparkles className="h-3 w-3" />
                         <span>Load 5-Q Sample</span>
@@ -1617,18 +1634,279 @@ export function UploadView({
                 </div>
               )}
             </div>
+
+            {/* Markdown Live Parser & Question Inspection */}
+            {customQpFormat === "markdown" && (
+              <div className="rounded-xl border border-purple-200/90 bg-gradient-to-b from-purple-50/50 to-white p-4 sm:p-5 space-y-4 shadow-2xs">
+                <div className="flex items-center justify-between flex-wrap gap-2">
+                  <div className="flex items-center gap-2">
+                    <div className="h-7 w-7 rounded-lg bg-purple-100 border border-purple-200 flex items-center justify-center text-purple-700">
+                      <Sparkles className="h-4 w-4" />
+                    </div>
+                    <div>
+                      <h3 className="text-xs font-bold text-slate-800 flex items-center gap-1.5">
+                        Parser Inspection & Live Preview
+                        <span className="text-[10px] font-semibold text-purple-700 bg-purple-100/70 px-2 py-0.5 rounded-full border border-purple-200">
+                          Live Validation
+                        </span>
+                      </h3>
+                      <p className="text-[11px] text-slate-500">
+                        Real-time verification of parsed questions, options, and
+                        answer keys.
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-2">
+                    {detectedQuestionsCount > 0 && (
+                      <button
+                        type="button"
+                        onClick={() => setShowMarkdownPreview((prev) => !prev)}
+                        className="cursor-pointer inline-flex items-center gap-1.5 text-xs font-bold text-purple-700 hover:text-purple-900 bg-white hover:bg-purple-50 px-3 py-1.5 rounded-lg border border-purple-200 shadow-2xs transition-colors"
+                      >
+                        {showMarkdownPreview ? (
+                          <>
+                            <EyeOff className="h-3.5 w-3.5" />
+                            <span>Hide Preview</span>
+                          </>
+                        ) : (
+                          <>
+                            <Eye className="h-3.5 w-3.5" />
+                            <span>Show Preview ({detectedQuestionsCount})</span>
+                          </>
+                        )}
+                      </button>
+                    )}
+                  </div>
+                </div>
+
+                {/* Summary Metrics Bar */}
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 pt-1">
+                  <div className="bg-white rounded-xl border border-slate-200/90 p-3 shadow-2xs">
+                    <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
+                      Questions Detected
+                    </span>
+                    <div className="flex items-center gap-1.5 mt-1">
+                      {detectedQuestionsCount > 0 ? (
+                        <CheckCircle2 className="h-4 w-4 text-emerald-600" />
+                      ) : (
+                        <AlertCircle className="h-4 w-4 text-amber-500" />
+                      )}
+                      <span className="text-sm font-extrabold text-slate-800 font-mono">
+                        {detectedQuestionsCount}
+                      </span>
+                    </div>
+                  </div>
+
+                  <div className="bg-white rounded-xl border border-slate-200/90 p-3 shadow-2xs">
+                    <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
+                      Answers Found
+                    </span>
+                    <div className="flex items-center gap-1.5 mt-1">
+                      {Object.keys(detectedAnswerKey.answers).length > 0 ? (
+                        <CheckCircle2 className="h-4 w-4 text-emerald-600" />
+                      ) : (
+                        <span className="h-2 w-2 rounded-full bg-slate-300" />
+                      )}
+                      <span className="text-sm font-extrabold text-slate-800 font-mono">
+                        {Object.keys(detectedAnswerKey.answers).length}
+                      </span>
+                    </div>
+                  </div>
+
+                  <div className="bg-white rounded-xl border border-slate-200/90 p-3 shadow-2xs">
+                    <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
+                      Explanations Found
+                    </span>
+                    <div className="flex items-center gap-1.5 mt-1">
+                      <Lightbulb className="h-4 w-4 text-amber-500" />
+                      <span className="text-sm font-extrabold text-slate-800 font-mono">
+                        {Object.keys(detectedAnswerKey.explanations).length}
+                      </span>
+                    </div>
+                  </div>
+
+                  <div className="bg-white rounded-xl border border-slate-200/90 p-3 shadow-2xs">
+                    <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
+                      Key Alignment
+                    </span>
+                    <div className="mt-1">
+                      {detectedQuestionsCount > 0 &&
+                      detectedQuestionsCount ===
+                        Object.keys(detectedAnswerKey.answers).length ? (
+                        <span className="inline-flex items-center gap-1 text-xs font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-md border border-emerald-200">
+                          <Check className="h-3 w-3" /> 100% Matched
+                        </span>
+                      ) : detectedQuestionsCount > 0 &&
+                        Object.keys(detectedAnswerKey.answers).length > 0 ? (
+                        <span className="inline-flex items-center gap-1 text-xs font-bold text-amber-700 bg-amber-50 px-2 py-0.5 rounded-md border border-amber-200">
+                          Partial (
+                          {Object.keys(detectedAnswerKey.answers).length}/
+                          {detectedQuestionsCount})
+                        </span>
+                      ) : (
+                        <span className="inline-flex items-center gap-1 text-xs font-semibold text-slate-500 bg-slate-50 px-2 py-0.5 rounded-md border border-slate-200">
+                          {detectedQuestionsCount > 0
+                            ? "Pending Key"
+                            : "Awaiting Input"}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                </div>
+
+                {/* Question Cards Accordion / List */}
+                {detectedQuestionsCount > 0 ? (
+                  showMarkdownPreview && (
+                    <div className="space-y-3 pt-1">
+                      <div className="flex items-center justify-between text-[11px] font-semibold text-slate-500 px-1">
+                        <span>Parsed Question Items:</span>
+                        <span>{detectedQuestionsCount} questions ready</span>
+                      </div>
+
+                      <div className="space-y-2.5 max-h-[380px] overflow-y-auto pr-1">
+                        {detectedQuestions.map((q) => {
+                          const ansLetter =
+                            detectedAnswerKey.answers[
+                              q.questionNo
+                            ]?.toUpperCase();
+                          const explanation =
+                            detectedAnswerKey.explanations[q.questionNo];
+
+                          return (
+                            <div
+                              key={q.questionNo}
+                              className="rounded-xl border border-slate-200 bg-white p-3.5 space-y-2.5 shadow-2xs hover:border-purple-300 transition-colors"
+                            >
+                              <div className="flex items-start justify-between gap-2">
+                                <div className="flex items-center gap-2">
+                                  <span className="font-mono text-xs font-bold bg-purple-100 text-purple-800 px-2 py-0.5 rounded-md border border-purple-200">
+                                    Q{q.questionNo}
+                                  </span>
+                                  <span className="text-[11px] text-slate-400 font-medium">
+                                    {Object.keys(q.options).length} options
+                                    detected
+                                  </span>
+                                </div>
+
+                                {ansLetter ? (
+                                  <span className="inline-flex items-center gap-1 text-[11px] font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">
+                                    <Check className="h-3 w-3" /> Answer: Option{" "}
+                                    {ansLetter}
+                                  </span>
+                                ) : (
+                                  <span className="text-[10px] text-slate-400 font-medium">
+                                    No answer key
+                                  </span>
+                                )}
+                              </div>
+
+                              {/* Question prompt */}
+                              <p className="text-xs text-slate-800 font-medium leading-relaxed whitespace-pre-wrap">
+                                {q.text}
+                              </p>
+
+                              {/* Options grid */}
+                              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-1">
+                                {Object.entries(q.options).map(
+                                  ([optKey, optText]) => {
+                                    const isCorrect =
+                                      ansLetter === optKey.toUpperCase();
+                                    return (
+                                      <div
+                                        key={optKey}
+                                        className={`flex items-start gap-2 p-2 rounded-lg border text-xs leading-relaxed transition-all ${
+                                          isCorrect
+                                            ? "bg-emerald-50/70 border-emerald-300 text-emerald-950 font-medium shadow-2xs"
+                                            : "bg-slate-50/70 border-slate-200 text-slate-700"
+                                        }`}
+                                      >
+                                        <span
+                                          className={`font-mono text-[11px] font-bold px-1.5 py-0.5 rounded shrink-0 ${
+                                            isCorrect
+                                              ? "bg-emerald-600 text-white"
+                                              : "bg-slate-200 text-slate-700"
+                                          }`}
+                                        >
+                                          {optKey}
+                                        </span>
+                                        <span className="whitespace-pre-wrap">
+                                          {optText}
+                                        </span>
+                                      </div>
+                                    );
+                                  },
+                                )}
+                              </div>
+
+                              {/* Explanation callout */}
+                              {explanation && (
+                                <div className="rounded-lg bg-amber-50/70 border border-amber-200/80 p-2.5 text-xs text-amber-950 space-y-1">
+                                  <div className="flex items-center gap-1 font-bold text-[11px] text-amber-800">
+                                    <Lightbulb className="h-3.5 w-3.5 text-amber-600" />
+                                    <span>Explanation:</span>
+                                  </div>
+                                  <p className="text-[11px] leading-relaxed whitespace-pre-wrap pl-4 text-amber-900">
+                                    {explanation}
+                                  </p>
+                                </div>
+                              )}
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )
+                ) : (
+                  <div className="rounded-xl border border-dashed border-purple-200 bg-purple-50/30 p-4 text-center space-y-2">
+                    <p className="text-xs font-semibold text-slate-600">
+                      Paste or upload your questions in the box above to see the
+                      live preview.
+                    </p>
+                    <p className="text-[11px] text-slate-400">
+                      Separate questions with{" "}
+                      <code className="font-mono bg-white px-1 py-0.5 rounded border border-purple-200 text-purple-700">
+                        ---
+                      </code>{" "}
+                      and label options as (a), (b), (c), (d).
+                    </p>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setCustomPaperName(
+                          "2026 – High-Yield Mock (Markdown Interactive)",
+                        );
+                        setCustomTotalQuestions("5");
+                        setCustomPositiveMarks("2");
+                        setCustomNegativeMarks("0.667");
+                        setCustomTotalMarks("10");
+                        setCustomTimeMinutes("15");
+                        setCustomQpMarkdown(SAMPLE_QUESTIONNAIRE_TEXT);
+                        setCustomAkText(SAMPLE_ANSWER_KEY_TEXT);
+                        setShowMarkdownPreview(true);
+                      }}
+                      className="cursor-pointer inline-flex items-center gap-1.5 text-xs font-bold text-purple-700 bg-white hover:bg-purple-100 px-3 py-1 rounded-lg border border-purple-200 shadow-2xs transition-colors mt-1"
+                    >
+                      <Sparkles className="h-3 w-3" />
+                      <span>Load 5-Q Working Sample</span>
+                    </button>
+                  </div>
+                )}
+              </div>
+            )}
           </div>
 
           {/* Submit */}
-          <div className="flex justify-end pt-2">
+          <div className="flex items-center justify-end gap-3 pt-2">
             <button
               type="submit"
               disabled={
                 isSubmitting ||
                 !customPaperName.trim() ||
-                !customTotalQuestions ||
-                !customPositiveMarks ||
-                !customNegativeMarks ||
+                !(
+                  customTotalQuestions.trim() ||
+                  (customQpFormat === "markdown" && detectedQuestionsCount > 0)
+                ) ||
                 (customQpFormat === "pdf" && !customQpFile) ||
                 (customQpFormat === "markdown" && !customQpMarkdown.trim())
               }
