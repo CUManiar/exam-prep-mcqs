@@ -109,6 +109,20 @@ export function generateAttemptSummaryMarkdown(attempt: Attempt): string {
   const fiftyAcc =
     fiftyQs.length > 0 ? Math.round((fiftyCorrect / fiftyQs.length) * 100) : 0;
 
+  const eliminationQs = questionList.filter(
+    (q) => q.confidence === "elimination",
+  );
+  const eliminationCorrect = eliminationQs.filter(
+    (q) => q.selected && q.isCorrect === true,
+  ).length;
+  const eliminationWrong = eliminationQs.filter(
+    (q) => q.selected && q.isCorrect === false,
+  ).length;
+  const eliminationAcc =
+    eliminationQs.length > 0
+      ? Math.round((eliminationCorrect / eliminationQs.length) * 100)
+      : 0;
+
   const guessQs = questionList.filter((q) => q.confidence === "guess");
   const guessCorrect = guessQs.filter(
     (q) => q.selected && q.isCorrect === true,
@@ -179,6 +193,7 @@ export function generateAttemptSummaryMarkdown(attempt: Attempt): string {
     `| :--- | :---: | :---: | :---: | :---: |`,
     `| **🎯 Sure** | **${sureQs.length}** | ${sureCorrect} | ${sureWrong} | **${sureAcc}%** |`,
     `| **⚖️ 50:50** | **${fiftyQs.length}** | ${fiftyCorrect} | ${fiftyWrong} | **${fiftyAcc}%** |`,
+    `| **✂️ Elimination** | **${eliminationQs.length}** | ${eliminationCorrect} | ${eliminationWrong} | **${eliminationAcc}%** |`,
     `| **🎲 Guess** | **${guessQs.length}** | ${guessCorrect} | ${guessWrong} | **${guessAcc}%** |`,
     ``,
     `---`,
@@ -297,6 +312,7 @@ export function generateAttemptReportMarkdown(attempt: Attempt): string {
     let confTag = "—";
     if (q?.confidence === "sure") confTag = "🎯 Sure";
     else if (q?.confidence === "50-50") confTag = "⚖️ 50:50";
+    else if (q?.confidence === "elimination") confTag = "✂️ Elimination";
     else if (q?.confidence === "guess") confTag = "🎲 Guess";
 
     const expl = q?.explanation || "";
@@ -403,9 +419,11 @@ export function exportAttemptAsPrintPDF(
           ? "🎯 Sure"
           : q?.confidence === "50-50"
             ? "⚖️ 50:50"
-            : q?.confidence === "guess"
-              ? "🎲 Guess"
-              : "—";
+            : q?.confidence === "elimination"
+              ? "✂️ Elimination"
+              : q?.confidence === "guess"
+                ? "🎲 Guess"
+                : "—";
 
       const statusLabel = isCorrect
         ? "✅ Correct"

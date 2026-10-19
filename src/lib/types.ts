@@ -24,7 +24,7 @@ export interface QuestionPaper {
   userId?: string;
 }
 
-export type ConfidenceLevel = "sure" | "50-50" | "guess";
+export type ConfidenceLevel = "sure" | "50-50" | "guess" | "elimination";
 
 export interface QuestionAnswer {
   questionNo: number;
