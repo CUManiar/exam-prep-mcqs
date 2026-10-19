@@ -1,223 +1,103 @@
-import { QuestionPaper, ParsedQuestion, ExamCategory, ExamType } from "./types";
+import { ParsedQuestion } from "./types";
 
 /**
- * Parses a Markdown document with optional YAML-style frontmatter
- * and structured MCQs into a QuestionPaper object.
+ * Parses a simple Questionnaire text/markdown document into individual questions.
+ * Rules:
+ * - Top '---' (or frontmatter) is skippable.
+ * - Each question block is separated by '---'.
+ * - Options can be (a)/(b)/(c)/(d) or A./B./C./D. or A)/B)/C)/D).
+ * - Everything before the options is the question prompt.
+ * - Answer keys and explanations are handled separately via the existing answer key parser.
  */
-export function parseMarkdownPaper(
+export function parseQuestionnaireMarkdown(
   markdownText: string,
-  overrides?: Partial<QuestionPaper>,
-): {
-  paperMetadata: Partial<QuestionPaper>;
-  parsedQuestions: ParsedQuestion[];
-  answerKey: Record<number, string>;
-  explanations: Record<number, string>;
-} {
-  let content = markdownText.trim();
-  const metadata: Record<string, any> = {};
-  const instructions: string[] = [];
+): ParsedQuestion[] {
+  let raw = (markdownText || "").trim();
+  if (!raw) return [];
 
-  // 1. Extract YAML Frontmatter if present
-  if (content.startsWith("---")) {
-    const endMatch = content.indexOf("\n---", 3);
-    if (endMatch !== -1) {
-      const frontmatterText = content.substring(3, endMatch).trim();
-      content = content.substring(endMatch + 4).trim();
-
-      const lines = frontmatterText.split("\n");
-      let inInstructions = false;
-
-      for (const line of lines) {
-        const trimmed = line.trim();
-        if (!trimmed || trimmed.startsWith("#")) continue;
-
-        if (trimmed.startsWith("instructions:")) {
-          inInstructions = true;
-          continue;
-        }
-
-        if (inInstructions) {
-          if (trimmed.startsWith("-") || trimmed.startsWith("*")) {
-            instructions.push(trimmed.replace(/^[-*]\s*/, ""));
-            continue;
-          } else if (trimmed.includes(":")) {
-            inInstructions = false;
-          }
-        }
-
-        const colonIdx = line.indexOf(":");
-        if (colonIdx !== -1) {
-          const key = line.substring(0, colonIdx).trim();
-          let value = line.substring(colonIdx + 1).trim();
-          // Remove surrounding quotes
-          if (
-            (value.startsWith('"') && value.endsWith('"')) ||
-            (value.startsWith("'") && value.endsWith("'"))
-          ) {
-            value = value.slice(1, -1);
-          }
-          metadata[key] = value;
-        }
+  // 1. Top '---' is skippable (e.g. frontmatter or leading separator)
+  if (raw.startsWith("---")) {
+    const nextSeparator = raw.indexOf("\n---", 3);
+    if (nextSeparator !== -1) {
+      // Check if what's before nextSeparator is frontmatter / title (no options)
+      const potentialHeader = raw.substring(3, nextSeparator);
+      const hasOptions = /\n\s*(?:\([a-dA-D]\)|[a-dA-D][\.\)])\s+/i.test(
+        potentialHeader,
+      );
+      if (!hasOptions) {
+        raw = raw.substring(nextSeparator + 4).trim();
+      } else {
+        raw = raw.replace(/^---\s*/, "").trim();
       }
+    } else {
+      raw = raw.replace(/^---\s*/, "").trim();
     }
   }
 
-  // 2. Split content into question chunks
-  // Matches headings like '### Q1', '## Question 1', '### Question 1:', 'Q1.', or '---'
-  const questionBlocks: { qNo: number; rawText: string }[] = [];
-  const rawSections = content.split(
-    /\n(?=(?:###?\s*(?:Q|Question)\s*\d+|Q\d+[\.\:\)]|\n---\s*\n###?\s*Q))/i,
-  );
-
-  for (const section of rawSections) {
-    const trimmed = section.trim();
-    if (!trimmed) continue;
-
-    // Try to match question number
-    const qMatch = trimmed.match(
-      /^(?:###?\s*(?:Q|Question)\s*(\d+)|Q(\d+)[\.\:\)]|---\s*\n###?\s*(?:Q|Question)\s*(\d+))/i,
-    );
-    const qNo = qMatch
-      ? parseInt(qMatch[1] || qMatch[2] || qMatch[3], 10)
-      : questionBlocks.length + 1;
-
-    // Clean leading heading from rawText
-    const body = trimmed
-      .replace(
-        /^(?:###?\s*(?:Q|Question)\s*\d+[\.\:\)]?|Q\d+[\.\:\)]|---\s*\n###?\s*(?:Q|Question)\s*\d+[\.\:\)]?)\s*/i,
-        "",
-      )
-      .trim();
-
-    if (body) {
-      questionBlocks.push({ qNo, rawText: body });
-    }
-  }
-
+  // 2. Split into question blocks using '---' as delimiter
+  const rawBlocks = raw.split(/\n\s*---\s*\n/);
   const parsedQuestions: ParsedQuestion[] = [];
-  const answerKey: Record<number, string> = {};
-  const explanations: Record<number, string> = {};
 
-  // 3. Parse individual question block
-  for (const block of questionBlocks) {
-    const lines = block.rawText.split("\n");
-    const questionTextLines: string[] = [];
+  for (let idx = 0; idx < rawBlocks.length; idx++) {
+    const block = rawBlocks[idx].trim();
+    if (!block) continue;
+
+    const lines = block.split("\n");
+    const promptLines: string[] = [];
     const options: Record<string, string> = {};
-    let answer: string | undefined = undefined;
-    const explanationLines: string[] = [];
+    let foundOption = false;
+    let currentOptKey: string | null = null;
 
-    let currentSection: "question" | "options" | "explanation" = "question";
-    let currentOptionKey: string | null = null;
+    const optRegex = /^\s*(?:\(([a-dA-D])\)|([a-dA-D])[\.\)])\s+(.*)$/;
 
     for (let i = 0; i < lines.length; i++) {
       const line = lines[i];
-      const trimmed = line.trim();
+      const match = line.match(optRegex);
 
-      // Check for Answer tag: 'Answer: (a)', 'Answer: A', 'Ans: C'
-      const ansMatch = trimmed.match(
-        /^(?:Answer|Ans|Correct(?:\s*Answer)?)\s*[:=\-]\s*\(?([A-Da-d])\)?/i,
-      );
-      if (ansMatch) {
-        answer = ansMatch[1].toUpperCase();
-        currentOptionKey = null;
-        continue;
+      if (match) {
+        foundOption = true;
+        const letter = (match[1] || match[2]).toUpperCase();
+        options[letter] = match[3].trim();
+        currentOptKey = letter;
+      } else if (foundOption && currentOptKey && line.trim()) {
+        // Multi-line option continuation
+        options[currentOptKey] += "\n" + line.trim();
+      } else if (!foundOption) {
+        promptLines.push(line);
       }
+    }
 
-      // Check for Explanation tag: 'Explanation: ...', 'Solution: ...'
-      const expMatch = trimmed.match(
-        /^(?:Explanation|Solution|Exp)\s*[:=\-]\s*(.*)$/i,
-      );
-      if (expMatch) {
-        currentSection = "explanation";
-        currentOptionKey = null;
-        if (expMatch[1].trim()) {
-          explanationLines.push(expMatch[1].trim());
+    // If no options were found in this block, skip (could be a trailing note or standalone header)
+    if (Object.keys(options).length === 0) {
+      continue;
+    }
+
+    let fullPrompt = promptLines.join("\n").trim();
+
+    // Check for explicit Question Number in the prompt: e.g. "Q1.", "Question 1:", "### Q1", "1."
+    const qNumMatch = fullPrompt.match(
+      /^(?:###?\s*(?:Q|Question)?\s*|Q(?:uestion)?\s*)?(\d+)[\.\:\)]?\s*(.*)$/is,
+    );
+    let questionNo = parsedQuestions.length + 1;
+
+    if (qNumMatch && qNumMatch[1]) {
+      const parsedNum = parseInt(qNumMatch[1], 10);
+      if (parsedNum > 0 && parsedNum <= 500) {
+        questionNo = parsedNum;
+        if (qNumMatch[2] && qNumMatch[2].trim()) {
+          fullPrompt = qNumMatch[2].trim();
         }
-        continue;
       }
-
-      // If in explanation section, collect remaining lines
-      if (currentSection === "explanation") {
-        explanationLines.push(line);
-        continue;
-      }
-
-      // Check for Option pattern: '(a) ...', '(A) ...', 'a) ...', 'A. ...', '(1) ...'
-      const optMatch = trimmed.match(
-        /^(?:\(?([A-Da-d])\)|\b([A-Da-d])[\.\)])\s+(.*)$/,
-      );
-      if (optMatch) {
-        currentSection = "options";
-        const optLetter = (optMatch[1] || optMatch[2]).toUpperCase();
-        options[optLetter] = optMatch[3].trim();
-        currentOptionKey = optLetter;
-        continue;
-      }
-
-      // Multiline options continuation
-      if (currentSection === "options" && currentOptionKey && trimmed) {
-        options[currentOptionKey] += "\n" + line;
-        continue;
-      }
-
-      // Default: Question text
-      if (currentSection === "question") {
-        questionTextLines.push(line);
-      }
-    }
-
-    const qText = questionTextLines.join("\n").trim();
-    const explanation = explanationLines.join("\n").trim() || undefined;
-
-    if (answer) {
-      answerKey[block.qNo] = answer;
-    }
-    if (explanation) {
-      explanations[block.qNo] = explanation;
     }
 
     parsedQuestions.push({
-      questionNo: block.qNo,
-      text: qText || `Question ${block.qNo}`,
+      questionNo,
+      text: fullPrompt || `Question ${questionNo}`,
       options,
-      answer,
-      explanation,
     });
   }
 
-  // Ensure questions sorted by question number
+  // Ensure 1-based sequential ordering if needed
   parsedQuestions.sort((a, b) => a.questionNo - b.questionNo);
-
-  const totalQuestions =
-    parseInt(metadata.totalQuestions || "0", 10) || parsedQuestions.length || 1;
-  const correctMarks = parseFloat(metadata.correctMarks || "2.0") || 2.0;
-  const incorrectMarks =
-    parseFloat(metadata.incorrectMarks || "0.667") || 0.667;
-  const totalMarks =
-    parseFloat(metadata.totalMarks || "0") || totalQuestions * correctMarks;
-  const timeMinutes =
-    parseInt(metadata.timeMinutes || "0", 10) ||
-    (totalQuestions <= 15 ? 15 : totalQuestions <= 30 ? 35 : 120);
-
-  const paperMetadata: Partial<QuestionPaper> = {
-    title: metadata.title,
-    label: metadata.label || metadata.title || "Custom Markdown Paper",
-    subject: metadata.subject || "General Studies",
-    category: (metadata.category as ExamCategory) || "prelims",
-    examType: (metadata.examType as ExamType) || "objective",
-    totalQuestions,
-    correctMarks,
-    incorrectMarks,
-    totalMarks,
-    timeMinutes,
-    instructions: instructions.length > 0 ? instructions : undefined,
-    ...overrides,
-  };
-
-  return {
-    paperMetadata,
-    parsedQuestions,
-    answerKey,
-    explanations,
-  };
+  return parsedQuestions;
 }
