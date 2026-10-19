@@ -512,6 +512,14 @@ export function PapersView({
                           ? "Mains Subjective"
                           : paper.subject}
                     </span>
+
+                    {paper.parsedQuestions &&
+                      paper.parsedQuestions.length > 0 && (
+                        <span className="text-[10px] font-extrabold uppercase px-2.5 py-0.5 rounded-full bg-indigo-600 text-white flex items-center gap-1 shadow-2xs">
+                          <Sparkles className="h-3 w-3 fill-indigo-200" />
+                          <span>Interactive Markdown</span>
+                        </span>
+                      )}
                   </div>
 
                   {/* Standardized Title Container with Circular Attempt Chips */}
@@ -560,17 +568,26 @@ export function PapersView({
                   {/* Prominent Resource Status Indicators - Standard Single Row */}
                   <div className="mt-3.5 pt-3 border-t border-slate-100 h-7 flex items-center gap-2">
                     {paper.examType === "objective" ? (
-                      keyPresent ? (
-                        <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200/60">
-                          <CheckCircle2 className="h-3.5 w-3.5 text-emerald-600" />
-                          <span>Key Attached ({keyCount} Qs)</span>
-                        </div>
-                      ) : (
-                        <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-amber-50 text-amber-700 border border-amber-200/60">
-                          <AlertCircle className="h-3.5 w-3.5 text-amber-600" />
-                          <span>Key Missing</span>
-                        </div>
-                      )
+                      <>
+                        {keyPresent ? (
+                          <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200/60">
+                            <CheckCircle2 className="h-3.5 w-3.5 text-emerald-600" />
+                            <span>Key Attached ({keyCount} Qs)</span>
+                          </div>
+                        ) : (
+                          <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-amber-50 text-amber-700 border border-amber-200/60">
+                            <AlertCircle className="h-3.5 w-3.5 text-amber-600" />
+                            <span>Key Missing</span>
+                          </div>
+                        )}
+                        {paper.explanations &&
+                          Object.keys(paper.explanations).length > 0 && (
+                            <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-indigo-50 text-indigo-700 border border-indigo-200/60">
+                              <BookOpen className="h-3.5 w-3.5 text-indigo-600" />
+                              <span>Detailed Explanations</span>
+                            </div>
+                          )}
+                      </>
                     ) : (
                       <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-violet-50 text-violet-700 border border-violet-200/60">
                         <span>Subjective Paper</span>

@@ -29,7 +29,11 @@ import {
   Search,
   ChevronDown,
   X,
+  Sparkles,
+  BookOpen,
 } from "lucide-react";
+import { parseMarkdownPaper } from "../lib/markdownPaperParser";
+import { SAMPLE_MARKDOWN_TEXT } from "../data/sampleMarkdownPaper";
 
 interface UploadViewProps {
   papers?: QuestionPaper[];
@@ -47,10 +51,23 @@ export function UploadView({
   onNavigatePapers,
 }: UploadViewProps) {
   const { currentUser } = useApp();
-  // Main View Mode: 'custom' (Fast practice upload) | 'preset' (Official UPSC) | 'update'
-  const [viewMode, setViewMode] = useState<"custom" | "preset" | "update">(
-    "custom",
-  );
+  // Main View Mode: 'custom' (Fast practice upload) | 'markdown' (Interactive Markdown) | 'preset' (Official UPSC) | 'update'
+  const [viewMode, setViewMode] = useState<
+    "custom" | "markdown" | "preset" | "update"
+  >("custom");
+
+  // MARKDOWN PAPER STATES
+  const [mdContent, setMdContent] = useState<string>("");
+  const [isSubmittingMd, setIsSubmittingMd] = useState<boolean>(false);
+
+  const mdParsedResult = useMemo(() => {
+    if (!mdContent.trim()) return null;
+    try {
+      return parseMarkdownPaper(mdContent);
+    } catch {
+      return null;
+    }
+  }, [mdContent]);
 
   // FAST CUSTOM PAPER STATES (Nothing prefilled!)
   const [customPaperName, setCustomPaperName] = useState<string>("");
@@ -519,6 +536,62 @@ export function UploadView({
     }
   };
 
+  const handleSaveMarkdownPaper = () => {
+    if (!mdParsedResult || mdParsedResult.parsedQuestions.length === 0) {
+      setStatusMsg({
+        text: "Please provide valid markdown with at least 1 question block (e.g. ### Q1).",
+        isError: true,
+      });
+      return;
+    }
+
+    setIsSubmittingMd(true);
+    try {
+      const pMeta = mdParsedResult.paperMetadata;
+      const id = `custom_md_${Date.now()}`;
+      const title = pMeta.title || pMeta.label || "Custom Markdown Paper";
+
+      const newPaper: QuestionPaper = {
+        id,
+        year: pMeta.year || "2026",
+        category: pMeta.category || "prelims",
+        examType: pMeta.examType || "objective",
+        subject: pMeta.subject || "General Studies",
+        label: pMeta.label || title,
+        title,
+        totalQuestions: mdParsedResult.parsedQuestions.length,
+        totalMarks:
+          pMeta.totalMarks || mdParsedResult.parsedQuestions.length * 2,
+        correctMarks: pMeta.correctMarks || 2.0,
+        incorrectMarks: pMeta.incorrectMarks || 0.667,
+        timeMinutes: pMeta.timeMinutes || 15,
+        qpUrl: "local://interactive_markdown",
+        answerKey: mdParsedResult.answerKey,
+        explanations: mdParsedResult.explanations,
+        parsedQuestions: mdParsedResult.parsedQuestions,
+        instructions: pMeta.instructions,
+        markdownContent: mdContent,
+        isCustom: true,
+        userId: currentUser?.id,
+      };
+
+      saveCustomPaper(newPaper);
+      onPaperUploaded(newPaper);
+      setStatusMsg({
+        text: `Successfully created "${newPaper.label}" with ${newPaper.totalQuestions} interactive questions!`,
+        isError: false,
+      });
+      onNavigatePapers();
+    } catch (err: any) {
+      setStatusMsg({
+        text: err?.message || "Failed to create markdown paper",
+        isError: true,
+      });
+    } finally {
+      setIsSubmittingMd(false);
+    }
+  };
+
   return (
     <div className="mx-auto max-w-4xl px-4 py-8 sm:px-6 lg:px-8 space-y-8 animate-in fade-in duration-200">
       {/* Header */}
@@ -533,12 +606,12 @@ export function UploadView({
             Question Papers Studio
           </h1>
           <p className="text-xs sm:text-sm text-slate-500 mt-1">
-            Upload new papers or correct files (Question Paper PDF, Answer Key,
-            Solution) on existing papers.
+            Upload new papers, import interactive Markdown papers, or correct
+            files on existing papers.
           </p>
         </div>
 
-        {/* View Mode Toggle: Fast Custom Upload vs UPSC Preset vs Update Existing */}
+        {/* View Mode Toggle: Fast Custom Upload vs Markdown vs UPSC Preset vs Update Existing */}
         <div className="flex items-center gap-1 bg-slate-100 p-1 rounded-xl border border-slate-200/80 text-xs font-semibold shrink-0 flex-wrap">
           <button
             type="button"
@@ -546,14 +619,29 @@ export function UploadView({
               setViewMode("custom");
               setStatusMsg(null);
             }}
-            className={`cursor-pointer flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg transition-colors ${
+            className={`cursor-pointer flex items-center gap-1.5 px-3 py-1.5 rounded-lg transition-colors ${
               viewMode === "custom"
                 ? "bg-white text-indigo-700 shadow-xs font-bold"
                 : "text-slate-600 hover:text-slate-900"
             }`}
           >
             <Zap className="h-4 w-4 text-amber-500 fill-amber-400" />
-            <span>Fast Custom Paper</span>
+            <span>Fast Custom</span>
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              setViewMode("markdown");
+              setStatusMsg(null);
+            }}
+            className={`cursor-pointer flex items-center gap-1.5 px-3 py-1.5 rounded-lg transition-colors ${
+              viewMode === "markdown"
+                ? "bg-white text-indigo-700 shadow-xs font-bold"
+                : "text-slate-600 hover:text-slate-900"
+            }`}
+          >
+            <Sparkles className="h-4 w-4 text-purple-600 fill-purple-400" />
+            <span>Markdown (.md)</span>
           </button>
           <button
             type="button"
@@ -1095,6 +1183,176 @@ export function UploadView({
               </div>
             </div>
           )}
+        </div>
+      )}
+
+      {/* ============================================================== */}
+      {/* MODE: INTERACTIVE MARKDOWN PAPER (.md) */}
+      {/* ============================================================== */}
+      {viewMode === "markdown" && (
+        <div className="space-y-6 animate-in fade-in">
+          {/* Card 1: Markdown Intake & Template */}
+          <div className="bi-card p-6 space-y-5">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 pb-3 border-b border-slate-100">
+              <div className="flex items-center gap-2.5">
+                <div className="h-8 w-8 rounded-lg bg-purple-50 text-purple-600 flex items-center justify-center font-bold border border-purple-200/60">
+                  <Sparkles className="h-4 w-4 text-purple-600" />
+                </div>
+                <div>
+                  <h2 className="text-sm font-extrabold text-slate-900">
+                    Interactive Markdown Paper
+                  </h2>
+                  <p className="text-xs text-slate-500">
+                    Paste markdown or upload a .md file. Questions, options,
+                    answer keys, and explanations will be parsed automatically.
+                  </p>
+                </div>
+              </div>
+
+              {/* Template quick-load button */}
+              <button
+                type="button"
+                onClick={() => setMdContent(SAMPLE_MARKDOWN_TEXT)}
+                className="cursor-pointer shrink-0 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-purple-200 bg-purple-50 hover:bg-purple-100 text-purple-700 text-xs font-bold transition-all shadow-2xs"
+              >
+                <Sparkles className="h-3.5 w-3.5" />
+                <span>Load Sample Mock (6 Qs)</span>
+              </button>
+            </div>
+
+            {/* File Upload or Drag & Drop */}
+            <div className="flex items-center gap-3">
+              <label className="cursor-pointer inline-flex items-center gap-2 px-3.5 py-2 rounded-xl border border-slate-200 bg-slate-50 hover:bg-slate-100 text-slate-700 text-xs font-semibold transition-colors">
+                <FileUp className="h-4 w-4 text-slate-500" />
+                <span>Upload .md or .txt file</span>
+                <input
+                  type="file"
+                  accept=".md,.txt,.markdown"
+                  className="hidden"
+                  onChange={async (e) => {
+                    const file = e.target.files?.[0];
+                    if (file) {
+                      const text = await file.text();
+                      setMdContent(text);
+                    }
+                  }}
+                />
+              </label>
+              {mdContent && (
+                <button
+                  type="button"
+                  onClick={() => setMdContent("")}
+                  className="text-xs font-semibold text-rose-600 hover:underline cursor-pointer"
+                >
+                  Clear Editor
+                </button>
+              )}
+            </div>
+
+            {/* Markdown Textarea */}
+            <div className="space-y-1.5">
+              <label className="text-xs font-bold text-slate-700 flex items-center justify-between">
+                <span>Markdown Document</span>
+                <span className="text-[11px] font-normal text-slate-400">
+                  Supports YAML frontmatter, questions (### Q1), options ((a),
+                  (b)...), and explanations
+                </span>
+              </label>
+              <textarea
+                value={mdContent}
+                onChange={(e) => setMdContent(e.target.value)}
+                placeholder={
+                  "---\ntitle: UPSC Prelims Sample\ntimeMinutes: 15\n---\n\n### Q1\nQuestion prompt...\n(a) Option A\n(b) Option B\n(c) Option C\n(d) Option D\n\nAnswer: (a)\nExplanation: ..."
+                }
+                rows={16}
+                className="w-full rounded-2xl border border-slate-200 bg-slate-50/50 p-4 font-mono text-xs text-slate-800 placeholder-slate-400 focus:bg-white focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/10 transition-all outline-hidden resize-y leading-relaxed"
+              />
+            </div>
+          </div>
+
+          {/* Card 2: Live Parser Inspection & Metrics */}
+          {mdParsedResult && (
+            <div className="bi-card p-6 space-y-4 animate-in fade-in">
+              <h3 className="text-xs font-bold uppercase tracking-wider text-slate-700 flex items-center gap-2">
+                <CheckCircle2 className="h-4 w-4 text-emerald-600" />
+                <span>Parser Inspection & Validation</span>
+              </h3>
+
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                <div className="rounded-xl border border-slate-200/80 bg-slate-50 p-3 text-center">
+                  <span className="text-[11px] text-slate-400 font-semibold block">
+                    Questions
+                  </span>
+                  <span className="text-lg font-extrabold text-slate-800 block mt-0.5">
+                    {mdParsedResult.parsedQuestions.length}
+                  </span>
+                </div>
+                <div className="rounded-xl border border-slate-200/80 bg-slate-50 p-3 text-center">
+                  <span className="text-[11px] text-slate-400 font-semibold block">
+                    Answer Key
+                  </span>
+                  <span className="text-lg font-extrabold text-emerald-700 block mt-0.5">
+                    {Object.keys(mdParsedResult.answerKey).length} Qs
+                  </span>
+                </div>
+                <div className="rounded-xl border border-slate-200/80 bg-slate-50 p-3 text-center">
+                  <span className="text-[11px] text-slate-400 font-semibold block">
+                    Explanations
+                  </span>
+                  <span className="text-lg font-extrabold text-indigo-700 block mt-0.5">
+                    {Object.keys(mdParsedResult.explanations).length} Qs
+                  </span>
+                </div>
+                <div className="rounded-xl border border-slate-200/80 bg-slate-50 p-3 text-center">
+                  <span className="text-[11px] text-slate-400 font-semibold block">
+                    Time
+                  </span>
+                  <span className="text-lg font-extrabold text-slate-800 block mt-0.5">
+                    {mdParsedResult.paperMetadata.timeMinutes || 15}m
+                  </span>
+                </div>
+              </div>
+
+              <div className="text-xs text-slate-600 space-y-1 bg-slate-50 rounded-xl p-3 border border-slate-200/60 font-mono">
+                <div>
+                  <strong>Title:</strong>{" "}
+                  {mdParsedResult.paperMetadata.title ||
+                    "Custom Markdown Paper"}
+                </div>
+                <div>
+                  <strong>Subject:</strong>{" "}
+                  {mdParsedResult.paperMetadata.subject} (
+                  {mdParsedResult.paperMetadata.category})
+                </div>
+                <div>
+                  <strong>Marking:</strong> +
+                  {mdParsedResult.paperMetadata.correctMarks}m correct, -
+                  {mdParsedResult.paperMetadata.incorrectMarks}m wrong
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Submit Action */}
+          <div className="flex items-center justify-end gap-3 pt-2">
+            <button
+              type="button"
+              onClick={handleSaveMarkdownPaper}
+              disabled={
+                isSubmittingMd ||
+                !mdParsedResult ||
+                mdParsedResult.parsedQuestions.length === 0
+              }
+              className="cursor-pointer inline-flex items-center gap-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 active:scale-95 disabled:opacity-40 disabled:pointer-events-none px-6 py-3 text-xs sm:text-sm font-bold text-white shadow-md hover:shadow-lg transition-all"
+            >
+              <Sparkles className="h-4 w-4" />
+              <span>
+                {isSubmittingMd
+                  ? "Creating Paper..."
+                  : "Create Interactive Markdown Paper"}
+              </span>
+            </button>
+          </div>
         </div>
       )}
 

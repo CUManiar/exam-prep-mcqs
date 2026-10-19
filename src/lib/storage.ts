@@ -339,10 +339,28 @@ export async function getAllPapers(): Promise<QuestionPaper[]> {
     papers = [...custom, ...INITIAL_PAPERS];
   }
 
-  // Dynamic resolution of timeMinutes if missing
+  // Dynamic resolution of timeMinutes and default paper metadata if missing
   papers.forEach((p) => {
     if (!p.timeMinutes || p.timeMinutes <= 0) {
       p.timeMinutes = getStandardTimeMinutes(p.category, p.examType);
+    }
+    const matchingDefault = INITIAL_PAPERS.find((init) => init.id === p.id);
+    if (matchingDefault) {
+      if (!p.parsedQuestions && matchingDefault.parsedQuestions) {
+        p.parsedQuestions = matchingDefault.parsedQuestions;
+      }
+      if (!p.instructions && matchingDefault.instructions) {
+        p.instructions = matchingDefault.instructions;
+      }
+      if (!p.markdownContent && matchingDefault.markdownContent) {
+        p.markdownContent = matchingDefault.markdownContent;
+      }
+      if (!p.answerKey || Object.keys(p.answerKey).length === 0) {
+        p.answerKey = { ...matchingDefault.answerKey };
+      }
+      if (!p.explanations || Object.keys(p.explanations).length === 0) {
+        p.explanations = { ...(matchingDefault.explanations || {}) };
+      }
     }
   });
 
