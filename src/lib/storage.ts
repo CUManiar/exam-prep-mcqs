@@ -335,8 +335,18 @@ export async function getAllPapers(): Promise<QuestionPaper[]> {
 
   if (papers.length === 0) {
     // Offline fallback
-    const custom = getCustomPapers();
-    papers = [...custom, ...INITIAL_PAPERS];
+    papers = [...INITIAL_PAPERS];
+  }
+
+  // Always merge local custom papers from localStorage (user uploaded / markdown mocks)
+  const localCustom = getCustomPapers();
+  for (const cp of localCustom) {
+    const existingIdx = papers.findIndex((p) => p.id === cp.id);
+    if (existingIdx >= 0) {
+      papers[existingIdx] = { ...papers[existingIdx], ...cp };
+    } else {
+      papers.unshift(cp);
+    }
   }
 
   // Dynamic resolution of timeMinutes and default paper metadata if missing

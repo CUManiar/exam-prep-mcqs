@@ -48,6 +48,7 @@ interface UploadViewProps {
   onUpdatePaper?: (paper: QuestionPaper) => void;
   onDeletePaper?: (paperId: string) => void;
   onNavigatePapers: () => void;
+  onStartExam?: (paper: QuestionPaper, mode: "practice" | "mock") => void;
 }
 
 export function UploadView({
@@ -56,6 +57,7 @@ export function UploadView({
   onUpdatePaper,
   onDeletePaper,
   onNavigatePapers,
+  onStartExam,
 }: UploadViewProps) {
   const { currentUser } = useApp();
   // Main View Mode: 'custom' (Fast practice upload) | 'preset' (Official UPSC) | 'update'
@@ -447,7 +449,7 @@ export function UploadView({
         const { answers, explanations } = parseAnswerKeyDetailed(customAkText);
         const paperId = `custom_md_${Date.now()}`;
 
-        const newPaper: QuestionPaper = {
+        let newPaper: QuestionPaper = {
           id: paperId,
           year: String(new Date().getFullYear()),
           category: "prelims",
@@ -470,15 +472,59 @@ export function UploadView({
           userId: currentUser?.id,
         };
 
+        // Sync to server upload API so it is saved in papers.json and Supabase
+        try {
+          const curYear = String(new Date().getFullYear());
+          const formData = new FormData();
+          formData.append("year", curYear);
+          formData.append("identifier", name);
+          formData.append("examType", "objective");
+          formData.append("subject", name);
+          formData.append("label", name);
+          formData.append("title", name);
+          formData.append("totalQuestions", String(qCount));
+          formData.append("totalMarks", String(finalTotalMarks));
+          formData.append("correctMarks", String(posMarks));
+          formData.append("incorrectMarks", String(negMarks));
+          formData.append("timeMinutes", String(time));
+          formData.append("isCustom", "true");
+          formData.append("markdownContent", customQpMarkdown);
+          formData.append("parsedQuestions", JSON.stringify(parsedQuestions));
+          if (customAkText.trim()) {
+            formData.append("answerKeyText", customAkText.trim());
+          }
+          if (currentUser?.id) {
+            formData.append("userId", currentUser.id);
+          }
+
+          const res = await fetch("/api/upload", {
+            method: "POST",
+            body: formData,
+          });
+          const data = await res.json();
+          if (res.ok && data.ok && data.paper) {
+            newPaper = { ...newPaper, ...data.paper };
+          }
+        } catch (serverErr) {
+          console.warn(
+            "Could not sync markdown paper to server, using local store:",
+            serverErr,
+          );
+        }
+
         saveCustomPaper(newPaper);
         onPaperUploaded(newPaper);
 
         setStatusMsg({
-          text: `Paper "${newPaper.label}" (${newPaper.totalQuestions} Questions) saved! Redirecting to Papers...`,
+          text: `Paper "${newPaper.label}" (${newPaper.totalQuestions} Questions) saved! Starting Practice...`,
         });
         setTimeout(() => {
-          onNavigatePapers();
-        }, 900);
+          if (onStartExam) {
+            onStartExam(newPaper, "practice");
+          } else {
+            onNavigatePapers();
+          }
+        }, 700);
         return;
       }
 

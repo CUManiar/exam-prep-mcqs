@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, useMemo } from "react";
+import { useSearchParams } from "next/navigation";
 import { createPortal } from "react-dom";
 import { QuestionPaper, Attempt } from "../lib/types";
 import {
@@ -54,6 +55,7 @@ export function PapersView({
   onUpdatePaper,
 }: PapersViewProps) {
   const { isPro, openProUpgradeModal, attempts = [] } = useApp();
+  const searchParams = useSearchParams();
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedCategory, setSelectedCategory] = useState<
     "all" | "prelims" | "mains" | "custom"
@@ -68,7 +70,11 @@ export function PapersView({
 
   useEffect(() => {
     setMounted(true);
-  }, []);
+    const tab = searchParams?.get("tab");
+    if (tab === "custom") {
+      setSelectedCategory("custom");
+    }
+  }, [searchParams]);
 
   // Edit paper rules modal
   const [editingPaper, setEditingPaper] = useState<QuestionPaper | null>(null);

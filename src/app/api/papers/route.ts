@@ -49,9 +49,44 @@ export async function GET(req: NextRequest) {
         if (res.ok) {
           const data = await res.json();
           if (data.ok && Array.isArray(data.papers)) {
+            const papersList: QuestionPaper[] = [...data.papers];
+            // Merge built-in INITIAL_PAPERS (including sample markdown paper)
+            for (const initPaper of INITIAL_PAPERS) {
+              if (!papersList.some((p) => p.id === initPaper.id)) {
+                papersList.push(initPaper);
+              }
+            }
+            // Also merge locally saved custom papers from papers.json if present
+            try {
+              const localMeta = await readJsonStore<
+                Record<string, QuestionPaper>
+              >("papers.json", {});
+              for (const [id, paper] of Object.entries(localMeta)) {
+                if (
+                  paper &&
+                  paper.id &&
+                  (paper.qpUrl || paper.markdownContent)
+                ) {
+                  const existingIdx = papersList.findIndex(
+                    (p) => p.id === paper.id,
+                  );
+                  if (existingIdx >= 0) {
+                    papersList[existingIdx] = {
+                      ...papersList[existingIdx],
+                      ...paper,
+                    };
+                  } else {
+                    papersList.unshift(paper);
+                  }
+                }
+              }
+            } catch {
+              // Ignore local store read error
+            }
+
             return NextResponse.json({
               ok: true,
-              papers: data.papers,
+              papers: papersList,
               environment: currentEnv,
               source: "PROD_REMOTE",
             });

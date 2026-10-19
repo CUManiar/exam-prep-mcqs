@@ -13,6 +13,7 @@ export default function UploadPage() {
     handlePaperUploaded,
     handleUpdatePaper,
     handleDeletePaper,
+    handleStartExam,
     currentUser,
     isLoading,
     openAuthModal,
@@ -59,7 +60,8 @@ export default function UploadPage() {
       onPaperUploaded={handlePaperUploaded}
       onUpdatePaper={handleUpdatePaper}
       onDeletePaper={handleDeletePaper}
-      onNavigatePapers={() => router.push("/papers")}
+      onNavigatePapers={() => router.push("/papers?tab=custom")}
+      onStartExam={(paper, mode) => handleStartExam(paper, mode)}
     />
   );
 }

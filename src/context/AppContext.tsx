@@ -25,6 +25,7 @@ import {
   getLocalHiddenPaperIds,
   saveLocalHiddenPaperIds,
   removeLocalCustomPaper,
+  saveCustomPaper,
 } from "../lib/storage";
 import { ConfirmationModal } from "../components/ConfirmationModal";
 import { ProUpgradeModal } from "../components/ProUpgradeModal";
@@ -51,6 +52,7 @@ import {
   hideUserPaperInSupabase,
   restoreUserHiddenPapersInSupabase,
   fetchUserCustomPapersFromSupabase,
+  saveUserCustomPaperToSupabase,
   deleteUserCustomPaperFromSupabase,
 } from "../lib/supabase";
 
@@ -410,6 +412,21 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
   // Paper uploaded handler
   const handlePaperUploaded = async (newPaper: QuestionPaper) => {
+    // 1. Immediately inject into state so the user sees it without delay
+    setPapers((prev) => [
+      newPaper,
+      ...prev.filter((p) => p.id !== newPaper.id),
+    ]);
+
+    // 2. Persist locally in browser storage
+    saveCustomPaper(newPaper);
+
+    // 3. Persist to Supabase if logged in
+    if (currentUser?.id) {
+      await saveUserCustomPaperToSupabase(newPaper, currentUser.id);
+    }
+
+    // 4. Resync full dataset
     await loadAllData();
   };
 

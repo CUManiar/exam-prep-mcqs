@@ -101,15 +101,32 @@ export async function POST(req: NextRequest) {
       ? `custom-papers/${userId}/${paperId}/solution.pdf`
       : `solutions/${cleanYear}/${catFolder}/${cleanName}.pdf`;
 
-    // 1. Process Question Paper (.pdf) -> prefix: qp
+    // 1. Process Question Paper (.pdf or markdown content) -> prefix: qp
     let qpUrl = "";
     const qpFile = formData.get("qpFile") as File | null;
+    const markdownContent = (formData.get("markdownContent") as string) || "";
+    const parsedQuestionsRaw =
+      (formData.get("parsedQuestions") as string) || "";
+    let parsedQuestions: any = undefined;
+    if (parsedQuestionsRaw) {
+      try {
+        parsedQuestions = JSON.parse(parsedQuestionsRaw);
+      } catch (e) {
+        console.warn("Failed parsing parsedQuestions in upload API:", e);
+      }
+    }
+
     if (qpFile) {
       const qpBuffer = Buffer.from(await qpFile.arrayBuffer());
       qpUrl = await uploadFile(qpFileName, qpBuffer, "application/pdf");
+    } else if (markdownContent) {
+      qpUrl = "local://interactive_markdown";
     } else {
       return NextResponse.json(
-        { ok: false, error: "Question Paper PDF is required" },
+        {
+          ok: false,
+          error: "Question Paper PDF or Markdown questions are required",
+        },
         { status: 400 },
       );
     }
@@ -163,6 +180,8 @@ export async function POST(req: NextRequest) {
       answerKeyText: answerKeyContent,
       answerKey: parsedKey,
       explanations: parsedExplanations,
+      markdownContent: markdownContent || undefined,
+      parsedQuestions: parsedQuestions || undefined,
       isCustom: true,
       updatedAt: new Date().toISOString(),
     };
