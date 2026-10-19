@@ -51,15 +51,32 @@ export function ProfileSettingsModal({
   const [activeTab, setActiveTab] = useState<"profile" | "settings">(
     initialTab,
   );
-  const [autoAdvance, setAutoAdvance] = useState(true);
+  const [autoAdvance, setAutoAdvance] = useState<boolean>(() => {
+    if (typeof window === "undefined") return false;
+    return localStorage.getItem("exam_prep_auto_advance") === "true";
+  });
   const [timerSoundAlert, setTimerSoundAlert] = useState(true);
   const [cacheClearedMsg, setCacheClearedMsg] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [isDeletingAccount, setIsDeletingAccount] = useState(false);
 
+  const handleToggleAutoAdvance = (val: boolean) => {
+    setAutoAdvance(val);
+    try {
+      localStorage.setItem("exam_prep_auto_advance", String(val));
+      window.dispatchEvent(new Event("exam-settings-changed"));
+    } catch {}
+  };
+
   useEffect(() => {
     setMounted(true);
   }, []);
+
+  useEffect(() => {
+    if (isOpen && typeof window !== "undefined") {
+      setAutoAdvance(localStorage.getItem("exam_prep_auto_advance") === "true");
+    }
+  }, [isOpen]);
 
   // Close on Escape key press
   useEffect(() => {
@@ -307,7 +324,9 @@ export function ProfileSettingsModal({
                     <input
                       type="checkbox"
                       checked={autoAdvance}
-                      onChange={(e) => setAutoAdvance(e.target.checked)}
+                      onChange={(e) =>
+                        handleToggleAutoAdvance(e.target.checked)
+                      }
                       className="h-4 w-4 rounded text-indigo-600 focus:ring-indigo-500 cursor-pointer"
                     />
                   </label>

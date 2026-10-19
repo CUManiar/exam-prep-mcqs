@@ -50,6 +50,7 @@ import {
   Maximize2,
   Minimize2,
   RotateCcw,
+  Zap,
 } from "lucide-react";
 
 interface ExamSessionViewProps {
@@ -141,6 +142,34 @@ export function ExamSessionView({
 
   const [showExitConfirm, setShowExitConfirm] = useState<boolean>(false);
   const [isFullscreen, setIsFullscreen] = useState<boolean>(false);
+  const [autoAdvance, setAutoAdvance] = useState<boolean>(() => {
+    if (typeof window === "undefined") return false;
+    return localStorage.getItem("exam_prep_auto_advance") === "true";
+  });
+
+  useEffect(() => {
+    const handleSettingsChange = () => {
+      try {
+        const val = localStorage.getItem("exam_prep_auto_advance") === "true";
+        setAutoAdvance(val);
+      } catch {}
+    };
+    window.addEventListener("exam-settings-changed", handleSettingsChange);
+    window.addEventListener("storage", handleSettingsChange);
+    return () => {
+      window.removeEventListener("exam-settings-changed", handleSettingsChange);
+      window.removeEventListener("storage", handleSettingsChange);
+    };
+  }, []);
+
+  const toggleAutoAdvance = () => {
+    const newVal = !autoAdvance;
+    setAutoAdvance(newVal);
+    try {
+      localStorage.setItem("exam_prep_auto_advance", String(newVal));
+      window.dispatchEvent(new Event("exam-settings-changed"));
+    } catch {}
+  };
 
   // Auto-request fullscreen for Mock Exam mode
   useEffect(() => {
@@ -393,7 +422,7 @@ export function ExamSessionView({
       const current = prev[qNo] || {
         questionNo: qNo,
         selected: null,
-        confidence: mode === "mock" ? "sure" : undefined,
+        confidence: undefined,
         changesCount: 0,
         answerHistory: [],
       };
@@ -432,15 +461,20 @@ export function ExamSessionView({
           selected: newSelected,
           correctAnswer: correct,
           isCorrect,
-          confidence: newSelected ? (current.confidence ?? "sure") : undefined,
+          confidence: current.confidence,
           changesCount,
           answerHistory,
         },
       };
     });
 
-    // Auto-advance to next question upon selecting an option ONLY in Mock mode
-    if (mode === "mock" && !isDeselecting && qNo < paper.totalQuestions) {
+    // Auto-advance to next question upon selecting an option ONLY in Mock mode if autoAdvance is enabled in Settings
+    if (
+      mode === "mock" &&
+      autoAdvance &&
+      !isDeselecting &&
+      qNo < paper.totalQuestions
+    ) {
       setCurrentQuestion(qNo + 1);
     }
   };
@@ -451,10 +485,6 @@ export function ExamSessionView({
         questionNo: qNo,
         selected: null,
       };
-      // Confidence tags only apply when an answer is selected
-      if (!current.selected) {
-        return prev;
-      }
       const activeConf = current.confidence;
       return {
         ...prev,
@@ -721,7 +751,7 @@ export function ExamSessionView({
 
       finalAnswers[i] = {
         ...a,
-        confidence: a.selected ? (a.confidence ?? "sure") : undefined,
+        confidence: a.selected ? a.confidence : undefined,
         correctAnswer: correctAns,
         explanation:
           sessionExplanations[i] || paper.explanations?.[i] || undefined,
@@ -791,7 +821,7 @@ export function ExamSessionView({
     questionNo: currentQuestion || 1,
     selected: null,
     flagged: false,
-    confidence: mode === "mock" ? "sure" : undefined,
+    confidence: undefined,
     note: "",
   };
 
@@ -851,6 +881,30 @@ export function ExamSessionView({
 
           {/* Timer & Finish Button */}
           <div className="flex items-center gap-2 shrink-0">
+            {/* Auto-Next Quick Toggle in Mock Mode */}
+            {mode === "mock" && !isSubjective && (
+              <button
+                type="button"
+                onClick={toggleAutoAdvance}
+                title={
+                  autoAdvance
+                    ? "Auto-Next is ON: Automatically moves to next question after selecting an option. Click to turn OFF."
+                    : "Auto-Next is OFF: Stays on question after selecting an option. Click to turn ON."
+                }
+                className={`flex items-center gap-1.5 rounded-xl border px-2 sm:px-2.5 py-1 text-xs font-semibold transition-all shadow-2xs cursor-pointer ${
+                  autoAdvance
+                    ? "border-emerald-300 bg-emerald-50 text-emerald-800 hover:bg-emerald-100"
+                    : "border-slate-200 bg-white text-slate-600 hover:bg-slate-50"
+                }`}
+              >
+                <Zap
+                  className={`h-3.5 w-3.5 ${autoAdvance ? "text-emerald-600 fill-emerald-500" : "text-slate-400"}`}
+                />
+                <span className="hidden md:inline">Auto-Next:</span>
+                <span className="font-bold">{autoAdvance ? "ON" : "OFF"}</span>
+              </button>
+            )}
+
             {/* Fullscreen Toggle */}
             <button
               type="button"
@@ -1184,12 +1238,12 @@ export function ExamSessionView({
                       Question {currentQuestion}
                     </span>
                     {currentQObj.selected && !isSubjective && (
-                      <span className="inline-flex items-center gap-1 rounded-lg bg-indigo-50 border border-indigo-200 px-2 py-0.5 text-xs font-bold text-indigo-700 shadow-2xs">
-                        <span className="text-[10px] uppercase font-semibold text-indigo-400">
+                      <span className="inline-flex items-center gap-1.5 rounded-lg bg-indigo-600 px-2.5 py-0.5 text-xs font-bold text-white shadow-2xs">
+                        <span className="text-[10px] uppercase font-bold text-indigo-200">
                           Selected:
                         </span>
-                        <span className="font-black text-indigo-800">
-                          {currentQObj.selected.toUpperCase()}
+                        <span className="font-black text-white">
+                          Option {currentQObj.selected.toUpperCase()}
                         </span>
                       </span>
                     )}
@@ -1373,15 +1427,14 @@ export function ExamSessionView({
                               label: "Guess",
                               icon: "🎲",
                               activeClass:
-                                "bg-violet-600 text-white shadow-xs font-bold ring-2 ring-violet-500/25",
+                                "bg-purple-600 text-white shadow-xs font-bold ring-2 ring-purple-500/25",
                               inactiveClass:
-                                "text-slate-600 hover:text-violet-700 hover:bg-violet-50/60",
+                                "text-slate-600 hover:text-purple-700 hover:bg-purple-50/60",
                             },
                           ] as const
                         ).map((conf) => {
-                          const isAnswered = !!currentQObj.selected;
                           const isConfSelected =
-                            isAnswered && currentQObj.confidence === conf.id;
+                            currentQObj.confidence === conf.id;
                           return (
                             <button
                               key={conf.id}
@@ -1389,18 +1442,15 @@ export function ExamSessionView({
                               onClick={() =>
                                 handleSetConfidence(currentQuestion, conf.id)
                               }
-                              disabled={!isAnswered}
                               title={
-                                !isAnswered
-                                  ? "Select an option first to apply certainty tag"
+                                isConfSelected
+                                  ? `Certainty: ${conf.label} (Click to remove)`
                                   : `Mark certainty: ${conf.label}`
                               }
-                              className={`flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-lg text-xs font-semibold transition-all active:scale-95 ${
-                                !isAnswered
-                                  ? "opacity-40 cursor-not-allowed text-slate-400"
-                                  : isConfSelected
-                                    ? `${conf.activeClass} cursor-pointer`
-                                    : `${conf.inactiveClass} cursor-pointer`
+                              className={`flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-lg text-xs font-semibold transition-all active:scale-95 cursor-pointer ${
+                                isConfSelected
+                                  ? `${conf.activeClass}`
+                                  : `${conf.inactiveClass}`
                               }`}
                             >
                               <span className="text-xs">{conf.icon}</span>
@@ -1838,6 +1888,48 @@ export function ExamSessionView({
               </div>
             </div>
 
+            {/* Color Legend */}
+            {mode === "mock" && !isSubjective && (
+              <div className="flex items-center gap-2.5 flex-wrap text-[10px] font-medium text-slate-500 mb-2.5 px-0.5">
+                <span className="flex items-center gap-1">
+                  <span className="h-2.5 w-2.5 rounded-sm bg-emerald-600 inline-block shadow-2xs" />{" "}
+                  Sure
+                </span>
+                <span className="flex items-center gap-1">
+                  <span className="h-2.5 w-2.5 rounded-sm bg-amber-500 inline-block shadow-2xs" />{" "}
+                  50:50
+                </span>
+                <span className="flex items-center gap-1">
+                  <span className="h-2.5 w-2.5 rounded-sm bg-sky-600 inline-block shadow-2xs" />{" "}
+                  Elimination
+                </span>
+                <span className="flex items-center gap-1">
+                  <span className="h-2.5 w-2.5 rounded-sm bg-purple-600 inline-block shadow-2xs" />{" "}
+                  Guess
+                </span>
+                <span className="flex items-center gap-1">
+                  <span className="h-2.5 w-2.5 rounded-sm bg-amber-100 border border-amber-300 inline-block" />{" "}
+                  Flagged
+                </span>
+              </div>
+            )}
+            {isPractice && !isSubjective && (
+              <div className="flex items-center gap-2.5 flex-wrap text-[10px] font-medium text-slate-500 mb-2.5 px-0.5">
+                <span className="flex items-center gap-1">
+                  <span className="h-2.5 w-2.5 rounded-sm bg-emerald-600 inline-block shadow-2xs" />{" "}
+                  Correct
+                </span>
+                <span className="flex items-center gap-1">
+                  <span className="h-2.5 w-2.5 rounded-sm bg-rose-600 inline-block shadow-2xs" />{" "}
+                  Incorrect
+                </span>
+                <span className="flex items-center gap-1">
+                  <span className="h-2.5 w-2.5 rounded-sm bg-amber-100 border border-amber-300 inline-block" />{" "}
+                  Flagged
+                </span>
+              </div>
+            )}
+
             {/* Grid buttons fitting any mobile width */}
             <div className="grid grid-cols-5 sm:grid-cols-6 md:grid-cols-8 gap-1.5 sm:gap-2">
               {filteredQuestionNumbers.map((qNo) => {
@@ -1864,8 +1956,24 @@ export function ExamSessionView({
                         "bg-emerald-600 text-white border-emerald-600 font-semibold shadow-2xs";
                     }
                   } else {
-                    badgeColor =
-                      "bg-indigo-600 text-white border-indigo-600 font-semibold shadow-2xs";
+                    // In Mock mode: Answered question background is Green with Sure, Yellowish for 50/50, Guess and Elimination you choose
+                    const conf = q?.confidence;
+                    if (conf === "sure") {
+                      badgeColor =
+                        "bg-emerald-600 text-white border-emerald-600 font-semibold shadow-2xs";
+                    } else if (conf === "50-50") {
+                      badgeColor =
+                        "bg-amber-500 text-white border-amber-500 font-semibold shadow-2xs";
+                    } else if (conf === "elimination") {
+                      badgeColor =
+                        "bg-sky-600 text-white border-sky-600 font-semibold shadow-2xs";
+                    } else if (conf === "guess") {
+                      badgeColor =
+                        "bg-purple-600 text-white border-purple-600 font-semibold shadow-2xs";
+                    } else {
+                      badgeColor =
+                        "bg-indigo-600 text-white border-indigo-600 font-semibold shadow-2xs";
+                    }
                   }
                 }
 
@@ -1885,22 +1993,20 @@ export function ExamSessionView({
                     onClick={() =>
                       setCurrentQuestion(currentQuestion === qNo ? null : qNo)
                     }
-                    className={`relative flex h-9 sm:h-10 items-center justify-center rounded-xl border text-xs transition-all gap-1 px-1 ${badgeColor}`}
+                    className={`relative flex h-9 sm:h-10 items-center justify-center rounded-xl border text-xs transition-all gap-1.5 px-1.5 ${badgeColor}`}
                     title={
                       q?.selected
-                        ? `Question ${qNo} (Selected: Option ${q.selected})`
+                        ? `Question ${qNo} (Selected: Option ${q.selected}${q.confidence ? ` - ${q.confidence}` : ""})`
                         : `Question ${qNo} (Unattempted)`
                     }
                   >
                     <span className="font-bold leading-none">{qNo}</span>
                     {q?.selected && !isSubjective && (
                       <span
-                        className={`inline-flex items-center justify-center min-w-[14px] h-4 px-1 rounded text-[10px] font-black uppercase leading-none shadow-2xs ${
-                          isAnswered
-                            ? "bg-black/25 text-white"
-                            : isFlagged
-                              ? "bg-amber-900/20 text-amber-950"
-                              : "bg-slate-200 text-slate-800"
+                        className={`inline-flex items-center justify-center min-w-[16px] h-4.5 px-1 rounded text-[10px] font-black uppercase leading-none shadow-xs border ${
+                          isFlagged
+                            ? "bg-amber-900 text-white border-amber-950/20"
+                            : "bg-white text-slate-900 border-black/15"
                         }`}
                       >
                         {q.selected}
