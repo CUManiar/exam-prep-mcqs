@@ -8,6 +8,7 @@ export interface ParsedMarkdownHeader {
   subject?: string;
   totalQuestions?: number;
   totalMarks?: number;
+  positiveMarks?: number;
   time?: string;
   negativeMarking?: string;
   instructions?: string[];
@@ -40,10 +41,17 @@ export function parseMarkdownHeader(markdownText: string): ParsedMarkdownHeader 
 
   const raw = markdownText.trim();
   // Find the first '---' separator
+  let headerText = "";
   const firstSepIdx = raw.indexOf("\n---");
-  if (firstSepIdx === -1) return result;
-
-  const headerText = raw.substring(0, firstSepIdx).trim();
+  if (firstSepIdx !== -1) {
+    headerText = raw.substring(0, firstSepIdx).trim();
+  } else if (/^[A-Z][A-Z\s]+:/m.test(raw)) {
+    // If no '---' separator yet, parse as header if no MCQ options are detected
+    const hasOptions = /\n\s*(?:\([a-dA-D]\)|[a-dA-D][\.\)])\s+/i.test(raw);
+    if (!hasOptions) {
+      headerText = raw;
+    }
+  }
   if (!headerText) return result;
 
   // Check if the header looks like a structured info block (has KEY: value lines)
@@ -107,6 +115,13 @@ export function parseMarkdownHeader(markdownText: string): ParsedMarkdownHeader 
       case "NEGATIVE":
       case "PENALTY":
         result.negativeMarking = value;
+        break;
+      case "POSITIVE_MARKS":
+      case "POSITIVE":
+      case "CORRECT_MARKS":
+      case "CORRECT":
+      case "MARKS_PER_QUESTION":
+        result.positiveMarks = parseFloat(value) || undefined;
         break;
     }
   }

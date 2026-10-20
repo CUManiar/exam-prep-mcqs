@@ -222,6 +222,10 @@ export function UploadView({
   const [formatGuideModalOpen, setFormatGuideModalOpen] = useState<boolean>(false);
   const [formatGuideModalTab, setFormatGuideModalTab] = useState<"template" | "ai_prompt">("template");
 
+  // Instructions loaded from rules/headers
+  const [customInstructions, setCustomInstructions] = useState<string[]>([]);
+  const [updateInstructions, setUpdateInstructions] = useState<string[]>([]);
+
   // Track visual feedback for "Apply Rules" button
   const [headerRulesApplied, setHeaderRulesApplied] = useState<boolean>(false);
 
@@ -236,6 +240,9 @@ export function UploadView({
       if (hdr.totalMarks) {
         handleCustomTotalMarksChange(String(hdr.totalMarks));
       }
+      if (hdr.positiveMarks) {
+        setCustomPositiveMarks(String(hdr.positiveMarks));
+      }
       if (hdr.time) {
         const mins = parseInt(hdr.time, 10);
         if (!isNaN(mins) && mins > 0) setCustomTimeMinutes(String(mins));
@@ -244,9 +251,13 @@ export function UploadView({
         const match = hdr.negativeMarking.match(/([\d\.]+)/);
         if (match) setCustomNegativeMarks(match[1]);
       }
+      if (hdr.instructions && hdr.instructions.length > 0) {
+        setCustomInstructions(hdr.instructions);
+      }
     } else {
       if (hdr.totalQuestions) setTotalQuestions(hdr.totalQuestions);
       if (hdr.totalMarks) setTotalMarks(hdr.totalMarks);
+      if (hdr.positiveMarks) setCorrectMarks(hdr.positiveMarks);
       if (hdr.time) {
         const mins = parseInt(hdr.time, 10);
         if (!isNaN(mins) && mins > 0) setTimeMinutes(mins);
@@ -254,6 +265,9 @@ export function UploadView({
       if (hdr.negativeMarking) {
         const match = hdr.negativeMarking.match(/([\d\.]+)/);
         if (match) setIncorrectMarks(parseFloat(match[1]) || 0.667);
+      }
+      if (hdr.instructions && hdr.instructions.length > 0) {
+        setUpdateInstructions(hdr.instructions);
       }
     }
 
@@ -368,6 +382,7 @@ export function UploadView({
       setTimeMinutes(p.timeMinutes || 120);
       setPaperIdentifier(p.id.replace(/^[0-9]+_/, ""));
       setSubjectPreset(p.subject || "GS I");
+      setUpdateInstructions(p.instructions || []);
 
       // Segment 2
       const isMd =
@@ -1075,6 +1090,21 @@ export function UploadView({
                 />
               </div>
             </div>
+
+            {/* Active Instructions indicator in Segment 1 */}
+            {(customInstructions.length > 0 || (detectedHeader?.instructions && detectedHeader.instructions.length > 0)) && (
+              <div className="flex items-center justify-between gap-2 p-2.5 rounded-xl bg-purple-50/70 border border-purple-200 text-xs text-purple-900">
+                <div className="flex items-center gap-2 truncate">
+                  <Check className="h-3.5 w-3.5 text-purple-700 shrink-0" />
+                  <span className="font-semibold truncate">
+                    {(customInstructions.length > 0 ? customInstructions : detectedHeader?.instructions || []).length} Exam Instructions & Rules Loaded
+                  </span>
+                </div>
+                <span className="text-[10px] text-purple-700 bg-white px-2 py-0.5 rounded-md border border-purple-200 font-mono shrink-0">
+                  Visible in Preview
+                </span>
+              </div>
+            )}
           </div>
 
           {/* ------------------------------------------------------------- */}
@@ -1286,81 +1316,183 @@ export function UploadView({
 
                 {/* Preview Tab */}
                 {customViewTab === "preview" && (
-                  <div className="space-y-2.5 max-h-[460px] overflow-y-auto pr-1">
-                    {detectedQuestionsCount === 0 ? (
-                      <div className="rounded-xl border border-dashed border-slate-200 p-8 text-center text-xs text-slate-400">
-                        Paste or load questions in Markdown Source to see the live preview.
-                      </div>
-                    ) : (
-                      detectedQuestions.map((q) => {
-                        const ansLetter = detectedAnswerKey.answers[q.questionNo]?.toUpperCase();
-                        const explanation = detectedAnswerKey.explanations[q.questionNo];
-
-                        return (
-                          <div
-                            key={q.questionNo}
-                            className="rounded-xl border border-slate-200 bg-white p-3.5 space-y-2 shadow-2xs"
-                          >
-                            <div className="flex items-center justify-between gap-2">
-                              <span className="font-mono text-xs font-bold bg-purple-50 text-purple-800 px-2 py-0.5 rounded border border-purple-200">
-                                Q{q.questionNo}
+                  <div className="space-y-3.5 max-h-[500px] overflow-y-auto pr-1">
+                    {/* Exam Specifications & Rules Cover Card (Always visible) */}
+                    <div className="rounded-xl border border-purple-200/90 bg-gradient-to-br from-purple-50/70 via-white to-indigo-50/60 p-4 space-y-3 shadow-2xs">
+                      <div className="flex items-center justify-between flex-wrap gap-2 pb-2 border-b border-purple-100">
+                        <div>
+                          <div className="flex items-center gap-1.5 flex-wrap">
+                            <span className="text-[10px] font-bold uppercase tracking-wider text-purple-700 bg-purple-100/70 px-2 py-0.5 rounded-full font-mono">
+                              Exam Specifications & Instructions
+                            </span>
+                            {detectedHeader?.subject && (
+                              <span className="text-[10px] font-semibold text-indigo-700 bg-indigo-50 px-2 py-0.5 rounded-full border border-indigo-100">
+                                {detectedHeader.subject}
                               </span>
-                              {ansLetter ? (
-                                <span className="text-[11px] font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200 inline-flex items-center gap-1">
-                                  <Check className="h-3 w-3" /> Answer: Option {ansLetter}
-                                </span>
-                              ) : (
-                                <span className="text-[10px] text-slate-400">
-                                  No answer key
-                                </span>
-                              )}
-                            </div>
-
-                            <p className="text-xs text-slate-800 font-medium leading-relaxed whitespace-pre-wrap">
-                              {q.text}
-                            </p>
-
-                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5 pt-1">
-                              {Object.entries(q.options).map(([optKey, optText]) => {
-                                const isCorrect = ansLetter === optKey.toUpperCase();
-                                return (
-                                  <div
-                                    key={optKey}
-                                    className={`flex items-start gap-1.5 p-1.5 rounded-lg border text-xs leading-relaxed ${
-                                      isCorrect
-                                        ? "bg-emerald-50/70 border-emerald-300 text-emerald-950 font-medium"
-                                        : "bg-slate-50/70 border-slate-200 text-slate-700"
-                                    }`}
-                                  >
-                                    <span
-                                      className={`font-mono text-[10px] font-bold px-1.5 py-0.2 rounded shrink-0 ${
-                                        isCorrect
-                                          ? "bg-emerald-600 text-white"
-                                          : "bg-slate-200 text-slate-700"
-                                      }`}
-                                    >
-                                      {optKey}
-                                    </span>
-                                    <span className="whitespace-pre-wrap">{optText}</span>
-                                  </div>
-                                );
-                              })}
-                            </div>
-
-                            {explanation && (
-                              <div className="rounded-lg bg-amber-50/70 border border-amber-200/80 p-2 text-xs text-amber-950 space-y-0.5">
-                                <div className="flex items-center gap-1 font-bold text-[10px] text-amber-800">
-                                  <Lightbulb className="h-3 w-3 text-amber-600" />
-                                  <span>Explanation:</span>
-                                </div>
-                                <p className="text-[11px] leading-relaxed whitespace-pre-wrap pl-4 text-amber-900">
-                                  {explanation}
-                                </p>
-                              </div>
                             )}
                           </div>
-                        );
-                      })
+                          <h3 className="text-sm font-extrabold text-slate-900 mt-1">
+                            {customPaperName.trim() || detectedHeader?.exam || "Custom Practice Test"}
+                          </h3>
+                        </div>
+                        <div className="flex items-center gap-1.5 text-xs font-mono font-bold text-purple-800 bg-white px-2.5 py-1 rounded-lg border border-purple-200 shadow-2xs">
+                          <Clock className="h-3.5 w-3.5 text-purple-600" />
+                          <span>{customTimeMinutes || detectedHeader?.time || "120"} Mins</span>
+                        </div>
+                      </div>
+
+                      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-xs">
+                        <div className="bg-white/90 rounded-lg p-2 border border-purple-100">
+                          <span className="text-[10px] text-slate-400 block font-medium">Questions</span>
+                          <span className="font-mono font-bold text-slate-800">
+                            {detectedQuestionsCount > 0 ? `${detectedQuestionsCount} MCQs` : (customTotalQuestions ? `${customTotalQuestions} MCQs` : "—")}
+                          </span>
+                        </div>
+                        <div className="bg-white/90 rounded-lg p-2 border border-purple-100">
+                          <span className="text-[10px] text-slate-400 block font-medium">Total Marks</span>
+                          <span className="font-mono font-bold text-slate-800">{customTotalMarks || "100"} Marks</span>
+                        </div>
+                        <div className="bg-white/90 rounded-lg p-2 border border-purple-100">
+                          <span className="text-[10px] text-slate-400 block font-medium">Marking</span>
+                          <span className="font-mono font-bold text-emerald-700">+{customPositiveMarks || "2"} / -{customNegativeMarks || "0.667"}</span>
+                        </div>
+                        <div className="bg-white/90 rounded-lg p-2 border border-purple-100">
+                          <span className="text-[10px] text-slate-400 block font-medium">Answer Key</span>
+                          <span className="font-mono font-bold text-purple-700">{Object.keys(detectedAnswerKey.answers).length} Mapped</span>
+                        </div>
+                      </div>
+
+                      {/* Instructions list */}
+                      {(customInstructions.length > 0 || (detectedHeader?.instructions && detectedHeader.instructions.length > 0)) ? (
+                        <div className="bg-white/90 rounded-lg p-2.5 border border-purple-100 space-y-1">
+                          <span className="text-[10px] font-bold text-slate-600 uppercase tracking-wider block">
+                            Instructions & Rules:
+                          </span>
+                          <ul className="space-y-1">
+                            {(customInstructions.length > 0 ? customInstructions : (detectedHeader?.instructions || [])).map((ins, i) => (
+                              <li key={i} className="flex items-start gap-1.5 text-slate-700 text-xs leading-relaxed">
+                                <Check className="h-3 w-3 text-purple-600 shrink-0 mt-0.5" />
+                                <span>{ins}</span>
+                              </li>
+                            ))}
+                          </ul>
+                        </div>
+                      ) : (
+                        <div className="bg-white/90 rounded-lg p-2.5 border border-purple-100 space-y-1">
+                          <span className="text-[10px] font-bold text-slate-600 uppercase tracking-wider block">
+                            Instructions & Rules:
+                          </span>
+                          <ul className="space-y-1 text-xs text-slate-600">
+                            <li className="flex items-start gap-1.5 leading-relaxed">
+                              <Check className="h-3 w-3 text-purple-600 shrink-0 mt-0.5" />
+                              <span>All {detectedQuestionsCount || customTotalQuestions || 100} questions are compulsory and carry equal maximum marks.</span>
+                            </li>
+                            <li className="flex items-start gap-1.5 leading-relaxed">
+                              <Check className="h-3 w-3 text-purple-600 shrink-0 mt-0.5" />
+                              <span>Each correct answer awards +{customPositiveMarks || "2"} marks; each wrong answer incurs a penalty of -{customNegativeMarks || "0.667"} marks.</span>
+                            </li>
+                            <li className="flex items-start gap-1.5 leading-relaxed">
+                              <Check className="h-3 w-3 text-purple-600 shrink-0 mt-0.5" />
+                              <span>Only one option is correct for each question. No deduction for unattempted questions.</span>
+                            </li>
+                          </ul>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Question stream or pending card */}
+                    {detectedQuestionsCount > 0 ? (
+                      <div className="space-y-2.5">
+                        <div className="flex items-center justify-between px-1">
+                          <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">
+                            Question Stream ({detectedQuestionsCount} Questions)
+                          </span>
+                          <span className="text-[10px] text-slate-400">
+                            Scroll to inspect questions & answers
+                          </span>
+                        </div>
+                        {detectedQuestions.map((q) => {
+                          const ansLetter = detectedAnswerKey.answers[q.questionNo]?.toUpperCase();
+                          const explanation = detectedAnswerKey.explanations[q.questionNo];
+
+                          return (
+                            <div
+                              key={q.questionNo}
+                              className="rounded-xl border border-slate-200 bg-white p-3.5 space-y-2 shadow-2xs"
+                            >
+                              <div className="flex items-center justify-between gap-2">
+                                <span className="font-mono text-xs font-bold bg-purple-50 text-purple-800 px-2 py-0.5 rounded border border-purple-200">
+                                  Q{q.questionNo}
+                                </span>
+                                {ansLetter ? (
+                                  <span className="text-[11px] font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200 inline-flex items-center gap-1">
+                                    <Check className="h-3 w-3" /> Answer: Option {ansLetter}
+                                  </span>
+                                ) : (
+                                  <span className="text-[10px] text-slate-400">
+                                    No answer key
+                                  </span>
+                                )}
+                              </div>
+
+                              <p className="text-xs text-slate-800 font-medium leading-relaxed whitespace-pre-wrap">
+                                {q.text}
+                              </p>
+
+                              <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5 pt-1">
+                                {Object.entries(q.options).map(([optKey, optText]) => {
+                                  const isCorrect = ansLetter === optKey.toUpperCase();
+                                  return (
+                                    <div
+                                      key={optKey}
+                                      className={`flex items-start gap-1.5 p-1.5 rounded-lg border text-xs leading-relaxed ${
+                                        isCorrect
+                                          ? "bg-emerald-50/70 border-emerald-300 text-emerald-950 font-medium"
+                                          : "bg-slate-50/70 border-slate-200 text-slate-700"
+                                      }`}
+                                    >
+                                      <span
+                                        className={`font-mono text-[10px] font-bold px-1.5 py-0.2 rounded shrink-0 ${
+                                          isCorrect
+                                            ? "bg-emerald-600 text-white"
+                                            : "bg-slate-200 text-slate-700"
+                                        }`}
+                                      >
+                                        {optKey}
+                                      </span>
+                                      <span className="whitespace-pre-wrap">{optText}</span>
+                                    </div>
+                                  );
+                                })}
+                              </div>
+
+                              {explanation && (
+                                <div className="rounded-lg bg-amber-50/70 border border-amber-200/80 p-2 text-xs text-amber-950 space-y-0.5">
+                                  <div className="flex items-center gap-1 font-bold text-[10px] text-amber-800">
+                                    <Lightbulb className="h-3 w-3 text-amber-600" />
+                                    <span>Explanation:</span>
+                                  </div>
+                                  <p className="text-[11px] leading-relaxed whitespace-pre-wrap pl-4 text-amber-900">
+                                    {explanation}
+                                  </p>
+                                </div>
+                              )}
+                            </div>
+                          );
+                        })}
+                      </div>
+                    ) : (
+                      <div className="rounded-xl border border-dashed border-slate-300 bg-slate-50/60 p-6 text-center space-y-2">
+                        <div className="inline-flex p-2 rounded-xl bg-purple-100 text-purple-700">
+                          <BookOpen className="h-5 w-5" />
+                        </div>
+                        <h4 className="text-xs font-bold text-slate-800">
+                          Exam Rules & Specifications Active
+                        </h4>
+                        <p className="text-[11px] text-slate-500 max-w-sm mx-auto leading-relaxed">
+                          Your rules, scoring scheme, and instructions are loaded above. Switch to the <strong>&apos;Markdown Source&apos;</strong> tab to paste or write questions separated by <strong>&apos;---&apos;</strong> with options (a), (b), (c), (d) to preview individual question cards.
+                        </p>
+                      </div>
                     )}
                   </div>
                 )}
@@ -1783,6 +1915,21 @@ export function UploadView({
                     />
                   </div>
                 </div>
+
+                {/* Active Instructions indicator in Segment 1 */}
+                {(updateInstructions.length > 0 || (detectedUpdateHeader?.instructions && detectedUpdateHeader.instructions.length > 0) || (currentSelectedPaper.instructions && currentSelectedPaper.instructions.length > 0)) && (
+                  <div className="flex items-center justify-between gap-2 p-2.5 rounded-xl bg-purple-50/70 border border-purple-200 text-xs text-purple-900">
+                    <div className="flex items-center gap-2 truncate">
+                      <Check className="h-3.5 w-3.5 text-purple-700 shrink-0" />
+                      <span className="font-semibold truncate">
+                        {(updateInstructions.length > 0 ? updateInstructions : (detectedUpdateHeader?.instructions || currentSelectedPaper.instructions || [])).length} Exam Instructions & Rules Loaded
+                      </span>
+                    </div>
+                    <span className="text-[10px] text-purple-700 bg-white px-2 py-0.5 rounded-md border border-purple-200 font-mono shrink-0">
+                      Visible in Preview
+                    </span>
+                  </div>
+                )}
               </div>
 
               {/* ----------------------------------------------------------- */}
@@ -1949,81 +2096,187 @@ export function UploadView({
                     )}
 
                     {updateViewTab === "preview" && (
-                      <div className="space-y-2.5 max-h-[460px] overflow-y-auto pr-1">
-                        {detectedUpdateQuestions.length === 0 ? (
-                          <div className="rounded-xl border border-dashed border-slate-200 p-8 text-center text-xs text-slate-400">
-                            No questions detected yet. Switch to &apos;Markdown Source&apos; to paste or edit questions.
-                          </div>
-                        ) : (
-                          detectedUpdateQuestions.map((q) => {
-                            const ansLetter = detectedUpdateAnswerKey.answers[q.questionNo]?.toUpperCase();
-                            const explanation = detectedUpdateAnswerKey.explanations[q.questionNo];
-
-                            return (
-                              <div
-                                key={q.questionNo}
-                                className="rounded-xl border border-slate-200 bg-white p-3.5 space-y-2 shadow-2xs"
-                              >
-                                <div className="flex items-center justify-between gap-2">
-                                  <span className="font-mono text-xs font-bold bg-purple-50 text-purple-800 px-2 py-0.5 rounded border border-purple-200">
-                                    Q{q.questionNo}
+                      <div className="space-y-3.5 max-h-[500px] overflow-y-auto pr-1">
+                        {/* Exam Specifications & Rules Cover Card in Update Preview (Always visible) */}
+                        <div className="rounded-xl border border-purple-200/90 bg-gradient-to-br from-purple-50/70 via-white to-indigo-50/60 p-4 space-y-3 shadow-2xs">
+                          <div className="flex items-center justify-between flex-wrap gap-2 pb-2 border-b border-purple-100">
+                            <div>
+                              <div className="flex items-center gap-1.5 flex-wrap">
+                                <span className="text-[10px] font-bold uppercase tracking-wider text-purple-700 bg-purple-100/70 px-2 py-0.5 rounded-full font-mono">
+                                  Exam Specifications & Instructions
+                                </span>
+                                {(detectedUpdateHeader?.subject || currentSelectedPaper.subject) && (
+                                  <span className="text-[10px] font-semibold text-indigo-700 bg-indigo-50 px-2 py-0.5 rounded-full border border-indigo-100">
+                                    {detectedUpdateHeader?.subject || currentSelectedPaper.subject}
                                   </span>
-                                  {ansLetter ? (
-                                    <span className="text-[11px] font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200 inline-flex items-center gap-1">
-                                      <Check className="h-3 w-3" /> Answer: Option {ansLetter}
-                                    </span>
-                                  ) : (
-                                    <span className="text-[10px] text-slate-400">
-                                      No key mapped
-                                    </span>
-                                  )}
-                                </div>
-
-                                <p className="text-xs text-slate-800 font-medium leading-relaxed whitespace-pre-wrap">
-                                  {q.text}
-                                </p>
-
-                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5 pt-1">
-                                  {Object.entries(q.options).map(([optKey, optText]) => {
-                                    const isCorrect = ansLetter === optKey.toUpperCase();
-                                    return (
-                                      <div
-                                        key={optKey}
-                                        className={`flex items-start gap-1.5 p-1.5 rounded-lg border text-xs leading-relaxed ${
-                                          isCorrect
-                                            ? "bg-emerald-50/70 border-emerald-300 text-emerald-950 font-medium"
-                                            : "bg-slate-50/70 border-slate-200 text-slate-700"
-                                        }`}
-                                      >
-                                        <span
-                                          className={`font-mono text-[10px] font-bold px-1.5 py-0.2 rounded shrink-0 ${
-                                            isCorrect
-                                              ? "bg-emerald-600 text-white"
-                                              : "bg-slate-200 text-slate-700"
-                                          }`}
-                                        >
-                                          {optKey}
-                                        </span>
-                                        <span className="whitespace-pre-wrap">{optText}</span>
-                                      </div>
-                                    );
-                                  })}
-                                </div>
-
-                                {explanation && (
-                                  <div className="rounded-lg bg-amber-50/70 border border-amber-200/80 p-2 text-xs text-amber-950 space-y-0.5">
-                                    <div className="flex items-center gap-1 font-bold text-[10px] text-amber-800">
-                                      <Lightbulb className="h-3 w-3 text-amber-600" />
-                                      <span>Explanation:</span>
-                                    </div>
-                                    <p className="text-[11px] leading-relaxed whitespace-pre-wrap pl-4 text-amber-900">
-                                      {explanation}
-                                    </p>
-                                  </div>
                                 )}
                               </div>
-                            );
-                          })
+                              <h3 className="text-sm font-extrabold text-slate-900 mt-1">
+                                {getPaperDisplayTitle(currentSelectedPaper)}
+                              </h3>
+                            </div>
+                            <div className="flex items-center gap-1.5 text-xs font-mono font-bold text-purple-800 bg-white px-2.5 py-1 rounded-lg border border-purple-200 shadow-2xs">
+                              <Clock className="h-3.5 w-3.5 text-purple-600" />
+                              <span>{timeMinutes || currentSelectedPaper.timeMinutes || 120} Mins</span>
+                            </div>
+                          </div>
+
+                          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-xs">
+                            <div className="bg-white/90 rounded-lg p-2 border border-purple-100">
+                              <span className="text-[10px] text-slate-400 block font-medium">Questions</span>
+                              <span className="font-mono font-bold text-slate-800">
+                                {detectedUpdateQuestions.length > 0
+                                  ? `${detectedUpdateQuestions.length} MCQs`
+                                  : (totalQuestions ? `${totalQuestions} MCQs` : `${currentSelectedPaper.totalQuestions} MCQs`)}
+                              </span>
+                            </div>
+                            <div className="bg-white/90 rounded-lg p-2 border border-purple-100">
+                              <span className="text-[10px] text-slate-400 block font-medium">Total Marks</span>
+                              <span className="font-mono font-bold text-slate-800">{totalMarks || currentSelectedPaper.totalMarks} Marks</span>
+                            </div>
+                            <div className="bg-white/90 rounded-lg p-2 border border-purple-100">
+                              <span className="text-[10px] text-slate-400 block font-medium">Marking</span>
+                              <span className="font-mono font-bold text-emerald-700">+{correctMarks} / -{incorrectMarks}</span>
+                            </div>
+                            <div className="bg-white/90 rounded-lg p-2 border border-purple-100">
+                              <span className="text-[10px] text-slate-400 block font-medium">Answer Key</span>
+                              <span className="font-mono font-bold text-purple-700">
+                                {Object.keys(detectedUpdateAnswerKey.answers).length || Object.keys(currentSelectedPaper.answerKey || {}).length} Mapped
+                              </span>
+                            </div>
+                          </div>
+
+                          {/* Instructions list */}
+                          {(updateInstructions.length > 0 || (detectedUpdateHeader?.instructions && detectedUpdateHeader.instructions.length > 0) || (currentSelectedPaper.instructions && currentSelectedPaper.instructions.length > 0)) ? (
+                            <div className="bg-white/90 rounded-lg p-2.5 border border-purple-100 space-y-1">
+                              <span className="text-[10px] font-bold text-slate-600 uppercase tracking-wider block">
+                                Instructions & Rules:
+                              </span>
+                              <ul className="space-y-1">
+                                {(updateInstructions.length > 0 ? updateInstructions : (detectedUpdateHeader?.instructions || currentSelectedPaper.instructions || [])).map((ins, i) => (
+                                  <li key={i} className="flex items-start gap-1.5 text-slate-700 text-xs leading-relaxed">
+                                    <Check className="h-3 w-3 text-purple-600 shrink-0 mt-0.5" />
+                                    <span>{ins}</span>
+                                  </li>
+                                ))}
+                              </ul>
+                            </div>
+                          ) : (
+                            <div className="bg-white/90 rounded-lg p-2.5 border border-purple-100 space-y-1">
+                              <span className="text-[10px] font-bold text-slate-600 uppercase tracking-wider block">
+                                Instructions & Rules:
+                              </span>
+                              <ul className="space-y-1 text-xs text-slate-600">
+                                <li className="flex items-start gap-1.5 leading-relaxed">
+                                  <Check className="h-3 w-3 text-purple-600 shrink-0 mt-0.5" />
+                                  <span>All {detectedUpdateQuestions.length || totalQuestions || currentSelectedPaper.totalQuestions} questions are compulsory.</span>
+                                </li>
+                                <li className="flex items-start gap-1.5 leading-relaxed">
+                                  <Check className="h-3 w-3 text-purple-600 shrink-0 mt-0.5" />
+                                  <span>Each correct answer awards +{correctMarks} marks; each wrong answer incurs a penalty of -{incorrectMarks} marks.</span>
+                                </li>
+                                <li className="flex items-start gap-1.5 leading-relaxed">
+                                  <Check className="h-3 w-3 text-purple-600 shrink-0 mt-0.5" />
+                                  <span>Only one option is correct for each question. No deduction for unattempted questions.</span>
+                                </li>
+                              </ul>
+                            </div>
+                          )}
+                        </div>
+
+                        {/* Question stream or pending card */}
+                        {detectedUpdateQuestions.length > 0 ? (
+                          <div className="space-y-2.5">
+                            <div className="flex items-center justify-between px-1">
+                              <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">
+                                Question Stream ({detectedUpdateQuestions.length} Questions)
+                              </span>
+                              <span className="text-[10px] text-slate-400">
+                                Scroll to inspect questions & answers
+                              </span>
+                            </div>
+                            {detectedUpdateQuestions.map((q) => {
+                              const ansLetter = detectedUpdateAnswerKey.answers[q.questionNo]?.toUpperCase();
+                              const explanation = detectedUpdateAnswerKey.explanations[q.questionNo];
+
+                              return (
+                                <div
+                                  key={q.questionNo}
+                                  className="rounded-xl border border-slate-200 bg-white p-3.5 space-y-2 shadow-2xs"
+                                >
+                                  <div className="flex items-center justify-between gap-2">
+                                    <span className="font-mono text-xs font-bold bg-purple-50 text-purple-800 px-2 py-0.5 rounded border border-purple-200">
+                                      Q{q.questionNo}
+                                    </span>
+                                    {ansLetter ? (
+                                      <span className="text-[11px] font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200 inline-flex items-center gap-1">
+                                        <Check className="h-3 w-3" /> Answer: Option {ansLetter}
+                                      </span>
+                                    ) : (
+                                      <span className="text-[10px] text-slate-400">
+                                        No key mapped
+                                      </span>
+                                    )}
+                                  </div>
+
+                                  <p className="text-xs text-slate-800 font-medium leading-relaxed whitespace-pre-wrap">
+                                    {q.text}
+                                  </p>
+
+                                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5 pt-1">
+                                    {Object.entries(q.options).map(([optKey, optText]) => {
+                                      const isCorrect = ansLetter === optKey.toUpperCase();
+                                      return (
+                                        <div
+                                          key={optKey}
+                                          className={`flex items-start gap-1.5 p-1.5 rounded-lg border text-xs leading-relaxed ${
+                                            isCorrect
+                                              ? "bg-emerald-50/70 border-emerald-300 text-emerald-950 font-medium"
+                                              : "bg-slate-50/70 border-slate-200 text-slate-700"
+                                          }`}
+                                        >
+                                          <span
+                                            className={`font-mono text-[10px] font-bold px-1.5 py-0.2 rounded shrink-0 ${
+                                              isCorrect
+                                                ? "bg-emerald-600 text-white"
+                                                : "bg-slate-200 text-slate-700"
+                                            }`}
+                                          >
+                                            {optKey}
+                                          </span>
+                                          <span className="whitespace-pre-wrap">{optText}</span>
+                                        </div>
+                                      );
+                                    })}
+                                  </div>
+
+                                  {explanation && (
+                                    <div className="rounded-lg bg-amber-50/70 border border-amber-200/80 p-2 text-xs text-amber-950 space-y-0.5">
+                                      <div className="flex items-center gap-1 font-bold text-[10px] text-amber-800">
+                                        <Lightbulb className="h-3 w-3 text-amber-600" />
+                                        <span>Explanation:</span>
+                                      </div>
+                                      <p className="text-[11px] leading-relaxed whitespace-pre-wrap pl-4 text-amber-900">
+                                        {explanation}
+                                      </p>
+                                    </div>
+                                  )}
+                                </div>
+                              );
+                            })}
+                          </div>
+                        ) : (
+                          <div className="rounded-xl border border-dashed border-slate-300 bg-slate-50/60 p-6 text-center space-y-2">
+                            <div className="inline-flex p-2 rounded-xl bg-purple-100 text-purple-700">
+                              <BookOpen className="h-5 w-5" />
+                            </div>
+                            <h4 className="text-xs font-bold text-slate-800">
+                              Exam Rules & Specifications Active
+                            </h4>
+                            <p className="text-[11px] text-slate-500 max-w-sm mx-auto leading-relaxed">
+                              Your rules, scoring scheme, and instructions are loaded above. Switch to the <strong>&apos;Markdown Source&apos;</strong> tab to paste or write questions separated by <strong>&apos;---&apos;</strong> with options (a), (b), (c), (d) to preview individual question cards.
+                            </p>
+                          </div>
                         )}
                       </div>
                     )}
