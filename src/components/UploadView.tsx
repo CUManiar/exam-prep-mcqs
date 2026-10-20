@@ -37,6 +37,9 @@ import {
   Play,
   Clock,
   ArrowRight,
+  FileCode,
+  HelpCircle,
+  Copy,
 } from "lucide-react";
 import { parseQuestionnaireMarkdown, parseMarkdownHeader } from "../lib/markdownPaperParser";
 import { parseAnswerKeyDetailed } from "../lib/defaults";
@@ -44,6 +47,12 @@ import {
   SAMPLE_QUESTIONNAIRE_TEXT,
   SAMPLE_ANSWER_KEY_TEXT,
 } from "../data/sampleMarkdownPaper";
+import { MarkdownFormatGuideModal } from "./MarkdownFormatGuideModal";
+import {
+  MARKDOWN_PAPER_TEMPLATE,
+  ANSWER_KEY_TEMPLATE,
+  AI_GENERATION_PROMPT,
+} from "../data/markdownHelperTemplates";
 
 interface UploadViewProps {
   papers?: QuestionPaper[];
@@ -135,6 +144,8 @@ export function UploadView({
   }, [customAkText]);
 
   const [showMarkdownPreview, setShowMarkdownPreview] = useState<boolean>(true);
+  const [formatGuideModalOpen, setFormatGuideModalOpen] = useState<boolean>(false);
+  const [formatGuideModalTab, setFormatGuideModalTab] = useState<"template" | "ai_prompt">("template");
 
   // Selected paper for update mode
   const [selectedPaperId, setSelectedPaperId] = useState<string>(
@@ -1524,26 +1535,57 @@ export function UploadView({
                         Each question block separated by{" "}
                         <code className="font-mono bg-slate-200/60 px-1 py-0.5 rounded text-[10px]">---</code>.
                       </p>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setCustomPaperName(
-                            "2026 – High-Yield Mock (Markdown Interactive)",
-                          );
-                          setCustomTotalQuestions("5");
-                          setCustomPositiveMarks("2");
-                          setCustomNegativeMarks("0.667");
-                          setCustomTotalMarks("10");
-                          setCustomTimeMinutes("15");
-                          setCustomQpMarkdown(SAMPLE_QUESTIONNAIRE_TEXT);
-                          setCustomAkText(SAMPLE_ANSWER_KEY_TEXT);
-                          setShowMarkdownPreview(true);
-                        }}
-                        className="cursor-pointer inline-flex items-center gap-1 text-[11px] font-bold text-purple-700 bg-purple-50 hover:bg-purple-100 px-2.5 py-1 rounded-md border border-purple-200 shadow-2xs transition-colors shrink-0"
-                      >
-                        <Sparkles className="h-3 w-3" />
-                        <span>Load Sample</span>
-                      </button>
+                      <div className="flex items-center gap-1.5 flex-wrap">
+                        {/* Format Guide / Template Button */}
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setFormatGuideModalTab("template");
+                            setFormatGuideModalOpen(true);
+                          }}
+                          className="cursor-pointer inline-flex items-center gap-1 text-[11px] font-bold text-slate-700 bg-white hover:bg-slate-100 px-2.5 py-1 rounded-md border border-slate-200 shadow-2xs transition-colors shrink-0"
+                          title="View exact markdown rules, formatting structure, and question paper template"
+                        >
+                          <FileCode className="h-3 w-3 text-indigo-600" />
+                          <span>Format Template</span>
+                        </button>
+
+                        {/* Pre-made AI Prompt Button */}
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setFormatGuideModalTab("ai_prompt");
+                            setFormatGuideModalOpen(true);
+                          }}
+                          className="cursor-pointer inline-flex items-center gap-1 text-[11px] font-bold text-purple-700 bg-purple-50 hover:bg-purple-100 px-2.5 py-1 rounded-md border border-purple-200 shadow-2xs transition-colors shrink-0"
+                          title="Copy a pre-made prompt for ChatGPT, Claude, or Gemini to generate tests in our exact format"
+                        >
+                          <Sparkles className="h-3 w-3 text-purple-600" />
+                          <span>AI Prompt Helper</span>
+                        </button>
+
+                        {/* Load Sample Button */}
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setCustomPaperName(
+                              "2026 – High-Yield Mock (Markdown Interactive)",
+                            );
+                            setCustomTotalQuestions("5");
+                            setCustomPositiveMarks("2");
+                            setCustomNegativeMarks("0.667");
+                            setCustomTotalMarks("10");
+                            setCustomTimeMinutes("15");
+                            setCustomQpMarkdown(SAMPLE_QUESTIONNAIRE_TEXT);
+                            setCustomAkText(SAMPLE_ANSWER_KEY_TEXT);
+                            setShowMarkdownPreview(true);
+                          }}
+                          className="cursor-pointer inline-flex items-center gap-1 text-[11px] font-medium text-slate-500 hover:text-slate-800 bg-transparent hover:bg-slate-100 px-2 py-1 rounded-md transition-colors shrink-0"
+                          title="Load 5 pre-made sample questions into the form"
+                        >
+                          <span>Load Sample</span>
+                        </button>
+                      </div>
                     </div>
 
                     <textarea
@@ -1816,17 +1858,43 @@ export function UploadView({
                     rows={5}
                     className="w-full rounded-xl border border-slate-200 bg-white p-3 font-mono text-xs text-slate-800 placeholder-slate-400 focus:outline-none focus:border-indigo-500 shadow-2xs leading-relaxed"
                   />
-                  <p className="text-[11px] text-slate-500 leading-relaxed">
-                    Format:{" "}
-                    <code className="font-mono bg-slate-100 text-slate-700 px-1 py-0.5 rounded text-[10px]">
-                      1. a,
-                    </code>{" "}
-                    or with explanation:{" "}
-                    <code className="font-mono bg-slate-100 text-slate-700 px-1 py-0.5 rounded text-[10px]">
-                      1. a &quot;&quot;&quot; optional explanation
-                      &quot;&quot;&quot;,
-                    </code>
-                  </p>
+                  <div className="flex items-center justify-between flex-wrap gap-2 pt-0.5">
+                    <p className="text-[11px] text-slate-500 leading-relaxed">
+                      Format:{" "}
+                      <code className="font-mono bg-slate-100 text-slate-700 px-1 py-0.5 rounded text-[10px]">
+                        1. a,
+                      </code>{" "}
+                      or with explanation:{" "}
+                      <code className="font-mono bg-slate-100 text-slate-700 px-1 py-0.5 rounded text-[10px]">
+                        1. a &quot;&quot;&quot; explanation &quot;&quot;&quot;
+                      </code>
+                    </p>
+                    <div className="flex items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setFormatGuideModalTab("template");
+                          setFormatGuideModalOpen(true);
+                        }}
+                        className="cursor-pointer text-[11px] font-semibold text-indigo-600 hover:text-indigo-800 hover:underline flex items-center gap-1"
+                      >
+                        <FileCode className="h-3 w-3" />
+                        <span>Key Template</span>
+                      </button>
+                      <span className="text-slate-300">•</span>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setFormatGuideModalTab("ai_prompt");
+                          setFormatGuideModalOpen(true);
+                        }}
+                        className="cursor-pointer text-[11px] font-semibold text-purple-600 hover:text-purple-800 hover:underline flex items-center gap-1"
+                      >
+                        <Sparkles className="h-3 w-3" />
+                        <span>AI Prompt</span>
+                      </button>
+                    </div>
+                  </div>
                 </div>
               )}
             </div>
@@ -2618,6 +2686,24 @@ export function UploadView({
           </div>
         </div>
       )}
+
+      {/* Markdown Format & AI Prompt Guide Modal */}
+      <MarkdownFormatGuideModal
+        isOpen={formatGuideModalOpen}
+        onClose={() => setFormatGuideModalOpen(false)}
+        defaultTab={formatGuideModalTab}
+        onApplyTemplate={(qpTemplate, akTemplate) => {
+          setCustomPaperName("UPSC Prelims Mock Test (Interactive Markdown)");
+          setCustomTotalQuestions("5");
+          setCustomPositiveMarks("2");
+          setCustomNegativeMarks("0.667");
+          setCustomTotalMarks("10");
+          setCustomTimeMinutes("15");
+          setCustomQpMarkdown(qpTemplate);
+          setCustomAkText(akTemplate);
+          setShowMarkdownPreview(true);
+        }}
+      />
     </div>
   );
 }
