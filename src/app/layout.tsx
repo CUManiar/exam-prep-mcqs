@@ -1,4 +1,5 @@
 import type { Metadata, Viewport } from "next";
+import { Analytics } from "@vercel/analytics/next";
 import "./globals.css";
 import { PwaRegister } from "../components/PwaRegister";
 import { AppLayout } from "../components/AppLayout";
@@ -7,6 +8,9 @@ export const metadata: Metadata = {
   title: "UPSC Prep & Exam Hub • Prelims & Mains",
   description:
     "Track, practice and monitor UPSC Prelims and Mains preparation with real-time test evaluation and notes.",
+  verification: {
+    google: "RpvDuwYy_iWaJUJtJ3LRgYFk2IfZW96iVSS2h5B5wIw",
+  },
   manifest: "/manifest.json",
   appleWebApp: {
     capable: true,
@@ -37,6 +41,7 @@ export default function RootLayout({
       <body className="min-h-screen bg-slate-50 text-slate-800 antialiased selection:bg-indigo-600 selection:text-white">
         <PwaRegister />
         <AppLayout>{children}</AppLayout>
+        <Analytics />
       </body>
     </html>
   );

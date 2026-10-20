@@ -1,6 +1,14 @@
 export type ExamType = "objective" | "subjective";
 export type ExamCategory = "prelims" | "mains";
 
+export interface ParsedQuestion {
+  questionNo: number;
+  text: string;
+  options: Record<string, string>; // e.g. { A: "...", B: "...", C: "...", D: "..." }
+  answer?: string;
+  explanation?: string;
+}
+
 export interface QuestionPaper {
   id: string;
   year: string;
@@ -22,6 +30,9 @@ export interface QuestionPaper {
   explanations?: Record<number, string>;
   isCustom?: boolean;
   userId?: string;
+  markdownContent?: string;
+  parsedQuestions?: ParsedQuestion[];
+  instructions?: string[];
 }
 
 export type ConfidenceLevel = "sure" | "50-50" | "guess" | "elimination";

@@ -1,6 +1,6 @@
 "use client";
 
-import React from "react";
+import React, { Suspense } from "react";
 import { useRouter } from "next/navigation";
 import { useApp } from "../../context/AppContext";
 import { PapersView } from "../../components/PapersView";
@@ -54,12 +54,20 @@ export default function QuestionPapersPage() {
   }
 
   return (
-    <PapersView
-      papers={papers}
-      onStartExam={handleStartExam}
-      onNavigateUpload={() => router.push("/upload")}
-      onDeletePaper={handleDeletePaper}
-      onUpdatePaper={handleUpdatePaper}
-    />
+    <Suspense
+      fallback={
+        <div className="flex items-center justify-center min-h-[400px]">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-600" />
+        </div>
+      }
+    >
+      <PapersView
+        papers={papers}
+        onStartExam={handleStartExam}
+        onNavigateUpload={() => router.push("/upload")}
+        onDeletePaper={handleDeletePaper}
+        onUpdatePaper={handleUpdatePaper}
+      />
+    </Suspense>
   );
 }

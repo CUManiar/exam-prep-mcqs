@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, useCallback, useMemo } from "react";
+import { useRouter } from "next/navigation";
 import {
   QuestionPaper,
   Attempt,
@@ -19,12 +20,18 @@ import {
   saveActiveDraft,
   clearActiveDraft,
   getActiveDraft,
+  getCustomPapers,
 } from "../lib/storage";
+import {
+  parseQuestionnaireMarkdown,
+  parseMarkdownHeader,
+} from "../lib/markdownPaperParser";
 import { saveUserDraftToSupabase } from "../lib/supabase";
 import { useApp } from "../context/AppContext";
 import { DetailedSolutionModal } from "./DetailedSolutionModal";
 import { ConfirmationModal } from "./ConfirmationModal";
 import { PdfViewer } from "./PdfViewer";
+import { InteractiveQuestionCard } from "./InteractiveQuestionCard";
 import {
   Clock,
   Flag,
@@ -51,6 +58,7 @@ import {
   Minimize2,
   RotateCcw,
   Zap,
+  Sparkles,
 } from "lucide-react";
 
 interface ExamSessionViewProps {
@@ -68,6 +76,7 @@ export function ExamSessionView({
   onFinish,
   onExit,
 }: ExamSessionViewProps) {
+  const router = useRouter();
   const { currentUser } = useApp();
 
   const effectiveDraft = useMemo(() => {
@@ -80,6 +89,33 @@ export function ExamSessionView({
     }
     return null;
   }, [initialDraft, paper.id]);
+
+  const effectivePaper = useMemo<QuestionPaper>(() => {
+    let p = { ...paper };
+    if (!p.parsedQuestions || p.parsedQuestions.length === 0) {
+      if (p.markdownContent) {
+        p.parsedQuestions = parseQuestionnaireMarkdown(p.markdownContent);
+      } else if (
+        p.qpUrl?.startsWith("local://") ||
+        p.id.startsWith("custom_md_")
+      ) {
+        const local = getCustomPapers().find((cp) => cp.id === p.id);
+        if (local?.parsedQuestions?.length) {
+          p = { ...local, ...p, parsedQuestions: local.parsedQuestions };
+        } else if (local?.markdownContent) {
+          p = {
+            ...local,
+            ...p,
+            parsedQuestions: parseQuestionnaireMarkdown(local.markdownContent),
+          };
+        }
+      }
+    }
+    if ((!p.instructions || p.instructions.length === 0) && p.markdownContent) {
+      p.instructions = parseMarkdownHeader(p.markdownContent).instructions;
+    }
+    return p;
+  }, [paper]);
 
   const [currentQuestion, setCurrentQuestion] = useState<number | null>(() => {
     return effectiveDraft?.currentQuestion ?? null;
@@ -142,6 +178,9 @@ export function ExamSessionView({
 
   const [showExitConfirm, setShowExitConfirm] = useState<boolean>(false);
   const [isFullscreen, setIsFullscreen] = useState<boolean>(false);
+  const [leftViewMode, setLeftViewMode] = useState<"interactive" | "pdf">(
+    "interactive",
+  );
   const [autoAdvance, setAutoAdvance] = useState<boolean>(() => {
     if (typeof window === "undefined") return false;
     return localStorage.getItem("exam_prep_auto_advance") === "true";
@@ -1030,7 +1069,7 @@ export function ExamSessionView({
 
       {/* Main Layout */}
       <div className="flex flex-1 overflow-hidden flex-col lg:flex-row relative">
-        {/* Left Side: Question Paper PDF Viewer */}
+        {/* Left Side: Interactive Markdown Question or PDF Viewer */}
         <div
           className={`w-full lg:w-3/5 xl:w-2/3 border-r border-slate-200 bg-slate-100 flex flex-col ${
             mobileTab === "paper"
@@ -1040,11 +1079,96 @@ export function ExamSessionView({
                 : "h-1/2 lg:h-full"
           }`}
         >
-          <PdfViewer
-            url={paper.qpUrl}
-            title={`${getPaperDisplayTitle(paper)} - Question Paper`}
-            className="w-full flex-1 min-h-0"
-          />
+          {effectivePaper.parsedQuestions &&
+          effectivePaper.parsedQuestions.length > 0 ? (
+            <div className="flex-1 flex flex-col min-h-0 bg-slate-50 overflow-hidden">
+              {/* Optional switch if paper also has a valid external PDF */}
+              {effectivePaper.qpUrl &&
+                !effectivePaper.qpUrl.startsWith("local://") && (
+                  <div className="bg-white border-b border-slate-200 px-4 py-2 flex items-center justify-between gap-2 shrink-0">
+                    <span className="text-xs font-bold text-slate-700">
+                      Presentation:
+                    </span>
+                    <div className="flex items-center gap-1 bg-slate-100 p-0.5 rounded-lg border border-slate-200 text-xs">
+                      <button
+                        type="button"
+                        onClick={() => setLeftViewMode("interactive")}
+                        className={`px-2.5 py-1 rounded-md font-bold transition-all cursor-pointer ${
+                          leftViewMode === "interactive"
+                            ? "bg-indigo-600 text-white shadow-2xs"
+                            : "text-slate-600 hover:text-slate-900"
+                        }`}
+                      >
+                        📝 Interactive Questions
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setLeftViewMode("pdf")}
+                        className={`px-2.5 py-1 rounded-md font-bold transition-all cursor-pointer ${
+                          leftViewMode === "pdf"
+                            ? "bg-indigo-600 text-white shadow-2xs"
+                            : "text-slate-600 hover:text-slate-900"
+                        }`}
+                      >
+                        📑 PDF Viewer
+                      </button>
+                    </div>
+                  </div>
+                )}
+
+              {leftViewMode === "interactive" ||
+              !effectivePaper.qpUrl ||
+              effectivePaper.qpUrl.startsWith("local://") ? (
+                <InteractiveQuestionCard
+                  paper={effectivePaper}
+                  currentQuestion={currentQuestion}
+                  currentAnswer={
+                    currentQuestion !== null
+                      ? answers[currentQuestion]
+                      : undefined
+                  }
+                  mode={mode}
+                  idleTimeSeconds={idleTimeSeconds}
+                  onSelectOption={handleSelectOption}
+                  onClearOption={handleClearSelection}
+                  onNavigateQuestion={setCurrentQuestion}
+                  onStartExam={() => setCurrentQuestion(1)}
+                />
+              ) : (
+                <PdfViewer
+                  url={effectivePaper.qpUrl}
+                  title={`${getPaperDisplayTitle(effectivePaper)} - Question Paper`}
+                  className="w-full flex-1 min-h-0"
+                />
+              )}
+            </div>
+          ) : effectivePaper.qpUrl?.startsWith("local://") ? (
+            <div className="flex-1 flex flex-col items-center justify-center p-8 text-center bg-slate-50 space-y-4">
+              <div className="h-14 w-14 rounded-2xl bg-purple-100 border border-purple-200 flex items-center justify-center text-purple-700">
+                <Sparkles className="h-7 w-7" />
+              </div>
+              <div className="max-w-md space-y-1.5">
+                <h3 className="text-base font-bold text-slate-800">
+                  Interactive Questionnaire Loading
+                </h3>
+                <p className="text-xs text-slate-500 leading-relaxed">
+                  Questions are being loaded. If they do not appear, you can check the questions in the Upload page.
+                </p>
+              </div>
+              <button
+                onClick={() => router.push("/upload")}
+                className="cursor-pointer px-4 py-2 rounded-xl bg-purple-600 text-white font-bold text-xs hover:bg-purple-700 shadow-xs"
+              >
+                Go to Upload Manager
+              </button>
+            </div>
+          ) : (
+            <PdfViewer
+              url={effectivePaper.qpUrl}
+              title={`${getPaperDisplayTitle(effectivePaper)} - Question Paper`}
+              className="w-full flex-1 min-h-0"
+            />
+          )}
 
           {/* Quick-Answer Sticky Bar when viewing full-screen Paper on Mobile/Tablet */}
           {mobileTab === "paper" && (
@@ -2137,10 +2261,10 @@ export function ExamSessionView({
               {/* KPI Overview Cards */}
               <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 sm:gap-4">
                 <div className="rounded-2xl border border-emerald-200 bg-emerald-50/60 p-4 shadow-2xs">
-                  <div className="text-xs text-emerald-800 font-semibold">
+                  <div className="text-xs text-emerald-800 font-medium">
                     Attempted
                   </div>
-                  <div className="text-2xl font-extrabold text-emerald-700 mt-1">
+                  <div className="text-xl font-bold text-emerald-700 mt-1 font-mono">
                     {attemptedCount}
                     <span className="text-xs font-normal text-slate-500 ml-1">
                       / {paper.totalQuestions}
@@ -2155,10 +2279,10 @@ export function ExamSessionView({
                 </div>
 
                 <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-2xs">
-                  <div className="text-xs text-slate-600 font-semibold">
+                  <div className="text-xs text-slate-600 font-medium">
                     Skipped
                   </div>
-                  <div className="text-2xl font-extrabold text-slate-700 mt-1">
+                  <div className="text-xl font-bold text-slate-700 mt-1 font-mono">
                     {unattemptedCount}
                   </div>
                   <div className="text-[11px] text-slate-400 mt-0.5">
@@ -2167,10 +2291,10 @@ export function ExamSessionView({
                 </div>
 
                 <div className="rounded-2xl border border-amber-200 bg-amber-50/60 p-4 shadow-2xs">
-                  <div className="text-xs text-amber-800 font-semibold">
+                  <div className="text-xs text-amber-800 font-medium">
                     Flagged
                   </div>
-                  <div className="text-2xl font-extrabold text-amber-700 mt-1">
+                  <div className="text-xl font-bold text-amber-700 mt-1 font-mono">
                     {flaggedCount}
                   </div>
                   <div className="text-[11px] text-amber-600 mt-0.5">
@@ -2179,10 +2303,10 @@ export function ExamSessionView({
                 </div>
 
                 <div className="rounded-2xl border border-violet-200 bg-violet-50/60 p-4 shadow-2xs">
-                  <div className="text-xs text-violet-800 font-semibold">
+                  <div className="text-xs text-violet-800 font-medium">
                     Alterations
                   </div>
-                  <div className="text-2xl font-extrabold text-violet-700 mt-1">
+                  <div className="text-xl font-bold text-violet-700 mt-1 font-mono">
                     {alteredCount}
                   </div>
                   <div className="text-[11px] text-violet-600 mt-0.5">
@@ -2191,10 +2315,10 @@ export function ExamSessionView({
                 </div>
 
                 <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-2xs">
-                  <div className="text-xs text-slate-600 font-semibold">
+                  <div className="text-xs text-slate-600 font-medium">
                     Time Elapsed
                   </div>
-                  <div className="text-2xl font-extrabold text-indigo-700 font-mono mt-1">
+                  <div className="text-xl font-bold text-indigo-700 font-mono mt-1">
                     {formatTimeSeconds(elapsedSeconds)}
                   </div>
                   <div className="text-[11px] text-slate-500 mt-0.5">
@@ -2205,10 +2329,10 @@ export function ExamSessionView({
                 </div>
 
                 <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-2xs">
-                  <div className="text-xs text-slate-600 font-semibold">
+                  <div className="text-xs text-slate-600 font-medium">
                     Average Pace
                   </div>
-                  <div className="text-2xl font-extrabold text-slate-900 font-mono mt-1">
+                  <div className="text-xl font-bold text-slate-900 font-mono mt-1">
                     {attemptedCount > 0
                       ? Math.round(elapsedSeconds / attemptedCount)
                       : 0}

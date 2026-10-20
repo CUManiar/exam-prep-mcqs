@@ -1,4 +1,5 @@
 import { QuestionPaper } from "./types";
+import { SAMPLE_MARKDOWN_PAPER } from "../data/sampleMarkdownPaper";
 
 export function parseAnswerKeyDetailed(text: string): {
   answers: Record<number, string>;
@@ -169,6 +170,7 @@ export function isPaperFree(paper: QuestionPaper): boolean {
 
 // Comprehensive built-in papers with exact UPSC exam-specific rules
 export const INITIAL_PAPERS: QuestionPaper[] = [
+  SAMPLE_MARKDOWN_PAPER,
   {
     id: "2026_prelims_general_studies_paper_i",
     year: "2026",

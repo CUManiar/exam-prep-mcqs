@@ -5,6 +5,10 @@ import {
   parseAnswerKeyDetailed,
   getStandardTimeMinutes,
 } from "./defaults";
+import {
+  parseQuestionnaireMarkdown,
+  parseMarkdownHeader,
+} from "./markdownPaperParser";
 
 const STORAGE_KEYS = {
   ATTEMPTS: "exam_prep_attempts_v2",
@@ -335,14 +339,52 @@ export async function getAllPapers(): Promise<QuestionPaper[]> {
 
   if (papers.length === 0) {
     // Offline fallback
-    const custom = getCustomPapers();
-    papers = [...custom, ...INITIAL_PAPERS];
+    papers = [...INITIAL_PAPERS];
   }
 
-  // Dynamic resolution of timeMinutes if missing
+  // Always merge local custom papers from localStorage (user uploaded / markdown mocks)
+  const localCustom = getCustomPapers();
+  for (const cp of localCustom) {
+    const existingIdx = papers.findIndex((p) => p.id === cp.id);
+    if (existingIdx >= 0) {
+      papers[existingIdx] = { ...papers[existingIdx], ...cp };
+    } else {
+      papers.unshift(cp);
+    }
+  }
+
+  // Dynamic resolution of timeMinutes and default paper metadata if missing
   papers.forEach((p) => {
     if (!p.timeMinutes || p.timeMinutes <= 0) {
       p.timeMinutes = getStandardTimeMinutes(p.category, p.examType);
+    }
+    const matchingDefault = INITIAL_PAPERS.find((init) => init.id === p.id);
+    if (matchingDefault) {
+      if (!p.parsedQuestions && matchingDefault.parsedQuestions) {
+        p.parsedQuestions = matchingDefault.parsedQuestions;
+      }
+      if (!p.instructions && matchingDefault.instructions) {
+        p.instructions = matchingDefault.instructions;
+      }
+      if (!p.markdownContent && matchingDefault.markdownContent) {
+        p.markdownContent = matchingDefault.markdownContent;
+      }
+      if (!p.answerKey || Object.keys(p.answerKey).length === 0) {
+        p.answerKey = { ...matchingDefault.answerKey };
+      }
+      if (!p.explanations || Object.keys(p.explanations).length === 0) {
+        p.explanations = { ...(matchingDefault.explanations || {}) };
+      }
+    }
+
+    // Auto-enrich any markdown paper with parsed questions & instructions
+    if (p.markdownContent) {
+      if (!p.parsedQuestions || p.parsedQuestions.length === 0) {
+        p.parsedQuestions = parseQuestionnaireMarkdown(p.markdownContent);
+      }
+      if (!p.instructions || p.instructions.length === 0) {
+        p.instructions = parseMarkdownHeader(p.markdownContent).instructions;
+      }
     }
   });
 

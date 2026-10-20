@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useCallback, useEffect } from "react";
 import { QuestionPaper, ExamType } from "../lib/types";
 import {
   SUPPORTED_YEARS,
@@ -22,14 +22,36 @@ import {
   Edit3,
   ExternalLink,
   Trash2,
-  Key,
-  Paperclip,
   RefreshCw,
   Zap,
   Search,
   ChevronDown,
   X,
+  Sparkles,
+  BookOpen,
+  Eye,
+  Lightbulb,
+  Play,
+  Clock,
+  ArrowRight,
+  FileCode,
 } from "lucide-react";
+import {
+  parseQuestionnaireMarkdown,
+  parseMarkdownHeader,
+  ParsedMarkdownHeader,
+} from "../lib/markdownPaperParser";
+import { parseAnswerKeyDetailed } from "../lib/defaults";
+import {
+  SAMPLE_QUESTIONNAIRE_TEXT,
+  SAMPLE_ANSWER_KEY_TEXT,
+} from "../data/sampleMarkdownPaper";
+import { MarkdownFormatGuideModal } from "./MarkdownFormatGuideModal";
+import { RulesScoringGrid } from "./studio/RulesScoringGrid";
+import { ExamCoverCard } from "./studio/ExamCoverCard";
+import { QuestionStreamPreview } from "./studio/QuestionStreamPreview";
+import { AnswerKeyWidget } from "./studio/AnswerKeyWidget";
+import { PdfAttachmentCard } from "./studio/PdfAttachmentCard";
 
 interface UploadViewProps {
   papers?: QuestionPaper[];
@@ -37,6 +59,77 @@ interface UploadViewProps {
   onUpdatePaper?: (paper: QuestionPaper) => void;
   onDeletePaper?: (paperId: string) => void;
   onNavigatePapers: () => void;
+  onStartExam?: (paper: QuestionPaper, mode: "practice" | "mock") => void;
+}
+
+// Helper: Reconstruct markdown questionnaire text if not saved directly
+function getOrReconstructMarkdown(paper?: QuestionPaper | null): string {
+  if (!paper) return "";
+  if (paper.markdownContent && paper.markdownContent.trim()) {
+    return paper.markdownContent;
+  }
+  if (paper.parsedQuestions && paper.parsedQuestions.length > 0) {
+    let out = "";
+    if (paper.title || paper.label) {
+      out += `EXAM: ${paper.title || paper.label}\n`;
+    }
+    if (paper.subject) {
+      out += `SUBJECT: ${paper.subject}\n`;
+    }
+    if (paper.timeMinutes) {
+      out += `TIME: ${paper.timeMinutes} mins\n`;
+    }
+    if (paper.totalQuestions) {
+      out += `TOTAL_QUESTIONS: ${paper.totalQuestions}\n`;
+    }
+    if (paper.totalMarks) {
+      out += `TOTAL_MARKS: ${paper.totalMarks}\n`;
+    }
+    if (paper.incorrectMarks) {
+      out += `NEGATIVE_MARKING: ${paper.incorrectMarks}\n`;
+    }
+    if (paper.instructions && paper.instructions.length > 0) {
+      out += `INSTRUCTIONS:\n`;
+      paper.instructions.forEach((ins) => {
+        out += `- ${ins}\n`;
+      });
+    }
+    out += `---\n\n`;
+
+    paper.parsedQuestions.forEach((q, idx) => {
+      out += `${q.text}\n\n`;
+      const opts = ["A", "B", "C", "D"];
+      opts.forEach((optKey) => {
+        if (q.options[optKey]) {
+          out += `(${optKey.toLowerCase()}) ${q.options[optKey]}\n`;
+        }
+      });
+      if (idx < (paper.parsedQuestions?.length || 0) - 1) {
+        out += `\n---\n\n`;
+      }
+    });
+    return out;
+  }
+  return "";
+}
+
+// Helper: Extract friendly filename from URL
+function getFilenameFromUrl(url?: string, fallbackLabel?: string): string {
+  if (!url) return "";
+  if (url.startsWith("local://")) return "Interactive Questionnaire";
+  try {
+    const clean = url.split("?")[0];
+    const parts = clean.split("/");
+    const last = decodeURIComponent(parts[parts.length - 1] || "");
+    if (last && last.toLowerCase().endsWith(".pdf")) return last;
+  } catch {
+    // fallback
+  }
+  if (fallbackLabel) {
+    const slug = fallbackLabel.toLowerCase().replace(/[^a-z0-9_-]/g, "_").replace(/_+/g, "_");
+    return `${slug}.pdf`;
+  }
+  return "document.pdf";
 }
 
 export function UploadView({
@@ -45,36 +138,195 @@ export function UploadView({
   onUpdatePaper,
   onDeletePaper,
   onNavigatePapers,
+  onStartExam,
 }: UploadViewProps) {
   const { currentUser } = useApp();
-  // Main View Mode: 'custom' (Fast practice upload) | 'preset' (Official UPSC) | 'update'
-  const [viewMode, setViewMode] = useState<"custom" | "preset" | "update">(
-    "custom",
-  );
 
-  // FAST CUSTOM PAPER STATES (Nothing prefilled!)
+  // Mode: 'custom' (Fast practice upload) | 'preset' (Official UPSC) | 'update'
+  const [viewMode, setViewMode] = useState<"custom" | "preset" | "update">("custom");
+
+  // =========================================================================
+  // SEGMENT 1: RULES & SETTINGS (Custom Mode)
+  // =========================================================================
   const [customPaperName, setCustomPaperName] = useState<string>("");
   const [customTotalQuestions, setCustomTotalQuestions] = useState<string>("");
-  const [customPositiveMarks, setCustomPositiveMarks] = useState<string>("");
-  const [customNegativeMarks, setCustomNegativeMarks] = useState<string>("");
+  const [customPositiveMarks, setCustomPositiveMarks] = useState<string>("2");
+  const [customNegativeMarks, setCustomNegativeMarks] = useState<string>("0.667");
   const [customTotalMarks, setCustomTotalMarks] = useState<string>("");
-  const [customTotalMarksEdited, setCustomTotalMarksEdited] =
-    useState<boolean>(false);
-  const [customTimeMinutes, setCustomTimeMinutes] = useState<string>("");
+  const [customTotalMarksEdited, setCustomTotalMarksEdited] = useState<boolean>(false);
+  const [customTimeMinutes, setCustomTimeMinutes] = useState<string>("120");
+
+  // Automatic calculation helpers
+  const handleCustomQuestionsChange = (val: string) => {
+    setCustomTotalQuestions(val);
+    if (!customTotalMarksEdited) {
+      const q = parseFloat(val);
+      const pos = parseFloat(customPositiveMarks);
+      if (!isNaN(q) && q > 0 && !isNaN(pos) && pos > 0) {
+        setCustomTotalMarks(String(Math.round(q * pos * 10) / 10));
+      } else if (!val) {
+        setCustomTotalMarks("");
+      }
+    }
+  };
+
+  const handleCustomPositiveMarksChange = (val: string) => {
+    setCustomPositiveMarks(val);
+    if (!customTotalMarksEdited) {
+      const q = parseFloat(customTotalQuestions);
+      const pos = parseFloat(val);
+      if (!isNaN(q) && q > 0 && !isNaN(pos) && pos > 0) {
+        setCustomTotalMarks(String(Math.round(q * pos * 10) / 10));
+      } else if (!val) {
+        setCustomTotalMarks("");
+      }
+    }
+  };
+
+  const handleCustomTotalMarksChange = (val: string) => {
+    setCustomTotalMarksEdited(true);
+    setCustomTotalMarks(val);
+  };
+
+  // =========================================================================
+  // SEGMENT 2: QUESTIONNAIRE (Custom Mode)
+  // =========================================================================
+  const [customQpFormat, setCustomQpFormat] = useState<"pdf" | "markdown">("markdown");
+  const [customQpMarkdown, setCustomQpMarkdown] = useState<string>("");
   const [customQpFile, setCustomQpFile] = useState<File | null>(null);
+  const [customExsFile, setCustomExsFile] = useState<File | null>(null);
+  const [customViewTab, setCustomViewTab] = useState<"editor" | "preview">("editor");
+
+  const detectedQuestions = useMemo(() => {
+    if (!customQpMarkdown.trim()) return [];
+    return parseQuestionnaireMarkdown(customQpMarkdown);
+  }, [customQpMarkdown]);
+
+  const detectedQuestionsCount = detectedQuestions.length;
+
+  const detectedHeader = useMemo(() => {
+    if (!customQpMarkdown.trim()) return null;
+    const h = parseMarkdownHeader(customQpMarkdown);
+    if (!h.exam && !h.subject && !h.instructions?.length && !h.time && !h.totalQuestions) return null;
+    return h;
+  }, [customQpMarkdown]);
+
+  // =========================================================================
+  // SEGMENT 3: ANSWER KEY (Custom Mode)
+  // =========================================================================
   const [customAkMode, setCustomAkMode] = useState<"upload" | "paste">("paste");
   const [customAkText, setCustomAkText] = useState<string>("");
   const [customAkFile, setCustomAkFile] = useState<File | null>(null);
-  const [customExsFile, setCustomExsFile] = useState<File | null>(null);
 
-  // Selected paper for update mode
-  const [selectedPaperId, setSelectedPaperId] = useState<string>(
-    papers[0]?.id || "",
-  );
+  const detectedAnswerKey = useMemo(() => {
+    if (!customAkText.trim()) return { answers: {}, explanations: {} };
+    return parseAnswerKeyDetailed(customAkText);
+  }, [customAkText]);
+
+  // Helpers Modal
+  const [formatGuideModalOpen, setFormatGuideModalOpen] = useState<boolean>(false);
+  const [formatGuideModalTab, setFormatGuideModalTab] = useState<"template" | "ai_prompt">("template");
+
+  // Instructions loaded from rules/headers
+  const [customInstructions, setCustomInstructions] = useState<string[]>([]);
+  const [updateInstructions, setUpdateInstructions] = useState<string[]>([]);
+
+  // Track visual feedback for "Apply Rules" button
+  const [headerRulesApplied, setHeaderRulesApplied] = useState<boolean>(false);
+
+  // Apply detected rules to Segment 1
+  const handleApplyRules = (hdr: ParsedMarkdownHeader | null, targetMode: "custom" | "update") => {
+    if (!hdr) return;
+    if (targetMode === "custom") {
+      if (hdr.exam) setCustomPaperName(hdr.exam);
+      if (hdr.totalQuestions) {
+        handleCustomQuestionsChange(String(hdr.totalQuestions));
+      }
+      if (hdr.totalMarks) {
+        handleCustomTotalMarksChange(String(hdr.totalMarks));
+      }
+      if (hdr.positiveMarks) {
+        setCustomPositiveMarks(String(hdr.positiveMarks));
+      }
+      if (hdr.time) {
+        const mins = parseInt(hdr.time, 10);
+        if (!isNaN(mins) && mins > 0) setCustomTimeMinutes(String(mins));
+      }
+      if (hdr.negativeMarking) {
+        const match = hdr.negativeMarking.match(/([\d\.]+)/);
+        if (match) setCustomNegativeMarks(match[1]);
+      }
+      if (hdr.instructions && hdr.instructions.length > 0) {
+        setCustomInstructions(hdr.instructions);
+      }
+    } else {
+      if (hdr.totalQuestions) setTotalQuestions(hdr.totalQuestions);
+      if (hdr.totalMarks) setTotalMarks(hdr.totalMarks);
+      if (hdr.positiveMarks) setCorrectMarks(hdr.positiveMarks);
+      if (hdr.time) {
+        const mins = parseInt(hdr.time, 10);
+        if (!isNaN(mins) && mins > 0) setTimeMinutes(mins);
+      }
+      if (hdr.negativeMarking) {
+        const match = hdr.negativeMarking.match(/([\d\.]+)/);
+        if (match) setIncorrectMarks(parseFloat(match[1]) || 0.667);
+      }
+      if (hdr.instructions && hdr.instructions.length > 0) {
+        setUpdateInstructions(hdr.instructions);
+      }
+    }
+
+    setHeaderRulesApplied(true);
+    setStatusMsg({ text: "Applied rules from markdown header to the Rules segment." });
+    setTimeout(() => setHeaderRulesApplied(false), 2500);
+  };
+
+  // =========================================================================
+  // UPDATE / EDIT PAPER STATES (All 3 Segments)
+  // =========================================================================
+  const [selectedPaperId, setSelectedPaperId] = useState<string>(papers[0]?.id || "");
   const [paperSearchQuery, setPaperSearchQuery] = useState<string>("");
   const [isSearchSelectOpen, setIsSearchSelectOpen] = useState<boolean>(false);
 
-  // Filtered papers for Search-Select component in Update mode
+  // Update mode: Segment 1 (Rules)
+  const [examType, setExamType] = useState<ExamType>("objective");
+  const [year, setYear] = useState<string>("2026");
+  const [subjectPreset, setSubjectPreset] = useState<string>("GS I");
+  const [customSubject, setCustomSubject] = useState<string>("");
+  const [paperIdentifier, setPaperIdentifier] = useState<string>("prelims_gs_i");
+  const [totalQuestions, setTotalQuestions] = useState<number>(100);
+  const [totalMarks, setTotalMarks] = useState<number>(200);
+  const [correctMarks, setCorrectMarks] = useState<number>(2.0);
+  const [incorrectMarks, setIncorrectMarks] = useState<number>(0.667);
+  const [timeMinutes, setTimeMinutes] = useState<number>(120);
+
+  // Update mode: Segment 2 (Questionnaire)
+  const [updateQpFormat, setUpdateQpFormat] = useState<"pdf" | "markdown">("markdown");
+  const [updateMarkdown, setUpdateMarkdown] = useState<string>("");
+  const [updateViewTab, setUpdateViewTab] = useState<"editor" | "preview">("editor");
+  const [qpFile, setQpFile] = useState<File | null>(null);
+  const [exsFile, setExsFile] = useState<File | null>(null);
+
+  // Update mode: Segment 3 (Answer Key)
+  const [akFile, setAkFile] = useState<File | null>(null);
+  const [akMode, setAkMode] = useState<"upload" | "paste">("paste");
+  const [akText, setAkText] = useState<string>("");
+
+  const currentSelectedPaper = useMemo(
+    () => papers.find((p) => p.id === selectedPaperId),
+    [papers, selectedPaperId],
+  );
+
+  const isSelectedPaperMarkdown = useMemo(() => {
+    if (!currentSelectedPaper) return false;
+    return (
+      Boolean(currentSelectedPaper.parsedQuestions && currentSelectedPaper.parsedQuestions.length > 0) ||
+      Boolean(currentSelectedPaper.markdownContent) ||
+      currentSelectedPaper.qpUrl?.startsWith("local://") ||
+      currentSelectedPaper.id?.startsWith("custom_md_")
+    );
+  }, [currentSelectedPaper]);
+
   const filteredUpdatePapers = useMemo(() => {
     if (!paperSearchQuery.trim()) return papers;
     const q = paperSearchQuery.toLowerCase().trim();
@@ -82,40 +334,34 @@ export function UploadView({
       const displayTitle = getPaperDisplayTitle(p).toLowerCase();
       const label = (p.label || "").toLowerCase();
       const subject = (p.subject || "").toLowerCase();
-      const year = (p.year || "").toLowerCase();
+      const yr = (p.year || "").toLowerCase();
       const id = (p.id || "").toLowerCase();
       return (
         displayTitle.includes(q) ||
         label.includes(q) ||
         subject.includes(q) ||
-        year.includes(q) ||
+        yr.includes(q) ||
         id.includes(q)
       );
     });
   }, [papers, paperSearchQuery]);
 
-  // Preset Mode: Step 1 Exam Type
-  const [examType, setExamType] = useState<ExamType>("objective");
+  const detectedUpdateQuestions = useMemo(() => {
+    if (!updateMarkdown.trim()) return [];
+    return parseQuestionnaireMarkdown(updateMarkdown);
+  }, [updateMarkdown]);
 
-  // Preset Mode: Paper rules & metadata
-  const [year, setYear] = useState<string>("2026");
-  const [subjectPreset, setSubjectPreset] = useState<string>("GS I");
-  const [customSubject, setCustomSubject] = useState<string>("");
-  const [paperIdentifier, setPaperIdentifier] =
-    useState<string>("prelims_gs_i");
+  const detectedUpdateHeader = useMemo(() => {
+    if (!updateMarkdown.trim()) return null;
+    const h = parseMarkdownHeader(updateMarkdown);
+    if (!h.exam && !h.subject && !h.instructions?.length && !h.time && !h.totalQuestions) return null;
+    return h;
+  }, [updateMarkdown]);
 
-  const [totalQuestions, setTotalQuestions] = useState<number>(100);
-  const [totalMarks, setTotalMarks] = useState<number>(200);
-  const [correctMarks, setCorrectMarks] = useState<number>(2.0);
-  const [incorrectMarks, setIncorrectMarks] = useState<number>(0.667);
-  const [timeMinutes, setTimeMinutes] = useState<number>(120);
-
-  // Preset Mode Files
-  const [qpFile, setQpFile] = useState<File | null>(null);
-  const [akFile, setAkFile] = useState<File | null>(null);
-  const [akMode, setAkMode] = useState<"upload" | "paste">("paste");
-  const [akText, setAkText] = useState<string>("");
-  const [exsFile, setExsFile] = useState<File | null>(null);
+  const detectedUpdateAnswerKey = useMemo(() => {
+    if (!akText.trim()) return { answers: {}, explanations: {} };
+    return parseAnswerKeyDetailed(akText);
+  }, [akText]);
 
   const [statusMsg, setStatusMsg] = useState<{
     text: string;
@@ -124,7 +370,56 @@ export function UploadView({
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState<boolean>(false);
 
-  // Auto-fill rules based on preset selection
+  // Select paper in update mode and populate segments
+  const handleSelectPaperToUpdate = useCallback(
+    (paperId: string) => {
+      setSelectedPaperId(paperId);
+      const p = papers.find((x) => x.id === paperId);
+      if (!p) return;
+
+      // Segment 1
+      setYear(p.year || "2026");
+      setExamType(p.examType || "objective");
+      setTotalQuestions(p.totalQuestions || 100);
+      setTotalMarks(p.totalMarks || 200);
+      setCorrectMarks(p.correctMarks || 2.0);
+      setIncorrectMarks(p.incorrectMarks || 0.667);
+      setTimeMinutes(p.timeMinutes || 120);
+      setPaperIdentifier(p.id.replace(/^[0-9]+_/, ""));
+      setSubjectPreset(p.subject || "GS I");
+      setUpdateInstructions(p.instructions || []);
+
+      // Segment 2
+      const isMd =
+        Boolean(p.parsedQuestions && p.parsedQuestions.length > 0) ||
+        Boolean(p.markdownContent) ||
+        p.qpUrl?.startsWith("local://") ||
+        p.id?.startsWith("custom_md_");
+
+      setUpdateQpFormat(isMd ? "markdown" : "pdf");
+      const md = getOrReconstructMarkdown(p);
+      setUpdateMarkdown(md);
+      setQpFile(null);
+      setExsFile(null);
+
+      // Segment 3
+      setAkText(p.answerKeyText || "");
+      setAkFile(null);
+      setStatusMsg(null);
+    },
+    [papers],
+  );
+
+  useEffect(() => {
+    if (viewMode === "update") {
+      const targetId = selectedPaperId || papers[0]?.id;
+      if (targetId) {
+        handleSelectPaperToUpdate(targetId);
+      }
+    }
+  }, [viewMode, selectedPaperId, papers, handleSelectPaperToUpdate]);
+
+  // Preset mode preset picker
   const handlePresetChange = (preset: string) => {
     setSubjectPreset(preset);
     if (preset === "GS I") {
@@ -168,62 +463,6 @@ export function UploadView({
     }
   };
 
-  // Fast custom paper handlers with automatic Total Marks calculation (user can override)
-  const handleCustomQuestionsChange = (val: string) => {
-    setCustomTotalQuestions(val);
-    if (!customTotalMarksEdited) {
-      const q = parseFloat(val);
-      const pos = parseFloat(customPositiveMarks);
-      if (!isNaN(q) && q > 0 && !isNaN(pos) && pos > 0) {
-        setCustomTotalMarks(String(Math.round(q * pos * 10) / 10));
-      } else if (!val) {
-        setCustomTotalMarks("");
-      }
-    }
-  };
-
-  const handleCustomPositiveMarksChange = (val: string) => {
-    setCustomPositiveMarks(val);
-    if (!customTotalMarksEdited) {
-      const q = parseFloat(customTotalQuestions);
-      const pos = parseFloat(val);
-      if (!isNaN(q) && q > 0 && !isNaN(pos) && pos > 0) {
-        setCustomTotalMarks(String(Math.round(q * pos * 10) / 10));
-      } else if (!val) {
-        setCustomTotalMarks("");
-      }
-    }
-  };
-
-  const handleCustomTotalMarksChange = (val: string) => {
-    setCustomTotalMarksEdited(true);
-    setCustomTotalMarks(val);
-  };
-
-  // Load selected paper data into form when in Update mode
-  const handleSelectPaperToUpdate = (paperId: string) => {
-    setSelectedPaperId(paperId);
-    const p = papers.find((x) => x.id === paperId);
-    if (!p) return;
-
-    setYear(p.year);
-    setExamType(p.examType);
-    setTotalQuestions(p.totalQuestions);
-    setTotalMarks(p.totalMarks);
-    setCorrectMarks(p.correctMarks);
-    setIncorrectMarks(p.incorrectMarks);
-    setTimeMinutes(p.timeMinutes);
-    setPaperIdentifier(p.id.replace(/^[0-9]+_/, ""));
-    setSubjectPreset(p.subject);
-    setAkText(p.answerKeyText || "");
-    setQpFile(null);
-    setAkFile(null);
-    setExsFile(null);
-    setStatusMsg(null);
-  };
-
-  const currentSelectedPaper = papers.find((p) => p.id === selectedPaperId);
-
   const cleanYear = year.replace(/[^0-9]/g, "");
   const cleanName = paperIdentifier
     .toLowerCase()
@@ -231,7 +470,326 @@ export function UploadView({
     .replace(/_+/g, "_")
     .replace(/^_|_$/g, "");
 
-  // Handle uploading NEW paper
+  // =========================================================================
+  // SUBMISSIONS
+  // =========================================================================
+
+  // Save Fast Custom Paper
+  const handleUploadFastCustomPaper = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const name = customPaperName.trim();
+    const parsedQCount = parseInt(customTotalQuestions, 10);
+    const qCount =
+      !isNaN(parsedQCount) && parsedQCount > 0
+        ? parsedQCount
+        : customQpFormat === "markdown"
+          ? detectedQuestionsCount
+          : 0;
+
+    const parsedPos = parseFloat(customPositiveMarks);
+    const posMarks = !isNaN(parsedPos) && parsedPos >= 0 ? parsedPos : 2.0;
+
+    const parsedNeg = parseFloat(customNegativeMarks);
+    const negMarks = !isNaN(parsedNeg) && parsedNeg >= 0 ? parsedNeg : 0.667;
+    const time = parseInt(customTimeMinutes, 10) || 120;
+
+    if (!name) {
+      setStatusMsg({
+        text: "Please enter the Name of the paper in the Rules segment.",
+        isError: true,
+      });
+      return;
+    }
+    if (!qCount || qCount <= 0) {
+      setStatusMsg({
+        text: "Please enter or provide questions in the Rules/Questionnaire segment.",
+        isError: true,
+      });
+      return;
+    }
+
+    if (customQpFormat === "pdf" && !customQpFile) {
+      setStatusMsg({
+        text: "Please attach the Question Paper PDF file in the Questionnaire segment.",
+        isError: true,
+      });
+      return;
+    }
+
+    if (customQpFormat === "markdown" && !customQpMarkdown.trim()) {
+      setStatusMsg({
+        text: "Please provide the questions in Markdown format in the Questionnaire segment.",
+        isError: true,
+      });
+      return;
+    }
+
+    setIsSubmitting(true);
+    setStatusMsg(null);
+
+    try {
+      const parsedTotalMarks = parseFloat(customTotalMarks);
+      const finalTotalMarks =
+        !isNaN(parsedTotalMarks) && parsedTotalMarks > 0
+          ? parsedTotalMarks
+          : Math.round(qCount * posMarks * 10) / 10 || 100;
+
+      // MARKDOWN FORMAT PATH
+      if (customQpFormat === "markdown") {
+        const parsedQuestions = parseQuestionnaireMarkdown(customQpMarkdown);
+        if (parsedQuestions.length === 0) {
+          throw new Error(
+            "Could not detect questions. Separate questions with '---' and specify options (a), (b), (c), (d).",
+          );
+        }
+
+        const mdHeader = parseMarkdownHeader(customQpMarkdown);
+        const { answers, explanations } = parseAnswerKeyDetailed(customAkText);
+        const paperId = `custom_md_${Date.now()}`;
+
+        let newPaper: QuestionPaper = {
+          id: paperId,
+          year: String(new Date().getFullYear()),
+          category: "prelims",
+          examType: "objective",
+          subject: name,
+          label: name,
+          title: name,
+          totalQuestions: qCount,
+          totalMarks: finalTotalMarks,
+          correctMarks: posMarks,
+          incorrectMarks: negMarks,
+          timeMinutes: time,
+          qpUrl: "local://interactive_markdown",
+          answerKey: answers,
+          explanations: explanations,
+          parsedQuestions: parsedQuestions,
+          markdownContent: customQpMarkdown,
+          answerKeyText: customAkText,
+          isCustom: true,
+          userId: currentUser?.id,
+          instructions: mdHeader.instructions,
+        };
+
+        try {
+          const curYear = String(new Date().getFullYear());
+          const formData = new FormData();
+          formData.append("year", curYear);
+          formData.append("identifier", name);
+          formData.append("examType", "objective");
+          formData.append("subject", name);
+          formData.append("label", name);
+          formData.append("title", name);
+          formData.append("totalQuestions", String(qCount));
+          formData.append("totalMarks", String(finalTotalMarks));
+          formData.append("correctMarks", String(posMarks));
+          formData.append("incorrectMarks", String(negMarks));
+          formData.append("timeMinutes", String(time));
+          formData.append("isCustom", "true");
+          formData.append("markdownContent", customQpMarkdown);
+          formData.append("parsedQuestions", JSON.stringify(parsedQuestions));
+          if (customAkText.trim()) {
+            formData.append("answerKeyText", customAkText.trim());
+          }
+          if (currentUser?.id) {
+            formData.append("userId", currentUser.id);
+          }
+
+          const res = await fetch("/api/upload", {
+            method: "POST",
+            body: formData,
+          });
+          const data = await res.json();
+          if (res.ok && data.ok && data.paper) {
+            newPaper = { ...newPaper, ...data.paper };
+          }
+        } catch (serverErr) {
+          console.warn("Could not sync markdown paper to server, using local store:", serverErr);
+        }
+
+        saveCustomPaper(newPaper);
+        onPaperUploaded(newPaper);
+
+        setStatusMsg({
+          text: `Paper "${newPaper.label}" (${newPaper.totalQuestions} Questions) saved! Starting Practice...`,
+        });
+        setTimeout(() => {
+          if (onStartExam) {
+            onStartExam(newPaper, "practice");
+          } else {
+            onNavigatePapers();
+          }
+        }, 700);
+        return;
+      }
+
+      // PDF FORMAT PATH
+      const curYear = String(new Date().getFullYear());
+      const formData = new FormData();
+      formData.append("year", curYear);
+      formData.append("identifier", name);
+      formData.append("examType", "objective");
+      formData.append("subject", name);
+      formData.append("label", name);
+      formData.append("title", name);
+      formData.append("totalQuestions", String(qCount));
+      formData.append("totalMarks", String(finalTotalMarks));
+      formData.append("correctMarks", String(posMarks));
+      formData.append("incorrectMarks", String(negMarks));
+      formData.append("timeMinutes", String(time));
+      formData.append("isCustom", "true");
+
+      if (customQpFile) {
+        formData.append("qpFile", customQpFile);
+      }
+      if (customAkFile && customAkMode === "upload") {
+        formData.append("akFile", customAkFile);
+      }
+      if (customAkText.trim() && customAkMode === "paste") {
+        formData.append("answerKeyText", customAkText.trim());
+      }
+      if (customExsFile) {
+        formData.append("exsFile", customExsFile);
+      }
+      if (currentUser?.id) {
+        formData.append("userId", currentUser.id);
+      }
+
+      const res = await fetch("/api/upload", {
+        method: "POST",
+        body: formData,
+      });
+
+      const data = await res.json();
+      if (!res.ok || !data.ok) {
+        throw new Error(data.error || "Server failed to save paper.");
+      }
+
+      const newPaper: QuestionPaper = data.paper;
+      saveCustomPaper(newPaper);
+      onPaperUploaded(newPaper);
+
+      setStatusMsg({
+        text: `Custom paper "${newPaper.label}" (${newPaper.totalQuestions} Questions) saved! Redirecting to Papers...`,
+      });
+      setTimeout(() => {
+        onNavigatePapers();
+      }, 900);
+    } catch (err: any) {
+      setStatusMsg({
+        text: err.message || "Failed to save custom paper.",
+        isError: true,
+      });
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  // Update existing paper
+  const handleUpdateExistingPaper = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!currentSelectedPaper) {
+      setStatusMsg({ text: "Please select a paper to update.", isError: true });
+      return;
+    }
+
+    setIsSubmitting(true);
+    setStatusMsg(null);
+
+    try {
+      const formData = new FormData();
+      let calculatedQCount = totalQuestions;
+
+      if (updateQpFormat === "markdown" && updateMarkdown.trim()) {
+        formData.append("markdownContent", updateMarkdown.trim());
+        const parsed = parseQuestionnaireMarkdown(updateMarkdown.trim());
+        if (parsed.length > 0) {
+          formData.append("parsedQuestions", JSON.stringify(parsed));
+          calculatedQCount = parsed.length;
+        }
+      } else if (qpFile) {
+        formData.append("qpFile", qpFile);
+      }
+
+      if (akFile && akMode === "upload") {
+        formData.append("akFile", akFile);
+      } else if (akMode === "paste" && akText.trim()) {
+        formData.append("answerKeyText", akText.trim());
+      }
+      if (exsFile) {
+        formData.append("exsFile", exsFile);
+      }
+
+      formData.append("totalQuestions", String(calculatedQCount));
+      formData.append("totalMarks", String(totalMarks));
+      formData.append("correctMarks", String(correctMarks));
+      formData.append("incorrectMarks", String(incorrectMarks));
+      formData.append("timeMinutes", String(timeMinutes));
+
+      let updated = await attachToPaperOnServer(
+        currentSelectedPaper.id,
+        formData,
+      );
+
+      // Fallback local update if server is offline
+      if (!updated) {
+        const parsed =
+          updateQpFormat === "markdown" && updateMarkdown.trim()
+            ? parseQuestionnaireMarkdown(updateMarkdown.trim())
+            : currentSelectedPaper.parsedQuestions;
+        const { answers, explanations } = akText.trim()
+          ? parseAnswerKeyDetailed(akText.trim())
+          : {
+              answers: currentSelectedPaper.answerKey,
+              explanations: currentSelectedPaper.explanations,
+            };
+
+        updated = {
+          ...currentSelectedPaper,
+          totalQuestions: parsed && parsed.length > 0 ? parsed.length : calculatedQCount,
+          totalMarks: totalMarks,
+          correctMarks: correctMarks,
+          incorrectMarks: incorrectMarks,
+          timeMinutes: timeMinutes,
+          markdownContent:
+            updateQpFormat === "markdown"
+              ? updateMarkdown.trim()
+              : currentSelectedPaper.markdownContent,
+          parsedQuestions: parsed,
+          answerKey: answers,
+          explanations: explanations,
+          answerKeyText: akText.trim() || currentSelectedPaper.answerKeyText,
+          qpUrl:
+            updateQpFormat === "markdown"
+              ? "local://interactive_markdown"
+              : currentSelectedPaper.qpUrl,
+        };
+      }
+
+      if (updated) {
+        saveCustomPaper(updated);
+        if (onUpdatePaper) onUpdatePaper(updated);
+        setStatusMsg({
+          text: `Successfully updated "${updated.label}".`,
+        });
+        setQpFile(null);
+        setAkFile(null);
+        setExsFile(null);
+        setUpdateMarkdown(getOrReconstructMarkdown(updated));
+      } else {
+        throw new Error("Failed to update paper files.");
+      }
+    } catch (err: any) {
+      setStatusMsg({
+        text: err.message || "Failed to update paper.",
+        isError: true,
+      });
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  // Preset Mode Upload
   const handleUploadNewPaper = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!cleanYear || !cleanName) {
@@ -342,218 +900,35 @@ export function UploadView({
     }
   };
 
-  // Handle FAST CUSTOM paper upload (Nothing prefilled, instant practice setup)
-  const handleUploadFastCustomPaper = async (e: React.FormEvent) => {
-    e.preventDefault();
-    const name = customPaperName.trim();
-    const qCount = parseInt(customTotalQuestions, 10);
-    const posMarks = parseFloat(customPositiveMarks);
-    const negMarks = parseFloat(customNegativeMarks);
-    const time = parseInt(customTimeMinutes, 10) || 120;
-
-    if (!name) {
-      setStatusMsg({
-        text: "Please enter the Name of the paper.",
-        isError: true,
-      });
-      return;
-    }
-    if (!qCount || qCount <= 0) {
-      setStatusMsg({
-        text: "Please enter a valid Total Questions count (e.g. 100, 50).",
-        isError: true,
-      });
-      return;
-    }
-    if (isNaN(posMarks) || posMarks < 0) {
-      setStatusMsg({
-        text: "Please enter positive marks per correct question (e.g. 2.0).",
-        isError: true,
-      });
-      return;
-    }
-    if (isNaN(negMarks) || negMarks < 0) {
-      setStatusMsg({
-        text: "Please enter negative marks penalty (e.g. 0.667 or 0).",
-        isError: true,
-      });
-      return;
-    }
-    if (!customQpFile) {
-      setStatusMsg({
-        text: "Please attach the Question Paper PDF file.",
-        isError: true,
-      });
-      return;
-    }
-
-    setIsSubmitting(true);
-    setStatusMsg(null);
-
-    try {
-      const slug = name
-        .toLowerCase()
-        .replace(/[^a-z0-9_]/g, "_")
-        .replace(/_+/g, "_")
-        .slice(0, 40);
-      const identifier = `${slug}_${Date.now().toString(36)}`;
-      const curYear = String(new Date().getFullYear());
-
-      const parsedTotalMarks = parseFloat(customTotalMarks);
-      const finalTotalMarks =
-        !isNaN(parsedTotalMarks) && parsedTotalMarks > 0
-          ? parsedTotalMarks
-          : Math.round(qCount * posMarks * 10) / 10 || 100;
-
-      const formData = new FormData();
-      formData.append("year", curYear);
-      formData.append("identifier", name);
-      formData.append("examType", "objective");
-      formData.append("subject", name);
-      formData.append("label", name);
-      formData.append("title", name);
-      formData.append("totalQuestions", String(qCount));
-      formData.append("totalMarks", String(finalTotalMarks));
-      formData.append("correctMarks", String(posMarks));
-      formData.append("incorrectMarks", String(negMarks));
-      formData.append("timeMinutes", String(time));
-      formData.append("isCustom", "true");
-
-      formData.append("qpFile", customQpFile);
-      if (customAkFile && customAkMode === "upload") {
-        formData.append("akFile", customAkFile);
-      }
-      if (customAkText.trim() && customAkMode === "paste") {
-        formData.append("answerKeyText", customAkText.trim());
-      }
-      if (customExsFile) {
-        formData.append("exsFile", customExsFile);
-      }
-      if (currentUser?.id) {
-        formData.append("userId", currentUser.id);
-      }
-
-      const res = await fetch("/api/upload", {
-        method: "POST",
-        body: formData,
-      });
-
-      const data = await res.json();
-      if (!res.ok || !data.ok) {
-        throw new Error(data.error || "Server failed to save paper.");
-      }
-
-      const newPaper: QuestionPaper = data.paper;
-      saveCustomPaper(newPaper);
-      onPaperUploaded(newPaper);
-
-      setStatusMsg({
-        text: `Custom paper "${newPaper.label}" (${newPaper.totalQuestions} Questions) saved! Redirecting to Papers...`,
-      });
-      setTimeout(() => {
-        onNavigatePapers();
-      }, 900);
-    } catch (err: any) {
-      setStatusMsg({
-        text: err.message || "Failed to save custom paper.",
-        isError: true,
-      });
-    } finally {
-      setIsSubmitting(false);
-    }
-  };
-
-  // Handle UPDATING existing paper files or rules
-  const handleUpdateExistingPaper = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!currentSelectedPaper) {
-      setStatusMsg({ text: "Please select a paper to update.", isError: true });
-      return;
-    }
-
-    setIsSubmitting(true);
-    setStatusMsg(null);
-
-    try {
-      const formData = new FormData();
-      if (qpFile) {
-        formData.append("qpFile", qpFile);
-      }
-      if (akFile && akMode === "upload") {
-        formData.append("akFile", akFile);
-      } else if (akMode === "paste" && akText.trim()) {
-        formData.append("answerKeyText", akText.trim());
-      }
-      if (exsFile) {
-        formData.append("exsFile", exsFile);
-      }
-
-      formData.append("totalQuestions", String(totalQuestions));
-      formData.append("totalMarks", String(totalMarks));
-      formData.append("correctMarks", String(correctMarks));
-      formData.append("incorrectMarks", String(incorrectMarks));
-      formData.append("timeMinutes", String(timeMinutes));
-
-      const updated = await attachToPaperOnServer(
-        currentSelectedPaper.id,
-        formData,
-      );
-      if (updated) {
-        if (onUpdatePaper) onUpdatePaper(updated);
-        setStatusMsg({
-          text: `Successfully updated files and rules for "${updated.label}".`,
-        });
-        setQpFile(null);
-        setAkFile(null);
-        setExsFile(null);
-      } else {
-        throw new Error("Failed to update paper files on server.");
-      }
-    } catch (err: any) {
-      setStatusMsg({
-        text: err.message || "Failed to update paper.",
-        isError: true,
-      });
-    } finally {
-      setIsSubmitting(false);
-    }
-  };
-
   return (
-    <div className="mx-auto max-w-4xl px-4 py-8 sm:px-6 lg:px-8 space-y-8 animate-in fade-in duration-200">
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 pb-4 border-b border-slate-200/80">
+    <div className="mx-auto max-w-4xl px-4 py-6 sm:px-6 space-y-6">
+      {/* Page Header */}
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 pb-4 border-b border-slate-200">
         <div>
-          <div className="flex items-center gap-2 mb-1">
-            <span className="text-[11px] font-bold uppercase tracking-wider text-indigo-700 bg-indigo-50 px-2.5 py-0.5 rounded-full border border-indigo-200/60 font-mono">
-              Paper Intake & Management Studio
-            </span>
-          </div>
-          <h1 className="text-2xl sm:text-3xl font-extrabold text-slate-900 tracking-tight">
+          <h1 className="text-xl sm:text-2xl font-bold text-slate-900 tracking-tight">
             Question Papers Studio
           </h1>
-          <p className="text-xs sm:text-sm text-slate-500 mt-1">
-            Upload new papers or correct files (Question Paper PDF, Answer Key,
-            Solution) on existing papers.
+          <p className="text-xs sm:text-sm text-slate-500 mt-0.5">
+            Configure rules, questionnaire, and answer key in three clear segments.
           </p>
         </div>
 
-        {/* View Mode Toggle: Fast Custom Upload vs UPSC Preset vs Update Existing */}
-        <div className="flex items-center gap-1 bg-slate-100 p-1 rounded-xl border border-slate-200/80 text-xs font-semibold shrink-0 flex-wrap">
+        {/* Top Segmented Mode Switcher */}
+        <div className="inline-flex items-center p-1 rounded-xl bg-slate-100 border border-slate-200 text-xs font-medium shrink-0 self-start sm:self-auto">
           <button
             type="button"
             onClick={() => {
               setViewMode("custom");
               setStatusMsg(null);
             }}
-            className={`cursor-pointer flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg transition-colors ${
+            className={`cursor-pointer inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg transition-all ${
               viewMode === "custom"
-                ? "bg-white text-indigo-700 shadow-xs font-bold"
+                ? "bg-white text-indigo-700 font-bold shadow-2xs"
                 : "text-slate-600 hover:text-slate-900"
             }`}
           >
-            <Zap className="h-4 w-4 text-amber-500 fill-amber-400" />
-            <span>Fast Custom Paper</span>
+            <Zap className="h-3.5 w-3.5 text-amber-500 fill-amber-400" />
+            <span>Fast Custom</span>
           </button>
           <button
             type="button"
@@ -561,14 +936,14 @@ export function UploadView({
               setViewMode("preset");
               setStatusMsg(null);
             }}
-            className={`cursor-pointer flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg transition-colors ${
+            className={`cursor-pointer inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg transition-all ${
               viewMode === "preset"
-                ? "bg-white text-indigo-700 shadow-xs font-bold"
+                ? "bg-white text-indigo-700 font-bold shadow-2xs"
                 : "text-slate-600 hover:text-slate-900"
             }`}
           >
-            <Sliders className="h-4 w-4 text-slate-500" />
-            <span>Official UPSC Preset</span>
+            <Sliders className="h-3.5 w-3.5 text-slate-500" />
+            <span>UPSC Preset</span>
           </button>
           <button
             type="button"
@@ -581,21 +956,22 @@ export function UploadView({
               }
               setStatusMsg(null);
             }}
-            className={`cursor-pointer flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg transition-colors ${
+            className={`cursor-pointer inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg transition-all ${
               viewMode === "update"
-                ? "bg-white text-indigo-700 shadow-xs font-bold"
+                ? "bg-white text-indigo-700 font-bold shadow-2xs"
                 : "text-slate-600 hover:text-slate-900"
             }`}
           >
-            <Edit3 className="h-4 w-4" />
-            <span>Update / Correct Paper</span>
+            <Edit3 className="h-3.5 w-3.5 text-indigo-600" />
+            <span>Update Paper</span>
           </button>
         </div>
       </div>
 
+      {/* Global Status Message */}
       {statusMsg && (
         <div
-          className={`flex items-center gap-2 rounded-xl p-3.5 text-xs font-semibold border ${
+          className={`flex items-center gap-2 rounded-xl p-3 text-xs font-medium border ${
             statusMsg.isError
               ? "bg-rose-50 border-rose-200 text-rose-800"
               : "bg-emerald-50 border-emerald-200 text-emerald-800"
@@ -610,22 +986,359 @@ export function UploadView({
         </div>
       )}
 
-      {/* ============================================================== */}
-      {/* MODE 1: UPDATE / CORRECT EXISTING PAPER */}
-      {/* ============================================================== */}
-      {viewMode === "update" && (
-        <div className="space-y-6">
-          <div className="bi-card p-6 space-y-4">
-            <div className="relative">
-              <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-2">
-                Select Paper to Update or Correct
-              </label>
+      {/* =================================================================== */}
+      {/* 3-SEGMENT WORKSPACE: FAST CUSTOM PRACTICE PAPER */}
+      {/* =================================================================== */}
+      {viewMode === "custom" && (
+        <form onSubmit={handleUploadFastCustomPaper} className="space-y-5">
+          {/* ------------------------------------------------------------- */}
+          {/* SEGMENT 1: RULES & SCORING SCHEME */}
+          {/* ------------------------------------------------------------- */}
+          <div className="rounded-2xl border border-slate-200/90 bg-white p-5 space-y-4 shadow-xs">
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-bold text-slate-800 uppercase tracking-wider flex items-center gap-2">
+                <span className="h-5 w-5 rounded-full bg-indigo-50 text-indigo-700 flex items-center justify-center text-[11px] font-bold border border-indigo-200">
+                  1
+                </span>
+                Rules & Scoring Scheme
+              </span>
+            </div>
 
-              {/* Search-Select Interactive Trigger */}
+            <div>
+              <label className="block text-xs font-semibold text-slate-700 mb-1">
+                Paper Name / Title <span className="text-rose-500">*</span>
+              </label>
+              <input
+                type="text"
+                value={customPaperName}
+                onChange={(e) => setCustomPaperName(e.target.value)}
+                placeholder="e.g. Vision IAS Full Mock 1 / Ancient History Practice Test"
+                className="w-full rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 text-xs text-slate-800 placeholder-slate-400 focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 shadow-2xs"
+                required
+                autoFocus
+              />
+            </div>
+
+            {/* 5-Column Compact Rules Grid Widget */}
+            <RulesScoringGrid
+              totalQuestions={customTotalQuestions}
+              onTotalQuestionsChange={handleCustomQuestionsChange}
+              timeMinutes={customTimeMinutes}
+              onTimeMinutesChange={setCustomTimeMinutes}
+              correctMarks={customPositiveMarks}
+              onCorrectMarksChange={handleCustomPositiveMarksChange}
+              incorrectMarks={customNegativeMarks}
+              onIncorrectMarksChange={setCustomNegativeMarks}
+              totalMarks={customTotalMarks}
+              onTotalMarksChange={handleCustomTotalMarksChange}
+              instructionsCount={
+                (customInstructions.length > 0
+                  ? customInstructions
+                  : detectedHeader?.instructions || []
+                ).length
+              }
+            />
+          </div>
+
+          {/* ------------------------------------------------------------- */}
+          {/* SEGMENT 2: QUESTIONNAIRE */}
+          {/* ------------------------------------------------------------- */}
+          <div className="rounded-2xl border border-slate-200/90 bg-white p-5 space-y-4 shadow-xs">
+            {/* Header: Left format chips + Right helpers */}
+            <div className="flex items-center justify-between flex-wrap gap-2 pb-3 border-b border-slate-100">
+              <div className="flex items-center gap-2">
+                <span className="text-xs font-bold text-slate-800 uppercase tracking-wider flex items-center gap-2 mr-1">
+                  <span className="h-5 w-5 rounded-full bg-purple-50 text-purple-700 flex items-center justify-center text-[11px] font-bold border border-purple-200">
+                    2
+                  </span>
+                  Questionnaire
+                </span>
+
+                <div className="inline-flex p-0.5 rounded-lg bg-slate-100 border border-slate-200 text-xs font-medium">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setCustomQpFormat("markdown");
+                      if (!customPositiveMarks) setCustomPositiveMarks("2");
+                      if (!customNegativeMarks) setCustomNegativeMarks("0.667");
+                    }}
+                    className={`cursor-pointer inline-flex items-center gap-1.5 px-3 py-1 rounded-md transition-all ${
+                      customQpFormat === "markdown"
+                        ? "bg-white text-purple-700 font-bold shadow-2xs"
+                        : "text-slate-600 hover:text-slate-900"
+                    }`}
+                  >
+                    <Sparkles className="h-3.5 w-3.5 text-purple-600" />
+                    <span>Interactive Markdown</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setCustomQpFormat("pdf")}
+                    className={`cursor-pointer inline-flex items-center gap-1.5 px-3 py-1 rounded-md transition-all ${
+                      customQpFormat === "pdf"
+                        ? "bg-white text-indigo-700 font-bold shadow-2xs"
+                        : "text-slate-600 hover:text-slate-900"
+                    }`}
+                  >
+                    <FileText className="h-3.5 w-3.5 text-indigo-600" />
+                    <span>PDF Document</span>
+                  </button>
+                </div>
+              </div>
+
+              {customQpFormat === "markdown" && (
+                <div className="flex items-center gap-1.5">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setFormatGuideModalTab("template");
+                      setFormatGuideModalOpen(true);
+                    }}
+                    className="cursor-pointer inline-flex items-center gap-1 text-xs font-medium text-slate-700 bg-slate-50 hover:bg-slate-100 px-2.5 py-1 rounded-lg border border-slate-200 shadow-2xs transition-colors"
+                  >
+                    <FileCode className="h-3.5 w-3.5 text-indigo-600" />
+                    <span>Template</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setFormatGuideModalTab("ai_prompt");
+                      setFormatGuideModalOpen(true);
+                    }}
+                    className="cursor-pointer inline-flex items-center gap-1 text-xs font-medium text-purple-700 bg-purple-50 hover:bg-purple-100 px-2.5 py-1 rounded-lg border border-purple-200 shadow-2xs transition-colors"
+                  >
+                    <Sparkles className="h-3.5 w-3.5 text-purple-600" />
+                    <span>AI Prompt</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setCustomPaperName("High-Yield Practice Mock (Markdown Interactive)");
+                      setCustomTotalQuestions("5");
+                      setCustomPositiveMarks("2");
+                      setCustomNegativeMarks("0.667");
+                      setCustomTotalMarks("10");
+                      setCustomTimeMinutes("15");
+                      setCustomQpMarkdown(SAMPLE_QUESTIONNAIRE_TEXT);
+                      setCustomAkText(SAMPLE_ANSWER_KEY_TEXT);
+                      handleApplyRules(parseMarkdownHeader(SAMPLE_QUESTIONNAIRE_TEXT), "custom");
+                    }}
+                    className="cursor-pointer inline-flex items-center gap-1 text-xs font-medium text-slate-600 hover:text-slate-900 bg-transparent hover:bg-slate-100 px-2 py-1 rounded-lg transition-colors"
+                  >
+                    <span>Load Sample</span>
+                  </button>
+                </div>
+              )}
+            </div>
+
+            {/* Markdown Workspace */}
+            {customQpFormat === "markdown" ? (
+              <div className="space-y-3.5">
+                {/* Auto-detected rules header banner with direct visual feedback */}
+                {detectedHeader && (
+                  <div className="flex items-center justify-between gap-2 p-2.5 rounded-xl bg-purple-50/70 border border-purple-200 text-xs text-purple-900">
+                    <div className="flex items-center gap-2 truncate">
+                      <BookOpen className="h-4 w-4 text-purple-600 shrink-0" />
+                      <span className="truncate">
+                        Rules detected in header: {detectedHeader.exam || "Mock Test"}
+                        {detectedHeader.totalQuestions ? ` • ${detectedHeader.totalQuestions} Qs` : ""}
+                        {detectedHeader.time ? ` • ${detectedHeader.time}` : ""}
+                      </span>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => handleApplyRules(detectedHeader, "custom")}
+                      className={`cursor-pointer shrink-0 inline-flex items-center gap-1 text-[11px] font-bold px-3 py-1 rounded-lg border shadow-2xs transition-all ${
+                        headerRulesApplied
+                          ? "bg-emerald-600 text-white border-emerald-600"
+                          : "text-purple-700 bg-white hover:bg-purple-100 border-purple-200"
+                      }`}
+                    >
+                      {headerRulesApplied ? (
+                        <>
+                          <Check className="h-3 w-3 text-white" />
+                          <span>Applied to Rules!</span>
+                        </>
+                      ) : (
+                        <>
+                          <Sparkles className="h-3 w-3 text-purple-600" />
+                          <span>Apply Rules</span>
+                        </>
+                      )}
+                    </button>
+                  </div>
+                )}
+
+                {/* Left View Chips */}
+                <div className="flex items-center justify-between flex-wrap gap-2">
+                  <div className="inline-flex p-0.5 rounded-lg bg-slate-100 border border-slate-200 text-xs font-medium">
+                    <button
+                      type="button"
+                      onClick={() => setCustomViewTab("editor")}
+                      className={`cursor-pointer inline-flex items-center gap-1.5 px-3 py-1 rounded-md transition-all ${
+                        customViewTab === "editor"
+                          ? "bg-white text-slate-900 font-bold shadow-2xs"
+                          : "text-slate-600 hover:text-slate-900"
+                      }`}
+                    >
+                      <Edit3 className="h-3.5 w-3.5" />
+                      <span>Markdown Source</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setCustomViewTab("preview")}
+                      className={`cursor-pointer inline-flex items-center gap-1.5 px-3 py-1 rounded-md transition-all ${
+                        customViewTab === "preview"
+                          ? "bg-white text-purple-700 font-bold shadow-2xs"
+                          : "text-slate-600 hover:text-slate-900"
+                      }`}
+                    >
+                      <Eye className="h-3.5 w-3.5" />
+                      <span>Preview ({detectedQuestionsCount} Qs)</span>
+                    </button>
+                  </div>
+
+                  <div className="flex items-center gap-2 text-xs">
+                    {detectedQuestionsCount > 0 ? (
+                      <span className="inline-flex items-center gap-1 text-emerald-700 bg-emerald-50 px-2.5 py-0.5 rounded-full border border-emerald-200 font-medium">
+                        <Check className="h-3 w-3" />
+                        <span>{detectedQuestionsCount} Questions detected</span>
+                      </span>
+                    ) : (
+                      <span className="text-slate-400 text-[11px]">
+                        Separate questions with &apos;---&apos;
+                      </span>
+                    )}
+
+                    <label className="cursor-pointer text-indigo-600 hover:underline font-semibold inline-flex items-center gap-1 text-xs">
+                      <FileUp className="h-3 w-3" />
+                      <span>Upload .md</span>
+                      <input
+                        type="file"
+                        accept=".md,.txt"
+                        onChange={async (e) => {
+                          const file = e.target.files?.[0];
+                          if (file) {
+                            const text = await file.text();
+                            setCustomQpMarkdown(text);
+                            const count = parseQuestionnaireMarkdown(text).length;
+                            if (count > 0) handleCustomQuestionsChange(String(count));
+                          }
+                        }}
+                        className="hidden"
+                      />
+                    </label>
+                  </div>
+                </div>
+
+                {/* Editor Tab */}
+                {customViewTab === "editor" && (
+                  <textarea
+                    value={customQpMarkdown}
+                    onChange={(e) => {
+                      const val = e.target.value;
+                      setCustomQpMarkdown(val);
+                      const count = parseQuestionnaireMarkdown(val).length;
+                      if (count > 0) handleCustomQuestionsChange(String(count));
+                    }}
+                    placeholder={`EXAM: My Practice Test\nSUBJECT: General Studies\nINSTRUCTIONS:\n- 2 marks per question\n- 0.667 negative penalty\n---\nQuestion 1 text here...\n(a) Option A\n(b) Option B\n(c) Option C\n(d) Option D\n---\nQuestion 2 text here...\n(a) Option A\n(b) Option B\n(c) Option C\n(d) Option D`}
+                    rows={12}
+                    className="w-full rounded-xl border border-slate-200 bg-slate-50/50 hover:bg-white focus:bg-white p-3.5 font-mono text-xs text-slate-800 placeholder-slate-400 focus:outline-none focus:border-purple-500 shadow-2xs leading-relaxed transition-colors"
+                  />
+                )}
+
+                {/* Preview Tab */}
+                {customViewTab === "preview" && (
+                  <div className="space-y-3.5 max-h-[500px] overflow-y-auto pr-1">
+                    <ExamCoverCard
+                      title={customPaperName.trim() || detectedHeader?.exam || "Custom Practice Test"}
+                      subject={detectedHeader?.subject}
+                      timeMinutes={customTimeMinutes || detectedHeader?.time || "120"}
+                      questionsCount={detectedQuestionsCount > 0 ? detectedQuestionsCount : (customTotalQuestions || "—")}
+                      totalMarks={customTotalMarks || "100"}
+                      correctMarks={customPositiveMarks || "2"}
+                      incorrectMarks={customNegativeMarks || "0.667"}
+                      mappedAnswersCount={Object.keys(detectedAnswerKey.answers).length}
+                      instructions={
+                        customInstructions.length > 0
+                          ? customInstructions
+                          : detectedHeader?.instructions
+                      }
+                    />
+                    <QuestionStreamPreview
+                      questions={detectedQuestions}
+                      answers={detectedAnswerKey.answers}
+                      explanations={detectedAnswerKey.explanations}
+                    />
+                  </div>
+                )}
+              </div>
+            ) : (
+              /* PDF Workspace */
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+                <PdfAttachmentCard
+                  title="Question Paper PDF"
+                  selectedFile={customQpFile}
+                  onFileSelected={setCustomQpFile}
+                  isRequired
+                />
+                <PdfAttachmentCard
+                  title="Solution Booklet PDF (Optional)"
+                  selectedFile={customExsFile}
+                  onFileSelected={setCustomExsFile}
+                />
+              </div>
+            )}
+          </div>
+
+          {/* ------------------------------------------------------------- */}
+          {/* SEGMENT 3: ANSWER KEY */}
+          {/* ------------------------------------------------------------- */}
+          <AnswerKeyWidget
+            mode={customAkMode}
+            onModeChange={setCustomAkMode}
+            textValue={customAkText}
+            onTextChange={setCustomAkText}
+            fileValue={customAkFile}
+            onFileChange={setCustomAkFile}
+            mappedCount={Object.keys(detectedAnswerKey.answers).length}
+          />
+
+          {/* Submit Action */}
+          <div className="flex justify-end pt-1">
+            <button
+              type="submit"
+              disabled={
+                isSubmitting ||
+                !customPaperName.trim() ||
+                !(
+                  customTotalQuestions.trim() ||
+                  (customQpFormat === "markdown" && detectedQuestionsCount > 0)
+                ) ||
+                (customQpFormat === "pdf" && !customQpFile) ||
+                (customQpFormat === "markdown" && !customQpMarkdown.trim())
+              }
+              className="cursor-pointer flex items-center gap-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 px-5 py-2.5 text-xs font-bold text-white shadow-xs disabled:opacity-40 transition-all"
+            >
+              <UploadCloud className="h-4 w-4" />
+              <span>{isSubmitting ? "Saving Paper..." : "Save Paper & Start Practice"}</span>
+            </button>
+          </div>
+        </form>
+      )}
+
+      {/* =================================================================== */}
+      {/* 3-SEGMENT WORKSPACE: UPDATE / CORRECT EXISTING PAPER */}
+      {/* =================================================================== */}
+      {viewMode === "update" && (
+        <div className="space-y-5">
+          {/* Paper Picker with Search & Dropdown */}
+          <div className="rounded-2xl border border-slate-200/90 bg-white p-5 space-y-3.5 shadow-xs">
+            <div className="relative">
               <button
                 type="button"
                 onClick={() => setIsSearchSelectOpen((prev) => !prev)}
-                className="cursor-pointer w-full flex items-center justify-between rounded-xl border border-slate-300 bg-white hover:bg-slate-50/80 px-4 py-3 text-xs font-semibold text-slate-800 transition-all focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 shadow-2xs"
+                className="cursor-pointer w-full flex items-center justify-between rounded-xl border border-slate-300 bg-white hover:bg-slate-50 px-3.5 py-2.5 text-xs font-semibold text-slate-800 transition-all focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 shadow-2xs"
               >
                 <div className="flex items-center gap-2.5 min-w-0">
                   <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-indigo-50 text-indigo-600 shrink-0 border border-indigo-100">
@@ -638,33 +1351,28 @@ export function UploadView({
                           {getPaperDisplayTitle(currentSelectedPaper)}
                         </span>
                         <span className="text-[10px] font-mono font-medium px-2 py-0.5 rounded-full bg-slate-100 text-slate-600 border border-slate-200">
-                          {currentSelectedPaper.year} •{" "}
-                          {currentSelectedPaper.subject} •{" "}
-                          {currentSelectedPaper.totalQuestions} Qs
+                          {currentSelectedPaper.year} • {currentSelectedPaper.subject} • {currentSelectedPaper.totalQuestions} Qs
                         </span>
                         {isUserUploadedPaper(currentSelectedPaper) && (
                           <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-50 text-amber-700 border border-amber-200">
-                            User Paper
+                            Custom Paper
                           </span>
                         )}
                       </div>
                     ) : (
                       <span className="text-slate-400 font-normal">
-                        Click to search and select a paper...
+                        Select a paper to edit or update...
                       </span>
                     )}
                   </div>
                 </div>
-                <div className="flex items-center gap-1.5 shrink-0 text-slate-400">
-                  <ChevronDown
-                    className={`h-4 w-4 transition-transform duration-200 ${
-                      isSearchSelectOpen ? "rotate-180 text-indigo-600" : ""
-                    }`}
-                  />
-                </div>
+                <ChevronDown
+                  className={`h-4 w-4 text-slate-400 transition-transform duration-200 ${
+                    isSearchSelectOpen ? "rotate-180 text-indigo-600" : ""
+                  }`}
+                />
               </button>
 
-              {/* Search-Select Popover Menu */}
               {isSearchSelectOpen && (
                 <>
                   <div
@@ -672,7 +1380,6 @@ export function UploadView({
                     onClick={() => setIsSearchSelectOpen(false)}
                   />
                   <div className="absolute left-0 right-0 top-full mt-1.5 z-40 rounded-2xl border border-slate-200 bg-white p-2.5 shadow-xl animate-in fade-in duration-150">
-                    {/* Live search input filter */}
                     <div className="relative mb-2">
                       <Search className="absolute left-3 top-2.5 h-3.5 w-3.5 text-slate-400" />
                       <input
@@ -681,7 +1388,7 @@ export function UploadView({
                         value={paperSearchQuery}
                         onChange={(e) => setPaperSearchQuery(e.target.value)}
                         placeholder="Search paper name, subject, year..."
-                        className="w-full rounded-xl border border-slate-200 bg-slate-50 pl-9 pr-8 py-2 text-xs text-slate-800 placeholder:text-slate-400 focus:outline-none focus:bg-white focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500"
+                        className="w-full rounded-xl border border-slate-200 bg-slate-50 pl-9 pr-8 py-2 text-xs text-slate-800 placeholder:text-slate-400 focus:outline-none focus:bg-white focus:border-indigo-500"
                       />
                       {paperSearchQuery && (
                         <button
@@ -694,17 +1401,20 @@ export function UploadView({
                       )}
                     </div>
 
-                    {/* Filtered List of Papers */}
-                    <div className="max-h-64 overflow-y-auto space-y-1 pr-1">
+                    <div className="max-h-60 overflow-y-auto space-y-1 pr-1">
                       {filteredUpdatePapers.length === 0 ? (
-                        <div className="py-6 text-center text-xs text-slate-400">
-                          No papers found matching &quot;{paperSearchQuery}
-                          &quot;
+                        <div className="py-5 text-center text-xs text-slate-400">
+                          No papers found
                         </div>
                       ) : (
                         filteredUpdatePapers.map((p) => {
                           const isSelected = p.id === selectedPaperId;
                           const isUser = isUserUploadedPaper(p);
+                          const isMd =
+                            Boolean(p.parsedQuestions && p.parsedQuestions.length > 0) ||
+                            Boolean(p.markdownContent) ||
+                            p.qpUrl?.startsWith("local://");
+
                           return (
                             <button
                               key={p.id}
@@ -714,30 +1424,34 @@ export function UploadView({
                                 setIsSearchSelectOpen(false);
                                 setPaperSearchQuery("");
                               }}
-                              className={`cursor-pointer w-full flex items-center justify-between rounded-xl px-3 py-2.5 text-left text-xs transition-colors ${
+                              className={`cursor-pointer w-full flex items-center justify-between rounded-xl px-3 py-2 text-left text-xs transition-colors ${
                                 isSelected
                                   ? "bg-indigo-50/90 text-indigo-900 font-bold border border-indigo-200"
                                   : "hover:bg-slate-50 text-slate-700 border border-transparent"
                               }`}
                             >
                               <div className="min-w-0 pr-2">
-                                <div className="flex items-center gap-2 flex-wrap">
+                                <div className="flex items-center gap-1.5 flex-wrap">
                                   <span className="font-semibold text-slate-900">
                                     {getPaperDisplayTitle(p)}
                                   </span>
+                                  {isMd && (
+                                    <span className="text-[9px] font-bold px-1.5 py-0.2 rounded bg-purple-50 text-purple-700 border border-purple-200">
+                                      Markdown
+                                    </span>
+                                  )}
                                   {isUser ? (
-                                    <span className="text-[10px] font-bold px-1.5 py-0.2 rounded-md bg-amber-50 text-amber-700 border border-amber-200">
-                                      User Upload
+                                    <span className="text-[9px] font-bold px-1.5 py-0.2 rounded bg-amber-50 text-amber-700 border border-amber-200">
+                                      Custom
                                     </span>
                                   ) : (
-                                    <span className="text-[10px] font-mono px-1.5 py-0.2 rounded-md bg-slate-100 text-slate-600 border border-slate-200">
+                                    <span className="text-[9px] font-mono px-1.5 py-0.2 rounded bg-slate-100 text-slate-600 border border-slate-200">
                                       {p.category.toUpperCase()}
                                     </span>
                                   )}
                                 </div>
                                 <div className="text-[11px] text-slate-500 font-normal mt-0.5">
-                                  {p.year} • {p.subject} • {p.totalQuestions} Qs
-                                  • {p.timeMinutes || 120} mins
+                                  {p.year} • {p.subject} • {p.totalQuestions} Qs • {p.timeMinutes || 120}m
                                 </div>
                               </div>
                               {isSelected && (
@@ -753,283 +1467,329 @@ export function UploadView({
               )}
             </div>
 
+            {/* Quick Paper Status Strip */}
             {currentSelectedPaper && (
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 p-4 rounded-xl bg-slate-50 border border-slate-200/70 text-xs">
-                <div>
-                  <span className="text-[11px] text-slate-400 font-medium block">
-                    Question Paper PDF
+              <div className="flex items-center gap-2 flex-wrap text-xs pt-1">
+                <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-slate-100 text-slate-700 font-medium border border-slate-200">
+                  <FileText className="h-3 w-3 text-slate-500" />
+                  <span>
+                    {currentSelectedPaper.qpUrl?.startsWith("local://") ||
+                    (currentSelectedPaper.parsedQuestions && currentSelectedPaper.parsedQuestions.length > 0)
+                      ? `Interactive Markdown (${currentSelectedPaper.totalQuestions} Qs)`
+                      : "PDF Document"}
                   </span>
-                  <a
-                    href={currentSelectedPaper.qpUrl}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="cursor-pointer text-indigo-600 hover:text-indigo-800 font-bold inline-flex items-center gap-1 mt-0.5"
-                  >
-                    <ExternalLink className="h-3 w-3" /> Preview Current PDF
-                  </a>
-                </div>
-
-                <div>
-                  <span className="text-[11px] text-slate-400 font-medium block">
-                    Answer Key Status
-                  </span>
-                  {hasAnswerKey(currentSelectedPaper) ? (
-                    <span className="text-emerald-700 font-bold inline-flex items-center gap-1 mt-0.5">
-                      <Check className="h-3.5 w-3.5" /> Attached (
-                      {Object.keys(currentSelectedPaper.answerKey || {})
-                        .length || currentSelectedPaper.totalQuestions}{" "}
-                      Qs)
-                    </span>
-                  ) : (
-                    <span className="text-amber-700 font-bold inline-flex items-center gap-1 mt-0.5">
-                      <AlertCircle className="h-3.5 w-3.5" /> No Answer Key
-                    </span>
-                  )}
-                </div>
-
-                <div>
-                  <span className="text-[11px] text-slate-400 font-medium block">
-                    Detailed Solution
-                  </span>
-                  {hasSolution(currentSelectedPaper) ? (
+                  {currentSelectedPaper.qpUrl && !currentSelectedPaper.qpUrl.startsWith("local://") && (
                     <a
-                      href={currentSelectedPaper.exsUrl}
+                      href={currentSelectedPaper.qpUrl}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="cursor-pointer text-indigo-600 hover:text-indigo-800 font-bold inline-flex items-center gap-1 mt-0.5"
+                      className="text-indigo-600 hover:text-indigo-800 ml-1 inline-flex items-center"
                     >
-                      <ExternalLink className="h-3 w-3" /> Attached (PDF)
+                      <ExternalLink className="h-2.5 w-2.5" />
                     </a>
-                  ) : (
-                    <span className="text-slate-400 inline-flex items-center gap-1 mt-0.5">
-                      Not Uploaded
-                    </span>
                   )}
-                </div>
+                </span>
+
+                <span
+                  className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-lg font-medium border ${
+                    hasAnswerKey(currentSelectedPaper)
+                      ? "bg-emerald-50 text-emerald-800 border-emerald-200"
+                      : "bg-amber-50 text-amber-800 border-amber-200"
+                  }`}
+                >
+                  {hasAnswerKey(currentSelectedPaper) ? (
+                    <>
+                      <Check className="h-3 w-3 text-emerald-600" />
+                      <span>
+                        Key Attached ({Object.keys(currentSelectedPaper.answerKey || {}).length} Qs)
+                      </span>
+                    </>
+                  ) : (
+                    <>
+                      <AlertCircle className="h-3 w-3 text-amber-600" />
+                      <span>No Answer Key</span>
+                    </>
+                  )}
+                </span>
+
+                {hasSolution(currentSelectedPaper) ? (
+                  <a
+                    href={currentSelectedPaper.exsUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-indigo-50 text-indigo-700 border border-indigo-200 font-medium hover:bg-indigo-100 transition-colors"
+                  >
+                    <ExternalLink className="h-3 w-3" />
+                    <span>Solution PDF</span>
+                  </a>
+                ) : (
+                  <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-slate-50 text-slate-400 border border-slate-200 font-medium">
+                    No Solution PDF
+                  </span>
+                )}
               </div>
             )}
           </div>
 
           {currentSelectedPaper && (
-            <form onSubmit={handleUpdateExistingPaper} className="space-y-6">
-              {/* Replace Files Section */}
-              <div className="bi-card p-6 space-y-4">
-                <h2 className="text-xs font-bold text-slate-700 uppercase tracking-wider">
-                  Replace or Upload Files
-                </h2>
+            <form onSubmit={handleUpdateExistingPaper} className="space-y-5">
+              {/* ----------------------------------------------------------- */}
+              {/* SEGMENT 1: RULES & DURATION */}
+              {/* ----------------------------------------------------------- */}
+              <div className="rounded-2xl border border-slate-200/90 bg-white p-5 space-y-3 shadow-xs">
+                <span className="text-xs font-bold text-slate-800 uppercase tracking-wider flex items-center gap-2">
+                  <span className="h-5 w-5 rounded-full bg-indigo-50 text-indigo-700 flex items-center justify-center text-[11px] font-bold border border-indigo-200">
+                    1
+                  </span>
+                  Rules & Duration
+                </span>
 
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  {/* Replace QP PDF */}
-                  <div className="rounded-xl border border-slate-200 bg-slate-50/80 p-4 space-y-2">
-                    <span className="text-xs font-bold text-slate-800 block">
-                      Replace Question Paper PDF
-                    </span>
-                    <p className="text-[11px] text-slate-500">
-                      Upload a new PDF to overwrite the existing paper document.
-                    </p>
+                <RulesScoringGrid
+                  totalQuestions={totalQuestions}
+                  timeMinutes={timeMinutes}
+                  correctMarks={correctMarks}
+                  incorrectMarks={incorrectMarks}
+                  totalMarks={totalMarks}
+                  onTotalQuestionsChange={setTotalQuestions}
+                  onTimeMinutesChange={setTimeMinutes}
+                  onCorrectMarksChange={setCorrectMarks}
+                  onIncorrectMarksChange={setIncorrectMarks}
+                  onTotalMarksChange={setTotalMarks}
+                  instructionsCount={(updateInstructions.length > 0 ? updateInstructions : (detectedUpdateHeader?.instructions || currentSelectedPaper.instructions || [])).length}
+                />
+              </div>
 
-                    <label className="cursor-pointer flex flex-col items-center justify-center rounded-xl border border-dashed border-slate-300 bg-white p-4 text-center hover:border-indigo-500 hover:bg-slate-50 transition-colors shadow-2xs">
-                      <FileUp className="h-6 w-6 text-indigo-600 mb-1" />
-                      <span className="text-xs font-bold text-slate-700 truncate max-w-[220px]">
-                        {qpFile ? qpFile.name : "Choose Replacement PDF"}
+              {/* ----------------------------------------------------------- */}
+              {/* SEGMENT 2: QUESTIONNAIRE */}
+              {/* ----------------------------------------------------------- */}
+              <div className="rounded-2xl border border-slate-200/90 bg-white p-5 space-y-4 shadow-xs">
+                <div className="flex items-center justify-between flex-wrap gap-2 pb-3 border-b border-slate-100">
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs font-bold text-slate-800 uppercase tracking-wider flex items-center gap-2 mr-1">
+                      <span className="h-5 w-5 rounded-full bg-purple-50 text-purple-700 flex items-center justify-center text-[11px] font-bold border border-purple-200">
+                        2
                       </span>
-                      <input
-                        type="file"
-                        accept=".pdf"
-                        onChange={(e) => setQpFile(e.target.files?.[0] || null)}
-                        className="hidden"
-                      />
-                    </label>
+                      Questionnaire
+                    </span>
+
+                    {/* In Update mode format is locked to the paper's inherent type: Hide markdown button on PDF papers */}
+                    <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-slate-100 border border-slate-200 text-xs font-semibold">
+                      {isSelectedPaperMarkdown ? (
+                        <span className="inline-flex items-center gap-1.5 text-purple-700">
+                          <Sparkles className="h-3.5 w-3.5 text-purple-600" />
+                          <span>Interactive Markdown Paper</span>
+                        </span>
+                      ) : (
+                        <span className="inline-flex items-center gap-1.5 text-indigo-700">
+                          <FileText className="h-3.5 w-3.5 text-indigo-600" />
+                          <span>PDF Document Paper</span>
+                        </span>
+                      )}
+                    </div>
                   </div>
 
-                  {/* Replace Solution PDF */}
-                  <div className="rounded-xl border border-slate-200 bg-slate-50/80 p-4 space-y-2">
-                    <span className="text-xs font-bold text-slate-800 block">
-                      Upload / Replace Solution PDF
-                    </span>
-                    <p className="text-[11px] text-slate-500">
-                      Attach or update the official solution booklet.
-                    </p>
-
-                    <label className="cursor-pointer flex flex-col items-center justify-center rounded-xl border border-dashed border-slate-300 bg-white p-4 text-center hover:border-slate-500 hover:bg-slate-50 transition-colors shadow-2xs">
-                      <FileUp className="h-6 w-6 text-slate-500 mb-1" />
-                      <span className="text-xs font-bold text-slate-700 truncate max-w-[220px]">
-                        {exsFile ? exsFile.name : "Choose Solution PDF"}
-                      </span>
-                      <input
-                        type="file"
-                        accept=".pdf"
-                        onChange={(e) =>
-                          setExsFile(e.target.files?.[0] || null)
-                        }
-                        className="hidden"
-                      />
-                    </label>
-                  </div>
+                  {isSelectedPaperMarkdown && (
+                    <div className="flex items-center gap-1.5">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setFormatGuideModalTab("template");
+                          setFormatGuideModalOpen(true);
+                        }}
+                        className="cursor-pointer inline-flex items-center gap-1 text-xs font-medium text-slate-700 bg-slate-50 hover:bg-slate-100 px-2.5 py-1 rounded-lg border border-slate-200 shadow-2xs transition-colors"
+                      >
+                        <FileCode className="h-3.5 w-3.5 text-indigo-600" />
+                        <span>Template</span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setFormatGuideModalTab("ai_prompt");
+                          setFormatGuideModalOpen(true);
+                        }}
+                        className="cursor-pointer inline-flex items-center gap-1 text-xs font-medium text-purple-700 bg-purple-50 hover:bg-purple-100 px-2.5 py-1 rounded-lg border border-purple-200 shadow-2xs transition-colors"
+                      >
+                        <Sparkles className="h-3.5 w-3.5 text-purple-600" />
+                        <span>AI Prompt</span>
+                      </button>
+                    </div>
+                  )}
                 </div>
 
-                {/* Answer Key (Objective) */}
-                {currentSelectedPaper.examType === "objective" && (
-                  <div className="rounded-xl border border-slate-200 bg-slate-50/80 p-4 space-y-3 pt-4">
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <h3 className="text-xs font-bold text-slate-800">
-                          Update Answer Key
-                        </h3>
-                        <p className="text-[11px] text-slate-500">
-                          Provide corrected answer choices for automatic
-                          evaluation.
-                        </p>
+                {updateQpFormat === "markdown" ? (
+                  <div className="space-y-3.5">
+                    {/* Header Rules Alert Banner if present */}
+                    {detectedUpdateHeader && (
+                      <div className="flex items-center justify-between gap-2 p-2.5 rounded-xl bg-purple-50/70 border border-purple-200 text-xs text-purple-900">
+                        <div className="flex items-center gap-2 truncate">
+                          <BookOpen className="h-4 w-4 text-purple-600 shrink-0" />
+                          <span className="truncate">
+                            Rules detected in header: {detectedUpdateHeader.exam || "Paper"}
+                            {detectedUpdateHeader.totalQuestions ? ` • ${detectedUpdateHeader.totalQuestions} Qs` : ""}
+                            {detectedUpdateHeader.time ? ` • ${detectedUpdateHeader.time}` : ""}
+                          </span>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => handleApplyRules(detectedUpdateHeader, "update")}
+                          className={`cursor-pointer shrink-0 inline-flex items-center gap-1 text-[11px] font-bold px-3 py-1 rounded-lg border shadow-2xs transition-all ${
+                            headerRulesApplied
+                              ? "bg-emerald-600 text-white border-emerald-600"
+                              : "text-purple-700 bg-white hover:bg-purple-100 border-purple-200"
+                          }`}
+                        >
+                          {headerRulesApplied ? (
+                            <>
+                              <Check className="h-3 w-3 text-white" />
+                              <span>Applied to Rules!</span>
+                            </>
+                          ) : (
+                            <>
+                              <Sparkles className="h-3 w-3 text-purple-600" />
+                              <span>Apply Rules</span>
+                            </>
+                          )}
+                        </button>
+                      </div>
+                    )}
+
+                    <div className="flex items-center justify-between flex-wrap gap-2">
+                      <div className="inline-flex p-0.5 rounded-lg bg-slate-100 border border-slate-200 text-xs font-medium">
+                        <button
+                          type="button"
+                          onClick={() => setUpdateViewTab("editor")}
+                          className={`cursor-pointer inline-flex items-center gap-1.5 px-3 py-1 rounded-md transition-all ${
+                            updateViewTab === "editor"
+                              ? "bg-white text-slate-900 font-bold shadow-2xs"
+                              : "text-slate-600 hover:text-slate-900"
+                          }`}
+                        >
+                          <Edit3 className="h-3.5 w-3.5" />
+                          <span>Markdown Source</span>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setUpdateViewTab("preview")}
+                          className={`cursor-pointer inline-flex items-center gap-1.5 px-3 py-1 rounded-md transition-all ${
+                            updateViewTab === "preview"
+                              ? "bg-white text-purple-700 font-bold shadow-2xs"
+                              : "text-slate-600 hover:text-slate-900"
+                          }`}
+                        >
+                          <Eye className="h-3.5 w-3.5" />
+                          <span>Preview ({detectedUpdateQuestions.length} Qs)</span>
+                        </button>
                       </div>
 
-                      <div className="flex items-center bg-slate-100 p-0.5 rounded-lg border border-slate-200 text-[11px] font-semibold">
-                        <button
-                          type="button"
-                          onClick={() => setAkMode("paste")}
-                          className={`cursor-pointer px-2.5 py-1 rounded-md transition-colors ${
-                            akMode === "paste"
-                              ? "bg-white text-indigo-700 font-bold shadow-2xs"
-                              : "text-slate-600 hover:text-slate-900"
-                          }`}
-                        >
-                          Paste Text
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => setAkMode("upload")}
-                          className={`cursor-pointer px-2.5 py-1 rounded-md transition-colors ${
-                            akMode === "upload"
-                              ? "bg-white text-indigo-700 font-bold shadow-2xs"
-                              : "text-slate-600 hover:text-slate-900"
-                          }`}
-                        >
-                          Upload .txt
-                        </button>
+                      <div className="flex items-center gap-2 text-xs">
+                        {detectedUpdateQuestions.length > 0 ? (
+                          <span className="inline-flex items-center gap-1 text-emerald-700 bg-emerald-50 px-2.5 py-0.5 rounded-full border border-emerald-200 font-medium">
+                            <Check className="h-3 w-3" />
+                            <span>{detectedUpdateQuestions.length} Questions detected</span>
+                          </span>
+                        ) : (
+                          <span className="text-slate-400 text-[11px]">
+                            Separate questions with &apos;---&apos;
+                          </span>
+                        )}
+
+                        <label className="cursor-pointer text-indigo-600 hover:underline font-semibold inline-flex items-center gap-1 text-xs">
+                          <FileUp className="h-3 w-3" />
+                          <span>Import .md</span>
+                          <input
+                            type="file"
+                            accept=".md,.txt"
+                            onChange={async (e) => {
+                              const file = e.target.files?.[0];
+                              if (file) {
+                                const text = await file.text();
+                                setUpdateMarkdown(text);
+                              }
+                            }}
+                            className="hidden"
+                          />
+                        </label>
                       </div>
                     </div>
 
-                    {akMode === "upload" ? (
-                      <label className="cursor-pointer flex items-center justify-center gap-2 rounded-xl border border-dashed border-slate-300 bg-white p-4 text-xs font-semibold text-slate-700 hover:border-slate-500 shadow-2xs">
-                        <FileUp className="h-4 w-4 text-slate-500" />
-                        <span>
-                          {akFile ? akFile.name : "Select .txt answer key file"}
-                        </span>
-                        <input
-                          type="file"
-                          accept=".txt"
-                          onChange={(e) =>
-                            setAkFile(e.target.files?.[0] || null)
-                          }
-                          className="hidden"
+                    {updateViewTab === "editor" && (
+                      <textarea
+                        value={updateMarkdown}
+                        onChange={(e) => setUpdateMarkdown(e.target.value)}
+                        placeholder={`EXAM: Mock Test\nSUBJECT: General Studies\nINSTRUCTIONS:\n- 2 marks per question\n---\nQuestion 1 prompt here...\n(a) Option A\n(b) Option B\n(c) Option C\n(d) Option D\n---\nQuestion 2 prompt...\n(a) Option A\n(b) Option B\n(c) Option C\n(d) Option D`}
+                        rows={12}
+                        className="w-full rounded-xl border border-slate-200 bg-slate-50/50 hover:bg-white focus:bg-white p-3.5 font-mono text-xs text-slate-800 placeholder-slate-400 focus:outline-none focus:border-purple-500 shadow-2xs leading-relaxed transition-colors"
+                      />
+                    )}
+
+                    {updateViewTab === "preview" && (
+                      <div className="space-y-3.5 max-h-[500px] overflow-y-auto pr-1">
+                        <ExamCoverCard
+                          title={getPaperDisplayTitle(currentSelectedPaper)}
+                          subject={detectedUpdateHeader?.subject || currentSelectedPaper.subject}
+                          timeMinutes={timeMinutes || currentSelectedPaper.timeMinutes || 120}
+                          questionsCount={detectedUpdateQuestions.length > 0 ? detectedUpdateQuestions.length : (totalQuestions || currentSelectedPaper.totalQuestions)}
+                          totalMarks={totalMarks || currentSelectedPaper.totalMarks}
+                          correctMarks={correctMarks}
+                          incorrectMarks={incorrectMarks}
+                          mappedAnswersCount={Object.keys(detectedUpdateAnswerKey.answers).length || Object.keys(currentSelectedPaper.answerKey || {}).length}
+                          instructions={updateInstructions.length > 0 ? updateInstructions : (detectedUpdateHeader?.instructions || currentSelectedPaper.instructions || [])}
                         />
-                      </label>
-                    ) : (
-                      <div className="space-y-1.5">
-                        <textarea
-                          value={akText}
-                          onChange={(e) => setAkText(e.target.value)}
-                          placeholder={`1. a,\n2. c """ Explanations can be enclosed in triple quotes """,\n3. d,\n4. b """ multiline\nexplanation also supported """`}
-                          rows={6}
-                          className="w-full rounded-xl border border-slate-200 bg-white p-3 font-mono text-xs text-slate-800 placeholder-slate-400 focus:outline-none focus:border-indigo-500 shadow-2xs leading-relaxed"
+
+                        <QuestionStreamPreview
+                          questions={detectedUpdateQuestions}
+                          answers={detectedUpdateAnswerKey.answers}
+                          explanations={detectedUpdateAnswerKey.explanations}
                         />
-                        <p className="text-[11px] text-slate-500 leading-relaxed">
-                          Format:{" "}
-                          <code className="font-mono bg-slate-100 text-slate-700 px-1 py-0.5 rounded text-[10px]">
-                            1. a,
-                          </code>{" "}
-                          or with explanation:{" "}
-                          <code className="font-mono bg-slate-100 text-slate-700 px-1 py-0.5 rounded text-[10px]">
-                            1. a &quot;&quot;&quot; optional explanation
-                            &quot;&quot;&quot;,
-                          </code>
-                        </p>
                       </div>
                     )}
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+                    <PdfAttachmentCard
+                      title="Question Paper PDF"
+                      currentFilename={getFilenameFromUrl(currentSelectedPaper.qpUrl, currentSelectedPaper.label)}
+                      currentUrl={currentSelectedPaper.qpUrl}
+                      selectedFile={qpFile}
+                      onFileSelected={setQpFile}
+                    />
+
+                    <PdfAttachmentCard
+                      title="Solution Booklet PDF"
+                      currentFilename={hasSolution(currentSelectedPaper) ? getFilenameFromUrl(currentSelectedPaper.exsUrl, `${currentSelectedPaper.label}_solution`) : undefined}
+                      currentUrl={hasSolution(currentSelectedPaper) ? currentSelectedPaper.exsUrl : undefined}
+                      selectedFile={exsFile}
+                      onFileSelected={setExsFile}
+                    />
                   </div>
                 )}
               </div>
 
-              {/* Adjust Rules */}
-              <div className="bi-card p-6 space-y-4">
-                <h2 className="text-xs font-bold text-slate-700 uppercase tracking-wider">
-                  Adjust Rules & Duration
-                </h2>
-
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                  <div>
-                    <label className="block text-[11px] font-bold text-slate-600 mb-1">
-                      Total Questions
-                    </label>
-                    <input
-                      type="number"
-                      value={totalQuestions}
-                      onChange={(e) =>
-                        setTotalQuestions(parseInt(e.target.value) || 0)
-                      }
-                      className="w-full rounded-lg border border-slate-200 bg-slate-50 px-3 py-1.5 text-xs text-slate-800 font-mono focus:bg-white focus:border-indigo-500"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-[11px] font-bold text-slate-600 mb-1">
-                      Duration (Mins)
-                    </label>
-                    <input
-                      type="number"
-                      value={timeMinutes}
-                      onChange={(e) =>
-                        setTimeMinutes(parseInt(e.target.value) || 0)
-                      }
-                      className="w-full rounded-lg border border-slate-200 bg-slate-50 px-3 py-1.5 text-xs text-slate-800 font-mono focus:bg-white focus:border-indigo-500"
-                    />
-                  </div>
-
-                  {currentSelectedPaper.examType === "objective" && (
-                    <>
-                      <div>
-                        <label className="block text-[11px] font-bold text-slate-600 mb-1">
-                          Correct Marks (+)
-                        </label>
-                        <input
-                          type="number"
-                          step="0.01"
-                          value={correctMarks}
-                          onChange={(e) =>
-                            setCorrectMarks(parseFloat(e.target.value) || 0)
-                          }
-                          className="w-full rounded-lg border border-slate-200 bg-slate-50 px-3 py-1.5 text-xs text-slate-800 font-mono focus:bg-white focus:border-indigo-500"
-                        />
-                      </div>
-
-                      <div>
-                        <label className="block text-[11px] font-bold text-slate-600 mb-1">
-                          Penalty (-)
-                        </label>
-                        <input
-                          type="number"
-                          step="0.001"
-                          value={incorrectMarks}
-                          onChange={(e) =>
-                            setIncorrectMarks(parseFloat(e.target.value) || 0)
-                          }
-                          className="w-full rounded-lg border border-slate-200 bg-slate-50 px-3 py-1.5 text-xs text-slate-800 font-mono focus:bg-white focus:border-indigo-500"
-                        />
-                      </div>
-                    </>
-                  )}
-                </div>
+              {/* ----------------------------------------------------------- */}
+              {/* SEGMENT 3: ANSWER KEY */}
+              {/* ----------------------------------------------------------- */}
+              <div className="rounded-2xl border border-slate-200/90 bg-white p-5 space-y-3 shadow-xs">
+                <AnswerKeyWidget
+                  mode={akMode}
+                  onModeChange={setAkMode}
+                  textValue={akText}
+                  onTextChange={setAkText}
+                  fileValue={akFile}
+                  onFileChange={setAkFile}
+                  mappedCount={Object.keys(detectedUpdateAnswerKey.answers).length}
+                />
               </div>
 
-              {/* Action buttons */}
-              <div className="flex items-center justify-between pt-2">
+              {/* Bottom Action Buttons */}
+              <div className="flex items-center justify-between pt-1">
                 {onDeletePaper ? (
                   <button
                     type="button"
                     onClick={() => setShowDeleteConfirm(true)}
-                    className="cursor-pointer flex items-center gap-1.5 px-4 py-2.5 rounded-xl border border-rose-200 bg-rose-50 text-xs font-bold text-rose-700 hover:bg-rose-100 transition-colors shadow-2xs"
+                    className="cursor-pointer flex items-center gap-1.5 px-3.5 py-2 rounded-xl border border-rose-200 bg-rose-50 text-xs font-semibold text-rose-700 hover:bg-rose-100 transition-colors shadow-2xs"
                   >
-                    <Trash2 className="h-4 w-4" />
-                    <span>Delete This Paper</span>
+                    <Trash2 className="h-3.5 w-3.5" />
+                    <span>Delete Paper</span>
                   </button>
                 ) : (
                   <div />
@@ -1038,16 +1798,10 @@ export function UploadView({
                 <button
                   type="submit"
                   disabled={isSubmitting}
-                  className="cursor-pointer flex items-center gap-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 px-6 py-2.5 text-xs font-bold text-white shadow-xs disabled:opacity-40 transition-all"
+                  className="cursor-pointer flex items-center gap-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 px-5 py-2.5 text-xs font-bold text-white shadow-xs disabled:opacity-40 transition-all"
                 >
-                  <RefreshCw
-                    className={`h-4 w-4 ${isSubmitting ? "animate-spin" : ""}`}
-                  />
-                  <span>
-                    {isSubmitting
-                      ? "Saving Updates..."
-                      : "Save Updates & Replace Files"}
-                  </span>
+                  <RefreshCw className={`h-4 w-4 ${isSubmitting ? "animate-spin" : ""}`} />
+                  <span>{isSubmitting ? "Saving Updates..." : "Save Updates"}</span>
                 </button>
               </div>
             </form>
@@ -1055,19 +1809,18 @@ export function UploadView({
 
           {/* Delete Confirm Modal */}
           {showDeleteConfirm && currentSelectedPaper && (
-            <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-xs">
+            <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-in fade-in duration-150">
               <div className="relative w-full max-w-md rounded-2xl border border-slate-200 bg-white p-6 shadow-2xl space-y-4">
                 <div className="flex items-start gap-3">
-                  <div className="p-2.5 rounded-xl bg-rose-50 border border-rose-100 text-rose-600 shrink-0">
+                  <div className="p-2.5 rounded-xl bg-rose-50 border border-rose-200 text-rose-600 shrink-0">
                     <Trash2 className="h-5 w-5" />
                   </div>
                   <div>
                     <h3 className="text-base font-bold text-slate-900">
                       Delete Question Paper?
                     </h3>
-                    <p className="text-xs text-slate-500 mt-1 leading-relaxed">
-                      Are you sure you want to permanently delete &quot;
-                      {currentSelectedPaper.label}&quot;?
+                    <p className="text-xs text-slate-500 mt-1">
+                      Are you sure you want to permanently delete &quot;{currentSelectedPaper.label}&quot;?
                     </p>
                   </div>
                 </div>
@@ -1076,7 +1829,7 @@ export function UploadView({
                   <button
                     type="button"
                     onClick={() => setShowDeleteConfirm(false)}
-                    className="cursor-pointer px-4 py-2 rounded-xl text-xs font-bold text-slate-500 hover:text-slate-800"
+                    className="cursor-pointer rounded-xl border border-slate-200 bg-white px-4 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50 shadow-2xs"
                   >
                     Cancel
                   </button>
@@ -1087,7 +1840,7 @@ export function UploadView({
                       setShowDeleteConfirm(false);
                       onNavigatePapers();
                     }}
-                    className="cursor-pointer px-5 py-2 rounded-xl bg-rose-600 hover:bg-rose-700 text-xs font-bold text-white transition-all shadow-xs"
+                    className="cursor-pointer px-4 py-2 rounded-xl bg-rose-600 hover:bg-rose-700 text-xs font-bold text-white shadow-xs"
                   >
                     Delete Paper
                   </button>
@@ -1098,445 +1851,67 @@ export function UploadView({
         </div>
       )}
 
-      {/* ============================================================== */}
-      {/* MODE 1: FAST CUSTOM PRACTICE PAPER (NOTHING PREFILLED) */}
-      {/* ============================================================== */}
-      {viewMode === "custom" && (
-        <form onSubmit={handleUploadFastCustomPaper} className="space-y-6">
-          {/* Section 1: Paper Details & Scoring Rules */}
-          <div className="bi-card p-6 space-y-5">
-            <div className="flex items-center justify-between pb-3 border-b border-slate-100">
-              <div className="flex items-center gap-2.5">
-                <div className="h-8 w-8 rounded-lg bg-amber-50 text-amber-600 flex items-center justify-center font-bold border border-amber-200/60">
-                  <Zap className="h-4 w-4 text-amber-500 fill-amber-400" />
-                </div>
-                <div>
-                  <h2 className="text-sm font-extrabold text-slate-900">
-                    Fast Custom Practice Paper
-                  </h2>
-                  <p className="text-xs text-slate-500">
-                    Direct practice upload. Name, total questions, positive &
-                    negative marking — no presets, nothing prefilled.
-                  </p>
-                </div>
-              </div>
-            </div>
-
-            {/* Paper Title / Name */}
-            <div>
-              <label className="block text-xs font-bold text-slate-700 mb-1.5">
-                Name of the Paper <span className="text-rose-500">*</span>
-              </label>
-              <input
-                type="text"
-                value={customPaperName}
-                onChange={(e) => setCustomPaperName(e.target.value)}
-                placeholder="e.g. Vision IAS Full Length Mock 1 / Forum IAS Simulator 2 / Modern History Test"
-                className="w-full rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-xs text-slate-800 placeholder-slate-400 focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 shadow-xs"
-                required
-                autoFocus
-              />
-            </div>
-
-            {/* Rules Grid: Total Questions, Positive Marks, Negative Marks, Total Marks, Time */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4 pt-1">
-              <div>
-                <label className="block text-xs font-bold text-slate-700 mb-1.5">
-                  Total Questions <span className="text-rose-500">*</span>
-                </label>
-                <input
-                  type="number"
-                  min="1"
-                  max="500"
-                  value={customTotalQuestions}
-                  onChange={(e) => handleCustomQuestionsChange(e.target.value)}
-                  placeholder="e.g. 100"
-                  className="w-full rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 text-xs font-mono text-slate-800 placeholder-slate-400 focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 shadow-xs"
-                  required
-                />
-                <span className="text-[10px] text-slate-400 mt-1 block">
-                  e.g. 50, 100 MCQs
-                </span>
-              </div>
-
-              <div>
-                <label className="block text-xs font-bold text-slate-700 mb-1.5">
-                  Positive Marks (+) <span className="text-rose-500">*</span>
-                </label>
-                <input
-                  type="number"
-                  step="any"
-                  value={customPositiveMarks}
-                  onChange={(e) =>
-                    handleCustomPositiveMarksChange(e.target.value)
-                  }
-                  placeholder="e.g. 2"
-                  className="w-full rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 text-xs font-mono text-slate-800 placeholder-slate-400 focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 shadow-xs"
-                  required
-                />
-                <span className="text-[10px] text-slate-400 mt-1 block">
-                  Per correct answer
-                </span>
-              </div>
-
-              <div>
-                <label className="block text-xs font-bold text-slate-700 mb-1.5">
-                  Negative Penalty (-) <span className="text-rose-500">*</span>
-                </label>
-                <input
-                  type="number"
-                  step="any"
-                  value={customNegativeMarks}
-                  onChange={(e) => setCustomNegativeMarks(e.target.value)}
-                  placeholder="e.g. 0.667 or 0"
-                  className="w-full rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 text-xs font-mono text-slate-800 placeholder-slate-400 focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 shadow-xs"
-                  required
-                />
-                <span className="text-[10px] text-slate-400 mt-1 block">
-                  Per wrong MCQ (0 if none)
-                </span>
-              </div>
-
-              <div>
-                <label className="block text-xs font-bold text-slate-700 mb-1.5">
-                  Total Marks <span className="text-rose-500">*</span>
-                </label>
-                <input
-                  type="number"
-                  step="any"
-                  value={customTotalMarks}
-                  onChange={(e) => handleCustomTotalMarksChange(e.target.value)}
-                  placeholder="e.g. 200 or 100"
-                  className="w-full rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 text-xs font-mono text-slate-800 placeholder-slate-400 focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 shadow-xs"
-                  required
-                />
-                <span className="text-[10px] text-slate-400 mt-1 block">
-                  Max marks (customizable)
-                </span>
-              </div>
-
-              <div>
-                <label className="block text-xs font-bold text-slate-700 mb-1.5">
-                  Time (Minutes){" "}
-                  <span className="text-slate-400 font-normal">(Opt)</span>
-                </label>
-                <input
-                  type="number"
-                  value={customTimeMinutes}
-                  onChange={(e) => setCustomTimeMinutes(e.target.value)}
-                  placeholder="120"
-                  className="w-full rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 text-xs font-mono text-slate-800 placeholder-slate-400 focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 shadow-xs"
-                />
-                <span className="text-[10px] text-slate-400 mt-1 block">
-                  Defaults to 120 mins
-                </span>
-              </div>
-            </div>
-
-            {/* Live Calculation Preview Banner */}
-            {Boolean(
-              customTotalQuestions && (customPositiveMarks || customTotalMarks),
-            ) && (
-              <div className="flex items-center gap-3 p-3 rounded-xl bg-indigo-50/70 border border-indigo-100 text-xs text-indigo-900">
-                <Check className="h-4 w-4 text-indigo-600 shrink-0" />
-                <div className="flex items-center gap-2 flex-wrap">
-                  <span className="font-semibold">Paper Scoring Scheme:</span>
-                  <span className="font-mono font-bold text-indigo-700 bg-white px-2 py-0.5 rounded border border-indigo-200">
-                    {customTotalMarks ||
-                      Math.round(
-                        Number(customTotalQuestions) *
-                          Number(customPositiveMarks) *
-                          10,
-                      ) / 10 ||
-                      0}{" "}
-                    Total Marks
-                  </span>
-                  <span className="text-slate-400">•</span>
-                  <span>{customTotalQuestions} MCQs</span>
-                  <span className="text-slate-400">•</span>
-                  <span>
-                    +{customPositiveMarks || 0} / -{customNegativeMarks || 0}
-                  </span>
-                  <span className="text-slate-400">•</span>
-                  <span>{customTimeMinutes || 120} Mins</span>
-                  {customTotalMarksEdited && (
-                    <span className="text-[10px] font-semibold text-amber-700 bg-amber-50 px-2 py-0.5 rounded border border-amber-200">
-                      User Defined
-                    </span>
-                  )}
-                </div>
-              </div>
-            )}
-          </div>
-
-          {/* Section 2: Documents & Answer Key */}
-          <div className="bi-card p-6 space-y-5">
-            <h2 className="text-xs font-bold text-slate-700 uppercase tracking-wider">
-              Documents & Answer Keys
-            </h2>
-
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              {/* Question Paper PDF */}
-              <div className="rounded-xl border border-slate-200 bg-slate-50/80 p-4 space-y-2">
-                <div className="flex items-center justify-between">
-                  <span className="text-xs font-bold text-slate-800">
-                    Question Paper PDF
-                  </span>
-                  <span className="text-[10px] font-bold text-indigo-600 font-mono">
-                    Required
-                  </span>
-                </div>
-                <p className="text-[11px] text-slate-500">
-                  Official practice / coaching test paper in PDF format.
-                </p>
-
-                <label className="cursor-pointer flex flex-col items-center justify-center rounded-xl border border-dashed border-slate-300 bg-white p-4 text-center hover:border-indigo-500 hover:bg-slate-50 transition-colors shadow-2xs">
-                  <FileUp className="h-6 w-6 text-indigo-600 mb-1" />
-                  <span className="text-xs font-bold text-slate-700 truncate max-w-[220px]">
-                    {customQpFile
-                      ? customQpFile.name
-                      : "Choose Question Paper PDF"}
-                  </span>
-                  <span className="text-[10px] text-slate-400 mt-0.5">
-                    {customQpFile
-                      ? `${(customQpFile.size / 1024 / 1024).toFixed(2)} MB • Click to replace`
-                      : "Click to browse (.pdf)"}
-                  </span>
-                  <input
-                    type="file"
-                    accept=".pdf"
-                    onChange={(e) =>
-                      setCustomQpFile(e.target.files?.[0] || null)
-                    }
-                    className="hidden"
-                  />
-                </label>
-              </div>
-
-              {/* Solution Booklet PDF (Optional) */}
-              <div className="rounded-xl border border-slate-200 bg-slate-50/80 p-4 space-y-2">
-                <div className="flex items-center justify-between">
-                  <span className="text-xs font-bold text-slate-800">
-                    Solution Booklet
-                  </span>
-                  <span className="text-[10px] text-slate-400 font-mono font-medium">
-                    Optional
-                  </span>
-                </div>
-                <p className="text-[11px] text-slate-500">
-                  Optional detailed explanations or hints PDF document.
-                </p>
-
-                <label className="cursor-pointer flex flex-col items-center justify-center rounded-xl border border-dashed border-slate-300 bg-white p-4 text-center hover:border-slate-500 hover:bg-slate-50 transition-colors shadow-2xs">
-                  <FileUp className="h-6 w-6 text-slate-500 mb-1" />
-                  <span className="text-xs font-bold text-slate-700 truncate max-w-[220px]">
-                    {customExsFile ? customExsFile.name : "Choose Solution PDF"}
-                  </span>
-                  <span className="text-[10px] text-slate-400 mt-0.5">
-                    {customExsFile
-                      ? `${(customExsFile.size / 1024 / 1024).toFixed(2)} MB • Click to replace`
-                      : "Optional (.pdf)"}
-                  </span>
-                  <input
-                    type="file"
-                    accept=".pdf"
-                    onChange={(e) =>
-                      setCustomExsFile(e.target.files?.[0] || null)
-                    }
-                    className="hidden"
-                  />
-                </label>
-              </div>
-            </div>
-
-            {/* Answer Key (Paste text / upload) */}
-            <div className="rounded-xl border border-slate-200 bg-slate-50/80 p-4 space-y-3 pt-4">
-              <div className="flex items-center justify-between flex-wrap gap-2">
-                <div>
-                  <div className="flex items-center gap-1.5">
-                    <h3 className="text-xs font-bold text-slate-800">
-                      Answer Key
-                    </h3>
-                    <span className="text-[10px] font-semibold text-emerald-700 bg-emerald-50 px-2 py-0.2 rounded-full border border-emerald-200/60">
-                      Recommended for Practice
-                    </span>
-                  </div>
-                  <p className="text-[11px] text-slate-500 mt-0.5">
-                    Enables immediate correct/wrong answers feedback during
-                    Practice mode & auto-evaluation.
-                  </p>
-                </div>
-
-                {/* Tab Switcher */}
-                <div className="flex items-center bg-slate-100 p-0.5 rounded-lg border border-slate-200 text-[11px] font-semibold">
-                  <button
-                    type="button"
-                    onClick={() => setCustomAkMode("paste")}
-                    className={`cursor-pointer px-2.5 py-1 rounded-md transition-colors ${
-                      customAkMode === "paste"
-                        ? "bg-white text-indigo-700 font-bold shadow-2xs"
-                        : "text-slate-600 hover:text-slate-900"
-                    }`}
-                  >
-                    Paste Text
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setCustomAkMode("upload")}
-                    className={`cursor-pointer px-2.5 py-1 rounded-md transition-colors ${
-                      customAkMode === "upload"
-                        ? "bg-white text-indigo-700 font-bold shadow-2xs"
-                        : "text-slate-600 hover:text-slate-900"
-                    }`}
-                  >
-                    Upload .txt
-                  </button>
-                </div>
-              </div>
-
-              {customAkMode === "upload" ? (
-                <label className="cursor-pointer flex items-center justify-center gap-2 rounded-xl border border-dashed border-slate-300 bg-white p-4 text-xs font-semibold text-slate-700 hover:border-slate-500 shadow-2xs">
-                  <FileUp className="h-4 w-4 text-slate-500" />
-                  <span>
-                    {customAkFile
-                      ? customAkFile.name
-                      : "Select .txt answer key file"}
-                  </span>
-                  <input
-                    type="file"
-                    accept=".txt"
-                    onChange={(e) =>
-                      setCustomAkFile(e.target.files?.[0] || null)
-                    }
-                    className="hidden"
-                  />
-                </label>
-              ) : (
-                <div className="space-y-1.5">
-                  <textarea
-                    value={customAkText}
-                    onChange={(e) => setCustomAkText(e.target.value)}
-                    placeholder={`1. a,\n2. c """ Explanations can be enclosed in triple quotes """,\n3. d,\n4. b """ multiline\nexplanation also supported """`}
-                    rows={5}
-                    className="w-full rounded-xl border border-slate-200 bg-white p-3 font-mono text-xs text-slate-800 placeholder-slate-400 focus:outline-none focus:border-indigo-500 shadow-2xs leading-relaxed"
-                  />
-                  <p className="text-[11px] text-slate-500 leading-relaxed">
-                    Format:{" "}
-                    <code className="font-mono bg-slate-100 text-slate-700 px-1 py-0.5 rounded text-[10px]">
-                      1. a,
-                    </code>{" "}
-                    or with explanation:{" "}
-                    <code className="font-mono bg-slate-100 text-slate-700 px-1 py-0.5 rounded text-[10px]">
-                      1. a &quot;&quot;&quot; optional explanation
-                      &quot;&quot;&quot;,
-                    </code>
-                  </p>
-                </div>
-              )}
-            </div>
-          </div>
-
-          {/* Submit */}
-          <div className="flex justify-end pt-2">
-            <button
-              type="submit"
-              disabled={
-                isSubmitting ||
-                !customPaperName.trim() ||
-                !customTotalQuestions ||
-                !customPositiveMarks ||
-                !customNegativeMarks ||
-                !customQpFile
-              }
-              className="cursor-pointer flex items-center gap-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 px-6 py-2.5 text-xs font-bold text-white shadow-xs disabled:opacity-40 transition-all"
-            >
-              <UploadCloud className="h-4 w-4" />
-              {isSubmitting
-                ? "Saving Paper..."
-                : "Save Custom Paper & Start Practice"}
-            </button>
-          </div>
-        </form>
-      )}
-
-      {/* ============================================================== */}
-      {/* MODE 2: OFFICIAL UPSC PRESET (OPTIONAL ARCHIVAL) */}
-      {/* ============================================================== */}
+      {/* =================================================================== */}
+      {/* 3-SEGMENT WORKSPACE: OFFICIAL UPSC PRESET */}
+      {/* =================================================================== */}
       {viewMode === "preset" && (
-        <form onSubmit={handleUploadNewPaper} className="space-y-6">
-          {/* Step 1: Exam Type Selector */}
-          <div className="bi-card p-6 space-y-3">
-            <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider">
-              1. Select Exam Format
-            </label>
+        <form onSubmit={handleUploadNewPaper} className="space-y-5">
+          {/* SEGMENT 1: RULES & PRESET */}
+          <div className="rounded-2xl border border-slate-200/90 bg-white p-5 space-y-4 shadow-xs">
+            <span className="text-xs font-bold text-slate-800 uppercase tracking-wider flex items-center gap-2">
+              <span className="h-5 w-5 rounded-full bg-indigo-50 text-indigo-700 flex items-center justify-center text-[11px] font-bold border border-indigo-200">
+                1
+              </span>
+              Rules & Preset
+            </span>
+
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <button
                 type="button"
                 onClick={() => handleExamTypeChange("objective")}
-                className={`cursor-pointer p-4 rounded-xl border text-left transition-all ${
+                className={`cursor-pointer p-3.5 rounded-xl border text-left transition-all ${
                   examType === "objective"
-                    ? "border-indigo-500 bg-indigo-50/60 text-slate-900 shadow-xs ring-1 ring-indigo-500/20"
-                    : "border-slate-200 bg-slate-50/60 text-slate-600 hover:border-slate-300 hover:text-slate-900"
+                    ? "border-indigo-500 bg-indigo-50/60 text-slate-900 shadow-2xs ring-1 ring-indigo-500/20"
+                    : "border-slate-200 bg-slate-50 text-slate-600 hover:border-slate-300"
                 }`}
               >
                 <div className="flex items-center justify-between">
-                  <span className="font-bold text-sm text-slate-900">
-                    Objective (Prelims)
-                  </span>
-                  {examType === "objective" && (
-                    <Check className="h-4.5 w-4.5 text-indigo-600" />
-                  )}
+                  <span className="font-bold text-xs text-slate-900">Objective (Prelims)</span>
+                  {examType === "objective" && <Check className="h-4 w-4 text-indigo-600" />}
                 </div>
-                <p className="text-xs text-slate-500 mt-1">
-                  Multiple-choice questions with interactive OMR sheet,
-                  auto-evaluation, and negative marking.
+                <p className="text-[11px] text-slate-500 mt-0.5">
+                  Interactive OMR practice, auto-evaluation, and negative marking.
                 </p>
               </button>
 
               <button
                 type="button"
                 onClick={() => handleExamTypeChange("subjective")}
-                className={`cursor-pointer p-4 rounded-xl border text-left transition-all ${
+                className={`cursor-pointer p-3.5 rounded-xl border text-left transition-all ${
                   examType === "subjective"
-                    ? "border-indigo-500 bg-indigo-50/60 text-slate-900 shadow-xs ring-1 ring-indigo-500/20"
-                    : "border-slate-200 bg-slate-50/60 text-slate-600 hover:border-slate-300 hover:text-slate-900"
+                    ? "border-indigo-500 bg-indigo-50/60 text-slate-900 shadow-2xs ring-1 ring-indigo-500/20"
+                    : "border-slate-200 bg-slate-50 text-slate-600 hover:border-slate-300"
                 }`}
               >
                 <div className="flex items-center justify-between">
-                  <span className="font-bold text-sm text-slate-900">
-                    Subjective (Mains)
-                  </span>
-                  {examType === "subjective" && (
-                    <Check className="h-4.5 w-4.5 text-indigo-600" />
-                  )}
+                  <span className="font-bold text-xs text-slate-900">Subjective (Mains)</span>
+                  {examType === "subjective" && <Check className="h-4 w-4 text-indigo-600" />}
                 </div>
-                <p className="text-xs text-slate-500 mt-1">
-                  Descriptive answer writing questions with post-exam
-                  handwritten PDF submission.
+                <p className="text-[11px] text-slate-500 mt-0.5">
+                  Descriptive answer writing questions with handwritten PDF submission.
                 </p>
               </button>
             </div>
-          </div>
 
-          {/* Step 2: Paper Metadata & Scoring Rules */}
-          <div className="bi-card p-6 space-y-4">
-            <div className="flex items-center justify-between">
-              <h2 className="text-xs font-bold text-slate-700 uppercase tracking-wider flex items-center gap-2">
-                <Sliders className="h-4 w-4 text-indigo-600" />
-                2. Paper Metadata & Rules
-              </h2>
-            </div>
-
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-              {/* Year Selector */}
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-2">
               <div>
-                <label className="block text-xs font-bold text-slate-700 mb-1">
+                <label className="block text-[11px] font-semibold text-slate-600 mb-1">
                   Year
                 </label>
                 <select
                   value={year}
                   onChange={(e) => setYear(e.target.value)}
-                  className="cursor-pointer w-full rounded-xl border border-slate-200 bg-slate-50 px-3.5 py-2.5 text-xs font-semibold text-slate-800 focus:outline-none focus:border-indigo-500 focus:bg-white"
+                  className="cursor-pointer w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs font-semibold text-slate-800 focus:outline-none focus:border-indigo-500 focus:bg-white"
                 >
                   {SUPPORTED_YEARS.map((yr) => (
                     <option key={yr} value={yr}>
@@ -1546,308 +1921,253 @@ export function UploadView({
                 </select>
               </div>
 
-              {/* Subject Preset */}
               <div>
-                <label className="block text-xs font-bold text-slate-700 mb-1">
-                  Paper Preset
+                <label className="block text-[11px] font-semibold text-slate-600 mb-1">
+                  Preset
                 </label>
                 <select
                   value={subjectPreset}
                   onChange={(e) => handlePresetChange(e.target.value)}
-                  className="cursor-pointer w-full rounded-xl border border-slate-200 bg-slate-50 px-3.5 py-2.5 text-xs font-semibold text-slate-800 focus:outline-none focus:border-indigo-500 focus:bg-white"
+                  className="cursor-pointer w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs font-semibold text-slate-800 focus:outline-none focus:border-indigo-500 focus:bg-white"
                 >
                   {examType === "objective" ? (
                     <>
-                      <option value="GS I">
-                        Prelims GS I (100 Qs • 200 Marks)
-                      </option>
-                      <option value="GS II CSAT">
-                        Prelims GS II CSAT (80 Qs • 200 Marks)
-                      </option>
-                      <option value="Custom">Custom Objective Paper</option>
+                      <option value="GS I">Prelims GS I (100 Qs • 200 Marks)</option>
+                      <option value="GS II CSAT">Prelims GS II CSAT (80 Qs • 200 Marks)</option>
+                      <option value="Custom">Custom Paper</option>
                     </>
                   ) : (
                     <>
-                      <option value="Mains GS I">
-                        Mains GS I (20 Qs • 250 Marks)
-                      </option>
-                      <option value="Mains GS II">
-                        Mains GS II (20 Qs • 250 Marks)
-                      </option>
-                      <option value="Mains GS III">
-                        Mains GS III (20 Qs • 250 Marks)
-                      </option>
-                      <option value="Mains GS IV">
-                        Mains GS IV (Ethics • 250 Marks)
-                      </option>
-                      <option value="Mains Essay">
-                        Mains Essay (250 Marks)
-                      </option>
-                      <option value="Custom">Custom Subjective Paper</option>
+                      <option value="Mains GS I">Mains GS I (20 Qs • 250 Marks)</option>
+                      <option value="Mains GS II">Mains GS II (20 Qs • 250 Marks)</option>
+                      <option value="Mains GS III">Mains GS III (20 Qs • 250 Marks)</option>
+                      <option value="Mains GS IV">Mains GS IV (Ethics • 250 Marks)</option>
+                      <option value="Mains Essay">Mains Essay (250 Marks)</option>
+                      <option value="Custom">Custom Subjective</option>
                     </>
                   )}
                 </select>
               </div>
 
-              {/* Paper Identifier */}
               <div>
-                <label className="block text-xs font-bold text-slate-700 mb-1">
-                  Paper Title / Identifier
+                <label className="block text-[11px] font-semibold text-slate-600 mb-1">
+                  Identifier
                 </label>
                 <input
                   type="text"
                   value={paperIdentifier}
                   onChange={(e) => setPaperIdentifier(e.target.value)}
-                  placeholder="e.g. Vision IAS Mock 1, Polity Sectional, Test Series 4"
-                  className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3.5 py-2 text-xs text-slate-800 focus:outline-none focus:border-indigo-500 focus:bg-white font-medium"
+                  placeholder="e.g. UPSC Prelims GS I"
+                  className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs text-slate-800 focus:outline-none focus:border-indigo-500 focus:bg-white font-medium"
                   required
                 />
               </div>
             </div>
 
-            {/* Custom Subject Name if selected */}
-            {subjectPreset === "Custom" && (
-              <div>
-                <label className="block text-xs font-bold text-slate-700 mb-1">
-                  Custom Subject / Paper Title
-                </label>
-                <input
-                  type="text"
-                  value={customSubject}
-                  onChange={(e) => {
-                    setCustomSubject(e.target.value);
-                    const clean = e.target.value
-                      .toLowerCase()
-                      .replace(/[^a-z0-9_]/g, "_")
-                      .replace(/_+/g, "_");
-                    if (clean) setPaperIdentifier(clean);
-                  }}
-                  placeholder="e.g. Sociology Optional Paper 1"
-                  className="w-full rounded-xl border border-indigo-300 bg-slate-50 px-3.5 py-2 text-xs text-slate-800 focus:outline-none focus:border-indigo-500 focus:bg-white"
-                  required
-                />
-              </div>
-            )}
-
-            {/* Marking scheme and rules grid */}
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 pt-3 border-t border-slate-100">
-              <div>
-                <label className="block text-[11px] font-bold text-slate-600 mb-1">
-                  Total Questions
-                </label>
-                <input
-                  type="number"
-                  value={totalQuestions}
-                  onChange={(e) =>
-                    setTotalQuestions(parseInt(e.target.value) || 0)
-                  }
-                  className="w-full rounded-lg border border-slate-200 bg-slate-50 px-3 py-1.5 text-xs text-slate-800 font-mono focus:bg-white focus:border-indigo-500"
-                />
-              </div>
-
-              <div>
-                <label className="block text-[11px] font-bold text-slate-600 mb-1">
-                  Time (Minutes)
-                </label>
-                <input
-                  type="number"
-                  value={timeMinutes}
-                  onChange={(e) =>
-                    setTimeMinutes(parseInt(e.target.value) || 0)
-                  }
-                  className="w-full rounded-lg border border-slate-200 bg-slate-50 px-3 py-1.5 text-xs text-slate-800 font-mono focus:bg-white focus:border-indigo-500"
-                />
-              </div>
-
-              {examType === "objective" && (
-                <>
-                  <div>
-                    <label className="block text-[11px] font-bold text-slate-600 mb-1">
-                      Correct Marks (+)
-                    </label>
-                    <input
-                      type="number"
-                      step="0.01"
-                      value={correctMarks}
-                      onChange={(e) =>
-                        setCorrectMarks(parseFloat(e.target.value) || 0)
-                      }
-                      className="w-full rounded-lg border border-slate-200 bg-slate-50 px-3 py-1.5 text-xs text-slate-800 font-mono focus:bg-white focus:border-indigo-500"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-[11px] font-bold text-slate-600 mb-1">
-                      Penalty Marks (-)
-                    </label>
-                    <input
-                      type="number"
-                      step="0.001"
-                      value={incorrectMarks}
-                      onChange={(e) =>
-                        setIncorrectMarks(parseFloat(e.target.value) || 0)
-                      }
-                      className="w-full rounded-lg border border-slate-200 bg-slate-50 px-3 py-1.5 text-xs text-slate-800 font-mono focus:bg-white focus:border-indigo-500"
-                    />
-                  </div>
-                </>
-              )}
+            {/* Rules Strip */}
+            <div className="pt-3 border-t border-slate-100">
+              <RulesScoringGrid
+                totalQuestions={totalQuestions}
+                timeMinutes={timeMinutes}
+                correctMarks={correctMarks}
+                incorrectMarks={incorrectMarks}
+                totalMarks={totalMarks}
+                onTotalQuestionsChange={setTotalQuestions}
+                onTimeMinutesChange={setTimeMinutes}
+                onCorrectMarksChange={setCorrectMarks}
+                onIncorrectMarksChange={setIncorrectMarks}
+                onTotalMarksChange={setTotalMarks}
+              />
             </div>
           </div>
 
-          {/* Step 3: Files & Attachments */}
-          <div className="bi-card p-6 space-y-4">
-            <h2 className="text-xs font-bold text-slate-700 uppercase tracking-wider">
-              3. Documents & Answer Keys
-            </h2>
+          {/* SEGMENT 2: QUESTIONNAIRE */}
+          <div className="rounded-2xl border border-slate-200/90 bg-white p-5 space-y-4 shadow-xs">
+            <span className="text-xs font-bold text-slate-800 uppercase tracking-wider flex items-center gap-2">
+              <span className="h-5 w-5 rounded-full bg-purple-50 text-purple-700 flex items-center justify-center text-[11px] font-bold border border-purple-200">
+                2
+              </span>
+              Questionnaire
+            </span>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              {/* Question Paper PDF */}
-              <div className="rounded-xl border border-slate-200 bg-slate-50/80 p-4 space-y-2">
-                <div className="flex items-center justify-between">
-                  <span className="text-xs font-bold text-slate-800">
-                    Question Paper PDF
-                  </span>
-                  <span className="text-[10px] font-bold text-indigo-600 font-mono">
-                    Required
-                  </span>
-                </div>
-                <p className="text-[11px] text-slate-500">
-                  Official question paper in PDF format.
-                </p>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+              <PdfAttachmentCard
+                title="Question Paper PDF"
+                selectedFile={qpFile}
+                onFileSelected={setQpFile}
+                isRequired
+              />
 
-                <label className="cursor-pointer flex flex-col items-center justify-center rounded-xl border border-dashed border-slate-300 bg-white p-4 text-center hover:border-indigo-500 hover:bg-slate-50 transition-colors shadow-2xs">
-                  <FileUp className="h-6 w-6 text-indigo-600 mb-1" />
-                  <span className="text-xs font-bold text-slate-700 truncate max-w-[220px]">
-                    {qpFile ? qpFile.name : "Choose PDF File"}
-                  </span>
-                  <span className="text-[10px] text-slate-400 mt-0.5">
-                    {qpFile
-                      ? `${(qpFile.size / 1024 / 1024).toFixed(2)} MB`
-                      : "Click to browse"}
-                  </span>
-                  <input
-                    type="file"
-                    accept=".pdf"
-                    onChange={(e) => setQpFile(e.target.files?.[0] || null)}
-                    className="hidden"
-                  />
-                </label>
-              </div>
-
-              {/* Model Solution / Explanations PDF */}
-              <div className="rounded-xl border border-slate-200 bg-slate-50/80 p-4 space-y-2">
-                <div className="flex items-center justify-between">
-                  <span className="text-xs font-bold text-slate-800">
-                    Solution Booklet
-                  </span>
-                  <span className="text-[10px] text-slate-400 font-mono font-medium">
-                    Optional
-                  </span>
-                </div>
-                <p className="text-[11px] text-slate-500">
-                  Detailed explanation or answer hints PDF.
-                </p>
-
-                <label className="cursor-pointer flex flex-col items-center justify-center rounded-xl border border-dashed border-slate-300 bg-white p-4 text-center hover:border-slate-500 hover:bg-slate-50 transition-colors shadow-2xs">
-                  <FileUp className="h-6 w-6 text-slate-500 mb-1" />
-                  <span className="text-xs font-bold text-slate-700 truncate max-w-[220px]">
-                    {exsFile ? exsFile.name : "Choose Solution PDF"}
-                  </span>
-                  <span className="text-[10px] text-slate-400 mt-0.5">
-                    {exsFile
-                      ? `${(exsFile.size / 1024 / 1024).toFixed(2)} MB`
-                      : "Optional"}
-                  </span>
-                  <input
-                    type="file"
-                    accept=".pdf"
-                    onChange={(e) => setExsFile(e.target.files?.[0] || null)}
-                    className="hidden"
-                  />
-                </label>
-              </div>
+              <PdfAttachmentCard
+                title="Solution Booklet PDF (Optional)"
+                selectedFile={exsFile}
+                onFileSelected={setExsFile}
+              />
             </div>
-
-            {/* Answer Key (For Objective MCQs only) */}
-            {examType === "objective" && (
-              <div className="rounded-xl border border-slate-200 bg-slate-50/80 p-4 space-y-3 pt-4">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <h3 className="text-xs font-bold text-slate-800">
-                      Answer Key
-                    </h3>
-                    <p className="text-[11px] text-slate-500">
-                      Provide official answer choices for automatic evaluation.
-                    </p>
-                  </div>
-
-                  {/* Tab Switcher */}
-                  <div className="flex items-center bg-slate-100 p-0.5 rounded-lg border border-slate-200 text-[11px] font-semibold">
-                    <button
-                      type="button"
-                      onClick={() => setAkMode("paste")}
-                      className={`cursor-pointer px-2.5 py-1 rounded-md transition-colors ${
-                        akMode === "paste"
-                          ? "bg-white text-indigo-700 font-bold shadow-2xs"
-                          : "text-slate-600 hover:text-slate-900"
-                      }`}
-                    >
-                      Paste Text
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setAkMode("upload")}
-                      className={`cursor-pointer px-2.5 py-1 rounded-md transition-colors ${
-                        akMode === "upload"
-                          ? "bg-white text-indigo-700 font-bold shadow-2xs"
-                          : "text-slate-600 hover:text-slate-900"
-                      }`}
-                    >
-                      Upload .txt
-                    </button>
-                  </div>
-                </div>
-
-                {akMode === "upload" ? (
-                  <label className="cursor-pointer flex items-center justify-center gap-2 rounded-xl border border-dashed border-slate-300 bg-white p-4 text-xs font-semibold text-slate-700 hover:border-slate-500 shadow-2xs">
-                    <FileUp className="h-4 w-4 text-slate-500" />
-                    <span>
-                      {akFile ? akFile.name : "Select .txt answer key file"}
-                    </span>
-                    <input
-                      type="file"
-                      accept=".txt"
-                      onChange={(e) => setAkFile(e.target.files?.[0] || null)}
-                      className="hidden"
-                    />
-                  </label>
-                ) : (
-                  <textarea
-                    value={akText}
-                    onChange={(e) => setAkText(e.target.value)}
-                    placeholder={`1. a\n2. c\n3. d\n4. b\n...\n100. a`}
-                    rows={4}
-                    className="w-full rounded-xl border border-slate-200 bg-white p-3 font-mono text-xs text-slate-800 placeholder-slate-400 focus:outline-none focus:border-indigo-500 shadow-2xs"
-                  />
-                )}
-              </div>
-            )}
           </div>
 
-          {/* Submit */}
-          <div className="flex justify-end pt-2">
+          {/* SEGMENT 3: ANSWER KEY */}
+          {examType === "objective" && (
+            <div className="rounded-2xl border border-slate-200/90 bg-white p-5 space-y-3 shadow-xs">
+              <AnswerKeyWidget
+                mode={akMode}
+                onModeChange={setAkMode}
+                textValue={akText}
+                onTextChange={setAkText}
+                fileValue={akFile}
+                onFileChange={setAkFile}
+                mappedCount={0}
+              />
+            </div>
+          )}
+
+          <div className="flex justify-end pt-1">
             <button
               type="submit"
               disabled={isSubmitting || !qpFile || !cleanYear || !cleanName}
-              className="cursor-pointer flex items-center gap-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 px-6 py-2.5 text-xs font-bold text-white shadow-xs disabled:opacity-40 transition-all"
+              className="cursor-pointer flex items-center gap-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 px-5 py-2.5 text-xs font-bold text-white shadow-xs disabled:opacity-40 transition-all"
             >
               <UploadCloud className="h-4 w-4" />
-              {isSubmitting ? "Saving Paper..." : "Save Paper to Repository"}
+              <span>{isSubmitting ? "Saving Paper..." : "Save Paper"}</span>
             </button>
           </div>
         </form>
       )}
+
+      {/* ============================================================== */}
+      {/* SECTION: YOUR UPLOADED PAPERS REPOSITORY & INSTANT TEST */}
+      {/* ============================================================== */}
+      {papers.filter(isUserUploadedPaper).length > 0 && (
+        <div className="pt-6 border-t border-slate-200 space-y-3.5">
+          <div className="flex items-center justify-between flex-wrap gap-2">
+            <div>
+              <h2 className="text-sm font-bold text-slate-900">
+                Your Custom Papers ({papers.filter(isUserUploadedPaper).length})
+              </h2>
+              <p className="text-xs text-slate-500">
+                Practice interactively or take timed mocks.
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={onNavigatePapers}
+              className="cursor-pointer text-xs font-semibold text-indigo-600 hover:text-indigo-800 flex items-center gap-1 bg-white hover:bg-slate-50 border border-slate-200 px-3 py-1.5 rounded-xl shadow-2xs transition-colors"
+            >
+              <span>View in Archive</span>
+              <ArrowRight className="h-3 w-3" />
+            </button>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+            {papers.filter(isUserUploadedPaper).map((paper) => {
+              const isMarkdown =
+                Boolean(paper.parsedQuestions && paper.parsedQuestions.length > 0) ||
+                Boolean(paper.markdownContent) ||
+                paper.qpUrl?.startsWith("local://");
+
+              return (
+                <div
+                  key={paper.id}
+                  className="rounded-2xl border border-slate-200 bg-white p-3.5 space-y-2.5 shadow-2xs hover:border-purple-300 transition-all flex flex-col justify-between"
+                >
+                  <div className="space-y-1.5">
+                    <div className="flex items-center justify-between gap-1">
+                      <span className="font-mono text-[10px] font-bold text-purple-700 bg-purple-50 px-2 py-0.5 rounded border border-purple-200">
+                        {paper.year}
+                      </span>
+                      <span
+                        className={`text-[9px] font-bold uppercase px-2 py-0.5 rounded-full flex items-center gap-1 ${
+                          isMarkdown
+                            ? "bg-purple-100 text-purple-800 border border-purple-200"
+                            : "bg-indigo-50 text-indigo-700 border border-indigo-200"
+                        }`}
+                      >
+                        {isMarkdown ? (
+                          <>
+                            <Sparkles className="h-2.5 w-2.5" />
+                            <span>Interactive</span>
+                          </>
+                        ) : (
+                          <span>PDF</span>
+                        )}
+                      </span>
+                    </div>
+
+                    <h3 className="text-xs font-bold text-slate-900 line-clamp-2 leading-snug">
+                      {getPaperDisplayTitle(paper)}
+                    </h3>
+
+                    <div className="flex items-center gap-1.5 text-[11px] text-slate-500 font-medium flex-wrap">
+                      <span>{paper.totalQuestions} Qs</span>
+                      <span className="text-slate-300">•</span>
+                      <span>{paper.timeMinutes}m</span>
+                      <span className="text-slate-300">•</span>
+                      <span>{paper.totalMarks} Marks</span>
+                    </div>
+                  </div>
+
+                  <div className="pt-2 border-t border-slate-100 flex items-center gap-1.5">
+                    <button
+                      type="button"
+                      onClick={() => onStartExam?.(paper, "practice")}
+                      className="cursor-pointer flex-1 flex items-center justify-center gap-1 py-1.5 px-2 rounded-lg bg-purple-50 hover:bg-purple-100 text-purple-800 font-bold text-xs border border-purple-200/80 transition-colors shadow-2xs"
+                    >
+                      <Play className="h-3 w-3 text-purple-600" />
+                      <span>Practice</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => onStartExam?.(paper, "mock")}
+                      className="cursor-pointer flex-1 flex items-center justify-center gap-1 py-1.5 px-2 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs transition-colors shadow-2xs"
+                    >
+                      <Clock className="h-3 w-3" />
+                      <span>Mock</span>
+                    </button>
+                    {onDeletePaper && (
+                      <button
+                        type="button"
+                        onClick={() => onDeletePaper(paper.id)}
+                        className="cursor-pointer p-1.5 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition-colors"
+                        title="Delete Paper"
+                      >
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </button>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
+      {/* Markdown Format & AI Prompt Guide Modal */}
+      <MarkdownFormatGuideModal
+        isOpen={formatGuideModalOpen}
+        onClose={() => setFormatGuideModalOpen(false)}
+        defaultTab={formatGuideModalTab}
+        onApplyTemplate={(qpTemplate, akTemplate) => {
+          if (viewMode === "update") {
+            setUpdateMarkdown(qpTemplate);
+            setAkText(akTemplate);
+            setUpdateQpFormat("markdown");
+            setUpdateViewTab("editor");
+            handleApplyRules(parseMarkdownHeader(qpTemplate), "update");
+          } else {
+            setCustomPaperName("UPSC Prelims Mock Test (Interactive Markdown)");
+            setCustomTotalQuestions("5");
+            setCustomPositiveMarks("2");
+            setCustomNegativeMarks("0.667");
+            setCustomTotalMarks("10");
+            setCustomTimeMinutes("15");
+            setCustomQpMarkdown(qpTemplate);
+            setCustomAkText(akTemplate);
+            setCustomQpFormat("markdown");
+            setCustomViewTab("editor");
+            handleApplyRules(parseMarkdownHeader(qpTemplate), "custom");
+          }
+        }}
+      />
     </div>
   );
 }

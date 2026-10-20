@@ -175,10 +175,10 @@ export function DashboardView({
       {/* 1. Spacious Executive Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 pb-2 border-b border-slate-200/80">
         <div>
-          <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight text-slate-900">
+          <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-slate-900">
             Dashboard
           </h1>
-          <p className="text-xs text-slate-500 mt-1">
+          <p className="text-xs text-slate-500 mt-0.5">
             Preparation analytics, cutoff benchmarks, and test series tracking
           </p>
         </div>
@@ -186,20 +186,20 @@ export function DashboardView({
 
       {/* 2. Active Draft Alert (if exam was paused) */}
       {activeDraft && onResumeDraft && (
-        <div className="flex items-center justify-between rounded-2xl border border-amber-300 bg-amber-50/80 px-5 py-3.5 text-xs shadow-xs">
+        <div className="flex items-center justify-between rounded-2xl border border-amber-200 bg-amber-50/70 px-5 py-3 text-xs shadow-xs">
           <div className="flex items-center gap-3">
-            <div className="h-8 w-8 rounded-xl bg-amber-500/20 flex items-center justify-center text-amber-700 font-bold">
+            <div className="h-8 w-8 rounded-xl bg-amber-100 flex items-center justify-center text-amber-700">
               <Clock className="h-4 w-4" />
             </div>
             <div>
-              <span className="font-bold text-amber-900">
-                Paused Exam In Progress:{" "}
+              <span className="font-semibold text-amber-900">
+                Paused Exam:{" "}
               </span>
-              <span className="text-slate-800 font-medium">
+              <span className="text-slate-800">
                 {activeDraft.paperLabel}
               </span>
-              <span className="text-amber-700 font-mono text-[11px] ml-2 font-semibold">
-                (Paused at Question {activeDraft.currentQuestion || 1})
+              <span className="text-amber-700 font-mono text-[11px] ml-2">
+                (Question {activeDraft.currentQuestion || 1})
               </span>
             </div>
           </div>
@@ -207,42 +207,42 @@ export function DashboardView({
             {onDiscardDraft && (
               <button
                 onClick={onDiscardDraft}
-                className="px-3 py-1.5 text-slate-500 hover:text-rose-600 font-semibold rounded-lg hover:bg-white/80 transition-colors"
+                className="px-3 py-1.5 text-slate-500 hover:text-rose-600 font-medium rounded-lg hover:bg-white/80 transition-colors"
               >
                 Discard
               </button>
             )}
             <button
               onClick={() => onResumeDraft(activeDraft)}
-              className="flex items-center gap-1.5 px-4 py-1.5 rounded-xl bg-amber-500 text-slate-950 font-bold hover:bg-amber-400 shadow-xs transition-colors"
+              className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-amber-500 text-slate-950 font-semibold hover:bg-amber-400 shadow-xs transition-colors"
             >
-              <Play className="h-3 w-3 fill-current" /> Resume Now
+              <Play className="h-3 w-3 fill-current" /> Resume
             </button>
           </div>
         </div>
       )}
 
-      {/* 3. Executive BI KPI Metrics Bar (4 Spacious Cards) */}
+      {/* 3. Executive BI KPI Metrics Bar (4 Clean Cards) */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-5">
         {/* KPI 1: Evaluated Mocks */}
-        <div className="bi-card p-5 relative overflow-hidden group">
+        <div className="bg-white rounded-2xl border border-slate-200/80 p-5 relative overflow-hidden group hover:border-slate-300 shadow-xs transition-all">
           <div className="flex items-center justify-between">
-            <span className="text-xs font-bold uppercase tracking-wider text-slate-400">
+            <span className="text-xs font-medium uppercase tracking-wider text-slate-400">
               Evaluated Mocks
             </span>
-            <div className="h-9 w-9 rounded-xl bg-indigo-50 border border-indigo-100 flex items-center justify-center text-indigo-600 shadow-2xs group-hover:scale-105 transition-transform">
-              <Award className="h-5 w-5" />
+            <div className="h-8 w-8 rounded-lg bg-indigo-50 border border-indigo-100 flex items-center justify-center text-indigo-600">
+              <Award className="h-4 w-4" />
             </div>
           </div>
-          <div className="mt-3 flex items-baseline gap-2">
-            <span className="text-3xl font-extrabold text-slate-900 font-mono tracking-tight">
+          <div className="mt-2.5 flex items-baseline gap-2">
+            <span className="text-2xl font-bold text-slate-900 font-mono tracking-tight">
               {totalAttempts}
             </span>
-            <span className="text-xs text-slate-500 font-medium">
+            <span className="text-xs text-slate-400">
               completed
             </span>
           </div>
-          <div className="mt-3 flex items-center gap-1.5 text-[11px] font-semibold text-indigo-700">
+          <div className="mt-2.5 flex items-center gap-1.5 text-[11px] text-indigo-700">
             <span className="h-1.5 w-1.5 rounded-full bg-indigo-500"></span>
             <span>
               {totalAttempts > 0 ? "Full OMR Reconciled" : "Ready for 1st Mock"}
@@ -251,17 +251,17 @@ export function DashboardView({
         </div>
 
         {/* KPI 2: Average GS Score */}
-        <div className="bi-card p-5 relative overflow-hidden group">
+        <div className="bg-white rounded-2xl border border-slate-200/80 p-5 relative overflow-hidden group hover:border-slate-300 shadow-xs transition-all">
           <div className="flex items-center justify-between">
-            <span className="text-xs font-bold uppercase tracking-wider text-slate-400">
+            <span className="text-xs font-medium uppercase tracking-wider text-slate-400">
               Average Score
             </span>
-            <div className="h-9 w-9 rounded-xl bg-emerald-50 border border-emerald-100 flex items-center justify-center text-emerald-600 shadow-2xs group-hover:scale-105 transition-transform">
-              <Target className="h-5 w-5" />
+            <div className="h-8 w-8 rounded-lg bg-emerald-50 border border-emerald-100 flex items-center justify-center text-emerald-600">
+              <Target className="h-4 w-4" />
             </div>
           </div>
-          <div className="mt-3 flex items-baseline gap-2">
-            <span className="text-3xl font-extrabold text-slate-900 font-mono tracking-tight">
+          <div className="mt-2.5 flex items-baseline gap-2">
+            <span className="text-2xl font-bold text-slate-900 font-mono tracking-tight">
               {avgScore > 0 ? avgScore : "—"}
             </span>
             <span className="text-xs text-slate-400 font-mono font-medium">
@@ -285,52 +285,52 @@ export function DashboardView({
         </div>
 
         {/* KPI 3: Net Accuracy */}
-        <div className="bi-card p-5 relative overflow-hidden group">
+        <div className="bg-white rounded-2xl border border-slate-200/80 p-5 relative overflow-hidden group hover:border-slate-300 shadow-xs transition-all">
           <div className="flex items-center justify-between">
-            <span className="text-xs font-bold uppercase tracking-wider text-slate-400">
+            <span className="text-xs font-medium uppercase tracking-wider text-slate-400">
               Net Accuracy
             </span>
-            <div className="h-9 w-9 rounded-xl bg-teal-50 border border-teal-100 flex items-center justify-center text-teal-600 shadow-2xs group-hover:scale-105 transition-transform">
-              <CheckCircle2 className="h-5 w-5" />
+            <div className="h-8 w-8 rounded-lg bg-teal-50 border border-teal-100 flex items-center justify-center text-teal-600">
+              <CheckCircle2 className="h-4 w-4" />
             </div>
           </div>
-          <div className="mt-3 flex items-baseline gap-2">
-            <span className="text-3xl font-extrabold text-teal-700 font-mono tracking-tight">
+          <div className="mt-2.5 flex items-baseline gap-2">
+            <span className="text-2xl font-bold text-teal-700 font-mono tracking-tight">
               {avgAccuracy > 0 ? `${avgAccuracy}%` : "—"}
             </span>
-            <span className="text-xs text-slate-500 font-medium">
+            <span className="text-xs text-slate-400">
               precision
             </span>
           </div>
-          <div className="mt-3 flex items-center gap-1.5 text-[11px] font-semibold text-slate-500">
+          <div className="mt-2.5 flex items-center gap-1.5 text-[11px] text-slate-400">
             <span>{totalCorrect} correct</span>
-            <span className="text-slate-300">•</span>
+            <span>•</span>
             <span className="text-rose-600">{totalIncorrect} incorrect</span>
           </div>
         </div>
 
         {/* KPI 4: Pace & Time per Question */}
-        <div className="bi-card p-5 relative overflow-hidden group">
+        <div className="bg-white rounded-2xl border border-slate-200/80 p-5 relative overflow-hidden group hover:border-slate-300 shadow-xs transition-all">
           <div className="flex items-center justify-between">
-            <span className="text-xs font-bold uppercase tracking-wider text-slate-400">
+            <span className="text-xs font-medium uppercase tracking-wider text-slate-400">
               Time & Pace
             </span>
-            <div className="h-9 w-9 rounded-xl bg-amber-50 border border-amber-100 flex items-center justify-center text-amber-600 shadow-2xs group-hover:scale-105 transition-transform">
-              <Zap className="h-5 w-5" />
+            <div className="h-8 w-8 rounded-lg bg-amber-50 border border-amber-100 flex items-center justify-center text-amber-600">
+              <Zap className="h-4 w-4" />
             </div>
           </div>
-          <div className="mt-3 flex items-baseline gap-2">
-            <span className="text-3xl font-extrabold text-slate-900 font-mono tracking-tight">
+          <div className="mt-2.5 flex items-baseline gap-2">
+            <span className="text-2xl font-bold text-slate-900 font-mono tracking-tight">
               {avgSecondsPerQ}s
             </span>
-            <span className="text-xs text-slate-500 font-medium">
+            <span className="text-xs text-slate-400">
               / question
             </span>
           </div>
-          <div className="mt-3 flex items-center gap-1.5 text-[11px] font-semibold text-slate-500">
+          <div className="mt-2.5 flex items-center gap-1.5 text-[11px] text-slate-400">
             <span>
-              Logged:{" "}
-              <strong className="text-slate-800 font-mono">
+              Total:{" "}
+              <strong className="text-slate-600 font-mono font-medium">
                 {formatTimeSeconds(totalDurationSeconds)}
               </strong>
             </span>
@@ -843,36 +843,34 @@ export function DashboardView({
               return (
                 <div
                   key={paper.id}
-                  className="bi-card p-5 flex flex-col justify-between group hover:border-indigo-300"
+                  className="bg-white rounded-2xl border border-slate-200/80 p-5 flex flex-col justify-between group hover:border-slate-300 hover:shadow-sm transition-all"
                 >
                   <div>
                     <div className="flex items-center justify-between text-xs">
                       <div className="flex items-center gap-1.5">
-                        <span className="font-mono font-bold text-slate-600 bg-slate-100 px-2.5 py-0.5 rounded-md">
+                        <span className="font-mono text-xs font-medium text-slate-600 bg-slate-100 px-2 py-0.5 rounded-md">
                           {paper.year}
                         </span>
                         {isCustom && (
-                          <span className="text-[10px] uppercase font-bold text-purple-700 bg-purple-50 px-2 py-0.5 rounded-md border border-purple-200/60 font-mono">
-                            User Uploaded
+                          <span className="text-[11px] font-medium text-purple-700 bg-purple-50 px-2 py-0.5 rounded-md border border-purple-100">
+                            Uploaded
                           </span>
                         )}
                       </div>
-                      <span className="text-[10px] uppercase font-extrabold text-indigo-700 bg-indigo-50 px-2.5 py-0.5 rounded-full border border-indigo-200/60">
-                        {isCustom ? "Practice Test" : paper.category}
+                      <span className="text-[11px] font-medium text-slate-500 bg-slate-50 px-2 py-0.5 rounded-full border border-slate-200">
+                        {isCustom ? "Practice" : paper.category}
                       </span>
                     </div>
 
-                    <h3 className="text-sm font-bold text-slate-900 mt-2.5 group-hover:text-indigo-600 transition-colors line-clamp-1">
+                    <h3 className="text-sm font-semibold text-slate-900 mt-2.5 group-hover:text-indigo-600 transition-colors line-clamp-1">
                       {getPaperDisplayTitle(paper)}
                     </h3>
 
-                    <div className="mt-1 flex items-center gap-2 text-xs text-slate-500">
-                      <span className="font-medium">
-                        {paper.totalQuestions} Questions
-                      </span>
-                      <span className="text-slate-300">•</span>
+                    <div className="mt-1 flex items-center gap-2 text-xs text-slate-400 font-normal">
+                      <span>{paper.totalQuestions} Questions</span>
+                      <span>•</span>
                       <span>{paper.timeMinutes} Mins</span>
-                      <span className="text-slate-300">•</span>
+                      <span>•</span>
                       <span>{paper.totalMarks} Marks</span>
                     </div>
 
@@ -880,51 +878,49 @@ export function DashboardView({
                     <div className="mt-3 flex items-center gap-2 flex-wrap">
                       {paper.examType === "objective" &&
                         (keyPresent ? (
-                          <span className="inline-flex items-center gap-1.5 text-[11px] font-semibold text-emerald-700 bg-emerald-50 border border-emerald-200/60 px-2.5 py-0.5 rounded-full">
-                            <CheckCircle2 className="h-3 w-3 text-emerald-600" />{" "}
-                            Key Available
+                          <span className="inline-flex items-center gap-1 text-[11px] font-medium text-emerald-700 bg-emerald-50/70 border border-emerald-200/60 px-2 py-0.5 rounded-md">
+                            <CheckCircle2 className="h-3 w-3 text-emerald-600" /> Key Available
                           </span>
                         ) : (
-                          <span className="inline-flex items-center gap-1.5 text-[11px] font-semibold text-amber-700 bg-amber-50 border border-amber-200/60 px-2.5 py-0.5 rounded-full">
-                            <AlertCircle className="h-3 w-3 text-amber-600" />{" "}
-                            Key Needed
+                          <span className="inline-flex items-center gap-1 text-[11px] font-medium text-amber-700 bg-amber-50/70 border border-amber-200/60 px-2 py-0.5 rounded-md">
+                            <AlertCircle className="h-3 w-3 text-amber-600" /> Key Needed
                           </span>
                         ))}
 
                       {solutionPresent && (
                         <button
                           onClick={() => setViewingSolutionPaper(paper)}
-                          className="cursor-pointer inline-flex items-center gap-1 text-[11px] font-semibold text-indigo-700 bg-indigo-50 border border-indigo-200/60 px-2.5 py-0.5 rounded-full hover:bg-indigo-100 hover:border-indigo-300 transition-colors shadow-2xs"
+                          className="cursor-pointer inline-flex items-center gap-1 text-[11px] font-medium text-slate-600 bg-slate-50 border border-slate-200 px-2 py-0.5 rounded-md hover:bg-slate-100 hover:text-slate-900 transition-colors"
                           title="Click to view solution booklet"
                         >
-                          <FileText className="h-3 w-3 text-indigo-600" />
-                          <span>Solution Key</span>
+                          <FileText className="h-3 w-3 text-slate-500" />
+                          <span>Solution</span>
                         </button>
                       )}
                     </div>
                   </div>
 
-                  <div className="mt-5 pt-4 border-t border-slate-100 space-y-2.5">
+                  <div className="mt-4 pt-3 border-t border-slate-100 space-y-2">
                     <div className="flex items-center gap-2">
                       {keyPresent || paper.examType === "subjective" ? (
                         <button
                           onClick={() => onStartExam(paper, "practice")}
-                          className="cursor-pointer flex-1 rounded-xl border border-slate-200 bg-slate-50/80 py-2 text-xs font-bold text-slate-700 hover:bg-slate-100 hover:text-slate-900 transition-all text-center"
+                          className="cursor-pointer flex-1 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 py-2 text-xs font-semibold text-slate-700 transition-colors shadow-2xs text-center"
                         >
                           Practice
                         </button>
                       ) : (
                         <button
                           onClick={onNavigatePapers}
-                          title="Practice mode requires an answer key. Click to open Question Papers and attach."
-                          className="cursor-pointer flex-1 rounded-xl border border-amber-200 bg-amber-50 py-2 text-xs font-bold text-amber-800 hover:bg-amber-100 transition-all text-center"
+                          title="Practice mode requires an answer key"
+                          className="cursor-pointer flex-1 rounded-xl border border-amber-200 bg-amber-50 py-2 text-xs font-semibold text-amber-800 hover:bg-amber-100 transition-colors text-center"
                         >
-                          Practice (Add Key)
+                          Add Key
                         </button>
                       )}
                       <button
                         onClick={() => onStartExam(paper, "mock")}
-                        className="cursor-pointer flex-1 rounded-xl bg-indigo-600 py-2 text-xs font-bold text-white hover:bg-indigo-700 transition-all text-center shadow-xs hover:shadow-sm"
+                        className="cursor-pointer flex-1 rounded-xl bg-indigo-600 py-2 text-xs font-semibold text-white hover:bg-indigo-700 transition-all text-center shadow-xs"
                       >
                         Mock Test
                       </button>
@@ -936,28 +932,18 @@ export function DashboardView({
                           href={paper.qpUrl}
                           target="_blank"
                           rel="noopener noreferrer"
-                          className="cursor-pointer inline-flex items-center gap-1 text-[11px] text-slate-400 hover:text-indigo-600 transition-colors"
+                          className="cursor-pointer inline-flex items-center gap-1 text-[11px] text-slate-400 hover:text-slate-800 transition-colors"
                         >
                           <ExternalLink className="h-3 w-3" />
                           <span>PDF</span>
                         </a>
-                        {solutionPresent && (
-                          <button
-                            onClick={() => setViewingSolutionPaper(paper)}
-                            className="cursor-pointer inline-flex items-center gap-1 text-[11px] text-indigo-600 hover:text-indigo-800 font-semibold transition-colors"
-                            title="Open solution key PDF booklet"
-                          >
-                            <FileText className="h-3 w-3" />
-                            <span>Solution</span>
-                          </button>
-                        )}
                       </div>
                       <div className="flex items-center gap-2">
                         {isCustom && onDeletePaper && (
                           <button
                             onClick={() => onDeletePaper(paper.id)}
-                            className="cursor-pointer inline-flex items-center gap-1 text-[11px] text-rose-500 hover:text-rose-700 font-semibold transition-colors"
-                            title="Permanently delete this paper and free storage"
+                            className="cursor-pointer inline-flex items-center gap-1 text-[11px] text-slate-400 hover:text-rose-600 transition-colors"
+                            title="Delete this paper"
                           >
                             <Trash2 className="h-3 w-3" />
                             <span>Delete</span>
@@ -965,9 +951,9 @@ export function DashboardView({
                         )}
                         <button
                           onClick={onNavigatePapers}
-                          className="cursor-pointer text-[11px] text-slate-500 hover:text-indigo-600 font-semibold transition-colors"
+                          className="cursor-pointer text-[11px] text-slate-500 hover:text-indigo-600 transition-colors"
                         >
-                          Manage Paper →
+                          Manage →
                         </button>
                       </div>
                     </div>
