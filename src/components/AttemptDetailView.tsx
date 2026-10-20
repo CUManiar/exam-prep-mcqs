@@ -10,6 +10,12 @@ import {
 } from "../lib/defaults";
 import { DetailedSolutionModal } from "./DetailedSolutionModal";
 import { PdfViewer } from "./PdfViewer";
+import { MarkdownPaperReviewViewer } from "./MarkdownPaperReviewViewer";
+import { getCustomPapers } from "../lib/storage";
+import {
+  parseQuestionnaireMarkdown,
+  parseMarkdownHeader,
+} from "../lib/markdownPaperParser";
 import { useApp } from "../context/AppContext";
 import {
   ArrowLeft,
@@ -42,6 +48,7 @@ import {
   Maximize2,
   Minimize2,
   Monitor,
+  Sparkles,
 } from "lucide-react";
 import {
   exportAttemptAsJSON,
@@ -130,9 +137,11 @@ export function AttemptDetailView({
     }
   }, []);
 
-  // Match corresponding paper for solution PDF with backwards compatibility
+  const [activeQuestionNo, setActiveQuestionNo] = useState<number>(1);
+
+  // Match corresponding paper for solution PDF / markdown paper with backwards compatibility
   const matchedPaper = useMemo(() => {
-    // 1. Direct ID match first
+    // 1. Direct ID match first against passed papers
     const byId = papers.find(
       (p) =>
         p.id === attempt.paperId ||
@@ -140,7 +149,18 @@ export function AttemptDetailView({
     );
     if (byId) return byId;
 
-    // 2. Only match canonical papers if NOT a user custom paper
+    // 2. Direct ID match against stored custom papers (in case not in papers prop)
+    if (attempt.paperId?.startsWith("custom_")) {
+      const customPapers = getCustomPapers();
+      const customMatch = customPapers.find(
+        (p) =>
+          p.id === attempt.paperId ||
+          p.id.toLowerCase() === (attempt.paperId || "").toLowerCase(),
+      );
+      if (customMatch) return customMatch;
+    }
+
+    // 3. Only match canonical papers if NOT a user custom paper
     if (!attempt.paperId?.startsWith("custom_")) {
       const canonicalMatch = papers.find(
         (p) =>
@@ -161,6 +181,53 @@ export function AttemptDetailView({
     }
     return undefined;
   }, [papers, attempt.paperId, attempt.paperLabel]);
+
+  // Determine if this attempt is based on a markdown question paper
+  const isMarkdownPaper = useMemo(() => {
+    return (
+      (matchedPaper?.parsedQuestions && matchedPaper.parsedQuestions.length > 0) ||
+      Boolean(matchedPaper?.markdownContent) ||
+      matchedPaper?.qpUrl?.startsWith("local://") ||
+      attempt.paperId?.startsWith("custom_md_") ||
+      false
+    );
+  }, [matchedPaper, attempt.paperId]);
+
+  // Parse markdown questions if not already parsed
+  const markdownQuestions = useMemo(() => {
+    if (!isMarkdownPaper) return [];
+    if (matchedPaper?.parsedQuestions && matchedPaper.parsedQuestions.length > 0) {
+      return matchedPaper.parsedQuestions;
+    }
+    if (matchedPaper?.markdownContent) {
+      return parseQuestionnaireMarkdown(matchedPaper.markdownContent);
+    }
+    // Try looking in getCustomPapers() if matchedPaper didn't have markdownContent attached
+    const customPapers = getCustomPapers();
+    const found = customPapers.find((p) => p.id === attempt.paperId);
+    if (found?.parsedQuestions && found.parsedQuestions.length > 0) {
+      return found.parsedQuestions;
+    }
+    if (found?.markdownContent) {
+      return parseQuestionnaireMarkdown(found.markdownContent);
+    }
+    return [];
+  }, [isMarkdownPaper, matchedPaper, attempt.paperId]);
+
+  // Parse markdown header (instructions/specs) if available
+  const markdownHeader = useMemo(() => {
+    if (!isMarkdownPaper) return undefined;
+    if (matchedPaper?.instructions) {
+      return matchedPaper.instructions;
+    }
+    const rawContent =
+      matchedPaper?.markdownContent ||
+      getCustomPapers().find((p) => p.id === attempt.paperId)?.markdownContent;
+    if (rawContent) {
+      return parseMarkdownHeader(rawContent);
+    }
+    return undefined;
+  }, [isMarkdownPaper, matchedPaper, attempt.paperId]);
 
   const displayPaperTitle = useMemo(() => {
     if (matchedPaper) {
@@ -850,7 +917,7 @@ export function AttemptDetailView({
 
         <div className="flex items-center gap-2 flex-wrap">
           {/* Question Paper Preview Toggle (Desktop Side-by-Side & Tablet/Mobile Vertical) */}
-          {matchedPaper?.qpUrl && (
+          {(matchedPaper?.qpUrl || isMarkdownPaper) && (
             <button
               onClick={() => setShowPaperSplit(!showPaperSplit)}
               className={`flex items-center gap-1.5 rounded-xl px-3 py-1.5 text-xs font-bold transition-all shadow-2xs cursor-pointer ${
@@ -858,15 +925,27 @@ export function AttemptDetailView({
                   ? "bg-indigo-600 text-white shadow-xs"
                   : "border border-slate-200 bg-white text-slate-700 hover:bg-slate-50 hover:text-slate-900"
               }`}
-              title="Toggle Question Paper PDF preview"
+              title={
+                isMarkdownPaper
+                  ? "Toggle Interactive Markdown Question Paper review"
+                  : "Toggle Question Paper PDF preview"
+              }
             >
               <Columns className="h-3.5 w-3.5 hidden xl:inline" />
               <BookOpen className="h-3.5 w-3.5 xl:hidden" />
               <span className="hidden xl:inline">
-                {showPaperSplit ? "Side-by-Side: ON" : "Preview Paper PDF"}
+                {showPaperSplit
+                  ? "Side-by-Side: ON"
+                  : isMarkdownPaper
+                    ? "View Question Paper"
+                    : "Preview Paper PDF"}
               </span>
               <span className="xl:hidden">
-                {showPaperSplit ? "Hide Paper PDF" : "View Paper PDF"}
+                {showPaperSplit
+                  ? "Hide Question Paper"
+                  : isMarkdownPaper
+                    ? "View Question Paper"
+                    : "View Paper PDF"}
               </span>
             </button>
           )}
@@ -1040,75 +1119,113 @@ export function AttemptDetailView({
 
       {/* Main Content Area: Split View Container (Desktop Side-by-Side, Tablet/Mobile Vertical) */}
       <div
-        className={`screen-only flex flex-col ${showPaperSplit && matchedPaper?.qpUrl ? "xl:flex-row" : ""} gap-6 items-start`}
+        className={`screen-only flex flex-col ${showPaperSplit && (matchedPaper?.qpUrl || isMarkdownPaper) ? "xl:flex-row" : ""} gap-6 items-start`}
       >
-        {/* Question Paper PDF Viewer (Desktop Side-by-Side, Tablet/Mobile Vertical on Top) */}
-        {showPaperSplit && matchedPaper?.qpUrl && (
-          <div className="flex flex-col w-full xl:w-1/2 xl:sticky xl:top-20 h-[50vh] sm:h-[60vh] xl:h-[calc(100vh-6.5rem)] rounded-2xl overflow-hidden border border-slate-200 bg-white shadow-md shrink-0 z-10">
-            {/* Unified Light Toolbar */}
-            <div className="flex items-center justify-between px-3.5 py-2.5 bg-white border-b border-slate-200 shrink-0 gap-2">
-              <div className="flex items-center gap-2 text-xs font-bold text-slate-800 min-w-0">
-                <BookOpen className="h-4 w-4 text-indigo-600 shrink-0" />
-                <span className="truncate max-w-[160px] sm:max-w-[240px]">
-                  {getPaperDisplayTitle(matchedPaper)}
-                </span>
-                <span className="text-[10px] px-2 py-0.5 rounded-full bg-indigo-50 text-indigo-700 border border-indigo-200 uppercase font-mono font-bold shrink-0">
-                  Question Paper
-                </span>
-              </div>
-              <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
-                {/* Toggle Canvas / Native inside the single header */}
-                <button
-                  type="button"
-                  onClick={() =>
-                    setPdfMode((prev) =>
-                      prev === "canvas" ? "native" : "canvas",
-                    )
+        {/* Question Paper Viewer (Markdown Interactive Reader OR PDF Viewer) */}
+        {showPaperSplit && (matchedPaper?.qpUrl || isMarkdownPaper) && (
+          <div className="flex flex-col w-full xl:w-1/2 xl:sticky xl:top-20 h-[55vh] sm:h-[65vh] xl:h-[calc(100vh-6.5rem)] rounded-2xl overflow-hidden border border-slate-200 bg-white shadow-md shrink-0 z-10">
+            {isMarkdownPaper ? (
+              <MarkdownPaperReviewViewer
+                paper={
+                  matchedPaper || {
+                    id: attempt.paperId,
+                    label: attempt.paperLabel,
+                    category: attempt.category,
+                    examType: "objective",
+                    year: "Custom",
+                    subject: attempt.paperLabel,
+                    totalQuestions: attempt.totalQuestions,
+                    totalMarks: attempt.maxScore,
+                    correctMarks: attempt.correctMarks || 2.0,
+                    incorrectMarks: attempt.incorrectMarks || 0.667,
+                    timeMinutes: 120,
+                    qpUrl: "local://interactive_markdown",
+                    answerKey: {},
                   }
-                  className="flex items-center gap-1 rounded-lg border border-slate-200 bg-slate-50 hover:bg-slate-100 px-2.5 py-1 text-[11px] font-semibold text-slate-700 transition-colors shadow-2xs"
-                  title={
-                    pdfMode === "canvas"
-                      ? "Switch to Continuous Native Document Viewer"
-                      : "Switch to In-App Canvas Reader"
-                  }
-                >
-                  <Monitor className="h-3 w-3 text-indigo-600" />
-                  <span>{pdfMode === "canvas" ? "Native" : "Canvas"}</span>
-                </button>
-                <a
-                  href={matchedPaper.qpUrl}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="flex items-center gap-1 text-[11px] font-semibold text-slate-600 hover:text-slate-900 px-2.5 py-1 rounded-lg border border-slate-200 bg-slate-50 hover:bg-slate-100 transition-colors shadow-2xs"
-                  title="Open PDF in external browser tab"
-                >
-                  <ExternalLink className="h-3 w-3 text-indigo-600" />
-                  <span>Popout</span>
-                </a>
-                <button
-                  onClick={() => setShowPaperSplit(false)}
-                  className="text-xs font-bold text-slate-500 hover:text-rose-600 px-2 py-1 rounded-lg hover:bg-rose-50 transition-colors cursor-pointer"
-                  title="Hide question paper preview"
-                >
-                  ✕ Hide
-                </button>
-              </div>
-            </div>
-            <div className="flex-1 min-h-0 bg-slate-100 w-full h-full relative">
-              <PdfViewer
-                url={matchedPaper.qpUrl}
-                title={getPaperDisplayTitle(matchedPaper)}
-                showToolbar={false}
-                currentMode={pdfMode}
-                onModeChange={setPdfMode}
+                }
+                questions={markdownQuestions}
+                answers={attempt.answers || {}}
+                explanations={matchedPaper?.explanations}
+                instructions={
+                  Array.isArray(markdownHeader)
+                    ? markdownHeader
+                    : matchedPaper?.instructions
+                }
+                header={markdownHeader}
+                activeQuestionNo={activeQuestionNo}
+                onSelectQuestion={setActiveQuestionNo}
+                onClose={() => setShowPaperSplit(false)}
               />
-            </div>
+            ) : (
+              <>
+                {/* Unified Light Toolbar for PDF */}
+                <div className="flex items-center justify-between px-3.5 py-2.5 bg-white border-b border-slate-200 shrink-0 gap-2">
+                  <div className="flex items-center gap-2 text-xs font-bold text-slate-800 min-w-0">
+                    <BookOpen className="h-4 w-4 text-indigo-600 shrink-0" />
+                    <span className="truncate max-w-[160px] sm:max-w-[240px]">
+                      {getPaperDisplayTitle(matchedPaper)}
+                    </span>
+                    <span className="text-[10px] px-2 py-0.5 rounded-full bg-indigo-50 text-indigo-700 border border-indigo-200 uppercase font-mono font-bold shrink-0">
+                      Question Paper
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
+                    {/* Toggle Canvas / Native inside the single header */}
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setPdfMode((prev) =>
+                          prev === "canvas" ? "native" : "canvas",
+                        )
+                      }
+                      className="flex items-center gap-1 rounded-lg border border-slate-200 bg-slate-50 hover:bg-slate-100 px-2.5 py-1 text-[11px] font-semibold text-slate-700 transition-colors shadow-2xs"
+                      title={
+                        pdfMode === "canvas"
+                          ? "Switch to Continuous Native Document Viewer"
+                          : "Switch to In-App Canvas Reader"
+                      }
+                    >
+                      <Monitor className="h-3 w-3 text-indigo-600" />
+                      <span>{pdfMode === "canvas" ? "Native" : "Canvas"}</span>
+                    </button>
+                    {matchedPaper?.qpUrl && !matchedPaper.qpUrl.startsWith("local://") && (
+                      <a
+                        href={matchedPaper.qpUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="flex items-center gap-1 text-[11px] font-semibold text-slate-600 hover:text-slate-900 px-2.5 py-1 rounded-lg border border-slate-200 bg-slate-50 hover:bg-slate-100 transition-colors shadow-2xs"
+                        title="Open PDF in external browser tab"
+                      >
+                        <ExternalLink className="h-3 w-3 text-indigo-600" />
+                        <span>Popout</span>
+                      </a>
+                    )}
+                    <button
+                      onClick={() => setShowPaperSplit(false)}
+                      className="text-xs font-bold text-slate-500 hover:text-rose-600 px-2 py-1 rounded-lg hover:bg-rose-50 transition-colors cursor-pointer"
+                      title="Hide question paper preview"
+                    >
+                      ✕ Hide
+                    </button>
+                  </div>
+                </div>
+                <div className="flex-1 min-h-0 bg-slate-100 w-full h-full relative">
+                  <PdfViewer
+                    url={matchedPaper?.qpUrl || ""}
+                    title={getPaperDisplayTitle(matchedPaper)}
+                    showToolbar={false}
+                    currentMode={pdfMode}
+                    onModeChange={setPdfMode}
+                  />
+                </div>
+              </>
+            )}
           </div>
         )}
 
         {/* Right Side / Bottom: Assessment Report & Responses */}
         <div
-          className={`w-full ${showPaperSplit && matchedPaper?.qpUrl ? "xl:w-1/2" : "max-w-5xl mx-auto"} space-y-6 min-w-0`}
+          className={`w-full ${showPaperSplit && (matchedPaper?.qpUrl || isMarkdownPaper) ? "xl:w-1/2" : "max-w-5xl mx-auto"} space-y-6 min-w-0`}
         >
           {/* PART 1: ASSESSMENT SUMMARY (COLLAPSIBLE, COLLAPSED BY DEFAULT) */}
           <div className="bi-card overflow-hidden">
@@ -1904,7 +2021,13 @@ export function AttemptDetailView({
                       return (
                         <React.Fragment key={q.questionNo}>
                           <tr
-                            onClick={() => toggleQuestionExpand(q.questionNo)}
+                            onClick={() => {
+                              setActiveQuestionNo(q.questionNo);
+                              toggleQuestionExpand(q.questionNo);
+                              if (isMarkdownPaper && !showPaperSplit) {
+                                setShowPaperSplit(true);
+                              }
+                            }}
                             className={`cursor-pointer transition-colors ${
                               isExpanded
                                 ? "bg-indigo-50/40"
