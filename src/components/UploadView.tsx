@@ -47,6 +47,11 @@ import {
   SAMPLE_ANSWER_KEY_TEXT,
 } from "../data/sampleMarkdownPaper";
 import { MarkdownFormatGuideModal } from "./MarkdownFormatGuideModal";
+import { RulesScoringGrid } from "./studio/RulesScoringGrid";
+import { ExamCoverCard } from "./studio/ExamCoverCard";
+import { QuestionStreamPreview } from "./studio/QuestionStreamPreview";
+import { AnswerKeyWidget } from "./studio/AnswerKeyWidget";
+import { PdfAttachmentCard } from "./studio/PdfAttachmentCard";
 
 interface UploadViewProps {
   papers?: QuestionPaper[];
@@ -1014,97 +1019,25 @@ export function UploadView({
               />
             </div>
 
-            {/* 5-Column Compact Rules Grid */}
-            <div className="grid grid-cols-2 sm:grid-cols-5 gap-3 pt-1 border-t border-slate-100">
-              <div>
-                <label className="block text-[11px] font-semibold text-slate-600 mb-1">
-                  Questions <span className="text-rose-500">*</span>
-                </label>
-                <input
-                  type="number"
-                  min="1"
-                  max="500"
-                  value={customTotalQuestions}
-                  onChange={(e) => handleCustomQuestionsChange(e.target.value)}
-                  placeholder="100"
-                  className="w-full rounded-lg border border-slate-200 bg-slate-50 px-3 py-1.5 text-xs font-mono text-slate-800 focus:bg-white focus:border-indigo-500"
-                  required
-                />
-              </div>
-
-              <div>
-                <label className="block text-[11px] font-semibold text-slate-600 mb-1">
-                  Time (Mins)
-                </label>
-                <input
-                  type="number"
-                  value={customTimeMinutes}
-                  onChange={(e) => setCustomTimeMinutes(e.target.value)}
-                  placeholder="120"
-                  className="w-full rounded-lg border border-slate-200 bg-slate-50 px-3 py-1.5 text-xs font-mono text-slate-800 focus:bg-white focus:border-indigo-500"
-                />
-              </div>
-
-              <div>
-                <label className="block text-[11px] font-semibold text-slate-600 mb-1">
-                  Correct (+) <span className="text-rose-500">*</span>
-                </label>
-                <input
-                  type="number"
-                  step="any"
-                  value={customPositiveMarks}
-                  onChange={(e) => handleCustomPositiveMarksChange(e.target.value)}
-                  placeholder="2"
-                  className="w-full rounded-lg border border-slate-200 bg-slate-50 px-3 py-1.5 text-xs font-mono text-slate-800 focus:bg-white focus:border-indigo-500"
-                  required
-                />
-              </div>
-
-              <div>
-                <label className="block text-[11px] font-semibold text-slate-600 mb-1">
-                  Penalty (-) <span className="text-rose-500">*</span>
-                </label>
-                <input
-                  type="number"
-                  step="any"
-                  value={customNegativeMarks}
-                  onChange={(e) => setCustomNegativeMarks(e.target.value)}
-                  placeholder="0.667"
-                  className="w-full rounded-lg border border-slate-200 bg-slate-50 px-3 py-1.5 text-xs font-mono text-slate-800 focus:bg-white focus:border-indigo-500"
-                  required
-                />
-              </div>
-
-              <div>
-                <label className="block text-[11px] font-semibold text-slate-600 mb-1">
-                  Total Marks <span className="text-rose-500">*</span>
-                </label>
-                <input
-                  type="number"
-                  step="any"
-                  value={customTotalMarks}
-                  onChange={(e) => handleCustomTotalMarksChange(e.target.value)}
-                  placeholder="200"
-                  className="w-full rounded-lg border border-slate-200 bg-slate-50 px-3 py-1.5 text-xs font-mono text-slate-800 focus:bg-white focus:border-indigo-500"
-                  required
-                />
-              </div>
-            </div>
-
-            {/* Active Instructions indicator in Segment 1 */}
-            {(customInstructions.length > 0 || (detectedHeader?.instructions && detectedHeader.instructions.length > 0)) && (
-              <div className="flex items-center justify-between gap-2 p-2.5 rounded-xl bg-purple-50/70 border border-purple-200 text-xs text-purple-900">
-                <div className="flex items-center gap-2 truncate">
-                  <Check className="h-3.5 w-3.5 text-purple-700 shrink-0" />
-                  <span className="font-semibold truncate">
-                    {(customInstructions.length > 0 ? customInstructions : detectedHeader?.instructions || []).length} Exam Instructions & Rules Loaded
-                  </span>
-                </div>
-                <span className="text-[10px] text-purple-700 bg-white px-2 py-0.5 rounded-md border border-purple-200 font-mono shrink-0">
-                  Visible in Preview
-                </span>
-              </div>
-            )}
+            {/* 5-Column Compact Rules Grid Widget */}
+            <RulesScoringGrid
+              totalQuestions={customTotalQuestions}
+              onTotalQuestionsChange={handleCustomQuestionsChange}
+              timeMinutes={customTimeMinutes}
+              onTimeMinutesChange={setCustomTimeMinutes}
+              correctMarks={customPositiveMarks}
+              onCorrectMarksChange={handleCustomPositiveMarksChange}
+              incorrectMarks={customNegativeMarks}
+              onIncorrectMarksChange={setCustomNegativeMarks}
+              totalMarks={customTotalMarks}
+              onTotalMarksChange={handleCustomTotalMarksChange}
+              instructionsCount={
+                (customInstructions.length > 0
+                  ? customInstructions
+                  : detectedHeader?.instructions || []
+                ).length
+              }
+            />
           </div>
 
           {/* ------------------------------------------------------------- */}
@@ -1317,224 +1250,43 @@ export function UploadView({
                 {/* Preview Tab */}
                 {customViewTab === "preview" && (
                   <div className="space-y-3.5 max-h-[500px] overflow-y-auto pr-1">
-                    {/* Exam Specifications & Rules Cover Card (Always visible) */}
-                    <div className="rounded-xl border border-purple-200/90 bg-gradient-to-br from-purple-50/70 via-white to-indigo-50/60 p-4 space-y-3 shadow-2xs">
-                      <div className="flex items-center justify-between flex-wrap gap-2 pb-2 border-b border-purple-100">
-                        <div>
-                          <div className="flex items-center gap-1.5 flex-wrap">
-                            <span className="text-[10px] font-bold uppercase tracking-wider text-purple-700 bg-purple-100/70 px-2 py-0.5 rounded-full font-mono">
-                              Exam Specifications & Instructions
-                            </span>
-                            {detectedHeader?.subject && (
-                              <span className="text-[10px] font-semibold text-indigo-700 bg-indigo-50 px-2 py-0.5 rounded-full border border-indigo-100">
-                                {detectedHeader.subject}
-                              </span>
-                            )}
-                          </div>
-                          <h3 className="text-sm font-extrabold text-slate-900 mt-1">
-                            {customPaperName.trim() || detectedHeader?.exam || "Custom Practice Test"}
-                          </h3>
-                        </div>
-                        <div className="flex items-center gap-1.5 text-xs font-mono font-bold text-purple-800 bg-white px-2.5 py-1 rounded-lg border border-purple-200 shadow-2xs">
-                          <Clock className="h-3.5 w-3.5 text-purple-600" />
-                          <span>{customTimeMinutes || detectedHeader?.time || "120"} Mins</span>
-                        </div>
-                      </div>
-
-                      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-xs">
-                        <div className="bg-white/90 rounded-lg p-2 border border-purple-100">
-                          <span className="text-[10px] text-slate-400 block font-medium">Questions</span>
-                          <span className="font-mono font-bold text-slate-800">
-                            {detectedQuestionsCount > 0 ? `${detectedQuestionsCount} MCQs` : (customTotalQuestions ? `${customTotalQuestions} MCQs` : "—")}
-                          </span>
-                        </div>
-                        <div className="bg-white/90 rounded-lg p-2 border border-purple-100">
-                          <span className="text-[10px] text-slate-400 block font-medium">Total Marks</span>
-                          <span className="font-mono font-bold text-slate-800">{customTotalMarks || "100"} Marks</span>
-                        </div>
-                        <div className="bg-white/90 rounded-lg p-2 border border-purple-100">
-                          <span className="text-[10px] text-slate-400 block font-medium">Marking</span>
-                          <span className="font-mono font-bold text-emerald-700">+{customPositiveMarks || "2"} / -{customNegativeMarks || "0.667"}</span>
-                        </div>
-                        <div className="bg-white/90 rounded-lg p-2 border border-purple-100">
-                          <span className="text-[10px] text-slate-400 block font-medium">Answer Key</span>
-                          <span className="font-mono font-bold text-purple-700">{Object.keys(detectedAnswerKey.answers).length} Mapped</span>
-                        </div>
-                      </div>
-
-                      {/* Instructions list */}
-                      {(customInstructions.length > 0 || (detectedHeader?.instructions && detectedHeader.instructions.length > 0)) ? (
-                        <div className="bg-white/90 rounded-lg p-2.5 border border-purple-100 space-y-1">
-                          <span className="text-[10px] font-bold text-slate-600 uppercase tracking-wider block">
-                            Instructions & Rules:
-                          </span>
-                          <ul className="space-y-1">
-                            {(customInstructions.length > 0 ? customInstructions : (detectedHeader?.instructions || [])).map((ins, i) => (
-                              <li key={i} className="flex items-start gap-1.5 text-slate-700 text-xs leading-relaxed">
-                                <Check className="h-3 w-3 text-purple-600 shrink-0 mt-0.5" />
-                                <span>{ins}</span>
-                              </li>
-                            ))}
-                          </ul>
-                        </div>
-                      ) : (
-                        <div className="bg-white/90 rounded-lg p-2.5 border border-purple-100 space-y-1">
-                          <span className="text-[10px] font-bold text-slate-600 uppercase tracking-wider block">
-                            Instructions & Rules:
-                          </span>
-                          <ul className="space-y-1 text-xs text-slate-600">
-                            <li className="flex items-start gap-1.5 leading-relaxed">
-                              <Check className="h-3 w-3 text-purple-600 shrink-0 mt-0.5" />
-                              <span>All {detectedQuestionsCount || customTotalQuestions || 100} questions are compulsory and carry equal maximum marks.</span>
-                            </li>
-                            <li className="flex items-start gap-1.5 leading-relaxed">
-                              <Check className="h-3 w-3 text-purple-600 shrink-0 mt-0.5" />
-                              <span>Each correct answer awards +{customPositiveMarks || "2"} marks; each wrong answer incurs a penalty of -{customNegativeMarks || "0.667"} marks.</span>
-                            </li>
-                            <li className="flex items-start gap-1.5 leading-relaxed">
-                              <Check className="h-3 w-3 text-purple-600 shrink-0 mt-0.5" />
-                              <span>Only one option is correct for each question. No deduction for unattempted questions.</span>
-                            </li>
-                          </ul>
-                        </div>
-                      )}
-                    </div>
-
-                    {/* Question stream or pending card */}
-                    {detectedQuestionsCount > 0 ? (
-                      <div className="space-y-2.5">
-                        <div className="flex items-center justify-between px-1">
-                          <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">
-                            Question Stream ({detectedQuestionsCount} Questions)
-                          </span>
-                          <span className="text-[10px] text-slate-400">
-                            Scroll to inspect questions & answers
-                          </span>
-                        </div>
-                        {detectedQuestions.map((q) => {
-                          const ansLetter = detectedAnswerKey.answers[q.questionNo]?.toUpperCase();
-                          const explanation = detectedAnswerKey.explanations[q.questionNo];
-
-                          return (
-                            <div
-                              key={q.questionNo}
-                              className="rounded-xl border border-slate-200 bg-white p-3.5 space-y-2 shadow-2xs"
-                            >
-                              <div className="flex items-center justify-between gap-2">
-                                <span className="font-mono text-xs font-bold bg-purple-50 text-purple-800 px-2 py-0.5 rounded border border-purple-200">
-                                  Q{q.questionNo}
-                                </span>
-                                {ansLetter ? (
-                                  <span className="text-[11px] font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200 inline-flex items-center gap-1">
-                                    <Check className="h-3 w-3" /> Answer: Option {ansLetter}
-                                  </span>
-                                ) : (
-                                  <span className="text-[10px] text-slate-400">
-                                    No answer key
-                                  </span>
-                                )}
-                              </div>
-
-                              <p className="text-xs text-slate-800 font-medium leading-relaxed whitespace-pre-wrap">
-                                {q.text}
-                              </p>
-
-                              <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5 pt-1">
-                                {Object.entries(q.options).map(([optKey, optText]) => {
-                                  const isCorrect = ansLetter === optKey.toUpperCase();
-                                  return (
-                                    <div
-                                      key={optKey}
-                                      className={`flex items-start gap-1.5 p-1.5 rounded-lg border text-xs leading-relaxed ${
-                                        isCorrect
-                                          ? "bg-emerald-50/70 border-emerald-300 text-emerald-950 font-medium"
-                                          : "bg-slate-50/70 border-slate-200 text-slate-700"
-                                      }`}
-                                    >
-                                      <span
-                                        className={`font-mono text-[10px] font-bold px-1.5 py-0.2 rounded shrink-0 ${
-                                          isCorrect
-                                            ? "bg-emerald-600 text-white"
-                                            : "bg-slate-200 text-slate-700"
-                                        }`}
-                                      >
-                                        {optKey}
-                                      </span>
-                                      <span className="whitespace-pre-wrap">{optText}</span>
-                                    </div>
-                                  );
-                                })}
-                              </div>
-
-                              {explanation && (
-                                <div className="rounded-lg bg-amber-50/70 border border-amber-200/80 p-2 text-xs text-amber-950 space-y-0.5">
-                                  <div className="flex items-center gap-1 font-bold text-[10px] text-amber-800">
-                                    <Lightbulb className="h-3 w-3 text-amber-600" />
-                                    <span>Explanation:</span>
-                                  </div>
-                                  <p className="text-[11px] leading-relaxed whitespace-pre-wrap pl-4 text-amber-900">
-                                    {explanation}
-                                  </p>
-                                </div>
-                              )}
-                            </div>
-                          );
-                        })}
-                      </div>
-                    ) : (
-                      <div className="rounded-xl border border-dashed border-slate-300 bg-slate-50/60 p-6 text-center space-y-2">
-                        <div className="inline-flex p-2 rounded-xl bg-purple-100 text-purple-700">
-                          <BookOpen className="h-5 w-5" />
-                        </div>
-                        <h4 className="text-xs font-bold text-slate-800">
-                          Exam Rules & Specifications Active
-                        </h4>
-                        <p className="text-[11px] text-slate-500 max-w-sm mx-auto leading-relaxed">
-                          Your rules, scoring scheme, and instructions are loaded above. Switch to the <strong>&apos;Markdown Source&apos;</strong> tab to paste or write questions separated by <strong>&apos;---&apos;</strong> with options (a), (b), (c), (d) to preview individual question cards.
-                        </p>
-                      </div>
-                    )}
+                    <ExamCoverCard
+                      title={customPaperName.trim() || detectedHeader?.exam || "Custom Practice Test"}
+                      subject={detectedHeader?.subject}
+                      timeMinutes={customTimeMinutes || detectedHeader?.time || "120"}
+                      questionsCount={detectedQuestionsCount > 0 ? detectedQuestionsCount : (customTotalQuestions || "—")}
+                      totalMarks={customTotalMarks || "100"}
+                      correctMarks={customPositiveMarks || "2"}
+                      incorrectMarks={customNegativeMarks || "0.667"}
+                      mappedAnswersCount={Object.keys(detectedAnswerKey.answers).length}
+                      instructions={
+                        customInstructions.length > 0
+                          ? customInstructions
+                          : detectedHeader?.instructions
+                      }
+                    />
+                    <QuestionStreamPreview
+                      questions={detectedQuestions}
+                      answers={detectedAnswerKey.answers}
+                      explanations={detectedAnswerKey.explanations}
+                    />
                   </div>
                 )}
               </div>
             ) : (
               /* PDF Workspace */
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
-                <div className="rounded-xl border border-slate-200 bg-slate-50/50 p-3.5 space-y-2">
-                  <span className="text-xs font-bold text-slate-800 block">
-                    Question Paper PDF <span className="text-rose-500">*</span>
-                  </span>
-                  <label className="cursor-pointer flex flex-col items-center justify-center rounded-xl border border-dashed border-slate-300 bg-white p-3.5 text-center hover:border-indigo-500 hover:bg-slate-50 transition-colors shadow-2xs">
-                    <FileUp className="h-5 w-5 text-indigo-600 mb-1" />
-                    <span className="text-xs font-semibold text-slate-700 truncate max-w-[200px]">
-                      {customQpFile ? customQpFile.name : "Select Question Paper PDF"}
-                    </span>
-                    <input
-                      type="file"
-                      accept=".pdf"
-                      onChange={(e) => setCustomQpFile(e.target.files?.[0] || null)}
-                      className="hidden"
-                    />
-                  </label>
-                </div>
-
-                <div className="rounded-xl border border-slate-200 bg-slate-50/50 p-3.5 space-y-2">
-                  <span className="text-xs font-bold text-slate-800 block">
-                    Solution PDF (Optional)
-                  </span>
-                  <label className="cursor-pointer flex flex-col items-center justify-center rounded-xl border border-dashed border-slate-300 bg-white p-3.5 text-center hover:border-slate-500 hover:bg-slate-50 transition-colors shadow-2xs">
-                    <FileUp className="h-5 w-5 text-slate-500 mb-1" />
-                    <span className="text-xs font-semibold text-slate-700 truncate max-w-[200px]">
-                      {customExsFile ? customExsFile.name : "Attach Solution PDF"}
-                    </span>
-                    <input
-                      type="file"
-                      accept=".pdf"
-                      onChange={(e) => setCustomExsFile(e.target.files?.[0] || null)}
-                      className="hidden"
-                    />
-                  </label>
-                </div>
+                <PdfAttachmentCard
+                  title="Question Paper PDF"
+                  selectedFile={customQpFile}
+                  onFileSelected={setCustomQpFile}
+                  isRequired
+                />
+                <PdfAttachmentCard
+                  title="Solution Booklet PDF (Optional)"
+                  selectedFile={customExsFile}
+                  onFileSelected={setCustomExsFile}
+                />
               </div>
             )}
           </div>
@@ -1542,75 +1294,15 @@ export function UploadView({
           {/* ------------------------------------------------------------- */}
           {/* SEGMENT 3: ANSWER KEY */}
           {/* ------------------------------------------------------------- */}
-          <div className="rounded-2xl border border-slate-200/90 bg-white p-5 space-y-3 shadow-xs">
-            <div className="flex items-center justify-between flex-wrap gap-2 pb-2 border-b border-slate-100">
-              <div className="flex items-center gap-2">
-                <span className="text-xs font-bold text-slate-800 uppercase tracking-wider flex items-center gap-2 mr-1">
-                  <span className="h-5 w-5 rounded-full bg-emerald-50 text-emerald-700 flex items-center justify-center text-[11px] font-bold border border-emerald-200">
-                    3
-                  </span>
-                  Answer Key & Explanations
-                </span>
-
-                <div className="inline-flex p-0.5 rounded-lg bg-slate-100 border border-slate-200 text-xs font-medium">
-                  <button
-                    type="button"
-                    onClick={() => setCustomAkMode("paste")}
-                    className={`cursor-pointer px-2.5 py-1 rounded-md transition-all ${
-                      customAkMode === "paste"
-                        ? "bg-white text-emerald-800 font-bold shadow-2xs"
-                        : "text-slate-600 hover:text-slate-900"
-                    }`}
-                  >
-                    Paste Key
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setCustomAkMode("upload")}
-                    className={`cursor-pointer px-2.5 py-1 rounded-md transition-all ${
-                      customAkMode === "upload"
-                        ? "bg-white text-emerald-800 font-bold shadow-2xs"
-                        : "text-slate-600 hover:text-slate-900"
-                    }`}
-                  >
-                    Upload .txt
-                  </button>
-                </div>
-              </div>
-
-              <div className="flex items-center gap-2 text-xs">
-                {Object.keys(detectedAnswerKey.answers).length > 0 && (
-                  <span className="text-emerald-700 font-mono font-semibold">
-                    {Object.keys(detectedAnswerKey.answers).length} answers mapped
-                  </span>
-                )}
-                <code className="font-mono text-[10px] text-slate-400 bg-slate-100 px-1.5 py-0.5 rounded">
-                  1. a &quot;&quot;&quot; explanation &quot;&quot;&quot;
-                </code>
-              </div>
-            </div>
-
-            {customAkMode === "upload" ? (
-              <label className="cursor-pointer flex items-center justify-center gap-2 rounded-xl border border-dashed border-slate-300 bg-white p-3.5 text-xs font-semibold text-slate-700 hover:border-slate-500 shadow-2xs">
-                <FileUp className="h-4 w-4 text-slate-500" />
-                <span>{customAkFile ? customAkFile.name : "Select .txt answer key file"}</span>
-                <input
-                  type="file"
-                  accept=".txt"
-                  onChange={(e) => setCustomAkFile(e.target.files?.[0] || null)}
-                  className="hidden"
-                />
-              </label>
-            ) : (
-              <textarea
-                value={customAkText}
-                onChange={(e) => setCustomAkText(e.target.value)}
-                placeholder={`1. a,\n2. c """ Explanations can be enclosed in triple quotes """,\n3. d,\n4. b`}
-                rows={4}
-                className="w-full rounded-xl border border-slate-200 bg-white p-3 font-mono text-xs text-slate-800 placeholder-slate-400 focus:outline-none focus:border-emerald-500 shadow-2xs leading-relaxed"
-              />
-            )}
-          </div>
+          <AnswerKeyWidget
+            mode={customAkMode}
+            onModeChange={setCustomAkMode}
+            textValue={customAkText}
+            onTextChange={setCustomAkText}
+            fileValue={customAkFile}
+            onFileChange={setCustomAkFile}
+            mappedCount={Object.keys(detectedAnswerKey.answers).length}
+          />
 
           {/* Submit Action */}
           <div className="flex justify-end pt-1">
@@ -1852,84 +1544,19 @@ export function UploadView({
                   Rules & Duration
                 </span>
 
-                <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
-                  <div>
-                    <label className="block text-[11px] font-semibold text-slate-600 mb-1">
-                      Total Questions
-                    </label>
-                    <input
-                      type="number"
-                      value={totalQuestions}
-                      onChange={(e) => setTotalQuestions(parseInt(e.target.value) || 0)}
-                      className="w-full rounded-lg border border-slate-200 bg-slate-50 px-3 py-1.5 text-xs text-slate-800 font-mono focus:bg-white focus:border-indigo-500"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-[11px] font-semibold text-slate-600 mb-1">
-                      Duration (Mins)
-                    </label>
-                    <input
-                      type="number"
-                      value={timeMinutes}
-                      onChange={(e) => setTimeMinutes(parseInt(e.target.value) || 0)}
-                      className="w-full rounded-lg border border-slate-200 bg-slate-50 px-3 py-1.5 text-xs text-slate-800 font-mono focus:bg-white focus:border-indigo-500"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-[11px] font-semibold text-slate-600 mb-1">
-                      Correct (+)
-                    </label>
-                    <input
-                      type="number"
-                      step="0.01"
-                      value={correctMarks}
-                      onChange={(e) => setCorrectMarks(parseFloat(e.target.value) || 0)}
-                      className="w-full rounded-lg border border-slate-200 bg-slate-50 px-3 py-1.5 text-xs text-slate-800 font-mono focus:bg-white focus:border-indigo-500"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-[11px] font-semibold text-slate-600 mb-1">
-                      Penalty (-)
-                    </label>
-                    <input
-                      type="number"
-                      step="0.001"
-                      value={incorrectMarks}
-                      onChange={(e) => setIncorrectMarks(parseFloat(e.target.value) || 0)}
-                      className="w-full rounded-lg border border-slate-200 bg-slate-50 px-3 py-1.5 text-xs text-slate-800 font-mono focus:bg-white focus:border-indigo-500"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-[11px] font-semibold text-slate-600 mb-1">
-                      Total Marks
-                    </label>
-                    <input
-                      type="number"
-                      value={totalMarks}
-                      onChange={(e) => setTotalMarks(parseFloat(e.target.value) || 0)}
-                      className="w-full rounded-lg border border-slate-200 bg-slate-50 px-3 py-1.5 text-xs text-slate-800 font-mono focus:bg-white focus:border-indigo-500"
-                    />
-                  </div>
-                </div>
-
-                {/* Active Instructions indicator in Segment 1 */}
-                {(updateInstructions.length > 0 || (detectedUpdateHeader?.instructions && detectedUpdateHeader.instructions.length > 0) || (currentSelectedPaper.instructions && currentSelectedPaper.instructions.length > 0)) && (
-                  <div className="flex items-center justify-between gap-2 p-2.5 rounded-xl bg-purple-50/70 border border-purple-200 text-xs text-purple-900">
-                    <div className="flex items-center gap-2 truncate">
-                      <Check className="h-3.5 w-3.5 text-purple-700 shrink-0" />
-                      <span className="font-semibold truncate">
-                        {(updateInstructions.length > 0 ? updateInstructions : (detectedUpdateHeader?.instructions || currentSelectedPaper.instructions || [])).length} Exam Instructions & Rules Loaded
-                      </span>
-                    </div>
-                    <span className="text-[10px] text-purple-700 bg-white px-2 py-0.5 rounded-md border border-purple-200 font-mono shrink-0">
-                      Visible in Preview
-                    </span>
-                  </div>
-                )}
+                <RulesScoringGrid
+                  totalQuestions={totalQuestions}
+                  timeMinutes={timeMinutes}
+                  correctMarks={correctMarks}
+                  incorrectMarks={incorrectMarks}
+                  totalMarks={totalMarks}
+                  onTotalQuestionsChange={setTotalQuestions}
+                  onTimeMinutesChange={setTimeMinutes}
+                  onCorrectMarksChange={setCorrectMarks}
+                  onIncorrectMarksChange={setIncorrectMarks}
+                  onTotalMarksChange={setTotalMarks}
+                  instructionsCount={(updateInstructions.length > 0 ? updateInstructions : (detectedUpdateHeader?.instructions || currentSelectedPaper.instructions || [])).length}
+                />
               </div>
 
               {/* ----------------------------------------------------------- */}
@@ -2097,287 +1724,43 @@ export function UploadView({
 
                     {updateViewTab === "preview" && (
                       <div className="space-y-3.5 max-h-[500px] overflow-y-auto pr-1">
-                        {/* Exam Specifications & Rules Cover Card in Update Preview (Always visible) */}
-                        <div className="rounded-xl border border-purple-200/90 bg-gradient-to-br from-purple-50/70 via-white to-indigo-50/60 p-4 space-y-3 shadow-2xs">
-                          <div className="flex items-center justify-between flex-wrap gap-2 pb-2 border-b border-purple-100">
-                            <div>
-                              <div className="flex items-center gap-1.5 flex-wrap">
-                                <span className="text-[10px] font-bold uppercase tracking-wider text-purple-700 bg-purple-100/70 px-2 py-0.5 rounded-full font-mono">
-                                  Exam Specifications & Instructions
-                                </span>
-                                {(detectedUpdateHeader?.subject || currentSelectedPaper.subject) && (
-                                  <span className="text-[10px] font-semibold text-indigo-700 bg-indigo-50 px-2 py-0.5 rounded-full border border-indigo-100">
-                                    {detectedUpdateHeader?.subject || currentSelectedPaper.subject}
-                                  </span>
-                                )}
-                              </div>
-                              <h3 className="text-sm font-extrabold text-slate-900 mt-1">
-                                {getPaperDisplayTitle(currentSelectedPaper)}
-                              </h3>
-                            </div>
-                            <div className="flex items-center gap-1.5 text-xs font-mono font-bold text-purple-800 bg-white px-2.5 py-1 rounded-lg border border-purple-200 shadow-2xs">
-                              <Clock className="h-3.5 w-3.5 text-purple-600" />
-                              <span>{timeMinutes || currentSelectedPaper.timeMinutes || 120} Mins</span>
-                            </div>
-                          </div>
+                        <ExamCoverCard
+                          title={getPaperDisplayTitle(currentSelectedPaper)}
+                          subject={detectedUpdateHeader?.subject || currentSelectedPaper.subject}
+                          timeMinutes={timeMinutes || currentSelectedPaper.timeMinutes || 120}
+                          questionsCount={detectedUpdateQuestions.length > 0 ? detectedUpdateQuestions.length : (totalQuestions || currentSelectedPaper.totalQuestions)}
+                          totalMarks={totalMarks || currentSelectedPaper.totalMarks}
+                          correctMarks={correctMarks}
+                          incorrectMarks={incorrectMarks}
+                          mappedAnswersCount={Object.keys(detectedUpdateAnswerKey.answers).length || Object.keys(currentSelectedPaper.answerKey || {}).length}
+                          instructions={updateInstructions.length > 0 ? updateInstructions : (detectedUpdateHeader?.instructions || currentSelectedPaper.instructions || [])}
+                        />
 
-                          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-xs">
-                            <div className="bg-white/90 rounded-lg p-2 border border-purple-100">
-                              <span className="text-[10px] text-slate-400 block font-medium">Questions</span>
-                              <span className="font-mono font-bold text-slate-800">
-                                {detectedUpdateQuestions.length > 0
-                                  ? `${detectedUpdateQuestions.length} MCQs`
-                                  : (totalQuestions ? `${totalQuestions} MCQs` : `${currentSelectedPaper.totalQuestions} MCQs`)}
-                              </span>
-                            </div>
-                            <div className="bg-white/90 rounded-lg p-2 border border-purple-100">
-                              <span className="text-[10px] text-slate-400 block font-medium">Total Marks</span>
-                              <span className="font-mono font-bold text-slate-800">{totalMarks || currentSelectedPaper.totalMarks} Marks</span>
-                            </div>
-                            <div className="bg-white/90 rounded-lg p-2 border border-purple-100">
-                              <span className="text-[10px] text-slate-400 block font-medium">Marking</span>
-                              <span className="font-mono font-bold text-emerald-700">+{correctMarks} / -{incorrectMarks}</span>
-                            </div>
-                            <div className="bg-white/90 rounded-lg p-2 border border-purple-100">
-                              <span className="text-[10px] text-slate-400 block font-medium">Answer Key</span>
-                              <span className="font-mono font-bold text-purple-700">
-                                {Object.keys(detectedUpdateAnswerKey.answers).length || Object.keys(currentSelectedPaper.answerKey || {}).length} Mapped
-                              </span>
-                            </div>
-                          </div>
-
-                          {/* Instructions list */}
-                          {(updateInstructions.length > 0 || (detectedUpdateHeader?.instructions && detectedUpdateHeader.instructions.length > 0) || (currentSelectedPaper.instructions && currentSelectedPaper.instructions.length > 0)) ? (
-                            <div className="bg-white/90 rounded-lg p-2.5 border border-purple-100 space-y-1">
-                              <span className="text-[10px] font-bold text-slate-600 uppercase tracking-wider block">
-                                Instructions & Rules:
-                              </span>
-                              <ul className="space-y-1">
-                                {(updateInstructions.length > 0 ? updateInstructions : (detectedUpdateHeader?.instructions || currentSelectedPaper.instructions || [])).map((ins, i) => (
-                                  <li key={i} className="flex items-start gap-1.5 text-slate-700 text-xs leading-relaxed">
-                                    <Check className="h-3 w-3 text-purple-600 shrink-0 mt-0.5" />
-                                    <span>{ins}</span>
-                                  </li>
-                                ))}
-                              </ul>
-                            </div>
-                          ) : (
-                            <div className="bg-white/90 rounded-lg p-2.5 border border-purple-100 space-y-1">
-                              <span className="text-[10px] font-bold text-slate-600 uppercase tracking-wider block">
-                                Instructions & Rules:
-                              </span>
-                              <ul className="space-y-1 text-xs text-slate-600">
-                                <li className="flex items-start gap-1.5 leading-relaxed">
-                                  <Check className="h-3 w-3 text-purple-600 shrink-0 mt-0.5" />
-                                  <span>All {detectedUpdateQuestions.length || totalQuestions || currentSelectedPaper.totalQuestions} questions are compulsory.</span>
-                                </li>
-                                <li className="flex items-start gap-1.5 leading-relaxed">
-                                  <Check className="h-3 w-3 text-purple-600 shrink-0 mt-0.5" />
-                                  <span>Each correct answer awards +{correctMarks} marks; each wrong answer incurs a penalty of -{incorrectMarks} marks.</span>
-                                </li>
-                                <li className="flex items-start gap-1.5 leading-relaxed">
-                                  <Check className="h-3 w-3 text-purple-600 shrink-0 mt-0.5" />
-                                  <span>Only one option is correct for each question. No deduction for unattempted questions.</span>
-                                </li>
-                              </ul>
-                            </div>
-                          )}
-                        </div>
-
-                        {/* Question stream or pending card */}
-                        {detectedUpdateQuestions.length > 0 ? (
-                          <div className="space-y-2.5">
-                            <div className="flex items-center justify-between px-1">
-                              <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">
-                                Question Stream ({detectedUpdateQuestions.length} Questions)
-                              </span>
-                              <span className="text-[10px] text-slate-400">
-                                Scroll to inspect questions & answers
-                              </span>
-                            </div>
-                            {detectedUpdateQuestions.map((q) => {
-                              const ansLetter = detectedUpdateAnswerKey.answers[q.questionNo]?.toUpperCase();
-                              const explanation = detectedUpdateAnswerKey.explanations[q.questionNo];
-
-                              return (
-                                <div
-                                  key={q.questionNo}
-                                  className="rounded-xl border border-slate-200 bg-white p-3.5 space-y-2 shadow-2xs"
-                                >
-                                  <div className="flex items-center justify-between gap-2">
-                                    <span className="font-mono text-xs font-bold bg-purple-50 text-purple-800 px-2 py-0.5 rounded border border-purple-200">
-                                      Q{q.questionNo}
-                                    </span>
-                                    {ansLetter ? (
-                                      <span className="text-[11px] font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200 inline-flex items-center gap-1">
-                                        <Check className="h-3 w-3" /> Answer: Option {ansLetter}
-                                      </span>
-                                    ) : (
-                                      <span className="text-[10px] text-slate-400">
-                                        No key mapped
-                                      </span>
-                                    )}
-                                  </div>
-
-                                  <p className="text-xs text-slate-800 font-medium leading-relaxed whitespace-pre-wrap">
-                                    {q.text}
-                                  </p>
-
-                                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5 pt-1">
-                                    {Object.entries(q.options).map(([optKey, optText]) => {
-                                      const isCorrect = ansLetter === optKey.toUpperCase();
-                                      return (
-                                        <div
-                                          key={optKey}
-                                          className={`flex items-start gap-1.5 p-1.5 rounded-lg border text-xs leading-relaxed ${
-                                            isCorrect
-                                              ? "bg-emerald-50/70 border-emerald-300 text-emerald-950 font-medium"
-                                              : "bg-slate-50/70 border-slate-200 text-slate-700"
-                                          }`}
-                                        >
-                                          <span
-                                            className={`font-mono text-[10px] font-bold px-1.5 py-0.2 rounded shrink-0 ${
-                                              isCorrect
-                                                ? "bg-emerald-600 text-white"
-                                                : "bg-slate-200 text-slate-700"
-                                            }`}
-                                          >
-                                            {optKey}
-                                          </span>
-                                          <span className="whitespace-pre-wrap">{optText}</span>
-                                        </div>
-                                      );
-                                    })}
-                                  </div>
-
-                                  {explanation && (
-                                    <div className="rounded-lg bg-amber-50/70 border border-amber-200/80 p-2 text-xs text-amber-950 space-y-0.5">
-                                      <div className="flex items-center gap-1 font-bold text-[10px] text-amber-800">
-                                        <Lightbulb className="h-3 w-3 text-amber-600" />
-                                        <span>Explanation:</span>
-                                      </div>
-                                      <p className="text-[11px] leading-relaxed whitespace-pre-wrap pl-4 text-amber-900">
-                                        {explanation}
-                                      </p>
-                                    </div>
-                                  )}
-                                </div>
-                              );
-                            })}
-                          </div>
-                        ) : (
-                          <div className="rounded-xl border border-dashed border-slate-300 bg-slate-50/60 p-6 text-center space-y-2">
-                            <div className="inline-flex p-2 rounded-xl bg-purple-100 text-purple-700">
-                              <BookOpen className="h-5 w-5" />
-                            </div>
-                            <h4 className="text-xs font-bold text-slate-800">
-                              Exam Rules & Specifications Active
-                            </h4>
-                            <p className="text-[11px] text-slate-500 max-w-sm mx-auto leading-relaxed">
-                              Your rules, scoring scheme, and instructions are loaded above. Switch to the <strong>&apos;Markdown Source&apos;</strong> tab to paste or write questions separated by <strong>&apos;---&apos;</strong> with options (a), (b), (c), (d) to preview individual question cards.
-                            </p>
-                          </div>
-                        )}
+                        <QuestionStreamPreview
+                          questions={detectedUpdateQuestions}
+                          answers={detectedUpdateAnswerKey.answers}
+                          explanations={detectedUpdateAnswerKey.explanations}
+                        />
                       </div>
                     )}
                   </div>
                 ) : (
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
-                    {/* Question Paper PDF */}
-                    <div className="rounded-xl border border-slate-200 bg-slate-50/60 p-4 space-y-3">
-                      <div className="flex items-center justify-between">
-                        <span className="text-xs font-bold text-slate-800">
-                          Question Paper PDF
-                        </span>
-                        {currentSelectedPaper.qpUrl && !currentSelectedPaper.qpUrl.startsWith("local://") && (
-                          <a
-                            href={currentSelectedPaper.qpUrl}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="text-[11px] font-semibold text-indigo-600 hover:text-indigo-800 inline-flex items-center gap-1"
-                          >
-                            <ExternalLink className="h-3 w-3" />
-                            <span>Preview</span>
-                          </a>
-                        )}
-                      </div>
+                    <PdfAttachmentCard
+                      title="Question Paper PDF"
+                      currentFilename={getFilenameFromUrl(currentSelectedPaper.qpUrl, currentSelectedPaper.label)}
+                      currentUrl={currentSelectedPaper.qpUrl}
+                      selectedFile={qpFile}
+                      onFileSelected={setQpFile}
+                    />
 
-                      <div className="flex items-center gap-2.5 p-2.5 rounded-lg bg-white border border-slate-200 text-xs shadow-2xs">
-                        <FileText className="h-4 w-4 text-indigo-600 shrink-0" />
-                        <div className="min-w-0 flex-1">
-                          <span className="text-[10px] text-slate-400 block font-medium">
-                            Current Uploaded File
-                          </span>
-                          <span className="font-mono text-xs font-bold text-slate-800 truncate block">
-                            {getFilenameFromUrl(currentSelectedPaper.qpUrl, currentSelectedPaper.label)}
-                          </span>
-                        </div>
-                      </div>
-
-                      <label className="cursor-pointer flex items-center justify-center gap-2 rounded-xl border border-dashed border-slate-300 bg-white hover:border-indigo-500 hover:bg-slate-50 p-2.5 text-xs font-semibold text-slate-700 transition-colors shadow-2xs">
-                        <FileUp className="h-4 w-4 text-indigo-600" />
-                        <span className="truncate max-w-[220px]">
-                          {qpFile ? `New: ${qpFile.name}` : "Replace Question Paper PDF"}
-                        </span>
-                        <input
-                          type="file"
-                          accept=".pdf"
-                          onChange={(e) => setQpFile(e.target.files?.[0] || null)}
-                          className="hidden"
-                        />
-                      </label>
-                    </div>
-
-                    {/* Solution Booklet PDF */}
-                    <div className="rounded-xl border border-slate-200 bg-slate-50/60 p-4 space-y-3">
-                      <div className="flex items-center justify-between">
-                        <span className="text-xs font-bold text-slate-800">
-                          Solution Booklet PDF
-                        </span>
-                        {hasSolution(currentSelectedPaper) && currentSelectedPaper.exsUrl && (
-                          <a
-                            href={currentSelectedPaper.exsUrl}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="text-[11px] font-semibold text-indigo-600 hover:text-indigo-800 inline-flex items-center gap-1"
-                          >
-                            <ExternalLink className="h-3 w-3" />
-                            <span>Preview</span>
-                          </a>
-                        )}
-                      </div>
-
-                      <div className="flex items-center gap-2.5 p-2.5 rounded-lg bg-white border border-slate-200 text-xs shadow-2xs">
-                        <FileText className="h-4 w-4 text-slate-500 shrink-0" />
-                        <div className="min-w-0 flex-1">
-                          <span className="text-[10px] text-slate-400 block font-medium">
-                            {hasSolution(currentSelectedPaper) ? "Current Solution Booklet" : "Status"}
-                          </span>
-                          <span className="font-mono text-xs font-semibold text-slate-700 truncate block">
-                            {hasSolution(currentSelectedPaper)
-                              ? getFilenameFromUrl(currentSelectedPaper.exsUrl, `${currentSelectedPaper.label}_solution`)
-                              : "No Solution Booklet Uploaded"}
-                          </span>
-                        </div>
-                      </div>
-
-                      <label className="cursor-pointer flex items-center justify-center gap-2 rounded-xl border border-dashed border-slate-300 bg-white hover:border-slate-500 hover:bg-slate-50 p-2.5 text-xs font-semibold text-slate-700 transition-colors shadow-2xs">
-                        <FileUp className="h-4 w-4 text-slate-500" />
-                        <span className="truncate max-w-[220px]">
-                          {exsFile
-                            ? `New: ${exsFile.name}`
-                            : hasSolution(currentSelectedPaper)
-                              ? "Replace Solution PDF"
-                              : "Attach Solution PDF"}
-                        </span>
-                        <input
-                          type="file"
-                          accept=".pdf"
-                          onChange={(e) => setExsFile(e.target.files?.[0] || null)}
-                          className="hidden"
-                        />
-                      </label>
-                    </div>
+                    <PdfAttachmentCard
+                      title="Solution Booklet PDF"
+                      currentFilename={hasSolution(currentSelectedPaper) ? getFilenameFromUrl(currentSelectedPaper.exsUrl, `${currentSelectedPaper.label}_solution`) : undefined}
+                      currentUrl={hasSolution(currentSelectedPaper) ? currentSelectedPaper.exsUrl : undefined}
+                      selectedFile={exsFile}
+                      onFileSelected={setExsFile}
+                    />
                   </div>
                 )}
               </div>
@@ -2386,73 +1769,15 @@ export function UploadView({
               {/* SEGMENT 3: ANSWER KEY */}
               {/* ----------------------------------------------------------- */}
               <div className="rounded-2xl border border-slate-200/90 bg-white p-5 space-y-3 shadow-xs">
-                <div className="flex items-center justify-between flex-wrap gap-2 pb-2 border-b border-slate-100">
-                  <div className="flex items-center gap-2">
-                    <span className="text-xs font-bold text-slate-800 uppercase tracking-wider flex items-center gap-2 mr-1">
-                      <span className="h-5 w-5 rounded-full bg-emerald-50 text-emerald-700 flex items-center justify-center text-[11px] font-bold border border-emerald-200">
-                        3
-                      </span>
-                      Answer Key & Explanations
-                    </span>
-
-                    <div className="inline-flex p-0.5 rounded-lg bg-slate-100 border border-slate-200 text-xs font-medium">
-                      <button
-                        type="button"
-                        onClick={() => setAkMode("paste")}
-                        className={`cursor-pointer px-2.5 py-1 rounded-md transition-all ${
-                          akMode === "paste"
-                            ? "bg-white text-emerald-800 font-bold shadow-2xs"
-                            : "text-slate-600 hover:text-slate-900"
-                        }`}
-                      >
-                        Paste Key
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => setAkMode("upload")}
-                        className={`cursor-pointer px-2.5 py-1 rounded-md transition-all ${
-                          akMode === "upload"
-                            ? "bg-white text-emerald-800 font-bold shadow-2xs"
-                            : "text-slate-600 hover:text-slate-900"
-                        }`}
-                      >
-                        Upload .txt
-                      </button>
-                    </div>
-                  </div>
-
-                  <div className="flex items-center gap-2 text-xs">
-                    {Object.keys(detectedUpdateAnswerKey.answers).length > 0 && (
-                      <span className="text-emerald-700 font-mono font-semibold">
-                        {Object.keys(detectedUpdateAnswerKey.answers).length} answers mapped
-                      </span>
-                    )}
-                    <code className="font-mono text-[10px] text-slate-400 bg-slate-100 px-1.5 py-0.5 rounded">
-                      1. a &quot;&quot;&quot; explanation &quot;&quot;&quot;
-                    </code>
-                  </div>
-                </div>
-
-                {akMode === "upload" ? (
-                  <label className="cursor-pointer flex items-center justify-center gap-2 rounded-xl border border-dashed border-slate-300 bg-white p-3.5 text-xs font-semibold text-slate-700 hover:border-slate-500 shadow-2xs">
-                    <FileUp className="h-4 w-4 text-slate-500" />
-                    <span>{akFile ? akFile.name : "Select .txt answer key file"}</span>
-                    <input
-                      type="file"
-                      accept=".txt"
-                      onChange={(e) => setAkFile(e.target.files?.[0] || null)}
-                      className="hidden"
-                    />
-                  </label>
-                ) : (
-                  <textarea
-                    value={akText}
-                    onChange={(e) => setAkText(e.target.value)}
-                    placeholder={`1. a,\n2. c """ Explanations can be enclosed in triple quotes """,\n3. d,\n4. b`}
-                    rows={4}
-                    className="w-full rounded-xl border border-slate-200 bg-white p-3 font-mono text-xs text-slate-800 placeholder-slate-400 focus:outline-none focus:border-emerald-500 shadow-2xs leading-relaxed"
-                  />
-                )}
+                <AnswerKeyWidget
+                  mode={akMode}
+                  onModeChange={setAkMode}
+                  textValue={akText}
+                  onTextChange={setAkText}
+                  fileValue={akFile}
+                  onFileChange={setAkFile}
+                  mappedCount={Object.keys(detectedUpdateAnswerKey.answers).length}
+                />
               </div>
 
               {/* Bottom Action Buttons */}
@@ -2640,68 +1965,19 @@ export function UploadView({
             </div>
 
             {/* Rules Strip */}
-            <div className="grid grid-cols-2 sm:grid-cols-5 gap-3 pt-3 border-t border-slate-100">
-              <div>
-                <label className="block text-[11px] font-semibold text-slate-600 mb-1">
-                  Total Questions
-                </label>
-                <input
-                  type="number"
-                  value={totalQuestions}
-                  onChange={(e) => setTotalQuestions(parseInt(e.target.value) || 0)}
-                  className="w-full rounded-lg border border-slate-200 bg-slate-50 px-3 py-1.5 text-xs text-slate-800 font-mono focus:bg-white focus:border-indigo-500"
-                />
-              </div>
-
-              <div>
-                <label className="block text-[11px] font-semibold text-slate-600 mb-1">
-                  Time (Mins)
-                </label>
-                <input
-                  type="number"
-                  value={timeMinutes}
-                  onChange={(e) => setTimeMinutes(parseInt(e.target.value) || 0)}
-                  className="w-full rounded-lg border border-slate-200 bg-slate-50 px-3 py-1.5 text-xs text-slate-800 font-mono focus:bg-white focus:border-indigo-500"
-                />
-              </div>
-
-              <div>
-                <label className="block text-[11px] font-semibold text-slate-600 mb-1">
-                  Correct (+)
-                </label>
-                <input
-                  type="number"
-                  step="0.01"
-                  value={correctMarks}
-                  onChange={(e) => setCorrectMarks(parseFloat(e.target.value) || 0)}
-                  className="w-full rounded-lg border border-slate-200 bg-slate-50 px-3 py-1.5 text-xs text-slate-800 font-mono focus:bg-white focus:border-indigo-500"
-                />
-              </div>
-
-              <div>
-                <label className="block text-[11px] font-semibold text-slate-600 mb-1">
-                  Penalty (-)
-                </label>
-                <input
-                  type="number"
-                  step="0.001"
-                  value={incorrectMarks}
-                  onChange={(e) => setIncorrectMarks(parseFloat(e.target.value) || 0)}
-                  className="w-full rounded-lg border border-slate-200 bg-slate-50 px-3 py-1.5 text-xs text-slate-800 font-mono focus:bg-white focus:border-indigo-500"
-                />
-              </div>
-
-              <div>
-                <label className="block text-[11px] font-semibold text-slate-600 mb-1">
-                  Total Marks
-                </label>
-                <input
-                  type="number"
-                  value={totalMarks}
-                  onChange={(e) => setTotalMarks(parseFloat(e.target.value) || 0)}
-                  className="w-full rounded-lg border border-slate-200 bg-slate-50 px-3 py-1.5 text-xs text-slate-800 font-mono focus:bg-white focus:border-indigo-500"
-                />
-              </div>
+            <div className="pt-3 border-t border-slate-100">
+              <RulesScoringGrid
+                totalQuestions={totalQuestions}
+                timeMinutes={timeMinutes}
+                correctMarks={correctMarks}
+                incorrectMarks={incorrectMarks}
+                totalMarks={totalMarks}
+                onTotalQuestionsChange={setTotalQuestions}
+                onTimeMinutesChange={setTimeMinutes}
+                onCorrectMarksChange={setCorrectMarks}
+                onIncorrectMarksChange={setIncorrectMarks}
+                onTotalMarksChange={setTotalMarks}
+              />
             </div>
           </div>
 
@@ -2715,101 +1991,33 @@ export function UploadView({
             </span>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
-              <div className="rounded-xl border border-slate-200 bg-slate-50/50 p-3.5 space-y-2">
-                <span className="text-xs font-bold text-slate-800 block">
-                  Question Paper PDF <span className="text-rose-500">*</span>
-                </span>
-                <label className="cursor-pointer flex flex-col items-center justify-center rounded-xl border border-dashed border-slate-300 bg-white p-3.5 text-center hover:border-indigo-500 hover:bg-slate-50 transition-colors shadow-2xs">
-                  <FileUp className="h-5 w-5 text-indigo-600 mb-1" />
-                  <span className="text-xs font-semibold text-slate-700 truncate max-w-[200px]">
-                    {qpFile ? qpFile.name : "Choose PDF File"}
-                  </span>
-                  <input
-                    type="file"
-                    accept=".pdf"
-                    onChange={(e) => setQpFile(e.target.files?.[0] || null)}
-                    className="hidden"
-                  />
-                </label>
-              </div>
+              <PdfAttachmentCard
+                title="Question Paper PDF"
+                selectedFile={qpFile}
+                onFileSelected={setQpFile}
+                isRequired
+              />
 
-              <div className="rounded-xl border border-slate-200 bg-slate-50/50 p-3.5 space-y-2">
-                <span className="text-xs font-bold text-slate-800 block">
-                  Solution Booklet PDF
-                </span>
-                <label className="cursor-pointer flex flex-col items-center justify-center rounded-xl border border-dashed border-slate-300 bg-white p-3.5 text-center hover:border-slate-500 hover:bg-slate-50 transition-colors shadow-2xs">
-                  <FileUp className="h-5 w-5 text-slate-500 mb-1" />
-                  <span className="text-xs font-semibold text-slate-700 truncate max-w-[200px]">
-                    {exsFile ? exsFile.name : "Optional Solution PDF"}
-                  </span>
-                  <input
-                    type="file"
-                    accept=".pdf"
-                    onChange={(e) => setExsFile(e.target.files?.[0] || null)}
-                    className="hidden"
-                  />
-                </label>
-              </div>
+              <PdfAttachmentCard
+                title="Solution Booklet PDF (Optional)"
+                selectedFile={exsFile}
+                onFileSelected={setExsFile}
+              />
             </div>
           </div>
 
           {/* SEGMENT 3: ANSWER KEY */}
           {examType === "objective" && (
             <div className="rounded-2xl border border-slate-200/90 bg-white p-5 space-y-3 shadow-xs">
-              <div className="flex items-center justify-between flex-wrap gap-2 pb-2 border-b border-slate-100">
-                <span className="text-xs font-bold text-slate-800 uppercase tracking-wider flex items-center gap-2">
-                  <span className="h-5 w-5 rounded-full bg-emerald-50 text-emerald-700 flex items-center justify-center text-[11px] font-bold border border-emerald-200">
-                    3
-                  </span>
-                  Answer Key
-                </span>
-
-                <div className="inline-flex p-0.5 rounded-lg bg-slate-100 border border-slate-200 text-xs font-medium">
-                  <button
-                    type="button"
-                    onClick={() => setAkMode("paste")}
-                    className={`cursor-pointer px-2.5 py-1 rounded-md transition-all ${
-                      akMode === "paste"
-                        ? "bg-white text-emerald-800 font-bold shadow-2xs"
-                        : "text-slate-600 hover:text-slate-900"
-                    }`}
-                  >
-                    Paste Key
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setAkMode("upload")}
-                    className={`cursor-pointer px-2.5 py-1 rounded-md transition-all ${
-                      akMode === "upload"
-                        ? "bg-white text-emerald-800 font-bold shadow-2xs"
-                        : "text-slate-600 hover:text-slate-900"
-                    }`}
-                  >
-                    Upload .txt
-                  </button>
-                </div>
-              </div>
-
-              {akMode === "upload" ? (
-                <label className="cursor-pointer flex items-center justify-center gap-2 rounded-xl border border-dashed border-slate-300 bg-white p-3.5 text-xs font-semibold text-slate-700 hover:border-slate-500 shadow-2xs">
-                  <FileUp className="h-4 w-4 text-slate-500" />
-                  <span>{akFile ? akFile.name : "Select .txt answer key file"}</span>
-                  <input
-                    type="file"
-                    accept=".txt"
-                    onChange={(e) => setAkFile(e.target.files?.[0] || null)}
-                    className="hidden"
-                  />
-                </label>
-              ) : (
-                <textarea
-                  value={akText}
-                  onChange={(e) => setAkText(e.target.value)}
-                  placeholder={`1. a\n2. c\n3. d\n4. b\n...\n100. a`}
-                  rows={4}
-                  className="w-full rounded-xl border border-slate-200 bg-white p-3 font-mono text-xs text-slate-800 placeholder-slate-400 focus:outline-none focus:border-emerald-500 shadow-2xs"
-                />
-              )}
+              <AnswerKeyWidget
+                mode={akMode}
+                onModeChange={setAkMode}
+                textValue={akText}
+                onTextChange={setAkText}
+                fileValue={akFile}
+                onFileChange={setAkFile}
+                mappedCount={0}
+              />
             </div>
           )}
 

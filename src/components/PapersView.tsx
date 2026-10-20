@@ -268,12 +268,6 @@ export function PapersView({
           <h1 className="text-2xl sm:text-3xl font-extrabold text-slate-900 tracking-tight">
             Question Papers
           </h1>
-          <p className="text-xs sm:text-sm text-slate-500 mt-1 max-w-2xl">
-            Official UPSC Civil Services Prelims & Mains archive (2024, 2025,
-            2026). Attempt 2026 Prelims papers free forever, or upgrade to Pro
-            to unlock the full 3-year archive and unlimited custom paper
-            uploads.
-          </p>
         </div>
 
         <button
