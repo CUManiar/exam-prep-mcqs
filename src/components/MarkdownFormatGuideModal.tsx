@@ -164,7 +164,7 @@ export function MarkdownFormatGuideModal({
                     )}
                   </div>
                 </div>
-                <pre className="p-3.5 rounded-xl bg-slate-900 text-slate-100 font-mono text-[11px] overflow-x-auto max-h-56 leading-relaxed border border-slate-800">
+                <pre className="p-4 rounded-xl bg-slate-900 text-slate-100 font-mono text-[11px] overflow-x-auto max-h-56 leading-relaxed border border-slate-800 shadow-inner">
                   {MARKDOWN_PAPER_TEMPLATE}
                 </pre>
               </div>
@@ -179,7 +179,7 @@ export function MarkdownFormatGuideModal({
                   <button
                     type="button"
                     onClick={() => copyToClipboard(ANSWER_KEY_TEMPLATE, "ak_template")}
-                    className="cursor-pointer inline-flex items-center gap-1 text-[11px] font-semibold text-emerald-700 bg-emerald-50 hover:bg-emerald-100 px-2.5 py-1 rounded-lg border border-emerald-200 transition-colors"
+                    className="cursor-pointer inline-flex items-center gap-1 text-[11px] font-semibold text-emerald-700 bg-emerald-50 hover:bg-emerald-100 px-2.5 py-1 rounded-lg border border-emerald-200 transition-colors shadow-2xs"
                   >
                     {copiedKey === "ak_template" ? (
                       <>
@@ -194,7 +194,7 @@ export function MarkdownFormatGuideModal({
                     )}
                   </button>
                 </div>
-                <pre className="p-3.5 rounded-xl bg-slate-900 text-slate-100 font-mono text-[11px] overflow-x-auto max-h-36 leading-relaxed border border-slate-800">
+                <pre className="p-4 rounded-xl bg-slate-900 text-slate-100 font-mono text-[11px] overflow-x-auto max-h-36 leading-relaxed border border-slate-800 shadow-inner">
                   {ANSWER_KEY_TEMPLATE}
                 </pre>
               </div>

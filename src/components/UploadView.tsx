@@ -1233,14 +1233,15 @@ export function UploadView({
 
           {/* Delete Confirm Modal */}
           {showDeleteConfirm && currentSelectedPaper && (
-            <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-xs">
-              <div className="relative w-full max-w-md rounded-2xl border border-slate-200 bg-white p-6 shadow-2xl space-y-4">
-                <div className="flex items-start gap-3">
-                  <div className="p-2.5 rounded-xl bg-rose-50 border border-rose-100 text-rose-600 shrink-0">
+            <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-in fade-in duration-150">
+              <div className="relative w-full max-w-md rounded-3xl border border-slate-200 bg-white p-6 sm:p-7 shadow-2xl space-y-5 overflow-hidden animate-in zoom-in-95 duration-150">
+                <div className="absolute top-0 left-0 right-0 h-1.5 bg-rose-500" />
+                <div className="flex items-start gap-3.5 pt-1">
+                  <div className="p-3 rounded-2xl bg-rose-50 border border-rose-200 text-rose-600 shrink-0">
                     <Trash2 className="h-5 w-5" />
                   </div>
                   <div>
-                    <h3 className="text-base font-bold text-slate-900">
+                    <h3 className="text-base font-extrabold text-slate-900 tracking-tight">
                       Delete Question Paper?
                     </h3>
                     <p className="text-xs text-slate-500 mt-1 leading-relaxed">
@@ -1250,11 +1251,11 @@ export function UploadView({
                   </div>
                 </div>
 
-                <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-100">
+                <div className="flex items-center justify-end gap-2.5 pt-3 border-t border-slate-100">
                   <button
                     type="button"
                     onClick={() => setShowDeleteConfirm(false)}
-                    className="cursor-pointer px-4 py-2 rounded-xl text-xs font-bold text-slate-500 hover:text-slate-800"
+                    className="cursor-pointer rounded-xl border border-slate-200 bg-white px-4 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50 hover:text-slate-900 transition-colors shadow-2xs"
                   >
                     Cancel
                   </button>
