@@ -1,6 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { uploadFile, readJsonStore, writeJsonStore } from "@/lib/cloudStorage";
 import { INITIAL_PAPERS, parseAnswerKeyDetailed } from "@/lib/defaults";
+import {
+  parseQuestionnaireMarkdown,
+  parseMarkdownHeader,
+} from "@/lib/markdownPaperParser";
 
 export async function POST(
   req: NextRequest,
@@ -15,6 +19,8 @@ export async function POST(
     const akFile = formData.get("akFile") as File | null;
     const exsFile = formData.get("exsFile") as File | null;
     const qpFile = formData.get("qpFile") as File | null;
+    const markdownContent = (formData.get("markdownContent") as string) || "";
+    const parsedQuestionsRaw = (formData.get("parsedQuestions") as string) || "";
 
     // Optional metadata updates
     const label = (formData.get("label") as string) || "";
@@ -92,6 +98,29 @@ export async function POST(
       exsUrl = await uploadFile(exsFileName, exsBuffer, "application/pdf");
     }
 
+    // 4. Process Markdown Content if provided
+    let finalMarkdownContent = markdownContent || currentPaper.markdownContent;
+    let finalParsedQuestions = currentPaper.parsedQuestions;
+    let finalInstructions = currentPaper.instructions;
+
+    if (markdownContent && markdownContent.trim().length > 0) {
+      finalMarkdownContent = markdownContent;
+      qpUrl = "local://interactive_markdown";
+      if (parsedQuestionsRaw) {
+        try {
+          finalParsedQuestions = JSON.parse(parsedQuestionsRaw);
+        } catch {
+          finalParsedQuestions = parseQuestionnaireMarkdown(markdownContent);
+        }
+      } else {
+        finalParsedQuestions = parseQuestionnaireMarkdown(markdownContent);
+      }
+      const hdr = parseMarkdownHeader(markdownContent);
+      if (hdr.instructions && hdr.instructions.length > 0) {
+        finalInstructions = hdr.instructions;
+      }
+    }
+
     const updated = {
       ...currentPaper,
       id: cleanId,
@@ -102,7 +131,9 @@ export async function POST(
       subject: subject || currentPaper.subject,
       totalQuestions: totalQuestionsStr
         ? parseInt(totalQuestionsStr)
-        : currentPaper.totalQuestions,
+        : (finalParsedQuestions && finalParsedQuestions.length > 0)
+          ? finalParsedQuestions.length
+          : currentPaper.totalQuestions,
       totalMarks: totalMarksStr
         ? parseFloat(totalMarksStr)
         : currentPaper.totalMarks,
@@ -122,11 +153,47 @@ export async function POST(
         Object.keys(parsedExplanations).length > 0
           ? parsedExplanations
           : currentPaper.explanations,
+      markdownContent: finalMarkdownContent || undefined,
+      parsedQuestions: finalParsedQuestions || undefined,
+      instructions: finalInstructions || undefined,
       updatedAt: new Date().toISOString(),
     };
 
     customMeta[cleanId] = updated;
     await writeJsonStore("papers.json", customMeta);
+
+    // Sync to Supabase custom_papers if configured
+    if (
+      currentPaper.userId &&
+      process.env.NEXT_PUBLIC_SUPABASE_URL &&
+      process.env.SUPABASE_SERVICE_ROLE_KEY
+    ) {
+      try {
+        const { createClient } = await import("@supabase/supabase-js");
+        const supabase = createClient(
+          process.env.NEXT_PUBLIC_SUPABASE_URL,
+          process.env.SUPABASE_SERVICE_ROLE_KEY,
+        );
+        await supabase.from("custom_papers").upsert({
+          id: cleanId,
+          user_id: currentPaper.userId,
+          title: updated.label,
+          total_questions: updated.totalQuestions,
+          total_marks: updated.totalMarks,
+          correct_marks: updated.correctMarks,
+          incorrect_marks: updated.incorrectMarks,
+          time_minutes: updated.timeMinutes,
+          qp_url: updated.qpUrl,
+          ak_url: updated.akUrl || null,
+          exs_url: updated.exsUrl || null,
+          answer_key: updated.answerKey,
+          answer_key_text: updated.answerKeyText || null,
+          updated_at: new Date().toISOString(),
+        });
+      } catch (dbErr) {
+        console.warn("Failed syncing paper update to Supabase:", dbErr);
+      }
+    }
 
     return NextResponse.json({ ok: true, paper: updated });
   } catch (err: any) {
