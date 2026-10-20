@@ -187,64 +187,61 @@ export function HistoryView({
       : 200;
 
   return (
-    <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8 space-y-7 animate-in fade-in duration-200">
+    <div className="mx-auto max-w-7xl px-4 py-6 sm:px-6 lg:px-8 space-y-6 animate-in fade-in duration-200">
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 pb-4 border-b border-slate-200/80">
-        <div>
-          <div className="flex items-center gap-2 mb-1">
-            <span className="text-[11px] font-medium text-indigo-700 bg-indigo-50/80 px-2.5 py-0.5 rounded-full border border-indigo-200/50">
-              Evaluated Tests Archive
-            </span>
-            <span className="text-slate-300">•</span>
-            <span className="text-xs text-slate-500 font-mono">
-              {totalMocks} {totalMocks === 1 ? "attempt" : "attempts"} logged
-            </span>
-          </div>
-          <h1 className="text-xl sm:text-2xl font-bold text-slate-900 tracking-tight">
+        <div className="flex items-center gap-2.5">
+          <h1 className="text-lg sm:text-xl font-bold text-slate-900 tracking-tight">
             Mock Exam History
           </h1>
-          <p className="text-xs sm:text-sm text-slate-500 mt-1 max-w-2xl">
-            Detailed performance logs for timed UPSC test attempts with negative marking reconciliations, re-attempt comparisons, and cumulative progress.
-          </p>
+          <span className="text-xs font-medium text-slate-500 bg-slate-100 px-2 py-0.5 rounded-full font-mono">
+            {totalMocks} {totalMocks === 1 ? "attempt" : "attempts"}
+          </span>
         </div>
 
         {/* View Mode Toggle & Search */}
-        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
-          {/* Segmented Control */}
-          <div className="flex items-center gap-1 bg-slate-100 p-1 rounded-xl border border-slate-200/80 text-xs font-medium">
+        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2.5">
+          {/* Segmented Control with inline whitespace-nowrap counts */}
+          <div className="inline-flex items-center gap-1 bg-slate-100 p-1 rounded-xl border border-slate-200/80 text-xs font-medium shrink-0">
             <button
               onClick={() => setViewMode("all")}
-              className={`cursor-pointer flex items-center gap-1.5 rounded-lg px-3 py-1.5 transition-colors ${
+              className={`cursor-pointer inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 whitespace-nowrap transition-colors ${
                 viewMode === "all"
-                  ? "bg-white text-indigo-700 shadow-xs font-medium"
+                  ? "bg-white text-indigo-700 shadow-xs font-semibold"
                   : "text-slate-600 hover:text-slate-900"
               }`}
             >
-              <History className="h-3.5 w-3.5 text-indigo-600" />
-              <span>Exam Papers ({groupedByPaper.length})</span>
+              <History className="h-3.5 w-3.5 text-indigo-600 shrink-0" />
+              <span>Exam Papers</span>
+              <span className={`text-[11px] font-mono px-1.5 py-0.2 rounded-full ${viewMode === "all" ? "bg-indigo-50 text-indigo-700" : "bg-slate-200/70 text-slate-600"}`}>
+                {groupedByPaper.length}
+              </span>
             </button>
             <button
               onClick={() => setViewMode("cumulative")}
-              className={`cursor-pointer flex items-center gap-1.5 rounded-lg px-3 py-1.5 transition-colors ${
+              className={`cursor-pointer inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 whitespace-nowrap transition-colors ${
                 viewMode === "cumulative"
-                  ? "bg-white text-indigo-700 shadow-xs font-medium"
+                  ? "bg-white text-indigo-700 shadow-xs font-semibold"
                   : "text-slate-600 hover:text-slate-900"
               }`}
             >
-              <Layers className="h-3.5 w-3.5 text-indigo-600" />
-              <span>Cumulative by Paper ({groupedByPaper.length})</span>
+              <Layers className="h-3.5 w-3.5 text-indigo-600 shrink-0" />
+              <span>Cumulative</span>
+              <span className={`text-[11px] font-mono px-1.5 py-0.2 rounded-full ${viewMode === "cumulative" ? "bg-indigo-50 text-indigo-700" : "bg-slate-200/70 text-slate-600"}`}>
+                {groupedByPaper.length}
+              </span>
             </button>
           </div>
 
           {/* Search */}
-          <div className="w-full sm:w-64 relative">
-            <Search className="absolute left-3.5 top-2.5 h-4 w-4 text-slate-400" />
+          <div className="w-full sm:w-56 relative">
+            <Search className="absolute left-3 top-2.5 h-3.5 w-3.5 text-slate-400" />
             <input
               type="text"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              placeholder="Search paper or year..."
-              className="w-full rounded-xl border border-slate-200 bg-white pl-9 pr-4 py-2 text-xs text-slate-800 placeholder-slate-400 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 focus:outline-none transition-all shadow-xs"
+              placeholder="Search paper..."
+              className="w-full rounded-xl border border-slate-200 bg-white pl-8 pr-3 py-1.5 text-xs text-slate-800 placeholder-slate-400 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 focus:outline-none transition-all shadow-xs"
             />
           </div>
         </div>
@@ -340,7 +337,10 @@ export function HistoryView({
                             : "Attempts Recorded Separately"}
                         </span>
                       </div>
-                      <h3 className="text-sm sm:text-base font-semibold text-slate-900">
+                      <h3
+                        title={group.paperLabel}
+                        className="text-sm sm:text-base font-semibold text-slate-900 truncate"
+                      >
                         {group.paperLabel}
                       </h3>
                     </div>
@@ -669,7 +669,10 @@ export function HistoryView({
 
                     {/* Title & Date */}
                     <div>
-                      <h3 className="text-sm font-semibold text-slate-900 group-hover:text-indigo-600 transition-colors leading-snug">
+                      <h3
+                        title={group.paperLabel}
+                        className="text-sm font-semibold text-slate-900 group-hover:text-indigo-600 transition-colors leading-snug truncate"
+                      >
                         {group.paperLabel}
                       </h3>
                       <div className="flex items-center justify-between text-xs text-slate-400 mt-1 font-normal">
