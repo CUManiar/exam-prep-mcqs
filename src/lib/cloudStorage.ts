@@ -45,12 +45,11 @@ export function getBlobToken(): string | undefined {
 }
 
 export function isBlobEnabled(): boolean {
-  // Check for OIDC store ID or token or running on Vercel
+  // Only consider Blob enabled if an actual Store ID or Token is present in the environment
   if (process.env.BLOB_STORE_ID) return true;
   if (Object.keys(process.env).some((k) => k.endsWith("_STORE_ID")))
     return true;
   if (getBlobToken()) return true;
-  if (process.env.VERCEL) return true;
   return false;
 }
 
