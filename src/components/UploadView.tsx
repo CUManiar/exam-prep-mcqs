@@ -108,6 +108,25 @@ function getOrReconstructMarkdown(paper?: QuestionPaper | null): string {
   return "";
 }
 
+// Helper: Extract friendly filename from URL
+function getFilenameFromUrl(url?: string, fallbackLabel?: string): string {
+  if (!url) return "";
+  if (url.startsWith("local://")) return "Interactive Questionnaire";
+  try {
+    const clean = url.split("?")[0];
+    const parts = clean.split("/");
+    const last = decodeURIComponent(parts[parts.length - 1] || "");
+    if (last && last.toLowerCase().endsWith(".pdf")) return last;
+  } catch {
+    // fallback
+  }
+  if (fallbackLabel) {
+    const slug = fallbackLabel.toLowerCase().replace(/[^a-z0-9_-]/g, "_").replace(/_+/g, "_");
+    return `${slug}.pdf`;
+  }
+  return "document.pdf";
+}
+
 export function UploadView({
   papers = [],
   onPaperUploaded,
@@ -278,6 +297,16 @@ export function UploadView({
     () => papers.find((p) => p.id === selectedPaperId),
     [papers, selectedPaperId],
   );
+
+  const isSelectedPaperMarkdown = useMemo(() => {
+    if (!currentSelectedPaper) return false;
+    return (
+      Boolean(currentSelectedPaper.parsedQuestions && currentSelectedPaper.parsedQuestions.length > 0) ||
+      Boolean(currentSelectedPaper.markdownContent) ||
+      currentSelectedPaper.qpUrl?.startsWith("local://") ||
+      currentSelectedPaper.id?.startsWith("custom_md_")
+    );
+  }, [currentSelectedPaper]);
 
   const filteredUpdatePapers = useMemo(() => {
     if (!paperSearchQuery.trim()) return papers;
@@ -1769,35 +1798,23 @@ export function UploadView({
                       Questionnaire
                     </span>
 
-                    <div className="inline-flex p-0.5 rounded-lg bg-slate-100 border border-slate-200 text-xs font-medium">
-                      <button
-                        type="button"
-                        onClick={() => setUpdateQpFormat("markdown")}
-                        className={`cursor-pointer inline-flex items-center gap-1.5 px-3 py-1 rounded-md transition-all ${
-                          updateQpFormat === "markdown"
-                            ? "bg-white text-purple-700 font-bold shadow-2xs"
-                            : "text-slate-600 hover:text-slate-900"
-                        }`}
-                      >
-                        <Sparkles className="h-3.5 w-3.5 text-purple-600" />
-                        <span>Interactive Markdown</span>
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => setUpdateQpFormat("pdf")}
-                        className={`cursor-pointer inline-flex items-center gap-1.5 px-3 py-1 rounded-md transition-all ${
-                          updateQpFormat === "pdf"
-                            ? "bg-white text-indigo-700 font-bold shadow-2xs"
-                            : "text-slate-600 hover:text-slate-900"
-                        }`}
-                      >
-                        <FileText className="h-3.5 w-3.5 text-indigo-600" />
-                        <span>PDF Document</span>
-                      </button>
+                    {/* In Update mode format is locked to the paper's inherent type: Hide markdown button on PDF papers */}
+                    <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-slate-100 border border-slate-200 text-xs font-semibold">
+                      {isSelectedPaperMarkdown ? (
+                        <span className="inline-flex items-center gap-1.5 text-purple-700">
+                          <Sparkles className="h-3.5 w-3.5 text-purple-600" />
+                          <span>Interactive Markdown Paper</span>
+                        </span>
+                      ) : (
+                        <span className="inline-flex items-center gap-1.5 text-indigo-700">
+                          <FileText className="h-3.5 w-3.5 text-indigo-600" />
+                          <span>PDF Document Paper</span>
+                        </span>
+                      )}
                     </div>
                   </div>
 
-                  {updateQpFormat === "markdown" && (
+                  {isSelectedPaperMarkdown && (
                     <div className="flex items-center gap-1.5">
                       <button
                         type="button"
@@ -2013,14 +2030,41 @@ export function UploadView({
                   </div>
                 ) : (
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
-                    <div className="rounded-xl border border-slate-200 bg-slate-50/50 p-3.5 space-y-2">
-                      <span className="text-xs font-bold text-slate-800 block">
-                        Question Paper PDF
-                      </span>
-                      <label className="cursor-pointer flex flex-col items-center justify-center rounded-xl border border-dashed border-slate-300 bg-white p-3.5 text-center hover:border-indigo-500 hover:bg-slate-50 transition-colors shadow-2xs">
-                        <FileUp className="h-5 w-5 text-indigo-600 mb-1" />
-                        <span className="text-xs font-semibold text-slate-700 truncate max-w-[200px]">
-                          {qpFile ? qpFile.name : "Replace Question Paper PDF"}
+                    {/* Question Paper PDF */}
+                    <div className="rounded-xl border border-slate-200 bg-slate-50/60 p-4 space-y-3">
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs font-bold text-slate-800">
+                          Question Paper PDF
+                        </span>
+                        {currentSelectedPaper.qpUrl && !currentSelectedPaper.qpUrl.startsWith("local://") && (
+                          <a
+                            href={currentSelectedPaper.qpUrl}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-[11px] font-semibold text-indigo-600 hover:text-indigo-800 inline-flex items-center gap-1"
+                          >
+                            <ExternalLink className="h-3 w-3" />
+                            <span>Preview</span>
+                          </a>
+                        )}
+                      </div>
+
+                      <div className="flex items-center gap-2.5 p-2.5 rounded-lg bg-white border border-slate-200 text-xs shadow-2xs">
+                        <FileText className="h-4 w-4 text-indigo-600 shrink-0" />
+                        <div className="min-w-0 flex-1">
+                          <span className="text-[10px] text-slate-400 block font-medium">
+                            Current Uploaded File
+                          </span>
+                          <span className="font-mono text-xs font-bold text-slate-800 truncate block">
+                            {getFilenameFromUrl(currentSelectedPaper.qpUrl, currentSelectedPaper.label)}
+                          </span>
+                        </div>
+                      </div>
+
+                      <label className="cursor-pointer flex items-center justify-center gap-2 rounded-xl border border-dashed border-slate-300 bg-white hover:border-indigo-500 hover:bg-slate-50 p-2.5 text-xs font-semibold text-slate-700 transition-colors shadow-2xs">
+                        <FileUp className="h-4 w-4 text-indigo-600" />
+                        <span className="truncate max-w-[220px]">
+                          {qpFile ? `New: ${qpFile.name}` : "Replace Question Paper PDF"}
                         </span>
                         <input
                           type="file"
@@ -2031,14 +2075,47 @@ export function UploadView({
                       </label>
                     </div>
 
-                    <div className="rounded-xl border border-slate-200 bg-slate-50/50 p-3.5 space-y-2">
-                      <span className="text-xs font-bold text-slate-800 block">
-                        Solution Booklet PDF
-                      </span>
-                      <label className="cursor-pointer flex flex-col items-center justify-center rounded-xl border border-dashed border-slate-300 bg-white p-3.5 text-center hover:border-slate-500 hover:bg-slate-50 transition-colors shadow-2xs">
-                        <FileUp className="h-5 w-5 text-slate-500 mb-1" />
-                        <span className="text-xs font-semibold text-slate-700 truncate max-w-[200px]">
-                          {exsFile ? exsFile.name : "Attach / Replace Solution PDF"}
+                    {/* Solution Booklet PDF */}
+                    <div className="rounded-xl border border-slate-200 bg-slate-50/60 p-4 space-y-3">
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs font-bold text-slate-800">
+                          Solution Booklet PDF
+                        </span>
+                        {hasSolution(currentSelectedPaper) && currentSelectedPaper.exsUrl && (
+                          <a
+                            href={currentSelectedPaper.exsUrl}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-[11px] font-semibold text-indigo-600 hover:text-indigo-800 inline-flex items-center gap-1"
+                          >
+                            <ExternalLink className="h-3 w-3" />
+                            <span>Preview</span>
+                          </a>
+                        )}
+                      </div>
+
+                      <div className="flex items-center gap-2.5 p-2.5 rounded-lg bg-white border border-slate-200 text-xs shadow-2xs">
+                        <FileText className="h-4 w-4 text-slate-500 shrink-0" />
+                        <div className="min-w-0 flex-1">
+                          <span className="text-[10px] text-slate-400 block font-medium">
+                            {hasSolution(currentSelectedPaper) ? "Current Solution Booklet" : "Status"}
+                          </span>
+                          <span className="font-mono text-xs font-semibold text-slate-700 truncate block">
+                            {hasSolution(currentSelectedPaper)
+                              ? getFilenameFromUrl(currentSelectedPaper.exsUrl, `${currentSelectedPaper.label}_solution`)
+                              : "No Solution Booklet Uploaded"}
+                          </span>
+                        </div>
+                      </div>
+
+                      <label className="cursor-pointer flex items-center justify-center gap-2 rounded-xl border border-dashed border-slate-300 bg-white hover:border-slate-500 hover:bg-slate-50 p-2.5 text-xs font-semibold text-slate-700 transition-colors shadow-2xs">
+                        <FileUp className="h-4 w-4 text-slate-500" />
+                        <span className="truncate max-w-[220px]">
+                          {exsFile
+                            ? `New: ${exsFile.name}`
+                            : hasSolution(currentSelectedPaper)
+                              ? "Replace Solution PDF"
+                              : "Attach Solution PDF"}
                         </span>
                         <input
                           type="file"
