@@ -641,26 +641,26 @@ export function AttemptDetailView({
           <div className="grid grid-cols-5 gap-3">
             {/* Widget 1: Final Score */}
             <div className="rounded-xl border border-slate-300 bg-slate-50 p-3 text-center">
-              <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500 block">
+              <span className="text-[10px] font-medium uppercase tracking-wider text-slate-500 block">
                 Final Score
               </span>
-              <div className="text-xl font-extrabold text-slate-900 font-mono mt-0.5">
+              <div className="text-xl font-bold text-slate-900 font-mono mt-0.5">
                 {attempt.score}{" "}
                 <span className="text-xs font-normal text-slate-500">
                   / {effectiveMaxScore}
                 </span>
               </div>
-              <span className="text-[10px] font-semibold text-indigo-700 mt-0.5 block">
+              <span className="text-[10px] font-medium text-indigo-700 mt-0.5 block">
                 {scorePct}% Marks
               </span>
             </div>
 
             {/* Widget 2: Accuracy */}
             <div className="rounded-xl border border-slate-300 bg-slate-50 p-3 text-center">
-              <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500 block">
+              <span className="text-[10px] font-medium uppercase tracking-wider text-slate-500 block">
                 Accuracy
               </span>
-              <div className="text-xl font-extrabold text-emerald-700 font-mono mt-0.5">
+              <div className="text-xl font-bold text-emerald-700 font-mono mt-0.5">
                 {attempt.accuracyPct}%
               </div>
               <span className="text-[10px] text-slate-500 mt-0.5 block">
@@ -670,10 +670,10 @@ export function AttemptDetailView({
 
             {/* Widget 3: Correct vs Wrong */}
             <div className="rounded-xl border border-slate-300 bg-slate-50 p-3 text-center">
-              <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500 block">
+              <span className="text-[10px] font-medium uppercase tracking-wider text-slate-500 block">
                 Correct / Wrong
               </span>
-              <div className="text-xl font-extrabold text-slate-900 font-mono mt-0.5">
+              <div className="text-xl font-bold text-slate-900 font-mono mt-0.5">
                 <span className="text-emerald-700">{attempt.correct}</span>
                 <span className="text-slate-400 mx-1">/</span>
                 <span className="text-rose-700">{attempt.incorrect}</span>
@@ -685,10 +685,10 @@ export function AttemptDetailView({
 
             {/* Widget 4: Attempt Coverage */}
             <div className="rounded-xl border border-slate-300 bg-slate-50 p-3 text-center">
-              <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500 block">
+              <span className="text-[10px] font-medium uppercase tracking-wider text-slate-500 block">
                 Questions
               </span>
-              <div className="text-xl font-extrabold text-slate-900 font-mono mt-0.5">
+              <div className="text-xl font-bold text-slate-900 font-mono mt-0.5">
                 {attempt.answered}{" "}
                 <span className="text-xs font-normal text-slate-500">
                   / {attempt.totalQuestions}
@@ -701,10 +701,10 @@ export function AttemptDetailView({
 
             {/* Widget 5: Pace */}
             <div className="rounded-xl border border-slate-300 bg-slate-50 p-3 text-center">
-              <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500 block">
+              <span className="text-[10px] font-medium uppercase tracking-wider text-slate-500 block">
                 Average Pace
               </span>
-              <div className="text-xl font-extrabold text-slate-900 font-mono mt-0.5">
+              <div className="text-xl font-bold text-slate-900 font-mono mt-0.5">
                 {avgTimePerQ}s
               </div>
               <span className="text-[10px] text-slate-500 mt-0.5 block">
@@ -902,14 +902,14 @@ export function AttemptDetailView({
           </button>
           <div>
             <div className="flex items-center gap-2">
-              <span className="text-[10px] font-bold uppercase tracking-wider px-2.5 py-0.5 rounded-full bg-indigo-50 text-indigo-700 border border-indigo-200/60 font-mono">
+              <span className="text-[10px] font-medium uppercase tracking-wider px-2.5 py-0.5 rounded-full bg-indigo-50 text-indigo-700 border border-indigo-200/60 font-mono">
                 Mock Assessment Report
               </span>
               <span className="text-xs text-slate-500 font-medium">
                 {formatDateTime(attempt.startedAt)}
               </span>
             </div>
-            <h1 className="text-xl sm:text-2xl font-extrabold text-slate-900 tracking-tight mt-0.5">
+            <h1 className="text-lg sm:text-xl font-bold text-slate-900 tracking-tight mt-0.5">
               {displayPaperTitle}
             </h1>
           </div>
@@ -1236,16 +1236,16 @@ export function AttemptDetailView({
             >
               {/* Final Score */}
               <div className="flex items-baseline gap-2">
-                <span className="text-xs uppercase font-extrabold tracking-wider text-slate-500">
+                <span className="text-xs uppercase font-medium tracking-wider text-slate-500">
                   Final Score:
                 </span>
-                <span className="text-3xl sm:text-4xl font-extrabold text-slate-900 tracking-tight font-mono">
+                <span className="text-2xl sm:text-3xl font-bold text-slate-900 tracking-tight font-mono">
                   {attempt.score}
                 </span>
-                <span className="text-base font-semibold text-slate-500 font-mono">
+                <span className="text-sm font-medium text-slate-500 font-mono">
                   / {effectiveMaxScore}
                 </span>
-                <span className="ml-2 text-xs text-indigo-700 font-bold bg-indigo-50 border border-indigo-200 px-2 py-0.5 rounded-full">
+                <span className="ml-2 text-xs text-indigo-700 font-semibold bg-indigo-50 border border-indigo-200 px-2 py-0.5 rounded-full">
                   {scorePct}%
                 </span>
               </div>
@@ -1387,10 +1387,10 @@ export function AttemptDetailView({
 
                   <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                     <div className="rounded-xl bg-emerald-50/70 border border-emerald-200 p-3">
-                      <div className="text-[11px] font-bold text-emerald-800">
+                      <div className="text-[11px] font-semibold text-emerald-800">
                         Gross Marks Earned
                       </div>
-                      <div className="text-2xl font-extrabold text-emerald-700 font-mono mt-0.5">
+                      <div className="text-xl font-bold text-emerald-700 font-mono mt-0.5">
                         +{grossCorrectMarks}
                       </div>
                       <div className="text-[11px] text-emerald-700/80 mt-1">
@@ -1399,10 +1399,10 @@ export function AttemptDetailView({
                     </div>
 
                     <div className="rounded-xl bg-rose-50/70 border border-rose-200 p-3">
-                      <div className="text-[11px] font-bold text-rose-800">
+                      <div className="text-[11px] font-semibold text-rose-800">
                         Marks Deducted (Negative Marking)
                       </div>
-                      <div className="text-2xl font-extrabold text-rose-700 font-mono mt-0.5">
+                      <div className="text-xl font-bold text-rose-700 font-mono mt-0.5">
                         -{negativePenaltyMarks}
                       </div>
                       <div className="text-[11px] text-rose-700/80 mt-1">
@@ -1412,10 +1412,10 @@ export function AttemptDetailView({
                     </div>
 
                     <div className="rounded-xl bg-indigo-50/70 border border-indigo-200 p-3">
-                      <div className="text-[11px] font-bold text-indigo-800">
+                      <div className="text-[11px] font-semibold text-indigo-800">
                         Final Net Score
                       </div>
-                      <div className="text-2xl font-extrabold text-slate-900 font-mono mt-0.5">
+                      <div className="text-xl font-bold text-slate-900 font-mono mt-0.5">
                         {attempt.score}{" "}
                         <span className="text-xs font-normal text-slate-500">
                           / {effectiveMaxScore}
@@ -1692,7 +1692,7 @@ export function AttemptDetailView({
               </div>
 
               <div className="mt-2 flex items-baseline justify-between">
-                <div className="text-lg sm:text-xl font-extrabold text-slate-900 font-mono">
+                <div className="text-base sm:text-lg font-bold text-slate-900 font-mono">
                   {sureCorrect}{" "}
                   <span className="text-xs font-normal text-slate-500">
                     / {sureQuestions.length} Correct
@@ -1741,7 +1741,7 @@ export function AttemptDetailView({
               </div>
 
               <div className="mt-2 flex items-baseline justify-between">
-                <div className="text-lg sm:text-xl font-extrabold text-slate-900 font-mono">
+                <div className="text-base sm:text-lg font-bold text-slate-900 font-mono">
                   {fiftyFiftyCorrect}{" "}
                   <span className="text-xs font-normal text-slate-500">
                     / {fiftyFiftyQuestions.length} Correct
@@ -1792,7 +1792,7 @@ export function AttemptDetailView({
               </div>
 
               <div className="mt-2 flex items-baseline justify-between">
-                <div className="text-lg sm:text-xl font-extrabold text-slate-900 font-mono">
+                <div className="text-base sm:text-lg font-bold text-slate-900 font-mono">
                   {eliminationCorrect}{" "}
                   <span className="text-xs font-normal text-slate-500">
                     / {eliminationQuestions.length} Correct
@@ -1841,7 +1841,7 @@ export function AttemptDetailView({
               </div>
 
               <div className="mt-2 flex items-baseline justify-between">
-                <div className="text-lg sm:text-xl font-extrabold text-slate-900 font-mono">
+                <div className="text-base sm:text-lg font-bold text-slate-900 font-mono">
                   {guessCorrect}{" "}
                   <span className="text-xs font-normal text-slate-500">
                     / {guessQuestions.length} Correct
@@ -1868,7 +1868,7 @@ export function AttemptDetailView({
             {/* Row 1: Header & Sorting Controls */}
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-200 pb-3">
               <div>
-                <h3 className="text-base font-extrabold text-slate-900">
+                <h3 className="text-sm sm:text-base font-semibold text-slate-900">
                   Question Review ({filteredQuestions.length} of{" "}
                   {attempt.totalQuestions})
                 </h3>

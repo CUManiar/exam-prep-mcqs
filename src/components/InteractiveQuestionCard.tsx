@@ -66,34 +66,34 @@ export function InteractiveQuestionCard({
           {/* Key Metrics */}
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 pt-2">
             <div className="rounded-2xl border border-slate-200/80 bg-slate-50/70 p-3.5 text-center">
-              <span className="text-[11px] font-semibold text-slate-400 block">
+              <span className="text-[11px] font-medium text-slate-400 block">
                 Questions
               </span>
-              <span className="text-lg font-extrabold text-slate-800 font-mono mt-0.5 block">
+              <span className="text-base font-bold text-slate-800 font-mono mt-0.5 block">
                 {paper.totalQuestions}
               </span>
             </div>
             <div className="rounded-2xl border border-slate-200/80 bg-slate-50/70 p-3.5 text-center">
-              <span className="text-[11px] font-semibold text-slate-400 block">
+              <span className="text-[11px] font-medium text-slate-400 block">
                 Time
               </span>
-              <span className="text-lg font-extrabold text-slate-800 font-mono mt-0.5 block">
+              <span className="text-base font-bold text-slate-800 font-mono mt-0.5 block">
                 {paper.timeMinutes}m
               </span>
             </div>
             <div className="rounded-2xl border border-emerald-200/80 bg-emerald-50/50 p-3.5 text-center">
-              <span className="text-[11px] font-semibold text-emerald-600 block">
+              <span className="text-[11px] font-medium text-emerald-600 block">
                 Correct
               </span>
-              <span className="text-lg font-extrabold text-emerald-800 font-mono mt-0.5 block">
+              <span className="text-base font-bold text-emerald-800 font-mono mt-0.5 block">
                 +{paper.correctMarks}m
               </span>
             </div>
             <div className="rounded-2xl border border-rose-200/80 bg-rose-50/50 p-3.5 text-center">
-              <span className="text-[11px] font-semibold text-rose-600 block">
+              <span className="text-[11px] font-medium text-rose-600 block">
                 Wrong Penalty
               </span>
-              <span className="text-lg font-extrabold text-rose-800 font-mono mt-0.5 block">
+              <span className="text-base font-bold text-rose-800 font-mono mt-0.5 block">
                 -{paper.incorrectMarks}m
               </span>
             </div>
@@ -197,7 +197,7 @@ export function InteractiveQuestionCard({
           <div className="flex items-center gap-2">
             {hasAnswered && (
               <span
-                className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-extrabold ${
+                className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold ${
                   mode === "practice"
                     ? isCorrect
                       ? "bg-emerald-100 text-emerald-800 border border-emerald-300"

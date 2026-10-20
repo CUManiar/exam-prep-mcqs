@@ -2261,10 +2261,10 @@ export function ExamSessionView({
               {/* KPI Overview Cards */}
               <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 sm:gap-4">
                 <div className="rounded-2xl border border-emerald-200 bg-emerald-50/60 p-4 shadow-2xs">
-                  <div className="text-xs text-emerald-800 font-semibold">
+                  <div className="text-xs text-emerald-800 font-medium">
                     Attempted
                   </div>
-                  <div className="text-2xl font-extrabold text-emerald-700 mt-1">
+                  <div className="text-xl font-bold text-emerald-700 mt-1 font-mono">
                     {attemptedCount}
                     <span className="text-xs font-normal text-slate-500 ml-1">
                       / {paper.totalQuestions}
@@ -2279,10 +2279,10 @@ export function ExamSessionView({
                 </div>
 
                 <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-2xs">
-                  <div className="text-xs text-slate-600 font-semibold">
+                  <div className="text-xs text-slate-600 font-medium">
                     Skipped
                   </div>
-                  <div className="text-2xl font-extrabold text-slate-700 mt-1">
+                  <div className="text-xl font-bold text-slate-700 mt-1 font-mono">
                     {unattemptedCount}
                   </div>
                   <div className="text-[11px] text-slate-400 mt-0.5">
@@ -2291,10 +2291,10 @@ export function ExamSessionView({
                 </div>
 
                 <div className="rounded-2xl border border-amber-200 bg-amber-50/60 p-4 shadow-2xs">
-                  <div className="text-xs text-amber-800 font-semibold">
+                  <div className="text-xs text-amber-800 font-medium">
                     Flagged
                   </div>
-                  <div className="text-2xl font-extrabold text-amber-700 mt-1">
+                  <div className="text-xl font-bold text-amber-700 mt-1 font-mono">
                     {flaggedCount}
                   </div>
                   <div className="text-[11px] text-amber-600 mt-0.5">
@@ -2303,10 +2303,10 @@ export function ExamSessionView({
                 </div>
 
                 <div className="rounded-2xl border border-violet-200 bg-violet-50/60 p-4 shadow-2xs">
-                  <div className="text-xs text-violet-800 font-semibold">
+                  <div className="text-xs text-violet-800 font-medium">
                     Alterations
                   </div>
-                  <div className="text-2xl font-extrabold text-violet-700 mt-1">
+                  <div className="text-xl font-bold text-violet-700 mt-1 font-mono">
                     {alteredCount}
                   </div>
                   <div className="text-[11px] text-violet-600 mt-0.5">
@@ -2315,10 +2315,10 @@ export function ExamSessionView({
                 </div>
 
                 <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-2xs">
-                  <div className="text-xs text-slate-600 font-semibold">
+                  <div className="text-xs text-slate-600 font-medium">
                     Time Elapsed
                   </div>
-                  <div className="text-2xl font-extrabold text-indigo-700 font-mono mt-1">
+                  <div className="text-xl font-bold text-indigo-700 font-mono mt-1">
                     {formatTimeSeconds(elapsedSeconds)}
                   </div>
                   <div className="text-[11px] text-slate-500 mt-0.5">
@@ -2329,10 +2329,10 @@ export function ExamSessionView({
                 </div>
 
                 <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-2xs">
-                  <div className="text-xs text-slate-600 font-semibold">
+                  <div className="text-xs text-slate-600 font-medium">
                     Average Pace
                   </div>
-                  <div className="text-2xl font-extrabold text-slate-900 font-mono mt-1">
+                  <div className="text-xl font-bold text-slate-900 font-mono mt-1">
                     {attemptedCount > 0
                       ? Math.round(elapsedSeconds / attemptedCount)
                       : 0}

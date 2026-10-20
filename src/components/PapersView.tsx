@@ -257,30 +257,30 @@ export function PapersView({
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 pb-4 border-b border-slate-200/80">
         <div>
           <div className="flex items-center gap-2 mb-1">
-            <span className="text-[11px] font-bold uppercase tracking-wider text-indigo-700 bg-indigo-50 px-2.5 py-0.5 rounded-full border border-indigo-200/60 font-mono">
-              Official Papers Archive
+            <span className="text-[11px] font-medium uppercase tracking-wider text-indigo-700 bg-indigo-50 px-2 py-0.5 rounded-md border border-indigo-100 font-mono">
+              Papers Archive
             </span>
             <span className="text-slate-300">•</span>
-            <span className="text-xs font-semibold text-slate-500 font-mono">
-              {papers.length} Papers Available
+            <span className="text-xs text-slate-500 font-mono">
+              {papers.length} Papers
             </span>
           </div>
-          <h1 className="text-2xl sm:text-3xl font-extrabold text-slate-900 tracking-tight">
+          <h1 className="text-xl sm:text-2xl font-bold text-slate-900 tracking-tight">
             Question Papers
           </h1>
         </div>
 
         <button
           onClick={onNavigateUpload}
-          className="cursor-pointer self-start sm:self-auto flex items-center gap-1.5 rounded-xl bg-white border border-slate-200 px-4 py-2.5 text-xs font-bold text-slate-700 hover:bg-slate-50 hover:text-indigo-600 transition-all shadow-xs"
+          className="cursor-pointer self-start sm:self-auto flex items-center gap-1.5 rounded-xl bg-indigo-600 px-4 py-2 text-xs font-semibold text-white hover:bg-indigo-700 transition-all shadow-xs"
         >
-          <Plus className="h-4 w-4 text-indigo-600" />
+          <Plus className="h-4 w-4" />
           <span>Upload Paper</span>
         </button>
       </div>
 
       {/* Filter / Search Bar */}
-      <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 bi-card p-3.5 shadow-xs">
+      <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 bg-white border border-slate-200/80 rounded-2xl p-3 shadow-xs">
         {/* Search */}
         <div className="relative flex-1 min-w-[220px]">
           <Search className="absolute left-3.5 top-2.5 h-4 w-4 text-slate-400" />
@@ -289,27 +289,27 @@ export function PapersView({
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             placeholder="Search papers by year, subject, keyword..."
-            className="w-full rounded-xl border border-slate-200 bg-slate-50 pl-9 pr-4 py-2 text-xs text-slate-800 placeholder-slate-400 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 focus:outline-none transition-colors"
+            className="w-full rounded-xl border border-slate-200 bg-slate-50 pl-9 pr-4 py-2 text-xs text-slate-800 placeholder-slate-400 focus:bg-white focus:border-indigo-500 focus:outline-none transition-colors"
           />
         </div>
 
         {/* Category Segmented Control */}
-        <div className="flex items-center gap-1 bg-slate-100 p-1 rounded-xl border border-slate-200/80 text-xs font-semibold flex-wrap">
+        <div className="flex items-center gap-1 bg-slate-100 p-1 rounded-xl border border-slate-200/80 text-xs font-medium flex-wrap">
           <button
             onClick={() => setSelectedCategory("all")}
-            className={`cursor-pointer rounded-lg px-3.5 py-1.5 transition-colors ${
+            className={`cursor-pointer rounded-lg px-3 py-1.5 transition-colors ${
               selectedCategory === "all"
-                ? "bg-white text-indigo-700 shadow-xs font-bold"
+                ? "bg-white text-slate-900 shadow-xs font-semibold"
                 : "text-slate-600 hover:text-slate-900"
             }`}
           >
-            All Papers
+            All
           </button>
           <button
             onClick={() => setSelectedCategory("prelims")}
-            className={`cursor-pointer rounded-lg px-3.5 py-1.5 transition-colors ${
+            className={`cursor-pointer rounded-lg px-3 py-1.5 transition-colors ${
               selectedCategory === "prelims"
-                ? "bg-white text-indigo-700 shadow-xs font-bold"
+                ? "bg-white text-slate-900 shadow-xs font-semibold"
                 : "text-slate-600 hover:text-slate-900"
             }`}
           >
@@ -317,9 +317,9 @@ export function PapersView({
           </button>
           <button
             onClick={() => setSelectedCategory("mains")}
-            className={`cursor-pointer rounded-lg px-3.5 py-1.5 transition-colors ${
+            className={`cursor-pointer rounded-lg px-3 py-1.5 transition-colors ${
               selectedCategory === "mains"
-                ? "bg-white text-indigo-700 shadow-xs font-bold"
+                ? "bg-white text-slate-900 shadow-xs font-semibold"
                 : "text-slate-600 hover:text-slate-900"
             }`}
           >
@@ -327,18 +327,18 @@ export function PapersView({
           </button>
           <button
             onClick={() => setSelectedCategory("custom")}
-            className={`cursor-pointer flex items-center gap-1.5 rounded-lg px-3.5 py-1.5 transition-colors ${
+            className={`cursor-pointer flex items-center gap-1.5 rounded-lg px-3 py-1.5 transition-colors ${
               selectedCategory === "custom"
-                ? "bg-white text-purple-700 shadow-xs font-bold ring-1 ring-purple-500/20"
+                ? "bg-white text-purple-700 shadow-xs font-semibold"
                 : "text-slate-600 hover:text-slate-900"
             }`}
           >
             <FileUp className="h-3.5 w-3.5 text-purple-600" />
-            <span>User Uploaded</span>
+            <span>Uploaded</span>
             <span
               className={`px-1.5 py-0.2 rounded-full text-[10px] font-mono ${
                 selectedCategory === "custom"
-                  ? "bg-purple-100 text-purple-800 font-bold"
+                  ? "bg-purple-100 text-purple-800 font-semibold"
                   : "bg-slate-200 text-slate-700"
               }`}
             >
@@ -349,28 +349,22 @@ export function PapersView({
 
         {/* Dropdown Filters */}
         <div className="flex items-center gap-2 flex-wrap">
-          {/* Attempt Filter Dropdown */}
           <select
             value={selectedAttemptFilter}
             onChange={(e) => setSelectedAttemptFilter(e.target.value as any)}
-            className="cursor-pointer rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-700 focus:outline-none focus:border-indigo-500 transition-colors shadow-xs"
+            className="cursor-pointer rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-medium text-slate-700 focus:outline-none focus:border-indigo-500 transition-colors shadow-2xs"
           >
             <option value="all">All Attempts ({papers.length})</option>
             <option value="attempted">Attempted ({attemptedCount})</option>
-            <option value="unattempted">
-              Unattempted ({unattemptedCount})
-            </option>
+            <option value="unattempted">Unattempted ({unattemptedCount})</option>
             <option value="mock">Mock Only ({mockAttemptedCount})</option>
-            <option value="practice">
-              Practice Only ({practiceAttemptedCount})
-            </option>
+            <option value="practice">Practice Only ({practiceAttemptedCount})</option>
           </select>
 
-          {/* Year Dropdown */}
           <select
             value={selectedYear}
             onChange={(e) => setSelectedYear(e.target.value)}
-            className="cursor-pointer rounded-xl border border-slate-200 bg-white px-3.5 py-2 text-xs font-semibold text-slate-700 focus:outline-none focus:border-indigo-500 transition-colors shadow-xs"
+            className="cursor-pointer rounded-xl border border-slate-200 bg-white px-3.5 py-2 text-xs font-medium text-slate-700 focus:outline-none focus:border-indigo-500 transition-colors shadow-2xs"
           >
             <option value="all">All Years</option>
             {SUPPORTED_YEARS.map((yr) => (
@@ -477,163 +471,143 @@ export function PapersView({
             return (
               <div
                 key={paper.id}
-                className="flex flex-col h-full justify-between bi-card p-5 group hover:border-indigo-300 transition-all shadow-xs"
+                className="flex flex-col h-full justify-between bg-white rounded-2xl border border-slate-200/80 p-5 group hover:border-slate-300 hover:shadow-sm transition-all"
               >
                 <div>
-                  {/* Top Header Row: Year & Category Tag */}
-                  <div className="flex items-center justify-between">
+                  {/* Top Header Row: Clean, quiet badges */}
+                  <div className="flex items-center justify-between gap-2">
                     <div className="flex items-center gap-1.5 flex-wrap">
-                      <span className="rounded-md bg-slate-100 px-2.5 py-0.5 text-xs font-bold text-slate-700 font-mono">
+                      <span className="rounded-md bg-slate-100 px-2 py-0.5 text-xs font-medium text-slate-600 font-mono">
                         {paper.year}
                       </span>
                       {isCustom && (
-                        <span className="text-[10px] uppercase font-bold text-purple-700 bg-purple-50 px-2 py-0.5 rounded-md border border-purple-200/60 font-mono">
-                          User Uploaded
+                        <span className="text-[11px] font-medium text-purple-700 bg-purple-50 px-2 py-0.5 rounded-md border border-purple-100">
+                          Uploaded
                         </span>
                       )}
                       {isLocked && (
-                        <span className="inline-flex items-center gap-1 rounded-full bg-amber-50 px-2 py-0.5 text-[10px] font-bold text-amber-800 border border-amber-200">
+                        <span className="inline-flex items-center gap-1 rounded-md bg-amber-50 px-1.5 py-0.5 text-[10px] font-medium text-amber-800 border border-amber-200">
                           <Lock className="h-2.5 w-2.5 text-amber-600" />
                           <span>PRO</span>
                         </span>
                       )}
                     </div>
-                    <span
-                      className={`text-[10px] font-extrabold uppercase px-2.5 py-0.5 rounded-full ${
-                        isCustom
-                          ? "bg-purple-50 text-purple-700 border border-purple-200/60"
-                          : paper.examType === "subjective"
-                            ? "bg-violet-50 text-violet-700 border border-violet-200/60"
-                            : "bg-indigo-50 text-indigo-700 border border-indigo-200/60"
-                      }`}
-                    >
-                      {isCustom
-                        ? "Practice Paper"
-                        : paper.examType === "subjective"
-                          ? "Mains Subjective"
-                          : paper.subject}
-                    </span>
 
-                    {((paper.parsedQuestions &&
-                      paper.parsedQuestions.length > 0) ||
-                      paper.markdownContent ||
-                      paper.qpUrl?.startsWith("local://")) && (
-                      <span className="text-[10px] font-extrabold uppercase px-2.5 py-0.5 rounded-full bg-purple-600 text-white flex items-center gap-1 shadow-2xs">
-                        <Sparkles className="h-3 w-3 fill-purple-200" />
-                        <span>Interactive Mock</span>
-                      </span>
-                    )}
+                    <div className="flex items-center gap-1.5">
+                      {((paper.parsedQuestions && paper.parsedQuestions.length > 0) ||
+                        paper.markdownContent ||
+                        paper.qpUrl?.startsWith("local://")) ? (
+                        <span className="text-[11px] font-medium text-purple-700 bg-purple-50 px-2 py-0.5 rounded-full border border-purple-200 flex items-center gap-1">
+                          <Sparkles className="h-3 w-3 text-purple-600" />
+                          <span>Interactive</span>
+                        </span>
+                      ) : (
+                        <span className="text-[11px] font-medium text-slate-500 bg-slate-50 px-2 py-0.5 rounded-full border border-slate-200">
+                          {paper.examType === "subjective" ? "Mains" : "PDF"}
+                        </span>
+                      )}
+                    </div>
                   </div>
 
-                  {/* Standardized Title Container with Circular Attempt Chips */}
-                  <div className="mt-3 min-h-[44px] flex items-start gap-2">
-                    <h3 className="text-base font-bold text-slate-900 group-hover:text-indigo-600 transition-colors leading-snug line-clamp-2 flex-1">
+                  {/* Clean Title Container with subtle attempt badges */}
+                  <div className="mt-3 min-h-[40px] flex items-start gap-2">
+                    <h3 className="text-sm font-semibold text-slate-900 group-hover:text-indigo-600 transition-colors leading-snug line-clamp-2 flex-1">
                       {getPaperDisplayTitle(paper)}
                     </h3>
 
-                    {/* Circular Attempt Chips Beside Title */}
+                    {/* Subtle Attempt Count Chips */}
                     <div className="flex items-center gap-1 shrink-0 mt-0.5">
                       {hasMock && (
                         <span
                           title={`Mock Attempted: ${mockAtts.length} ${mockAtts.length === 1 ? "time" : "times"}${bestMock ? ` • Best Score: ${bestMock.score}/${paper.totalMarks}` : ""}`}
-                          className="inline-flex items-center justify-center gap-0.5 px-2 h-6 rounded-full bg-indigo-600 text-white text-[11px] font-extrabold shadow-xs shadow-indigo-600/30 cursor-default select-none animate-in zoom-in-75"
+                          className="inline-flex items-center justify-center px-1.5 h-5 rounded-md bg-indigo-50 border border-indigo-200 text-indigo-700 text-[10px] font-mono font-medium cursor-default"
                         >
-                          <span className="text-[9px] font-bold uppercase tracking-wider text-indigo-200">
-                            M
-                          </span>
-                          <span>{mockAtts.length}</span>
+                          M{mockAtts.length}
                         </span>
                       )}
 
                       {hasPractice && (
                         <span
                           title={`Practiced: ${practiceAtts.length} ${practiceAtts.length === 1 ? "session" : "sessions"}`}
-                          className="inline-flex items-center justify-center gap-0.5 px-2 h-6 rounded-full bg-emerald-600 text-white text-[11px] font-extrabold shadow-xs shadow-emerald-600/30 cursor-default select-none animate-in zoom-in-75"
+                          className="inline-flex items-center justify-center px-1.5 h-5 rounded-md bg-emerald-50 border border-emerald-200 text-emerald-700 text-[10px] font-mono font-medium cursor-default"
                         >
-                          <span className="text-[9px] font-bold uppercase tracking-wider text-emerald-200">
-                            P
-                          </span>
-                          <span>{practiceAtts.length}</span>
+                          P{practiceAtts.length}
                         </span>
                       )}
                     </div>
                   </div>
 
                   {/* Meta details */}
-                  <div className="mt-2 flex items-center gap-2 text-xs text-slate-500 font-medium">
+                  <div className="mt-1.5 flex items-center gap-2 text-xs text-slate-400 font-normal">
                     <span>{paper.totalQuestions} Questions</span>
-                    <span className="text-slate-300">•</span>
+                    <span>•</span>
                     <span>{paper.timeMinutes} mins</span>
-                    <span className="text-slate-300">•</span>
+                    <span>•</span>
                     <span>{paper.totalMarks} Marks</span>
                   </div>
 
-                  {/* Prominent Resource Status Indicators - Standard Single Row */}
-                  <div className="mt-3.5 pt-3 border-t border-slate-100 h-7 flex items-center gap-2">
+                  {/* Status Indicators - Clean, Quiet Visual Badges */}
+                  <div className="mt-3 pt-2.5 border-t border-slate-100 flex items-center gap-2 flex-wrap">
                     {paper.examType === "objective" ? (
                       <>
                         {keyPresent ? (
-                          <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200/60">
-                            <CheckCircle2 className="h-3.5 w-3.5 text-emerald-600" />
-                            <span>Key Attached ({keyCount} Qs)</span>
+                          <div className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[11px] font-medium bg-emerald-50/70 text-emerald-700 border border-emerald-200/60">
+                            <CheckCircle2 className="h-3 w-3 text-emerald-600" />
+                            <span>Key ({keyCount} Qs)</span>
                           </div>
                         ) : (
-                          <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-amber-50 text-amber-700 border border-amber-200/60">
-                            <AlertCircle className="h-3.5 w-3.5 text-amber-600" />
-                            <span>Key Missing</span>
+                          <div className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[11px] font-medium bg-amber-50/70 text-amber-700 border border-amber-200/60">
+                            <AlertCircle className="h-3 w-3 text-amber-600" />
+                            <span>No Key</span>
                           </div>
                         )}
-                        {paper.explanations &&
-                          Object.keys(paper.explanations).length > 0 && (
-                            <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-indigo-50 text-indigo-700 border border-indigo-200/60">
-                              <BookOpen className="h-3.5 w-3.5 text-indigo-600" />
-                              <span>Detailed Explanations</span>
-                            </div>
-                          )}
+                        {paper.explanations && Object.keys(paper.explanations).length > 0 && (
+                          <div className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[11px] font-medium bg-indigo-50/70 text-indigo-700 border border-indigo-200/60">
+                            <BookOpen className="h-3 w-3 text-indigo-600" />
+                            <span>Explanations</span>
+                          </div>
+                        )}
                       </>
                     ) : (
-                      <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-violet-50 text-violet-700 border border-violet-200/60">
-                        <span>Subjective Paper</span>
+                      <div className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[11px] font-medium bg-violet-50/70 text-violet-700 border border-violet-200/60">
+                        <span>Subjective</span>
                       </div>
                     )}
 
                     {solutionPresent ? (
                       <button
                         onClick={() => setViewingSolutionPaper(paper)}
-                        className="cursor-pointer inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-indigo-50 text-indigo-700 border border-indigo-200/80 hover:bg-indigo-100 hover:border-indigo-300 transition-colors shadow-2xs group/sol"
+                        className="cursor-pointer inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[11px] font-medium bg-slate-50 text-slate-600 border border-slate-200 hover:bg-slate-100 hover:text-slate-900 transition-colors"
                         title="Click to view attached solution booklet"
                       >
-                        <FileText className="h-3.5 w-3.5 text-indigo-600" />
-                        <span>Solution Key</span>
-                        <ExternalLink className="h-3 w-3 opacity-60 group-hover/sol:opacity-100" />
+                        <FileText className="h-3 w-3 text-slate-500" />
+                        <span>Solution</span>
                       </button>
                     ) : (
-                      <div className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-medium text-slate-400 border border-slate-200">
-                        <span>No Solution</span>
-                      </div>
+                      <span className="text-[11px] text-slate-400">No Solution</span>
                     )}
                   </div>
                 </div>
 
-                {/* All Action Buttons pinned to bottom with consistent height */}
-                <div className="mt-5 space-y-2.5 pt-2 border-t border-slate-100">
-                  {/* Row 1: Practice & Mock Exam */}
+                {/* Bottom Action Area: Clean & Uncluttered */}
+                <div className="mt-4 pt-3 border-t border-slate-100 space-y-2">
+                  {/* Primary Test Actions */}
                   <div className="grid grid-cols-2 gap-2">
                     {isLocked ? (
                       <>
                         <button
                           onClick={() => openProUpgradeModal(paper.label)}
-                          className="cursor-pointer flex items-center justify-center gap-1.5 rounded-xl border border-amber-200 bg-amber-50/70 py-2.5 text-xs font-bold text-amber-900 hover:bg-amber-100 transition-colors"
+                          className="cursor-pointer flex items-center justify-center gap-1.5 rounded-xl border border-amber-200 bg-amber-50/70 py-2 text-xs font-semibold text-amber-900 hover:bg-amber-100 transition-colors"
                         >
                           <Lock className="h-3.5 w-3.5 text-amber-600" />
                           <span>Practice</span>
                         </button>
                         <button
                           onClick={() => openProUpgradeModal(paper.label)}
-                          className="cursor-pointer flex items-center justify-center gap-1.5 rounded-xl bg-amber-600 hover:bg-amber-700 py-2.5 text-xs font-bold text-white transition-all shadow-xs"
+                          className="cursor-pointer flex items-center justify-center gap-1.5 rounded-xl bg-amber-600 hover:bg-amber-700 py-2 text-xs font-semibold text-white transition-all shadow-xs"
                         >
                           <Lock className="h-3.5 w-3.5" />
-                          <span>Mock Exam</span>
+                          <span>Mock</span>
                         </button>
                       </>
                     ) : (
@@ -641,27 +615,25 @@ export function PapersView({
                         {keyPresent || paper.examType === "subjective" ? (
                           <button
                             onClick={() => onStartExam(paper, "practice")}
-                            className="cursor-pointer flex items-center justify-center gap-1.5 rounded-xl border border-slate-200 bg-slate-50/80 py-2.5 text-xs font-bold text-slate-700 hover:bg-slate-100 hover:text-slate-900 transition-colors"
+                            className="cursor-pointer flex items-center justify-center gap-1.5 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 py-2 text-xs font-semibold text-slate-700 transition-colors shadow-2xs"
                           >
                             <Play className="h-3.5 w-3.5 text-slate-500" />
                             <span>Practice</span>
                           </button>
                         ) : (
                           <button
-                            onClick={() =>
-                              handleOpenAttachModal(paper, "key", true)
-                            }
-                            title="Practice mode requires an answer key. Click to attach answer key."
-                            className="cursor-pointer flex items-center justify-center gap-1.5 rounded-xl border border-amber-200 bg-amber-50 py-2.5 text-xs font-bold text-amber-800 hover:bg-amber-100 transition-colors"
+                            onClick={() => handleOpenAttachModal(paper, "key", true)}
+                            title="Practice mode requires an answer key"
+                            className="cursor-pointer flex items-center justify-center gap-1.5 rounded-xl border border-amber-200 bg-amber-50 py-2 text-xs font-semibold text-amber-800 hover:bg-amber-100 transition-colors"
                           >
                             <AlertTriangle className="h-3.5 w-3.5 text-amber-600" />
-                            <span>Practice (Add Key)</span>
+                            <span>Add Key</span>
                           </button>
                         )}
 
                         <button
                           onClick={() => onStartExam(paper, "mock")}
-                          className="cursor-pointer flex items-center justify-center gap-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 py-2.5 text-xs font-bold text-white transition-all shadow-xs"
+                          className="cursor-pointer flex items-center justify-center gap-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 py-2 text-xs font-semibold text-white transition-all shadow-xs"
                         >
                           <Clock className="h-3.5 w-3.5" />
                           <span>Mock Exam</span>
@@ -670,86 +642,55 @@ export function PapersView({
                     )}
                   </div>
 
-                  {/* Row 2: Standardized 2-Button Grid across all cards */}
-                  <div className="grid grid-cols-2 gap-2 pt-2 border-t border-slate-100">
-                    {paper.examType === "objective" ? (
-                      <button
-                        onClick={() => handleOpenAttachModal(paper, "key")}
-                        className="cursor-pointer flex items-center justify-center gap-1.5 rounded-xl border border-slate-200 bg-white hover:border-indigo-300 hover:bg-indigo-50/50 py-2 text-xs font-bold text-indigo-700 transition-colors shadow-2xs"
-                        title="Attach or replace answer key for automatic scoring"
-                      >
-                        <Key className="h-3.5 w-3.5 text-indigo-600" />
-                        <span>{keyPresent ? "Update Key" : "Attach Key"}</span>
-                      </button>
-                    ) : (
-                      <button
-                        onClick={() => handleOpenAttachModal(paper, "solution")}
-                        className="cursor-pointer flex items-center justify-center gap-1.5 rounded-xl border border-slate-200 bg-white hover:border-violet-300 hover:bg-violet-50/50 py-2 text-xs font-bold text-violet-700 transition-colors shadow-2xs"
-                        title="Attach model answer key for subjective evaluation"
-                      >
-                        <FileText className="h-3.5 w-3.5 text-violet-600" />
-                        <span>Model Key</span>
-                      </button>
-                    )}
-
-                    <button
-                      onClick={() => handleOpenAttachModal(paper, "solution")}
-                      className="cursor-pointer flex items-center justify-center gap-1.5 rounded-xl border border-slate-200 bg-white hover:border-indigo-300 hover:bg-indigo-50/50 py-2 text-xs font-bold text-slate-700 transition-colors shadow-2xs"
-                      title="Upload or replace official solution PDF booklet"
-                    >
-                      <FileUp className="h-3.5 w-3.5 text-indigo-600" />
-                      <span>
-                        {solutionPresent
-                          ? "Update Solution"
-                          : "Upload Solution"}
-                      </span>
-                    </button>
-                  </div>
-
-                  {/* Row 3: Utility Links */}
-                  <div className="flex items-center justify-between text-xs pt-1 h-6">
-                    <div className="flex items-center gap-3">
+                  {/* Clean Utility Footer */}
+                  <div className="flex items-center justify-between text-xs pt-1">
+                    <div className="flex items-center gap-2">
                       <a
                         href={paper.qpUrl}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="cursor-pointer inline-flex items-center gap-1 text-[11px] font-semibold text-slate-500 hover:text-indigo-600 transition-colors"
+                        className="cursor-pointer inline-flex items-center gap-1 text-[11px] text-slate-500 hover:text-slate-800 transition-colors"
                         title="Open Question Paper PDF in new tab"
                       >
                         <ExternalLink className="h-3 w-3" />
-                        <span>View PDF</span>
+                        <span>PDF</span>
                       </a>
 
-                      {solutionPresent && (
-                        <button
-                          onClick={() => setViewingSolutionPaper(paper)}
-                          className="cursor-pointer inline-flex items-center gap-1 text-[11px] font-semibold text-indigo-600 hover:text-indigo-800 transition-colors"
-                          title="Open attached solution PDF booklet"
-                        >
-                          <BookOpen className="h-3 w-3" />
-                          <span>View Solution</span>
-                        </button>
-                      )}
+                      <button
+                        onClick={() => handleOpenAttachModal(paper, "key")}
+                        className="cursor-pointer inline-flex items-center gap-1 text-[11px] text-slate-500 hover:text-indigo-600 transition-colors"
+                        title="Attach or replace answer key"
+                      >
+                        <Key className="h-3 w-3" />
+                        <span>{keyPresent ? "Key" : "Add Key"}</span>
+                      </button>
+
+                      <button
+                        onClick={() => handleOpenAttachModal(paper, "solution")}
+                        className="cursor-pointer inline-flex items-center gap-1 text-[11px] text-slate-500 hover:text-indigo-600 transition-colors"
+                        title="Upload solution booklet"
+                      >
+                        <FileUp className="h-3 w-3" />
+                        <span>Solution</span>
+                      </button>
                     </div>
 
-                    <div className="flex items-center gap-2.5">
+                    <div className="flex items-center gap-2">
                       <button
                         onClick={() => handleOpenEdit(paper)}
-                        className="cursor-pointer text-[11px] font-semibold text-slate-500 hover:text-slate-800 transition-colors flex items-center gap-1"
+                        className="cursor-pointer text-[11px] text-slate-400 hover:text-slate-700 transition-colors"
                         title="Edit question count, marks and duration"
                       >
                         <Settings2 className="h-3 w-3" />
-                        Edit Rules
                       </button>
 
                       {onDeletePaper && (
                         <button
                           onClick={() => onDeletePaper(paper.id)}
-                          className="cursor-pointer text-[11px] font-semibold text-rose-500 hover:text-rose-700 transition-colors flex items-center gap-0.5"
-                          title="Remove this paper from your dashboard"
+                          className="cursor-pointer text-[11px] text-slate-400 hover:text-rose-600 transition-colors"
+                          title="Remove this paper"
                         >
                           <Trash2 className="h-3 w-3" />
-                          Delete
                         </button>
                       )}
                     </div>
