@@ -39,6 +39,7 @@ import {
 import {
   parseQuestionnaireMarkdown,
   parseMarkdownHeader,
+  ParsedMarkdownHeader,
 } from "../lib/markdownPaperParser";
 import { parseAnswerKeyDetailed } from "../lib/defaults";
 import {
@@ -121,7 +122,7 @@ export function UploadView({
   const [viewMode, setViewMode] = useState<"custom" | "preset" | "update">("custom");
 
   // =========================================================================
-  // FAST CUSTOM PAPER STATES
+  // SEGMENT 1: RULES & SETTINGS (Custom Mode)
   // =========================================================================
   const [customPaperName, setCustomPaperName] = useState<string>("");
   const [customTotalQuestions, setCustomTotalQuestions] = useState<string>("");
@@ -130,9 +131,46 @@ export function UploadView({
   const [customTotalMarks, setCustomTotalMarks] = useState<string>("");
   const [customTotalMarksEdited, setCustomTotalMarksEdited] = useState<boolean>(false);
   const [customTimeMinutes, setCustomTimeMinutes] = useState<string>("120");
+
+  // Automatic calculation helpers
+  const handleCustomQuestionsChange = (val: string) => {
+    setCustomTotalQuestions(val);
+    if (!customTotalMarksEdited) {
+      const q = parseFloat(val);
+      const pos = parseFloat(customPositiveMarks);
+      if (!isNaN(q) && q > 0 && !isNaN(pos) && pos > 0) {
+        setCustomTotalMarks(String(Math.round(q * pos * 10) / 10));
+      } else if (!val) {
+        setCustomTotalMarks("");
+      }
+    }
+  };
+
+  const handleCustomPositiveMarksChange = (val: string) => {
+    setCustomPositiveMarks(val);
+    if (!customTotalMarksEdited) {
+      const q = parseFloat(customTotalQuestions);
+      const pos = parseFloat(val);
+      if (!isNaN(q) && q > 0 && !isNaN(pos) && pos > 0) {
+        setCustomTotalMarks(String(Math.round(q * pos * 10) / 10));
+      } else if (!val) {
+        setCustomTotalMarks("");
+      }
+    }
+  };
+
+  const handleCustomTotalMarksChange = (val: string) => {
+    setCustomTotalMarksEdited(true);
+    setCustomTotalMarks(val);
+  };
+
+  // =========================================================================
+  // SEGMENT 2: QUESTIONNAIRE (Custom Mode)
+  // =========================================================================
   const [customQpFormat, setCustomQpFormat] = useState<"pdf" | "markdown">("markdown");
   const [customQpMarkdown, setCustomQpMarkdown] = useState<string>("");
   const [customQpFile, setCustomQpFile] = useState<File | null>(null);
+  const [customExsFile, setCustomExsFile] = useState<File | null>(null);
   const [customViewTab, setCustomViewTab] = useState<"editor" | "preview">("editor");
 
   const detectedQuestions = useMemo(() => {
@@ -149,53 +187,92 @@ export function UploadView({
     return h;
   }, [customQpMarkdown]);
 
-  const handleApplyDetectedHeader = useCallback(() => {
-    if (!detectedHeader) return;
-    if (detectedHeader.exam) {
-      setCustomPaperName(detectedHeader.exam);
-    }
-    if (detectedHeader.totalQuestions) {
-      handleCustomQuestionsChange(String(detectedHeader.totalQuestions));
-    }
-    if (detectedHeader.totalMarks) {
-      handleCustomTotalMarksChange(String(detectedHeader.totalMarks));
-    }
-    if (detectedHeader.time) {
-      const mins = parseInt(detectedHeader.time, 10);
-      if (!isNaN(mins) && mins > 0) {
-        setCustomTimeMinutes(String(mins));
-      }
-    }
-    if (detectedHeader.negativeMarking) {
-      const match = detectedHeader.negativeMarking.match(/([\d\.]+)/);
-      if (match) {
-        setCustomNegativeMarks(match[1]);
-      }
-    }
-  }, [detectedHeader]);
-
+  // =========================================================================
+  // SEGMENT 3: ANSWER KEY (Custom Mode)
+  // =========================================================================
   const [customAkMode, setCustomAkMode] = useState<"upload" | "paste">("paste");
   const [customAkText, setCustomAkText] = useState<string>("");
   const [customAkFile, setCustomAkFile] = useState<File | null>(null);
-  const [customExsFile, setCustomExsFile] = useState<File | null>(null);
 
   const detectedAnswerKey = useMemo(() => {
     if (!customAkText.trim()) return { answers: {}, explanations: {} };
     return parseAnswerKeyDetailed(customAkText);
   }, [customAkText]);
 
+  // Helpers Modal
   const [formatGuideModalOpen, setFormatGuideModalOpen] = useState<boolean>(false);
   const [formatGuideModalTab, setFormatGuideModalTab] = useState<"template" | "ai_prompt">("template");
 
+  // Track visual feedback for "Apply Rules" button
+  const [headerRulesApplied, setHeaderRulesApplied] = useState<boolean>(false);
+
+  // Apply detected rules to Segment 1
+  const handleApplyRules = (hdr: ParsedMarkdownHeader | null, targetMode: "custom" | "update") => {
+    if (!hdr) return;
+    if (targetMode === "custom") {
+      if (hdr.exam) setCustomPaperName(hdr.exam);
+      if (hdr.totalQuestions) {
+        handleCustomQuestionsChange(String(hdr.totalQuestions));
+      }
+      if (hdr.totalMarks) {
+        handleCustomTotalMarksChange(String(hdr.totalMarks));
+      }
+      if (hdr.time) {
+        const mins = parseInt(hdr.time, 10);
+        if (!isNaN(mins) && mins > 0) setCustomTimeMinutes(String(mins));
+      }
+      if (hdr.negativeMarking) {
+        const match = hdr.negativeMarking.match(/([\d\.]+)/);
+        if (match) setCustomNegativeMarks(match[1]);
+      }
+    } else {
+      if (hdr.totalQuestions) setTotalQuestions(hdr.totalQuestions);
+      if (hdr.totalMarks) setTotalMarks(hdr.totalMarks);
+      if (hdr.time) {
+        const mins = parseInt(hdr.time, 10);
+        if (!isNaN(mins) && mins > 0) setTimeMinutes(mins);
+      }
+      if (hdr.negativeMarking) {
+        const match = hdr.negativeMarking.match(/([\d\.]+)/);
+        if (match) setIncorrectMarks(parseFloat(match[1]) || 0.667);
+      }
+    }
+
+    setHeaderRulesApplied(true);
+    setStatusMsg({ text: "Applied rules from markdown header to the Rules segment." });
+    setTimeout(() => setHeaderRulesApplied(false), 2500);
+  };
+
   // =========================================================================
-  // UPDATE / EDIT PAPER STATES
+  // UPDATE / EDIT PAPER STATES (All 3 Segments)
   // =========================================================================
   const [selectedPaperId, setSelectedPaperId] = useState<string>(papers[0]?.id || "");
   const [paperSearchQuery, setPaperSearchQuery] = useState<string>("");
   const [isSearchSelectOpen, setIsSearchSelectOpen] = useState<boolean>(false);
+
+  // Update mode: Segment 1 (Rules)
+  const [examType, setExamType] = useState<ExamType>("objective");
+  const [year, setYear] = useState<string>("2026");
+  const [subjectPreset, setSubjectPreset] = useState<string>("GS I");
+  const [customSubject, setCustomSubject] = useState<string>("");
+  const [paperIdentifier, setPaperIdentifier] = useState<string>("prelims_gs_i");
+  const [totalQuestions, setTotalQuestions] = useState<number>(100);
+  const [totalMarks, setTotalMarks] = useState<number>(200);
+  const [correctMarks, setCorrectMarks] = useState<number>(2.0);
+  const [incorrectMarks, setIncorrectMarks] = useState<number>(0.667);
+  const [timeMinutes, setTimeMinutes] = useState<number>(120);
+
+  // Update mode: Segment 2 (Questionnaire)
   const [updateQpFormat, setUpdateQpFormat] = useState<"pdf" | "markdown">("markdown");
   const [updateMarkdown, setUpdateMarkdown] = useState<string>("");
   const [updateViewTab, setUpdateViewTab] = useState<"editor" | "preview">("editor");
+  const [qpFile, setQpFile] = useState<File | null>(null);
+  const [exsFile, setExsFile] = useState<File | null>(null);
+
+  // Update mode: Segment 3 (Answer Key)
+  const [akFile, setAkFile] = useState<File | null>(null);
+  const [akMode, setAkMode] = useState<"upload" | "paste">("paste");
+  const [akText, setAkText] = useState<string>("");
 
   const currentSelectedPaper = useMemo(
     () => papers.find((p) => p.id === selectedPaperId),
@@ -209,43 +286,29 @@ export function UploadView({
       const displayTitle = getPaperDisplayTitle(p).toLowerCase();
       const label = (p.label || "").toLowerCase();
       const subject = (p.subject || "").toLowerCase();
-      const year = (p.year || "").toLowerCase();
+      const yr = (p.year || "").toLowerCase();
       const id = (p.id || "").toLowerCase();
       return (
         displayTitle.includes(q) ||
         label.includes(q) ||
         subject.includes(q) ||
-        year.includes(q) ||
+        yr.includes(q) ||
         id.includes(q)
       );
     });
   }, [papers, paperSearchQuery]);
 
-  // Detected questions and answer key for UPDATE mode
   const detectedUpdateQuestions = useMemo(() => {
     if (!updateMarkdown.trim()) return [];
     return parseQuestionnaireMarkdown(updateMarkdown);
   }, [updateMarkdown]);
 
-  // Preset Mode / Common Rules states
-  const [examType, setExamType] = useState<ExamType>("objective");
-  const [year, setYear] = useState<string>("2026");
-  const [subjectPreset, setSubjectPreset] = useState<string>("GS I");
-  const [customSubject, setCustomSubject] = useState<string>("");
-  const [paperIdentifier, setPaperIdentifier] = useState<string>("prelims_gs_i");
-
-  const [totalQuestions, setTotalQuestions] = useState<number>(100);
-  const [totalMarks, setTotalMarks] = useState<number>(200);
-  const [correctMarks, setCorrectMarks] = useState<number>(2.0);
-  const [incorrectMarks, setIncorrectMarks] = useState<number>(0.667);
-  const [timeMinutes, setTimeMinutes] = useState<number>(120);
-
-  // Files for update or preset
-  const [qpFile, setQpFile] = useState<File | null>(null);
-  const [akFile, setAkFile] = useState<File | null>(null);
-  const [akMode, setAkMode] = useState<"upload" | "paste">("paste");
-  const [akText, setAkText] = useState<string>("");
-  const [exsFile, setExsFile] = useState<File | null>(null);
+  const detectedUpdateHeader = useMemo(() => {
+    if (!updateMarkdown.trim()) return null;
+    const h = parseMarkdownHeader(updateMarkdown);
+    if (!h.exam && !h.subject && !h.instructions?.length && !h.time && !h.totalQuestions) return null;
+    return h;
+  }, [updateMarkdown]);
 
   const detectedUpdateAnswerKey = useMemo(() => {
     if (!akText.trim()) return { answers: {}, explanations: {} };
@@ -259,13 +322,14 @@ export function UploadView({
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState<boolean>(false);
 
-  // Load selected paper data into form when in Update mode
+  // Select paper in update mode and populate segments
   const handleSelectPaperToUpdate = useCallback(
     (paperId: string) => {
       setSelectedPaperId(paperId);
       const p = papers.find((x) => x.id === paperId);
       if (!p) return;
 
+      // Segment 1
       setYear(p.year || "2026");
       setExamType(p.examType || "objective");
       setTotalQuestions(p.totalQuestions || 100);
@@ -275,8 +339,8 @@ export function UploadView({
       setTimeMinutes(p.timeMinutes || 120);
       setPaperIdentifier(p.id.replace(/^[0-9]+_/, ""));
       setSubjectPreset(p.subject || "GS I");
-      setAkText(p.answerKeyText || "");
 
+      // Segment 2
       const isMd =
         Boolean(p.parsedQuestions && p.parsedQuestions.length > 0) ||
         Boolean(p.markdownContent) ||
@@ -287,14 +351,16 @@ export function UploadView({
       const md = getOrReconstructMarkdown(p);
       setUpdateMarkdown(md);
       setQpFile(null);
-      setAkFile(null);
       setExsFile(null);
+
+      // Segment 3
+      setAkText(p.answerKeyText || "");
+      setAkFile(null);
       setStatusMsg(null);
     },
     [papers],
   );
 
-  // Auto-initialize update paper when switching to update mode
   useEffect(() => {
     if (viewMode === "update") {
       const targetId = selectedPaperId || papers[0]?.id;
@@ -304,7 +370,7 @@ export function UploadView({
     }
   }, [viewMode, selectedPaperId, papers, handleSelectPaperToUpdate]);
 
-  // Auto-fill rules based on preset selection
+  // Preset mode preset picker
   const handlePresetChange = (preset: string) => {
     setSubjectPreset(preset);
     if (preset === "GS I") {
@@ -348,38 +414,6 @@ export function UploadView({
     }
   };
 
-  // Fast custom paper handlers with automatic Total Marks calculation
-  const handleCustomQuestionsChange = (val: string) => {
-    setCustomTotalQuestions(val);
-    if (!customTotalMarksEdited) {
-      const q = parseFloat(val);
-      const pos = parseFloat(customPositiveMarks);
-      if (!isNaN(q) && q > 0 && !isNaN(pos) && pos > 0) {
-        setCustomTotalMarks(String(Math.round(q * pos * 10) / 10));
-      } else if (!val) {
-        setCustomTotalMarks("");
-      }
-    }
-  };
-
-  const handleCustomPositiveMarksChange = (val: string) => {
-    setCustomPositiveMarks(val);
-    if (!customTotalMarksEdited) {
-      const q = parseFloat(customTotalQuestions);
-      const pos = parseFloat(val);
-      if (!isNaN(q) && q > 0 && !isNaN(pos) && pos > 0) {
-        setCustomTotalMarks(String(Math.round(q * pos * 10) / 10));
-      } else if (!val) {
-        setCustomTotalMarks("");
-      }
-    }
-  };
-
-  const handleCustomTotalMarksChange = (val: string) => {
-    setCustomTotalMarksEdited(true);
-    setCustomTotalMarks(val);
-  };
-
   const cleanYear = year.replace(/[^0-9]/g, "");
   const cleanName = paperIdentifier
     .toLowerCase()
@@ -388,121 +422,10 @@ export function UploadView({
     .replace(/^_|_$/g, "");
 
   // =========================================================================
-  // SUBMISSION HANDLERS
+  // SUBMISSIONS
   // =========================================================================
 
-  // Handle uploading NEW paper (UPSC Preset)
-  const handleUploadNewPaper = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!cleanYear || !cleanName) {
-      setStatusMsg({
-        text: "Please enter a valid Year and Paper Identifier.",
-        isError: true,
-      });
-      return;
-    }
-    if (!qpFile) {
-      setStatusMsg({
-        text: "Please attach a Question Paper PDF file.",
-        isError: true,
-      });
-      return;
-    }
-
-    setIsSubmitting(true);
-    setStatusMsg(null);
-
-    try {
-      const displaySubject =
-        subjectPreset === "Custom"
-          ? customSubject.trim() || "Custom Paper"
-          : subjectPreset;
-
-      const userIdentifier = paperIdentifier.trim();
-      const paperTitle =
-        userIdentifier ||
-        (subjectPreset === "Custom" ? customSubject.trim() : "") ||
-        `${cleanYear} – ${displaySubject}`;
-
-      const formData = new FormData();
-      formData.append("year", cleanYear);
-      formData.append("identifier", userIdentifier || cleanName);
-      formData.append("examType", examType);
-      formData.append("subject", userIdentifier || displaySubject);
-      formData.append("label", paperTitle);
-      formData.append("title", paperTitle);
-      formData.append("isCustom", "true");
-      formData.append(
-        "totalQuestions",
-        String(totalQuestions || (examType === "objective" ? 100 : 20)),
-      );
-      formData.append(
-        "totalMarks",
-        String(
-          totalMarks ||
-            (examType === "objective"
-              ? (totalQuestions || 100) * (correctMarks || 2)
-              : 250),
-        ),
-      );
-      formData.append(
-        "correctMarks",
-        String(examType === "objective" ? correctMarks : 0),
-      );
-      formData.append(
-        "incorrectMarks",
-        String(examType === "objective" ? incorrectMarks : 0),
-      );
-      formData.append(
-        "timeMinutes",
-        String(timeMinutes || (examType === "objective" ? 120 : 180)),
-      );
-
-      formData.append("qpFile", qpFile);
-      if (akFile && akMode === "upload") {
-        formData.append("akFile", akFile);
-      }
-      if (akText && akMode === "paste") {
-        formData.append("answerKeyText", akText);
-      }
-      if (exsFile) {
-        formData.append("exsFile", exsFile);
-      }
-      if (currentUser?.id) {
-        formData.append("userId", currentUser.id);
-      }
-
-      const res = await fetch("/api/upload", {
-        method: "POST",
-        body: formData,
-      });
-
-      const data = await res.json();
-      if (!res.ok || !data.ok) {
-        throw new Error(data.error || "Server failed to save paper.");
-      }
-
-      const newPaper: QuestionPaper = data.paper;
-      saveCustomPaper(newPaper);
-      onPaperUploaded(newPaper);
-
-      setStatusMsg({
-        text: `Paper saved successfully: "${newPaper.label}" (${newPaper.totalQuestions} Questions).`,
-      });
-      setTimeout(() => {
-        onNavigatePapers();
-      }, 1000);
-    } catch (err: any) {
-      setStatusMsg({
-        text: err.message || "Failed to save paper.",
-        isError: true,
-      });
-    } finally {
-      setIsSubmitting(false);
-    }
-  };
-
-  // Handle FAST CUSTOM paper upload
+  // Save Fast Custom Paper
   const handleUploadFastCustomPaper = async (e: React.FormEvent) => {
     e.preventDefault();
     const name = customPaperName.trim();
@@ -519,19 +442,18 @@ export function UploadView({
 
     const parsedNeg = parseFloat(customNegativeMarks);
     const negMarks = !isNaN(parsedNeg) && parsedNeg >= 0 ? parsedNeg : 0.667;
-
     const time = parseInt(customTimeMinutes, 10) || 120;
 
     if (!name) {
       setStatusMsg({
-        text: "Please enter the Name of the paper.",
+        text: "Please enter the Name of the paper in the Rules segment.",
         isError: true,
       });
       return;
     }
     if (!qCount || qCount <= 0) {
       setStatusMsg({
-        text: "Please enter or provide questions (e.g. 5, 50, 100 MCQs).",
+        text: "Please enter or provide questions in the Rules/Questionnaire segment.",
         isError: true,
       });
       return;
@@ -539,7 +461,7 @@ export function UploadView({
 
     if (customQpFormat === "pdf" && !customQpFile) {
       setStatusMsg({
-        text: "Please attach the Question Paper PDF file.",
+        text: "Please attach the Question Paper PDF file in the Questionnaire segment.",
         isError: true,
       });
       return;
@@ -547,7 +469,7 @@ export function UploadView({
 
     if (customQpFormat === "markdown" && !customQpMarkdown.trim()) {
       setStatusMsg({
-        text: "Please provide the questions in Markdown/Text format.",
+        text: "Please provide the questions in Markdown format in the Questionnaire segment.",
         isError: true,
       });
       return;
@@ -714,7 +636,7 @@ export function UploadView({
     }
   };
 
-  // Handle UPDATING existing paper files, markdown questionnaire, or rules
+  // Update existing paper
   const handleUpdateExistingPaper = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!currentSelectedPaper) {
@@ -760,7 +682,7 @@ export function UploadView({
         formData,
       );
 
-      // Fallback local update if server is offline or fails
+      // Fallback local update if server is offline
       if (!updated) {
         const parsed =
           updateQpFormat === "markdown" && updateMarkdown.trim()
@@ -818,16 +740,127 @@ export function UploadView({
     }
   };
 
+  // Preset Mode Upload
+  const handleUploadNewPaper = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!cleanYear || !cleanName) {
+      setStatusMsg({
+        text: "Please enter a valid Year and Paper Identifier.",
+        isError: true,
+      });
+      return;
+    }
+    if (!qpFile) {
+      setStatusMsg({
+        text: "Please attach a Question Paper PDF file.",
+        isError: true,
+      });
+      return;
+    }
+
+    setIsSubmitting(true);
+    setStatusMsg(null);
+
+    try {
+      const displaySubject =
+        subjectPreset === "Custom"
+          ? customSubject.trim() || "Custom Paper"
+          : subjectPreset;
+
+      const userIdentifier = paperIdentifier.trim();
+      const paperTitle =
+        userIdentifier ||
+        (subjectPreset === "Custom" ? customSubject.trim() : "") ||
+        `${cleanYear} – ${displaySubject}`;
+
+      const formData = new FormData();
+      formData.append("year", cleanYear);
+      formData.append("identifier", userIdentifier || cleanName);
+      formData.append("examType", examType);
+      formData.append("subject", userIdentifier || displaySubject);
+      formData.append("label", paperTitle);
+      formData.append("title", paperTitle);
+      formData.append("isCustom", "true");
+      formData.append(
+        "totalQuestions",
+        String(totalQuestions || (examType === "objective" ? 100 : 20)),
+      );
+      formData.append(
+        "totalMarks",
+        String(
+          totalMarks ||
+            (examType === "objective"
+              ? (totalQuestions || 100) * (correctMarks || 2)
+              : 250),
+        ),
+      );
+      formData.append(
+        "correctMarks",
+        String(examType === "objective" ? correctMarks : 0),
+      );
+      formData.append(
+        "incorrectMarks",
+        String(examType === "objective" ? incorrectMarks : 0),
+      );
+      formData.append(
+        "timeMinutes",
+        String(timeMinutes || (examType === "objective" ? 120 : 180)),
+      );
+
+      formData.append("qpFile", qpFile);
+      if (akFile && akMode === "upload") {
+        formData.append("akFile", akFile);
+      }
+      if (akText && akMode === "paste") {
+        formData.append("answerKeyText", akText);
+      }
+      if (exsFile) {
+        formData.append("exsFile", exsFile);
+      }
+      if (currentUser?.id) {
+        formData.append("userId", currentUser.id);
+      }
+
+      const res = await fetch("/api/upload", {
+        method: "POST",
+        body: formData,
+      });
+
+      const data = await res.json();
+      if (!res.ok || !data.ok) {
+        throw new Error(data.error || "Server failed to save paper.");
+      }
+
+      const newPaper: QuestionPaper = data.paper;
+      saveCustomPaper(newPaper);
+      onPaperUploaded(newPaper);
+
+      setStatusMsg({
+        text: `Paper saved successfully: "${newPaper.label}" (${newPaper.totalQuestions} Questions).`,
+      });
+      setTimeout(() => {
+        onNavigatePapers();
+      }, 1000);
+    } catch (err: any) {
+      setStatusMsg({
+        text: err.message || "Failed to save paper.",
+        isError: true,
+      });
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
   return (
     <div className="mx-auto max-w-4xl px-4 py-6 sm:px-6 space-y-6">
-      {/* Page Header with Segmented Mode Switcher */}
+      {/* Page Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 pb-4 border-b border-slate-200">
         <div>
           <h1 className="text-xl sm:text-2xl font-bold text-slate-900 tracking-tight">
             Question Papers Studio
           </h1>
           <p className="text-xs sm:text-sm text-slate-500 mt-0.5">
-            Create practice tests, edit markdown questionnaires, and manage answer keys.
+            Configure rules, questionnaire, and answer key in three clear segments.
           </p>
         </div>
 
@@ -904,697 +937,26 @@ export function UploadView({
         </div>
       )}
 
-      {/* ============================================================== */}
-      {/* MODE 1: UPDATE / CORRECT EXISTING PAPER */}
-      {/* ============================================================== */}
-      {viewMode === "update" && (
-        <div className="space-y-5">
-          {/* Paper Selector & Status Widget */}
-          <div className="rounded-2xl border border-slate-200/90 bg-white p-5 space-y-3.5 shadow-xs">
-            <div className="relative">
-              {/* Search-Select Interactive Trigger */}
-              <button
-                type="button"
-                onClick={() => setIsSearchSelectOpen((prev) => !prev)}
-                className="cursor-pointer w-full flex items-center justify-between rounded-xl border border-slate-300 bg-white hover:bg-slate-50 px-3.5 py-2.5 text-xs font-semibold text-slate-800 transition-all focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 shadow-2xs"
-              >
-                <div className="flex items-center gap-2.5 min-w-0">
-                  <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-indigo-50 text-indigo-600 shrink-0 border border-indigo-100">
-                    <FileText className="h-4 w-4" />
-                  </div>
-                  <div className="text-left truncate">
-                    {currentSelectedPaper ? (
-                      <div className="flex items-center gap-2 flex-wrap">
-                        <span className="font-bold text-slate-900 text-xs">
-                          {getPaperDisplayTitle(currentSelectedPaper)}
-                        </span>
-                        <span className="text-[10px] font-mono font-medium px-2 py-0.5 rounded-full bg-slate-100 text-slate-600 border border-slate-200">
-                          {currentSelectedPaper.year} • {currentSelectedPaper.subject} • {currentSelectedPaper.totalQuestions} Qs
-                        </span>
-                        {isUserUploadedPaper(currentSelectedPaper) && (
-                          <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-50 text-amber-700 border border-amber-200">
-                            Custom Paper
-                          </span>
-                        )}
-                      </div>
-                    ) : (
-                      <span className="text-slate-400 font-normal">
-                        Select a paper to edit or update...
-                      </span>
-                    )}
-                  </div>
-                </div>
-                <ChevronDown
-                  className={`h-4 w-4 text-slate-400 transition-transform duration-200 ${
-                    isSearchSelectOpen ? "rotate-180 text-indigo-600" : ""
-                  }`}
-                />
-              </button>
-
-              {/* Search-Select Dropdown Popover */}
-              {isSearchSelectOpen && (
-                <>
-                  <div
-                    className="fixed inset-0 z-30"
-                    onClick={() => setIsSearchSelectOpen(false)}
-                  />
-                  <div className="absolute left-0 right-0 top-full mt-1.5 z-40 rounded-2xl border border-slate-200 bg-white p-2.5 shadow-xl animate-in fade-in duration-150">
-                    <div className="relative mb-2">
-                      <Search className="absolute left-3 top-2.5 h-3.5 w-3.5 text-slate-400" />
-                      <input
-                        type="text"
-                        autoFocus
-                        value={paperSearchQuery}
-                        onChange={(e) => setPaperSearchQuery(e.target.value)}
-                        placeholder="Search paper name, subject, year..."
-                        className="w-full rounded-xl border border-slate-200 bg-slate-50 pl-9 pr-8 py-2 text-xs text-slate-800 placeholder:text-slate-400 focus:outline-none focus:bg-white focus:border-indigo-500"
-                      />
-                      {paperSearchQuery && (
-                        <button
-                          type="button"
-                          onClick={() => setPaperSearchQuery("")}
-                          className="cursor-pointer absolute right-2.5 top-2.5 text-slate-400 hover:text-slate-600"
-                        >
-                          <X className="h-3.5 w-3.5" />
-                        </button>
-                      )}
-                    </div>
-
-                    <div className="max-h-60 overflow-y-auto space-y-1 pr-1">
-                      {filteredUpdatePapers.length === 0 ? (
-                        <div className="py-5 text-center text-xs text-slate-400">
-                          No papers found
-                        </div>
-                      ) : (
-                        filteredUpdatePapers.map((p) => {
-                          const isSelected = p.id === selectedPaperId;
-                          const isUser = isUserUploadedPaper(p);
-                          const isMd =
-                            Boolean(p.parsedQuestions && p.parsedQuestions.length > 0) ||
-                            Boolean(p.markdownContent) ||
-                            p.qpUrl?.startsWith("local://");
-
-                          return (
-                            <button
-                              key={p.id}
-                              type="button"
-                              onClick={() => {
-                                handleSelectPaperToUpdate(p.id);
-                                setIsSearchSelectOpen(false);
-                                setPaperSearchQuery("");
-                              }}
-                              className={`cursor-pointer w-full flex items-center justify-between rounded-xl px-3 py-2 text-left text-xs transition-colors ${
-                                isSelected
-                                  ? "bg-indigo-50/90 text-indigo-900 font-bold border border-indigo-200"
-                                  : "hover:bg-slate-50 text-slate-700 border border-transparent"
-                              }`}
-                            >
-                              <div className="min-w-0 pr-2">
-                                <div className="flex items-center gap-1.5 flex-wrap">
-                                  <span className="font-semibold text-slate-900">
-                                    {getPaperDisplayTitle(p)}
-                                  </span>
-                                  {isMd && (
-                                    <span className="text-[9px] font-bold px-1.5 py-0.2 rounded bg-purple-50 text-purple-700 border border-purple-200">
-                                      Markdown
-                                    </span>
-                                  )}
-                                  {isUser ? (
-                                    <span className="text-[9px] font-bold px-1.5 py-0.2 rounded bg-amber-50 text-amber-700 border border-amber-200">
-                                      Custom
-                                    </span>
-                                  ) : (
-                                    <span className="text-[9px] font-mono px-1.5 py-0.2 rounded bg-slate-100 text-slate-600 border border-slate-200">
-                                      {p.category.toUpperCase()}
-                                    </span>
-                                  )}
-                                </div>
-                                <div className="text-[11px] text-slate-500 font-normal mt-0.5">
-                                  {p.year} • {p.subject} • {p.totalQuestions} Qs • {p.timeMinutes || 120}m
-                                </div>
-                              </div>
-                              {isSelected && (
-                                <Check className="h-4 w-4 text-indigo-600 shrink-0 ml-2" />
-                              )}
-                            </button>
-                          );
-                        })
-                      )}
-                    </div>
-                  </div>
-                </>
-              )}
-            </div>
-
-            {/* Quick Paper Status Strip */}
-            {currentSelectedPaper && (
-              <div className="flex items-center gap-2 flex-wrap text-xs pt-1">
-                <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-slate-100 text-slate-700 font-medium border border-slate-200">
-                  <FileText className="h-3 w-3 text-slate-500" />
-                  <span>
-                    {currentSelectedPaper.qpUrl?.startsWith("local://") ||
-                    (currentSelectedPaper.parsedQuestions && currentSelectedPaper.parsedQuestions.length > 0)
-                      ? `Interactive Markdown (${currentSelectedPaper.totalQuestions} Qs)`
-                      : "PDF Document"}
-                  </span>
-                  {currentSelectedPaper.qpUrl && !currentSelectedPaper.qpUrl.startsWith("local://") && (
-                    <a
-                      href={currentSelectedPaper.qpUrl}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="text-indigo-600 hover:text-indigo-800 ml-1 inline-flex items-center"
-                    >
-                      <ExternalLink className="h-2.5 w-2.5" />
-                    </a>
-                  )}
-                </span>
-
-                <span
-                  className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-lg font-medium border ${
-                    hasAnswerKey(currentSelectedPaper)
-                      ? "bg-emerald-50 text-emerald-800 border-emerald-200"
-                      : "bg-amber-50 text-amber-800 border-amber-200"
-                  }`}
-                >
-                  {hasAnswerKey(currentSelectedPaper) ? (
-                    <>
-                      <Check className="h-3 w-3 text-emerald-600" />
-                      <span>
-                        Key Attached ({Object.keys(currentSelectedPaper.answerKey || {}).length} Qs)
-                      </span>
-                    </>
-                  ) : (
-                    <>
-                      <AlertCircle className="h-3 w-3 text-amber-600" />
-                      <span>No Answer Key</span>
-                    </>
-                  )}
-                </span>
-
-                {hasSolution(currentSelectedPaper) ? (
-                  <a
-                    href={currentSelectedPaper.exsUrl}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-indigo-50 text-indigo-700 border border-indigo-200 font-medium hover:bg-indigo-100 transition-colors"
-                  >
-                    <ExternalLink className="h-3 w-3" />
-                    <span>Solution PDF</span>
-                  </a>
-                ) : (
-                  <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-slate-50 text-slate-400 border border-slate-200 font-medium">
-                    No Solution PDF
-                  </span>
-                )}
-              </div>
-            )}
-          </div>
-
-          {currentSelectedPaper && (
-            <form onSubmit={handleUpdateExistingPaper} className="space-y-5">
-              {/* Unified Content Studio Section */}
-              <div className="rounded-2xl border border-slate-200/90 bg-white p-5 space-y-4 shadow-xs">
-                {/* Header with Left-Aligned Format Chips and Right-Aligned Helpers */}
-                <div className="flex items-center justify-between flex-wrap gap-2 pb-3 border-b border-slate-100">
-                  {/* Left-Side Format Chips */}
-                  <div className="flex items-center gap-2">
-                    <span className="text-xs font-semibold text-slate-500">Format:</span>
-                    <div className="inline-flex p-0.5 rounded-lg bg-slate-100 border border-slate-200 text-xs font-medium">
-                      <button
-                        type="button"
-                        onClick={() => setUpdateQpFormat("markdown")}
-                        className={`cursor-pointer inline-flex items-center gap-1.5 px-3 py-1 rounded-md transition-all ${
-                          updateQpFormat === "markdown"
-                            ? "bg-white text-purple-700 font-bold shadow-2xs"
-                            : "text-slate-600 hover:text-slate-900"
-                        }`}
-                      >
-                        <Sparkles className="h-3.5 w-3.5 text-purple-600" />
-                        <span>Interactive Markdown</span>
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => setUpdateQpFormat("pdf")}
-                        className={`cursor-pointer inline-flex items-center gap-1.5 px-3 py-1 rounded-md transition-all ${
-                          updateQpFormat === "pdf"
-                            ? "bg-white text-indigo-700 font-bold shadow-2xs"
-                            : "text-slate-600 hover:text-slate-900"
-                        }`}
-                      >
-                        <FileText className="h-3.5 w-3.5 text-indigo-600" />
-                        <span>PDF Document</span>
-                      </button>
-                    </div>
-                  </div>
-
-                  {/* Right-Side Format Helpers (for markdown) */}
-                  {updateQpFormat === "markdown" && (
-                    <div className="flex items-center gap-1.5">
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setFormatGuideModalTab("template");
-                          setFormatGuideModalOpen(true);
-                        }}
-                        className="cursor-pointer inline-flex items-center gap-1 text-xs font-medium text-slate-700 bg-slate-50 hover:bg-slate-100 px-2.5 py-1 rounded-lg border border-slate-200 shadow-2xs transition-colors"
-                      >
-                        <FileCode className="h-3.5 w-3.5 text-indigo-600" />
-                        <span>Template</span>
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setFormatGuideModalTab("ai_prompt");
-                          setFormatGuideModalOpen(true);
-                        }}
-                        className="cursor-pointer inline-flex items-center gap-1 text-xs font-medium text-purple-700 bg-purple-50 hover:bg-purple-100 px-2.5 py-1 rounded-lg border border-purple-200 shadow-2xs transition-colors"
-                      >
-                        <Sparkles className="h-3.5 w-3.5 text-purple-600" />
-                        <span>AI Prompt</span>
-                      </button>
-                    </div>
-                  )}
-                </div>
-
-                {/* ========================================================= */}
-                {/* A: MARKDOWN QUESTIONNAIRE & LIVE PREVIEW WORKSPACE */}
-                {/* ========================================================= */}
-                {updateQpFormat === "markdown" ? (
-                  <div className="space-y-3.5">
-                    {/* View Switcher Chips on Left side: Source vs Preview */}
-                    <div className="flex items-center justify-between flex-wrap gap-2">
-                      <div className="inline-flex p-0.5 rounded-lg bg-slate-100 border border-slate-200 text-xs font-medium">
-                        <button
-                          type="button"
-                          onClick={() => setUpdateViewTab("editor")}
-                          className={`cursor-pointer inline-flex items-center gap-1.5 px-3 py-1 rounded-md transition-all ${
-                            updateViewTab === "editor"
-                              ? "bg-white text-slate-900 font-bold shadow-2xs"
-                              : "text-slate-600 hover:text-slate-900"
-                          }`}
-                        >
-                          <Edit3 className="h-3.5 w-3.5" />
-                          <span>Markdown Source</span>
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => setUpdateViewTab("preview")}
-                          className={`cursor-pointer inline-flex items-center gap-1.5 px-3 py-1 rounded-md transition-all ${
-                            updateViewTab === "preview"
-                              ? "bg-white text-purple-700 font-bold shadow-2xs"
-                              : "text-slate-600 hover:text-slate-900"
-                          }`}
-                        >
-                          <Eye className="h-3.5 w-3.5" />
-                          <span>Preview ({detectedUpdateQuestions.length} Qs)</span>
-                        </button>
-                      </div>
-
-                      <div className="flex items-center gap-2 text-xs">
-                        {detectedUpdateQuestions.length > 0 ? (
-                          <span className="inline-flex items-center gap-1 text-emerald-700 bg-emerald-50 px-2.5 py-0.5 rounded-full border border-emerald-200 font-medium">
-                            <Check className="h-3 w-3" />
-                            <span>{detectedUpdateQuestions.length} Questions detected</span>
-                          </span>
-                        ) : (
-                          <span className="text-slate-400 text-[11px]">
-                            Separate questions with &apos;---&apos;
-                          </span>
-                        )}
-
-                        <label className="cursor-pointer text-indigo-600 hover:underline font-semibold inline-flex items-center gap-1 text-xs">
-                          <FileUp className="h-3 w-3" />
-                          <span>Import .md</span>
-                          <input
-                            type="file"
-                            accept=".md,.txt"
-                            onChange={async (e) => {
-                              const file = e.target.files?.[0];
-                              if (file) {
-                                const text = await file.text();
-                                setUpdateMarkdown(text);
-                              }
-                            }}
-                            className="hidden"
-                          />
-                        </label>
-                      </div>
-                    </div>
-
-                    {/* View Tab 1: Source Editor */}
-                    {updateViewTab === "editor" && (
-                      <div className="space-y-1">
-                        <textarea
-                          value={updateMarkdown}
-                          onChange={(e) => setUpdateMarkdown(e.target.value)}
-                          placeholder={`EXAM: Mock Test\nSUBJECT: General Studies\nINSTRUCTIONS:\n- 2 marks per question\n---\nQuestion 1 prompt here...\n(a) Option A\n(b) Option B\n(c) Option C\n(d) Option D\n---\nQuestion 2 prompt...\n(a) Option A\n(b) Option B\n(c) Option C\n(d) Option D`}
-                          rows={12}
-                          className="w-full rounded-xl border border-slate-200 bg-slate-50/50 hover:bg-white focus:bg-white p-3.5 font-mono text-xs text-slate-800 placeholder-slate-400 focus:outline-none focus:border-purple-500 shadow-2xs leading-relaxed transition-colors"
-                        />
-                      </div>
-                    )}
-
-                    {/* View Tab 2: Rendered Preview */}
-                    {updateViewTab === "preview" && (
-                      <div className="space-y-2.5 max-h-[460px] overflow-y-auto pr-1">
-                        {detectedUpdateQuestions.length === 0 ? (
-                          <div className="rounded-xl border border-dashed border-slate-200 p-8 text-center text-xs text-slate-400">
-                            No questions detected yet. Switch to &apos;Markdown Source&apos; to paste or edit questions.
-                          </div>
-                        ) : (
-                          detectedUpdateQuestions.map((q) => {
-                            const ansLetter = detectedUpdateAnswerKey.answers[q.questionNo]?.toUpperCase();
-                            const explanation = detectedUpdateAnswerKey.explanations[q.questionNo];
-
-                            return (
-                              <div
-                                key={q.questionNo}
-                                className="rounded-xl border border-slate-200 bg-white p-3.5 space-y-2 shadow-2xs"
-                              >
-                                <div className="flex items-center justify-between gap-2">
-                                  <span className="font-mono text-xs font-bold bg-purple-50 text-purple-800 px-2 py-0.5 rounded border border-purple-200">
-                                    Q{q.questionNo}
-                                  </span>
-                                  {ansLetter ? (
-                                    <span className="text-[11px] font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200 inline-flex items-center gap-1">
-                                      <Check className="h-3 w-3" /> Answer: Option {ansLetter}
-                                    </span>
-                                  ) : (
-                                    <span className="text-[10px] text-slate-400">
-                                      No key mapped
-                                    </span>
-                                  )}
-                                </div>
-
-                                <p className="text-xs text-slate-800 font-medium leading-relaxed whitespace-pre-wrap">
-                                  {q.text}
-                                </p>
-
-                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5 pt-1">
-                                  {Object.entries(q.options).map(([optKey, optText]) => {
-                                    const isCorrect = ansLetter === optKey.toUpperCase();
-                                    return (
-                                      <div
-                                        key={optKey}
-                                        className={`flex items-start gap-1.5 p-1.5 rounded-lg border text-xs leading-relaxed ${
-                                          isCorrect
-                                            ? "bg-emerald-50/70 border-emerald-300 text-emerald-950 font-medium"
-                                            : "bg-slate-50/70 border-slate-200 text-slate-700"
-                                        }`}
-                                      >
-                                        <span
-                                          className={`font-mono text-[10px] font-bold px-1.5 py-0.2 rounded shrink-0 ${
-                                            isCorrect
-                                              ? "bg-emerald-600 text-white"
-                                              : "bg-slate-200 text-slate-700"
-                                          }`}
-                                        >
-                                          {optKey}
-                                        </span>
-                                        <span className="whitespace-pre-wrap">{optText}</span>
-                                      </div>
-                                    );
-                                  })}
-                                </div>
-
-                                {explanation && (
-                                  <div className="rounded-lg bg-amber-50/70 border border-amber-200/80 p-2 text-xs text-amber-950 space-y-0.5">
-                                    <div className="flex items-center gap-1 font-bold text-[10px] text-amber-800">
-                                      <Lightbulb className="h-3 w-3 text-amber-600" />
-                                      <span>Explanation:</span>
-                                    </div>
-                                    <p className="text-[11px] leading-relaxed whitespace-pre-wrap pl-4 text-amber-900">
-                                      {explanation}
-                                    </p>
-                                  </div>
-                                )}
-                              </div>
-                            );
-                          })
-                        )}
-                      </div>
-                    )}
-                  </div>
-                ) : (
-                  /* ========================================================= */
-                  /* B: PDF REPLACEMENT & SOLUTION WORKSPACE */
-                  /* ========================================================= */
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
-                    <div className="rounded-xl border border-slate-200 bg-slate-50/50 p-3.5 space-y-2">
-                      <span className="text-xs font-bold text-slate-800 block">
-                        Question Paper PDF
-                      </span>
-                      <label className="cursor-pointer flex flex-col items-center justify-center rounded-xl border border-dashed border-slate-300 bg-white p-3.5 text-center hover:border-indigo-500 hover:bg-slate-50 transition-colors shadow-2xs">
-                        <FileUp className="h-5 w-5 text-indigo-600 mb-1" />
-                        <span className="text-xs font-semibold text-slate-700 truncate max-w-[200px]">
-                          {qpFile ? qpFile.name : "Replace Question Paper PDF"}
-                        </span>
-                        <input
-                          type="file"
-                          accept=".pdf"
-                          onChange={(e) => setQpFile(e.target.files?.[0] || null)}
-                          className="hidden"
-                        />
-                      </label>
-                    </div>
-
-                    <div className="rounded-xl border border-slate-200 bg-slate-50/50 p-3.5 space-y-2">
-                      <span className="text-xs font-bold text-slate-800 block">
-                        Solution Booklet PDF
-                      </span>
-                      <label className="cursor-pointer flex flex-col items-center justify-center rounded-xl border border-dashed border-slate-300 bg-white p-3.5 text-center hover:border-slate-500 hover:bg-slate-50 transition-colors shadow-2xs">
-                        <FileUp className="h-5 w-5 text-slate-500 mb-1" />
-                        <span className="text-xs font-semibold text-slate-700 truncate max-w-[200px]">
-                          {exsFile ? exsFile.name : "Attach / Replace Solution PDF"}
-                        </span>
-                        <input
-                          type="file"
-                          accept=".pdf"
-                          onChange={(e) => setExsFile(e.target.files?.[0] || null)}
-                          className="hidden"
-                        />
-                      </label>
-                    </div>
-                  </div>
-                )}
-
-                {/* Integrated Answer Key & Explanations Widget */}
-                <div className="pt-3 border-t border-slate-100 space-y-2.5">
-                  <div className="flex items-center justify-between flex-wrap gap-2">
-                    <div className="flex items-center gap-2">
-                      <span className="text-xs font-semibold text-slate-500">Answer Key:</span>
-                      <div className="inline-flex p-0.5 rounded-lg bg-slate-100 border border-slate-200 text-xs font-medium">
-                        <button
-                          type="button"
-                          onClick={() => setAkMode("paste")}
-                          className={`cursor-pointer px-2.5 py-0.5 rounded-md transition-all ${
-                            akMode === "paste"
-                              ? "bg-white text-indigo-700 font-bold shadow-2xs"
-                              : "text-slate-600 hover:text-slate-900"
-                          }`}
-                        >
-                          Paste Key
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => setAkMode("upload")}
-                          className={`cursor-pointer px-2.5 py-0.5 rounded-md transition-all ${
-                            akMode === "upload"
-                              ? "bg-white text-indigo-700 font-bold shadow-2xs"
-                              : "text-slate-600 hover:text-slate-900"
-                          }`}
-                        >
-                          Upload .txt
-                        </button>
-                      </div>
-                    </div>
-
-                    <div className="flex items-center gap-2 text-xs">
-                      {Object.keys(detectedUpdateAnswerKey.answers).length > 0 && (
-                        <span className="text-emerald-700 font-mono font-semibold">
-                          {Object.keys(detectedUpdateAnswerKey.answers).length} answers mapped
-                        </span>
-                      )}
-                      <code className="font-mono text-[10px] text-slate-400 bg-slate-100 px-1.5 py-0.5 rounded">
-                        1. a &quot;&quot;&quot; explanation &quot;&quot;&quot;
-                      </code>
-                    </div>
-                  </div>
-
-                  {akMode === "upload" ? (
-                    <label className="cursor-pointer flex items-center justify-center gap-2 rounded-xl border border-dashed border-slate-300 bg-white p-3 text-xs font-semibold text-slate-700 hover:border-slate-500 shadow-2xs">
-                      <FileUp className="h-4 w-4 text-slate-500" />
-                      <span>{akFile ? akFile.name : "Select .txt answer key file"}</span>
-                      <input
-                        type="file"
-                        accept=".txt"
-                        onChange={(e) => setAkFile(e.target.files?.[0] || null)}
-                        className="hidden"
-                      />
-                    </label>
-                  ) : (
-                    <textarea
-                      value={akText}
-                      onChange={(e) => setAkText(e.target.value)}
-                      placeholder={`1. a,\n2. c """ Explanations can be enclosed in triple quotes """,\n3. d,\n4. b`}
-                      rows={4}
-                      className="w-full rounded-xl border border-slate-200 bg-white p-3 font-mono text-xs text-slate-800 placeholder-slate-400 focus:outline-none focus:border-indigo-500 shadow-2xs leading-relaxed"
-                    />
-                  )}
-                </div>
-              </div>
-
-              {/* Rules & Duration Strip Widget */}
-              <div className="rounded-2xl border border-slate-200/90 bg-white p-5 space-y-3 shadow-xs">
-                <span className="text-xs font-bold text-slate-700 uppercase tracking-wider block">
-                  Scoring Scheme & Duration
-                </span>
-
-                <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
-                  <div>
-                    <label className="block text-[11px] font-semibold text-slate-600 mb-1">
-                      Total Questions
-                    </label>
-                    <input
-                      type="number"
-                      value={totalQuestions}
-                      onChange={(e) => setTotalQuestions(parseInt(e.target.value) || 0)}
-                      className="w-full rounded-lg border border-slate-200 bg-slate-50 px-3 py-1.5 text-xs text-slate-800 font-mono focus:bg-white focus:border-indigo-500"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-[11px] font-semibold text-slate-600 mb-1">
-                      Duration (Mins)
-                    </label>
-                    <input
-                      type="number"
-                      value={timeMinutes}
-                      onChange={(e) => setTimeMinutes(parseInt(e.target.value) || 0)}
-                      className="w-full rounded-lg border border-slate-200 bg-slate-50 px-3 py-1.5 text-xs text-slate-800 font-mono focus:bg-white focus:border-indigo-500"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-[11px] font-semibold text-slate-600 mb-1">
-                      Correct (+)
-                    </label>
-                    <input
-                      type="number"
-                      step="0.01"
-                      value={correctMarks}
-                      onChange={(e) => setCorrectMarks(parseFloat(e.target.value) || 0)}
-                      className="w-full rounded-lg border border-slate-200 bg-slate-50 px-3 py-1.5 text-xs text-slate-800 font-mono focus:bg-white focus:border-indigo-500"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-[11px] font-semibold text-slate-600 mb-1">
-                      Penalty (-)
-                    </label>
-                    <input
-                      type="number"
-                      step="0.001"
-                      value={incorrectMarks}
-                      onChange={(e) => setIncorrectMarks(parseFloat(e.target.value) || 0)}
-                      className="w-full rounded-lg border border-slate-200 bg-slate-50 px-3 py-1.5 text-xs text-slate-800 font-mono focus:bg-white focus:border-indigo-500"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-[11px] font-semibold text-slate-600 mb-1">
-                      Total Marks
-                    </label>
-                    <input
-                      type="number"
-                      value={totalMarks}
-                      onChange={(e) => setTotalMarks(parseFloat(e.target.value) || 0)}
-                      className="w-full rounded-lg border border-slate-200 bg-slate-50 px-3 py-1.5 text-xs text-slate-800 font-mono focus:bg-white focus:border-indigo-500"
-                    />
-                  </div>
-                </div>
-              </div>
-
-              {/* Bottom Action Buttons */}
-              <div className="flex items-center justify-between pt-1">
-                {onDeletePaper ? (
-                  <button
-                    type="button"
-                    onClick={() => setShowDeleteConfirm(true)}
-                    className="cursor-pointer flex items-center gap-1.5 px-3.5 py-2 rounded-xl border border-rose-200 bg-rose-50 text-xs font-semibold text-rose-700 hover:bg-rose-100 transition-colors shadow-2xs"
-                  >
-                    <Trash2 className="h-3.5 w-3.5" />
-                    <span>Delete Paper</span>
-                  </button>
-                ) : (
-                  <div />
-                )}
-
-                <button
-                  type="submit"
-                  disabled={isSubmitting}
-                  className="cursor-pointer flex items-center gap-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 px-5 py-2.5 text-xs font-bold text-white shadow-xs disabled:opacity-40 transition-all"
-                >
-                  <RefreshCw className={`h-4 w-4 ${isSubmitting ? "animate-spin" : ""}`} />
-                  <span>{isSubmitting ? "Saving Updates..." : "Save Updates"}</span>
-                </button>
-              </div>
-            </form>
-          )}
-
-          {/* Delete Confirm Modal */}
-          {showDeleteConfirm && currentSelectedPaper && (
-            <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-in fade-in duration-150">
-              <div className="relative w-full max-w-md rounded-2xl border border-slate-200 bg-white p-6 shadow-2xl space-y-4">
-                <div className="flex items-start gap-3">
-                  <div className="p-2.5 rounded-xl bg-rose-50 border border-rose-200 text-rose-600 shrink-0">
-                    <Trash2 className="h-5 w-5" />
-                  </div>
-                  <div>
-                    <h3 className="text-base font-bold text-slate-900">
-                      Delete Question Paper?
-                    </h3>
-                    <p className="text-xs text-slate-500 mt-1">
-                      Are you sure you want to permanently delete &quot;{currentSelectedPaper.label}&quot;?
-                    </p>
-                  </div>
-                </div>
-
-                <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-100">
-                  <button
-                    type="button"
-                    onClick={() => setShowDeleteConfirm(false)}
-                    className="cursor-pointer rounded-xl border border-slate-200 bg-white px-4 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50 shadow-2xs"
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      if (onDeletePaper) onDeletePaper(currentSelectedPaper.id);
-                      setShowDeleteConfirm(false);
-                      onNavigatePapers();
-                    }}
-                    className="cursor-pointer px-4 py-2 rounded-xl bg-rose-600 hover:bg-rose-700 text-xs font-bold text-white shadow-xs"
-                  >
-                    Delete Paper
-                  </button>
-                </div>
-              </div>
-            </div>
-          )}
-        </div>
-      )}
-
-      {/* ============================================================== */}
-      {/* MODE 2: FAST CUSTOM PRACTICE PAPER */}
-      {/* ============================================================== */}
+      {/* =================================================================== */}
+      {/* 3-SEGMENT WORKSPACE: FAST CUSTOM PRACTICE PAPER */}
+      {/* =================================================================== */}
       {viewMode === "custom" && (
         <form onSubmit={handleUploadFastCustomPaper} className="space-y-5">
-          {/* Section 1: Paper Title & Scoring Scheme */}
+          {/* ------------------------------------------------------------- */}
+          {/* SEGMENT 1: RULES & SCORING SCHEME */}
+          {/* ------------------------------------------------------------- */}
           <div className="rounded-2xl border border-slate-200/90 bg-white p-5 space-y-4 shadow-xs">
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-bold text-slate-800 uppercase tracking-wider flex items-center gap-2">
+                <span className="h-5 w-5 rounded-full bg-indigo-50 text-indigo-700 flex items-center justify-center text-[11px] font-bold border border-indigo-200">
+                  1
+                </span>
+                Rules & Scoring Scheme
+              </span>
+            </div>
+
             <div>
-              <label className="block text-xs font-bold text-slate-700 mb-1.5">
+              <label className="block text-xs font-semibold text-slate-700 mb-1">
                 Paper Name / Title <span className="text-rose-500">*</span>
               </label>
               <input
@@ -1608,7 +970,7 @@ export function UploadView({
               />
             </div>
 
-            {/* Compact Rules Grid Strip */}
+            {/* 5-Column Compact Rules Grid */}
             <div className="grid grid-cols-2 sm:grid-cols-5 gap-3 pt-1 border-t border-slate-100">
               <div>
                 <label className="block text-[11px] font-semibold text-slate-600 mb-1">
@@ -1686,12 +1048,20 @@ export function UploadView({
             </div>
           </div>
 
-          {/* Section 2: Content Studio (Markdown or PDF) */}
+          {/* ------------------------------------------------------------- */}
+          {/* SEGMENT 2: QUESTIONNAIRE */}
+          {/* ------------------------------------------------------------- */}
           <div className="rounded-2xl border border-slate-200/90 bg-white p-5 space-y-4 shadow-xs">
             {/* Header: Left format chips + Right helpers */}
             <div className="flex items-center justify-between flex-wrap gap-2 pb-3 border-b border-slate-100">
               <div className="flex items-center gap-2">
-                <span className="text-xs font-semibold text-slate-500">Format:</span>
+                <span className="text-xs font-bold text-slate-800 uppercase tracking-wider flex items-center gap-2 mr-1">
+                  <span className="h-5 w-5 rounded-full bg-purple-50 text-purple-700 flex items-center justify-center text-[11px] font-bold border border-purple-200">
+                    2
+                  </span>
+                  Questionnaire
+                </span>
+
                 <div className="inline-flex p-0.5 rounded-lg bg-slate-100 border border-slate-200 text-xs font-medium">
                   <button
                     type="button"
@@ -1759,6 +1129,7 @@ export function UploadView({
                       setCustomTimeMinutes("15");
                       setCustomQpMarkdown(SAMPLE_QUESTIONNAIRE_TEXT);
                       setCustomAkText(SAMPLE_ANSWER_KEY_TEXT);
+                      handleApplyRules(parseMarkdownHeader(SAMPLE_QUESTIONNAIRE_TEXT), "custom");
                     }}
                     className="cursor-pointer inline-flex items-center gap-1 text-xs font-medium text-slate-600 hover:text-slate-900 bg-transparent hover:bg-slate-100 px-2 py-1 rounded-lg transition-colors"
                   >
@@ -1768,10 +1139,10 @@ export function UploadView({
               )}
             </div>
 
-            {/* A: Markdown Workspace */}
+            {/* Markdown Workspace */}
             {customQpFormat === "markdown" ? (
               <div className="space-y-3.5">
-                {/* Auto-detected rules header banner if present */}
+                {/* Auto-detected rules header banner with direct visual feedback */}
                 {detectedHeader && (
                   <div className="flex items-center justify-between gap-2 p-2.5 rounded-xl bg-purple-50/70 border border-purple-200 text-xs text-purple-900">
                     <div className="flex items-center gap-2 truncate">
@@ -1784,11 +1155,24 @@ export function UploadView({
                     </div>
                     <button
                       type="button"
-                      onClick={handleApplyDetectedHeader}
-                      className="cursor-pointer shrink-0 inline-flex items-center gap-1 text-[11px] font-bold text-purple-700 bg-white hover:bg-purple-100 px-2.5 py-1 rounded-lg border border-purple-200 shadow-2xs"
+                      onClick={() => handleApplyRules(detectedHeader, "custom")}
+                      className={`cursor-pointer shrink-0 inline-flex items-center gap-1 text-[11px] font-bold px-3 py-1 rounded-lg border shadow-2xs transition-all ${
+                        headerRulesApplied
+                          ? "bg-emerald-600 text-white border-emerald-600"
+                          : "text-purple-700 bg-white hover:bg-purple-100 border-purple-200"
+                      }`}
                     >
-                      <Sparkles className="h-3 w-3 text-purple-600" />
-                      <span>Apply Rules</span>
+                      {headerRulesApplied ? (
+                        <>
+                          <Check className="h-3 w-3 text-white" />
+                          <span>Applied to Rules!</span>
+                        </>
+                      ) : (
+                        <>
+                          <Sparkles className="h-3 w-3 text-purple-600" />
+                          <span>Apply Rules</span>
+                        </>
+                      )}
                     </button>
                   </div>
                 )}
@@ -1953,7 +1337,7 @@ export function UploadView({
                 )}
               </div>
             ) : (
-              /* B: PDF Workspace */
+              /* PDF Workspace */
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
                 <div className="rounded-xl border border-slate-200 bg-slate-50/50 p-3.5 space-y-2">
                   <span className="text-xs font-bold text-slate-800 block">
@@ -1992,71 +1376,79 @@ export function UploadView({
                 </div>
               </div>
             )}
+          </div>
 
-            {/* Answer Key Widget */}
-            <div className="pt-3 border-t border-slate-100 space-y-2.5">
-              <div className="flex items-center justify-between flex-wrap gap-2">
-                <div className="flex items-center gap-2">
-                  <span className="text-xs font-semibold text-slate-500">Answer Key:</span>
-                  <div className="inline-flex p-0.5 rounded-lg bg-slate-100 border border-slate-200 text-xs font-medium">
-                    <button
-                      type="button"
-                      onClick={() => setCustomAkMode("paste")}
-                      className={`cursor-pointer px-2.5 py-0.5 rounded-md transition-all ${
-                        customAkMode === "paste"
-                          ? "bg-white text-indigo-700 font-bold shadow-2xs"
-                          : "text-slate-600 hover:text-slate-900"
-                      }`}
-                    >
-                      Paste Key
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setCustomAkMode("upload")}
-                      className={`cursor-pointer px-2.5 py-0.5 rounded-md transition-all ${
-                        customAkMode === "upload"
-                          ? "bg-white text-indigo-700 font-bold shadow-2xs"
-                          : "text-slate-600 hover:text-slate-900"
-                      }`}
-                    >
-                      Upload .txt
-                    </button>
-                  </div>
-                </div>
+          {/* ------------------------------------------------------------- */}
+          {/* SEGMENT 3: ANSWER KEY */}
+          {/* ------------------------------------------------------------- */}
+          <div className="rounded-2xl border border-slate-200/90 bg-white p-5 space-y-3 shadow-xs">
+            <div className="flex items-center justify-between flex-wrap gap-2 pb-2 border-b border-slate-100">
+              <div className="flex items-center gap-2">
+                <span className="text-xs font-bold text-slate-800 uppercase tracking-wider flex items-center gap-2 mr-1">
+                  <span className="h-5 w-5 rounded-full bg-emerald-50 text-emerald-700 flex items-center justify-center text-[11px] font-bold border border-emerald-200">
+                    3
+                  </span>
+                  Answer Key & Explanations
+                </span>
 
-                <div className="flex items-center gap-2 text-xs">
-                  {Object.keys(detectedAnswerKey.answers).length > 0 && (
-                    <span className="text-emerald-700 font-mono font-semibold">
-                      {Object.keys(detectedAnswerKey.answers).length} answers mapped
-                    </span>
-                  )}
-                  <code className="font-mono text-[10px] text-slate-400 bg-slate-100 px-1.5 py-0.5 rounded">
-                    1. a &quot;&quot;&quot; explanation &quot;&quot;&quot;
-                  </code>
+                <div className="inline-flex p-0.5 rounded-lg bg-slate-100 border border-slate-200 text-xs font-medium">
+                  <button
+                    type="button"
+                    onClick={() => setCustomAkMode("paste")}
+                    className={`cursor-pointer px-2.5 py-1 rounded-md transition-all ${
+                      customAkMode === "paste"
+                        ? "bg-white text-emerald-800 font-bold shadow-2xs"
+                        : "text-slate-600 hover:text-slate-900"
+                    }`}
+                  >
+                    Paste Key
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setCustomAkMode("upload")}
+                    className={`cursor-pointer px-2.5 py-1 rounded-md transition-all ${
+                      customAkMode === "upload"
+                        ? "bg-white text-emerald-800 font-bold shadow-2xs"
+                        : "text-slate-600 hover:text-slate-900"
+                    }`}
+                  >
+                    Upload .txt
+                  </button>
                 </div>
               </div>
 
-              {customAkMode === "upload" ? (
-                <label className="cursor-pointer flex items-center justify-center gap-2 rounded-xl border border-dashed border-slate-300 bg-white p-3 text-xs font-semibold text-slate-700 hover:border-slate-500 shadow-2xs">
-                  <FileUp className="h-4 w-4 text-slate-500" />
-                  <span>{customAkFile ? customAkFile.name : "Select .txt answer key file"}</span>
-                  <input
-                    type="file"
-                    accept=".txt"
-                    onChange={(e) => setCustomAkFile(e.target.files?.[0] || null)}
-                    className="hidden"
-                  />
-                </label>
-              ) : (
-                <textarea
-                  value={customAkText}
-                  onChange={(e) => setCustomAkText(e.target.value)}
-                  placeholder={`1. a,\n2. c """ Explanations can be enclosed in triple quotes """,\n3. d,\n4. b`}
-                  rows={4}
-                  className="w-full rounded-xl border border-slate-200 bg-white p-3 font-mono text-xs text-slate-800 placeholder-slate-400 focus:outline-none focus:border-indigo-500 shadow-2xs leading-relaxed"
-                />
-              )}
+              <div className="flex items-center gap-2 text-xs">
+                {Object.keys(detectedAnswerKey.answers).length > 0 && (
+                  <span className="text-emerald-700 font-mono font-semibold">
+                    {Object.keys(detectedAnswerKey.answers).length} answers mapped
+                  </span>
+                )}
+                <code className="font-mono text-[10px] text-slate-400 bg-slate-100 px-1.5 py-0.5 rounded">
+                  1. a &quot;&quot;&quot; explanation &quot;&quot;&quot;
+                </code>
+              </div>
             </div>
+
+            {customAkMode === "upload" ? (
+              <label className="cursor-pointer flex items-center justify-center gap-2 rounded-xl border border-dashed border-slate-300 bg-white p-3.5 text-xs font-semibold text-slate-700 hover:border-slate-500 shadow-2xs">
+                <FileUp className="h-4 w-4 text-slate-500" />
+                <span>{customAkFile ? customAkFile.name : "Select .txt answer key file"}</span>
+                <input
+                  type="file"
+                  accept=".txt"
+                  onChange={(e) => setCustomAkFile(e.target.files?.[0] || null)}
+                  className="hidden"
+                />
+              </label>
+            ) : (
+              <textarea
+                value={customAkText}
+                onChange={(e) => setCustomAkText(e.target.value)}
+                placeholder={`1. a,\n2. c """ Explanations can be enclosed in triple quotes """,\n3. d,\n4. b`}
+                rows={4}
+                className="w-full rounded-xl border border-slate-200 bg-white p-3 font-mono text-xs text-slate-800 placeholder-slate-400 focus:outline-none focus:border-emerald-500 shadow-2xs leading-relaxed"
+              />
+            )}
           </div>
 
           {/* Submit Action */}
@@ -2082,16 +1474,742 @@ export function UploadView({
         </form>
       )}
 
-      {/* ============================================================== */}
-      {/* MODE 3: OFFICIAL UPSC PRESET */}
-      {/* ============================================================== */}
+      {/* =================================================================== */}
+      {/* 3-SEGMENT WORKSPACE: UPDATE / CORRECT EXISTING PAPER */}
+      {/* =================================================================== */}
+      {viewMode === "update" && (
+        <div className="space-y-5">
+          {/* Paper Picker with Search & Dropdown */}
+          <div className="rounded-2xl border border-slate-200/90 bg-white p-5 space-y-3.5 shadow-xs">
+            <div className="relative">
+              <button
+                type="button"
+                onClick={() => setIsSearchSelectOpen((prev) => !prev)}
+                className="cursor-pointer w-full flex items-center justify-between rounded-xl border border-slate-300 bg-white hover:bg-slate-50 px-3.5 py-2.5 text-xs font-semibold text-slate-800 transition-all focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 shadow-2xs"
+              >
+                <div className="flex items-center gap-2.5 min-w-0">
+                  <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-indigo-50 text-indigo-600 shrink-0 border border-indigo-100">
+                    <FileText className="h-4 w-4" />
+                  </div>
+                  <div className="text-left truncate">
+                    {currentSelectedPaper ? (
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className="font-bold text-slate-900 text-xs">
+                          {getPaperDisplayTitle(currentSelectedPaper)}
+                        </span>
+                        <span className="text-[10px] font-mono font-medium px-2 py-0.5 rounded-full bg-slate-100 text-slate-600 border border-slate-200">
+                          {currentSelectedPaper.year} • {currentSelectedPaper.subject} • {currentSelectedPaper.totalQuestions} Qs
+                        </span>
+                        {isUserUploadedPaper(currentSelectedPaper) && (
+                          <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-50 text-amber-700 border border-amber-200">
+                            Custom Paper
+                          </span>
+                        )}
+                      </div>
+                    ) : (
+                      <span className="text-slate-400 font-normal">
+                        Select a paper to edit or update...
+                      </span>
+                    )}
+                  </div>
+                </div>
+                <ChevronDown
+                  className={`h-4 w-4 text-slate-400 transition-transform duration-200 ${
+                    isSearchSelectOpen ? "rotate-180 text-indigo-600" : ""
+                  }`}
+                />
+              </button>
+
+              {isSearchSelectOpen && (
+                <>
+                  <div
+                    className="fixed inset-0 z-30"
+                    onClick={() => setIsSearchSelectOpen(false)}
+                  />
+                  <div className="absolute left-0 right-0 top-full mt-1.5 z-40 rounded-2xl border border-slate-200 bg-white p-2.5 shadow-xl animate-in fade-in duration-150">
+                    <div className="relative mb-2">
+                      <Search className="absolute left-3 top-2.5 h-3.5 w-3.5 text-slate-400" />
+                      <input
+                        type="text"
+                        autoFocus
+                        value={paperSearchQuery}
+                        onChange={(e) => setPaperSearchQuery(e.target.value)}
+                        placeholder="Search paper name, subject, year..."
+                        className="w-full rounded-xl border border-slate-200 bg-slate-50 pl-9 pr-8 py-2 text-xs text-slate-800 placeholder:text-slate-400 focus:outline-none focus:bg-white focus:border-indigo-500"
+                      />
+                      {paperSearchQuery && (
+                        <button
+                          type="button"
+                          onClick={() => setPaperSearchQuery("")}
+                          className="cursor-pointer absolute right-2.5 top-2.5 text-slate-400 hover:text-slate-600"
+                        >
+                          <X className="h-3.5 w-3.5" />
+                        </button>
+                      )}
+                    </div>
+
+                    <div className="max-h-60 overflow-y-auto space-y-1 pr-1">
+                      {filteredUpdatePapers.length === 0 ? (
+                        <div className="py-5 text-center text-xs text-slate-400">
+                          No papers found
+                        </div>
+                      ) : (
+                        filteredUpdatePapers.map((p) => {
+                          const isSelected = p.id === selectedPaperId;
+                          const isUser = isUserUploadedPaper(p);
+                          const isMd =
+                            Boolean(p.parsedQuestions && p.parsedQuestions.length > 0) ||
+                            Boolean(p.markdownContent) ||
+                            p.qpUrl?.startsWith("local://");
+
+                          return (
+                            <button
+                              key={p.id}
+                              type="button"
+                              onClick={() => {
+                                handleSelectPaperToUpdate(p.id);
+                                setIsSearchSelectOpen(false);
+                                setPaperSearchQuery("");
+                              }}
+                              className={`cursor-pointer w-full flex items-center justify-between rounded-xl px-3 py-2 text-left text-xs transition-colors ${
+                                isSelected
+                                  ? "bg-indigo-50/90 text-indigo-900 font-bold border border-indigo-200"
+                                  : "hover:bg-slate-50 text-slate-700 border border-transparent"
+                              }`}
+                            >
+                              <div className="min-w-0 pr-2">
+                                <div className="flex items-center gap-1.5 flex-wrap">
+                                  <span className="font-semibold text-slate-900">
+                                    {getPaperDisplayTitle(p)}
+                                  </span>
+                                  {isMd && (
+                                    <span className="text-[9px] font-bold px-1.5 py-0.2 rounded bg-purple-50 text-purple-700 border border-purple-200">
+                                      Markdown
+                                    </span>
+                                  )}
+                                  {isUser ? (
+                                    <span className="text-[9px] font-bold px-1.5 py-0.2 rounded bg-amber-50 text-amber-700 border border-amber-200">
+                                      Custom
+                                    </span>
+                                  ) : (
+                                    <span className="text-[9px] font-mono px-1.5 py-0.2 rounded bg-slate-100 text-slate-600 border border-slate-200">
+                                      {p.category.toUpperCase()}
+                                    </span>
+                                  )}
+                                </div>
+                                <div className="text-[11px] text-slate-500 font-normal mt-0.5">
+                                  {p.year} • {p.subject} • {p.totalQuestions} Qs • {p.timeMinutes || 120}m
+                                </div>
+                              </div>
+                              {isSelected && (
+                                <Check className="h-4 w-4 text-indigo-600 shrink-0 ml-2" />
+                              )}
+                            </button>
+                          );
+                        })
+                      )}
+                    </div>
+                  </div>
+                </>
+              )}
+            </div>
+
+            {/* Quick Paper Status Strip */}
+            {currentSelectedPaper && (
+              <div className="flex items-center gap-2 flex-wrap text-xs pt-1">
+                <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-slate-100 text-slate-700 font-medium border border-slate-200">
+                  <FileText className="h-3 w-3 text-slate-500" />
+                  <span>
+                    {currentSelectedPaper.qpUrl?.startsWith("local://") ||
+                    (currentSelectedPaper.parsedQuestions && currentSelectedPaper.parsedQuestions.length > 0)
+                      ? `Interactive Markdown (${currentSelectedPaper.totalQuestions} Qs)`
+                      : "PDF Document"}
+                  </span>
+                  {currentSelectedPaper.qpUrl && !currentSelectedPaper.qpUrl.startsWith("local://") && (
+                    <a
+                      href={currentSelectedPaper.qpUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-indigo-600 hover:text-indigo-800 ml-1 inline-flex items-center"
+                    >
+                      <ExternalLink className="h-2.5 w-2.5" />
+                    </a>
+                  )}
+                </span>
+
+                <span
+                  className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-lg font-medium border ${
+                    hasAnswerKey(currentSelectedPaper)
+                      ? "bg-emerald-50 text-emerald-800 border-emerald-200"
+                      : "bg-amber-50 text-amber-800 border-amber-200"
+                  }`}
+                >
+                  {hasAnswerKey(currentSelectedPaper) ? (
+                    <>
+                      <Check className="h-3 w-3 text-emerald-600" />
+                      <span>
+                        Key Attached ({Object.keys(currentSelectedPaper.answerKey || {}).length} Qs)
+                      </span>
+                    </>
+                  ) : (
+                    <>
+                      <AlertCircle className="h-3 w-3 text-amber-600" />
+                      <span>No Answer Key</span>
+                    </>
+                  )}
+                </span>
+
+                {hasSolution(currentSelectedPaper) ? (
+                  <a
+                    href={currentSelectedPaper.exsUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-indigo-50 text-indigo-700 border border-indigo-200 font-medium hover:bg-indigo-100 transition-colors"
+                  >
+                    <ExternalLink className="h-3 w-3" />
+                    <span>Solution PDF</span>
+                  </a>
+                ) : (
+                  <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-slate-50 text-slate-400 border border-slate-200 font-medium">
+                    No Solution PDF
+                  </span>
+                )}
+              </div>
+            )}
+          </div>
+
+          {currentSelectedPaper && (
+            <form onSubmit={handleUpdateExistingPaper} className="space-y-5">
+              {/* ----------------------------------------------------------- */}
+              {/* SEGMENT 1: RULES & DURATION */}
+              {/* ----------------------------------------------------------- */}
+              <div className="rounded-2xl border border-slate-200/90 bg-white p-5 space-y-3 shadow-xs">
+                <span className="text-xs font-bold text-slate-800 uppercase tracking-wider flex items-center gap-2">
+                  <span className="h-5 w-5 rounded-full bg-indigo-50 text-indigo-700 flex items-center justify-center text-[11px] font-bold border border-indigo-200">
+                    1
+                  </span>
+                  Rules & Duration
+                </span>
+
+                <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
+                  <div>
+                    <label className="block text-[11px] font-semibold text-slate-600 mb-1">
+                      Total Questions
+                    </label>
+                    <input
+                      type="number"
+                      value={totalQuestions}
+                      onChange={(e) => setTotalQuestions(parseInt(e.target.value) || 0)}
+                      className="w-full rounded-lg border border-slate-200 bg-slate-50 px-3 py-1.5 text-xs text-slate-800 font-mono focus:bg-white focus:border-indigo-500"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-[11px] font-semibold text-slate-600 mb-1">
+                      Duration (Mins)
+                    </label>
+                    <input
+                      type="number"
+                      value={timeMinutes}
+                      onChange={(e) => setTimeMinutes(parseInt(e.target.value) || 0)}
+                      className="w-full rounded-lg border border-slate-200 bg-slate-50 px-3 py-1.5 text-xs text-slate-800 font-mono focus:bg-white focus:border-indigo-500"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-[11px] font-semibold text-slate-600 mb-1">
+                      Correct (+)
+                    </label>
+                    <input
+                      type="number"
+                      step="0.01"
+                      value={correctMarks}
+                      onChange={(e) => setCorrectMarks(parseFloat(e.target.value) || 0)}
+                      className="w-full rounded-lg border border-slate-200 bg-slate-50 px-3 py-1.5 text-xs text-slate-800 font-mono focus:bg-white focus:border-indigo-500"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-[11px] font-semibold text-slate-600 mb-1">
+                      Penalty (-)
+                    </label>
+                    <input
+                      type="number"
+                      step="0.001"
+                      value={incorrectMarks}
+                      onChange={(e) => setIncorrectMarks(parseFloat(e.target.value) || 0)}
+                      className="w-full rounded-lg border border-slate-200 bg-slate-50 px-3 py-1.5 text-xs text-slate-800 font-mono focus:bg-white focus:border-indigo-500"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-[11px] font-semibold text-slate-600 mb-1">
+                      Total Marks
+                    </label>
+                    <input
+                      type="number"
+                      value={totalMarks}
+                      onChange={(e) => setTotalMarks(parseFloat(e.target.value) || 0)}
+                      className="w-full rounded-lg border border-slate-200 bg-slate-50 px-3 py-1.5 text-xs text-slate-800 font-mono focus:bg-white focus:border-indigo-500"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* ----------------------------------------------------------- */}
+              {/* SEGMENT 2: QUESTIONNAIRE */}
+              {/* ----------------------------------------------------------- */}
+              <div className="rounded-2xl border border-slate-200/90 bg-white p-5 space-y-4 shadow-xs">
+                <div className="flex items-center justify-between flex-wrap gap-2 pb-3 border-b border-slate-100">
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs font-bold text-slate-800 uppercase tracking-wider flex items-center gap-2 mr-1">
+                      <span className="h-5 w-5 rounded-full bg-purple-50 text-purple-700 flex items-center justify-center text-[11px] font-bold border border-purple-200">
+                        2
+                      </span>
+                      Questionnaire
+                    </span>
+
+                    <div className="inline-flex p-0.5 rounded-lg bg-slate-100 border border-slate-200 text-xs font-medium">
+                      <button
+                        type="button"
+                        onClick={() => setUpdateQpFormat("markdown")}
+                        className={`cursor-pointer inline-flex items-center gap-1.5 px-3 py-1 rounded-md transition-all ${
+                          updateQpFormat === "markdown"
+                            ? "bg-white text-purple-700 font-bold shadow-2xs"
+                            : "text-slate-600 hover:text-slate-900"
+                        }`}
+                      >
+                        <Sparkles className="h-3.5 w-3.5 text-purple-600" />
+                        <span>Interactive Markdown</span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setUpdateQpFormat("pdf")}
+                        className={`cursor-pointer inline-flex items-center gap-1.5 px-3 py-1 rounded-md transition-all ${
+                          updateQpFormat === "pdf"
+                            ? "bg-white text-indigo-700 font-bold shadow-2xs"
+                            : "text-slate-600 hover:text-slate-900"
+                        }`}
+                      >
+                        <FileText className="h-3.5 w-3.5 text-indigo-600" />
+                        <span>PDF Document</span>
+                      </button>
+                    </div>
+                  </div>
+
+                  {updateQpFormat === "markdown" && (
+                    <div className="flex items-center gap-1.5">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setFormatGuideModalTab("template");
+                          setFormatGuideModalOpen(true);
+                        }}
+                        className="cursor-pointer inline-flex items-center gap-1 text-xs font-medium text-slate-700 bg-slate-50 hover:bg-slate-100 px-2.5 py-1 rounded-lg border border-slate-200 shadow-2xs transition-colors"
+                      >
+                        <FileCode className="h-3.5 w-3.5 text-indigo-600" />
+                        <span>Template</span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setFormatGuideModalTab("ai_prompt");
+                          setFormatGuideModalOpen(true);
+                        }}
+                        className="cursor-pointer inline-flex items-center gap-1 text-xs font-medium text-purple-700 bg-purple-50 hover:bg-purple-100 px-2.5 py-1 rounded-lg border border-purple-200 shadow-2xs transition-colors"
+                      >
+                        <Sparkles className="h-3.5 w-3.5 text-purple-600" />
+                        <span>AI Prompt</span>
+                      </button>
+                    </div>
+                  )}
+                </div>
+
+                {updateQpFormat === "markdown" ? (
+                  <div className="space-y-3.5">
+                    {/* Header Rules Alert Banner if present */}
+                    {detectedUpdateHeader && (
+                      <div className="flex items-center justify-between gap-2 p-2.5 rounded-xl bg-purple-50/70 border border-purple-200 text-xs text-purple-900">
+                        <div className="flex items-center gap-2 truncate">
+                          <BookOpen className="h-4 w-4 text-purple-600 shrink-0" />
+                          <span className="truncate">
+                            Rules detected in header: {detectedUpdateHeader.exam || "Paper"}
+                            {detectedUpdateHeader.totalQuestions ? ` • ${detectedUpdateHeader.totalQuestions} Qs` : ""}
+                            {detectedUpdateHeader.time ? ` • ${detectedUpdateHeader.time}` : ""}
+                          </span>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => handleApplyRules(detectedUpdateHeader, "update")}
+                          className={`cursor-pointer shrink-0 inline-flex items-center gap-1 text-[11px] font-bold px-3 py-1 rounded-lg border shadow-2xs transition-all ${
+                            headerRulesApplied
+                              ? "bg-emerald-600 text-white border-emerald-600"
+                              : "text-purple-700 bg-white hover:bg-purple-100 border-purple-200"
+                          }`}
+                        >
+                          {headerRulesApplied ? (
+                            <>
+                              <Check className="h-3 w-3 text-white" />
+                              <span>Applied to Rules!</span>
+                            </>
+                          ) : (
+                            <>
+                              <Sparkles className="h-3 w-3 text-purple-600" />
+                              <span>Apply Rules</span>
+                            </>
+                          )}
+                        </button>
+                      </div>
+                    )}
+
+                    <div className="flex items-center justify-between flex-wrap gap-2">
+                      <div className="inline-flex p-0.5 rounded-lg bg-slate-100 border border-slate-200 text-xs font-medium">
+                        <button
+                          type="button"
+                          onClick={() => setUpdateViewTab("editor")}
+                          className={`cursor-pointer inline-flex items-center gap-1.5 px-3 py-1 rounded-md transition-all ${
+                            updateViewTab === "editor"
+                              ? "bg-white text-slate-900 font-bold shadow-2xs"
+                              : "text-slate-600 hover:text-slate-900"
+                          }`}
+                        >
+                          <Edit3 className="h-3.5 w-3.5" />
+                          <span>Markdown Source</span>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setUpdateViewTab("preview")}
+                          className={`cursor-pointer inline-flex items-center gap-1.5 px-3 py-1 rounded-md transition-all ${
+                            updateViewTab === "preview"
+                              ? "bg-white text-purple-700 font-bold shadow-2xs"
+                              : "text-slate-600 hover:text-slate-900"
+                          }`}
+                        >
+                          <Eye className="h-3.5 w-3.5" />
+                          <span>Preview ({detectedUpdateQuestions.length} Qs)</span>
+                        </button>
+                      </div>
+
+                      <div className="flex items-center gap-2 text-xs">
+                        {detectedUpdateQuestions.length > 0 ? (
+                          <span className="inline-flex items-center gap-1 text-emerald-700 bg-emerald-50 px-2.5 py-0.5 rounded-full border border-emerald-200 font-medium">
+                            <Check className="h-3 w-3" />
+                            <span>{detectedUpdateQuestions.length} Questions detected</span>
+                          </span>
+                        ) : (
+                          <span className="text-slate-400 text-[11px]">
+                            Separate questions with &apos;---&apos;
+                          </span>
+                        )}
+
+                        <label className="cursor-pointer text-indigo-600 hover:underline font-semibold inline-flex items-center gap-1 text-xs">
+                          <FileUp className="h-3 w-3" />
+                          <span>Import .md</span>
+                          <input
+                            type="file"
+                            accept=".md,.txt"
+                            onChange={async (e) => {
+                              const file = e.target.files?.[0];
+                              if (file) {
+                                const text = await file.text();
+                                setUpdateMarkdown(text);
+                              }
+                            }}
+                            className="hidden"
+                          />
+                        </label>
+                      </div>
+                    </div>
+
+                    {updateViewTab === "editor" && (
+                      <textarea
+                        value={updateMarkdown}
+                        onChange={(e) => setUpdateMarkdown(e.target.value)}
+                        placeholder={`EXAM: Mock Test\nSUBJECT: General Studies\nINSTRUCTIONS:\n- 2 marks per question\n---\nQuestion 1 prompt here...\n(a) Option A\n(b) Option B\n(c) Option C\n(d) Option D\n---\nQuestion 2 prompt...\n(a) Option A\n(b) Option B\n(c) Option C\n(d) Option D`}
+                        rows={12}
+                        className="w-full rounded-xl border border-slate-200 bg-slate-50/50 hover:bg-white focus:bg-white p-3.5 font-mono text-xs text-slate-800 placeholder-slate-400 focus:outline-none focus:border-purple-500 shadow-2xs leading-relaxed transition-colors"
+                      />
+                    )}
+
+                    {updateViewTab === "preview" && (
+                      <div className="space-y-2.5 max-h-[460px] overflow-y-auto pr-1">
+                        {detectedUpdateQuestions.length === 0 ? (
+                          <div className="rounded-xl border border-dashed border-slate-200 p-8 text-center text-xs text-slate-400">
+                            No questions detected yet. Switch to &apos;Markdown Source&apos; to paste or edit questions.
+                          </div>
+                        ) : (
+                          detectedUpdateQuestions.map((q) => {
+                            const ansLetter = detectedUpdateAnswerKey.answers[q.questionNo]?.toUpperCase();
+                            const explanation = detectedUpdateAnswerKey.explanations[q.questionNo];
+
+                            return (
+                              <div
+                                key={q.questionNo}
+                                className="rounded-xl border border-slate-200 bg-white p-3.5 space-y-2 shadow-2xs"
+                              >
+                                <div className="flex items-center justify-between gap-2">
+                                  <span className="font-mono text-xs font-bold bg-purple-50 text-purple-800 px-2 py-0.5 rounded border border-purple-200">
+                                    Q{q.questionNo}
+                                  </span>
+                                  {ansLetter ? (
+                                    <span className="text-[11px] font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200 inline-flex items-center gap-1">
+                                      <Check className="h-3 w-3" /> Answer: Option {ansLetter}
+                                    </span>
+                                  ) : (
+                                    <span className="text-[10px] text-slate-400">
+                                      No key mapped
+                                    </span>
+                                  )}
+                                </div>
+
+                                <p className="text-xs text-slate-800 font-medium leading-relaxed whitespace-pre-wrap">
+                                  {q.text}
+                                </p>
+
+                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5 pt-1">
+                                  {Object.entries(q.options).map(([optKey, optText]) => {
+                                    const isCorrect = ansLetter === optKey.toUpperCase();
+                                    return (
+                                      <div
+                                        key={optKey}
+                                        className={`flex items-start gap-1.5 p-1.5 rounded-lg border text-xs leading-relaxed ${
+                                          isCorrect
+                                            ? "bg-emerald-50/70 border-emerald-300 text-emerald-950 font-medium"
+                                            : "bg-slate-50/70 border-slate-200 text-slate-700"
+                                        }`}
+                                      >
+                                        <span
+                                          className={`font-mono text-[10px] font-bold px-1.5 py-0.2 rounded shrink-0 ${
+                                            isCorrect
+                                              ? "bg-emerald-600 text-white"
+                                              : "bg-slate-200 text-slate-700"
+                                          }`}
+                                        >
+                                          {optKey}
+                                        </span>
+                                        <span className="whitespace-pre-wrap">{optText}</span>
+                                      </div>
+                                    );
+                                  })}
+                                </div>
+
+                                {explanation && (
+                                  <div className="rounded-lg bg-amber-50/70 border border-amber-200/80 p-2 text-xs text-amber-950 space-y-0.5">
+                                    <div className="flex items-center gap-1 font-bold text-[10px] text-amber-800">
+                                      <Lightbulb className="h-3 w-3 text-amber-600" />
+                                      <span>Explanation:</span>
+                                    </div>
+                                    <p className="text-[11px] leading-relaxed whitespace-pre-wrap pl-4 text-amber-900">
+                                      {explanation}
+                                    </p>
+                                  </div>
+                                )}
+                              </div>
+                            );
+                          })
+                        )}
+                      </div>
+                    )}
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+                    <div className="rounded-xl border border-slate-200 bg-slate-50/50 p-3.5 space-y-2">
+                      <span className="text-xs font-bold text-slate-800 block">
+                        Question Paper PDF
+                      </span>
+                      <label className="cursor-pointer flex flex-col items-center justify-center rounded-xl border border-dashed border-slate-300 bg-white p-3.5 text-center hover:border-indigo-500 hover:bg-slate-50 transition-colors shadow-2xs">
+                        <FileUp className="h-5 w-5 text-indigo-600 mb-1" />
+                        <span className="text-xs font-semibold text-slate-700 truncate max-w-[200px]">
+                          {qpFile ? qpFile.name : "Replace Question Paper PDF"}
+                        </span>
+                        <input
+                          type="file"
+                          accept=".pdf"
+                          onChange={(e) => setQpFile(e.target.files?.[0] || null)}
+                          className="hidden"
+                        />
+                      </label>
+                    </div>
+
+                    <div className="rounded-xl border border-slate-200 bg-slate-50/50 p-3.5 space-y-2">
+                      <span className="text-xs font-bold text-slate-800 block">
+                        Solution Booklet PDF
+                      </span>
+                      <label className="cursor-pointer flex flex-col items-center justify-center rounded-xl border border-dashed border-slate-300 bg-white p-3.5 text-center hover:border-slate-500 hover:bg-slate-50 transition-colors shadow-2xs">
+                        <FileUp className="h-5 w-5 text-slate-500 mb-1" />
+                        <span className="text-xs font-semibold text-slate-700 truncate max-w-[200px]">
+                          {exsFile ? exsFile.name : "Attach / Replace Solution PDF"}
+                        </span>
+                        <input
+                          type="file"
+                          accept=".pdf"
+                          onChange={(e) => setExsFile(e.target.files?.[0] || null)}
+                          className="hidden"
+                        />
+                      </label>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* ----------------------------------------------------------- */}
+              {/* SEGMENT 3: ANSWER KEY */}
+              {/* ----------------------------------------------------------- */}
+              <div className="rounded-2xl border border-slate-200/90 bg-white p-5 space-y-3 shadow-xs">
+                <div className="flex items-center justify-between flex-wrap gap-2 pb-2 border-b border-slate-100">
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs font-bold text-slate-800 uppercase tracking-wider flex items-center gap-2 mr-1">
+                      <span className="h-5 w-5 rounded-full bg-emerald-50 text-emerald-700 flex items-center justify-center text-[11px] font-bold border border-emerald-200">
+                        3
+                      </span>
+                      Answer Key & Explanations
+                    </span>
+
+                    <div className="inline-flex p-0.5 rounded-lg bg-slate-100 border border-slate-200 text-xs font-medium">
+                      <button
+                        type="button"
+                        onClick={() => setAkMode("paste")}
+                        className={`cursor-pointer px-2.5 py-1 rounded-md transition-all ${
+                          akMode === "paste"
+                            ? "bg-white text-emerald-800 font-bold shadow-2xs"
+                            : "text-slate-600 hover:text-slate-900"
+                        }`}
+                      >
+                        Paste Key
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setAkMode("upload")}
+                        className={`cursor-pointer px-2.5 py-1 rounded-md transition-all ${
+                          akMode === "upload"
+                            ? "bg-white text-emerald-800 font-bold shadow-2xs"
+                            : "text-slate-600 hover:text-slate-900"
+                        }`}
+                      >
+                        Upload .txt
+                      </button>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-2 text-xs">
+                    {Object.keys(detectedUpdateAnswerKey.answers).length > 0 && (
+                      <span className="text-emerald-700 font-mono font-semibold">
+                        {Object.keys(detectedUpdateAnswerKey.answers).length} answers mapped
+                      </span>
+                    )}
+                    <code className="font-mono text-[10px] text-slate-400 bg-slate-100 px-1.5 py-0.5 rounded">
+                      1. a &quot;&quot;&quot; explanation &quot;&quot;&quot;
+                    </code>
+                  </div>
+                </div>
+
+                {akMode === "upload" ? (
+                  <label className="cursor-pointer flex items-center justify-center gap-2 rounded-xl border border-dashed border-slate-300 bg-white p-3.5 text-xs font-semibold text-slate-700 hover:border-slate-500 shadow-2xs">
+                    <FileUp className="h-4 w-4 text-slate-500" />
+                    <span>{akFile ? akFile.name : "Select .txt answer key file"}</span>
+                    <input
+                      type="file"
+                      accept=".txt"
+                      onChange={(e) => setAkFile(e.target.files?.[0] || null)}
+                      className="hidden"
+                    />
+                  </label>
+                ) : (
+                  <textarea
+                    value={akText}
+                    onChange={(e) => setAkText(e.target.value)}
+                    placeholder={`1. a,\n2. c """ Explanations can be enclosed in triple quotes """,\n3. d,\n4. b`}
+                    rows={4}
+                    className="w-full rounded-xl border border-slate-200 bg-white p-3 font-mono text-xs text-slate-800 placeholder-slate-400 focus:outline-none focus:border-emerald-500 shadow-2xs leading-relaxed"
+                  />
+                )}
+              </div>
+
+              {/* Bottom Action Buttons */}
+              <div className="flex items-center justify-between pt-1">
+                {onDeletePaper ? (
+                  <button
+                    type="button"
+                    onClick={() => setShowDeleteConfirm(true)}
+                    className="cursor-pointer flex items-center gap-1.5 px-3.5 py-2 rounded-xl border border-rose-200 bg-rose-50 text-xs font-semibold text-rose-700 hover:bg-rose-100 transition-colors shadow-2xs"
+                  >
+                    <Trash2 className="h-3.5 w-3.5" />
+                    <span>Delete Paper</span>
+                  </button>
+                ) : (
+                  <div />
+                )}
+
+                <button
+                  type="submit"
+                  disabled={isSubmitting}
+                  className="cursor-pointer flex items-center gap-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 px-5 py-2.5 text-xs font-bold text-white shadow-xs disabled:opacity-40 transition-all"
+                >
+                  <RefreshCw className={`h-4 w-4 ${isSubmitting ? "animate-spin" : ""}`} />
+                  <span>{isSubmitting ? "Saving Updates..." : "Save Updates"}</span>
+                </button>
+              </div>
+            </form>
+          )}
+
+          {/* Delete Confirm Modal */}
+          {showDeleteConfirm && currentSelectedPaper && (
+            <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-in fade-in duration-150">
+              <div className="relative w-full max-w-md rounded-2xl border border-slate-200 bg-white p-6 shadow-2xl space-y-4">
+                <div className="flex items-start gap-3">
+                  <div className="p-2.5 rounded-xl bg-rose-50 border border-rose-200 text-rose-600 shrink-0">
+                    <Trash2 className="h-5 w-5" />
+                  </div>
+                  <div>
+                    <h3 className="text-base font-bold text-slate-900">
+                      Delete Question Paper?
+                    </h3>
+                    <p className="text-xs text-slate-500 mt-1">
+                      Are you sure you want to permanently delete &quot;{currentSelectedPaper.label}&quot;?
+                    </p>
+                  </div>
+                </div>
+
+                <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-100">
+                  <button
+                    type="button"
+                    onClick={() => setShowDeleteConfirm(false)}
+                    className="cursor-pointer rounded-xl border border-slate-200 bg-white px-4 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50 shadow-2xs"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (onDeletePaper) onDeletePaper(currentSelectedPaper.id);
+                      setShowDeleteConfirm(false);
+                      onNavigatePapers();
+                    }}
+                    className="cursor-pointer px-4 py-2 rounded-xl bg-rose-600 hover:bg-rose-700 text-xs font-bold text-white shadow-xs"
+                  >
+                    Delete Paper
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* =================================================================== */}
+      {/* 3-SEGMENT WORKSPACE: OFFICIAL UPSC PRESET */}
+      {/* =================================================================== */}
       {viewMode === "preset" && (
         <form onSubmit={handleUploadNewPaper} className="space-y-5">
-          {/* Format Selector: Prelims vs Mains */}
-          <div className="rounded-2xl border border-slate-200/90 bg-white p-5 space-y-3 shadow-xs">
-            <span className="text-xs font-bold text-slate-700 uppercase tracking-wider block">
-              1. Exam Format
+          {/* SEGMENT 1: RULES & PRESET */}
+          <div className="rounded-2xl border border-slate-200/90 bg-white p-5 space-y-4 shadow-xs">
+            <span className="text-xs font-bold text-slate-800 uppercase tracking-wider flex items-center gap-2">
+              <span className="h-5 w-5 rounded-full bg-indigo-50 text-indigo-700 flex items-center justify-center text-[11px] font-bold border border-indigo-200">
+                1
+              </span>
+              Rules & Preset
             </span>
+
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <button
                 type="button"
@@ -2129,15 +2247,8 @@ export function UploadView({
                 </p>
               </button>
             </div>
-          </div>
 
-          {/* Paper Metadata & Scoring */}
-          <div className="rounded-2xl border border-slate-200/90 bg-white p-5 space-y-4 shadow-xs">
-            <span className="text-xs font-bold text-slate-700 uppercase tracking-wider block">
-              2. Paper Metadata & Preset
-            </span>
-
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-2">
               <div>
                 <label className="block text-[11px] font-semibold text-slate-600 mb-1">
                   Year
@@ -2264,10 +2375,13 @@ export function UploadView({
             </div>
           </div>
 
-          {/* Documents & Answer Key */}
+          {/* SEGMENT 2: QUESTIONNAIRE */}
           <div className="rounded-2xl border border-slate-200/90 bg-white p-5 space-y-4 shadow-xs">
-            <span className="text-xs font-bold text-slate-700 uppercase tracking-wider block">
-              3. Documents & Answer Keys
+            <span className="text-xs font-bold text-slate-800 uppercase tracking-wider flex items-center gap-2">
+              <span className="h-5 w-5 rounded-full bg-purple-50 text-purple-700 flex items-center justify-center text-[11px] font-bold border border-purple-200">
+                2
+              </span>
+              Questionnaire
             </span>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
@@ -2307,62 +2421,67 @@ export function UploadView({
                 </label>
               </div>
             </div>
-
-            {examType === "objective" && (
-              <div className="pt-3 border-t border-slate-100 space-y-2.5">
-                <div className="flex items-center justify-between flex-wrap gap-2">
-                  <div className="flex items-center gap-2">
-                    <span className="text-xs font-semibold text-slate-500">Answer Key:</span>
-                    <div className="inline-flex p-0.5 rounded-lg bg-slate-100 border border-slate-200 text-xs font-medium">
-                      <button
-                        type="button"
-                        onClick={() => setAkMode("paste")}
-                        className={`cursor-pointer px-2.5 py-0.5 rounded-md transition-all ${
-                          akMode === "paste"
-                            ? "bg-white text-indigo-700 font-bold shadow-2xs"
-                            : "text-slate-600 hover:text-slate-900"
-                        }`}
-                      >
-                        Paste Key
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => setAkMode("upload")}
-                        className={`cursor-pointer px-2.5 py-0.5 rounded-md transition-all ${
-                          akMode === "upload"
-                            ? "bg-white text-indigo-700 font-bold shadow-2xs"
-                            : "text-slate-600 hover:text-slate-900"
-                        }`}
-                      >
-                        Upload .txt
-                      </button>
-                    </div>
-                  </div>
-                </div>
-
-                {akMode === "upload" ? (
-                  <label className="cursor-pointer flex items-center justify-center gap-2 rounded-xl border border-dashed border-slate-300 bg-white p-3 text-xs font-semibold text-slate-700 hover:border-slate-500 shadow-2xs">
-                    <FileUp className="h-4 w-4 text-slate-500" />
-                    <span>{akFile ? akFile.name : "Select .txt answer key file"}</span>
-                    <input
-                      type="file"
-                      accept=".txt"
-                      onChange={(e) => setAkFile(e.target.files?.[0] || null)}
-                      className="hidden"
-                    />
-                  </label>
-                ) : (
-                  <textarea
-                    value={akText}
-                    onChange={(e) => setAkText(e.target.value)}
-                    placeholder={`1. a\n2. c\n3. d\n4. b\n...\n100. a`}
-                    rows={4}
-                    className="w-full rounded-xl border border-slate-200 bg-white p-3 font-mono text-xs text-slate-800 placeholder-slate-400 focus:outline-none focus:border-indigo-500 shadow-2xs"
-                  />
-                )}
-              </div>
-            )}
           </div>
+
+          {/* SEGMENT 3: ANSWER KEY */}
+          {examType === "objective" && (
+            <div className="rounded-2xl border border-slate-200/90 bg-white p-5 space-y-3 shadow-xs">
+              <div className="flex items-center justify-between flex-wrap gap-2 pb-2 border-b border-slate-100">
+                <span className="text-xs font-bold text-slate-800 uppercase tracking-wider flex items-center gap-2">
+                  <span className="h-5 w-5 rounded-full bg-emerald-50 text-emerald-700 flex items-center justify-center text-[11px] font-bold border border-emerald-200">
+                    3
+                  </span>
+                  Answer Key
+                </span>
+
+                <div className="inline-flex p-0.5 rounded-lg bg-slate-100 border border-slate-200 text-xs font-medium">
+                  <button
+                    type="button"
+                    onClick={() => setAkMode("paste")}
+                    className={`cursor-pointer px-2.5 py-1 rounded-md transition-all ${
+                      akMode === "paste"
+                        ? "bg-white text-emerald-800 font-bold shadow-2xs"
+                        : "text-slate-600 hover:text-slate-900"
+                    }`}
+                  >
+                    Paste Key
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setAkMode("upload")}
+                    className={`cursor-pointer px-2.5 py-1 rounded-md transition-all ${
+                      akMode === "upload"
+                        ? "bg-white text-emerald-800 font-bold shadow-2xs"
+                        : "text-slate-600 hover:text-slate-900"
+                    }`}
+                  >
+                    Upload .txt
+                  </button>
+                </div>
+              </div>
+
+              {akMode === "upload" ? (
+                <label className="cursor-pointer flex items-center justify-center gap-2 rounded-xl border border-dashed border-slate-300 bg-white p-3.5 text-xs font-semibold text-slate-700 hover:border-slate-500 shadow-2xs">
+                  <FileUp className="h-4 w-4 text-slate-500" />
+                  <span>{akFile ? akFile.name : "Select .txt answer key file"}</span>
+                  <input
+                    type="file"
+                    accept=".txt"
+                    onChange={(e) => setAkFile(e.target.files?.[0] || null)}
+                    className="hidden"
+                  />
+                </label>
+              ) : (
+                <textarea
+                  value={akText}
+                  onChange={(e) => setAkText(e.target.value)}
+                  placeholder={`1. a\n2. c\n3. d\n4. b\n...\n100. a`}
+                  rows={4}
+                  className="w-full rounded-xl border border-slate-200 bg-white p-3 font-mono text-xs text-slate-800 placeholder-slate-400 focus:outline-none focus:border-emerald-500 shadow-2xs"
+                />
+              )}
+            </div>
+          )}
 
           <div className="flex justify-end pt-1">
             <button
@@ -2495,6 +2614,7 @@ export function UploadView({
             setAkText(akTemplate);
             setUpdateQpFormat("markdown");
             setUpdateViewTab("editor");
+            handleApplyRules(parseMarkdownHeader(qpTemplate), "update");
           } else {
             setCustomPaperName("UPSC Prelims Mock Test (Interactive Markdown)");
             setCustomTotalQuestions("5");
@@ -2506,6 +2626,7 @@ export function UploadView({
             setCustomAkText(akTemplate);
             setCustomQpFormat("markdown");
             setCustomViewTab("editor");
+            handleApplyRules(parseMarkdownHeader(qpTemplate), "custom");
           }
         }}
       />
