@@ -222,13 +222,14 @@ export function PapersView({
   const filteredPapers = papers.filter((p) => {
     let matchesCat = true;
     if (selectedCategory === "prelims")
-      matchesCat = p.category === "prelims" && !isUserUploadedPaper(p);
+      matchesCat = p.category === "prelims";
     else if (selectedCategory === "mains")
-      matchesCat = p.category === "mains" && !isUserUploadedPaper(p);
+      matchesCat = p.category === "mains";
     else if (selectedCategory === "custom") matchesCat = isUserUploadedPaper(p);
 
     const matchesYear =
       selectedCategory === "custom" ||
+      isUserUploadedPaper(p) ||
       selectedYear === "all" ||
       p.year === selectedYear;
     const matchesSearch =
@@ -519,13 +520,15 @@ export function PapersView({
                           : paper.subject}
                     </span>
 
-                    {paper.parsedQuestions &&
-                      paper.parsedQuestions.length > 0 && (
-                        <span className="text-[10px] font-extrabold uppercase px-2.5 py-0.5 rounded-full bg-indigo-600 text-white flex items-center gap-1 shadow-2xs">
-                          <Sparkles className="h-3 w-3 fill-indigo-200" />
-                          <span>Interactive Markdown</span>
-                        </span>
-                      )}
+                    {((paper.parsedQuestions &&
+                      paper.parsedQuestions.length > 0) ||
+                      paper.markdownContent ||
+                      paper.qpUrl?.startsWith("local://")) && (
+                      <span className="text-[10px] font-extrabold uppercase px-2.5 py-0.5 rounded-full bg-purple-600 text-white flex items-center gap-1 shadow-2xs">
+                        <Sparkles className="h-3 w-3 fill-purple-200" />
+                        <span>Interactive Mock</span>
+                      </span>
+                    )}
                   </div>
 
                   {/* Standardized Title Container with Circular Attempt Chips */}

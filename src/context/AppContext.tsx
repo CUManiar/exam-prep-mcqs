@@ -26,7 +26,12 @@ import {
   saveLocalHiddenPaperIds,
   removeLocalCustomPaper,
   saveCustomPaper,
+  getCustomPapers,
 } from "../lib/storage";
+import {
+  parseQuestionnaireMarkdown,
+  parseMarkdownHeader,
+} from "../lib/markdownPaperParser";
 import { ConfirmationModal } from "../components/ConfirmationModal";
 import { ProUpgradeModal } from "../components/ProUpgradeModal";
 import { AuthModal } from "../components/AuthModal";
@@ -223,15 +228,66 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
           : getLocalHiddenPaperIds(user.id);
         setHiddenPaperIds(hidden);
 
+        const localCustom = getCustomPapers();
+        // Merge userCustomPapers from Supabase with localCustom so parsedQuestions, markdownContent, and instructions are preserved
+        const mergedUserCustom = userCustomPapers.map((ucp) => {
+          const match = localCustom.find((lc) => lc.id === ucp.id);
+          return match
+            ? {
+                ...match,
+                ...ucp,
+                parsedQuestions:
+                  match.parsedQuestions && match.parsedQuestions.length > 0
+                    ? match.parsedQuestions
+                    : ucp.parsedQuestions,
+                markdownContent:
+                  match.markdownContent || ucp.markdownContent,
+                instructions:
+                  match.instructions && match.instructions.length > 0
+                    ? match.instructions
+                    : ucp.instructions,
+                answerKey:
+                  Object.keys(match.answerKey || {}).length > 0
+                    ? match.answerKey
+                    : ucp.answerKey,
+                explanations:
+                  Object.keys(match.explanations || {}).length > 0
+                    ? match.explanations
+                    : ucp.explanations,
+              }
+            : ucp;
+        });
+
+        // Also add any local custom papers not yet returned by Supabase
+        for (const lc of localCustom) {
+          if (!mergedUserCustom.some((p) => p.id === lc.id)) {
+            mergedUserCustom.push(lc);
+          }
+        }
+
         // Merge global papers and user's custom papers, deduplicating by ID
         const merged = [
-          ...userCustomPapers,
+          ...mergedUserCustom,
           ...loadedPapers.filter(
-            (p) => !userCustomPapers.some((cp) => cp.id === p.id),
+            (p) => !mergedUserCustom.some((cp) => cp.id === p.id),
           ),
         ];
+
+        // Ensure all markdown papers have their parsed questions & rules enriched
+        const enriched = merged.map((p) => {
+          if (p.markdownContent) {
+            if (!p.parsedQuestions || p.parsedQuestions.length === 0) {
+              p.parsedQuestions = parseQuestionnaireMarkdown(p.markdownContent);
+            }
+            if (!p.instructions || p.instructions.length === 0) {
+              p.instructions = parseMarkdownHeader(p.markdownContent).instructions;
+            }
+          }
+          return p;
+        });
+
         // Filter out papers hidden by this specific user
-        const visiblePapers = merged.filter((p) => !hidden.includes(p.id));
+        const visiblePapers = enriched.filter((p) => !hidden.includes(p.id));
         setPapers(visiblePapers);
 
         if (profile?.is_pro) {
@@ -261,7 +317,18 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       const hidden = getLocalHiddenPaperIds();
       setHiddenPaperIds(hidden);
       const loadedPapers = await getAllPapers();
-      setPapers(loadedPapers.filter((p) => !hidden.includes(p.id)));
+      const enriched = loadedPapers.map((p) => {
+        if (p.markdownContent) {
+          if (!p.parsedQuestions || p.parsedQuestions.length === 0) {
+            p.parsedQuestions = parseQuestionnaireMarkdown(p.markdownContent);
+          }
+          if (!p.instructions || p.instructions.length === 0) {
+            p.instructions = parseMarkdownHeader(p.markdownContent).instructions;
+          }
+        }
+        return p;
+      });
+      setPapers(enriched.filter((p) => !hidden.includes(p.id)));
     } catch (err) {
       console.warn("Failed loading papers from server:", err);
     } finally {

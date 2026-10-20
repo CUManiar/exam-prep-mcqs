@@ -5,6 +5,10 @@ import {
   parseAnswerKeyDetailed,
   getStandardTimeMinutes,
 } from "./defaults";
+import {
+  parseQuestionnaireMarkdown,
+  parseMarkdownHeader,
+} from "./markdownPaperParser";
 
 const STORAGE_KEYS = {
   ATTEMPTS: "exam_prep_attempts_v2",
@@ -370,6 +374,16 @@ export async function getAllPapers(): Promise<QuestionPaper[]> {
       }
       if (!p.explanations || Object.keys(p.explanations).length === 0) {
         p.explanations = { ...(matchingDefault.explanations || {}) };
+      }
+    }
+
+    // Auto-enrich any markdown paper with parsed questions & instructions
+    if (p.markdownContent) {
+      if (!p.parsedQuestions || p.parsedQuestions.length === 0) {
+        p.parsedQuestions = parseQuestionnaireMarkdown(p.markdownContent);
+      }
+      if (!p.instructions || p.instructions.length === 0) {
+        p.instructions = parseMarkdownHeader(p.markdownContent).instructions;
       }
     }
   });

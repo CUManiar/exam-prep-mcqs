@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, useCallback, useMemo } from "react";
+import { useRouter } from "next/navigation";
 import {
   QuestionPaper,
   Attempt,
@@ -19,7 +20,12 @@ import {
   saveActiveDraft,
   clearActiveDraft,
   getActiveDraft,
+  getCustomPapers,
 } from "../lib/storage";
+import {
+  parseQuestionnaireMarkdown,
+  parseMarkdownHeader,
+} from "../lib/markdownPaperParser";
 import { saveUserDraftToSupabase } from "../lib/supabase";
 import { useApp } from "../context/AppContext";
 import { DetailedSolutionModal } from "./DetailedSolutionModal";
@@ -52,6 +58,7 @@ import {
   Minimize2,
   RotateCcw,
   Zap,
+  Sparkles,
 } from "lucide-react";
 
 interface ExamSessionViewProps {
@@ -69,6 +76,7 @@ export function ExamSessionView({
   onFinish,
   onExit,
 }: ExamSessionViewProps) {
+  const router = useRouter();
   const { currentUser } = useApp();
 
   const effectiveDraft = useMemo(() => {
@@ -81,6 +89,33 @@ export function ExamSessionView({
     }
     return null;
   }, [initialDraft, paper.id]);
+
+  const effectivePaper = useMemo<QuestionPaper>(() => {
+    let p = { ...paper };
+    if (!p.parsedQuestions || p.parsedQuestions.length === 0) {
+      if (p.markdownContent) {
+        p.parsedQuestions = parseQuestionnaireMarkdown(p.markdownContent);
+      } else if (
+        p.qpUrl?.startsWith("local://") ||
+        p.id.startsWith("custom_md_")
+      ) {
+        const local = getCustomPapers().find((cp) => cp.id === p.id);
+        if (local?.parsedQuestions?.length) {
+          p = { ...local, ...p, parsedQuestions: local.parsedQuestions };
+        } else if (local?.markdownContent) {
+          p = {
+            ...local,
+            ...p,
+            parsedQuestions: parseQuestionnaireMarkdown(local.markdownContent),
+          };
+        }
+      }
+    }
+    if ((!p.instructions || p.instructions.length === 0) && p.markdownContent) {
+      p.instructions = parseMarkdownHeader(p.markdownContent).instructions;
+    }
+    return p;
+  }, [paper]);
 
   const [currentQuestion, setCurrentQuestion] = useState<number | null>(() => {
     return effectiveDraft?.currentQuestion ?? null;
@@ -1044,46 +1079,48 @@ export function ExamSessionView({
                 : "h-1/2 lg:h-full"
           }`}
         >
-          {paper.parsedQuestions && paper.parsedQuestions.length > 0 ? (
+          {effectivePaper.parsedQuestions &&
+          effectivePaper.parsedQuestions.length > 0 ? (
             <div className="flex-1 flex flex-col min-h-0 bg-slate-50 overflow-hidden">
               {/* Optional switch if paper also has a valid external PDF */}
-              {paper.qpUrl && !paper.qpUrl.startsWith("local://") && (
-                <div className="bg-white border-b border-slate-200 px-4 py-2 flex items-center justify-between gap-2 shrink-0">
-                  <span className="text-xs font-bold text-slate-700">
-                    Presentation:
-                  </span>
-                  <div className="flex items-center gap-1 bg-slate-100 p-0.5 rounded-lg border border-slate-200 text-xs">
-                    <button
-                      type="button"
-                      onClick={() => setLeftViewMode("interactive")}
-                      className={`px-2.5 py-1 rounded-md font-bold transition-all cursor-pointer ${
-                        leftViewMode === "interactive"
-                          ? "bg-indigo-600 text-white shadow-2xs"
-                          : "text-slate-600 hover:text-slate-900"
-                      }`}
-                    >
-                      📝 Interactive Questions
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setLeftViewMode("pdf")}
-                      className={`px-2.5 py-1 rounded-md font-bold transition-all cursor-pointer ${
-                        leftViewMode === "pdf"
-                          ? "bg-indigo-600 text-white shadow-2xs"
-                          : "text-slate-600 hover:text-slate-900"
-                      }`}
-                    >
-                      📑 PDF Viewer
-                    </button>
+              {effectivePaper.qpUrl &&
+                !effectivePaper.qpUrl.startsWith("local://") && (
+                  <div className="bg-white border-b border-slate-200 px-4 py-2 flex items-center justify-between gap-2 shrink-0">
+                    <span className="text-xs font-bold text-slate-700">
+                      Presentation:
+                    </span>
+                    <div className="flex items-center gap-1 bg-slate-100 p-0.5 rounded-lg border border-slate-200 text-xs">
+                      <button
+                        type="button"
+                        onClick={() => setLeftViewMode("interactive")}
+                        className={`px-2.5 py-1 rounded-md font-bold transition-all cursor-pointer ${
+                          leftViewMode === "interactive"
+                            ? "bg-indigo-600 text-white shadow-2xs"
+                            : "text-slate-600 hover:text-slate-900"
+                        }`}
+                      >
+                        📝 Interactive Questions
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setLeftViewMode("pdf")}
+                        className={`px-2.5 py-1 rounded-md font-bold transition-all cursor-pointer ${
+                          leftViewMode === "pdf"
+                            ? "bg-indigo-600 text-white shadow-2xs"
+                            : "text-slate-600 hover:text-slate-900"
+                        }`}
+                      >
+                        📑 PDF Viewer
+                      </button>
+                    </div>
                   </div>
-                </div>
-              )}
+                )}
 
               {leftViewMode === "interactive" ||
-              !paper.qpUrl ||
-              paper.qpUrl.startsWith("local://") ? (
+              !effectivePaper.qpUrl ||
+              effectivePaper.qpUrl.startsWith("local://") ? (
                 <InteractiveQuestionCard
-                  paper={paper}
+                  paper={effectivePaper}
                   currentQuestion={currentQuestion}
                   currentAnswer={
                     currentQuestion !== null
@@ -1099,16 +1136,36 @@ export function ExamSessionView({
                 />
               ) : (
                 <PdfViewer
-                  url={paper.qpUrl}
-                  title={`${getPaperDisplayTitle(paper)} - Question Paper`}
+                  url={effectivePaper.qpUrl}
+                  title={`${getPaperDisplayTitle(effectivePaper)} - Question Paper`}
                   className="w-full flex-1 min-h-0"
                 />
               )}
             </div>
+          ) : effectivePaper.qpUrl?.startsWith("local://") ? (
+            <div className="flex-1 flex flex-col items-center justify-center p-8 text-center bg-slate-50 space-y-4">
+              <div className="h-14 w-14 rounded-2xl bg-purple-100 border border-purple-200 flex items-center justify-center text-purple-700">
+                <Sparkles className="h-7 w-7" />
+              </div>
+              <div className="max-w-md space-y-1.5">
+                <h3 className="text-base font-bold text-slate-800">
+                  Interactive Questionnaire Loading
+                </h3>
+                <p className="text-xs text-slate-500 leading-relaxed">
+                  Questions are being loaded. If they do not appear, you can check the questions in the Upload page.
+                </p>
+              </div>
+              <button
+                onClick={() => router.push("/upload")}
+                className="cursor-pointer px-4 py-2 rounded-xl bg-purple-600 text-white font-bold text-xs hover:bg-purple-700 shadow-xs"
+              >
+                Go to Upload Manager
+              </button>
+            </div>
           ) : (
             <PdfViewer
-              url={paper.qpUrl}
-              title={`${getPaperDisplayTitle(paper)} - Question Paper`}
+              url={effectivePaper.qpUrl}
+              title={`${getPaperDisplayTitle(effectivePaper)} - Question Paper`}
               className="w-full flex-1 min-h-0"
             />
           )}

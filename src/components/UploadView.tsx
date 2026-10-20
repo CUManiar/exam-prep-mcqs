@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useCallback } from "react";
 import { QuestionPaper, ExamType } from "../lib/types";
 import {
   SUPPORTED_YEARS,
@@ -34,8 +34,11 @@ import {
   Eye,
   EyeOff,
   Lightbulb,
+  Play,
+  Clock,
+  ArrowRight,
 } from "lucide-react";
-import { parseQuestionnaireMarkdown } from "../lib/markdownPaperParser";
+import { parseQuestionnaireMarkdown, parseMarkdownHeader } from "../lib/markdownPaperParser";
 import { parseAnswerKeyDetailed } from "../lib/defaults";
 import {
   SAMPLE_QUESTIONNAIRE_TEXT,
@@ -87,6 +90,39 @@ export function UploadView({
   }, [customQpMarkdown]);
 
   const detectedQuestionsCount = detectedQuestions.length;
+
+  const detectedHeader = useMemo(() => {
+    if (!customQpMarkdown.trim()) return null;
+    const h = parseMarkdownHeader(customQpMarkdown);
+    // Only return header if it has at least one structured field
+    if (!h.exam && !h.subject && !h.instructions?.length && !h.time && !h.totalQuestions) return null;
+    return h;
+  }, [customQpMarkdown]);
+
+  const handleApplyDetectedHeader = useCallback(() => {
+    if (!detectedHeader) return;
+    if (detectedHeader.exam) {
+      setCustomPaperName(detectedHeader.exam);
+    }
+    if (detectedHeader.totalQuestions) {
+      handleCustomQuestionsChange(String(detectedHeader.totalQuestions));
+    }
+    if (detectedHeader.totalMarks) {
+      handleCustomTotalMarksChange(String(detectedHeader.totalMarks));
+    }
+    if (detectedHeader.time) {
+      const mins = parseInt(detectedHeader.time, 10);
+      if (!isNaN(mins) && mins > 0) {
+        setCustomTimeMinutes(String(mins));
+      }
+    }
+    if (detectedHeader.negativeMarking) {
+      const match = detectedHeader.negativeMarking.match(/([\d\.]+)/);
+      if (match) {
+        setCustomNegativeMarks(match[1]);
+      }
+    }
+  }, [detectedHeader]);
 
   const [customAkMode, setCustomAkMode] = useState<"upload" | "paste">("paste");
   const [customAkText, setCustomAkText] = useState<string>("");
@@ -445,6 +481,9 @@ export function UploadView({
           );
         }
 
+        // Parse header block (EXAM:, INSTRUCTIONS:, etc.) for instructions metadata
+        const mdHeader = parseMarkdownHeader(customQpMarkdown);
+
         // Reuse existing answer key parser & text
         const { answers, explanations } = parseAnswerKeyDetailed(customAkText);
         const paperId = `custom_md_${Date.now()}`;
@@ -470,6 +509,7 @@ export function UploadView({
           answerKeyText: customAkText,
           isCustom: true,
           userId: currentUser?.id,
+          instructions: mdHeader.instructions,
         };
 
         // Sync to server upload API so it is saved in papers.json and Supabase
@@ -1477,12 +1517,12 @@ export function UploadView({
                   </>
                 ) : (
                   <div className="space-y-2">
-                    <div className="flex items-center justify-between">
+                    <div className="flex items-center justify-between flex-wrap gap-2">
                       <p className="text-[11px] text-slate-500">
-                        Questions separated by{" "}
-                        <code className="font-mono bg-slate-200/60 px-1 py-0.5 rounded text-[10px]">
-                          ---
-                        </code>
+                        Optional header (EXAM:, INSTRUCTIONS:) above first{" "}
+                        <code className="font-mono bg-slate-200/60 px-1 py-0.5 rounded text-[10px]">---</code>.
+                        Each question block separated by{" "}
+                        <code className="font-mono bg-slate-200/60 px-1 py-0.5 rounded text-[10px]">---</code>.
                       </p>
                       <button
                         type="button"
@@ -1499,10 +1539,10 @@ export function UploadView({
                           setCustomAkText(SAMPLE_ANSWER_KEY_TEXT);
                           setShowMarkdownPreview(true);
                         }}
-                        className="cursor-pointer inline-flex items-center gap-1 text-[11px] font-bold text-purple-700 bg-purple-50 hover:bg-purple-100 px-2.5 py-1 rounded-md border border-purple-200 shadow-2xs transition-colors"
+                        className="cursor-pointer inline-flex items-center gap-1 text-[11px] font-bold text-purple-700 bg-purple-50 hover:bg-purple-100 px-2.5 py-1 rounded-md border border-purple-200 shadow-2xs transition-colors shrink-0"
                       >
                         <Sparkles className="h-3 w-3" />
-                        <span>Load 5-Q Sample</span>
+                        <span>Load Sample</span>
                       </button>
                     </div>
 
@@ -1516,10 +1556,120 @@ export function UploadView({
                           handleCustomQuestionsChange(String(count));
                         }
                       }}
-                      placeholder={`Question text prompt here...\n(a) Option A\n(b) Option B\n(c) Option C\n(d) Option D\n---\nSecond question prompt...\n(a) Option A\n(b) Option B\n(c) Option C\n(d) Option D`}
-                      rows={5}
+                      placeholder={`EXAM: My Mock Test\nSUBJECT: General Studies\nINSTRUCTIONS:\n- Each question carries 2 marks\n- 1/3rd negative marking\n---\nQuestion text here...\n(a) Option A\n(b) Option B\n(c) Option C\n(d) Option D\n---\nSecond question...\n(a) Option A\n(b) Option B\n(c) Option C\n(d) Option D`}
+                      rows={8}
                       className="w-full rounded-xl border border-slate-200 bg-white p-3 font-mono text-xs text-slate-800 placeholder-slate-400 focus:outline-none focus:border-purple-500 shadow-2xs leading-relaxed"
                     />
+
+                    {/* Exam Rules & Info Banner — Prominently styled */}
+                    {detectedHeader && (
+                      <div className="rounded-2xl border border-indigo-200 bg-gradient-to-br from-indigo-50/80 via-white to-purple-50/70 p-4 space-y-3 shadow-xs">
+                        <div className="flex items-center justify-between flex-wrap gap-2 pb-2 border-b border-indigo-100">
+                          <div className="flex items-center gap-2">
+                            <span className="p-1.5 rounded-xl bg-indigo-600 text-white shadow-2xs">
+                              <BookOpen className="h-4 w-4" />
+                            </span>
+                            <div>
+                              <span className="text-xs font-black text-indigo-950 uppercase tracking-wide block">
+                                Exam Rules & Test Specifications Detected
+                              </span>
+                              <span className="text-[10px] text-indigo-600/80 font-medium">
+                                Auto-parsed from markdown header above first ---
+                              </span>
+                            </div>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={handleApplyDetectedHeader}
+                            className="cursor-pointer inline-flex items-center gap-1.5 text-xs font-bold text-indigo-700 bg-indigo-100/90 hover:bg-indigo-200 px-3 py-1.5 rounded-xl border border-indigo-200 transition-colors shadow-2xs"
+                          >
+                            <Sparkles className="h-3.5 w-3.5 text-indigo-600" />
+                            <span>Auto-Fill Form from Rules</span>
+                          </button>
+                        </div>
+
+                        {/* Metadata chips */}
+                        <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                          {detectedHeader.exam && (
+                            <div className="bg-white/90 rounded-xl border border-indigo-100 p-2.5 shadow-2xs">
+                              <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
+                                Exam Name
+                              </span>
+                              <span className="text-xs font-bold text-slate-800 line-clamp-1 mt-0.5 block">
+                                {detectedHeader.exam}
+                              </span>
+                            </div>
+                          )}
+                          {detectedHeader.subject && (
+                            <div className="bg-white/90 rounded-xl border border-indigo-100 p-2.5 shadow-2xs">
+                              <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
+                                Subject
+                              </span>
+                              <span className="text-xs font-bold text-slate-800 line-clamp-1 mt-0.5 block">
+                                {detectedHeader.subject}
+                              </span>
+                            </div>
+                          )}
+                          {detectedHeader.time && (
+                            <div className="bg-white/90 rounded-xl border border-indigo-100 p-2.5 shadow-2xs">
+                              <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
+                                Time Limit
+                              </span>
+                              <span className="text-xs font-bold text-indigo-700 font-mono mt-0.5 block">
+                                {detectedHeader.time}
+                              </span>
+                            </div>
+                          )}
+                          {detectedHeader.totalQuestions && (
+                            <div className="bg-white/90 rounded-xl border border-indigo-100 p-2.5 shadow-2xs">
+                              <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
+                                Questions
+                              </span>
+                              <span className="text-xs font-bold text-slate-800 font-mono mt-0.5 block">
+                                {detectedHeader.totalQuestions} MCQs
+                              </span>
+                            </div>
+                          )}
+                          {detectedHeader.totalMarks && (
+                            <div className="bg-white/90 rounded-xl border border-indigo-100 p-2.5 shadow-2xs">
+                              <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
+                                Total Marks
+                              </span>
+                              <span className="text-xs font-bold text-emerald-700 font-mono mt-0.5 block">
+                                {detectedHeader.totalMarks} Marks
+                              </span>
+                            </div>
+                          )}
+                          {detectedHeader.negativeMarking && (
+                            <div className="bg-white/90 rounded-xl border border-indigo-100 p-2.5 shadow-2xs">
+                              <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
+                                Negative Penalty
+                              </span>
+                              <span className="text-xs font-bold text-rose-700 font-mono mt-0.5 block">
+                                {detectedHeader.negativeMarking}
+                              </span>
+                            </div>
+                          )}
+                        </div>
+
+                        {/* Rules / Instructions list */}
+                        {detectedHeader.instructions && detectedHeader.instructions.length > 0 && (
+                          <div className="bg-white/85 rounded-xl border border-indigo-100 p-3 space-y-1.5">
+                            <span className="text-[10px] font-bold text-indigo-900 uppercase tracking-wider block">
+                              Exam Instructions & Rules:
+                            </span>
+                            <ul className="space-y-1">
+                              {detectedHeader.instructions.map((rule, i) => (
+                                <li key={i} className="flex items-start gap-2 text-xs text-slate-700 leading-relaxed">
+                                  <Check className="h-3.5 w-3.5 text-emerald-600 shrink-0 mt-0.5" />
+                                  <span>{rule}</span>
+                                </li>
+                              ))}
+                            </ul>
+                          </div>
+                        )}
+                      </div>
+                    )}
 
                     <div className="flex items-center justify-between text-[11px]">
                       {detectedQuestionsCount > 0 ? (
@@ -1529,7 +1679,7 @@ export function UploadView({
                         </span>
                       ) : (
                         <span className="text-slate-400">
-                          Top --- is skipped. Separate questions with ---
+                          Paste or upload your questionnaire above
                         </span>
                       )}
 
@@ -2355,6 +2505,118 @@ export function UploadView({
             </button>
           </div>
         </form>
+      )}
+
+      {/* ============================================================== */}
+      {/* SECTION: YOUR UPLOADED PAPERS REPOSITORY & INSTANT TEST */}
+      {/* ============================================================== */}
+      {papers.filter(isUserUploadedPaper).length > 0 && (
+        <div className="pt-8 border-t border-slate-200/90 space-y-4">
+          <div className="flex items-center justify-between flex-wrap gap-2">
+            <div>
+              <div className="flex items-center gap-2">
+                <span className="p-1 rounded-lg bg-purple-600 text-white shadow-2xs">
+                  <FileUp className="h-4 w-4" />
+                </span>
+                <h2 className="text-base font-extrabold text-slate-900 tracking-tight">
+                  Your Uploaded Papers ({papers.filter(isUserUploadedPaper).length})
+                </h2>
+              </div>
+              <p className="text-xs text-slate-500 mt-0.5">
+                Practice interactively, take timed mocks, or manage your custom question papers repository.
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={onNavigatePapers}
+              className="cursor-pointer text-xs font-bold text-indigo-600 hover:text-indigo-800 flex items-center gap-1 bg-white hover:bg-slate-50 border border-slate-200 px-3 py-1.5 rounded-xl shadow-2xs transition-colors"
+            >
+              <span>View in Papers Archive</span>
+              <ArrowRight className="h-3.5 w-3.5" />
+            </button>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3.5">
+            {papers.filter(isUserUploadedPaper).map((paper) => {
+              const isMarkdown =
+                Boolean(paper.parsedQuestions && paper.parsedQuestions.length > 0) ||
+                Boolean(paper.markdownContent) ||
+                paper.qpUrl?.startsWith("local://");
+
+              return (
+                <div
+                  key={paper.id}
+                  className="rounded-2xl border border-slate-200/90 bg-white p-4 space-y-3 shadow-xs hover:border-purple-300 transition-all flex flex-col justify-between"
+                >
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between gap-1">
+                      <span className="font-mono text-[10px] font-bold text-purple-700 bg-purple-50 px-2 py-0.5 rounded-md border border-purple-200">
+                        {paper.year}
+                      </span>
+                      <span
+                        className={`text-[10px] font-extrabold uppercase px-2.5 py-0.5 rounded-full flex items-center gap-1 ${
+                          isMarkdown
+                            ? "bg-purple-100 text-purple-800 border border-purple-200"
+                            : "bg-indigo-50 text-indigo-700 border border-indigo-200"
+                        }`}
+                      >
+                        {isMarkdown ? (
+                          <>
+                            <Sparkles className="h-2.5 w-2.5" />
+                            <span>Interactive Mock</span>
+                          </>
+                        ) : (
+                          <span>PDF Document</span>
+                        )}
+                      </span>
+                    </div>
+
+                    <h3 className="text-sm font-bold text-slate-900 line-clamp-2 leading-snug">
+                      {getPaperDisplayTitle(paper)}
+                    </h3>
+
+                    <div className="flex items-center gap-2 text-[11px] text-slate-500 font-medium flex-wrap">
+                      <span>{paper.totalQuestions} Questions</span>
+                      <span className="text-slate-300">•</span>
+                      <span>{paper.timeMinutes} mins</span>
+                      <span className="text-slate-300">•</span>
+                      <span>{paper.totalMarks} Marks</span>
+                    </div>
+                  </div>
+
+                  <div className="pt-2.5 border-t border-slate-100 flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => onStartExam?.(paper, "practice")}
+                      className="cursor-pointer flex-1 flex items-center justify-center gap-1 py-2 px-2.5 rounded-xl bg-purple-50 hover:bg-purple-100 text-purple-800 font-bold text-xs border border-purple-200/80 transition-colors shadow-2xs"
+                    >
+                      <Play className="h-3.5 w-3.5 text-purple-600" />
+                      <span>Practice</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => onStartExam?.(paper, "mock")}
+                      className="cursor-pointer flex-1 flex items-center justify-center gap-1 py-2 px-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs transition-colors shadow-xs"
+                    >
+                      <Clock className="h-3.5 w-3.5" />
+                      <span>Mock</span>
+                    </button>
+                    {onDeletePaper && (
+                      <button
+                        type="button"
+                        onClick={() => onDeletePaper(paper.id)}
+                        className="cursor-pointer p-2 rounded-xl text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition-colors"
+                        title="Delete Paper"
+                      >
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </button>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
       )}
     </div>
   );

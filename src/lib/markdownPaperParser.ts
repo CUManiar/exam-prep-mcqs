@@ -1,13 +1,125 @@
 import { ParsedQuestion } from "./types";
 
 /**
+ * Parsed header from the optional exam info block.
+ */
+export interface ParsedMarkdownHeader {
+  exam?: string;
+  subject?: string;
+  totalQuestions?: number;
+  totalMarks?: number;
+  time?: string;
+  negativeMarking?: string;
+  instructions?: string[];
+  rawLines?: string[];
+}
+
+/**
  * Parses a simple Questionnaire text/markdown document into individual questions.
  * Rules:
- * - Top '---' (or frontmatter) is skippable.
+ * - Optional header block before the first '---' contains exam info / rules.
  * - Each question block is separated by '---'.
  * - Options can be (a)/(b)/(c)/(d) or A./B./C./D. or A)/B)/C)/D).
  * - Everything before the options is the question prompt.
  * - Answer keys and explanations are handled separately via the existing answer key parser.
+ *
+ * Header Format (all fields optional, before first ---):
+ *   EXAM: <exam name>
+ *   SUBJECT: <subject>
+ *   TOTAL QUESTIONS: <number>
+ *   TOTAL MARKS: <number>
+ *   TIME: <duration>
+ *   NEGATIVE MARKING: <description>
+ *   INSTRUCTIONS:
+ *   - <rule 1>
+ *   - <rule 2>
+ */
+export function parseMarkdownHeader(markdownText: string): ParsedMarkdownHeader {
+  const result: ParsedMarkdownHeader = {};
+  if (!markdownText) return result;
+
+  const raw = markdownText.trim();
+  // Find the first '---' separator
+  const firstSepIdx = raw.indexOf("\n---");
+  if (firstSepIdx === -1) return result;
+
+  const headerText = raw.substring(0, firstSepIdx).trim();
+  if (!headerText) return result;
+
+  // Check if the header looks like a structured info block (has KEY: value lines)
+  const hasKeyValue = /^[A-Z][A-Z\s]+:/m.test(headerText);
+  if (!hasKeyValue) return result;
+
+  const lines = headerText.split("\n");
+  result.rawLines = lines;
+  const instructions: string[] = [];
+  let inInstructions = false;
+
+  for (const line of lines) {
+    const trimmed = line.trim();
+    if (!trimmed) continue;
+
+    // Detect INSTRUCTIONS: block
+    if (/^INSTRUCTIONS\s*:/i.test(trimmed)) {
+      inInstructions = true;
+      continue;
+    }
+
+    // Bullet points inside INSTRUCTIONS block
+    if (inInstructions && /^[-•*]\s+/.test(trimmed)) {
+      instructions.push(trimmed.replace(/^[-•*]\s+/, "").trim());
+      continue;
+    }
+
+    // If a new KEY: value line is encountered, exit instructions mode
+    if (/^[A-Z][A-Z\s]+:/i.test(trimmed) && !trimmed.startsWith("-")) {
+      inInstructions = false;
+    }
+
+    // Parse key-value pairs
+    const kvMatch = trimmed.match(/^([A-Z][A-Z\s]+):\s*(.*)$/i);
+    if (!kvMatch) continue;
+
+    const key = kvMatch[1].trim().toUpperCase().replace(/\s+/g, "_");
+    const value = kvMatch[2].trim();
+
+    switch (key) {
+      case "EXAM":
+        result.exam = value;
+        break;
+      case "SUBJECT":
+        result.subject = value;
+        break;
+      case "TOTAL_QUESTIONS":
+      case "QUESTIONS":
+        result.totalQuestions = parseInt(value, 10) || undefined;
+        break;
+      case "TOTAL_MARKS":
+      case "MARKS":
+        result.totalMarks = parseFloat(value) || undefined;
+        break;
+      case "TIME":
+      case "DURATION":
+      case "TIME_LIMIT":
+        result.time = value;
+        break;
+      case "NEGATIVE_MARKING":
+      case "NEGATIVE":
+      case "PENALTY":
+        result.negativeMarking = value;
+        break;
+    }
+  }
+
+  if (instructions.length > 0) {
+    result.instructions = instructions;
+  }
+
+  return result;
+}
+
+/**
+ * Parses a simple Questionnaire text/markdown document into individual questions.
  */
 export function parseQuestionnaireMarkdown(
   markdownText: string,
@@ -15,22 +127,22 @@ export function parseQuestionnaireMarkdown(
   let raw = (markdownText || "").trim();
   if (!raw) return [];
 
-  // 1. Top '---' is skippable (e.g. frontmatter or leading separator)
+  // 1. Top block before first '---' may be a header (exam info). Skip it if it has no options.
   if (raw.startsWith("---")) {
-    const nextSeparator = raw.indexOf("\n---", 3);
-    if (nextSeparator !== -1) {
-      // Check if what's before nextSeparator is frontmatter / title (no options)
-      const potentialHeader = raw.substring(3, nextSeparator);
+    // Starts with ---, skip leading separator
+    raw = raw.replace(/^---\s*/, "").trim();
+  } else {
+    // Check if there's a header block (no options) before first ---
+    const firstSepIdx = raw.indexOf("\n---");
+    if (firstSepIdx !== -1) {
+      const potentialHeader = raw.substring(0, firstSepIdx);
       const hasOptions = /\n\s*(?:\([a-dA-D]\)|[a-dA-D][\.\)])\s+/i.test(
         potentialHeader,
       );
       if (!hasOptions) {
-        raw = raw.substring(nextSeparator + 4).trim();
-      } else {
-        raw = raw.replace(/^---\s*/, "").trim();
+        // It's a pure header block — skip it
+        raw = raw.substring(firstSepIdx + 4).trim();
       }
-    } else {
-      raw = raw.replace(/^---\s*/, "").trim();
     }
   }
 

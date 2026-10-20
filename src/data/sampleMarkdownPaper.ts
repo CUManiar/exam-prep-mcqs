@@ -11,14 +11,14 @@ function parseAnswerKeyDetailed(text: string): {
   if (!text) return { answers, explanations };
 
   const pattern =
-    /(\d+)[\.\)\s\-\:\t]+\s*([A-Da-d])(?:\s*[\"“”]{3,}([\s\S]*?)[\"“”]{3,})?/g;
+    /(\d+)[\.\)\s\-\:\t]+\s*([A-Da-d])(?:\s*["""]{3,}([\s\S]*?)["""]{3,})?/g;
   let match: RegExpExecArray | null;
   while ((match = pattern.exec(text)) !== null) {
     const qNo = parseInt(match[1], 10);
     const ans = match[2].toUpperCase();
     answers[qNo] = ans;
     if (match[3] !== undefined) {
-      const cleaned = match[3].replace(/^[\"“”\s]+|[\"“”\s,]+$/g, "").trim();
+      const cleaned = match[3].replace(/^["""\s]+|["""\s,]+$/g, "").trim();
       if (cleaned.length > 0) {
         explanations[qNo] = cleaned;
       }
@@ -27,7 +27,44 @@ function parseAnswerKeyDetailed(text: string): {
   return { answers, explanations };
 }
 
-export const SAMPLE_QUESTIONNAIRE_TEXT = `With reference to the **Monetary Policy Committee (MPC)** of the Reserve Bank of India, consider the following statements:
+/**
+ * MARKDOWN FORMAT SPECIFICATION
+ * ==============================
+ * The markdown format supports an optional header block above the first `---`.
+ * Everything in the header (before the first `---`) is treated as exam info / rules.
+ *
+ * Header fields (all optional):
+ *   EXAM: <exam name>
+ *   SUBJECT: <subject>
+ *   TOTAL QUESTIONS: <number>
+ *   TOTAL MARKS: <number>
+ *   TIME: <duration>
+ *   NEGATIVE MARKING: <description>
+ *   INSTRUCTIONS:
+ *   - <rule 1>
+ *   - <rule 2>
+ *
+ * After the first `---`, each question block is separated by `---`.
+ * Options are labeled (a), (b), (c), (d).
+ *
+ * Answer Key (separate text block, not in questionnaire):
+ *   1. b """ explanation text """
+ *   2. c """ another explanation """
+ */
+
+export const SAMPLE_QUESTIONNAIRE_TEXT = `EXAM: UPSC Prelims 2026 High-Yield Mock
+SUBJECT: General Studies Paper I (GS-I)
+TOTAL QUESTIONS: 5
+TOTAL MARKS: 10
+TIME: 15 Minutes
+NEGATIVE MARKING: 0.667 marks deducted per wrong answer
+INSTRUCTIONS:
+- Each question carries 2 marks.
+- There is negative marking of 1/3rd for each wrong answer.
+- Do not mark more than one option per question.
+- Use this mock to test your preparation, not just guess.
+---
+With reference to the **Monetary Policy Committee (MPC)** of the Reserve Bank of India, consider the following statements:
 1. It determines the policy repo rate required to achieve the inflation target.
 2. The Governor of the RBI is the ex-officio Chairman of the Committee and has a second or casting vote in case of a tie.
 3. The central government appoints four of its six members for a term of five years.
@@ -97,15 +134,21 @@ export const SAMPLE_MARKDOWN_PAPER: QuestionPaper = {
   subject: "GS I (Interactive Mock)",
   label: "2026 – High-Yield Mock (Markdown Interactive)",
   title: "2026 – UPSC Prelims High-Yield Mock (Interactive Markdown)",
-  totalQuestions: parsedQuestions.length, // EXACTLY 5
-  totalMarks: parsedQuestions.length * 2, // 10 Marks
+  totalQuestions: parsedQuestions.length,
+  totalMarks: parsedQuestions.length * 2,
   correctMarks: 2.0,
   incorrectMarks: 0.667,
-  timeMinutes: 10,
+  timeMinutes: 15,
   qpUrl: "local://interactive_markdown",
   answerKey: answers,
   explanations: explanations,
   parsedQuestions: parsedQuestions,
   markdownContent: SAMPLE_QUESTIONNAIRE_TEXT,
   answerKeyText: SAMPLE_ANSWER_KEY_TEXT,
+  instructions: [
+    "Each question carries 2 marks.",
+    "There is negative marking of 1/3rd for each wrong answer.",
+    "Do not mark more than one option per question.",
+    "Use this mock to test your preparation, not just guess.",
+  ],
 };

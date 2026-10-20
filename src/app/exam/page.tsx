@@ -5,7 +5,11 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { useApp } from "../../context/AppContext";
 import { ExamSessionView } from "../../components/ExamSessionView";
 import { isPaperFree } from "../../lib/defaults";
-import { getActiveDraft } from "../../lib/storage";
+import { getActiveDraft, getCustomPapers } from "../../lib/storage";
+import {
+  parseQuestionnaireMarkdown,
+  parseMarkdownHeader,
+} from "../../lib/markdownPaperParser";
 import { Lock } from "lucide-react";
 
 function ExamSessionLoadingBuffer({
@@ -90,9 +94,29 @@ function ExamSessionContent() {
     effectiveActiveDraft?.mode ||
     "mock";
 
-  const paper = papers.find((p) => p.id === paperId);
+  let paper = papers.find((p) => p.id === paperId);
+  if (!paper && paperId) {
+    const localCustom = getCustomPapers();
+    paper = localCustom.find((p) => p.id === paperId);
+  }
+  if (paper) {
+    if (paper.markdownContent) {
+      if (!paper.parsedQuestions || paper.parsedQuestions.length === 0) {
+        paper = {
+          ...paper,
+          parsedQuestions: parseQuestionnaireMarkdown(paper.markdownContent),
+        };
+      }
+      if (!paper.instructions || paper.instructions.length === 0) {
+        paper = {
+          ...paper,
+          instructions: parseMarkdownHeader(paper.markdownContent).instructions,
+        };
+      }
+    }
+  }
 
-  if (isLoading || (!paper && isLoading)) {
+  if (isLoading && !paper) {
     return <ExamSessionLoadingBuffer message="Restoring Exam Session..." />;
   }
 
