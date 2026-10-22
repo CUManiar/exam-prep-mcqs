@@ -12,7 +12,7 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
   return (
     <AppProvider>
       {!isInExam && <Navbar />}
-      <main className="min-h-[calc(100vh-4rem)]">{children}</main>
+      <main className="min-h-[calc(100vh-7rem)] sm:min-h-[calc(100vh-4rem)]">{children}</main>
     </AppProvider>
   );
 }

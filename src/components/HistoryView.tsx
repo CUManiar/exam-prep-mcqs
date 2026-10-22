@@ -187,16 +187,13 @@ export function HistoryView({
       : 200;
 
   return (
-    <div className="mx-auto max-w-7xl px-4 py-6 sm:px-6 lg:px-8 space-y-6 animate-in fade-in duration-200">
+    <div className="page-container space-y-6">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 pb-4 border-b border-slate-200/80">
-        <div className="flex items-center gap-2.5">
-          <h1 className="text-lg sm:text-xl font-bold text-slate-900 tracking-tight">
-            Mock Exam History
-          </h1>
-          <span className="text-xs font-medium text-slate-500 bg-slate-100 px-2 py-0.5 rounded-full font-mono">
-            {totalMocks} {totalMocks === 1 ? "attempt" : "attempts"}
-          </span>
+      <div className="page-heading">
+        <div>
+          <p className="page-eyebrow">Assessment record · {totalMocks} {totalMocks === 1 ? "mock" : "mocks"}</p>
+          <h1 className="page-title">Performance</h1>
+          <p className="page-description">Review individual results and compare your progress across repeated attempts.</p>
         </div>
 
         {/* View Mode Toggle & Search */}

@@ -8,7 +8,14 @@ import React, {
   useCallback,
 } from "react";
 import { useRouter } from "next/navigation";
-import { QuestionPaper, Attempt, ActiveSessionDraft } from "../lib/types";
+import {
+  QuestionPaper,
+  Attempt,
+  ActiveSessionDraft,
+  AppNotification,
+  AppNotificationType,
+} from "../lib/types";
+import { getNotifications, saveNotifications } from "../lib/notifications";
 import {
   getAttempts,
   loadAttemptsFromServer,
@@ -84,6 +91,16 @@ interface AppContextType {
   handleUpdatePaper: (paper: QuestionPaper) => Promise<void>;
   hiddenPaperIds: string[];
   handleRestoreHiddenPapers: () => Promise<void>;
+  notifications: AppNotification[];
+  addNotification: (notification: {
+    type: AppNotificationType;
+    title: string;
+    message: string;
+    href?: string;
+  }) => void;
+  markNotificationRead: (notificationId: string) => void;
+  markAllNotificationsRead: () => void;
+  clearNotifications: () => void;
 }
 
 const AppContext = createContext<AppContextType | null>(null);
@@ -101,6 +118,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [isPro, setIsPro] = useState<boolean>(false);
   const [currentUser, setCurrentUser] = useState<User | null>(null);
+  const [notifications, setNotifications] = useState<AppNotification[]>([]);
   const [authModalOpen, setAuthModalOpen] = useState<boolean>(false);
   const [proModalOpen, setProModalOpen] = useState<boolean>(false);
   const [proModalTarget, setProModalTarget] = useState<string | undefined>(
@@ -110,6 +128,69 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     useState<Attempt | null>(null);
   const [guestCompletionModalOpen, setGuestCompletionModalOpen] =
     useState<boolean>(false);
+
+  const notificationUserId = currentUser?.id ?? null;
+
+  useEffect(() => {
+    setNotifications(getNotifications(notificationUserId));
+  }, [notificationUserId]);
+
+  const addNotification = useCallback(
+    (notification: {
+      type: AppNotificationType;
+      title: string;
+      message: string;
+      href?: string;
+    }) => {
+      const nextNotification: AppNotification = {
+        ...notification,
+        id:
+          typeof crypto !== "undefined" && "randomUUID" in crypto
+            ? crypto.randomUUID()
+            : `${Date.now()}-${Math.random().toString(36).slice(2)}`,
+        createdAt: new Date().toISOString(),
+        read: false,
+      };
+
+      setNotifications((previous) => {
+        const next = [nextNotification, ...previous].slice(0, 30);
+        saveNotifications(next, notificationUserId);
+        return next;
+      });
+    },
+    [notificationUserId],
+  );
+
+  const markNotificationRead = useCallback(
+    (notificationId: string) => {
+      setNotifications((previous) => {
+        const next = previous.map((notification) =>
+          notification.id === notificationId
+            ? { ...notification, read: true }
+            : notification,
+        );
+        saveNotifications(next, notificationUserId);
+        return next;
+      });
+    },
+    [notificationUserId],
+  );
+
+  const markAllNotificationsRead = useCallback(() => {
+    setNotifications((previous) => {
+      const next = previous.map((notification) => ({
+        ...notification,
+        read: true,
+      }));
+      saveNotifications(next, notificationUserId);
+      return next;
+    });
+  }, [notificationUserId]);
+
+  const clearNotifications = useCallback(() => {
+    setNotifications([]);
+    saveNotifications([], notificationUserId);
+  }, [notificationUserId]);
 
   useEffect(() => {
     if (currentUser) {
@@ -428,6 +509,13 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       clearUserDraftFromSupabase(currentUser.id);
     }
 
+    addNotification({
+      type: "result",
+      title: "Assessment complete",
+      message: `${attempt.paperLabel}: ${attempt.score} / ${attempt.maxScore}.`,
+      href: `/history/${encodeURIComponent(attempt.id)}`,
+    });
+
     // Practice mode allows immediate direct review without login!
     // Mock mode prompts user to sign in to save test attempt.
     if (!currentUser && attempt.mode === "mock") {
@@ -495,6 +583,12 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
     // 4. Resync full dataset
     await loadAllData();
+    addNotification({
+      type: "paper",
+      title: "Paper added",
+      message: `${newPaper.label} is available in your paper library.`,
+      href: "/papers?tab=custom",
+    });
   };
 
   // Restore hidden papers handler
@@ -621,6 +715,11 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         handleUpdatePaper,
         hiddenPaperIds,
         handleRestoreHiddenPapers,
+        notifications,
+        addNotification,
+        markNotificationRead,
+        markAllNotificationsRead,
+        clearNotifications,
       }}
     >
       {children}

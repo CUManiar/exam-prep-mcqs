@@ -57,8 +57,6 @@ import {
   Maximize2,
   Minimize2,
   RotateCcw,
-  Zap,
-  Sparkles,
 } from "lucide-react";
 
 interface ExamSessionViewProps {
@@ -936,8 +934,8 @@ export function ExamSessionView({
                     : "border-slate-200 bg-white text-slate-600 hover:bg-slate-50"
                 }`}
               >
-                <Zap
-                  className={`h-3.5 w-3.5 ${autoAdvance ? "text-emerald-600 fill-emerald-500" : "text-slate-400"}`}
+                <ArrowRight
+                  className={`h-3.5 w-3.5 ${autoAdvance ? "text-emerald-700" : "text-slate-400"}`}
                 />
                 <span className="hidden md:inline">Auto-Next:</span>
                 <span className="font-bold">{autoAdvance ? "ON" : "OFF"}</span>
@@ -972,7 +970,7 @@ export function ExamSessionView({
             <div
               className={`flex items-center gap-1.5 rounded-xl px-2.5 sm:px-3 py-1 font-mono text-xs sm:text-sm font-bold transition-all shadow-2xs ${
                 isTimeCritical
-                  ? "bg-rose-50 border-2 border-rose-500 text-rose-700 animate-pulse ring-4 ring-rose-500/10"
+                  ? "bg-rose-50 border border-rose-300 text-rose-700"
                   : "bg-slate-50 border border-slate-200 text-indigo-700"
               }`}
             >
@@ -1017,17 +1015,17 @@ export function ExamSessionView({
           <div className="flex items-center gap-1.5 sm:gap-3 text-[11px] sm:text-xs font-medium overflow-x-auto shrink-0">
             <div className="flex items-center gap-1 rounded-md bg-emerald-50 border border-emerald-200 px-2 py-0.5 text-emerald-800 shrink-0">
               <span className="h-1.5 w-1.5 rounded-full bg-emerald-600" />
-              <span>Att: {attemptedCount}</span>
+              <span>Answered: {attemptedCount}</span>
             </div>
 
             <div className="flex items-center gap-1 rounded-md bg-slate-100 border border-slate-200 px-2 py-0.5 text-slate-700 shrink-0">
               <span className="h-1.5 w-1.5 rounded-full bg-slate-400" />
-              <span>Unatt: {unattemptedCount}</span>
+              <span>Unanswered: {unattemptedCount}</span>
             </div>
 
             <div className="flex items-center gap-1 rounded-md bg-amber-50 border border-amber-200 px-2 py-0.5 text-amber-800 shrink-0">
               <span className="h-1.5 w-1.5 rounded-full bg-amber-500" />
-              <span>Flag: {flaggedCount}</span>
+              <span>Flagged: {flaggedCount}</span>
             </div>
           </div>
 
@@ -1099,7 +1097,7 @@ export function ExamSessionView({
                             : "text-slate-600 hover:text-slate-900"
                         }`}
                       >
-                        📝 Interactive Questions
+                        Interactive questions
                       </button>
                       <button
                         type="button"
@@ -1110,7 +1108,7 @@ export function ExamSessionView({
                             : "text-slate-600 hover:text-slate-900"
                         }`}
                       >
-                        📑 PDF Viewer
+                        PDF document
                       </button>
                     </div>
                   </div>
@@ -1145,7 +1143,7 @@ export function ExamSessionView({
           ) : effectivePaper.qpUrl?.startsWith("local://") ? (
             <div className="flex-1 flex flex-col items-center justify-center p-8 text-center bg-slate-50 space-y-4">
               <div className="h-14 w-14 rounded-2xl bg-purple-100 border border-purple-200 flex items-center justify-center text-purple-700">
-                <Sparkles className="h-7 w-7" />
+                <FileText className="h-7 w-7" />
               </div>
               <div className="max-w-md space-y-1.5">
                 <h3 className="text-base font-bold text-slate-800">
@@ -1156,7 +1154,7 @@ export function ExamSessionView({
                 </p>
               </div>
               <button
-                onClick={() => router.push("/upload")}
+                onClick={() => router.push("/papers?view=upload")}
                 className="cursor-pointer px-4 py-2 rounded-xl bg-purple-600 text-white font-bold text-xs hover:bg-purple-700 shadow-xs"
               >
                 Go to Upload Manager
