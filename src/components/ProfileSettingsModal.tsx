@@ -1,7 +1,6 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
-import { createPortal } from "react-dom";
+import { useEffect, useState } from "react";
 import {
   AlertTriangle,
   Check,
@@ -15,6 +14,7 @@ import {
   X,
 } from "lucide-react";
 import { useApp } from "../context/AppContext";
+import { ModalShell } from "./ModalShell";
 
 interface ProfileSettingsModalProps {
   isOpen: boolean;
@@ -35,29 +35,18 @@ export function ProfileSettingsModal({
     hiddenPaperIds,
     handleRestoreHiddenPapers,
   } = useApp();
-  const [mounted, setMounted] = useState(false);
   const [autoAdvance, setAutoAdvance] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [error, setError] = useState("");
 
-  useEffect(() => setMounted(true), []);
   useEffect(() => {
     if (!isOpen || typeof window === "undefined") return;
     setAutoAdvance(localStorage.getItem("exam_prep_auto_advance") === "true");
     setShowDeleteConfirm(false);
     setError("");
   }, [isOpen]);
-  useEffect(() => {
-    if (!isOpen) return;
-    const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key === "Escape") onClose();
-    };
-    window.addEventListener("keydown", onKeyDown);
-    return () => window.removeEventListener("keydown", onKeyDown);
-  }, [isOpen, onClose]);
-
-  if (!isOpen || !mounted) return null;
+  if (!isOpen) return null;
 
   const handleAutoAdvance = (value: boolean) => {
     setAutoAdvance(value);
@@ -93,19 +82,16 @@ export function ProfileSettingsModal({
     }
   };
 
-  return createPortal(
-    <div
-      className="fixed inset-0 z-[9999] flex justify-end bg-slate-950/40 backdrop-blur-[2px]"
-      onMouseDown={(event) => {
-        if (event.target === event.currentTarget) onClose();
-      }}
+  return (
+    <ModalShell
+      isOpen={isOpen}
+      onClose={onClose}
+      labelledBy="account-panel-title"
+      placement="right"
+      showCloseButton={false}
+      className="flex h-full w-full max-w-md flex-col overflow-hidden rounded-none border-l border-slate-200 p-0 shadow-2xl"
     >
-      <section
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="account-panel-title"
-        className="flex h-full w-full max-w-md flex-col border-l border-slate-200 bg-white shadow-2xl animate-in slide-in-from-right duration-200"
-      >
+      <section className="flex h-full min-h-0 flex-col bg-white">
         <header className="flex items-start justify-between border-b border-slate-200 px-5 py-5 sm:px-6">
           <div>
             <p className="text-xs font-medium uppercase tracking-wide text-slate-500">
@@ -113,6 +99,8 @@ export function ProfileSettingsModal({
             </p>
             <h2
               id="account-panel-title"
+              data-modal-initial-focus
+              tabIndex={-1}
               className="mt-1 text-lg font-semibold text-slate-900"
             >
               Profile & preferences
@@ -122,7 +110,7 @@ export function ProfileSettingsModal({
             type="button"
             onClick={onClose}
             aria-label="Close account panel"
-            className="rounded-lg p-2 text-slate-500 hover:bg-slate-100"
+            className="modal-close-static"
           >
             <X className="h-4 w-4" />
           </button>
@@ -298,7 +286,6 @@ export function ProfileSettingsModal({
           )}
         </div>
       </section>
-    </div>,
-    document.body,
+    </ModalShell>
   );
 }

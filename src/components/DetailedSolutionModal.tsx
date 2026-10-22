@@ -1,9 +1,8 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
-import { createPortal } from "react-dom";
-import { X, BookOpen } from "lucide-react";
+import { BookOpen, X } from "lucide-react";
 import { PdfViewer } from "./PdfViewer";
+import { ModalShell } from "./ModalShell";
 
 interface DetailedSolutionModalProps {
   isOpen: boolean;
@@ -18,53 +17,54 @@ export function DetailedSolutionModal({
   pdfUrl,
   paperTitle,
 }: DetailedSolutionModalProps) {
-  const [mounted, setMounted] = useState(false);
+  if (!pdfUrl) return null;
 
-  useEffect(() => {
-    setMounted(true);
-  }, []);
-
-  if (!isOpen || !pdfUrl || !mounted) return null;
-
-  return createPortal(
-    <div className="fixed inset-0 z-[9999] overflow-y-auto flex min-h-full items-start sm:items-center justify-center p-2 sm:p-4 py-4 sm:py-8 bg-slate-900/50 backdrop-blur-sm animate-in fade-in duration-200">
-      <div className="relative my-auto w-full max-w-6xl max-h-[calc(100dvh-2rem)] h-[92vh] flex flex-col rounded-3xl border border-slate-200 bg-white shadow-2xl overflow-hidden">
-        {/* Top Header */}
-        <div className="flex items-center justify-between border-b border-slate-200 bg-white px-5 py-3.5 shrink-0">
-          <div className="flex items-center gap-2.5">
-            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-indigo-50 text-indigo-600 border border-indigo-100">
-              <BookOpen className="h-4 w-4" />
-            </div>
-            <div>
-              <h3 className="text-sm font-bold text-slate-900">
-                Detailed Solution Booklet
-              </h3>
-              <p className="text-[11px] text-slate-500 truncate max-w-md">
-                {paperTitle}
-              </p>
-            </div>
-          </div>
-
-          <div className="flex items-center gap-2">
-            <button
-              onClick={onClose}
-              aria-label="Close modal"
-              className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100 hover:text-slate-700 transition-colors"
+  return (
+    <ModalShell
+      isOpen={isOpen}
+      onClose={onClose}
+      labelledBy="solution-modal-title"
+      describedBy="solution-modal-description"
+      showCloseButton={false}
+      className="flex h-[92vh] max-h-[calc(100dvh-2rem)] w-full max-w-6xl flex-col overflow-hidden p-0"
+    >
+      <header className="flex shrink-0 items-center justify-between gap-3 border-b border-slate-200 px-4 py-3 sm:px-5">
+        <div className="flex min-w-0 items-center gap-3">
+          <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-slate-100 text-slate-700">
+            <BookOpen aria-hidden="true" className="h-4 w-4" />
+          </span>
+          <div className="min-w-0">
+            <h2
+              id="solution-modal-title"
+              data-modal-initial-focus
+              tabIndex={-1}
+              className="text-sm font-semibold text-slate-900"
             >
-              <X className="h-5 w-5" />
-            </button>
+              Solution booklet
+            </h2>
+            <p
+              id="solution-modal-description"
+              className="truncate text-xs text-slate-500"
+            >
+              {paperTitle}
+            </p>
           </div>
         </div>
-
-        {/* Embedded PDF Viewer */}
-        <PdfViewer
-          url={pdfUrl}
-          title={paperTitle || "Detailed Solution"}
-          showToolbar={true}
-          className="flex-1 w-full h-full min-h-0 bg-slate-100"
-        />
-      </div>
-    </div>,
-    document.body,
+        <button
+          type="button"
+          onClick={onClose}
+          aria-label="Close solution booklet"
+          className="modal-close-static"
+        >
+          <X aria-hidden="true" className="h-4 w-4" />
+        </button>
+      </header>
+      <PdfViewer
+        url={pdfUrl}
+        title={paperTitle || "Detailed Solution"}
+        showToolbar
+        className="h-full min-h-0 w-full flex-1 bg-slate-100"
+      />
+    </ModalShell>
   );
 }

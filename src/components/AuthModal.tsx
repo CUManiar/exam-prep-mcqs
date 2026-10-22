@@ -1,20 +1,18 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
-import { createPortal } from "react-dom";
+import React, { useState } from "react";
 import {
-  User,
-  Mail,
-  Lock,
-  X,
-  Loader2,
-  Sparkles,
-  CheckCircle2,
-  ArrowRight,
-  ShieldCheck,
   AlertCircle,
+  ArrowRight,
+  BarChart3,
+  BookOpen,
+  CheckCircle2,
+  LockKeyhole,
+  Mail,
+  UserRound,
 } from "lucide-react";
 import { getSupabaseClient } from "../lib/supabase";
+import { ModalShell } from "./ModalShell";
 
 interface AuthModalProps {
   isOpen: boolean;
@@ -23,7 +21,6 @@ interface AuthModalProps {
 }
 
 export function AuthModal({ isOpen, onClose, onSuccess }: AuthModalProps) {
-  const [mounted, setMounted] = useState(false);
   const [mode, setMode] = useState<"signin" | "signup">("signin");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -32,46 +29,40 @@ export function AuthModal({ isOpen, onClose, onSuccess }: AuthModalProps) {
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
 
-  useEffect(() => {
-    setMounted(true);
-  }, []);
-
-  if (!isOpen || !mounted) return null;
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
     setErrorMsg(null);
     setSuccessMsg(null);
 
     const supabase = getSupabaseClient();
     if (!supabase) {
-      setErrorMsg("Supabase client is not configured.");
+      setErrorMsg(
+        "Sign-in is temporarily unavailable. Please try again later.",
+      );
       return;
     }
 
     setLoading(true);
-
     try {
       if (mode === "signup") {
         const { data, error } = await supabase.auth.signUp({
           email,
           password,
           options: {
-            data: { full_name: fullName || email.split("@")[0] },
+            data: { full_name: fullName.trim() || email.split("@")[0] },
           },
         });
-
         if (error) throw error;
 
         if (data?.session) {
-          setSuccessMsg("Account created! Logging you in...");
-          setTimeout(() => {
-            if (onSuccess) onSuccess();
+          setSuccessMsg("Account created. Preparing your workspace…");
+          window.setTimeout(() => {
+            onSuccess?.();
             onClose();
-          }, 1200);
+          }, 900);
         } else {
           setSuccessMsg(
-            "Verification link sent to your email. Please check your inbox.",
+            "Check your email for a verification link to finish creating your account.",
           );
         }
       } else {
@@ -79,183 +70,212 @@ export function AuthModal({ isOpen, onClose, onSuccess }: AuthModalProps) {
           email,
           password,
         });
-
         if (error) throw error;
-
-        setSuccessMsg("Welcome back! Loading your test history...");
-        setTimeout(() => {
-          if (onSuccess) onSuccess();
+        setSuccessMsg("Signed in. Preparing your workspace…");
+        window.setTimeout(() => {
+          onSuccess?.();
           onClose();
-        }, 1200);
+        }, 900);
       }
-    } catch (err: any) {
+    } catch (error: unknown) {
       setErrorMsg(
-        err?.message || "Authentication failed. Please check your credentials.",
+        error instanceof Error
+          ? error.message
+          : "We couldn’t complete sign-in. Check your details and try again.",
       );
     } finally {
       setLoading(false);
     }
   };
 
-  return createPortal(
-    <div className="fixed inset-0 z-[9999] overflow-y-auto flex min-h-full items-start sm:items-center justify-center p-3 sm:p-6 py-8 sm:py-12 bg-slate-900/60 backdrop-blur-xs animate-in fade-in">
-      <div className="relative my-auto w-full max-w-md rounded-3xl border border-slate-200 bg-white p-6 sm:p-8 shadow-2xl space-y-5 overflow-hidden">
-        {/* Accent Bar */}
-        <div className="absolute top-0 left-0 right-0 h-1.5 bg-gradient-to-r from-indigo-500 via-purple-500 to-amber-500" />
+  const isSigningIn = mode === "signin";
 
-        {/* Close Button */}
-        <button
-          onClick={onClose}
-          className="absolute top-4 right-4 p-1.5 rounded-full text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors cursor-pointer"
-        >
-          <X className="h-5 w-5" />
-        </button>
-
-        {/* Header */}
-        <div className="space-y-1.5 pt-1">
-          <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-indigo-50 border border-indigo-200 text-indigo-700 text-[11px] font-bold">
-            <ShieldCheck className="h-3 w-3" />
-            <span>Secure Cloud Sync</span>
+  return (
+    <ModalShell
+      isOpen={isOpen}
+      onClose={onClose}
+      labelledBy="auth-modal-title"
+      describedBy="auth-modal-description"
+      className="w-full max-w-4xl overflow-hidden p-0"
+    >
+      <div className="grid min-h-[31rem] sm:grid-cols-[0.82fr_1.18fr]">
+        <aside className="auth-overview-panel">
+          <div>
+            <div className="auth-product-mark">
+              <BookOpen aria-hidden="true" className="h-5 w-5" />
+            </div>
+            <p className="mt-5 text-xs font-semibold uppercase tracking-[0.12em] text-blue-200">
+              Assessment workspace
+            </p>
+            <h2 className="mt-2 text-xl font-semibold leading-snug text-white">
+              Make each attempt easier to learn from.
+            </h2>
+            <p className="mt-3 text-sm leading-6 text-slate-300">
+              Keep your question papers, timed mocks, and performance record
+              together.
+            </p>
           </div>
-          <h2 className="text-xl sm:text-2xl font-extrabold text-slate-900 tracking-tight">
-            {mode === "signin"
-              ? "Sign in to Upsc-Practice"
-              : "Create Free Aspirant Account"}
-          </h2>
-          <p className="text-xs text-slate-500 leading-relaxed">
-            {mode === "signin"
-              ? "Access your saved mock tests, evaluation reports, and pro vault across all devices."
-              : "Save your test attempts, track confidence metrics, and isolate your personal progress."}
+          <ul className="mt-7 space-y-4 text-sm text-slate-200">
+            <li className="flex items-start gap-3">
+              <BookOpen
+                aria-hidden="true"
+                className="mt-0.5 h-4 w-4 shrink-0 text-blue-300"
+              />
+              <span>Practice with available or personal question sets.</span>
+            </li>
+            <li className="flex items-start gap-3">
+              <CheckCircle2
+                aria-hidden="true"
+                className="mt-0.5 h-4 w-4 shrink-0 text-blue-300"
+              />
+              <span>Review scores, answers, accuracy, and time spent.</span>
+            </li>
+            <li className="flex items-start gap-3">
+              <BarChart3
+                aria-hidden="true"
+                className="mt-0.5 h-4 w-4 shrink-0 text-blue-300"
+              />
+              <span>Return to your saved mock history and progress.</span>
+            </li>
+          </ul>
+          <p className="mt-auto hidden pt-8 text-xs leading-5 text-slate-400 sm:block">
+            Built around UPSC preparation, with a workflow that can support
+            other objective assessments.
           </p>
-        </div>
+        </aside>
 
-        {/* Form */}
-        <form onSubmit={handleSubmit} className="space-y-4">
-          {mode === "signup" && (
-            <div className="space-y-1">
-              <label className="text-xs font-semibold text-slate-700 block">
-                Full Name
+        <div className="auth-form-panel">
+          <div className="mb-6">
+            <p className="page-eyebrow">
+              {isSigningIn ? "Welcome back" : "Get started"}
+            </p>
+            <h2
+              id="auth-modal-title"
+              data-modal-initial-focus
+              tabIndex={-1}
+              className="mt-1 text-2xl font-semibold tracking-tight text-slate-900"
+            >
+              {isSigningIn ? "Sign in" : "Create your account"}
+            </h2>
+            <p
+              id="auth-modal-description"
+              className="mt-2 max-w-sm text-sm leading-6 text-slate-600"
+            >
+              {isSigningIn
+                ? "Access your saved assessments and personal progress."
+                : "Save your mock results and continue your preparation across sessions."}
+            </p>
+          </div>
+
+          <form onSubmit={handleSubmit} className="space-y-4">
+            {!isSigningIn && (
+              <div>
+                <label htmlFor="auth-full-name" className="form-label">
+                  Name
+                </label>
+                <div className="form-input-wrap">
+                  <UserRound aria-hidden="true" className="form-input-icon" />
+                  <input
+                    id="auth-full-name"
+                    type="text"
+                    autoComplete="name"
+                    required
+                    value={fullName}
+                    onChange={(event) => setFullName(event.target.value)}
+                    placeholder="Your name"
+                    className="form-input"
+                  />
+                </div>
+              </div>
+            )}
+
+            <div>
+              <label htmlFor="auth-email" className="form-label">
+                Email address
               </label>
-              <div className="relative">
-                <User className="absolute left-3 top-2.5 h-4 w-4 text-slate-400" />
+              <div className="form-input-wrap">
+                <Mail aria-hidden="true" className="form-input-icon" />
                 <input
-                  type="text"
+                  id="auth-email"
+                  type="email"
+                  autoComplete="email"
+                  autoCapitalize="none"
                   required
-                  value={fullName}
-                  onChange={(e) => setFullName(e.target.value)}
-                  placeholder="e.g. Chirag Maniar"
-                  className="w-full rounded-xl border border-slate-200 bg-slate-50/50 py-2.5 pl-9 pr-3 text-xs text-slate-800 placeholder-slate-400 focus:border-indigo-500 focus:bg-white focus:outline-none transition-colors"
+                  value={email}
+                  onChange={(event) => setEmail(event.target.value)}
+                  placeholder="you@example.com"
+                  className="form-input"
                 />
               </div>
             </div>
-          )}
 
-          <div className="space-y-1">
-            <label className="text-xs font-semibold text-slate-700 block">
-              Email Address
-            </label>
-            <div className="relative">
-              <Mail className="absolute left-3 top-2.5 h-4 w-4 text-slate-400" />
-              <input
-                type="email"
-                required
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                placeholder="aspirant@example.com"
-                className="w-full rounded-xl border border-slate-200 bg-slate-50/50 py-2.5 pl-9 pr-3 text-xs text-slate-800 placeholder-slate-400 focus:border-indigo-500 focus:bg-white focus:outline-none transition-colors"
-              />
+            <div>
+              <label htmlFor="auth-password" className="form-label">
+                Password
+              </label>
+              <div className="form-input-wrap">
+                <LockKeyhole aria-hidden="true" className="form-input-icon" />
+                <input
+                  id="auth-password"
+                  type="password"
+                  autoComplete={
+                    isSigningIn ? "current-password" : "new-password"
+                  }
+                  minLength={6}
+                  required
+                  value={password}
+                  onChange={(event) => setPassword(event.target.value)}
+                  placeholder="At least 6 characters"
+                  className="form-input"
+                />
+              </div>
             </div>
-          </div>
 
-          <div className="space-y-1">
-            <label className="text-xs font-semibold text-slate-700 block">
-              Password
-            </label>
-            <div className="relative">
-              <Lock className="absolute left-3 top-2.5 h-4 w-4 text-slate-400" />
-              <input
-                type="password"
-                required
-                minLength={6}
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                placeholder="••••••••"
-                className="w-full rounded-xl border border-slate-200 bg-slate-50/50 py-2.5 pl-9 pr-3 text-xs text-slate-800 placeholder-slate-400 focus:border-indigo-500 focus:bg-white focus:outline-none transition-colors"
-              />
-            </div>
-          </div>
-
-          {errorMsg && (
-            <div className="rounded-xl border border-rose-200 bg-rose-50 p-2.5 text-xs text-rose-700 font-medium flex items-center gap-1.5 animate-in fade-in">
-              <AlertCircle className="h-4 w-4 shrink-0 text-rose-600" />
-              <span>{errorMsg}</span>
-            </div>
-          )}
-
-          {successMsg && (
-            <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-2.5 text-xs text-emerald-800 font-medium flex items-center gap-1.5 animate-in fade-in">
-              <CheckCircle2 className="h-4 w-4 shrink-0 text-emerald-600" />
-              <span>{successMsg}</span>
-            </div>
-          )}
-
-          <button
-            type="submit"
-            disabled={loading}
-            className="w-full flex items-center justify-center gap-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 active:scale-[0.99] py-3 text-xs font-bold text-white transition-all shadow-md disabled:opacity-50 cursor-pointer"
-          >
-            {loading ? (
-              <>
-                <Loader2 className="h-4 w-4 animate-spin" />
-                <span>Processing...</span>
-              </>
-            ) : (
-              <>
-                <span>
-                  {mode === "signin" ? "Sign In to Hub" : "Create Free Account"}
-                </span>
-                <ArrowRight className="h-4 w-4" />
-              </>
+            {errorMsg && (
+              <div role="alert" className="form-message form-message-error">
+                <AlertCircle aria-hidden="true" className="h-4 w-4 shrink-0" />
+                <span>{errorMsg}</span>
+              </div>
             )}
-          </button>
-        </form>
+            {successMsg && (
+              <div role="status" className="form-message form-message-success">
+                <CheckCircle2 aria-hidden="true" className="h-4 w-4 shrink-0" />
+                <span>{successMsg}</span>
+              </div>
+            )}
 
-        {/* Toggle Mode */}
-        <div className="pt-2 border-t border-slate-100 text-center text-xs text-slate-500">
-          {mode === "signin" ? (
-            <span>
-              Don&apos;t have an account?{" "}
-              <button
-                type="button"
-                onClick={() => {
-                  setMode("signup");
-                  setErrorMsg(null);
-                  setSuccessMsg(null);
-                }}
-                className="cursor-pointer font-bold text-indigo-600 hover:text-indigo-700 underline underline-offset-2"
-              >
-                Sign up free
-              </button>
-            </span>
-          ) : (
-            <span>
-              Already have an account?{" "}
-              <button
-                type="button"
-                onClick={() => {
-                  setMode("signin");
-                  setErrorMsg(null);
-                  setSuccessMsg(null);
-                }}
-                className="cursor-pointer font-bold text-indigo-600 hover:text-indigo-700 underline underline-offset-2"
-              >
-                Sign in
-              </button>
-            </span>
-          )}
+            <button
+              type="submit"
+              disabled={loading}
+              className="button-primary w-full"
+            >
+              {loading
+                ? "Please wait…"
+                : isSigningIn
+                  ? "Sign in"
+                  : "Create account"}
+              {!loading && (
+                <ArrowRight aria-hidden="true" className="h-4 w-4" />
+              )}
+            </button>
+          </form>
+
+          <p className="mt-5 text-center text-sm text-slate-600">
+            {isSigningIn ? "New to the platform?" : "Already have an account?"}{" "}
+            <button
+              type="button"
+              onClick={() => {
+                setMode(isSigningIn ? "signup" : "signin");
+                setErrorMsg(null);
+                setSuccessMsg(null);
+              }}
+              className="font-semibold text-blue-700 underline-offset-4 hover:underline"
+            >
+              {isSigningIn ? "Create an account" : "Sign in"}
+            </button>
+          </p>
         </div>
       </div>
-    </div>,
-    document.body,
+    </ModalShell>
   );
 }

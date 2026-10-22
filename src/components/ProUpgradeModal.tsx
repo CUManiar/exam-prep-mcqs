@@ -1,21 +1,19 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
-import { createPortal } from "react-dom";
+import React, { useEffect, useState } from "react";
 import {
-  Sparkles,
-  Check,
-  X,
-  Lock,
-  ShieldCheck,
-  CreditCard,
-  Loader2,
-  Award,
-  Zap,
-  Mail,
   AlertCircle,
+  BarChart3,
+  BookOpen,
+  Check,
+  CreditCard,
+  FileUp,
+  Loader2,
+  Mail,
+  ShieldCheck,
 } from "lucide-react";
 import { openRazorpayCheckout } from "../lib/razorpay";
+import { ModalShell } from "./ModalShell";
 
 interface ProUpgradeModalProps {
   isOpen: boolean;
@@ -30,227 +28,207 @@ export function ProUpgradeModal({
   onSuccess,
   targetPaperLabel,
 }: ProUpgradeModalProps) {
-  const [mounted, setMounted] = useState(false);
   const [loading, setLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [successPaid, setSuccessPaid] = useState(false);
 
   useEffect(() => {
-    setMounted(true);
-  }, []);
-
-  if (!isOpen || !mounted) return null;
+    if (isOpen) return;
+    setLoading(false);
+    setErrorMsg(null);
+    setSuccessPaid(false);
+  }, [isOpen]);
 
   const handlePay = async () => {
     setLoading(true);
     setErrorMsg(null);
 
-    await openRazorpayCheckout({
-      amountPaise: 99900, // ₹999 in paise
-      name: "Upsc-Practice",
-      description: "Lifetime Access - 2024-2026 UPSC Papers Vault",
-      onSuccess: () => {
-        setLoading(false);
-        setSuccessPaid(true);
-        setTimeout(() => {
-          if (onSuccess) onSuccess();
-          onClose();
-        }, 1800);
-      },
-      onDismiss: () => {
-        setLoading(false);
-      },
-      onError: (err) => {
-        setLoading(false);
-        setErrorMsg(
-          err.message || "Payment could not be completed. Please try again.",
-        );
-      },
-    });
+    try {
+      await openRazorpayCheckout({
+        amountPaise: 99900,
+        name: "Upsc-Practice",
+        description: "Lifetime Access - 2024-2026 UPSC Papers Vault",
+        onSuccess: () => {
+          setLoading(false);
+          setSuccessPaid(true);
+          window.setTimeout(() => {
+            onSuccess?.();
+            onClose();
+          }, 1200);
+        },
+        onDismiss: () => setLoading(false),
+        onError: (error) => {
+          setLoading(false);
+          setErrorMsg(
+            error.message ||
+              "Payment could not be completed. Please try again.",
+          );
+        },
+      });
+    } catch (error: unknown) {
+      setLoading(false);
+      setErrorMsg(
+        error instanceof Error
+          ? error.message
+          : "Payment could not be completed. Please try again.",
+      );
+    }
   };
 
-  return createPortal(
-    <div className="fixed inset-0 z-[9999] overflow-y-auto flex min-h-full items-start sm:items-center justify-center p-3 sm:p-6 py-8 sm:py-12 bg-slate-900/60 backdrop-blur-xs animate-in fade-in">
-      <div className="relative my-auto w-full max-w-lg rounded-3xl border border-slate-200 bg-white p-6 sm:p-8 shadow-2xl space-y-6 overflow-hidden">
-        {/* Top Accent Gradient Bar */}
-        <div className="absolute top-0 left-0 right-0 h-1.5 bg-gradient-to-r from-amber-400 via-indigo-600 to-purple-600" />
+  return (
+    <ModalShell
+      isOpen={isOpen}
+      onClose={onClose}
+      labelledBy="access-modal-title"
+      describedBy="access-modal-description"
+      className="w-full max-w-xl p-5 sm:p-7"
+    >
+      {successPaid ? (
+        <div className="py-10 text-center">
+          <span
+            className="modal-status-icon modal-status-success mx-auto"
+            aria-hidden="true"
+          >
+            <Check className="h-6 w-6" />
+          </span>
+          <h2
+            id="access-modal-title"
+            data-modal-initial-focus
+            tabIndex={-1}
+            className="mt-4 text-xl font-semibold text-slate-900"
+          >
+            Payment confirmed
+          </h2>
+          <p
+            id="access-modal-description"
+            className="mx-auto mt-2 max-w-sm text-sm leading-6 text-slate-600"
+          >
+            Your access is being activated. This may take a moment.
+          </p>
+        </div>
+      ) : (
+        <>
+          <div className="pr-7">
+            <p className="page-eyebrow">UPSC Prep Hub · Access plan</p>
+            <h2
+              id="access-modal-title"
+              data-modal-initial-focus
+              tabIndex={-1}
+              className="mt-1 text-xl font-semibold tracking-tight text-slate-900 sm:text-2xl"
+            >
+              {targetPaperLabel
+                ? `Unlock ${targetPaperLabel}`
+                : "Expand your paper library"}
+            </h2>
+            <p
+              id="access-modal-description"
+              className="mt-2 text-sm leading-6 text-slate-600"
+            >
+              Access the available 2024–2026 Prelims and Mains papers, and add
+              your own papers with answer keys for automated evaluation.
+            </p>
+          </div>
 
-        {/* Close Button */}
-        <button
-          onClick={onClose}
-          className="absolute top-4 right-4 p-1.5 rounded-full text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors cursor-pointer"
-        >
-          <X className="h-5 w-5" />
-        </button>
-
-        {successPaid ? (
-          <div className="py-8 text-center space-y-4 animate-in zoom-in-95">
-            <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-emerald-100 text-emerald-600">
-              <Check className="h-8 w-8 stroke-[3]" />
+          <div className="mt-5 divide-y divide-slate-200 rounded-lg border border-slate-200">
+            <div className="flex items-start gap-3 px-4 py-3.5">
+              <BookOpen
+                aria-hidden="true"
+                className="mt-0.5 h-4 w-4 shrink-0 text-blue-700"
+              />
+              <p className="text-sm leading-5 text-slate-700">
+                <strong className="font-semibold text-slate-900">
+                  Question papers
+                </strong>
+                <br />
+                Available Prelims and Mains sets from 2024–2026.
+              </p>
             </div>
-            <div>
-              <h3 className="text-xl font-extrabold text-slate-900">
-                Payment Verified!
-              </h3>
-              <p className="text-xs text-slate-500 mt-1">
-                You now have Lifetime Pro Access. Unlocking the complete paper
-                vault...
+            <div className="flex items-start gap-3 px-4 py-3.5">
+              <FileUp
+                aria-hidden="true"
+                className="mt-0.5 h-4 w-4 shrink-0 text-blue-700"
+              />
+              <p className="text-sm leading-5 text-slate-700">
+                <strong className="font-semibold text-slate-900">
+                  Your own papers
+                </strong>
+                <br />
+                Upload a paper and attach an answer key for scoring.
+              </p>
+            </div>
+            <div className="flex items-start gap-3 px-4 py-3.5">
+              <BarChart3
+                aria-hidden="true"
+                className="mt-0.5 h-4 w-4 shrink-0 text-blue-700"
+              />
+              <p className="text-sm leading-5 text-slate-700">
+                <strong className="font-semibold text-slate-900">
+                  Detailed review
+                </strong>
+                <br />
+                Compare accuracy, time spent, and confidence across attempts.
               </p>
             </div>
           </div>
-        ) : (
-          <>
-            {/* Header */}
-            <div className="space-y-2">
-              <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-amber-50 border border-amber-200 text-amber-800 text-xs font-bold">
-                <Sparkles className="h-3.5 w-3.5 text-amber-500 fill-amber-400" />
-                <span>Upsc-Practice Pro Vault</span>
-              </div>
-              <h2 className="text-xl sm:text-2xl font-extrabold text-slate-900 tracking-tight">
-                {targetPaperLabel
-                  ? `Unlock ${targetPaperLabel}`
-                  : "Unlock 2024–2026 Vault & Custom Uploads"}
-              </h2>
-              <p className="text-xs sm:text-sm text-slate-500 leading-relaxed">
-                Free tier includes 2026 Prelims papers. Upgrade to Pro for
-                unlimited practice across our 2024, 2025, and 2026 papers, plus
-                your own custom paper uploads.
+
+          <div className="mt-4 flex flex-wrap items-center justify-between gap-3 rounded-lg bg-slate-50 px-4 py-3.5">
+            <div>
+              <p className="text-xs font-medium text-slate-500">One-time fee</p>
+              <p className="mt-0.5 text-2xl font-semibold tracking-tight text-slate-900">
+                ₹999
               </p>
             </div>
-
-            {/* Feature List */}
-            <div className="rounded-2xl bg-slate-50 border border-slate-200/80 p-4 space-y-2.5 text-xs text-slate-700">
-              <div className="flex items-start gap-2.5">
-                <div className="rounded-full bg-emerald-100 p-0.5 text-emerald-700 mt-0.5 shrink-0">
-                  <Check className="h-3 w-3 stroke-[3]" />
-                </div>
-                <span>
-                  <strong>2024, 2025 & 2026 Paper Sets:</strong> Unlimited
-                  practice attempts across all available Prelims and Mains
-                  papers in our repository.
-                </span>
-              </div>
-              <div className="flex items-start gap-2.5">
-                <div className="rounded-full bg-emerald-100 p-0.5 text-emerald-700 mt-0.5 shrink-0">
-                  <Check className="h-3 w-3 stroke-[3]" />
-                </div>
-                <span>
-                  <strong>Add Your Own Custom Papers:</strong> Upload any custom
-                  question set and attach your own answer key for instant
-                  automated scoring.
-                </span>
-              </div>
-              <div className="flex items-start gap-2.5">
-                <div className="rounded-full bg-emerald-100 p-0.5 text-emerald-700 mt-0.5 shrink-0">
-                  <Check className="h-3 w-3 stroke-[3]" />
-                </div>
-                <span>
-                  <strong>Behavioral BI Analytics:</strong> Cognitive breakdown
-                  across 🎯 Sure, ⚖️ 50:50, and 🎲 Guess questions with pacing
-                  analysis.
-                </span>
-              </div>
-              <div className="flex items-start gap-2.5">
-                <div className="rounded-full bg-amber-100 p-0.5 text-amber-800 mt-0.5 shrink-0">
-                  <ShieldCheck className="h-3 w-3 stroke-[3]" />
-                </div>
-                <span className="text-[11px] text-slate-500">
-                  <strong>Terms & No-Refund Policy:</strong> Covers current
-                  2024–2026 paper sets. Future additions or updates are at
-                  platform discretion and may carry separate pricing. All sales
-                  are final; no refunds.
-                </span>
-              </div>
+            <div className="text-right">
+              <p className="text-xs text-slate-500">Payment methods</p>
+              <p className="mt-0.5 text-sm font-medium text-slate-700">
+                UPI · Cards · Razorpay
+              </p>
             </div>
+          </div>
 
-            {/* Price Box */}
-            <div className="rounded-2xl border border-indigo-200 bg-indigo-50/60 p-4 flex items-center justify-between">
+          <p className="mt-3 text-xs leading-5 text-slate-500">
+            Covers the currently listed 2024–2026 sets. Future additions may be
+            priced separately. All sales are final; no refunds.
+          </p>
+
+          {errorMsg && (
+            <div role="alert" className="form-message form-message-error mt-4">
+              <AlertCircle aria-hidden="true" className="h-4 w-4 shrink-0" />
               <div>
-                <span className="text-[11px] font-semibold text-indigo-700 uppercase tracking-wider block">
-                  One-Time Fee
-                </span>
-                <div className="flex items-baseline gap-2 mt-0.5">
-                  <span className="text-2xl sm:text-3xl font-extrabold text-slate-900 font-mono">
-                    ₹999
-                  </span>
-                  <span className="text-xs text-slate-400 line-through font-mono">
-                    ₹2,499
-                  </span>
-                  <span className="text-[10px] font-bold text-emerald-700 bg-emerald-100 px-1.5 py-0.2 rounded">
-                    60% OFF
-                  </span>
-                </div>
-              </div>
-              <div className="text-right">
-                <span className="text-[10px] text-slate-500 block">
-                  Secured by
-                </span>
-                <span className="text-xs font-bold text-indigo-900 font-mono">
-                  Razorpay UPI & Cards
-                </span>
+                <p className="font-semibold">Payment wasn’t completed</p>
+                <p className="mt-0.5">{errorMsg}</p>
+                <a
+                  className="mt-1 inline-flex items-center gap-1 font-medium underline underline-offset-2"
+                  href="mailto:support@chikoochi.com?subject=Payment%20Assistance%20-%20Upsc-Practice"
+                >
+                  <Mail className="h-3.5 w-3.5" /> Contact support
+                </a>
               </div>
             </div>
+          )}
 
-            {/* Error Message with Support Link */}
-            {errorMsg && (
-              <div className="rounded-2xl border border-rose-200 bg-rose-50/90 p-4 space-y-2.5 text-xs text-rose-800 animate-in fade-in">
-                <div className="flex items-start gap-2.5">
-                  <AlertCircle className="h-4 w-4 text-rose-600 shrink-0 mt-0.5" />
-                  <div className="space-y-1">
-                    <p className="font-bold text-rose-900">
-                      Payment Incomplete or Interrupted
-                    </p>
-                    <p className="text-rose-700 leading-relaxed">{errorMsg}</p>
-                  </div>
-                </div>
-                <div className="pt-2 border-t border-rose-200/80 flex flex-wrap items-center justify-between gap-2">
-                  <span className="text-[11px] text-rose-600">
-                    If amount was debited or you need help:
-                  </span>
-                  <a
-                    href="mailto:support@chikoochi.com?subject=Payment%20Assistance%20-%20Upsc-Practice"
-                    className="cursor-pointer inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-rose-600 hover:bg-rose-700 text-white font-bold text-xs transition-colors shadow-2xs"
-                  >
-                    <Mail className="h-3.5 w-3.5" />
-                    <span>support@chikoochi.com</span>
-                  </a>
-                </div>
-              </div>
+          <button
+            type="button"
+            disabled={loading}
+            onClick={handlePay}
+            className="button-primary mt-5 w-full"
+          >
+            {loading ? (
+              <Loader2 aria-hidden="true" className="h-4 w-4 animate-spin" />
+            ) : (
+              <CreditCard aria-hidden="true" className="h-4 w-4" />
             )}
-
-            {/* CTA Button */}
-            <div className="space-y-2 pt-1">
-              <button
-                type="button"
-                disabled={loading}
-                onClick={handlePay}
-                className="w-full flex items-center justify-center gap-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 active:scale-[0.99] py-3.5 text-sm font-bold text-white transition-all shadow-md disabled:opacity-50 cursor-pointer"
-              >
-                {loading ? (
-                  <>
-                    <Loader2 className="h-4 w-4 animate-spin" />
-                    <span>Connecting to Razorpay...</span>
-                  </>
-                ) : (
-                  <>
-                    <CreditCard className="h-4 w-4" />
-                    <span>Pay ₹999 & Unlock Lifetime Vault</span>
-                  </>
-                )}
-              </button>
-
-              <div className="flex items-center justify-center gap-1.5 text-[11px] text-slate-400 pt-1">
-                <ShieldCheck className="h-3.5 w-3.5 text-emerald-600" />
-                <span>
-                  Instant activation • 100% secure Razorpay checkout (UPI, GPay,
-                  PhonePe, Cards)
-                </span>
-              </div>
-            </div>
-          </>
-        )}
-      </div>
-    </div>,
-    document.body,
+            {loading ? "Connecting to payment…" : "Continue to secure payment"}
+          </button>
+          <p className="mt-2 flex items-center justify-center gap-1.5 text-xs text-slate-500">
+            <ShieldCheck
+              aria-hidden="true"
+              className="h-3.5 w-3.5 text-emerald-700"
+            />
+            Payment is processed by Razorpay.
+          </p>
+        </>
+      )}
+    </ModalShell>
   );
 }
