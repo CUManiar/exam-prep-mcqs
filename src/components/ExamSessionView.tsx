@@ -1309,7 +1309,7 @@ export function ExamSessionView({
           }`}
         >
           {/* Active Question Top Card */}
-          <div className="border-b border-slate-200 p-3.5 sm:p-5 bg-white shrink-0 overflow-y-auto max-h-[50%] lg:max-h-none shadow-2xs">
+          <div className="flex-1 min-h-0 border-b border-slate-200 p-3.5 sm:p-5 bg-white overflow-y-auto shadow-2xs">
             {currentQuestion === null ? (
               <div className="space-y-4 py-1">
                 <div className="flex items-center justify-between gap-2">
@@ -1936,8 +1936,9 @@ export function ExamSessionView({
                 )}
 
                 {/* Navigation Bottom Controls with Highlighted Clear Selection */}
-                <div className="mt-4 flex items-center justify-between gap-2 pt-2 border-t border-slate-100">
+                <div className="sticky bottom-0 -mx-3.5 sm:-mx-5 mt-4 flex items-center justify-between gap-2 border-t border-slate-200 bg-white/95 px-3.5 py-2.5 backdrop-blur sm:px-5 shadow-[0_-4px_12px_rgba(15,23,42,0.05)]">
                   <button
+                    type="button"
                     disabled={currentQuestion <= 1}
                     onClick={() =>
                       setCurrentQuestion((prev) => Math.max(1, (prev || 1) - 1))
@@ -1965,15 +1966,16 @@ export function ExamSessionView({
                   )}
 
                   <button
+                    type="button"
                     disabled={currentQuestion >= paper.totalQuestions}
                     onClick={() =>
                       setCurrentQuestion((prev) =>
                         Math.min(paper.totalQuestions, (prev || 1) + 1),
                       )
                     }
-                    className="flex items-center gap-1 rounded-xl border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-40 disabled:pointer-events-none transition-colors shadow-2xs"
+                    className="flex min-h-10 items-center gap-1.5 rounded-lg bg-blue-700 px-4 py-2 text-xs font-semibold text-white shadow-sm transition-colors hover:bg-blue-800 disabled:pointer-events-none disabled:opacity-40"
                   >
-                    Next <ChevronRight className="h-3.5 w-3.5" />
+                    Next question <ChevronRight className="h-4 w-4" />
                   </button>
                 </div>
               </>
