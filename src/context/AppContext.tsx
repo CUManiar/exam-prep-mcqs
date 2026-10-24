@@ -771,17 +771,30 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         isOpen={authModalOpen}
         onClose={() => setAuthModalOpen(false)}
         onSuccess={async () => {
-          await loadAllData();
           if (guestCompletionAttempt) {
+            const completedGuestAttempt = guestCompletionAttempt;
             const user = await getCurrentUser();
             if (user) {
-              await saveUserAttemptToSupabase(guestCompletionAttempt, user.id);
+              await saveUserAttemptToSupabase(completedGuestAttempt, user.id);
             }
+
+            // Load the account first, then retain the just-completed result in
+            // memory before navigating to its detail route. Without this, the
+            // route can render between the auth refresh and the Supabase write.
+            await loadAllData();
+            setAttempts((previous) => [
+              completedGuestAttempt,
+              ...previous.filter(
+                (attempt) => attempt.id !== completedGuestAttempt.id,
+              ),
+            ]);
             setGuestCompletionModalOpen(false);
-            const targetId = guestCompletionAttempt.id;
+            const targetId = completedGuestAttempt.id;
             setGuestCompletionAttempt(null);
             router.push(`/history/${encodeURIComponent(targetId)}`);
+            return;
           }
+          await loadAllData();
         }}
       />
 
