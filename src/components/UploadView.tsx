@@ -52,6 +52,7 @@ import { ExamCoverCard } from "./studio/ExamCoverCard";
 import { QuestionStreamPreview } from "./studio/QuestionStreamPreview";
 import { AnswerKeyWidget } from "./studio/AnswerKeyWidget";
 import { PdfAttachmentCard } from "./studio/PdfAttachmentCard";
+import { PageHeader } from "./PageHeader";
 
 interface UploadViewProps {
   papers?: QuestionPaper[];
@@ -903,18 +904,12 @@ export function UploadView({
   return (
     <div className="mx-auto max-w-4xl px-4 py-6 sm:px-6 space-y-6">
       {/* Page Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 pb-4 border-b border-slate-200">
-        <div>
-          <h1 className="text-xl sm:text-2xl font-bold text-slate-900 tracking-tight">
-            Question Papers Studio
-          </h1>
-          <p className="text-xs sm:text-sm text-slate-500 mt-0.5">
-            Configure rules, questionnaire, and answer key in three clear segments.
-          </p>
-        </div>
-
-        {/* Top Segmented Mode Switcher */}
-        <div className="inline-flex items-center p-1 rounded-xl bg-slate-100 border border-slate-200 text-xs font-medium shrink-0 self-start sm:self-auto">
+      <PageHeader
+        eyebrow="Paper library"
+        title="Question Papers Studio"
+        description="Configure rules, questionnaire, and answer key in three clear segments."
+        actions={
+          <div className="inline-flex items-center p-1 rounded-lg bg-slate-100 border border-slate-200 text-xs font-medium">
           <button
             type="button"
             onClick={() => {
@@ -965,8 +960,9 @@ export function UploadView({
             <Edit3 className="h-3.5 w-3.5 text-indigo-600" />
             <span>Update Paper</span>
           </button>
-        </div>
-      </div>
+          </div>
+        }
+      />
 
       {/* Global Status Message */}
       {statusMsg && (

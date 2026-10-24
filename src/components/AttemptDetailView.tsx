@@ -897,15 +897,17 @@ export function AttemptDetailView({
       </div>
 
       {/* 1. Header Bar & Actions (Clean, restrained, professional) */}
-      <div className="screen-only flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 border-b border-slate-200 pb-5">
-        <div className="flex items-center gap-3">
+      <div className="screen-only flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4 border-b border-slate-200 pb-5">
+        <div className="flex min-w-0 items-start gap-3">
           <button
             onClick={onBack}
-            className="flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50 hover:text-slate-900 transition-colors"
+            aria-label="Go back"
+            title="Go back"
+            className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-600 hover:bg-slate-50 hover:text-slate-900 transition-colors"
           >
-            <ArrowLeft className="h-3.5 w-3.5" /> Back
+            <ArrowLeft className="h-4 w-4" />
           </button>
-          <div>
+          <div className="min-w-0">
             <div className="flex items-center gap-2 text-[11px] text-slate-500">
               <span className="font-medium text-slate-700">
                 {attempt.mode === "mock" ? "Timed mock" : "Practice"} report
@@ -915,7 +917,7 @@ export function AttemptDetailView({
               </span>
               <span>{formatDateTime(attempt.startedAt)}</span>
             </div>
-            <h1 className="text-lg sm:text-xl font-semibold text-slate-900 tracking-tight mt-0.5">
+            <h1 className="text-lg sm:text-xl font-semibold text-slate-900 tracking-tight mt-0.5 leading-tight">
               {displayPaperTitle}
             </h1>
             {paperDeleted && (
@@ -930,7 +932,7 @@ export function AttemptDetailView({
           </div>
         </div>
 
-        <div className="flex items-center gap-2 flex-wrap">
+        <div className="flex shrink-0 items-center justify-end gap-2 flex-wrap">
           {/* Question Paper Preview Toggle (Desktop Side-by-Side & Tablet/Mobile Vertical) */}
           {canPreviewPaper && (
             <button

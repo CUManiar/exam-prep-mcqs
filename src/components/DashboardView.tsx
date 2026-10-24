@@ -15,6 +15,7 @@ import {
   Target,
   Trash2,
 } from "lucide-react";
+import { PageHeader } from "./PageHeader";
 
 interface DashboardViewProps {
   papers: QuestionPaper[];
@@ -103,22 +104,20 @@ export function DashboardView({
 
   return (
     <div className="page-container">
-      <div className="page-heading">
-        <div>
-          <p className="page-eyebrow">Your study workspace</p>
-          <h1 className="page-title">Assessment overview</h1>
-          <p className="page-description">
-            Choose a paper, complete an assessment, and review your progress.
-          </p>
-        </div>
-        <button
-          type="button"
-          onClick={onNavigatePapers}
-          className="button-primary"
-        >
-          <BookOpen className="h-4 w-4" /> Browse papers
-        </button>
-      </div>
+      <PageHeader
+        eyebrow="Your study workspace"
+        title="Assessment overview"
+        description="Choose a paper, complete an assessment, and review your progress."
+        actions={
+          <button
+            type="button"
+            onClick={onNavigatePapers}
+            className="button-primary"
+          >
+            <BookOpen className="h-4 w-4" /> Browse papers
+          </button>
+        }
+      />
 
       {activeDraft && (
         <section

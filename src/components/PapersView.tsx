@@ -17,6 +17,7 @@ import {
 import { attachToPaperOnServer } from "../lib/storage";
 import { DetailedSolutionModal } from "./DetailedSolutionModal";
 import { useApp } from "../context/AppContext";
+import { PageHeader } from "./PageHeader";
 import {
   BookOpen,
   Search,
@@ -256,17 +257,17 @@ export function PapersView({
 
   return (
     <div className="page-container space-y-6">
-      <div className="page-heading">
-        <div>
-          <p className="page-eyebrow">Paper library · {papers.length} available</p>
-          <h1 className="page-title">Question papers</h1>
-          <p className="page-description">Find an assessment, review its materials, or add a paper to your library.</p>
-        </div>
-        <button type="button" onClick={onNavigateUpload} className="button-primary self-start sm:self-auto">
-          <Plus className="h-4 w-4" />
-          <span>Add a paper</span>
-        </button>
-      </div>
+      <PageHeader
+        eyebrow={`Paper library · ${papers.length} available`}
+        title="Question papers"
+        description="Find an assessment, review its materials, or add a paper to your library."
+        actions={
+          <button type="button" onClick={onNavigateUpload} className="button-primary">
+            <Plus className="h-4 w-4" />
+            <span>Add a paper</span>
+          </button>
+        }
+      />
 
       {/* Filter / Search Bar */}
       <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 bg-white border border-slate-200/80 rounded-2xl p-3 shadow-xs">
