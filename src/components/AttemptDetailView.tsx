@@ -304,7 +304,7 @@ export function AttemptDetailView({
 
   const scorePct = useMemo(() => {
     if (!effectiveMaxScore || effectiveMaxScore <= 0) return "0.0";
-    return Math.max(0, (attempt.score / effectiveMaxScore) * 100).toFixed(1);
+    return ((attempt.score / effectiveMaxScore) * 100).toFixed(1);
   }, [attempt.score, effectiveMaxScore]);
 
   const handleCopySummary = async () => {
@@ -1254,7 +1254,7 @@ export function AttemptDetailView({
                   / {effectiveMaxScore}
                 </span>
                 <span className="ml-1 text-xs text-slate-600 font-medium">
-                  {scorePct}%
+                  Percentage {scorePct}%
                 </span>
               </div>
 

@@ -1,4 +1,4 @@
-import { QuestionPaper } from "./types";
+import { Attempt, QuestionPaper } from "./types";
 import { SAMPLE_MARKDOWN_PAPER } from "../data/sampleMarkdownPaper";
 
 export function parseAnswerKeyDetailed(text: string): {
@@ -47,6 +47,12 @@ export function formatTimeSeconds(seconds: number): string {
   const s = Math.floor(seconds % 60);
   const pad = (n: number) => n.toString().padStart(2, "0");
   return `${pad(h)}:${pad(m)}:${pad(s)}`;
+}
+
+/** Percentage of the available marks earned, including negative scores. */
+export function getAttemptPercentage(attempt: Pick<Attempt, "score" | "maxScore">): number {
+  if (!attempt.maxScore || attempt.maxScore <= 0) return 0;
+  return Math.round((attempt.score / attempt.maxScore) * 1000) / 10;
 }
 
 export function getStandardTimeMinutes(

@@ -20,7 +20,11 @@ import {
 } from "lucide-react";
 import { useMemo, useState } from "react";
 import { useApp } from "../context/AppContext";
-import { formatDateTime, formatTimeSeconds } from "../lib/defaults";
+import {
+  formatDateTime,
+  formatTimeSeconds,
+  getAttemptPercentage,
+} from "../lib/defaults";
 import { Attempt } from "../lib/types";
 
 interface HistoryViewProps {
@@ -508,6 +512,7 @@ export function HistoryView({
                           <th className="py-2.5 px-3">Date</th>
                           <th className="py-2.5 px-3">Duration</th>
                           <th className="py-2.5 px-3">Net Score</th>
+                          <th className="py-2.5 px-3">Percentage</th>
                           <th className="py-2.5 px-3">Accuracy</th>
                           <th className="py-2.5 px-3">Breakdown</th>
                           <th className="py-2.5 px-3 text-right">Action</th>
@@ -530,6 +535,9 @@ export function HistoryView({
                             </td>
                             <td className="py-2 px-3 font-mono font-bold text-slate-900">
                               {att.score} / {att.maxScore}
+                            </td>
+                            <td className="py-2 px-3 font-mono font-bold text-indigo-700">
+                              {getAttemptPercentage(att)}%
                             </td>
                             <td className="py-2 px-3 font-mono font-bold text-teal-700">
                               {att.accuracyPct}%
@@ -597,9 +605,6 @@ export function HistoryView({
               group.paper || papers.find((p) => p.id === group.paperId);
             const paperDeleted = !matchedPaper;
 
-            const isCsat =
-              group.paperLabel.includes("CSAT") ||
-              group.paperLabel.includes("GS II");
             const scoreColor =
               activeAttempt.score >= 90
                 ? "text-emerald-700"
@@ -607,40 +612,35 @@ export function HistoryView({
                   ? "text-amber-700"
                   : "text-slate-800";
 
-            // Cutoff indicator badge for active attempt
-            let cutoffBadge = null;
-            if (isCsat) {
-              const qualified = activeAttempt.score >= 66.67;
-              cutoffBadge = (
-                <span
-                  className={`text-[10px] font-medium px-2 py-0.5 rounded-md flex items-center gap-1 ${
-                    qualified
-                      ? "bg-emerald-50 text-emerald-700 border border-emerald-200/50"
-                      : "bg-rose-50 text-rose-700 border border-rose-200/50"
-                  }`}
-                >
-                  {qualified ? (
-                    <CheckCircle2 className="h-3 w-3" />
-                  ) : (
-                    <AlertTriangle className="h-3 w-3" />
-                  )}
-                  {qualified ? "CSAT Qualified" : "Below Cutoff"}
-                </span>
-              );
-            } else if (activeAttempt.category === "prelims") {
-              const competitive = activeAttempt.score >= 95;
-              cutoffBadge = (
-                <span
-                  className={`text-[10px] font-medium px-2 py-0.5 rounded-md ${
-                    competitive
-                      ? "bg-emerald-50 text-emerald-700 border border-emerald-200/50"
-                      : "bg-slate-100 text-slate-600 border border-slate-200/60"
-                  }`}
-                >
-                  {competitive ? "Cutoff Cleared" : "Prelims Mock"}
-                </span>
-              );
-            }
+            // Cutoff status is shown only when the paper explicitly enables it.
+            const cutoffEnabled =
+              matchedPaper?.cutoffEnabled ?? activeAttempt.cutoffEnabled ?? false;
+            const cutoffType =
+              matchedPaper?.cutoffType || activeAttempt.cutoffType || "percentage";
+            const cutoffValue = matchedPaper?.cutoffValue ?? activeAttempt.cutoffValue;
+            const cutoffMeasure =
+              cutoffType === "marks"
+                ? activeAttempt.score
+                : getAttemptPercentage(activeAttempt);
+            const hasCutoff =
+              cutoffEnabled && cutoffValue !== undefined && Number.isFinite(cutoffValue);
+            const cutoffCleared = hasCutoff && cutoffMeasure >= cutoffValue;
+            const cutoffBadge = hasCutoff ? (
+              <span
+                className={`text-[10px] font-medium px-2 py-0.5 rounded-md flex items-center gap-1 ${
+                  cutoffCleared
+                    ? "bg-emerald-50 text-emerald-700 border border-emerald-200/50"
+                    : "bg-rose-50 text-rose-700 border border-rose-200/50"
+                }`}
+              >
+                {cutoffCleared ? (
+                  <CheckCircle2 className="h-3 w-3" />
+                ) : (
+                  <AlertTriangle className="h-3 w-3" />
+                )}
+                {cutoffCleared ? "Cutoff Cleared" : "Below Cutoff"}
+              </span>
+            ) : null;
 
             return (
               <div
@@ -761,7 +761,7 @@ export function HistoryView({
                     </div>
 
                     {/* Score & Accuracy Box - Clean card style */}
-                    <div className="flex items-center justify-between rounded-xl bg-slate-50/80 px-4 py-3 border border-slate-100">
+                    <div className="grid grid-cols-3 gap-3 rounded-xl bg-slate-50/80 px-4 py-3 border border-slate-100">
                       <div>
                         <span className="text-[10px] text-slate-400 uppercase tracking-wider block font-medium">
                           Score
@@ -773,6 +773,14 @@ export function HistoryView({
                           <span className="text-xs text-slate-400 font-normal">
                             / {activeAttempt.maxScore}
                           </span>
+                        </div>
+                      </div>
+                      <div className="text-center">
+                        <span className="text-[10px] text-slate-400 uppercase tracking-wider block font-medium">
+                          Percentage
+                        </span>
+                        <div className="text-lg font-bold text-indigo-700 font-mono mt-0.5">
+                          {getAttemptPercentage(activeAttempt)}%
                         </div>
                       </div>
                       <div className="text-right">

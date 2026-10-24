@@ -15,6 +15,7 @@ import {
   parseAnswerKeyDetailed,
   getStandardTimeMinutes,
   getPaperDisplayTitle,
+  getAttemptPercentage,
 } from "../lib/defaults";
 import {
   saveActiveDraft,
@@ -844,7 +845,14 @@ export function ExamSessionView({
       unattempted: unattemptedCount,
       score: Math.round(calculatedScore * 100) / 100,
       maxScore: Math.round(maxScore * 100) / 100,
+      percentagePct: getAttemptPercentage({
+        score: calculatedScore,
+        maxScore,
+      }),
       accuracyPct: Math.round(accuracyPct * 10) / 10,
+      cutoffEnabled: paper.cutoffEnabled,
+      cutoffType: paper.cutoffType,
+      cutoffValue: paper.cutoffValue,
       avgTimePerQuestion,
       avgTimeCorrect,
       avgTimeIncorrect,

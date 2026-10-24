@@ -324,6 +324,16 @@ export async function fetchUserCustomPapersFromSupabase(
         markdownContent: row.markdown_content || row.markdownContent || undefined,
         parsedQuestions: row.parsed_questions || row.parsedQuestions || undefined,
         instructions: row.instructions || undefined,
+        cutoffEnabled:
+          row.cutoff_enabled === true ||
+          row.cutoff_enabled === "true" ||
+          row.cutoffEnabled === true ||
+          row.cutoffEnabled === "true",
+        cutoffType: row.cutoff_type === "marks" ? "marks" : "percentage",
+        cutoffValue:
+          row.cutoff_value !== null && row.cutoff_value !== undefined
+            ? Number(row.cutoff_value)
+            : undefined,
         isCustom: true,
         userId: row.user_id,
       };
@@ -367,6 +377,12 @@ export async function saveUserCustomPaperToSupabase(
       parsed_questions: paper.parsedQuestions || null,
       instructions: paper.instructions || [],
       explanations: paper.explanations || {},
+      cutoff_enabled: Boolean(paper.cutoffEnabled),
+      cutoff_type: paper.cutoffType || "percentage",
+      cutoff_value:
+        paper.cutoffEnabled && paper.cutoffValue !== undefined
+          ? paper.cutoffValue
+          : null,
       updated_at: new Date().toISOString(),
     });
     return !error;

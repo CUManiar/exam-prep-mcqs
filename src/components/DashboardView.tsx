@@ -2,7 +2,11 @@
 
 import React from "react";
 import { ActiveSessionDraft, Attempt, QuestionPaper } from "../lib/types";
-import { isPaperFree, isUserUploadedPaper } from "../lib/defaults";
+import {
+  getAttemptPercentage,
+  isPaperFree,
+  isUserUploadedPaper,
+} from "../lib/defaults";
 import {
   ArrowRight,
   AlertTriangle,
@@ -72,6 +76,14 @@ export function DashboardView({
         ) / mockAttempts.length,
       )
     : null;
+  const averagePercentage = mockAttempts.length
+    ? Math.round(
+        (mockAttempts.reduce(
+          (sum, attempt) => sum + getAttemptPercentage(attempt),
+          0,
+        ) / mockAttempts.length) * 10,
+      ) / 10
+    : null;
   const recommendedPaper =
     papers.find(
       (paper) =>
@@ -99,6 +111,11 @@ export function DashboardView({
       label: "Mock average accuracy",
       value: averageAccuracy === null ? "—" : `${averageAccuracy}%`,
       icon: BarChart3,
+    },
+    {
+      label: "Mock average percentage",
+      value: averagePercentage === null ? "—" : `${averagePercentage}%`,
+      icon: Target,
     },
   ];
 
@@ -298,6 +315,9 @@ export function DashboardView({
                       </span>
                       <span className="font-semibold tabular-nums text-slate-900">
                         {attempt.score}/{attempt.maxScore}
+                      </span>
+                      <span className="font-medium tabular-nums text-indigo-700">
+                        {getAttemptPercentage(attempt)}%
                       </span>
                       <span className="font-medium tabular-nums text-slate-700">
                         {Math.round(attempt.accuracyPct || 0)}%

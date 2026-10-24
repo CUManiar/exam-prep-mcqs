@@ -1,5 +1,6 @@
 export type ExamType = "objective" | "subjective";
 export type ExamCategory = "prelims" | "mains";
+export type CutoffType = "percentage" | "marks";
 
 export interface ParsedQuestion {
   questionNo: number;
@@ -33,6 +34,9 @@ export interface QuestionPaper {
   markdownContent?: string;
   parsedQuestions?: ParsedQuestion[];
   instructions?: string[];
+  cutoffEnabled?: boolean;
+  cutoffType?: CutoffType;
+  cutoffValue?: number;
 }
 
 export type ConfidenceLevel = "sure" | "50-50" | "guess" | "elimination";
@@ -75,7 +79,11 @@ export interface Attempt {
   unattempted: number;
   score: number;
   maxScore: number;
+  percentagePct?: number;
   accuracyPct: number;
+  cutoffEnabled?: boolean;
+  cutoffType?: CutoffType;
+  cutoffValue?: number;
   avgTimePerQuestion?: number;
   avgTimeCorrect?: number;
   avgTimeIncorrect?: number;

@@ -727,8 +727,11 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   // Update paper handler
   const handleUpdatePaper = async (paper: QuestionPaper) => {
     await updatePaperOnServer(paper.id, paper);
-    const freshPapers = await getAllPapers();
-    setPapers(freshPapers);
+    if (currentUser?.id && isUserUploadedPaper(paper)) {
+      await saveUserCustomPaperToSupabase(paper, currentUser.id);
+    }
+    setPapers((prev) => [paper, ...prev.filter((p) => p.id !== paper.id)]);
+    await loadAllData();
   };
 
   return (

@@ -46,6 +46,26 @@ export async function POST(
       );
     }
 
+    const hasCutoffUpdate = formData.has("cutoffEnabled");
+    const cutoffEnabled = hasCutoffUpdate
+      ? formData.get("cutoffEnabled") === "true"
+      : Boolean(currentPaper.cutoffEnabled);
+    const cutoffType =
+      formData.get("cutoffType") === "marks"
+        ? "marks"
+        : formData.has("cutoffType")
+          ? "percentage"
+          : currentPaper.cutoffType || "percentage";
+    const cutoffValueInput = parseFloat(
+      (formData.get("cutoffValue") as string) || "",
+    );
+    const cutoffValue =
+      cutoffEnabled && Number.isFinite(cutoffValueInput) && cutoffValueInput >= 0
+        ? cutoffValueInput
+        : hasCutoffUpdate
+          ? undefined
+          : currentPaper.cutoffValue;
+
     const year = currentPaper.year || "2026";
     const cat = currentPaper.category || "prelims";
     const cleanName = cleanId.replace(/^[0-9]+_/, "") || cleanId;
@@ -156,6 +176,9 @@ export async function POST(
       markdownContent: finalMarkdownContent || undefined,
       parsedQuestions: finalParsedQuestions || undefined,
       instructions: finalInstructions || undefined,
+      cutoffEnabled,
+      cutoffType,
+      cutoffValue,
       updatedAt: new Date().toISOString(),
     };
 
@@ -197,6 +220,9 @@ export async function POST(
           parsed_questions: updated.parsedQuestions || null,
           instructions: updated.instructions || [],
           explanations: updated.explanations || {},
+          cutoff_enabled: updated.cutoffEnabled,
+          cutoff_type: updated.cutoffType,
+          cutoff_value: updated.cutoffValue ?? null,
           updated_at: new Date().toISOString(),
         });
       } catch (dbErr) {

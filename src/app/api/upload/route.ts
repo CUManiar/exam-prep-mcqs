@@ -31,6 +31,13 @@ export async function POST(req: NextRequest) {
           ? totalQuestions * correctMarks
           : 250;
     const answerKeyTextInput = (formData.get("answerKeyText") as string) || "";
+    const cutoffEnabled = formData.get("cutoffEnabled") === "true";
+    const cutoffType = formData.get("cutoffType") === "marks" ? "marks" : "percentage";
+    const cutoffValueInput = parseFloat((formData.get("cutoffValue") as string) || "");
+    const cutoffValue =
+      cutoffEnabled && Number.isFinite(cutoffValueInput) && cutoffValueInput >= 0
+        ? cutoffValueInput
+        : undefined;
     const userId = (formData.get("userId") as string) || "";
     const isUserUpload = Boolean(
       userId && userId !== "null" && userId !== "undefined",
@@ -187,6 +194,9 @@ export async function POST(req: NextRequest) {
       markdownContent: markdownContent || undefined,
       parsedQuestions: parsedQuestions || undefined,
       instructions: markdownInstructions.length > 0 ? markdownInstructions : undefined,
+      cutoffEnabled,
+      cutoffType,
+      cutoffValue,
       isCustom: true,
       updatedAt: new Date().toISOString(),
     };
@@ -226,6 +236,9 @@ export async function POST(req: NextRequest) {
           parsed_questions: parsedQuestions || null,
           instructions: markdownInstructions,
           explanations: parsedExplanations,
+          cutoff_enabled: cutoffEnabled,
+          cutoff_type: cutoffType,
+          cutoff_value: cutoffValue ?? null,
           updated_at: new Date().toISOString(),
         });
       } catch (dbErr) {

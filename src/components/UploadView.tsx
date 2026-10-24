@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useMemo, useCallback, useEffect } from "react";
-import { QuestionPaper, ExamType } from "../lib/types";
+import { CutoffType, QuestionPaper, ExamType } from "../lib/types";
 import {
   SUPPORTED_YEARS,
   hasAnswerKey,
@@ -156,6 +156,9 @@ export function UploadView({
   const [customTotalMarks, setCustomTotalMarks] = useState<string>("");
   const [customTotalMarksEdited, setCustomTotalMarksEdited] = useState<boolean>(false);
   const [customTimeMinutes, setCustomTimeMinutes] = useState<string>("120");
+  const [customCutoffEnabled, setCustomCutoffEnabled] = useState(false);
+  const [customCutoffType, setCustomCutoffType] = useState<CutoffType>("percentage");
+  const [customCutoffValue, setCustomCutoffValue] = useState<string>("");
 
   // Automatic calculation helpers
   const handleCustomQuestionsChange = (val: string) => {
@@ -300,6 +303,9 @@ export function UploadView({
   const [correctMarks, setCorrectMarks] = useState<number>(2.0);
   const [incorrectMarks, setIncorrectMarks] = useState<number>(0.667);
   const [timeMinutes, setTimeMinutes] = useState<number>(120);
+  const [cutoffEnabled, setCutoffEnabled] = useState(false);
+  const [cutoffType, setCutoffType] = useState<CutoffType>("percentage");
+  const [cutoffValue, setCutoffValue] = useState<number | "">("");
 
   // Update mode: Segment 2 (Questionnaire)
   const [updateQpFormat, setUpdateQpFormat] = useState<"pdf" | "markdown">("markdown");
@@ -386,6 +392,13 @@ export function UploadView({
       setCorrectMarks(p.correctMarks || 2.0);
       setIncorrectMarks(p.incorrectMarks || 0.667);
       setTimeMinutes(p.timeMinutes || 120);
+      setCutoffEnabled(Boolean(p.cutoffEnabled));
+      setCutoffType(p.cutoffType || "percentage");
+      setCutoffValue(
+        typeof p.cutoffValue === "number" && Number.isFinite(p.cutoffValue)
+          ? p.cutoffValue
+          : "",
+      );
       setPaperIdentifier(p.id.replace(/^[0-9]+_/, ""));
       setSubjectPreset(p.subject || "GS I");
       setUpdateInstructions(p.instructions || []);
@@ -570,6 +583,12 @@ export function UploadView({
           isCustom: true,
           userId: currentUser?.id,
           instructions: mdHeader.instructions,
+          cutoffEnabled: customCutoffEnabled,
+          cutoffType: customCutoffType,
+          cutoffValue:
+            customCutoffEnabled && customCutoffValue !== ""
+              ? parseFloat(customCutoffValue)
+              : undefined,
         };
 
         try {
@@ -586,6 +605,11 @@ export function UploadView({
           formData.append("correctMarks", String(posMarks));
           formData.append("incorrectMarks", String(negMarks));
           formData.append("timeMinutes", String(time));
+          formData.append("cutoffEnabled", String(customCutoffEnabled));
+          formData.append("cutoffType", customCutoffType);
+          if (customCutoffEnabled && customCutoffValue !== "") {
+            formData.append("cutoffValue", customCutoffValue);
+          }
           formData.append("isCustom", "true");
           formData.append("markdownContent", customQpMarkdown);
           formData.append("parsedQuestions", JSON.stringify(parsedQuestions));
@@ -638,6 +662,11 @@ export function UploadView({
       formData.append("correctMarks", String(posMarks));
       formData.append("incorrectMarks", String(negMarks));
       formData.append("timeMinutes", String(time));
+      formData.append("cutoffEnabled", String(customCutoffEnabled));
+      formData.append("cutoffType", customCutoffType);
+      if (customCutoffEnabled && customCutoffValue !== "") {
+        formData.append("cutoffValue", customCutoffValue);
+      }
       formData.append("isCustom", "true");
 
       if (customQpFile) {
@@ -726,6 +755,11 @@ export function UploadView({
       formData.append("correctMarks", String(correctMarks));
       formData.append("incorrectMarks", String(incorrectMarks));
       formData.append("timeMinutes", String(timeMinutes));
+      formData.append("cutoffEnabled", String(cutoffEnabled));
+      formData.append("cutoffType", cutoffType);
+      if (cutoffEnabled && cutoffValue !== "") {
+        formData.append("cutoffValue", String(cutoffValue));
+      }
 
       let updated = await attachToPaperOnServer(
         currentSelectedPaper.id,
@@ -752,6 +786,12 @@ export function UploadView({
           correctMarks: correctMarks,
           incorrectMarks: incorrectMarks,
           timeMinutes: timeMinutes,
+          cutoffEnabled,
+          cutoffType,
+          cutoffValue:
+            cutoffEnabled && cutoffValue !== ""
+              ? Number(cutoffValue)
+              : undefined,
           markdownContent:
             updateQpFormat === "markdown"
               ? updateMarkdown.trim()
@@ -856,6 +896,11 @@ export function UploadView({
         "timeMinutes",
         String(timeMinutes || (examType === "objective" ? 120 : 180)),
       );
+      formData.append("cutoffEnabled", String(cutoffEnabled));
+      formData.append("cutoffType", cutoffType);
+      if (cutoffEnabled && cutoffValue !== "") {
+        formData.append("cutoffValue", String(cutoffValue));
+      }
 
       formData.append("qpFile", qpFile);
       if (akFile && akMode === "upload") {
@@ -1027,6 +1072,12 @@ export function UploadView({
               onIncorrectMarksChange={setCustomNegativeMarks}
               totalMarks={customTotalMarks}
               onTotalMarksChange={handleCustomTotalMarksChange}
+              cutoffEnabled={customCutoffEnabled}
+              onCutoffEnabledChange={setCustomCutoffEnabled}
+              cutoffType={customCutoffType}
+              onCutoffTypeChange={setCustomCutoffType}
+              cutoffValue={customCutoffValue}
+              onCutoffValueChange={setCustomCutoffValue}
               instructionsCount={
                 (customInstructions.length > 0
                   ? customInstructions
@@ -1551,6 +1602,12 @@ export function UploadView({
                   onCorrectMarksChange={setCorrectMarks}
                   onIncorrectMarksChange={setIncorrectMarks}
                   onTotalMarksChange={setTotalMarks}
+                  cutoffEnabled={cutoffEnabled}
+                  onCutoffEnabledChange={setCutoffEnabled}
+                  cutoffType={cutoffType}
+                  onCutoffTypeChange={setCutoffType}
+                  cutoffValue={cutoffValue}
+                  onCutoffValueChange={setCutoffValue}
                   instructionsCount={(updateInstructions.length > 0 ? updateInstructions : (detectedUpdateHeader?.instructions || currentSelectedPaper.instructions || [])).length}
                 />
               </div>
@@ -1973,6 +2030,12 @@ export function UploadView({
                 onCorrectMarksChange={setCorrectMarks}
                 onIncorrectMarksChange={setIncorrectMarks}
                 onTotalMarksChange={setTotalMarks}
+                cutoffEnabled={cutoffEnabled}
+                onCutoffEnabledChange={setCutoffEnabled}
+                cutoffType={cutoffType}
+                onCutoffTypeChange={setCutoffType}
+                cutoffValue={cutoffValue}
+                onCutoffValueChange={setCutoffValue}
               />
             </div>
           </div>

@@ -3,7 +3,7 @@
 import React, { useState, useEffect, useMemo } from "react";
 import { useSearchParams } from "next/navigation";
 import { createPortal } from "react-dom";
-import { QuestionPaper, Attempt } from "../lib/types";
+import { CutoffType, QuestionPaper, Attempt } from "../lib/types";
 import {
   SUPPORTED_YEARS,
   hasAnswerKey,
@@ -87,6 +87,9 @@ export function PapersView({
   const [editCorrectMarks, setEditCorrectMarks] = useState<number>(2.0);
   const [editIncorrectMarks, setEditIncorrectMarks] = useState<number>(0.667);
   const [editTimeMinutes, setEditTimeMinutes] = useState<number>(120);
+  const [editCutoffEnabled, setEditCutoffEnabled] = useState(false);
+  const [editCutoffType, setEditCutoffType] = useState<CutoffType>("percentage");
+  const [editCutoffValue, setEditCutoffValue] = useState<number | "">("");
 
   // Dedicated Attach Modal (supports opening directly to 'key' or 'solution')
   const [attachingPaper, setAttachingPaper] = useState<QuestionPaper | null>(
@@ -112,6 +115,13 @@ export function PapersView({
     setEditCorrectMarks(p.correctMarks);
     setEditIncorrectMarks(p.incorrectMarks);
     setEditTimeMinutes(p.timeMinutes);
+    setEditCutoffEnabled(Boolean(p.cutoffEnabled));
+    setEditCutoffType(p.cutoffType || "percentage");
+    setEditCutoffValue(
+      typeof p.cutoffValue === "number" && Number.isFinite(p.cutoffValue)
+        ? p.cutoffValue
+        : "",
+    );
   };
 
   const handleSaveEdit = () => {
@@ -123,6 +133,12 @@ export function PapersView({
       correctMarks: editCorrectMarks,
       incorrectMarks: editIncorrectMarks,
       timeMinutes: editTimeMinutes,
+      cutoffEnabled: editCutoffEnabled,
+      cutoffType: editCutoffType,
+      cutoffValue:
+        editCutoffEnabled && editCutoffValue !== ""
+          ? Number(editCutoffValue)
+          : undefined,
     };
     onUpdatePaper(updated);
     setEditingPaper(null);
@@ -1025,6 +1041,48 @@ export function PapersView({
                     </div>
                   </div>
                 )}
+
+                <div className="rounded-xl border border-slate-200 bg-slate-50/70 p-3 space-y-2">
+                  <label className="flex items-center gap-2 font-semibold text-slate-700 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={editCutoffEnabled}
+                      onChange={(e) => setEditCutoffEnabled(e.target.checked)}
+                      className="h-3.5 w-3.5 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
+                    />
+                    Set qualifying marks / cutoff
+                  </label>
+                  {editCutoffEnabled && (
+                    <div className="grid grid-cols-2 gap-2">
+                      <select
+                        value={editCutoffType}
+                        onChange={(e) =>
+                          setEditCutoffType(e.target.value as CutoffType)
+                        }
+                        className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs text-slate-800 focus:border-indigo-500 focus:outline-none"
+                      >
+                        <option value="percentage">Percentage</option>
+                        <option value="marks">Marks</option>
+                      </select>
+                      <input
+                        type="number"
+                        min="0"
+                        step="any"
+                        value={editCutoffValue}
+                        onChange={(e) =>
+                          setEditCutoffValue(parseFloat(e.target.value) || "")
+                        }
+                        placeholder={
+                          editCutoffType === "percentage" ? "e.g. 40" : "e.g. 66.67"
+                        }
+                        className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-mono text-slate-800 focus:border-indigo-500 focus:outline-none"
+                      />
+                    </div>
+                  )}
+                  <p className="text-[10px] text-slate-500">
+                    Leave unchecked when this paper has no cutoff.
+                  </p>
+                </div>
               </div>
 
               <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-100">
