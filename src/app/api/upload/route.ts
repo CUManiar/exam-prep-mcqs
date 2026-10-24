@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { uploadFile, readJsonStore, writeJsonStore } from "@/lib/cloudStorage";
 import { parseAnswerKeyDetailed } from "@/lib/defaults";
+import { parseMarkdownHeader } from "@/lib/markdownPaperParser";
 
 export async function POST(req: NextRequest) {
   try {
@@ -115,6 +116,9 @@ export async function POST(req: NextRequest) {
         console.warn("Failed parsing parsedQuestions in upload API:", e);
       }
     }
+    const markdownInstructions = markdownContent
+      ? parseMarkdownHeader(markdownContent).instructions
+      : [];
 
     if (qpFile) {
       const qpBuffer = Buffer.from(await qpFile.arrayBuffer());
@@ -182,6 +186,7 @@ export async function POST(req: NextRequest) {
       explanations: parsedExplanations,
       markdownContent: markdownContent || undefined,
       parsedQuestions: parsedQuestions || undefined,
+      instructions: markdownInstructions.length > 0 ? markdownInstructions : undefined,
       isCustom: true,
       updatedAt: new Date().toISOString(),
     };
@@ -217,6 +222,10 @@ export async function POST(req: NextRequest) {
           exs_url: exsUrl || null,
           answer_key: parsedKey,
           answer_key_text: answerKeyContent || null,
+          markdown_content: markdownContent || null,
+          parsed_questions: parsedQuestions || null,
+          instructions: markdownInstructions,
+          explanations: parsedExplanations,
           updated_at: new Date().toISOString(),
         });
       } catch (dbErr) {

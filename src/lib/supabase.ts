@@ -320,6 +320,10 @@ export async function fetchUserCustomPapersFromSupabase(
         exsUrl: row.exs_url || undefined,
         answerKey: row.answer_key || {},
         answerKeyText: row.answer_key_text || undefined,
+        explanations: row.explanations || {},
+        markdownContent: row.markdown_content || row.markdownContent || undefined,
+        parsedQuestions: row.parsed_questions || row.parsedQuestions || undefined,
+        instructions: row.instructions || undefined,
         isCustom: true,
         userId: row.user_id,
       };
@@ -359,6 +363,10 @@ export async function saveUserCustomPaperToSupabase(
       exs_url: paper.exsUrl || null,
       answer_key: paper.answerKey || {},
       answer_key_text: paper.answerKeyText || null,
+      markdown_content: paper.markdownContent || null,
+      parsed_questions: paper.parsedQuestions || null,
+      instructions: paper.instructions || [],
+      explanations: paper.explanations || {},
       updated_at: new Date().toISOString(),
     });
     return !error;

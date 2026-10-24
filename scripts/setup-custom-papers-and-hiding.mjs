@@ -46,9 +46,20 @@ async function run() {
       exs_url TEXT,
       answer_key JSONB DEFAULT '{}',
       answer_key_text TEXT,
+      markdown_content TEXT,
+      parsed_questions JSONB,
+      instructions JSONB DEFAULT '[]',
+      explanations JSONB DEFAULT '{}',
       created_at TIMESTAMPTZ DEFAULT NOW(),
       updated_at TIMESTAMPTZ DEFAULT NOW()
     );
+
+    -- Keep existing installations compatible with Markdown persistence.
+    ALTER TABLE public.custom_papers
+      ADD COLUMN IF NOT EXISTS markdown_content TEXT,
+      ADD COLUMN IF NOT EXISTS parsed_questions JSONB,
+      ADD COLUMN IF NOT EXISTS instructions JSONB DEFAULT '[]',
+      ADD COLUMN IF NOT EXISTS explanations JSONB DEFAULT '{}';
 
     CREATE INDEX IF NOT EXISTS idx_custom_papers_user_id ON public.custom_papers(user_id);
 
