@@ -37,6 +37,8 @@ import {
   ChevronRight,
   Lock,
   Sparkles,
+  Grid2X2,
+  List,
 } from "lucide-react";
 
 interface PapersViewProps {
@@ -64,6 +66,7 @@ export function PapersView({
   const [selectedAttemptFilter, setSelectedAttemptFilter] = useState<
     "all" | "attempted" | "unattempted" | "mock" | "practice"
   >("all");
+  const [paperViewMode, setPaperViewMode] = useState<"grid" | "list">("grid");
   const [mounted, setMounted] = useState(false);
   const [viewingSolutionPaper, setViewingSolutionPaper] =
     useState<QuestionPaper | null>(null);
@@ -359,6 +362,38 @@ export function PapersView({
               </option>
             ))}
           </select>
+
+          <div
+            className="inline-flex items-center gap-0.5 rounded-xl border border-slate-200 bg-slate-100 p-0.5"
+            aria-label="Paper layout"
+          >
+            <button
+              type="button"
+              onClick={() => setPaperViewMode("grid")}
+              aria-label="Show papers as grid"
+              aria-pressed={paperViewMode === "grid"}
+              className={`cursor-pointer rounded-lg p-1.5 transition-colors ${
+                paperViewMode === "grid"
+                  ? "bg-white text-indigo-700 shadow-xs"
+                  : "text-slate-500 hover:text-slate-900"
+              }`}
+            >
+              <Grid2X2 className="h-3.5 w-3.5" />
+            </button>
+            <button
+              type="button"
+              onClick={() => setPaperViewMode("list")}
+              aria-label="Show papers as list"
+              aria-pressed={paperViewMode === "list"}
+              className={`cursor-pointer rounded-lg p-1.5 transition-colors ${
+                paperViewMode === "list"
+                  ? "bg-white text-indigo-700 shadow-xs"
+                  : "text-slate-500 hover:text-slate-900"
+              }`}
+            >
+              <List className="h-3.5 w-3.5" />
+            </button>
+          </div>
         </div>
       </div>
 
@@ -399,7 +434,13 @@ export function PapersView({
           )}
         </div>
       ) : (
-        <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">
+        <div
+          className={
+            paperViewMode === "grid"
+              ? "grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3"
+              : "flex flex-col gap-3"
+          }
+        >
           {filteredPapers.map((paper) => {
             const keyPresent = hasAnswerKey(paper);
             const solutionPresent = hasSolution(paper);
@@ -423,9 +464,13 @@ export function PapersView({
             return (
               <div
                 key={paper.id}
-                className="flex flex-col h-full justify-between bg-white rounded-2xl border border-slate-200/80 p-5 group hover:border-slate-300 hover:shadow-sm transition-all"
+                className={`flex h-full justify-between bg-white rounded-2xl border border-slate-200/80 p-5 group hover:border-slate-300 hover:shadow-sm transition-all ${
+                  paperViewMode === "grid"
+                    ? "flex-col"
+                    : "flex-col md:grid md:grid-cols-[minmax(0,1fr)_minmax(260px,340px)] md:gap-5"
+                }`}
               >
-                <div>
+                <div className="min-w-0">
                   {/* Top Header Row: Clean, quiet badges */}
                   <div className="flex items-center justify-between gap-2">
                     <div className="flex items-center gap-1.5 flex-wrap">
@@ -542,7 +587,13 @@ export function PapersView({
                 </div>
 
                 {/* Bottom Action Area: Clean & Uncluttered */}
-                <div className="mt-4 pt-3 border-t border-slate-100 space-y-2">
+                <div
+                  className={`space-y-2 ${
+                    paperViewMode === "grid"
+                      ? "mt-4 border-t border-slate-100 pt-3"
+                      : "mt-4 border-t border-slate-100 pt-3 md:mt-0 md:border-l md:border-t-0 md:pl-5 md:pt-0 md:self-stretch md:flex md:flex-col md:justify-center"
+                  }`}
+                >
                   {/* Primary Test Actions */}
                   <div className="grid grid-cols-2 gap-2">
                     {isLocked ? (

@@ -7,8 +7,10 @@ import {
   CheckCircle2,
   ChevronRight,
   Clock,
+  Grid2X2,
   History,
   Layers,
+  List,
   RotateCcw,
   Search,
   Target,
@@ -34,6 +36,9 @@ export function HistoryView({
   const { papers, handleStartExam } = useApp();
   const [search, setSearch] = useState("");
   const [viewMode, setViewMode] = useState<"all" | "cumulative">("all");
+  const [performanceViewMode, setPerformanceViewMode] = useState<
+    "grid" | "list"
+  >("grid");
   const [selectedAttemptByPaper, setSelectedAttemptByPaper] = useState<
     Record<string, string>
   >({});
@@ -240,6 +245,38 @@ export function HistoryView({
               placeholder="Search paper..."
               className="w-full rounded-xl border border-slate-200 bg-white pl-8 pr-3 py-1.5 text-xs text-slate-800 placeholder-slate-400 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 focus:outline-none transition-all shadow-xs"
             />
+          </div>
+
+          <div
+            className="inline-flex items-center gap-0.5 rounded-xl border border-slate-200 bg-slate-100 p-0.5 self-start sm:self-auto"
+            aria-label="Performance layout"
+          >
+            <button
+              type="button"
+              onClick={() => setPerformanceViewMode("grid")}
+              aria-label="Show performance as grid"
+              aria-pressed={performanceViewMode === "grid"}
+              className={`cursor-pointer rounded-lg p-1.5 transition-colors ${
+                performanceViewMode === "grid"
+                  ? "bg-white text-indigo-700 shadow-xs"
+                  : "text-slate-500 hover:text-slate-900"
+              }`}
+            >
+              <Grid2X2 className="h-3.5 w-3.5" />
+            </button>
+            <button
+              type="button"
+              onClick={() => setPerformanceViewMode("list")}
+              aria-label="Show performance as list"
+              aria-pressed={performanceViewMode === "list"}
+              className={`cursor-pointer rounded-lg p-1.5 transition-colors ${
+                performanceViewMode === "list"
+                  ? "bg-white text-indigo-700 shadow-xs"
+                  : "text-slate-500 hover:text-slate-900"
+              }`}
+            >
+              <List className="h-3.5 w-3.5" />
+            </button>
           </div>
         </div>
       </div>
@@ -530,7 +567,13 @@ export function HistoryView({
           </p>
         </div>
       ) : (
-        <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
+        <div
+          className={
+            performanceViewMode === "grid"
+              ? "grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3"
+              : "flex flex-col gap-3"
+          }
+        >
           {filteredGrouped.map((group) => {
             const hasMultiple = group.attempts.length > 1;
             const activeAttemptId =
@@ -609,9 +652,13 @@ export function HistoryView({
                 {/* Main Attempt Card */}
                 <div
                   onClick={() => onViewAttempt(activeAttempt)}
-                  className="cursor-pointer relative flex flex-col justify-between bi-card p-5 group hover:border-indigo-300 transition-all shadow-xs bg-white rounded-2xl h-full flex-1"
+                  className={`cursor-pointer relative flex justify-between bi-card p-5 group hover:border-indigo-300 transition-all shadow-xs bg-white rounded-2xl h-full flex-1 ${
+                    performanceViewMode === "grid"
+                      ? "flex-col"
+                      : "flex-col md:grid md:grid-cols-[minmax(0,1fr)_minmax(180px,230px)] md:gap-6"
+                  }`}
                 >
-                  <div className="space-y-3">
+                  <div className="min-w-0 space-y-3">
                     {/* Top row: Status Badge & Attempt Count & Duration */}
                     <div className="flex items-center justify-between gap-2">
                       <div className="flex items-center gap-1.5 flex-wrap">
@@ -737,7 +784,13 @@ export function HistoryView({
                   </div>
 
                   {/* Bottom Actions: Re-attempt Mock + Review Assessment */}
-                  <div className="mt-4 pt-3 border-t border-slate-100 flex items-center justify-between gap-2 text-xs">
+                  <div
+                    className={`mt-4 flex items-center justify-between gap-2 text-xs ${
+                      performanceViewMode === "grid"
+                        ? "border-t border-slate-100 pt-3"
+                        : "border-t border-slate-100 pt-3 md:mt-0 md:border-l md:border-t-0 md:pl-5 md:pt-0 md:self-stretch md:flex md:flex-col md:justify-center"
+                    }`}
+                  >
                     {matchedPaper ? (
                       <button
                         type="button"

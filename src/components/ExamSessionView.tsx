@@ -510,9 +510,10 @@ export function ExamSessionView({
       };
     });
 
-    // Auto-advance to next question upon selecting an option ONLY in Mock mode if autoAdvance is enabled in Settings
+    // Auto-advance remains available for Mock mode, and is also available for
+    // Markdown papers during Practice mode.
     if (
-      mode === "mock" &&
+      (mode === "mock" || (mode === "practice" && isMarkdownPaper)) &&
       autoAdvance &&
       !isDeselecting &&
       qNo < paper.totalQuestions
@@ -923,29 +924,32 @@ export function ExamSessionView({
 
           {/* Timer & Finish Button */}
           <div className="flex items-center gap-2 shrink-0">
-            {/* Auto-Next Quick Toggle in Mock Mode */}
-            {mode === "mock" && !isSubjective && (
-              <button
-                type="button"
-                onClick={toggleAutoAdvance}
-                title={
-                  autoAdvance
-                    ? "Auto-Next is ON: Automatically moves to next question after selecting an option. Click to turn OFF."
-                    : "Auto-Next is OFF: Stays on question after selecting an option. Click to turn ON."
-                }
-                className={`flex items-center gap-1.5 rounded-xl border px-2 sm:px-2.5 py-1 text-xs font-semibold transition-all shadow-2xs cursor-pointer ${
-                  autoAdvance
-                    ? "border-emerald-300 bg-emerald-50 text-emerald-800 hover:bg-emerald-100"
-                    : "border-slate-200 bg-white text-slate-600 hover:bg-slate-50"
-                }`}
-              >
-                <ArrowRight
-                  className={`h-3.5 w-3.5 ${autoAdvance ? "text-emerald-700" : "text-slate-400"}`}
-                />
-                <span className="hidden md:inline">Auto-Next:</span>
-                <span className="font-bold">{autoAdvance ? "ON" : "OFF"}</span>
-              </button>
-            )}
+            {/* Auto-Next Quick Toggle in Mock Mode and Markdown Practice */}
+            {(mode === "mock" || (mode === "practice" && isMarkdownPaper)) &&
+              !isSubjective && (
+                <button
+                  type="button"
+                  onClick={toggleAutoAdvance}
+                  title={
+                    autoAdvance
+                      ? "Auto-Next is ON: Automatically moves to next question after selecting an option. Click to turn OFF."
+                      : "Auto-Next is OFF: Stays on question after selecting an option. Click to turn ON."
+                  }
+                  className={`flex items-center gap-1.5 rounded-xl border px-2 sm:px-2.5 py-1 text-xs font-semibold transition-all shadow-2xs cursor-pointer ${
+                    autoAdvance
+                      ? "border-emerald-300 bg-emerald-50 text-emerald-800 hover:bg-emerald-100"
+                      : "border-slate-200 bg-white text-slate-600 hover:bg-slate-50"
+                  }`}
+                >
+                  <ArrowRight
+                    className={`h-3.5 w-3.5 ${autoAdvance ? "text-emerald-700" : "text-slate-400"}`}
+                  />
+                  <span className="hidden md:inline">Auto-Next:</span>
+                  <span className="font-bold">
+                    {autoAdvance ? "ON" : "OFF"}
+                  </span>
+                </button>
+              )}
 
             {/* Fullscreen Toggle */}
             <button
