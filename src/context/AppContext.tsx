@@ -318,6 +318,27 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         setHiddenPaperIds(hidden);
 
         const localCustom = getCustomPapers();
+        // Backfill Markdown papers created before remote content fields existed.
+        // This is the recovery path for the original browser's local copy.
+        const remoteCustomById = new Map(
+          userCustomPapers.map((paper) => [paper.id, paper]),
+        );
+        const localMarkdownToSync = localCustom.filter((localPaper) => {
+          if (!localPaper.markdownContent) return false;
+          const remotePaper = remoteCustomById.get(localPaper.id);
+          return (
+            !remotePaper?.markdownContent ||
+            !remotePaper.parsedQuestions?.length
+          );
+        });
+        if (localMarkdownToSync.length > 0) {
+          await Promise.all(
+            localMarkdownToSync.map((paper) =>
+              saveUserCustomPaperToSupabase(paper, user.id),
+            ),
+          );
+        }
+
         // Merge userCustomPapers from Supabase with localCustom so parsedQuestions, markdownContent, and instructions are preserved
         const mergedUserCustom = userCustomPapers.map((ucp) => {
           const match = localCustom.find((lc) => lc.id === ucp.id);
