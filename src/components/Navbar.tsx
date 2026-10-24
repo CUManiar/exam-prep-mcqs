@@ -42,9 +42,10 @@ export function Navbar() {
           <nav className="app-primary-nav" aria-label="Main navigation">
             {navigation.map(({ href, label, icon: Icon }) => {
               const active =
-                href === "/"
+                Boolean(currentUser) &&
+                (href === "/"
                   ? pathname === "/"
-                  : pathname === href || pathname.startsWith(`${href}/`);
+                  : pathname === href || pathname.startsWith(`${href}/`));
               if (!currentUser && href !== "/") {
                 return (
                   <button
@@ -107,9 +108,10 @@ export function Navbar() {
         <nav className="app-mobile-nav" aria-label="Main navigation">
           {navigation.map(({ href, label, icon: Icon }) => {
             const active =
-              href === "/"
+              Boolean(currentUser) &&
+              (href === "/"
                 ? pathname === "/"
-                : pathname === href || pathname.startsWith(`${href}/`);
+                : pathname === href || pathname.startsWith(`${href}/`));
             if (!currentUser && href !== "/") {
               return (
                 <button

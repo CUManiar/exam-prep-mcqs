@@ -34,6 +34,8 @@ import {
   removeLocalCustomPaper,
   saveCustomPaper,
   getCustomPapers,
+  getGuestReviewAttempt,
+  saveGuestReviewAttempt,
 } from "../lib/storage";
 import {
   parseQuestionnaireMarkdown,
@@ -224,13 +226,19 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
   const handleSignOut = async () => {
     const supabase = getSupabaseClient();
-    if (supabase) {
-      await supabase.auth.signOut();
+    try {
+      if (supabase) {
+        await supabase.auth.signOut();
+      }
+    } catch (error) {
+      console.warn("Sign out request failed; clearing the local session:", error);
+    } finally {
+      setCurrentUser(null);
+      setUserPro(false);
+      setIsPro(false);
+      await loadAllData();
+      router.replace("/");
     }
-    setCurrentUser(null);
-    setUserPro(false);
-    setIsPro(false);
-    await loadAllData();
   };
 
   // Modern Confirmation & Alert Modal state
@@ -390,7 +398,17 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     setUserPro(false);
     setIsPro(false);
     const cachedAttempts = getAttempts();
-    setAttempts(cachedAttempts);
+    const guestReviewAttempt = getGuestReviewAttempt();
+    setAttempts(
+      guestReviewAttempt
+        ? [
+            guestReviewAttempt,
+            ...cachedAttempts.filter(
+              (attempt) => attempt.id !== guestReviewAttempt.id,
+            ),
+          ]
+        : cachedAttempts,
+    );
     const localDraft = getActiveDraft();
     setActiveDraft(localDraft);
 
@@ -446,13 +464,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     };
   }, [loadAllData]);
 
-  // Start exam session - Gated for Freemium (Free: 2026 Prelims GS I & CSAT, Pro: all other papers)
-  // Mock mode requires user account / login
+  // Start exam session - free papers are available to guests; paid papers require Pro access.
   const handleStartExam = (paper: QuestionPaper, mode: "practice" | "mock") => {
-    if (mode === "mock" && !currentUser) {
-      openAuthModal();
-      return;
-    }
     if (!isPaperFree(paper) && !isPro) {
       openProUpgradeModal(paper.label);
       return;
@@ -498,8 +511,16 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
   // Finishing exam session
   const handleFinishExamSession = (attempt: Attempt) => {
-    saveAttempt(attempt);
-    setAttempts(getAttempts());
+    if (!currentUser) {
+      saveGuestReviewAttempt(attempt);
+    }
+    if (attempt.mode === "mock" && currentUser) {
+      saveAttempt(attempt);
+    }
+    setAttempts((previous) => [
+      attempt,
+      ...previous.filter((existing) => existing.id !== attempt.id),
+    ]);
     if (currentUser) {
       saveUserAttemptToSupabase(attempt, currentUser.id);
     }
@@ -516,9 +537,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       href: `/history/${encodeURIComponent(attempt.id)}`,
     });
 
-    // Practice mode allows immediate direct review without login!
-    // Mock mode prompts user to sign in to save test attempt.
-    if (!currentUser && attempt.mode === "mock") {
+    // Guests can review either mode immediately; signing in only adds the result to their account.
+    if (!currentUser) {
       setGuestCompletionAttempt(attempt);
       setGuestCompletionModalOpen(true);
       return;

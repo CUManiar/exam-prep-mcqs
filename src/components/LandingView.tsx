@@ -187,6 +187,66 @@ export function LandingView({
         </div>
       </section>
 
+      <section className="public-section page-container" id="pricing">
+        <div className="public-section-heading">
+          <p className="page-eyebrow">Simple access</p>
+          <h2>Start free. Upgrade when you need more.</h2>
+          <p>
+            Try the assessment workflow first. Upgrade for unlimited paper
+            uploads and self-paced practice.
+          </p>
+        </div>
+        <div className="public-pricing-grid">
+          <article className="public-pricing-card">
+            <p className="public-pricing-label">Free</p>
+            <h3>One mock attempt</h3>
+            <p>
+              Take a free mock to understand the platform, finish the test,
+              and review your result.
+            </p>
+            {featuredPaper && (
+              <button
+                type="button"
+                onClick={() => onStartExam(featuredPaper, "mock")}
+                className="public-text-link"
+              >
+                Try the free mock
+                <ArrowRight aria-hidden="true" className="h-4 w-4" />
+              </button>
+            )}
+          </article>
+          <article className="public-pricing-card public-pricing-card-featured">
+            <p className="public-pricing-label">Individual</p>
+            <h3>
+              ₹999 <span>/ year</span>
+            </h3>
+            <p>
+              Upload unlimited PDF or Markdown papers and practise without
+              limits.
+            </p>
+            <button
+              type="button"
+              onClick={onOpenAuth}
+              className="public-text-link"
+            >
+              Create an account
+              <ArrowRight aria-hidden="true" className="h-4 w-4" />
+            </button>
+          </article>
+          <article className="public-pricing-card">
+            <p className="public-pricing-label">Institutes & enterprise</p>
+            <h3>Let&apos;s discuss your workflow</h3>
+            <p>
+              For institutes or other enterprise-level solutions, contact us
+              for a tailored conversation.
+            </p>
+            <a href="mailto:hi@chikoochi.com" className="public-text-link">
+              hi@chikoochi.com <Mail aria-hidden="true" className="h-4 w-4" />
+            </a>
+          </article>
+        </div>
+      </section>
+
       <section className="public-audience-section">
         <div className="page-container">
           <div className="public-section-heading">
@@ -247,8 +307,9 @@ export function LandingView({
           <details>
             <summary>Can I try a test before creating an account?</summary>
             <p>
-              Yes. Start the featured free paper in practice mode. Sign in to
-              keep your mock history and results with your account.
+              Yes. Try a free practice or mock paper. Your result opens for
+              review immediately; sign in only if you want to save it to your
+              account history.
             </p>
           </details>
           <details>

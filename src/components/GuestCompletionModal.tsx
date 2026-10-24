@@ -51,7 +51,8 @@ export function GuestCompletionModal({
             id="guest-result-description"
             className="mt-1 text-sm leading-5 text-slate-600"
           >
-            Your answers have been evaluated.
+            Your result is ready. Review it now, or sign in to keep it in your
+            account history.
           </p>
         </div>
       </div>
@@ -86,11 +87,11 @@ export function GuestCompletionModal({
       <div className="mt-4 rounded-lg border border-slate-200 px-4 py-3.5">
         <div className="flex items-center gap-2 text-sm font-semibold text-slate-900">
           <Cloud aria-hidden="true" className="h-4 w-4 text-blue-700" />
-          Keep this result with your account
+          Want to keep this result?
         </div>
         <p className="mt-1.5 text-sm leading-5 text-slate-600">
-          This guest result is saved on this device. Sign in to add it to your
-          account and keep it with your assessment history.
+          Create an account to sync this result and access your assessment
+          history across sessions.
         </p>
       </div>
 
@@ -100,11 +101,11 @@ export function GuestCompletionModal({
           onClick={onProceedAsGuest}
           className="button-secondary"
         >
-          Review as guest
+          Review result
         </button>
         <button type="button" onClick={onOpenAuth} className="button-primary">
           <UserRound aria-hidden="true" className="h-4 w-4" />
-          Sign in to save result
+          Sign in or create account
           <ArrowRight aria-hidden="true" className="h-4 w-4" />
         </button>
       </div>

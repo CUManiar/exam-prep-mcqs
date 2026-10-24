@@ -923,10 +923,10 @@ export function AttemptDetailView({
             {paperDeleted && (
               <span
                 className="mt-1 inline-flex items-center gap-1.5 text-[11px] font-semibold text-amber-700"
-                title="The paper linked to this assessment has been deleted."
+                title="The original question paper is no longer available, but this assessment result is still available."
               >
                 <AlertTriangle className="h-3.5 w-3.5" />
-                Linked paper deleted
+                Original paper unavailable
               </span>
             )}
           </div>
