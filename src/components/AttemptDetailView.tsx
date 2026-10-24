@@ -908,7 +908,7 @@ export function AttemptDetailView({
           <div>
             <div className="flex items-center gap-2">
               <span className="text-[10px] font-medium uppercase tracking-wider px-2.5 py-0.5 rounded-full bg-indigo-50 text-indigo-700 border border-indigo-200/60 font-mono">
-                {attempt.mode === "mock" ? "Timed mock report" : "Practice report"}
+                {attempt.mode === "mock" ? "Timed mock" : "Practice"} report
               </span>
               <span className="text-xs text-slate-500 font-medium">
                 {formatDateTime(attempt.startedAt)}
@@ -1251,7 +1251,7 @@ export function AttemptDetailView({
               {/* Final Score */}
               <div className="flex items-baseline gap-2">
                 <span className="text-xs uppercase font-medium tracking-wider text-slate-500">
-                  Final Score:
+                  Final score
                 </span>
                 <span className="text-2xl sm:text-3xl font-bold text-slate-900 tracking-tight font-mono">
                   {attempt.score}
@@ -1316,10 +1316,12 @@ export function AttemptDetailView({
                     e.stopPropagation();
                     setSummaryExpanded((prev) => !prev);
                   }}
+                  aria-expanded={summaryExpanded}
+                  aria-controls="attempt-summary-details"
                   className="inline-flex items-center gap-1.5 text-xs font-bold text-indigo-700 bg-indigo-50 border border-indigo-200 px-3 py-2 rounded-xl hover:bg-indigo-100 transition-colors whitespace-nowrap ml-auto md:ml-0 shadow-2xs"
                 >
                   <span>
-                    {summaryExpanded ? "Hide Summary" : "Summary Details"}
+                    {summaryExpanded ? "Hide details" : "Show details"}
                   </span>
                   {summaryExpanded ? (
                     <ChevronUp className="h-3.5 w-3.5" />
@@ -1332,12 +1334,15 @@ export function AttemptDetailView({
 
             {/* Detailed Breakdown inside Summary (Revealed when expanded) */}
             {summaryExpanded && (
-              <div className="border-t border-slate-200 p-5 space-y-5 bg-slate-50/60">
+              <div
+                id="attempt-summary-details"
+                className="border-t border-slate-200 p-5 space-y-5 bg-slate-50/60"
+              >
                 {/* Outcome Segmented Bar */}
                 <div className="space-y-1.5">
                   <div className="flex items-center justify-between text-xs text-slate-500 font-medium">
                     <span>
-                      Question Outcome Distribution ({totalQ} Total Questions)
+                      Outcome distribution ({totalQ} questions)
                     </span>
                     <span>
                       Total Time: {formatTimeSeconds(attempt.durationSeconds)}
@@ -1396,13 +1401,13 @@ export function AttemptDetailView({
                 {/* Marks Breakdown & Negative Marking Drag */}
                 <div className="rounded-xl border border-slate-200 bg-white p-4 space-y-3 shadow-2xs">
                   <div className="text-xs font-bold text-slate-500 uppercase tracking-wider">
-                    Marks Breakdown & Negative Marking Drag
+                    Score breakdown
                   </div>
 
                   <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                     <div className="rounded-xl bg-emerald-50/70 border border-emerald-200 p-3">
                       <div className="text-[11px] font-semibold text-emerald-800">
-                        Gross Marks Earned
+                        Correct marks
                       </div>
                       <div className="text-xl font-bold text-emerald-700 font-mono mt-0.5">
                         +{grossCorrectMarks}
@@ -1414,7 +1419,7 @@ export function AttemptDetailView({
 
                     <div className="rounded-xl bg-rose-50/70 border border-rose-200 p-3">
                       <div className="text-[11px] font-semibold text-rose-800">
-                        Marks Deducted (Negative Marking)
+                        Penalty marks
                       </div>
                       <div className="text-xl font-bold text-rose-700 font-mono mt-0.5">
                         -{negativePenaltyMarks}
@@ -1427,7 +1432,7 @@ export function AttemptDetailView({
 
                     <div className="rounded-xl bg-indigo-50/70 border border-indigo-200 p-3">
                       <div className="text-[11px] font-semibold text-indigo-800">
-                        Final Net Score
+                        Net score
                       </div>
                       <div className="text-xl font-bold text-slate-900 font-mono mt-0.5">
                         {attempt.score}{" "}
@@ -1450,7 +1455,7 @@ export function AttemptDetailView({
                   <div className="rounded-xl border border-slate-200 bg-white p-4 space-y-3 shadow-2xs">
                     <div className="flex items-center justify-between">
                       <div className="text-xs font-bold text-slate-500 uppercase tracking-wider">
-                        Time Analysis
+                        Timing
                       </div>
                       {slowQuestions.length > 0 && (
                         <button
@@ -1473,7 +1478,7 @@ export function AttemptDetailView({
                       </div>
                       <div className="p-2.5 rounded-xl bg-slate-50 border border-slate-200">
                         <span className="text-[11px] text-slate-500 block font-medium">
-                          Pace on Correct Qs
+                          Correct pace
                         </span>
                         <span className="font-bold text-emerald-700 font-mono text-sm">
                           {avgTimeCorrect > 0 ? `${avgTimeCorrect}s avg` : "—"}
@@ -1481,7 +1486,7 @@ export function AttemptDetailView({
                       </div>
                       <div className="p-2.5 rounded-xl bg-slate-50 border border-slate-200">
                         <span className="text-[11px] text-slate-500 block font-medium">
-                          Pace on Incorrect Qs
+                          Incorrect pace
                         </span>
                         <span className="font-bold text-rose-700 font-mono text-sm">
                           {avgTimeIncorrect > 0
@@ -1491,7 +1496,7 @@ export function AttemptDetailView({
                       </div>
                       <div className="p-2.5 rounded-xl bg-slate-50 border border-slate-200">
                         <span className="text-[11px] text-slate-500 block font-medium">
-                          Slow Questions (&gt;90s)
+                          Slow questions (&gt;90s)
                         </span>
                         <span
                           className={`font-bold font-mono text-sm ${slowQuestions.length > 0 ? "text-amber-700" : "text-slate-700"}`}
@@ -1503,7 +1508,7 @@ export function AttemptDetailView({
                     {attempt.idleTimeSeconds !== undefined &&
                       attempt.idleTimeSeconds > 0 && (
                         <div className="text-[11px] text-slate-600 bg-slate-50 p-2 rounded-xl border border-slate-200 flex justify-between font-medium">
-                          <span>Cover & Instructions Reading Buffer:</span>
+                          <span>Reading buffer:</span>
                           <span className="font-mono font-bold text-indigo-700">
                             {formatTimeSeconds(attempt.idleTimeSeconds)}
                           </span>
@@ -1515,7 +1520,7 @@ export function AttemptDetailView({
                   <div className="rounded-xl border border-slate-200 bg-white p-4 space-y-3 shadow-2xs">
                     <div className="flex items-center justify-between">
                       <div className="text-xs font-bold text-slate-500 uppercase tracking-wider">
-                        Answer Changes (Second-Guessing)
+                        Answer changes
                       </div>
                       {alteredQuestions.length > 0 && (
                         <button
@@ -1530,7 +1535,7 @@ export function AttemptDetailView({
                     <div className="grid grid-cols-2 gap-2 text-xs">
                       <div className="p-2.5 rounded-xl bg-slate-50 border border-slate-200">
                         <span className="text-[11px] text-slate-500 block font-medium">
-                          Answers Changed
+                          Questions changed
                         </span>
                         <span className="font-bold text-slate-900 font-mono text-sm">
                           {alteredQuestions.length} questions
@@ -1627,7 +1632,7 @@ export function AttemptDetailView({
                     <div className="flex items-center gap-2">
                       <FileText className="h-3.5 w-3.5 text-indigo-600" />
                       <h3 className="text-xs font-bold text-slate-800 uppercase tracking-wider">
-                        Overall Attempt Notes
+                        Attempt notes
                       </h3>
                     </div>
                     {!editingGeneralNote && (
@@ -1636,7 +1641,7 @@ export function AttemptDetailView({
                         className="text-xs text-indigo-600 hover:text-indigo-800 flex items-center gap-1 font-bold"
                       >
                         <Edit3 className="h-3 w-3" />{" "}
-                        {attempt.generalNotes ? "Edit" : "+ Add Note"}
+                        {attempt.generalNotes ? "Edit" : "+ Add note"}
                       </button>
                     )}
                   </div>
@@ -1722,7 +1727,7 @@ export function AttemptDetailView({
                   {sureWrong} wrong
                 </span>
                 <span className="text-[10px] text-slate-400">
-                  Click to filter
+                  Filter review
                 </span>
               </div>
             </div>
@@ -1771,7 +1776,7 @@ export function AttemptDetailView({
                   {fiftyFiftyWrong} wrong
                 </span>
                 <span className="text-[10px] text-slate-400">
-                  Click to filter
+                  Filter review
                 </span>
               </div>
             </div>
@@ -1822,7 +1827,7 @@ export function AttemptDetailView({
                   {eliminationWrong} wrong
                 </span>
                 <span className="text-[10px] text-slate-400">
-                  Click to filter
+                  Filter review
                 </span>
               </div>
             </div>
@@ -1871,7 +1876,7 @@ export function AttemptDetailView({
                   {guessWrong} wrong
                 </span>
                 <span className="text-[10px] text-slate-400">
-                  Click to filter
+                  Filter review
                 </span>
               </div>
             </div>
@@ -1887,8 +1892,7 @@ export function AttemptDetailView({
                   {attempt.totalQuestions})
                 </h3>
                 <p className="text-xs text-slate-500 mt-0.5">
-                  Official answer key evaluation, candidate responses, and notes
-                  table
+                  Answers, timing, and notes. Click a row to expand.
                 </p>
               </div>
 
@@ -1903,8 +1907,8 @@ export function AttemptDetailView({
                   >
                     <option value="qno_asc">Q1 → Q{totalQ}</option>
                     <option value="qno_desc">Q{totalQ} → Q1</option>
-                    <option value="time_desc">Time (Longest First)</option>
-                    <option value="time_asc">Time (Fastest First)</option>
+                    <option value="time_desc">Longest time</option>
+                    <option value="time_asc">Shortest time</option>
                   </select>
                 </div>
 
@@ -1919,7 +1923,7 @@ export function AttemptDetailView({
                 >
                   {Object.keys(expandedQuestions).length > 0
                     ? "Collapse All"
-                    : "Expand All"}
+                    : "Expand all"}
                 </button>
               </div>
             </div>
@@ -2013,14 +2017,10 @@ export function AttemptDetailView({
                     <tr className="bg-slate-100/90 text-slate-700 border-b border-slate-200 text-[11px] font-bold uppercase tracking-wider">
                       <th className="py-3 px-3 text-center w-16">Q. No</th>
                       <th className="py-3 px-3 text-center w-28">Status</th>
-                      <th className="py-3 px-3 text-center w-32">
-                        Aspirant&apos;s Option
-                      </th>
-                      <th className="py-3 px-3 text-center w-32">
-                        Correct Option
-                      </th>
+                      <th className="py-3 px-3 text-center w-32">Your answer</th>
+                      <th className="py-3 px-3 text-center w-32">Answer</th>
                       <th className="py-3 px-2 text-center w-20">Time</th>
-                      <th className="py-3 px-4 min-w-[220px]">Note Added</th>
+                      <th className="py-3 px-4 min-w-[220px]">Notes</th>
                       <th className="py-3 px-2 text-center w-12"></th>
                     </tr>
                   </thead>
@@ -2153,7 +2153,7 @@ export function AttemptDetailView({
                                   {/* Scoring Details */}
                                   <div className="space-y-1 bg-white p-3 rounded-xl border border-slate-200 shadow-2xs">
                                     <span className="text-[10px] uppercase font-bold text-slate-500 tracking-wider">
-                                      Evaluation Impact
+                                      Scoring
                                     </span>
                                     <div className="text-xs pt-0.5">
                                       {isCorrect && (
@@ -2190,7 +2190,7 @@ export function AttemptDetailView({
                                   {/* Pacing Context */}
                                   <div className="space-y-1 bg-white p-3 rounded-xl border border-slate-200 shadow-2xs">
                                     <span className="text-[10px] uppercase font-bold text-slate-500 tracking-wider">
-                                      Pacing Context
+                                      Timing
                                     </span>
                                     <div className="text-xs pt-0.5 text-slate-700">
                                       Time spent:{" "}
@@ -2220,7 +2220,7 @@ export function AttemptDetailView({
                                     <div className="flex items-center gap-1.5 text-[11px] uppercase font-bold text-indigo-900 tracking-wider">
                                       <BookOpen className="h-3.5 w-3.5 text-indigo-700" />
                                       <span>
-                                        Official Explanation & Key Insights
+                                        Explanation
                                       </span>
                                     </div>
                                     <p className="text-xs text-indigo-950 font-normal leading-relaxed whitespace-pre-wrap pt-0.5">
