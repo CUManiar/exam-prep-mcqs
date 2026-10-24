@@ -1660,10 +1660,10 @@ export function AttemptDetailView({
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 divide-y sm:divide-y-0 sm:divide-x divide-slate-200">
               {[
-                { id: "sure" as const, icon: "🎯", label: "Sure", total: sureQuestions.length, correct: sureCorrect, wrong: sureWrong, accuracy: sureAccuracy },
-                { id: "50-50" as const, icon: "⚖️", label: "50:50", total: fiftyFiftyQuestions.length, correct: fiftyFiftyCorrect, wrong: fiftyFiftyWrong, accuracy: fiftyFiftyAccuracy },
-                { id: "elimination" as const, icon: "✂️", label: "Elimination", total: eliminationQuestions.length, correct: eliminationCorrect, wrong: eliminationWrong, accuracy: eliminationAccuracy },
-                { id: "guess" as const, icon: "🎲", label: "Guess", total: guessQuestions.length, correct: guessCorrect, wrong: guessWrong, accuracy: guessAccuracy },
+                { id: "sure" as const, icon: "🎯", label: "Sure", total: sureQuestions.length, correct: sureCorrect, wrong: sureWrong, accuracy: sureAccuracy, accent: "text-emerald-700", selected: "bg-emerald-50/60", outline: "ring-1 ring-inset ring-emerald-200" },
+                { id: "50-50" as const, icon: "⚖️", label: "50:50", total: fiftyFiftyQuestions.length, correct: fiftyFiftyCorrect, wrong: fiftyFiftyWrong, accuracy: fiftyFiftyAccuracy, accent: "text-amber-700", selected: "bg-amber-50/60", outline: "ring-1 ring-inset ring-amber-200" },
+                { id: "elimination" as const, icon: "✂️", label: "Elimination", total: eliminationQuestions.length, correct: eliminationCorrect, wrong: eliminationWrong, accuracy: eliminationAccuracy, accent: "text-sky-700", selected: "bg-sky-50/60", outline: "ring-1 ring-inset ring-sky-200" },
+                { id: "guess" as const, icon: "🎲", label: "Guess", total: guessQuestions.length, correct: guessCorrect, wrong: guessWrong, accuracy: guessAccuracy, accent: "text-purple-700", selected: "bg-purple-50/60", outline: "ring-1 ring-inset ring-purple-200" },
               ].map((item) => (
                 <button
                   key={item.id}
@@ -1671,17 +1671,19 @@ export function AttemptDetailView({
                   onClick={() => setFilterTab((prev) => (prev === item.id ? "all" : item.id))}
                   className={`px-4 py-3 text-left sm:text-center transition-colors ${
                     filterTab === item.id
-                      ? "bg-slate-50"
+                      ? `${item.selected} ${item.outline}`
                       : "bg-white hover:bg-slate-50/70"
                   }`}
                 >
                   <div className="flex items-center justify-between sm:justify-center gap-2">
-                    <span className="text-xs font-medium text-slate-800">{item.icon} {item.label}</span>
+                    <span className={`text-xs font-medium ${item.accent}`}>
+                      <span aria-hidden="true">{item.icon}</span> {item.label}
+                    </span>
                     <span className="text-[11px] font-mono text-slate-500">{item.total}</span>
                   </div>
                   <div className="mt-1 text-sm font-semibold text-slate-900 font-mono">
                     {item.correct}<span className="text-[11px] font-normal text-slate-500">/{item.total} correct</span>
-                    <span className="ml-2 text-[11px] font-medium text-slate-600">{item.accuracy}%</span>
+                    <span className={`ml-2 text-[11px] font-medium ${item.accent}`}>{item.accuracy}%</span>
                   </div>
                   <div className="mt-0.5 text-[11px] text-slate-500">
                     {item.wrong} wrong{filterTab === item.id && <span className="ml-1 text-slate-700">· filtered</span>}
@@ -1740,36 +1742,42 @@ export function AttemptDetailView({
             <div className="w-full overflow-x-auto pb-1 no-scrollbar">
               <div className="flex items-center gap-1.5 min-w-max p-1 bg-slate-50 rounded-lg border border-slate-200 text-xs">
                 {[
-                  { id: "all" as const, label: `All (${totalQ})`, color: "" },
+                  { id: "all" as const, label: `All (${totalQ})`, color: "", active: "bg-slate-900" },
                   {
                     id: "incorrect" as const,
                     label: `Incorrect (${attempt.incorrect})`,
                     color: "text-rose-700 font-semibold",
+                    active: "bg-rose-600",
                   },
                   {
                     id: "correct" as const,
                     label: `Correct (${attempt.correct})`,
                     color: "text-emerald-700 font-semibold",
+                    active: "bg-emerald-600",
                   },
                   {
                     id: "skipped" as const,
                     label: `Skipped (${attempt.unattempted})`,
                     color: "",
+                    active: "bg-slate-600",
                   },
                   {
                     id: "flagged" as const,
                     label: `Flagged (${flaggedQuestions.length})`,
                     color: "text-amber-700 font-semibold",
+                    active: "bg-amber-500",
                   },
                   {
                     id: "altered" as const,
                     label: `Changed (${alteredQuestions.length})`,
                     color: "",
+                    active: "bg-indigo-600",
                   },
                   {
                     id: "slow" as const,
                     label: `Slow (${slowQuestions.length})`,
                     color: "text-amber-700 font-semibold",
+                    active: "bg-amber-500",
                   },
                 ].map((tab) => (
                   <button
@@ -1777,7 +1785,7 @@ export function AttemptDetailView({
                     onClick={() => setFilterTab(tab.id)}
                       className={`rounded-md px-2.5 py-1.5 transition-colors whitespace-nowrap text-xs cursor-pointer ${
                       filterTab === tab.id
-                          ? "bg-slate-900 text-white font-medium"
+                          ? `${tab.active} text-white font-medium`
                         : "text-slate-600 hover:text-slate-900 hover:bg-white"
                     }`}
                   >

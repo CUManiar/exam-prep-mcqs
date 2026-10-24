@@ -173,7 +173,7 @@ export function MarkdownPaperReviewViewer({
                 <span className="text-[10px] font-medium text-slate-400 block">
                   Time Limit
                 </span>
-                <span className="font-mono font-semibold text-slate-800 mt-0.5 block">
+                <span className="font-mono font-semibold text-indigo-700 mt-0.5 block">
                   {paper.timeMinutes || 120}m
                 </span>
               </div>
@@ -181,7 +181,7 @@ export function MarkdownPaperReviewViewer({
                 <span className="text-[10px] font-medium text-slate-400 block">
                   Per Correct
                 </span>
-                <span className="font-mono font-semibold text-slate-800 mt-0.5 block">
+                <span className="font-mono font-semibold text-emerald-700 mt-0.5 block">
                   +{paper.correctMarks || 2.0}m
                 </span>
               </div>
@@ -189,7 +189,7 @@ export function MarkdownPaperReviewViewer({
                 <span className="text-[10px] font-medium text-slate-400 block">
                   Penalty
                 </span>
-                <span className="font-mono font-semibold text-slate-800 mt-0.5 block">
+                <span className="font-mono font-semibold text-rose-700 mt-0.5 block">
                   -{paper.incorrectMarks || 0.667}m
                 </span>
               </div>
@@ -209,7 +209,7 @@ export function MarkdownPaperReviewViewer({
                         key={idx}
                         className="flex items-start gap-1.5 text-xs text-slate-700 leading-relaxed"
                       >
-                        <Check className="h-3.5 w-3.5 text-slate-500 shrink-0 mt-0.5" />
+                        <Check className="h-3.5 w-3.5 text-emerald-600 shrink-0 mt-0.5" />
                         <span>{rule}</span>
                       </li>
                     ),
