@@ -1,743 +1,305 @@
 "use client";
 
 import React from "react";
-import { QuestionPaper } from "../lib/types";
 import {
-  Clock,
-  CheckCircle2,
-  Lock,
-  Sparkles,
   ArrowRight,
-  ShieldAlert,
-  Play,
-  FileText,
-  Upload,
-  UserCheck,
-  Award,
-  Zap,
-  HelpCircle,
-  TrendingUp,
-  AlertCircle,
+  BarChart3,
+  BookOpen,
+  CheckCircle2,
+  Clock3,
   FileUp,
+  Mail,
+  Play,
+  Target,
 } from "lucide-react";
+import { QuestionPaper } from "../lib/types";
+import { isPaperFree, isUserUploadedPaper } from "../lib/defaults";
 
 interface LandingViewProps {
   papers: QuestionPaper[];
   onStartExam: (paper: QuestionPaper, mode: "practice" | "mock") => void;
   onOpenAuth: () => void;
-  onOpenProModal: () => void;
-  isPro?: boolean;
 }
 
 export function LandingView({
   papers,
   onStartExam,
   onOpenAuth,
-  onOpenProModal,
-  isPro,
 }: LandingViewProps) {
-  // Find the official free 2026 Prelims papers
-  const free2026Gs =
+  const featuredPaper =
     papers.find(
-      (p) =>
-        p.year === "2026" &&
-        p.category === "prelims" &&
-        p.subject.toLowerCase().includes("gs"),
-    ) || papers.find((p) => p.year === "2026" && p.category === "prelims");
-
-  const free2026Csat = papers.find(
-    (p) =>
-      p.year === "2026" &&
-      p.category === "prelims" &&
-      p.subject.toLowerCase().includes("csat"),
-  );
+      (paper) =>
+        paper.year === "2026" &&
+        paper.category === "prelims" &&
+        paper.examType === "objective" &&
+        isPaperFree(paper) &&
+        !isUserUploadedPaper(paper),
+    ) ||
+    papers.find(
+      (paper) =>
+        paper.examType === "objective" &&
+        isPaperFree(paper) &&
+        !isUserUploadedPaper(paper),
+    );
 
   return (
-    <div className="min-h-screen bg-slate-50 text-slate-800 font-sans selection:bg-indigo-500 selection:text-white">
-      {/* Hero Section */}
-      <section className="relative overflow-hidden pt-12 pb-20 sm:pt-20 sm:pb-28 border-b border-slate-200/80 bg-gradient-to-b from-white via-indigo-50/20 to-slate-50">
-        <div className="absolute inset-0 bg-[linear-gradient(to_right,#80808012_1px,transparent_1px),linear-gradient(to_bottom,#80808012_1px,transparent_1px)] bg-[size:24px_24px] pointer-events-none" />
-
-        <div className="relative mx-auto max-w-5xl px-4 sm:px-6 lg:px-8 text-center space-y-6">
-          <div className="inline-flex items-center gap-2 rounded-full border border-indigo-200 bg-indigo-50/90 px-3.5 py-1 text-xs font-bold text-indigo-700 shadow-2xs">
-            <Sparkles className="h-3.5 w-3.5 text-indigo-600 fill-indigo-400" />
-            <span>UPSC Civil Services Prelims Simulator</span>
-            <span className="text-indigo-300">•</span>
-            <span className="text-emerald-700 font-extrabold">
-              2026 Prelims Free Forever
-            </span>
-          </div>
-
-          <h1 className="text-3xl sm:text-5xl lg:text-6xl font-black text-slate-900 tracking-tight leading-tight sm:leading-none">
-            Master Real Exam Conditions <br />
-            <span className="bg-gradient-to-r from-indigo-600 via-purple-600 to-indigo-800 bg-clip-text text-transparent">
-              Before Prelims Day.
-            </span>
-          </h1>
-
-          <p className="mx-auto max-w-2xl text-sm sm:text-base text-slate-600 leading-relaxed font-normal">
-            Attempt official UPSC CSE question papers (2024, 2025, 2026) with
-            authentic 120-minute countdowns, official negative marking,
-            confidence tagging, and instant accuracy evaluation.
+    <div className="public-home">
+      <section className="public-hero page-container">
+        <div className="public-hero-copy">
+          <p className="page-eyebrow">
+            UPSC-focused · Built for serious practice
           </p>
-
-          <div className="flex flex-col sm:flex-row items-center justify-center gap-3 pt-4">
-            {free2026Gs && (
+          <h1 className="public-title">
+            Turn every practice paper into a clearer next step.
+          </h1>
+          <p className="public-intro">
+            Take a paper in exam conditions, review how you answered, and see
+            where your time and accuracy are going. A focused assessment
+            workspace for aspirants—and for institutes exploring a more
+            structured mock-test workflow.
+          </p>
+          <div className="public-actions">
+            {featuredPaper && (
               <button
-                onClick={() => onStartExam(free2026Gs, "mock")}
-                className="cursor-pointer w-full sm:w-auto flex items-center justify-center gap-2 rounded-2xl bg-indigo-600 hover:bg-indigo-700 active:scale-[0.98] px-6 py-3.5 text-sm font-bold text-white transition-all shadow-md hover:shadow-indigo-500/25"
+                type="button"
+                onClick={() => onStartExam(featuredPaper, "practice")}
+                className="button-primary"
               >
-                <Play className="h-4 w-4 fill-white" />
-                <span>Start Free 2026 GS Mock Test</span>
+                <Play aria-hidden="true" className="h-4 w-4" />
+                Try a free practice paper
               </button>
             )}
-
             <button
+              type="button"
               onClick={onOpenAuth}
-              className="cursor-pointer w-full sm:w-auto flex items-center justify-center gap-2 rounded-2xl border border-slate-200 bg-white hover:bg-slate-50 active:scale-[0.98] px-6 py-3.5 text-sm font-bold text-slate-700 transition-all shadow-xs"
+              className="button-secondary"
             >
-              <UserCheck className="h-4 w-4 text-indigo-600" />
-              <span>Sign In / Create Free Account</span>
+              Create an account
+              <ArrowRight aria-hidden="true" className="h-4 w-4" />
             </button>
           </div>
-
-          <p className="text-xs text-slate-600 font-medium">
-            No credit card required. Free tier includes 2026 GS I & CSAT with
-            full timer & analytics.
+          <p className="public-note">
+            {featuredPaper
+              ? `${featuredPaper.label} is available to try in practice mode.`
+              : "Sign in to browse the available papers and practice options."}
           </p>
         </div>
-      </section>
 
-      {/* Free 2026 Mock Tests Showcase */}
-      <section className="py-14 sm:py-20 border-b border-slate-200 bg-white">
-        <div className="mx-auto max-w-6xl px-4 sm:px-6 lg:px-8 space-y-10">
-          <div className="text-center max-w-xl mx-auto space-y-2">
-            <span className="text-[11px] font-bold uppercase tracking-wider text-emerald-700 bg-emerald-50 px-2.5 py-0.5 rounded-full border border-emerald-200/60 font-mono">
-              Free Access Forever
+        <aside
+          className="public-feature-card"
+          aria-label="Assessment workflow preview"
+        >
+          <div className="flex items-center justify-between gap-4 border-b border-slate-200 pb-4">
+            <div>
+              <p className="text-xs font-medium uppercase tracking-wide text-slate-500">
+                A complete attempt
+              </p>
+              <h2 className="mt-1 text-base font-semibold text-slate-900">
+                From paper to review
+              </h2>
+            </div>
+            <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-blue-50 text-blue-700">
+              <Target aria-hidden="true" className="h-4 w-4" />
             </span>
-            <h2 className="text-2xl sm:text-3xl font-extrabold text-slate-900">
-              Official 2026 Prelims Papers
-            </h2>
-            <p className="text-xs sm:text-sm text-slate-500">
-              Experience the simulator right now without paying anything.
-              Complete the test, then sign in to keep your review intact.
-            </p>
           </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 max-w-4xl mx-auto">
-            {/* GS Paper 1 */}
-            <div className="rounded-3xl border border-slate-200 bg-slate-50/50 p-6 sm:p-7 shadow-xs hover:border-indigo-300 transition-all flex flex-col justify-between">
-              <div>
-                <div className="flex items-center justify-between mb-4">
-                  <span className="rounded-md bg-white border border-slate-200 px-3 py-1 text-xs font-bold text-slate-800 font-mono">
-                    2026
-                  </span>
-                  <span className="rounded-full bg-emerald-100 text-emerald-800 px-3 py-0.5 text-xs font-extrabold">
-                    100% FREE
-                  </span>
-                </div>
-                <h3 className="text-xl font-bold text-slate-900">
-                  {free2026Gs?.label || "2026 – Prelims GS I"}
-                </h3>
-                <p className="text-xs text-slate-500 mt-1">
-                  General Studies Paper I: History, Polity, Geography, Economy,
-                  Environment & Current Affairs.
-                </p>
-
-                <div className="mt-4 flex items-center gap-3 text-xs text-slate-500 font-medium">
-                  <span>100 Questions</span>
-                  <span>•</span>
-                  <span>120 mins</span>
-                  <span>•</span>
-                  <span>200 Marks (-0.66 neg)</span>
-                </div>
-              </div>
-
-              <div className="mt-6 pt-5 border-t border-slate-200/80 flex items-center gap-3">
-                {free2026Gs && (
-                  <>
-                    <button
-                      onClick={() => onStartExam(free2026Gs, "practice")}
-                      className="cursor-pointer flex-1 flex items-center justify-center gap-1.5 rounded-xl border border-slate-200 bg-white py-2.5 text-xs font-bold text-slate-700 hover:bg-slate-50 transition-colors shadow-2xs"
-                    >
-                      <Play className="h-3.5 w-3.5 text-slate-500" />
-                      <span>Practice</span>
-                    </button>
-                    <button
-                      onClick={() => onStartExam(free2026Gs, "mock")}
-                      className="cursor-pointer flex-1 flex items-center justify-center gap-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 py-2.5 text-xs font-bold text-white transition-all shadow-xs"
-                    >
-                      <Clock className="h-3.5 w-3.5" />
-                      <span>Mock Exam</span>
-                    </button>
-                  </>
-                )}
-              </div>
-            </div>
-
-            {/* CSAT Paper 2 */}
-            <div className="rounded-3xl border border-slate-200 bg-slate-50/50 p-6 sm:p-7 shadow-xs hover:border-indigo-300 transition-all flex flex-col justify-between">
-              <div>
-                <div className="flex items-center justify-between mb-4">
-                  <span className="rounded-md bg-white border border-slate-200 px-3 py-1 text-xs font-bold text-slate-800 font-mono">
-                    2026
-                  </span>
-                  <span className="rounded-full bg-emerald-100 text-emerald-800 px-3 py-0.5 text-xs font-extrabold">
-                    100% FREE
-                  </span>
-                </div>
-                <h3 className="text-xl font-bold text-slate-900">
-                  {free2026Csat?.label || "2026 – Prelims GS II CSAT"}
-                </h3>
-                <p className="text-xs text-slate-500 mt-1">
-                  General Studies Paper II CSAT: Reading Comprehension, Logical
-                  Reasoning & Quantitative Aptitude.
-                </p>
-
-                <div className="mt-4 flex items-center gap-3 text-xs text-slate-500 font-medium">
-                  <span>80 Questions</span>
-                  <span>•</span>
-                  <span>120 mins</span>
-                  <span>•</span>
-                  <span>200 Marks (-0.83 neg)</span>
-                </div>
-              </div>
-
-              <div className="mt-6 pt-5 border-t border-slate-200/80 flex items-center gap-3">
-                {free2026Csat && (
-                  <>
-                    <button
-                      onClick={() => onStartExam(free2026Csat, "practice")}
-                      className="cursor-pointer flex-1 flex items-center justify-center gap-1.5 rounded-xl border border-slate-200 bg-white py-2.5 text-xs font-bold text-slate-700 hover:bg-slate-50 transition-colors shadow-2xs"
-                    >
-                      <Play className="h-3.5 w-3.5 text-slate-500" />
-                      <span>Practice</span>
-                    </button>
-                    <button
-                      onClick={() => onStartExam(free2026Csat, "mock")}
-                      className="cursor-pointer flex-1 flex items-center justify-center gap-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 py-2.5 text-xs font-bold text-white transition-all shadow-xs"
-                    >
-                      <Clock className="h-3.5 w-3.5" />
-                      <span>Mock Exam</span>
-                    </button>
-                  </>
-                )}
-              </div>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* Simulator Features */}
-      <section className="py-16 sm:py-24 border-b border-slate-200 bg-slate-50">
-        <div className="mx-auto max-w-6xl px-4 sm:px-6 lg:px-8 space-y-12">
-          <div className="text-center max-w-2xl mx-auto space-y-2">
-            <span className="text-[11px] font-bold uppercase tracking-wider text-indigo-700 bg-indigo-50 px-2.5 py-0.5 rounded-full border border-indigo-200/60 font-mono">
-              Engineered for Serious Aspirants
-            </span>
-            <h2 className="text-2xl sm:text-4xl font-black text-slate-900">
-              Why Practice With Our Simulator?
-            </h2>
-            <p className="text-xs sm:text-sm text-slate-500">
-              Stop guessing your negative marks. Get deep behavioural
-              diagnostics and real exam temperament.
-            </p>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            <div className="bi-card p-6 rounded-3xl space-y-3 shadow-xs">
-              <div className="h-10 w-10 rounded-2xl bg-indigo-100 text-indigo-600 flex items-center justify-center font-bold">
-                <Clock className="h-5 w-5" />
-              </div>
-              <h3 className="text-base font-bold text-slate-900">
-                Official Countdown & Time Tracking
-              </h3>
-              <p className="text-xs text-slate-500 leading-relaxed">
-                Strict 120-minute countdown with sound alerts at 15m, 5m, and 1m
-                warnings. Auto-submission prevents exam overrun.
-              </p>
-            </div>
-
-            <div className="bi-card p-6 rounded-3xl space-y-3 shadow-xs">
-              <div className="h-10 w-10 rounded-2xl bg-emerald-100 text-emerald-600 flex items-center justify-center font-bold">
-                <TrendingUp className="h-5 w-5" />
-              </div>
-              <h3 className="text-base font-bold text-slate-900">
-                Confidence & Changed Answers
-              </h3>
-              <p className="text-xs text-slate-500 leading-relaxed">
-                Tag questions as Sure, 50-50, or Guess. Track whether your
-                second thoughts harmed or improved your final score.
-              </p>
-            </div>
-
-            <div className="bi-card p-6 rounded-3xl space-y-3 shadow-xs">
-              <div className="h-10 w-10 rounded-2xl bg-purple-100 text-purple-600 flex items-center justify-center font-bold">
-                <FileUp className="h-5 w-5" />
-              </div>
-              <h3 className="text-base font-bold text-slate-900">
-                Upload Custom Papers & Sets
-              </h3>
-              <p className="text-xs text-slate-500 leading-relaxed">
-                Add coaching test series or state PCS papers with custom sets
-                (A, B, C, D) and attach your own answer keys.
-              </p>
-            </div>
-          </div>
-
-          {/* Visual Showcase: How It Works */}
-          <div className="pt-8 space-y-8">
-            <div className="text-center max-w-xl mx-auto space-y-1">
-              <span className="text-[10px] font-bold uppercase tracking-wider text-indigo-700 bg-indigo-50 px-2.5 py-0.5 rounded-full border border-indigo-200 font-mono">
-                Platform Tour
+          <ol className="mt-2 divide-y divide-slate-100">
+            <li className="public-workflow-step">
+              <span className="public-step-number">01</span>
+              <span>
+                <strong>Choose a paper</strong>
+                <small>Use an available set or your own.</small>
               </span>
-              <h3 className="text-xl sm:text-2xl font-black text-slate-900">
-                Inside the UPSC Exam Simulator
-              </h3>
-              <p className="text-xs text-slate-500">
-                See how question papers, the live simulator, and evaluation
-                reports work together.
-              </p>
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              {/* Showcase 1: Question Papers Vault */}
-              <div className="rounded-3xl border border-slate-200/80 bg-white p-6 shadow-xs space-y-4">
-                <div className="flex items-center justify-between pb-3 border-b border-slate-100">
-                  <div className="flex items-center gap-2">
-                    <span className="h-2 w-2 rounded-full bg-indigo-600" />
-                    <span className="text-xs font-bold text-slate-800">
-                      1. Question Papers Archive
-                    </span>
-                  </div>
-                  <span className="text-[10px] font-mono text-slate-400">
-                    2024–2026 Archive
-                  </span>
-                </div>
-
-                {/* Visual Mockup Card */}
-                <div className="rounded-2xl border border-slate-200 bg-slate-50/70 p-4 space-y-3 font-sans">
-                  <div className="flex items-center justify-between text-xs">
-                    <span className="rounded-md bg-white border border-slate-200 px-2 py-0.5 font-bold font-mono text-slate-700">
-                      2026
-                    </span>
-                    <span className="text-[10px] font-bold text-indigo-700 bg-indigo-50 px-2 py-0.5 rounded-full border border-indigo-200">
-                      GS I
-                    </span>
-                  </div>
-                  <h4 className="text-sm font-bold text-slate-900">
-                    2026 – Prelims General Studies I
-                  </h4>
-                  <div className="flex items-center gap-2 text-[11px] text-slate-500">
-                    <span>100 Questions</span> • <span>120 mins</span> •{" "}
-                    <span>200 Marks</span>
-                  </div>
-                  <div className="grid grid-cols-2 gap-2 pt-1">
-                    <div className="rounded-lg bg-emerald-50 border border-emerald-200 px-2.5 py-1 text-[11px] font-semibold text-emerald-700 flex items-center gap-1">
-                      <CheckCircle2 className="h-3 w-3" /> Key Attached (100 Qs)
-                    </div>
-                    <div className="rounded-lg bg-slate-100 border border-slate-200 px-2.5 py-1 text-[11px] font-semibold text-slate-600 text-center">
-                      Official Paper
-                    </div>
-                  </div>
-                </div>
-                <p className="text-xs text-slate-500 leading-relaxed">
-                  Filter papers by stage (Prelims or Mains) and year. Every
-                  paper has exact questions, duration, and mark weightings
-                  configured.
-                </p>
-              </div>
-
-              {/* Showcase 2: Live Split-Screen Simulator */}
-              <div className="rounded-3xl border border-slate-200/80 bg-white p-6 shadow-xs space-y-4">
-                <div className="flex items-center justify-between pb-3 border-b border-slate-100">
-                  <div className="flex items-center gap-2">
-                    <span className="h-2 w-2 rounded-full bg-emerald-600" />
-                    <span className="text-xs font-bold text-slate-800">
-                      2. Live Exam Hall Simulator
-                    </span>
-                  </div>
-                  <span className="text-[10px] font-mono text-emerald-700 font-bold">
-                    120:00 Countdown
-                  </span>
-                </div>
-
-                {/* Visual Mockup Simulator Bar */}
-                <div className="rounded-2xl border border-slate-200 bg-slate-50/70 p-4 space-y-3 font-sans">
-                  <div className="flex items-center justify-between bg-white rounded-xl p-2.5 border border-slate-200 shadow-2xs">
-                    <span className="text-xs font-bold text-slate-800">
-                      2026 – Prelims GS I
-                    </span>
-                    <span className="font-mono text-xs font-bold text-indigo-700 bg-indigo-50 px-2 py-0.5 rounded-lg border border-indigo-200">
-                      ⏱ 01:58:24
-                    </span>
-                  </div>
-                  <div className="flex items-center gap-1.5 overflow-x-auto text-xs py-1">
-                    <span className="h-7 w-7 rounded-lg bg-indigo-600 text-white font-mono font-bold flex items-center justify-center text-[11px]">
-                      1
-                    </span>
-                    <span className="h-7 w-7 rounded-lg bg-emerald-100 text-emerald-800 font-mono font-bold flex items-center justify-center text-[11px]">
-                      2
-                    </span>
-                    <span className="h-7 w-7 rounded-lg bg-amber-100 text-amber-800 font-mono font-bold flex items-center justify-center text-[11px]">
-                      3
-                    </span>
-                    <span className="h-7 w-7 rounded-lg bg-white border border-slate-200 text-slate-600 font-mono font-bold flex items-center justify-center text-[11px]">
-                      4
-                    </span>
-                    <span className="h-7 w-7 rounded-lg bg-white border border-slate-200 text-slate-600 font-mono font-bold flex items-center justify-center text-[11px]">
-                      5
-                    </span>
-                  </div>
-                  <div className="grid grid-cols-4 gap-2 text-center text-xs font-mono font-bold pt-1">
-                    <div className="rounded-xl border border-slate-200 bg-white py-1.5">
-                      A
-                    </div>
-                    <div className="rounded-xl border border-indigo-600 bg-indigo-600 text-white py-1.5">
-                      B
-                    </div>
-                    <div className="rounded-xl border border-slate-200 bg-white py-1.5">
-                      C
-                    </div>
-                    <div className="rounded-xl border border-slate-200 bg-white py-1.5">
-                      D
-                    </div>
-                  </div>
-                </div>
-                <p className="text-xs text-slate-500 leading-relaxed">
-                  Real question paper PDF displayed side-by-side with response
-                  bubbles, confidence tags (Sure / 50:50 / Guess), and section
-                  flags.
-                </p>
-              </div>
-
-              {/* Showcase 3: Detailed Review Table */}
-              <div className="rounded-3xl border border-slate-200/80 bg-white p-6 shadow-xs space-y-4">
-                <div className="flex items-center justify-between pb-3 border-b border-slate-100">
-                  <div className="flex items-center gap-2">
-                    <span className="h-2 w-2 rounded-full bg-purple-600" />
-                    <span className="text-xs font-bold text-slate-800">
-                      3. Official PDF-Style Assessment
-                    </span>
-                  </div>
-                  <span className="text-[10px] font-mono text-slate-400">
-                    Question Table
-                  </span>
-                </div>
-
-                {/* Visual Mockup Table */}
-                <div className="rounded-2xl border border-slate-200 bg-slate-50/70 p-3 space-y-2 text-xs">
-                  <div className="grid grid-cols-5 text-[10px] font-bold uppercase text-slate-500 border-b border-slate-200 pb-1.5 px-2">
-                    <span>Q. No</span>
-                    <span>Status</span>
-                    <span>Aspirant</span>
-                    <span>Correct</span>
-                    <span>Note</span>
-                  </div>
-                  <div className="grid grid-cols-5 items-center font-mono text-xs bg-white p-2 rounded-xl border border-slate-200/80">
-                    <span className="font-bold text-slate-900">Q1</span>
-                    <span className="text-[10px] font-bold text-emerald-700 bg-emerald-50 px-1.5 py-0.5 rounded border border-emerald-200 w-fit">
-                      Correct
-                    </span>
-                    <span className="font-bold text-emerald-700">D</span>
-                    <span className="font-bold text-emerald-700">D</span>
-                    <span className="text-[10px] text-slate-500 font-sans truncate">
-                      Seen earlier
-                    </span>
-                  </div>
-                  <div className="grid grid-cols-5 items-center font-mono text-xs bg-white p-2 rounded-xl border border-slate-200/80">
-                    <span className="font-bold text-slate-900">Q2</span>
-                    <span className="text-[10px] font-bold text-rose-700 bg-rose-50 px-1.5 py-0.5 rounded border border-rose-200 w-fit">
-                      Wrong
-                    </span>
-                    <span className="font-bold text-rose-700">C</span>
-                    <span className="font-bold text-emerald-700">A</span>
-                    <span className="text-[10px] text-slate-500 font-sans truncate">
-                      Elimination
-                    </span>
-                  </div>
-                </div>
-                <p className="text-xs text-slate-500 leading-relaxed">
-                  Every attempted question is mapped against the official key
-                  with negative mark calculations and your personal revision
-                  notes.
-                </p>
-              </div>
-
-              {/* Showcase 4: Custom Papers & Answer Keys */}
-              <div className="rounded-3xl border border-slate-200/80 bg-white p-6 shadow-xs space-y-4">
-                <div className="flex items-center justify-between pb-3 border-b border-slate-100">
-                  <div className="flex items-center gap-2">
-                    <span className="h-2 w-2 rounded-full bg-amber-600" />
-                    <span className="text-xs font-bold text-slate-800">
-                      4. Custom Test Series Uploads
-                    </span>
-                  </div>
-                  <span className="text-[10px] font-mono text-amber-700 font-bold">
-                    Sets A, B, C, D
-                  </span>
-                </div>
-
-                {/* Visual Mockup Ingestion */}
-                <div className="rounded-2xl border border-slate-200 bg-slate-50/70 p-4 space-y-2.5 text-xs">
-                  <div className="flex items-center justify-between text-xs bg-white p-2.5 rounded-xl border border-slate-200">
-                    <span className="font-bold text-slate-800">
-                      Coaching Mock Test Paper
-                    </span>
-                    <span className="text-[10px] font-bold text-purple-700 bg-purple-50 px-2 py-0.5 rounded-full border border-purple-200">
-                      Set B
-                    </span>
-                  </div>
-                  <div className="rounded-xl border border-dashed border-slate-300 p-3 text-center bg-white text-[11px] text-slate-500">
-                    Upload Question Paper PDF + Paste Answer Key Text (1. A, 2.
-                    B, 3. C...)
-                  </div>
-                  <div className="flex items-center justify-between text-[11px] font-medium text-slate-600 px-1">
-                    <span>• Instant Auto-Scoring</span>
-                    <span>• Unlimited Tests</span>
-                  </div>
-                </div>
-                <p className="text-xs text-slate-500 leading-relaxed">
-                  Take tests from VisionIAS, ForumIAS, or Vajiram. Upload the
-                  question paper PDF and attach the answer key for instant
-                  evaluation.
-                </p>
-              </div>
-            </div>
-
-            {/* Bottom CTA to sign in */}
-            <div className="text-center pt-4">
-              <button
-                onClick={onOpenAuth}
-                className="cursor-pointer inline-flex items-center gap-2 rounded-2xl bg-indigo-600 hover:bg-indigo-700 active:scale-[0.98] px-6 py-3 text-xs font-bold text-white transition-all shadow-md hover:shadow-indigo-500/25"
-              >
-                <UserCheck className="h-4 w-4" />
-                <span>Sign In to Unlock Full Platform</span>
-                <ArrowRight className="h-3.5 w-3.5" />
-              </button>
-            </div>
-          </div>
-        </div>
+              <BookOpen aria-hidden="true" className="h-4 w-4 text-slate-400" />
+            </li>
+            <li className="public-workflow-step">
+              <span className="public-step-number">02</span>
+              <span>
+                <strong>Attempt in your mode</strong>
+                <small>Timed mock or flexible practice.</small>
+              </span>
+              <Clock3 aria-hidden="true" className="h-4 w-4 text-slate-400" />
+            </li>
+            <li className="public-workflow-step">
+              <span className="public-step-number">03</span>
+              <span>
+                <strong>Review the result</strong>
+                <small>Score, accuracy, pace, and answers.</small>
+              </span>
+              <BarChart3
+                aria-hidden="true"
+                className="h-4 w-4 text-slate-400"
+              />
+            </li>
+          </ol>
+          {featuredPaper && (
+            <button
+              type="button"
+              onClick={() => onStartExam(featuredPaper, "practice")}
+              className="public-feature-link"
+            >
+              Start with {featuredPaper.label}
+              <ArrowRight aria-hidden="true" className="h-4 w-4" />
+            </button>
+          )}
+        </aside>
       </section>
 
-      {/* Honest Pricing & Pro Vault Terms */}
-      <section className="py-16 sm:py-24 border-b border-slate-200 bg-white">
-        <div className="mx-auto max-w-5xl px-4 sm:px-6 lg:px-8 space-y-12">
-          <div className="text-center max-w-2xl mx-auto space-y-2">
-            <span className="text-[11px] font-bold uppercase tracking-wider text-amber-700 bg-amber-50 px-2.5 py-0.5 rounded-full border border-amber-200/60 font-mono">
-              Simple & Transparent Pricing
+      <section className="public-section page-container" id="how-it-works">
+        <div className="public-section-heading">
+          <p className="page-eyebrow">One clear workflow</p>
+          <h2>Practice, evaluate, improve.</h2>
+          <p>
+            Spend less time setting up each session and more time understanding
+            what the result tells you.
+          </p>
+        </div>
+        <div className="public-benefit-grid">
+          <article className="public-benefit-card">
+            <span className="public-benefit-icon">
+              <FileUp aria-hidden="true" />
             </span>
-            <h2 className="text-2xl sm:text-4xl font-black text-slate-900">
-              Practice Free, or Upgrade to Lifetime Pro
-            </h2>
-            <p className="text-xs sm:text-sm text-slate-500">
-              Clear scope, no subscriptions, no recurring billing surprises.
+            <h3>Start with familiar papers</h3>
+            <p>
+              Browse available UPSC sets, or add a question paper with its
+              answer key using the current PDF or Markdown workflow.
             </p>
+          </article>
+          <article className="public-benefit-card">
+            <span className="public-benefit-icon">
+              <Clock3 aria-hidden="true" />
+            </span>
+            <h3>Choose the right attempt</h3>
+            <p>
+              Use practice mode to work through questions at your own pace, or
+              choose a timed mock for a full assessment.
+            </p>
+          </article>
+          <article className="public-benefit-card">
+            <span className="public-benefit-icon">
+              <CheckCircle2 aria-hidden="true" />
+            </span>
+            <h3>Review more than a score</h3>
+            <p>
+              See correct, incorrect, and skipped answers alongside accuracy,
+              time spent, confidence, and your attempt history.
+            </p>
+          </article>
+        </div>
+      </section>
+
+      <section className="public-audience-section">
+        <div className="page-container">
+          <div className="public-section-heading">
+            <p className="page-eyebrow">Who it’s for</p>
+            <h2>Useful for learners and the teams that prepare them.</h2>
           </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-8 max-w-4xl mx-auto">
-            {/* Free Tier Card */}
-            <div className="rounded-3xl border border-slate-200 bg-white p-7 sm:p-8 space-y-6 shadow-xs flex flex-col justify-between">
-              <div className="space-y-4">
-                <div className="flex items-center justify-between">
-                  <h3 className="text-xl font-bold text-slate-900">
-                    Free Tier
-                  </h3>
-                  <span className="text-xs font-bold text-slate-500 uppercase font-mono">
-                    Standard
-                  </span>
-                </div>
-                <div className="flex items-baseline gap-1">
-                  <span className="text-4xl font-black text-slate-900">₹0</span>
-                  <span className="text-xs text-slate-500">/ forever</span>
-                </div>
-                <p className="text-xs text-slate-500 leading-relaxed">
-                  Ideal for practicing the latest official 2026 Prelims papers
-                  without any cost.
-                </p>
-
-                <ul className="space-y-2.5 text-xs text-slate-700 pt-2">
-                  <li className="flex items-center gap-2">
-                    <CheckCircle2 className="h-4 w-4 text-emerald-600 shrink-0" />
-                    <span>2026 Prelims GS I (100 Qs) with Answer Key</span>
-                  </li>
-                  <li className="flex items-center gap-2">
-                    <CheckCircle2 className="h-4 w-4 text-emerald-600 shrink-0" />
-                    <span>2026 Prelims GS II CSAT (80 Qs) with Answer Key</span>
-                  </li>
-                  <li className="flex items-center gap-2">
-                    <CheckCircle2 className="h-4 w-4 text-emerald-600 shrink-0" />
-                    <span>Full 120-min countdown timer & warning alerts</span>
-                  </li>
-                  <li className="flex items-center gap-2">
-                    <CheckCircle2 className="h-4 w-4 text-emerald-600 shrink-0" />
-                    <span>Detailed accuracy & negative marks report</span>
-                  </li>
-                </ul>
+          <div className="public-audience-grid">
+            <article className="public-audience-card">
+              <div className="flex items-center gap-3">
+                <span className="public-benefit-icon">
+                  <BookOpen aria-hidden="true" />
+                </span>
+                <h3>Independent aspirants</h3>
               </div>
-
+              <p>
+                Build a regular test habit, continue saved sessions, and use
+                detailed review to decide what to revisit next.
+              </p>
               <button
+                type="button"
                 onClick={onOpenAuth}
-                className="cursor-pointer w-full flex items-center justify-center py-3 rounded-xl border border-slate-200 bg-slate-50 hover:bg-slate-100 text-xs font-bold text-slate-800 transition-colors"
+                className="public-text-link"
               >
-                Sign In to Start Free
+                Set up your workspace{" "}
+                <ArrowRight aria-hidden="true" className="h-4 w-4" />
               </button>
-            </div>
-
-            {/* Pro Vault Tier Card */}
-            <div className="relative rounded-3xl border-2 border-indigo-600 bg-gradient-to-b from-indigo-50/40 via-white to-white p-7 sm:p-8 space-y-6 shadow-xl flex flex-col justify-between">
-              <div className="absolute -top-3.5 right-6 bg-gradient-to-r from-amber-500 to-indigo-600 text-white text-[10px] font-extrabold uppercase tracking-wider px-3 py-1 rounded-full shadow-xs">
-                Most Popular
+            </article>
+            <article className="public-audience-card">
+              <div className="flex items-center gap-3">
+                <span className="public-benefit-icon">
+                  <BarChart3 aria-hidden="true" />
+                </span>
+                <h3>Institutes and educators</h3>
               </div>
-
-              <div className="space-y-4">
-                <div className="flex items-center justify-between">
-                  <h3 className="text-xl font-bold text-slate-900">
-                    Lifetime Pro Vault
-                  </h3>
-                  <span className="text-xs font-extrabold text-indigo-700 uppercase font-mono">
-                    One-Time
-                  </span>
-                </div>
-                <div className="flex items-baseline gap-1">
-                  <span className="text-4xl font-black text-slate-900">
-                    ₹999
-                  </span>
-                  <span className="text-xs text-slate-500">
-                    one-time payment
-                  </span>
-                </div>
-                <p className="text-xs text-slate-600 leading-relaxed">
-                  Full 3-year archive (2024, 2025, 2026) + unlimited custom
-                  paper uploads with your own sets & keys.
-                </p>
-
-                <ul className="space-y-2.5 text-xs text-slate-700 pt-2">
-                  <li className="flex items-center gap-2 font-semibold">
-                    <CheckCircle2 className="h-4 w-4 text-indigo-600 shrink-0" />
-                    <span>All 2024, 2025 & 2026 Prelims papers</span>
-                  </li>
-                  <li className="flex items-center gap-2 font-semibold">
-                    <CheckCircle2 className="h-4 w-4 text-indigo-600 shrink-0" />
-                    <span>All 2024, 2025 & 2026 Mains Subjective papers</span>
-                  </li>
-                  <li className="flex items-center gap-2 font-semibold">
-                    <CheckCircle2 className="h-4 w-4 text-indigo-600 shrink-0" />
-                    <span>
-                      Upload your own papers & sets with custom answer keys
-                    </span>
-                  </li>
-                  <li className="flex items-center gap-2">
-                    <CheckCircle2 className="h-4 w-4 text-indigo-600 shrink-0" />
-                    <span>Unlimited attempts as many times as you want</span>
-                  </li>
-                </ul>
-              </div>
-
-              <div className="space-y-3 pt-2">
-                <button
-                  onClick={onOpenProModal}
-                  className="cursor-pointer w-full flex items-center justify-center gap-2 py-3.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 active:scale-[0.98] text-xs font-bold text-white transition-all shadow-md hover:shadow-indigo-500/25"
-                >
-                  <Sparkles className="h-3.5 w-3.5 text-amber-300 fill-amber-300" />
-                  <span>Unlock Lifetime Pro (₹999)</span>
-                </button>
-
-                {/* Important Policy Notice */}
-                <div className="rounded-xl bg-slate-100 p-3 text-[11px] text-slate-500 leading-snug space-y-1">
-                  <p className="font-semibold text-slate-700 flex items-center gap-1">
-                    <ShieldAlert className="h-3 w-3 text-amber-600" />
-                    <span>Terms & No Refund Policy</span>
-                  </p>
-                  <p>
-                    One-time payment covers unlimited practice for the 2024,
-                    2025, and 2026 paper repository. Any future papers, syllabus
-                    changes, or platform additions are at our sole discretion
-                    and may incur extra cost. Strict No Refund policy.
-                  </p>
-                </div>
-              </div>
-            </div>
+              <p>
+                Explore the paper setup, timed attempt, and result-review
+                workflow with a sample assessment before planning a wider
+                rollout.
+              </p>
+              <a
+                href="mailto:support@chikoochi.com?subject=Assessment%20platform%20demo"
+                className="public-text-link"
+              >
+                Discuss an institute demo{" "}
+                <Mail aria-hidden="true" className="h-4 w-4" />
+              </a>
+            </article>
           </div>
         </div>
       </section>
 
-      {/* Frequently Asked Questions */}
-      <section className="py-14 sm:py-20 border-b border-slate-200 bg-slate-50">
-        <div className="mx-auto max-w-4xl px-4 sm:px-6 lg:px-8 space-y-8">
-          <div className="text-center space-y-2">
-            <h2 className="text-2xl sm:text-3xl font-black text-slate-900">
-              Frequently Asked Questions
-            </h2>
-            <p className="text-xs sm:text-sm text-slate-500">
-              Everything you need to know about papers, scoring, and account
-              sync.
+      <section className="public-section page-container" id="questions">
+        <div className="public-section-heading">
+          <p className="page-eyebrow">Before you begin</p>
+          <h2>Common questions</h2>
+        </div>
+        <div className="public-faq-list">
+          <details>
+            <summary>Can I try a test before creating an account?</summary>
+            <p>
+              Yes. Start the featured free paper in practice mode. Sign in to
+              keep your mock history and results with your account.
             </p>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs">
-            <div className="bi-card p-5 rounded-2xl space-y-2">
-              <h4 className="font-bold text-slate-900">
-                Which papers are included in the archive?
-              </h4>
-              <p className="text-slate-500 leading-relaxed">
-                Our archive contains official UPSC CSE papers for 2024, 2025,
-                and 2026. Free tier gives full unlimited access to 2026 Prelims
-                GS I and CSAT. Pro unlocks 2024 and 2025.
-              </p>
-            </div>
-
-            <div className="bi-card p-5 rounded-2xl space-y-2">
-              <h4 className="font-bold text-slate-900">
-                Can I upload my coaching test series papers?
-              </h4>
-              <p className="text-slate-500 leading-relaxed">
-                Yes! With Pro, you can upload any custom question paper PDF,
-                specify whatever set (A, B, C, D) you want, and attach your own
-                answer key for instant automatic evaluation.
-              </p>
-            </div>
-
-            <div className="bi-card p-5 rounded-2xl space-y-2">
-              <h4 className="font-bold text-slate-900">
-                How do I preserve my score after attempting as a guest?
-              </h4>
-              <p className="text-slate-500 leading-relaxed">
-                When you finish an exam session, our completion dialog allows
-                you to sign up or log in. Your answers, score, and question
-                review are immediately synced to your cloud account.
-              </p>
-            </div>
-
-            <div className="bi-card p-5 rounded-2xl space-y-2">
-              <h4 className="font-bold text-slate-900">
-                What is the refund policy?
-              </h4>
-              <p className="text-slate-500 leading-relaxed">
-                We maintain a strict No Refund policy. We recommend attempting
-                the free 2026 Prelims papers first to test the interface, timer,
-                and features before upgrading.
-              </p>
-            </div>
-          </div>
+          </details>
+          <details>
+            <summary>Can I use my institute’s own question paper?</summary>
+            <p>
+              Custom papers can be added with a PDF and answer key, or in the
+              provided Markdown format. Institute-wide class management is not
+              part of the current workflow; contact us to discuss a demo and
+              requirements.
+            </p>
+          </details>
+          <details>
+            <summary>What can I review after an attempt?</summary>
+            <p>
+              Results include marks and accuracy, question-level answers, time
+              spent, and confidence information where it was recorded.
+            </p>
+          </details>
         </div>
       </section>
 
-      {/* Footer */}
-      <footer className="py-8 bg-white text-center text-xs text-slate-500 border-t border-slate-200">
-        <div className="mx-auto max-w-4xl px-4 space-y-2">
-          <p className="font-semibold text-slate-700">
-            UPSC CSE Prelims & Mains Exam Simulator
-          </p>
-          <p className="text-[11px] text-slate-400">
-            Not affiliated with Union Public Service Commission. All trademarks
-            and official papers belong to their respective authorities.
-          </p>
-          <p className="text-[11px] text-slate-400 pt-1">
-            © {new Date().getFullYear()} UPSC Practice. All rights reserved.
-          </p>
+      <section className="page-container pt-0">
+        <div className="public-final-cta">
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-wide text-blue-100">
+              Your next assessment
+            </p>
+            <h2 className="mt-1 text-xl font-semibold text-white">
+              Start with one paper. Build a clearer record over time.
+            </h2>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            {featuredPaper && (
+              <button
+                type="button"
+                onClick={() => onStartExam(featuredPaper, "practice")}
+                className="button-light"
+              >
+                <Play aria-hidden="true" className="h-4 w-4" /> Try practice
+              </button>
+            )}
+            <button
+              type="button"
+              onClick={onOpenAuth}
+              className="button-outline-light"
+            >
+              Sign in
+            </button>
+          </div>
         </div>
-      </footer>
+      </section>
     </div>
   );
 }

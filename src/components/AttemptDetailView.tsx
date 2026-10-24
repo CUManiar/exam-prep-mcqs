@@ -591,7 +591,7 @@ export function AttemptDetailView({
 
   return (
     <div
-      className={`mx-auto ${showPaperSplit && matchedPaper?.qpUrl ? "max-w-[1920px] px-3 sm:px-6" : "max-w-5xl px-4 sm:px-6"} py-6 space-y-6 text-slate-800 font-sans animate-in fade-in duration-200 print:text-black print:bg-white print:p-0 print:space-y-4 print:max-w-none`}
+      className={`mx-auto ${showPaperSplit && matchedPaper?.qpUrl ? "max-w-[1920px] px-3 sm:px-6" : "max-w-5xl px-4 sm:px-6"} py-6 space-y-6 text-slate-800 font-sans print:text-black print:bg-white print:p-0 print:space-y-4 print:max-w-none`}
     >
       {/* =========================================================================
           PRINT & EXPORT PDF REPORT (CLEAN, UNCLUTTERED EXECUTIVE FORMAT)
@@ -903,7 +903,7 @@ export function AttemptDetailView({
           <div>
             <div className="flex items-center gap-2">
               <span className="text-[10px] font-medium uppercase tracking-wider px-2.5 py-0.5 rounded-full bg-indigo-50 text-indigo-700 border border-indigo-200/60 font-mono">
-                Mock Assessment Report
+                {attempt.mode === "mock" ? "Timed mock report" : "Practice report"}
               </span>
               <span className="text-xs text-slate-500 font-medium">
                 {formatDateTime(attempt.startedAt)}

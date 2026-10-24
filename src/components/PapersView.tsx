@@ -252,30 +252,16 @@ export function PapersView({
   });
 
   return (
-    <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8 space-y-8 animate-in fade-in duration-200">
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 pb-4 border-b border-slate-200/80">
+    <div className="page-container space-y-6">
+      <div className="page-heading">
         <div>
-          <div className="flex items-center gap-2 mb-1">
-            <span className="text-[11px] font-medium uppercase tracking-wider text-indigo-700 bg-indigo-50 px-2 py-0.5 rounded-md border border-indigo-100 font-mono">
-              Papers Archive
-            </span>
-            <span className="text-slate-300">•</span>
-            <span className="text-xs text-slate-500 font-mono">
-              {papers.length} Papers
-            </span>
-          </div>
-          <h1 className="text-xl sm:text-2xl font-bold text-slate-900 tracking-tight">
-            Question Papers
-          </h1>
+          <p className="page-eyebrow">Paper library · {papers.length} available</p>
+          <h1 className="page-title">Question papers</h1>
+          <p className="page-description">Find an assessment, review its materials, or add a paper to your library.</p>
         </div>
-
-        <button
-          onClick={onNavigateUpload}
-          className="cursor-pointer self-start sm:self-auto flex items-center gap-1.5 rounded-xl bg-indigo-600 px-4 py-2 text-xs font-semibold text-white hover:bg-indigo-700 transition-all shadow-xs"
-        >
+        <button type="button" onClick={onNavigateUpload} className="button-primary self-start sm:self-auto">
           <Plus className="h-4 w-4" />
-          <span>Upload Paper</span>
+          <span>Add a paper</span>
         </button>
       </div>
 
@@ -375,40 +361,6 @@ export function PapersView({
           </select>
         </div>
       </div>
-
-      {/* Freemium Vault Announcement Banner */}
-      {!isPro && (
-        <div className="rounded-2xl border border-amber-200 bg-gradient-to-r from-amber-50 via-indigo-50/40 to-white p-4 sm:p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4 shadow-xs animate-in fade-in">
-          <div className="flex items-start gap-3">
-            <div className="rounded-xl bg-amber-100 p-2 text-amber-700 shrink-0 mt-0.5">
-              <Sparkles className="h-5 w-5 text-amber-600 fill-amber-400" />
-            </div>
-            <div>
-              <div className="flex items-center gap-2">
-                <h3 className="text-sm font-bold text-slate-900">
-                  Free Tier: 2026 Prelims Papers (GS I & CSAT)
-                </h3>
-                <span className="rounded-full bg-emerald-100 text-emerald-800 px-2 py-0.2 text-[10px] font-extrabold">
-                  FREE FOREVER
-                </span>
-              </div>
-              <p className="text-xs text-slate-500 mt-1 leading-relaxed">
-                Full real-time countdown timer, answer keys, confidence tagging
-                & automated evaluation included. Unlock the complete 2024, 2025,
-                and 2026 Prelims & Mains archive + unlimited custom paper
-                uploads with Lifetime Pro (₹999).
-              </p>
-            </div>
-          </div>
-          <button
-            onClick={() => openProUpgradeModal()}
-            className="cursor-pointer shrink-0 rounded-xl bg-indigo-600 hover:bg-indigo-700 active:scale-[0.98] px-4 py-2.5 text-xs font-bold text-white transition-all shadow-xs flex items-center justify-center gap-1.5"
-          >
-            <Lock className="h-3.5 w-3.5" />
-            <span>Unlock Pro Vault (₹999)</span>
-          </button>
-        </div>
-      )}
 
       {/* Papers Grid */}
       {filteredPapers.length === 0 ? (

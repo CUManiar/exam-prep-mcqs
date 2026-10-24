@@ -103,3 +103,15 @@ export interface ActiveSessionDraft {
   pausedAt: string;
   isExited?: boolean;
 }
+
+export type AppNotificationType = "result" | "paper" | "session" | "system";
+
+export interface AppNotification {
+  id: string;
+  type: AppNotificationType;
+  title: string;
+  message: string;
+  createdAt: string;
+  href?: string;
+  read: boolean;
+}
