@@ -14,6 +14,7 @@ import {
   RotateCcw,
   Search,
   Target,
+  Trash2,
   TrendingUp,
   Zap,
 } from "lucide-react";
@@ -351,6 +352,7 @@ export function HistoryView({
           <div className="space-y-6">
             {filteredGrouped.map((group) => {
               const hasMultiple = group.attempts.length > 1;
+              const paperDeleted = !group.paper;
 
               return (
                 <div
@@ -370,6 +372,15 @@ export function HistoryView({
                             ? "Attempt Logged"
                             : "Attempts Recorded Separately"}
                         </span>
+                        {paperDeleted && (
+                          <span
+                            className="inline-flex items-center justify-center rounded-md bg-amber-50 p-1 text-amber-600"
+                            aria-label="Linked paper deleted"
+                            title="The paper linked to this assessment has been deleted."
+                          >
+                            <AlertTriangle className="h-3.5 w-3.5" />
+                          </span>
+                        )}
                       </div>
                       <h3
                         title={group.paperLabel}
@@ -584,6 +595,7 @@ export function HistoryView({
             const totalPaperAttempts = group.attempts.length;
             const matchedPaper =
               group.paper || papers.find((p) => p.id === group.paperId);
+            const paperDeleted = !matchedPaper;
 
             const isCsat =
               group.paperLabel.includes("CSAT") ||
@@ -665,6 +677,16 @@ export function HistoryView({
                         {cutoffBadge || (
                           <span className="text-[10px] font-medium px-2 py-0.5 rounded-md bg-slate-100 text-slate-600 border border-slate-200/60">
                             Evaluated
+                          </span>
+                        )}
+
+                        {paperDeleted && (
+                          <span
+                            className="inline-flex items-center justify-center rounded-md bg-amber-50 p-1 text-amber-600"
+                            aria-label="Linked paper deleted"
+                            title="The paper linked to this assessment has been deleted."
+                          >
+                            <AlertTriangle className="h-3.5 w-3.5" />
                           </span>
                         )}
 
@@ -805,6 +827,20 @@ export function HistoryView({
                         <span>Re-attempt</span>
                       </button>
                     ) : <span />}
+                    {paperDeleted && (
+                      <button
+                        type="button"
+                        onClick={(event) => {
+                          event.stopPropagation();
+                          onDeleteAttempt(activeAttempt.id);
+                        }}
+                        className="cursor-pointer rounded-lg p-1 text-slate-400 transition-colors hover:bg-rose-50 hover:text-rose-600"
+                        aria-label="Delete assessment"
+                        title="Delete this assessment"
+                      >
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </button>
+                    )}
                     <span className="text-indigo-600 group-hover:text-indigo-700 font-medium text-xs flex items-center gap-0.5 transition-colors">
                       Review <ChevronRight className="h-3.5 w-3.5" />
                     </span>

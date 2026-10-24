@@ -14,6 +14,7 @@ export default function RootPage() {
     attempts,
     handleStartExam,
     handleViewAttemptDetail,
+    handleDeleteAttempt,
     activeDraft,
     handleResumeDraft,
     handleDiscardDraft,
@@ -50,6 +51,7 @@ export default function RootPage() {
       onNavigatePapers={() => router.push("/papers")}
       onNavigateHistory={() => router.push("/history")}
       onViewAttempt={handleViewAttemptDetail}
+      onDeleteAttempt={handleDeleteAttempt}
       activeDraft={activeDraft}
       onResumeDraft={handleResumeDraft}
       onDiscardDraft={handleDiscardDraft}

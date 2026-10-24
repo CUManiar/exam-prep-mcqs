@@ -193,6 +193,11 @@ export function AttemptDetailView({
     );
   }, [matchedPaper, attempt.paperId]);
 
+  const paperDeleted = !matchedPaper;
+  const canPreviewPaper = Boolean(
+    matchedPaper && (matchedPaper.qpUrl || isMarkdownPaper),
+  );
+
   // Parse markdown questions if not already parsed
   const markdownQuestions = useMemo(() => {
     if (!isMarkdownPaper) return [];
@@ -591,7 +596,7 @@ export function AttemptDetailView({
 
   return (
     <div
-      className={`mx-auto ${showPaperSplit && matchedPaper?.qpUrl ? "max-w-[1920px] px-3 sm:px-6" : "max-w-5xl px-4 sm:px-6"} py-6 space-y-6 text-slate-800 font-sans print:text-black print:bg-white print:p-0 print:space-y-4 print:max-w-none`}
+      className={`mx-auto ${showPaperSplit && canPreviewPaper ? "max-w-[1920px] px-3 sm:px-6" : "max-w-5xl px-4 sm:px-6"} py-6 space-y-6 text-slate-800 font-sans print:text-black print:bg-white print:p-0 print:space-y-4 print:max-w-none`}
     >
       {/* =========================================================================
           PRINT & EXPORT PDF REPORT (CLEAN, UNCLUTTERED EXECUTIVE FORMAT)
@@ -912,12 +917,21 @@ export function AttemptDetailView({
             <h1 className="text-lg sm:text-xl font-bold text-slate-900 tracking-tight mt-0.5">
               {displayPaperTitle}
             </h1>
+            {paperDeleted && (
+              <span
+                className="mt-1 inline-flex items-center gap-1.5 text-[11px] font-semibold text-amber-700"
+                title="The paper linked to this assessment has been deleted."
+              >
+                <AlertTriangle className="h-3.5 w-3.5" />
+                Linked paper deleted
+              </span>
+            )}
           </div>
         </div>
 
         <div className="flex items-center gap-2 flex-wrap">
           {/* Question Paper Preview Toggle (Desktop Side-by-Side & Tablet/Mobile Vertical) */}
-          {(matchedPaper?.qpUrl || isMarkdownPaper) && (
+          {canPreviewPaper && (
             <button
               onClick={() => setShowPaperSplit(!showPaperSplit)}
               className={`flex items-center gap-1.5 rounded-xl px-3 py-1.5 text-xs font-bold transition-all shadow-2xs cursor-pointer ${
@@ -1119,10 +1133,10 @@ export function AttemptDetailView({
 
       {/* Main Content Area: Split View Container (Desktop Side-by-Side, Tablet/Mobile Vertical) */}
       <div
-        className={`screen-only flex flex-col ${showPaperSplit && (matchedPaper?.qpUrl || isMarkdownPaper) ? "xl:flex-row" : ""} gap-6 items-start`}
+        className={`screen-only flex flex-col ${showPaperSplit && canPreviewPaper ? "xl:flex-row" : ""} gap-6 items-start`}
       >
         {/* Question Paper Viewer (Markdown Interactive Reader OR PDF Viewer) */}
-        {showPaperSplit && (matchedPaper?.qpUrl || isMarkdownPaper) && (
+        {showPaperSplit && canPreviewPaper && (
           <div className="flex flex-col w-full xl:w-1/2 xl:sticky xl:top-20 h-[55vh] sm:h-[65vh] xl:h-[calc(100vh-6.5rem)] rounded-2xl overflow-hidden border border-slate-200 bg-white shadow-md shrink-0 z-10">
             {isMarkdownPaper ? (
               <MarkdownPaperReviewViewer
@@ -1225,7 +1239,7 @@ export function AttemptDetailView({
 
         {/* Right Side / Bottom: Assessment Report & Responses */}
         <div
-          className={`w-full ${showPaperSplit && (matchedPaper?.qpUrl || isMarkdownPaper) ? "xl:w-1/2" : "max-w-5xl mx-auto"} space-y-6 min-w-0`}
+          className={`w-full ${showPaperSplit && canPreviewPaper ? "xl:w-1/2" : "max-w-5xl mx-auto"} space-y-6 min-w-0`}
         >
           {/* PART 1: ASSESSMENT SUMMARY (COLLAPSIBLE, COLLAPSED BY DEFAULT) */}
           <div className="bi-card overflow-hidden">

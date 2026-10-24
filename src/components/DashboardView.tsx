@@ -5,6 +5,7 @@ import { ActiveSessionDraft, Attempt, QuestionPaper } from "../lib/types";
 import { isPaperFree, isUserUploadedPaper } from "../lib/defaults";
 import {
   ArrowRight,
+  AlertTriangle,
   BarChart3,
   BookOpen,
   Clock3,
@@ -12,6 +13,7 @@ import {
   Play,
   RotateCcw,
   Target,
+  Trash2,
 } from "lucide-react";
 
 interface DashboardViewProps {
@@ -21,6 +23,7 @@ interface DashboardViewProps {
   onNavigatePapers: () => void;
   onNavigateHistory: () => void;
   onViewAttempt: (attempt: Attempt) => void;
+  onDeleteAttempt?: (attemptId: string) => void;
   activeDraft?: ActiveSessionDraft | null;
   onResumeDraft?: (draft: ActiveSessionDraft) => void;
   onDiscardDraft?: () => void;
@@ -43,6 +46,7 @@ export function DashboardView({
   onNavigatePapers,
   onNavigateHistory,
   onViewAttempt,
+  onDeleteAttempt,
   activeDraft,
   onResumeDraft,
   onDiscardDraft,
@@ -250,16 +254,36 @@ export function DashboardView({
             </div>
           ) : (
             <ul className="divide-y divide-slate-100">
-              {completed.slice(0, 4).map((attempt) => (
-                <li key={attempt.id}>
-                  <button
-                    type="button"
+              {completed.slice(0, 4).map((attempt) => {
+                const paperExists = papers.some(
+                  (paper) => paper.id === attempt.paperId,
+                );
+                return (
+                  <li key={attempt.id}>
+                  <div
+                    role="button"
+                    tabIndex={0}
                     onClick={() => onViewAttempt(attempt)}
-                    className="flex w-full flex-col gap-3 px-4 py-4 text-left transition hover:bg-slate-50 sm:flex-row sm:items-center sm:justify-between sm:px-5"
+                    onKeyDown={(event) => {
+                      if (event.key === "Enter" || event.key === " ") {
+                        event.preventDefault();
+                        onViewAttempt(attempt);
+                      }
+                    }}
+                    className="flex w-full cursor-pointer flex-col gap-3 px-4 py-4 text-left transition hover:bg-slate-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 sm:flex-row sm:items-center sm:justify-between sm:px-5"
                   >
                     <span className="min-w-0">
-                      <span className="block truncate text-sm font-semibold text-slate-900">
-                        {attempt.paperLabel}
+                      <span className="flex items-center gap-1.5 truncate text-sm font-semibold text-slate-900">
+                        <span className="truncate">{attempt.paperLabel}</span>
+                        {!paperExists && (
+                          <span
+                            className="shrink-0 text-amber-600"
+                            aria-label="Linked paper deleted"
+                            title="The paper linked to this assessment has been deleted."
+                          >
+                            <AlertTriangle className="h-3.5 w-3.5" aria-hidden="true" />
+                          </span>
+                        )}
                       </span>
                       <span className="mt-1 block text-xs text-slate-500">
                         {formatAttemptDate(
@@ -279,11 +303,26 @@ export function DashboardView({
                       <span className="font-medium tabular-nums text-slate-700">
                         {Math.round(attempt.accuracyPct || 0)}%
                       </span>
+                      {!paperExists && onDeleteAttempt && (
+                        <button
+                          type="button"
+                          onClick={(event) => {
+                            event.stopPropagation();
+                            onDeleteAttempt(attempt.id);
+                          }}
+                          className="rounded-md p-1 text-slate-400 transition hover:bg-rose-50 hover:text-rose-600"
+                          aria-label="Delete assessment"
+                          title="Delete this assessment"
+                        >
+                          <Trash2 className="h-3.5 w-3.5" />
+                        </button>
+                      )}
                       <ArrowRight className="hidden h-4 w-4 text-slate-400 sm:block" />
                     </span>
-                  </button>
-                </li>
-              ))}
+                  </div>
+                  </li>
+                );
+              })}
             </ul>
           )}
         </div>

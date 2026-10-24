@@ -547,7 +547,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const handleDeleteAttempt = (attemptId: string) => {
     setModalConfig({
       isOpen: true,
-      title: "Delete Mock Exam Attempt?",
+      title: "Delete Assessment?",
       message:
         "Are you sure you want to permanently delete this exam attempt from history? This record and its performance analytics cannot be recovered.",
       confirmText: "Delete Attempt",
