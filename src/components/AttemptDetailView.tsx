@@ -54,6 +54,7 @@ import {
   exportAttemptAsJSON,
   exportAttemptAsMarkdown,
   exportAttemptAsPrintPDF,
+  exportAttemptWithQuestionPaperAsPrintPDF,
   copyAttemptSummaryToClipboard,
 } from "../lib/exportUtils";
 
@@ -125,6 +126,7 @@ export function AttemptDetailView({
   const totalRelatedAttempts = relatedAttempts.length;
   const [showExportMenu, setShowExportMenu] = useState<boolean>(false);
   const [copiedToast, setCopiedToast] = useState<boolean>(false);
+  const [isExportingPacket, setIsExportingPacket] = useState<boolean>(false);
   const [showPaperSplit, setShowPaperSplit] = useState<boolean>(false);
   const [mobilePaperModalOpen, setMobilePaperModalOpen] =
     useState<boolean>(false);
@@ -322,6 +324,22 @@ export function AttemptDetailView({
       displayPaperTitle,
       effectiveMaxScore,
     );
+  };
+
+  const handlePrintQuestionPaperAndSummary = async () => {
+    if (!matchedPaper) return;
+    setIsExportingPacket(true);
+    try {
+      await exportAttemptWithQuestionPaperAsPrintPDF(
+        attempt,
+        matchedPaper,
+        matchedPaper.explanations,
+        displayPaperTitle,
+        effectiveMaxScore,
+      );
+    } finally {
+      setIsExportingPacket(false);
+    }
   };
 
   const handleSaveGeneralNote = () => {
@@ -979,6 +997,24 @@ export function AttemptDetailView({
                   onClick={() => setShowExportMenu(false)}
                 />
                 <div className="absolute right-0 mt-1.5 z-50 min-w-[280px] w-max max-w-xs rounded-2xl border border-slate-200 bg-white p-2 shadow-2xl space-y-1">
+                  {matchedPaper && canPreviewPaper && (
+                    <button
+                      onClick={() => {
+                        void handlePrintQuestionPaperAndSummary();
+                        setShowExportMenu(false);
+                      }}
+                      disabled={isExportingPacket}
+                      className="flex w-full items-center gap-2.5 rounded-xl px-3 py-2 text-xs font-bold text-slate-800 bg-blue-50 hover:bg-blue-100 transition-colors cursor-pointer whitespace-nowrap disabled:cursor-wait disabled:opacity-60"
+                    >
+                      <FileText className="h-4 w-4 text-blue-600 shrink-0" />
+                      <span>
+                        {isExportingPacket
+                          ? "Preparing question paper..."
+                          : "Question paper & Summary"}
+                      </span>
+                    </button>
+                  )}
+
                   <button
                     onClick={() => {
                       handlePrint();
