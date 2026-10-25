@@ -412,7 +412,7 @@ export function LandingView({
         </div>
       </section>
 
-      <section className="page-container pt-0">
+      <section className="public-final-section page-container pt-0">
         <div className="public-final-cta">
           <div>
             <p className="text-xs font-semibold uppercase tracking-wide text-blue-100">

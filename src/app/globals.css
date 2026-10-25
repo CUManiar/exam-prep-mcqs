@@ -551,6 +551,53 @@ label,
   color: #0f172a;
 }
 
+@keyframes public-fade-up {
+  from {
+    opacity: 0;
+    transform: translateY(18px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes public-fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes public-float {
+  0%, 100% { transform: translate3d(0, 0, 0); }
+  50% { transform: translate3d(0, -10px, 0); }
+}
+
+@keyframes public-progress-in {
+  from { transform: scaleX(0); transform-origin: left; }
+  to { transform: scaleX(1); transform-origin: left; }
+}
+
+@keyframes public-shimmer {
+  from { background-position: 160% 0; }
+  to { background-position: -160% 0; }
+}
+
+.public-home > .public-hero,
+.public-home > .public-section,
+.public-home > .public-audience-section,
+.public-home > .public-final-section,
+.public-home > .public-footer {
+  animation: public-fade-up 0.72s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.public-home > .public-hero { animation-delay: 0.04s; }
+.public-home > .public-section:nth-of-type(2) { animation-delay: 0.14s; }
+.public-home > .public-section:nth-of-type(3) { animation-delay: 0.22s; }
+.public-home > .public-audience-section { animation-delay: 0.3s; }
+.public-home > .public-section:nth-of-type(5) { animation-delay: 0.38s; }
+.public-home > .public-final-section { animation-delay: 0.46s; }
+.public-home > .public-footer { animation-delay: 0.54s; }
+
 .public-hero {
   position: relative;
   isolation: isolate;
@@ -582,6 +629,17 @@ label,
 .public-hero-copy {
   max-width: 42rem;
 }
+
+.public-hero-copy > * {
+  animation: public-fade-up 0.7s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.public-hero-copy > :nth-child(1) { animation-delay: 0.16s; }
+.public-hero-copy > :nth-child(2) { animation-delay: 0.22s; }
+.public-hero-copy > :nth-child(3) { animation-delay: 0.28s; }
+.public-hero-copy > :nth-child(4) { animation-delay: 0.34s; }
+.public-hero-copy > :nth-child(5) { animation-delay: 0.4s; }
+.public-hero-copy > :nth-child(6) { animation-delay: 0.46s; }
 
 .public-hero-points {
   display: flex;
@@ -635,6 +693,24 @@ label,
   margin-top: 1.75rem;
 }
 
+.public-home .button-primary,
+.public-home .button-secondary {
+  transition:
+    transform 0.2s ease,
+    box-shadow 0.2s ease,
+    background-color 0.2s ease,
+    border-color 0.2s ease;
+}
+
+.public-home .button-primary:hover,
+.public-home .button-secondary:hover {
+  transform: translateY(-2px);
+}
+
+.public-home .button-primary:hover {
+  box-shadow: 0 10px 22px rgb(37 99 235 / 20%);
+}
+
 .public-note {
   margin-top: 0.75rem;
   color: #64748b;
@@ -652,6 +728,18 @@ label,
   box-shadow:
     0 18px 48px rgb(15 23 42 / 8%),
     0 2px 6px rgb(15 23 42 / 4%);
+  transition:
+    transform 0.28s ease,
+    box-shadow 0.28s ease,
+    border-color 0.28s ease;
+}
+
+.public-feature-card:hover {
+  border-color: #bfdbfe;
+  box-shadow:
+    0 24px 56px rgb(30 64 175 / 14%),
+    0 3px 8px rgb(15 23 42 / 5%);
+  transform: translateY(-5px);
 }
 
 .public-hero-visual {
@@ -680,6 +768,7 @@ label,
   right: -3rem;
   background: rgb(147 197 253 / 40%);
   filter: blur(2px);
+  animation: public-float 5s ease-in-out infinite;
 }
 
 .public-visual-orb-two {
@@ -687,6 +776,7 @@ label,
   left: -4rem;
   background: rgb(196 181 253 / 28%);
   filter: blur(4px);
+  animation: public-float 6.5s ease-in-out -1.5s infinite;
 }
 
 .public-ready-pill {
@@ -763,6 +853,7 @@ label,
   height: 100%;
   border-radius: inherit;
   background: linear-gradient(90deg, #2563eb, #7c3aed);
+  animation: public-progress-in 1.4s 0.65s cubic-bezier(0.22, 1, 0.36, 1) both;
 }
 
 .public-review-preview p {
@@ -779,6 +870,17 @@ label,
   gap: 0.8rem;
   grid-template-columns: 2rem minmax(0, 1fr) 1rem;
   padding-block: 0.7rem;
+  border-radius: 8px;
+  transition:
+    background-color 0.2s ease,
+    transform 0.2s ease,
+    padding-inline 0.2s ease;
+}
+
+.public-workflow-step:hover {
+  background: rgb(239 246 255 / 65%);
+  transform: translateX(4px);
+  padding-inline: 0.45rem;
 }
 
 .public-workflow-step strong,
@@ -877,6 +979,14 @@ label,
     #f8fafc;
   box-shadow: 0 18px 48px rgb(15 23 42 / 7%);
   padding: clamp(1rem, 3vw, 1.5rem);
+  transition:
+    box-shadow 0.3s ease,
+    border-color 0.3s ease;
+}
+
+.public-pricing-board:hover {
+  border-color: #c7d2fe;
+  box-shadow: 0 24px 58px rgb(30 64 175 / 10%);
 }
 
 .public-pricing-board-header {
@@ -926,6 +1036,16 @@ label,
   font-size: 11px;
   font-weight: 700;
   white-space: nowrap;
+  background-image: linear-gradient(
+    110deg,
+    #eff6ff 0%,
+    #eff6ff 38%,
+    #dbeafe 50%,
+    #eff6ff 62%,
+    #eff6ff 100%
+  );
+  background-size: 220% 100%;
+  animation: public-shimmer 4.5s linear infinite;
 }
 
 .public-plan-grid {
@@ -945,6 +1065,17 @@ label,
   border-radius: 15px;
   background: #fff;
   padding: clamp(1.1rem, 2.5vw, 1.4rem);
+  transition:
+    transform 0.24s ease,
+    border-color 0.24s ease,
+    box-shadow 0.24s ease;
+}
+
+.public-plan-card:hover,
+.public-plan-card:focus-within {
+  border-color: #93c5fd;
+  box-shadow: 0 14px 30px rgb(30 64 175 / 10%);
+  transform: translateY(-5px);
 }
 
 .public-plan-card-primary {
@@ -953,6 +1084,13 @@ label,
   border-color: #1d4ed8;
   background: linear-gradient(145deg, #1d4ed8, #4338ca);
   box-shadow: 0 16px 30px rgb(37 99 235 / 22%);
+}
+
+.public-plan-card-primary:hover,
+.public-plan-card-primary:focus-within {
+  border-color: #93c5fd;
+  box-shadow: 0 22px 42px rgb(37 99 235 / 32%);
+  transform: translateY(-7px);
 }
 
 .public-plan-card-primary::after {
@@ -1132,6 +1270,21 @@ label,
   text-underline-offset: 3px;
 }
 
+.public-plan-action,
+.public-text-link,
+.public-feature-link,
+.public-footer-links a {
+  transition:
+    color 0.18s ease,
+    transform 0.18s ease;
+}
+
+.public-plan-action:hover,
+.public-text-link:hover,
+.public-feature-link:hover {
+  transform: translateX(3px);
+}
+
 .public-benefit-grid,
 .public-audience-grid {
   display: grid;
@@ -1145,6 +1298,17 @@ label,
   border-radius: 9px;
   background: #fff;
   padding: 1.25rem;
+  transition:
+    transform 0.22s ease,
+    border-color 0.22s ease,
+    box-shadow 0.22s ease;
+}
+
+.public-benefit-card:hover,
+.public-audience-card:hover {
+  border-color: #bfdbfe;
+  box-shadow: 0 12px 28px rgb(30 64 175 / 8%);
+  transform: translateY(-4px);
 }
 
 .public-benefit-icon {
@@ -1231,6 +1395,11 @@ label,
   font-weight: 600;
   cursor: pointer;
   list-style: none;
+  transition: color 0.18s ease;
+}
+
+.public-faq-list summary:hover {
+  color: #1d4ed8;
 }
 
 .public-faq-list summary::-webkit-details-marker {
@@ -1268,6 +1437,10 @@ label,
   text-align: center;
 }
 
+.public-faq-list details[open] p {
+  animation: public-fade-in 0.25s ease both;
+}
+
 .public-final-cta {
   display: flex;
   align-items: center;
@@ -1276,6 +1449,17 @@ label,
   border-radius: 11px;
   background: linear-gradient(110deg, #123e72, #15538a);
   padding: clamp(1.25rem, 4vw, 2rem);
+  background-size: 160% 160%;
+  transition:
+    background-position 0.4s ease,
+    transform 0.25s ease,
+    box-shadow 0.25s ease;
+}
+
+.public-final-cta:hover {
+  background-position: 100% 50%;
+  box-shadow: 0 18px 38px rgb(18 62 114 / 18%);
+  transform: translateY(-3px);
 }
 
 .public-footer {
@@ -1521,6 +1705,31 @@ label,
 }
 
 @media (prefers-reduced-motion: reduce) {
+  .public-home > .public-hero,
+  .public-home > .public-section,
+  .public-home > .public-audience-section,
+  .public-home > .public-final-section,
+  .public-home > .public-footer,
+  .public-hero-copy > *,
+  .public-visual-orb-one,
+  .public-visual-orb-two,
+  .public-review-progress span,
+  .public-pricing-board-note,
+  .public-faq-list details[open] p {
+    animation: none;
+  }
+
+  .public-feature-card:hover,
+  .public-benefit-card:hover,
+  .public-audience-card:hover,
+  .public-plan-card:hover,
+  .public-plan-card-primary:hover,
+  .public-final-cta:hover,
+  .public-home .button-primary:hover,
+  .public-home .button-secondary:hover {
+    transform: none;
+  }
+
   .modal-overlay,
   .modal-panel {
     animation: none;
