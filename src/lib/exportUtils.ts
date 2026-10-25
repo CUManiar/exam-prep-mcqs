@@ -1,4 +1,4 @@
-import { Attempt, QuestionPaper } from "./types";
+import { Attempt, ParsedQuestion, QuestionPaper } from "./types";
 import { formatDateTime, formatTimeSeconds } from "./defaults";
 import { jsPDF } from "jspdf";
 import {
@@ -6,6 +6,109 @@ import {
   parseQuestionnaireMarkdown,
   stripMarkdownFormatting,
 } from "./markdownPaperParser";
+
+function escapeHtml(value: unknown): string {
+  return String(value ?? "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#039;");
+}
+
+function buildMarkdownQuestionPaperHtml(
+  paper: QuestionPaper,
+  questions: ParsedQuestion[],
+): string {
+  const instructions = paper.instructions || [];
+  const instructionHtml = instructions.length
+    ? `<div class="paper-instructions"><div class="paper-subtitle">Instructions</div><ul>${instructions
+        .map((instruction) => `<li>${escapeHtml(instruction)}</li>`)
+        .join("")}</ul></div>`
+    : "";
+
+  const questionHtml = questions
+    .map((question) => {
+      const matchingHtml = question.matchingItems?.length
+        ? `<table class="matching-table"><thead><tr><th>${escapeHtml(question.matchingHeaders?.left || "List-I")}</th><th>${escapeHtml(question.matchingHeaders?.right || "List-II")}</th></tr></thead><tbody>${question.matchingItems
+            .map(
+              (item) =>
+                `<tr><td><strong>${escapeHtml(item.label)}.</strong> ${escapeHtml(stripMarkdownFormatting(item.left))}</td><td><strong>${escapeHtml(item.rightLabel)}.</strong> ${escapeHtml(stripMarkdownFormatting(item.right))}</td></tr>`,
+            )
+            .join("")}</tbody></table>`
+        : "";
+      const optionsHtml = ["A", "B", "C", "D"]
+        .filter((key) => question.options[key])
+        .map(
+          (key) =>
+            `<div class="paper-option"><strong>${key}.</strong><span>${escapeHtml(stripMarkdownFormatting(question.options[key]))}</span></div>`,
+        )
+        .join("");
+
+      return `<article class="paper-question"><div class="paper-question-title"><strong>Q${question.questionNo}</strong> ${escapeHtml(stripMarkdownFormatting(question.text))}</div>${matchingHtml}<div class="paper-options">${optionsHtml}</div></article>`;
+    })
+    .join("");
+
+  return `<section class="question-paper-section"><div class="section-title">Question Paper</div><h2>${escapeHtml(paper.title || paper.label)}</h2><div class="paper-meta">${paper.totalQuestions} questions · ${paper.totalMarks} marks · ${paper.timeMinutes} minutes</div>${instructionHtml}<div>${questionHtml}</div></section>`;
+}
+
+async function loadPdfJsForExport(): Promise<any> {
+  if (typeof window === "undefined") {
+    throw new Error("PDF export requires a browser window");
+  }
+  if ((window as any).pdfjsLib) return (window as any).pdfjsLib;
+
+  return new Promise((resolve, reject) => {
+    const script = document.createElement("script");
+    script.src = "/vendor/pdfjs/pdf.min.js";
+    script.onload = () => {
+      const lib = (window as any).pdfjsLib;
+      if (!lib) {
+        reject(new Error("PDF.js library failed to initialize"));
+        return;
+      }
+      lib.GlobalWorkerOptions.workerSrc = "/vendor/pdfjs/pdf.worker.min.js";
+      resolve(lib);
+    };
+    script.onerror = () => reject(new Error("Failed to load PDF.js"));
+    document.head.appendChild(script);
+  });
+}
+
+async function buildUploadedPdfQuestionPaperHtml(
+  paper: QuestionPaper,
+): Promise<string> {
+  if (!paper.qpUrl || paper.qpUrl.startsWith("local://")) return "";
+
+  try {
+    const pdfjsLib = await loadPdfJsForExport();
+    const absoluteUrl = paper.qpUrl.startsWith("http")
+      ? paper.qpUrl
+      : `${window.location.origin}${paper.qpUrl}`;
+    const pdf = await pdfjsLib.getDocument({ url: absoluteUrl }).promise;
+    const pages: string[] = [];
+
+    for (let pageNumber = 1; pageNumber <= pdf.numPages; pageNumber += 1) {
+      const page = await pdf.getPage(pageNumber);
+      const viewport = page.getViewport({ scale: 1.25 });
+      const canvas = document.createElement("canvas");
+      canvas.width = Math.ceil(viewport.width);
+      canvas.height = Math.ceil(viewport.height);
+      await page.render({
+        canvasContext: canvas.getContext("2d"),
+        viewport,
+      }).promise;
+      pages.push(
+        `<img class="paper-pdf-page" src="${canvas.toDataURL("image/jpeg", 0.88)}" alt="Question paper page ${pageNumber}" />`,
+      );
+    }
+
+    return `<section class="question-paper-section"><div class="section-title">Question Paper</div><h2>${escapeHtml(paper.title || paper.label)}</h2><div class="paper-meta">${paper.totalQuestions} questions · ${paper.totalMarks} marks · ${paper.timeMinutes} minutes</div>${pages.join("")}</section>`;
+  } catch (error) {
+    console.warn("Could not embed uploaded question paper in export:", error);
+    return `<section class="question-paper-section"><div class="section-title">Question Paper</div><h2>${escapeHtml(paper.title || paper.label)}</h2><p>The question paper could not be embedded automatically. Open the original paper here:</p><p><a href="${escapeHtml(paper.qpUrl)}">${escapeHtml(paper.qpUrl)}</a></p></section>`;
+  }
+}
 
 /**
  * Resolves a clear, official examination title and stage description.
@@ -354,6 +457,7 @@ export function exportAttemptAsPrintPDF(
   paperExplanations?: Record<number, string>,
   displayTitleOverride?: string,
   maxScoreOverride?: number,
+  questionPaperHtml = "",
 ): void {
   const paperTitle =
     displayTitleOverride || attempt.paperLabel || "Assessment Report";
@@ -476,6 +580,10 @@ export function exportAttemptAsPrintPDF(
     })
     .join("\n");
 
+  const questionPaperSection = questionPaperHtml
+    ? `${questionPaperHtml}<div class="summary-break"></div>`
+    : "";
+
   const html = `<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -503,6 +611,23 @@ export function exportAttemptAsPrintPDF(
     .stat-label { color: #64748b; font-weight: 500; }
     .stat-val { font-weight: 700; font-family: monospace; color: #0f172a; }
     .general-note { border: 1px solid #e2e8f0; border-radius: 8px; background: #f8fafc; padding: 6px 10px; font-size: 10.5px; color: #374151; margin-bottom: 10px; }
+    .question-paper-section { margin-bottom: 16px; }
+    .question-paper-section h2 { font-size: 15px; margin: 4px 0 2px; }
+    .paper-meta { color: #64748b; font-size: 10px; margin-bottom: 8px; }
+    .paper-subtitle { font-size: 10px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.08em; color: #334155; margin-bottom: 4px; }
+    .paper-instructions { border: 1px solid #bfdbfe; border-radius: 8px; background: #eff6ff; padding: 7px 10px; margin: 7px 0 10px; }
+    .paper-instructions ul { margin: 0 0 0 15px; padding: 0; color: #334155; }
+    .paper-instructions li { margin: 2px 0; }
+    .paper-question { border-top: 1px solid #cbd5e1; padding: 8px 0; break-inside: avoid; page-break-inside: avoid; }
+    .paper-question-title { font-size: 11px; line-height: 1.45; color: #0f172a; }
+    .paper-question-title strong { color: #1d4ed8; font-family: monospace; margin-right: 5px; }
+    .paper-options { display: grid; grid-template-columns: 1fr 1fr; gap: 4px 12px; margin-top: 6px; }
+    .paper-option { display: flex; gap: 5px; font-size: 10.5px; line-height: 1.35; }
+    .paper-option strong { color: #475569; font-family: monospace; }
+    .matching-table { margin: 7px 0 5px; font-size: 10px; }
+    .matching-table th, .matching-table td { text-align: left; padding: 4px 5px; }
+    .paper-pdf-page { display: block; width: 100%; height: auto; margin: 0 auto 10px; break-inside: avoid; page-break-inside: avoid; }
+    .summary-break { break-before: page; page-break-before: always; }
     table { width: 100%; border-collapse: collapse; font-size: 10.5px; margin-bottom: 12px; }
     thead tr { background: #f1f5f9; }
     th { padding: 6px 5px; text-align: center; font-size: 9.5px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.04em; color: #374151; border: 1px solid #cbd5e1; }
@@ -531,6 +656,8 @@ export function exportAttemptAsPrintPDF(
       <span><strong>Ref ID:</strong> ${attempt.id}</span>
     </div>
   </div>
+
+  ${questionPaperSection}
 
   <div class="section-title">Performance Summary</div>
   <div class="widgets">
@@ -912,6 +1039,43 @@ export function exportQuestionPaperAsPDF(paper: QuestionPaper): void {
     window.alert("Please allow pop-ups to open the PDF in a new tab.");
   }
   window.setTimeout(() => URL.revokeObjectURL(pdfUrl), 60_000);
+}
+
+/**
+ * Opens a print-ready packet containing the question paper followed by the
+ * assessment summary.
+ */
+export async function exportAttemptWithQuestionPaperAsPrintPDF(
+  attempt: Attempt,
+  paper: QuestionPaper,
+  paperExplanations?: Record<number, string>,
+  displayTitleOverride?: string,
+  maxScoreOverride?: number,
+): Promise<void> {
+  let questionPaperHtml = "";
+  const markdownQuestions =
+    paper.parsedQuestions && paper.parsedQuestions.length > 0
+      ? paper.parsedQuestions
+      : paper.markdownContent
+        ? parseQuestionnaireMarkdown(paper.markdownContent)
+        : [];
+
+  if (markdownQuestions.length > 0) {
+    questionPaperHtml = buildMarkdownQuestionPaperHtml(
+      paper,
+      markdownQuestions,
+    );
+  } else {
+    questionPaperHtml = await buildUploadedPdfQuestionPaperHtml(paper);
+  }
+
+  exportAttemptAsPrintPDF(
+    attempt,
+    paperExplanations,
+    displayTitleOverride,
+    maxScoreOverride,
+    questionPaperHtml,
+  );
 }
 
 /**

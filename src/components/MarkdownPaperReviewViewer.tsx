@@ -3,6 +3,7 @@
 import React, { useRef, useEffect } from "react";
 import { QuestionPaper, ParsedQuestion, QuestionAnswer } from "../lib/types";
 import { ParsedMarkdownHeader } from "../lib/markdownPaperParser";
+import { MatchingItemsTable } from "./MatchingItemsTable";
 import { formatTimeSeconds, getPaperDisplayTitle } from "../lib/defaults";
 import {
   BookOpen,
@@ -306,6 +307,11 @@ export function MarkdownPaperReviewViewer({
                 <p className="text-sm font-semibold text-slate-900 leading-relaxed whitespace-pre-wrap mt-3">
                   {q.text}
                 </p>
+
+                <MatchingItemsTable
+                  items={q.matchingItems}
+                  headers={q.matchingHeaders}
+                />
 
                 {/* Options Grid */}
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 mt-3.5 pt-1">

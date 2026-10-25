@@ -17,6 +17,10 @@ export interface ParsedMarkdownHeader {
 
 const OPTION_REGEX =
   /^\s*(?:(?:\*\*|__)\s*)?(?:\(([a-dA-D])\)|([a-dA-D])[\.\)])(?:(?:\*\*|__)\s*)?\s+(.*)$/;
+const MATCHING_HEADER_REGEX =
+  /^\s*List-I\s*(?:\(([^)]+)\))?\s*:\s*List-II\s*(?:\(([^)]+)\))?\s*$/i;
+const MATCHING_ROW_REGEX =
+  /^\s*([A-D])\s*[\.\)]\s*(.*?)\s*:\s*(\d+)\s*[\.\)]\s*(.*?)\s*$/i;
 const SEPARATOR_REGEX = /^\s*-{3,}\s*$/;
 
 /** Remove the small subset of Markdown syntax supported by the paper preview. */
@@ -257,10 +261,46 @@ function parseQuestionBlock(
   const lines = block.split("\n");
   const promptLines: string[] = [];
   const options: Record<string, string> = {};
+  const matchingItems: NonNullable<ParsedQuestion["matchingItems"]> = [];
+  let matchingHeaders: ParsedQuestion["matchingHeaders"];
+  let matchingHeaderLine: string | null = null;
+  let inMatchingSection = false;
   let foundOption = false;
   let currentOptKey: string | null = null;
 
   for (const line of lines) {
+    const normalizedLine = stripMarkdownFormatting(line).trim();
+    const matchingHeader = normalizedLine.match(MATCHING_HEADER_REGEX);
+    if (matchingHeader) {
+      matchingHeaderLine = normalizedLine;
+      matchingHeaders = {
+        left: matchingHeader[1]
+          ? `List-I (${matchingHeader[1].trim()})`
+          : "List-I",
+        right: matchingHeader[2]
+          ? `List-II (${matchingHeader[2].trim()})`
+          : "List-II",
+      };
+      inMatchingSection = true;
+      continue;
+    }
+
+    if (inMatchingSection) {
+      const matchingRow = normalizedLine.match(MATCHING_ROW_REGEX);
+      if (matchingRow) {
+        matchingItems.push({
+          label: matchingRow[1].toUpperCase(),
+          left: matchingRow[2].trim(),
+          rightLabel: matchingRow[3],
+          right: matchingRow[4].trim(),
+        });
+        continue;
+      }
+
+      if (!normalizedLine) continue;
+      inMatchingSection = false;
+    }
+
     const match = line.match(OPTION_REGEX);
     if (match) {
       foundOption = true;
@@ -277,11 +317,17 @@ function parseQuestionBlock(
   if (Object.keys(options).length === 0) return null;
 
   const questionNo = marker?.questionNo || fallbackQuestionNo;
+  if (matchingItems.length === 0 && matchingHeaderLine) {
+    promptLines.push(matchingHeaderLine);
+  }
+
   const fullPrompt = promptLines.join("\n").trim();
   return {
     questionNo,
     text: fullPrompt || `Question ${questionNo}`,
     options,
+    ...(matchingItems.length > 0 ? { matchingItems } : {}),
+    ...(matchingItems.length > 0 && matchingHeaders ? { matchingHeaders } : {}),
   };
 }
 

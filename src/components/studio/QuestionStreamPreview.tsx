@@ -3,6 +3,7 @@
 import React from "react";
 import { ParsedQuestion } from "../../lib/types";
 import { stripMarkdownFormatting } from "../../lib/markdownPaperParser";
+import { MatchingItemsTable } from "../MatchingItemsTable";
 import { Check, Lightbulb, BookOpen } from "lucide-react";
 
 interface QuestionStreamPreviewProps {
@@ -73,6 +74,11 @@ export function QuestionStreamPreview({
             <p className="text-xs text-slate-800 font-medium leading-relaxed whitespace-pre-wrap">
               {stripMarkdownFormatting(q.text)}
             </p>
+
+            <MatchingItemsTable
+              items={q.matchingItems}
+              headers={q.matchingHeaders}
+            />
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5 pt-1">
               {Object.entries(q.options).map(([optKey, optText]) => {

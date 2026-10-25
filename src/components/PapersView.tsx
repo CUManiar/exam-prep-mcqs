@@ -13,6 +13,7 @@ import {
   isPaperFree,
   isUserUploadedPaper,
   getPaperDisplayTitle,
+  getPaperDownloadFilename,
 } from "../lib/defaults";
 import { attachToPaperOnServer } from "../lib/storage";
 import { exportQuestionPaperAsPDF } from "../lib/exportUtils";
@@ -678,11 +679,11 @@ export function PapersView({
                         </button>
                       ) : (
                         <a
-                          href={paper.qpUrl}
+                          href={`/api/paper-download?url=${encodeURIComponent(paper.qpUrl)}&filename=${encodeURIComponent(getPaperDownloadFilename(paper))}`}
                           target="_blank"
                           rel="noopener noreferrer"
                           className="cursor-pointer inline-flex items-center gap-1 text-[11px] text-slate-500 hover:text-slate-800 transition-colors"
-                          title="Open Question Paper PDF in new tab"
+                          title="Open Question Paper PDF in new tab; downloads use the paper name"
                         >
                           <ExternalLink className="h-3 w-3" />
                           <span>PDF</span>
