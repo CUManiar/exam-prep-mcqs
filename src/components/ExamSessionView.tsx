@@ -1525,7 +1525,7 @@ export function ExamSessionView({
 
                 {/* Elimination Certainty & Option Selection Section */}
                 {!isSubjective ? (
-                  !isMarkdownPaper ? (
+                  mode === "mock" || !isMarkdownPaper ? (
                     <div className="mt-3 rounded-2xl border border-slate-200/90 bg-slate-50/80 p-3 sm:p-3.5 space-y-3 shadow-2xs">
                       {/* Elimination Certainty Bar */}
                       <div className="flex items-center justify-between gap-2 flex-wrap">
@@ -1607,71 +1607,73 @@ export function ExamSessionView({
                         </div>
                       </div>
 
-                      {/* Answer Options A, B, C, D */}
-                      <div className="grid grid-cols-4 gap-2.5 sm:gap-3.5 pt-0.5">
-                        {["A", "B", "C", "D"].map((opt) => {
-                          const isSelected =
-                            currentQObj.selected?.toUpperCase() === opt;
-                          const correctAns =
-                            getCorrectAnswerForQ(currentQuestion);
-                          const isRevealed = revealedAnswers[currentQuestion];
-                          const isCorrectChoice =
-                            correctAns && opt === correctAns;
+                      {/* Answer Options A, B, C, D (hidden for Markdown papers; answer there is selected on the paper) */}
+                      {!isMarkdownPaper && (
+                        <div className="grid grid-cols-4 gap-2.5 sm:gap-3.5 pt-0.5">
+                          {["A", "B", "C", "D"].map((opt) => {
+                            const isSelected =
+                              currentQObj.selected?.toUpperCase() === opt;
+                            const correctAns =
+                              getCorrectAnswerForQ(currentQuestion);
+                            const isRevealed = revealedAnswers[currentQuestion];
+                            const isCorrectChoice =
+                              correctAns && opt === correctAns;
 
-                          let btnContainerStyle =
-                            "border-slate-300 bg-white text-slate-800 hover:border-indigo-400 hover:bg-indigo-50/40 hover:shadow-xs";
+                            let btnContainerStyle =
+                              "border-slate-300 bg-white text-slate-800 hover:border-indigo-400 hover:bg-indigo-50/40 hover:shadow-xs";
 
-                          if (isSelected) {
-                            btnContainerStyle =
-                              "border-indigo-600 bg-indigo-600 text-white shadow-md ring-4 ring-indigo-500/20 scale-[1.02]";
-                          }
-
-                          // Practice mode live feedback: selected wrong is RED, correct is GREEN!
-                          if (isPractice) {
-                            if (currentQObj.selected && correctAns) {
-                              if (isSelected) {
-                                if (isCorrectChoice) {
-                                  btnContainerStyle =
-                                    "border-emerald-600 bg-emerald-600 text-white shadow-md ring-4 ring-emerald-500/20 scale-[1.02]";
-                                } else {
-                                  btnContainerStyle =
-                                    "border-rose-600 bg-rose-600 text-white shadow-md ring-4 ring-rose-500/20 scale-[1.02]";
-                                }
-                              } else if (isCorrectChoice) {
-                                btnContainerStyle =
-                                  "border-2 border-emerald-500 bg-emerald-50 text-emerald-900 ring-4 ring-emerald-500/15";
-                              }
-                            } else if (isRevealed && isCorrectChoice) {
+                            if (isSelected) {
                               btnContainerStyle =
-                                "border-2 border-emerald-500 bg-emerald-50 text-emerald-900 ring-4 ring-emerald-500/20";
+                                "border-indigo-600 bg-indigo-600 text-white shadow-md ring-4 ring-indigo-500/20 scale-[1.02]";
                             }
-                          }
 
-                          return (
-                            <button
-                              key={opt}
-                              type="button"
-                              onClick={() =>
-                                handleSelectOption(currentQuestion, opt)
+                            // Practice mode live feedback: selected wrong is RED, correct is GREEN!
+                            if (isPractice) {
+                              if (currentQObj.selected && correctAns) {
+                                if (isSelected) {
+                                  if (isCorrectChoice) {
+                                    btnContainerStyle =
+                                      "border-emerald-600 bg-emerald-600 text-white shadow-md ring-4 ring-emerald-500/20 scale-[1.02]";
+                                  } else {
+                                    btnContainerStyle =
+                                      "border-rose-600 bg-rose-600 text-white shadow-md ring-4 ring-rose-500/20 scale-[1.02]";
+                                  }
+                                } else if (isCorrectChoice) {
+                                  btnContainerStyle =
+                                    "border-2 border-emerald-500 bg-emerald-50 text-emerald-900 ring-4 ring-emerald-500/15";
+                                }
+                              } else if (isRevealed && isCorrectChoice) {
+                                btnContainerStyle =
+                                  "border-2 border-emerald-500 bg-emerald-50 text-emerald-900 ring-4 ring-emerald-500/20";
                               }
-                              className={`group relative flex flex-col items-center justify-center py-3 sm:py-3.5 px-2 rounded-2xl border transition-all cursor-pointer active:scale-95 shadow-2xs ${btnContainerStyle}`}
-                            >
-                              <span className="text-lg sm:text-xl font-black tracking-tight leading-none">
-                                {opt}
-                              </span>
-                              <span
-                                className={`mt-1 text-[10px] font-bold tracking-wider uppercase opacity-80 ${
-                                  isSelected
-                                    ? "text-white/90"
-                                    : "text-slate-400 group-hover:text-indigo-600"
-                                }`}
+                            }
+
+                            return (
+                              <button
+                                key={opt}
+                                type="button"
+                                onClick={() =>
+                                  handleSelectOption(currentQuestion, opt)
+                                }
+                                className={`group relative flex flex-col items-center justify-center py-3 sm:py-3.5 px-2 rounded-2xl border transition-all cursor-pointer active:scale-95 shadow-2xs ${btnContainerStyle}`}
                               >
-                                Option {opt}
-                              </span>
-                            </button>
-                          );
-                        })}
-                      </div>
+                                <span className="text-lg sm:text-xl font-black tracking-tight leading-none">
+                                  {opt}
+                                </span>
+                                <span
+                                  className={`mt-1 text-[10px] font-bold tracking-wider uppercase opacity-80 ${
+                                    isSelected
+                                      ? "text-white/90"
+                                      : "text-slate-400 group-hover:text-indigo-600"
+                                  }`}
+                                >
+                                  Option {opt}
+                                </span>
+                              </button>
+                            );
+                          })}
+                        </div>
+                      )}
                     </div>
                   ) : null
                 ) : (
