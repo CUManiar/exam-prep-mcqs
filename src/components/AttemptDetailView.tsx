@@ -1004,13 +1004,13 @@ export function AttemptDetailView({
                         setShowExportMenu(false);
                       }}
                       disabled={isExportingPacket}
-                      className="flex w-full items-center gap-2.5 rounded-xl px-3 py-2 text-xs font-bold text-slate-800 bg-blue-50 hover:bg-blue-100 transition-colors cursor-pointer whitespace-nowrap disabled:cursor-wait disabled:opacity-60"
+                      className="flex w-full items-center gap-2.5 rounded-xl px-3 py-2 text-xs font-medium text-slate-700 hover:bg-slate-50 hover:text-slate-900 transition-colors cursor-pointer whitespace-nowrap disabled:cursor-wait disabled:opacity-60"
                     >
-                      <FileText className="h-4 w-4 text-blue-600 shrink-0" />
+                      <FileText className="h-4 w-4 text-slate-500 shrink-0" />
                       <span>
                         {isExportingPacket
                           ? "Preparing question paper..."
-                          : "Question paper & Summary"}
+                          : "Question paper and summary"}
                       </span>
                     </button>
                   )}
@@ -1020,10 +1020,10 @@ export function AttemptDetailView({
                       handlePrint();
                       setShowExportMenu(false);
                     }}
-                    className="flex w-full items-center gap-2.5 rounded-xl px-3 py-2 text-xs font-bold text-slate-800 bg-slate-100 hover:bg-slate-200/80 transition-colors cursor-pointer whitespace-nowrap"
+                    className="flex w-full items-center gap-2.5 rounded-xl px-3 py-2 text-xs font-medium text-slate-700 hover:bg-slate-50 hover:text-slate-900 transition-colors cursor-pointer whitespace-nowrap"
                   >
-                    <Printer className="h-4 w-4 text-indigo-600 shrink-0" />
-                    <span>Export to PDF</span>
+                    <Printer className="h-4 w-4 text-slate-500 shrink-0" />
+                    <span>Download summary (PDF)</span>
                   </button>
 
                   <button
@@ -1033,8 +1033,8 @@ export function AttemptDetailView({
                     }}
                     className="flex w-full items-center gap-2.5 rounded-xl px-3 py-2 text-xs font-medium text-slate-700 hover:bg-slate-50 hover:text-slate-900 transition-colors cursor-pointer whitespace-nowrap"
                   >
-                    <Copy className="h-4 w-4 text-indigo-600 shrink-0" />
-                    <span>Copy Summary to Clipboard (.md)</span>
+                    <Copy className="h-4 w-4 text-slate-500 shrink-0" />
+                    <span>Copy summary (Markdown)</span>
                   </button>
 
                   <button
@@ -1044,8 +1044,8 @@ export function AttemptDetailView({
                     }}
                     className="flex w-full items-center gap-2.5 rounded-xl px-3 py-2 text-xs font-medium text-slate-700 hover:bg-slate-50 hover:text-slate-900 transition-colors cursor-pointer whitespace-nowrap"
                   >
-                    <FileText className="h-4 w-4 text-emerald-600 shrink-0" />
-                    <span>Download Markdown (.md)</span>
+                    <FileText className="h-4 w-4 text-slate-500 shrink-0" />
+                    <span>Download report (Markdown)</span>
                   </button>
 
                   <button
@@ -1055,8 +1055,8 @@ export function AttemptDetailView({
                     }}
                     className="flex w-full items-center gap-2.5 rounded-xl px-3 py-2 text-xs font-medium text-slate-700 hover:bg-slate-50 hover:text-slate-900 transition-colors cursor-pointer whitespace-nowrap"
                   >
-                    <Download className="h-4 w-4 text-amber-600 shrink-0" />
-                    <span>Download JSON (.json)</span>
+                    <Download className="h-4 w-4 text-slate-500 shrink-0" />
+                    <span>Download attempt data (JSON)</span>
                   </button>
                 </div>
               </>
