@@ -49,7 +49,9 @@ export function HistoryView({
   >({});
 
   // Only mock mode attempts are counted in official history
-  const mockAttempts = attempts.filter((a) => a.mode === "mock");
+  const mockAttempts = attempts.filter(
+    (a) => a.mode === "mock" && Boolean(a.finishedAt),
+  );
 
   const filtered = mockAttempts.filter((a) => {
     return a.paperLabel.toLowerCase().includes(search.toLowerCase());

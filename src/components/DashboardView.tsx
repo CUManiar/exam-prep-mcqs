@@ -63,18 +63,22 @@ export function DashboardView({
         new Date(b.finishedAt || b.startedAt).getTime() -
         new Date(a.finishedAt || a.startedAt).getTime(),
     );
+  // Progress metrics follow the official Performance view: completed mocks only.
+  // Practice sessions are useful in recent activity but are not part of the saved mock record.
   const mockAttempts = completed.filter((attempt) => attempt.mode === "mock");
-  const questionsAnswered = completed.reduce(
+  const questionsAnswered = mockAttempts.reduce(
     (sum, attempt) => sum + (attempt.answered || 0),
     0,
   );
   const averageAccuracy = mockAttempts.length
     ? Math.round(
-        mockAttempts.reduce(
+        (mockAttempts.reduce(
           (sum, attempt) => sum + (attempt.accuracyPct || 0),
           0,
-        ) / mockAttempts.length,
-      )
+        ) /
+          mockAttempts.length) *
+          10,
+      ) / 10
     : null;
   const averagePercentage = mockAttempts.length
     ? Math.round(
@@ -103,7 +107,7 @@ export function DashboardView({
   const metrics = [
     {
       label: "Assessments completed",
-      value: completed.length,
+      value: mockAttempts.length,
       icon: FileCheck2,
     },
     { label: "Questions answered", value: questionsAnswered, icon: Target },
