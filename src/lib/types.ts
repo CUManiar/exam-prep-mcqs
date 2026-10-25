@@ -6,8 +6,20 @@ export interface ParsedQuestion {
   questionNo: number;
   text: string;
   options: Record<string, string>; // e.g. { A: "...", B: "...", C: "...", D: "..." }
+  matchingItems?: MatchingItem[];
+  matchingHeaders?: {
+    left: string;
+    right: string;
+  };
   answer?: string;
   explanation?: string;
+}
+
+export interface MatchingItem {
+  label: string;
+  left: string;
+  rightLabel: string;
+  right: string;
 }
 
 export interface QuestionPaper {

@@ -2,6 +2,7 @@
 
 import React, { useState } from "react";
 import { QuestionPaper, ParsedQuestion, QuestionAnswer } from "../lib/types";
+import { MatchingItemsTable } from "./MatchingItemsTable";
 import {
   CheckCircle2,
   XCircle,
@@ -246,6 +247,10 @@ export function InteractiveQuestionCard({
           <div className="text-slate-900 text-sm sm:text-base font-medium leading-relaxed whitespace-pre-wrap select-text">
             {qData.text}
           </div>
+          <MatchingItemsTable
+            items={qData.matchingItems}
+            headers={qData.matchingHeaders}
+          />
         </div>
 
         {/* Options List */}

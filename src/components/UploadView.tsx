@@ -100,6 +100,13 @@ function getOrReconstructMarkdown(paper?: QuestionPaper | null): string {
 
     paper.parsedQuestions.forEach((q, idx) => {
       out += `${q.text}\n\n`;
+      if (q.matchingItems?.length) {
+        out += `${q.matchingHeaders?.left || "List-I"} : ${q.matchingHeaders?.right || "List-II"}\n`;
+        q.matchingItems.forEach((item) => {
+          out += `${item.label}. ${item.left} : ${item.rightLabel}. ${item.right}\n`;
+        });
+        out += `\n`;
+      }
       const opts = ["A", "B", "C", "D"];
       opts.forEach((optKey) => {
         if (q.options[optKey]) {
