@@ -938,6 +938,9 @@ label,
 
 .public-pricing-card {
   display: flex;
+  width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
   min-height: 18rem;
   flex-direction: column;
   align-items: flex-start;
@@ -954,6 +957,11 @@ label,
   background: linear-gradient(145deg, #1d4ed8, #4338ca);
   box-shadow: 0 18px 36px rgb(37 99 235 / 20%);
   transform: translateY(-0.35rem);
+}
+
+.public-pricing-card-featured > * {
+  position: relative;
+  z-index: 1;
 }
 
 .public-pricing-card-featured::after {
@@ -1075,7 +1083,13 @@ label,
 
 .public-faq-list {
   max-width: 52rem;
+  margin-inline: auto;
   border-top: 1px solid #e2e8f0;
+}
+
+#questions .public-section-heading {
+  margin-inline: auto;
+  text-align: center;
 }
 
 .public-faq-list details {
@@ -1120,11 +1134,12 @@ label,
 
 .public-faq-list details p {
   max-width: 46rem;
-  margin-top: 0.65rem;
-  padding-right: 1rem;
+  margin: 0.65rem auto 0;
+  padding-inline: 1rem;
   color: #64748b;
   font-size: 13px;
   line-height: 1.7;
+  text-align: center;
 }
 
 .public-final-cta {
@@ -1178,6 +1193,20 @@ label,
   color: #64748b;
   font-size: 12px;
   line-height: 1.6;
+}
+
+.public-footer-owner {
+  display: inline-block;
+  margin-top: 0.7rem;
+  color: #1d4ed8;
+  font-size: 11px;
+  font-weight: 650;
+  text-decoration: none;
+}
+
+.public-footer-owner:hover {
+  text-decoration: underline;
+  text-underline-offset: 3px;
 }
 
 .public-footer-links {
@@ -1394,6 +1423,10 @@ label,
 
   .public-pricing-card-featured {
     transform: none;
+  }
+
+  .public-pricing-card {
+    min-height: 0;
   }
 
   .public-benefit-card {

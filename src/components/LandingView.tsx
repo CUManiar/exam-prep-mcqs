@@ -426,6 +426,14 @@ export function LandingView({
               <p>
                 A focused assessment workspace for serious UPSC preparation.
               </p>
+              <a
+                href="https://chikoochi.com"
+                target="_blank"
+                rel="noreferrer"
+                className="public-footer-owner"
+              >
+                A chikoochi.com product
+              </a>
             </div>
             <nav className="public-footer-links" aria-label="Footer navigation">
               <a href="#how-it-works">How it works</a>
@@ -435,7 +443,7 @@ export function LandingView({
             </nav>
           </div>
           <div className="public-footer-bottom">
-            <span>© 2026 UPSC Prep Hub</span>
+            <span>© 2026 chikoochi.com · UPSC Prep Hub</span>
             <span>Practice with intent. Review with evidence.</span>
           </div>
         </div>
