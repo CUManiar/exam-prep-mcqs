@@ -1010,7 +1010,7 @@ export function AttemptDetailView({
                       <span>
                         {isExportingPacket
                           ? "Preparing question paper..."
-                          : "Question paper and summary"}
+                          : "Question paper and assessment summary"}
                       </span>
                     </button>
                   )}
@@ -1023,7 +1023,7 @@ export function AttemptDetailView({
                     className="flex w-full items-center gap-2.5 rounded-xl px-3 py-2 text-xs font-medium text-slate-700 hover:bg-slate-50 hover:text-slate-900 transition-colors cursor-pointer whitespace-nowrap"
                   >
                     <Printer className="h-4 w-4 text-slate-500 shrink-0" />
-                    <span>Download summary (PDF)</span>
+                    <span>Download assessment summary (PDF)</span>
                   </button>
 
                   <button
@@ -1034,7 +1034,7 @@ export function AttemptDetailView({
                     className="flex w-full items-center gap-2.5 rounded-xl px-3 py-2 text-xs font-medium text-slate-700 hover:bg-slate-50 hover:text-slate-900 transition-colors cursor-pointer whitespace-nowrap"
                   >
                     <Copy className="h-4 w-4 text-slate-500 shrink-0" />
-                    <span>Copy summary (Markdown)</span>
+                    <span>Copy assessment summary (Markdown)</span>
                   </button>
 
                   <button
