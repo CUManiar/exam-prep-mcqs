@@ -546,6 +546,7 @@ label,
 
 /* Public landing page */
 .public-home {
+  overflow-x: hidden;
   background: #fff;
   color: #0f172a;
 }
@@ -1136,6 +1137,81 @@ label,
   padding: clamp(1.25rem, 4vw, 2rem);
 }
 
+.public-footer {
+  margin-top: clamp(3.5rem, 7vw, 6rem);
+  border-top: 1px solid #e2e8f0;
+  background: #f8fafc;
+}
+
+.public-footer-main {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 2rem;
+  padding-block: 2.5rem;
+}
+
+.public-footer-brand {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.6rem;
+  color: #172033;
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.public-footer-mark {
+  display: inline-grid;
+  width: 30px;
+  height: 30px;
+  place-items: center;
+  border: 1px solid #bfdbfe;
+  border-radius: 8px;
+  background: #eff6ff;
+  color: #1d4ed8;
+  font-size: 9px;
+  letter-spacing: 0.04em;
+}
+
+.public-footer-brand-block p {
+  max-width: 21rem;
+  margin-top: 0.7rem;
+  color: #64748b;
+  font-size: 12px;
+  line-height: 1.6;
+}
+
+.public-footer-links {
+  display: flex;
+  flex-wrap: wrap;
+  align-content: flex-start;
+  justify-content: flex-end;
+  gap: 0.6rem 1.25rem;
+  padding-top: 0.35rem;
+}
+
+.public-footer-links a {
+  color: #475569;
+  font-size: 12px;
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.public-footer-links a:hover {
+  color: #1d4ed8;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.public-footer-bottom {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  border-top: 1px solid #e2e8f0;
+  padding-block: 1rem;
+  color: #94a3b8;
+  font-size: 11px;
+}
+
 .button-light,
 .button-outline-light {
   display: inline-flex;
@@ -1307,8 +1383,17 @@ label,
     grid-template-columns: minmax(0, 1fr);
   }
 
+  .public-benefit-card:last-child,
+  .public-pricing-card:last-child {
+    grid-column: auto;
+  }
+
   .public-pricing-grid {
     grid-template-columns: minmax(0, 1fr);
+  }
+
+  .public-pricing-card-featured {
+    transform: none;
   }
 
   .public-benefit-card {
@@ -1342,6 +1427,21 @@ label,
     flex-direction: column;
   }
 
+  .public-footer-main {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 1.25rem;
+  }
+
+  .public-footer-links {
+    justify-content: flex-start;
+  }
+
+  .public-footer-bottom {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 0.35rem;
+  }
+
   .modal-overlay {
     align-items: flex-end;
     padding: 0.5rem;
@@ -1362,6 +1462,35 @@ label,
     height: 100dvh;
     max-height: none;
     border-radius: 12px 0 0 12px;
+  }
+}
+
+@media (min-width: 768px) and (max-width: 1023px) {
+  .public-hero {
+    min-height: 0;
+    grid-template-columns: minmax(0, 1fr);
+    gap: 2.5rem;
+  }
+
+  .public-hero-copy {
+    max-width: 48rem;
+  }
+
+  .public-benefit-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .public-benefit-card:last-child,
+  .public-pricing-card:last-child {
+    grid-column: 1 / -1;
+  }
+
+  .public-pricing-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .public-pricing-card-featured {
+    transform: none;
   }
 }
 

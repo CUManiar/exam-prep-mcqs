@@ -414,6 +414,32 @@ export function LandingView({
           </div>
         </div>
       </section>
+
+      <footer className="public-footer">
+        <div className="page-container">
+          <div className="public-footer-main">
+            <div className="public-footer-brand-block">
+              <div className="public-footer-brand">
+                <span className="public-footer-mark">UP</span>
+                <span>UPSC Prep Hub</span>
+              </div>
+              <p>
+                A focused assessment workspace for serious UPSC preparation.
+              </p>
+            </div>
+            <nav className="public-footer-links" aria-label="Footer navigation">
+              <a href="#how-it-works">How it works</a>
+              <a href="#pricing">Pricing</a>
+              <a href="#questions">Questions</a>
+              <a href="mailto:hi@chikoochi.com">Contact</a>
+            </nav>
+          </div>
+          <div className="public-footer-bottom">
+            <span>© 2026 UPSC Prep Hub</span>
+            <span>Practice with intent. Review with evidence.</span>
+          </div>
+        </div>
+      </footer>
     </div>
   );
 }
