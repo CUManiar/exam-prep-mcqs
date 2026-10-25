@@ -59,6 +59,7 @@ export interface QuestionAnswer {
 
 export interface Attempt {
   id: string;
+  userId?: string;
   paperId: string;
   paperLabel: string;
   category: ExamCategory;

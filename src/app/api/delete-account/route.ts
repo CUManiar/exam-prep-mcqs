@@ -1,8 +1,22 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
+import {
+  checkRateLimit,
+  getAuthenticatedUser,
+  rateLimitResponse,
+  unauthorizedResponse,
+} from "@/lib/apiSecurity";
 
 export async function POST(req: NextRequest) {
   try {
+    const user = await getAuthenticatedUser(req);
+    if (!user) return unauthorizedResponse();
+
+    const rateLimit = checkRateLimit(req, "delete-account", 3, 60 * 60_000);
+    if (!rateLimit.allowed) {
+      return rateLimitResponse(rateLimit.retryAfterSeconds);
+    }
+
     const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
     const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
@@ -13,15 +27,7 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const body = await req.json().catch(() => ({}));
-    const { userId } = body;
-
-    if (!userId) {
-      return NextResponse.json(
-        { ok: false, error: "Missing user ID for deletion" },
-        { status: 400 },
-      );
-    }
+    const userId = user.id;
 
     const adminSupabase = createClient(supabaseUrl, serviceRoleKey, {
       auth: { autoRefreshToken: false, persistSession: false },

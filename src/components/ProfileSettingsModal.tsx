@@ -15,6 +15,7 @@ import {
 } from "lucide-react";
 import { useApp } from "../context/AppContext";
 import { ModalShell } from "./ModalShell";
+import { getAuthHeaders } from "../lib/supabase";
 
 interface ProfileSettingsModalProps {
   isOpen: boolean;
@@ -65,7 +66,10 @@ export function ProfileSettingsModal({
     try {
       const response = await fetch("/api/delete-account", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          ...(await getAuthHeaders()),
+        },
         body: JSON.stringify({ userId: currentUser.id }),
       });
       const result = await response.json();

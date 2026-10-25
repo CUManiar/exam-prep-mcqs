@@ -2,9 +2,24 @@ import { NextRequest, NextResponse } from "next/server";
 import { uploadFile, readJsonStore, writeJsonStore } from "@/lib/cloudStorage";
 import { parseAnswerKeyDetailed } from "@/lib/defaults";
 import { parseMarkdownHeader } from "@/lib/markdownPaperParser";
+import {
+  checkRateLimit,
+  getAuthenticatedUser,
+  rateLimitResponse,
+  unauthorizedResponse,
+  validateUploadFile,
+} from "@/lib/apiSecurity";
 
 export async function POST(req: NextRequest) {
   try {
+    const user = await getAuthenticatedUser(req);
+    if (!user) return unauthorizedResponse();
+
+    const rateLimit = checkRateLimit(req, "upload", 10, 10 * 60_000);
+    if (!rateLimit.allowed) {
+      return rateLimitResponse(rateLimit.retryAfterSeconds);
+    }
+
     const formData = await req.formData();
     const year = (formData.get("year") as string) || "";
     const identifier = (formData.get("identifier") as string) || "";
@@ -38,10 +53,8 @@ export async function POST(req: NextRequest) {
       cutoffEnabled && Number.isFinite(cutoffValueInput) && cutoffValueInput >= 0
         ? cutoffValueInput
         : undefined;
-    const userId = (formData.get("userId") as string) || "";
-    const isUserUpload = Boolean(
-      userId && userId !== "null" && userId !== "undefined",
-    );
+    const userId = user.id;
+    const isUserUpload = true;
     const isCustomUpload =
       formData.get("isCustom") === "true" ||
       isUserUpload ||
@@ -115,6 +128,35 @@ export async function POST(req: NextRequest) {
     const markdownContent = (formData.get("markdownContent") as string) || "";
     const parsedQuestionsRaw =
       (formData.get("parsedQuestions") as string) || "";
+    const uploadErrors = [
+      validateUploadFile(qpFile, {
+        label: "Question paper",
+        maxBytes: 25 * 1024 * 1024,
+        extensions: [".pdf"],
+        mimeTypes: ["application/pdf"],
+      }),
+      validateUploadFile(formData.get("akFile") as File | null, {
+        label: "Answer key",
+        maxBytes: 2 * 1024 * 1024,
+        extensions: [".txt", ".text"],
+        mimeTypes: ["text/plain", "application/octet-stream"],
+      }),
+      validateUploadFile(formData.get("exsFile") as File | null, {
+        label: "Solution",
+        maxBytes: 25 * 1024 * 1024,
+        extensions: [".pdf"],
+        mimeTypes: ["application/pdf"],
+      }),
+    ].find(Boolean);
+    if (uploadErrors) {
+      return NextResponse.json({ ok: false, error: uploadErrors }, { status: 413 });
+    }
+    if (new TextEncoder().encode(markdownContent).length > 2 * 1024 * 1024) {
+      return NextResponse.json(
+        { ok: false, error: "Markdown content must be 2 MB or smaller." },
+        { status: 413 },
+      );
+    }
     let parsedQuestions: any = undefined;
     if (parsedQuestionsRaw) {
       try {
@@ -203,7 +245,6 @@ export async function POST(req: NextRequest) {
 
     // 4. If user upload: Persist to Supabase custom_papers table
     if (
-      isUserUpload &&
       process.env.NEXT_PUBLIC_SUPABASE_URL &&
       process.env.SUPABASE_SERVICE_ROLE_KEY
     ) {
@@ -248,7 +289,7 @@ export async function POST(req: NextRequest) {
         );
       }
     } else {
-      // 5. Admin / shared upload: Persist to papers metadata store
+      // Local fallback: retain ownership metadata for authenticated users.
       const papersMeta = await readJsonStore<Record<string, any>>(
         "papers.json",
         {},

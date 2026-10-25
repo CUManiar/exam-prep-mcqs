@@ -44,6 +44,23 @@ export async function getCurrentUser(): Promise<User | null> {
   }
 }
 
+/** Returns the current Supabase access token for authenticated API requests. */
+export async function getAuthHeaders(): Promise<Record<string, string>> {
+  const supabase = getSupabaseClient();
+  if (!supabase) return {};
+
+  try {
+    const {
+      data: { session },
+    } = await supabase.auth.getSession();
+    return session?.access_token
+      ? { Authorization: `Bearer ${session.access_token}` }
+      : {};
+  } catch {
+    return {};
+  }
+}
+
 // Fetch user profile (including is_pro status)
 export async function getUserProfile(
   userId: string,

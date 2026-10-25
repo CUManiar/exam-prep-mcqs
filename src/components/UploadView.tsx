@@ -42,6 +42,7 @@ import {
   ParsedMarkdownHeader,
 } from "../lib/markdownPaperParser";
 import { parseAnswerKeyDetailed } from "../lib/defaults";
+import { getAuthHeaders } from "../lib/supabase";
 import {
   SAMPLE_QUESTIONNAIRE_TEXT,
   SAMPLE_ANSWER_KEY_TEXT,
@@ -622,6 +623,7 @@ export function UploadView({
 
           const res = await fetch("/api/upload", {
             method: "POST",
+            headers: await getAuthHeaders(),
             body: formData,
           });
           const data = await res.json();
@@ -687,6 +689,7 @@ export function UploadView({
 
       const res = await fetch("/api/upload", {
         method: "POST",
+        headers: await getAuthHeaders(),
         body: formData,
       });
 
@@ -918,6 +921,7 @@ export function UploadView({
 
       const res = await fetch("/api/upload", {
         method: "POST",
+        headers: await getAuthHeaders(),
         body: formData,
       });
 
