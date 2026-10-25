@@ -162,6 +162,18 @@ export function getPaperDisplayTitle(paper: QuestionPaper): string {
   return paper.label || `${paper.year} – ${paper.subject}`;
 }
 
+/** Returns a safe, human-readable filename for downloading a paper PDF. */
+export function getPaperDownloadFilename(paper: QuestionPaper): string {
+  const baseName = getPaperDisplayTitle(paper)
+    .replace(/[<>:"/\\|?*\u0000-\u001F]/g, " ")
+    .replace(/\s+/g, " ")
+    .replace(/[. ]+$/g, "")
+    .trim()
+    .slice(0, 120);
+
+  return `${baseName || "question-paper"}.pdf`;
+}
+
 /**
  * Checks if a question paper is part of the completely free tier.
  * Only 2026 Prelims papers (GS Paper I & CSAT Paper II) and all user-uploaded custom papers are free.
