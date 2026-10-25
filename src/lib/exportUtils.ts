@@ -906,16 +906,10 @@ export function exportQuestionPaperAsPDF(paper: QuestionPaper): void {
     y += 7;
   }
 
-  const safeTitle = title.toLowerCase().replace(/[^a-z0-9]+/g, "_").replace(/^_|_$/g, "");
   const pdfUrl = URL.createObjectURL(doc.output("blob"));
   const pdfWindow = window.open(pdfUrl, "_blank", "noopener,noreferrer");
   if (!pdfWindow) {
-    const downloadLink = document.createElement("a");
-    downloadLink.href = pdfUrl;
-    downloadLink.download = `${safeTitle || "question_paper"}.pdf`;
-    document.body.appendChild(downloadLink);
-    downloadLink.click();
-    downloadLink.remove();
+    window.alert("Please allow pop-ups to open the PDF in a new tab.");
   }
   window.setTimeout(() => URL.revokeObjectURL(pdfUrl), 60_000);
 }

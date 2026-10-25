@@ -21,7 +21,6 @@ import { useApp } from "../context/AppContext";
 import { PageHeader } from "./PageHeader";
 import {
   BookOpen,
-  Download,
   Search,
   ExternalLink,
   Play,
@@ -674,7 +673,7 @@ export function PapersView({
                           className="cursor-pointer inline-flex items-center gap-1 text-[11px] text-slate-500 hover:text-slate-800 transition-colors"
                           title="Export Markdown question paper as PDF"
                         >
-                          <Download className="h-3 w-3" />
+                          <ExternalLink className="h-3 w-3" />
                           <span>PDF</span>
                         </button>
                       ) : (
