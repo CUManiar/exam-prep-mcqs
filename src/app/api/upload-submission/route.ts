@@ -1,8 +1,18 @@
 import { NextRequest, NextResponse } from "next/server";
 import { uploadFile } from "@/lib/cloudStorage";
+import {
+  checkRateLimit,
+  rateLimitResponse,
+  validateUploadFile,
+} from "@/lib/apiSecurity";
 
 export async function POST(req: NextRequest) {
   try {
+    const rateLimit = checkRateLimit(req, "submission-upload", 10, 10 * 60_000);
+    if (!rateLimit.allowed) {
+      return rateLimitResponse(rateLimit.retryAfterSeconds);
+    }
+
     const formData = await req.formData();
     const file = formData.get("file") as File | null;
 
@@ -10,6 +20,19 @@ export async function POST(req: NextRequest) {
       return NextResponse.json(
         { ok: false, error: "No file provided" },
         { status: 400 },
+      );
+    }
+
+    const validationError = validateUploadFile(file, {
+      label: "Submission file",
+      maxBytes: 15 * 1024 * 1024,
+      extensions: [".pdf", ".jpg", ".jpeg", ".png"],
+      mimeTypes: ["application/pdf", "image/jpeg", "image/png"],
+    });
+    if (validationError) {
+      return NextResponse.json(
+        { ok: false, error: validationError },
+        { status: 413 },
       );
     }
 

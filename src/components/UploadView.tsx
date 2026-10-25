@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useMemo, useCallback, useEffect } from "react";
+import React, { useState, useMemo, useCallback, useEffect, useRef } from "react";
 import { CutoffType, QuestionPaper, ExamType } from "../lib/types";
 import {
   SUPPORTED_YEARS,
@@ -42,6 +42,7 @@ import {
   ParsedMarkdownHeader,
 } from "../lib/markdownPaperParser";
 import { parseAnswerKeyDetailed } from "../lib/defaults";
+import { getAuthHeaders } from "../lib/supabase";
 import {
   SAMPLE_QUESTIONNAIRE_TEXT,
   SAMPLE_ANSWER_KEY_TEXT,
@@ -375,6 +376,7 @@ export function UploadView({
     isError?: boolean;
   } | null>(null);
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
+  const uploadAndStartRef = useRef(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState<boolean>(false);
 
   // Select paper in update mode and populate segments
@@ -491,6 +493,8 @@ export function UploadView({
   // Save Fast Custom Paper
   const handleUploadFastCustomPaper = async (e: React.FormEvent) => {
     e.preventDefault();
+    const shouldStartAfterUpload = uploadAndStartRef.current;
+    uploadAndStartRef.current = false;
     const name = customPaperName.trim();
     const parsedQCount = parseInt(customTotalQuestions, 10);
     const qCount =
@@ -622,6 +626,7 @@ export function UploadView({
 
           const res = await fetch("/api/upload", {
             method: "POST",
+            headers: await getAuthHeaders(),
             body: formData,
           });
           const data = await res.json();
@@ -636,10 +641,12 @@ export function UploadView({
         onPaperUploaded(newPaper);
 
         setStatusMsg({
-          text: `Paper "${newPaper.label}" (${newPaper.totalQuestions} Questions) saved! Starting Practice...`,
+          text: shouldStartAfterUpload
+            ? `Paper "${newPaper.label}" (${newPaper.totalQuestions} Questions) saved! Starting Practice...`
+            : `Paper "${newPaper.label}" (${newPaper.totalQuestions} Questions) uploaded successfully.`,
         });
         setTimeout(() => {
-          if (onStartExam) {
+          if (shouldStartAfterUpload && onStartExam) {
             onStartExam(newPaper, "practice");
           } else {
             onNavigatePapers();
@@ -687,6 +694,7 @@ export function UploadView({
 
       const res = await fetch("/api/upload", {
         method: "POST",
+        headers: await getAuthHeaders(),
         body: formData,
       });
 
@@ -700,10 +708,16 @@ export function UploadView({
       onPaperUploaded(newPaper);
 
       setStatusMsg({
-        text: `Custom paper "${newPaper.label}" (${newPaper.totalQuestions} Questions) saved! Redirecting to Papers...`,
+        text: shouldStartAfterUpload
+          ? `Custom paper "${newPaper.label}" (${newPaper.totalQuestions} Questions) saved! Starting Practice...`
+          : `Custom paper "${newPaper.label}" (${newPaper.totalQuestions} Questions) uploaded successfully.`,
       });
       setTimeout(() => {
-        onNavigatePapers();
+        if (shouldStartAfterUpload && onStartExam) {
+          onStartExam(newPaper, "practice");
+        } else {
+          onNavigatePapers();
+        }
       }, 900);
     } catch (err: any) {
       setStatusMsg({
@@ -833,6 +847,8 @@ export function UploadView({
   // Preset Mode Upload
   const handleUploadNewPaper = async (e: React.FormEvent) => {
     e.preventDefault();
+    const shouldStartAfterUpload = uploadAndStartRef.current;
+    uploadAndStartRef.current = false;
     if (!cleanYear || !cleanName) {
       setStatusMsg({
         text: "Please enter a valid Year and Paper Identifier.",
@@ -918,6 +934,7 @@ export function UploadView({
 
       const res = await fetch("/api/upload", {
         method: "POST",
+        headers: await getAuthHeaders(),
         body: formData,
       });
 
@@ -931,10 +948,16 @@ export function UploadView({
       onPaperUploaded(newPaper);
 
       setStatusMsg({
-        text: `Paper saved successfully: "${newPaper.label}" (${newPaper.totalQuestions} Questions).`,
+        text: shouldStartAfterUpload
+          ? `Paper saved successfully: "${newPaper.label}" (${newPaper.totalQuestions} Questions). Starting Practice...`
+          : `Paper uploaded successfully: "${newPaper.label}" (${newPaper.totalQuestions} Questions).`,
       });
       setTimeout(() => {
-        onNavigatePapers();
+        if (shouldStartAfterUpload && onStartExam) {
+          onStartExam(newPaper, "practice");
+        } else {
+          onNavigatePapers();
+        }
       }, 1000);
     } catch (err: any) {
       setStatusMsg({
@@ -1352,9 +1375,32 @@ export function UploadView({
           />
 
           {/* Submit Action */}
-          <div className="flex justify-end pt-1">
+          <div className="flex flex-wrap justify-end gap-2 pt-1">
             <button
               type="submit"
+              onClick={() => {
+                uploadAndStartRef.current = false;
+              }}
+              disabled={
+                isSubmitting ||
+                !customPaperName.trim() ||
+                !(
+                  customTotalQuestions.trim() ||
+                  (customQpFormat === "markdown" && detectedQuestionsCount > 0)
+                ) ||
+                (customQpFormat === "pdf" && !customQpFile) ||
+                (customQpFormat === "markdown" && !customQpMarkdown.trim())
+              }
+              className="cursor-pointer flex items-center gap-2 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 px-5 py-2.5 text-xs font-semibold text-slate-700 shadow-2xs disabled:opacity-40 transition-all"
+            >
+              <UploadCloud className="h-4 w-4" />
+              <span>{isSubmitting ? "Uploading..." : "Upload"}</span>
+            </button>
+            <button
+              type="submit"
+              onClick={() => {
+                uploadAndStartRef.current = true;
+              }}
               disabled={
                 isSubmitting ||
                 !customPaperName.trim() ||
@@ -1367,8 +1413,8 @@ export function UploadView({
               }
               className="cursor-pointer flex items-center gap-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 px-5 py-2.5 text-xs font-bold text-white shadow-xs disabled:opacity-40 transition-all"
             >
-              <UploadCloud className="h-4 w-4" />
-              <span>{isSubmitting ? "Saving Paper..." : "Save Paper & Start Practice"}</span>
+              <Play className="h-4 w-4" />
+              <span>{isSubmitting ? "Uploading..." : "Upload and Start"}</span>
             </button>
           </div>
         </form>
@@ -2080,14 +2126,28 @@ export function UploadView({
             </div>
           )}
 
-          <div className="flex justify-end pt-1">
+          <div className="flex flex-wrap justify-end gap-2 pt-1">
             <button
               type="submit"
+              onClick={() => {
+                uploadAndStartRef.current = false;
+              }}
+              disabled={isSubmitting || !qpFile || !cleanYear || !cleanName}
+              className="cursor-pointer flex items-center gap-2 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 px-5 py-2.5 text-xs font-semibold text-slate-700 shadow-2xs disabled:opacity-40 transition-all"
+            >
+              <UploadCloud className="h-4 w-4" />
+              <span>{isSubmitting ? "Uploading..." : "Upload"}</span>
+            </button>
+            <button
+              type="submit"
+              onClick={() => {
+                uploadAndStartRef.current = true;
+              }}
               disabled={isSubmitting || !qpFile || !cleanYear || !cleanName}
               className="cursor-pointer flex items-center gap-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 px-5 py-2.5 text-xs font-bold text-white shadow-xs disabled:opacity-40 transition-all"
             >
-              <UploadCloud className="h-4 w-4" />
-              <span>{isSubmitting ? "Saving Paper..." : "Save Paper"}</span>
+              <Play className="h-4 w-4" />
+              <span>{isSubmitting ? "Uploading..." : "Upload and Start"}</span>
             </button>
           </div>
         </form>

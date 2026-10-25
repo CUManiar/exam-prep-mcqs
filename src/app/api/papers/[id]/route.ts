@@ -11,14 +11,43 @@ import {
 import fs from "node:fs";
 import path from "node:path";
 import { INITIAL_PAPERS } from "@/lib/defaults";
+import {
+  checkRateLimit,
+  getOwnedCustomPaperFromSupabase,
+  getAuthenticatedUser,
+  rateLimitResponse,
+  unauthorizedResponse,
+} from "@/lib/apiSecurity";
 
 export async function DELETE(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> },
 ) {
   try {
+    const user = await getAuthenticatedUser(req);
+    if (!user) return unauthorizedResponse();
+
+    const rateLimit = checkRateLimit(req, "paper-delete", 20, 10 * 60_000);
+    if (!rateLimit.allowed) {
+      return rateLimitResponse(rateLimit.retryAfterSeconds);
+    }
+
     const { id } = await params;
     const cleanId = id.toLowerCase();
+    const customMeta = await readJsonStore<Record<string, any>>(
+      "papers.json",
+      {},
+    );
+    const targetPaper =
+      customMeta[cleanId] ||
+      customMeta[id] ||
+      (await getOwnedCustomPaperFromSupabase(cleanId, user.id));
+    if (!targetPaper?.userId || targetPaper.userId !== user.id) {
+      return NextResponse.json(
+        { ok: false, error: "You do not own this question paper." },
+        { status: 403 },
+      );
+    }
 
     // Forward to PROD if configured
     if (isProdEnv() && !process.env.VERCEL && !getBlobToken()) {
@@ -26,6 +55,7 @@ export async function DELETE(
         await fetch(`${getProdApiUrl()}/api/papers/${cleanId}`, {
           method: "DELETE",
           redirect: "follow",
+          headers: { Authorization: req.headers.get("authorization") || "" },
         });
       } catch (err) {
         console.warn("Failed forwarding paper DELETE to PROD:", err);
@@ -82,11 +112,6 @@ export async function DELETE(
     }
 
     // 2. HARD DELETE from papers.json and Blob
-    const customMeta = await readJsonStore<Record<string, any>>(
-      "papers.json",
-      {},
-    );
-    const targetPaper = customMeta[cleanId] || customMeta[id];
     if (targetPaper) {
       // Clean up uploaded files
       if (targetPaper.qpUrl) await deleteFile(targetPaper.qpUrl);
@@ -147,9 +172,30 @@ export async function PATCH(
   { params }: { params: Promise<{ id: string }> },
 ) {
   try {
+    const user = await getAuthenticatedUser(req);
+    if (!user) return unauthorizedResponse();
+
+    const rateLimit = checkRateLimit(req, "paper-update", 30, 10 * 60_000);
+    if (!rateLimit.allowed) {
+      return rateLimitResponse(rateLimit.retryAfterSeconds);
+    }
+
     const { id } = await params;
     const cleanId = id.toLowerCase();
     const body = await req.json();
+    const customMeta = await readJsonStore<Record<string, any>>(
+      "papers.json",
+      {},
+    );
+    const current =
+      customMeta[cleanId] ||
+      (await getOwnedCustomPaperFromSupabase(cleanId, user.id));
+    if (!current?.userId || current.userId !== user.id) {
+      return NextResponse.json(
+        { ok: false, error: "You do not own this question paper." },
+        { status: 403 },
+      );
+    }
 
     // Forward to PROD if configured
     if (isProdEnv() && !process.env.VERCEL && !getBlobToken()) {
@@ -157,6 +203,10 @@ export async function PATCH(
         await fetch(`${getProdApiUrl()}/api/papers/${cleanId}`, {
           method: "PATCH",
           headers: { "Content-Type": "application/json" },
+          // Preserve the caller's identity when forwarding local requests.
+          ...req.headers.get("authorization")
+            ? { Authorization: req.headers.get("authorization") as string }
+            : {},
           body: JSON.stringify(body),
           redirect: "follow",
         });
@@ -165,15 +215,11 @@ export async function PATCH(
       }
     }
 
-    const customMeta = await readJsonStore<Record<string, any>>(
-      "papers.json",
-      {},
-    );
-    const current = customMeta[cleanId] || { id: cleanId };
     const updated = {
       ...current,
       ...body,
       id: cleanId,
+      userId: current.userId,
       updatedAt: new Date().toISOString(),
     };
 

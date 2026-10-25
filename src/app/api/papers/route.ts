@@ -16,6 +16,7 @@ import {
   getProdApiUrl,
   getBlobToken,
 } from "@/lib/cloudStorage";
+import { getAuthenticatedUser } from "@/lib/apiSecurity";
 
 const DATA_DIR = path.join(process.cwd(), "public", "data");
 
@@ -37,6 +38,7 @@ function parseAnswerKeyFile(filePath: string): Record<number, string> {
 
 export async function GET(req: NextRequest) {
   try {
+    const user = await getAuthenticatedUser(req);
     const currentEnv = getAppEnvironment();
 
     // If running in PROD mode locally without blob token, try fetching all papers directly from PROD
@@ -45,6 +47,9 @@ export async function GET(req: NextRequest) {
         const res = await fetch(`${getProdApiUrl()}/api/papers`, {
           redirect: "follow",
           cache: "no-store",
+          headers: req.headers.get("authorization")
+            ? { Authorization: req.headers.get("authorization") as string }
+            : undefined,
         });
         if (res.ok) {
           const data = await res.json();
@@ -110,7 +115,7 @@ export async function GET(req: NextRequest) {
 
     // 2. Add valid papers from customMeta (user uploads)
     for (const [id, paper] of Object.entries(customMeta)) {
-      if (paper && paper.id && paper.qpUrl) {
+      if (paper && paper.id && paper.qpUrl && paper.userId === user?.id) {
         if (
           !paper.label ||
           paper.label.match(/^\d{4}\s*–\s*(GS\s*I|GS\s*II\s*CSAT|Mains.*)$/i)

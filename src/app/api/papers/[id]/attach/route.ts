@@ -5,12 +5,28 @@ import {
   parseQuestionnaireMarkdown,
   parseMarkdownHeader,
 } from "@/lib/markdownPaperParser";
+import {
+  checkRateLimit,
+  getOwnedCustomPaperFromSupabase,
+  getAuthenticatedUser,
+  rateLimitResponse,
+  unauthorizedResponse,
+  validateUploadFile,
+} from "@/lib/apiSecurity";
 
 export async function POST(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> },
 ) {
   try {
+    const user = await getAuthenticatedUser(req);
+    if (!user) return unauthorizedResponse();
+
+    const rateLimit = checkRateLimit(req, "paper-attach", 20, 10 * 60_000);
+    if (!rateLimit.allowed) {
+      return rateLimitResponse(rateLimit.retryAfterSeconds);
+    }
+
     const { id } = await params;
     const cleanId = id.toLowerCase();
     const formData = await req.formData();
@@ -21,6 +37,36 @@ export async function POST(
     const qpFile = formData.get("qpFile") as File | null;
     const markdownContent = (formData.get("markdownContent") as string) || "";
     const parsedQuestionsRaw = (formData.get("parsedQuestions") as string) || "";
+
+    const uploadErrors = [
+      validateUploadFile(qpFile, {
+        label: "Question paper",
+        maxBytes: 25 * 1024 * 1024,
+        extensions: [".pdf"],
+        mimeTypes: ["application/pdf"],
+      }),
+      validateUploadFile(akFile, {
+        label: "Answer key",
+        maxBytes: 2 * 1024 * 1024,
+        extensions: [".txt", ".text"],
+        mimeTypes: ["text/plain", "application/octet-stream"],
+      }),
+      validateUploadFile(exsFile, {
+        label: "Solution",
+        maxBytes: 25 * 1024 * 1024,
+        extensions: [".pdf"],
+        mimeTypes: ["application/pdf"],
+      }),
+    ].find(Boolean);
+    if (uploadErrors) {
+      return NextResponse.json({ ok: false, error: uploadErrors }, { status: 413 });
+    }
+    if (new TextEncoder().encode(markdownContent).length > 2 * 1024 * 1024) {
+      return NextResponse.json(
+        { ok: false, error: "Markdown content must be 2 MB or smaller." },
+        { status: 413 },
+      );
+    }
 
     // Optional metadata updates
     const label = (formData.get("label") as string) || "";
@@ -38,11 +84,18 @@ export async function POST(
     // Find paper in customMeta or built-in INITIAL_PAPERS
     let currentPaper =
       customMeta[cleanId] ||
+      (await getOwnedCustomPaperFromSupabase(cleanId, user.id)) ||
       INITIAL_PAPERS.find((p) => p.id.toLowerCase() === cleanId);
     if (!currentPaper) {
       return NextResponse.json(
         { ok: false, error: "Question paper not found" },
         { status: 404 },
+      );
+    }
+    if (!currentPaper.userId || currentPaper.userId !== user.id) {
+      return NextResponse.json(
+        { ok: false, error: "You do not own this question paper." },
+        { status: 403 },
       );
     }
 

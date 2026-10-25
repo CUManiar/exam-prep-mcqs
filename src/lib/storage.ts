@@ -9,6 +9,7 @@ import {
   parseQuestionnaireMarkdown,
   parseMarkdownHeader,
 } from "./markdownPaperParser";
+import { getAuthHeaders } from "./supabase";
 
 const STORAGE_KEYS = {
   ATTEMPTS: "exam_prep_attempts_v2",
@@ -122,7 +123,9 @@ export function getAttempts(): Attempt[] {
 // Fetch persisted attempts from server database/file and synchronize cache
 export async function loadAttemptsFromServer(): Promise<Attempt[]> {
   try {
-    const res = await fetch("/api/attempts");
+    const res = await fetch("/api/attempts", {
+      headers: await getAuthHeaders(),
+    });
     if (res.ok) {
       const data = await res.json();
       if (data.ok && Array.isArray(data.attempts)) {
@@ -163,11 +166,15 @@ export function saveAttempt(attempt: Attempt): void {
     localStorage.setItem(STORAGE_KEYS.ATTEMPTS, JSON.stringify(list));
 
     // Server-side permanent write
-    fetch("/api/attempts", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(attempt),
-    }).catch((err) => console.error("Failed to write attempt to server:", err));
+    getAuthHeaders()
+      .then((authHeaders) =>
+        fetch("/api/attempts", {
+          method: "POST",
+          headers: { "Content-Type": "application/json", ...authHeaders },
+          body: JSON.stringify(attempt),
+        }),
+      )
+      .catch((err) => console.error("Failed to write attempt to server:", err));
   } catch (err) {
     console.error("Failed to save attempt:", err);
   }
@@ -188,13 +195,17 @@ export function updateAttempt(
       localStorage.setItem(STORAGE_KEYS.ATTEMPTS, JSON.stringify(list));
 
       // Server-side update
-      fetch(`/api/attempts/${attemptId}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(updated),
-      }).catch((err) =>
-        console.error("Failed to update attempt on server:", err),
-      );
+      getAuthHeaders()
+        .then((authHeaders) =>
+          fetch(`/api/attempts/${attemptId}`, {
+            method: "PATCH",
+            headers: { "Content-Type": "application/json", ...authHeaders },
+            body: JSON.stringify(updated),
+          }),
+        )
+        .catch((err) =>
+          console.error("Failed to update attempt on server:", err),
+        );
 
       return updated;
     }
@@ -213,11 +224,16 @@ export function deleteAttempt(attemptId: string): void {
     localStorage.setItem(STORAGE_KEYS.ATTEMPTS, JSON.stringify(list));
 
     // Server-side delete
-    fetch(`/api/attempts/${attemptId}`, {
-      method: "DELETE",
-    }).catch((err) =>
-      console.error("Failed to delete attempt on server:", err),
-    );
+    getAuthHeaders()
+      .then((authHeaders) =>
+        fetch(`/api/attempts/${attemptId}`, {
+          method: "DELETE",
+          headers: authHeaders,
+        }),
+      )
+      .catch((err) =>
+        console.error("Failed to delete attempt on server:", err),
+      );
   } catch (err) {
     console.error("Failed to delete attempt:", err);
   }
@@ -255,7 +271,10 @@ export function saveCustomPaper(paper: QuestionPaper): void {
 // Delete paper (Server + local)
 export async function deletePaperFromServer(paperId: string): Promise<boolean> {
   try {
-    const res = await fetch(`/api/papers/${paperId}`, { method: "DELETE" });
+    const res = await fetch(`/api/papers/${paperId}`, {
+      method: "DELETE",
+      headers: await getAuthHeaders(),
+    });
     if (res.ok) {
       removeLocalCustomPaper(paperId);
       return true;
@@ -284,7 +303,7 @@ export async function updatePaperOnServer(
   try {
     const res = await fetch(`/api/papers/${paperId}`, {
       method: "PATCH",
-      headers: { "Content-Type": "application/json" },
+      headers: { "Content-Type": "application/json", ...(await getAuthHeaders()) },
       body: JSON.stringify(updates),
     });
     if (res.ok) {
@@ -315,6 +334,7 @@ export async function attachToPaperOnServer(
   try {
     const res = await fetch(`/api/papers/${paperId}/attach`, {
       method: "POST",
+      headers: await getAuthHeaders(),
       body: formData,
     });
     if (res.ok) {
@@ -347,7 +367,9 @@ export async function getAllPapers(): Promise<QuestionPaper[]> {
   let papers: QuestionPaper[] = [];
 
   try {
-    const res = await fetch("/api/papers");
+    const res = await fetch("/api/papers", {
+      headers: await getAuthHeaders(),
+    });
     if (res.ok) {
       const data = await res.json();
       if (data.ok && Array.isArray(data.papers)) {
