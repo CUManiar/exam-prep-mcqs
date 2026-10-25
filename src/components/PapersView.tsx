@@ -15,12 +15,13 @@ import {
   getPaperDisplayTitle,
 } from "../lib/defaults";
 import { attachToPaperOnServer } from "../lib/storage";
-import { exportQuestionPaperAsPrintPDF } from "../lib/exportUtils";
+import { exportQuestionPaperAsPDF } from "../lib/exportUtils";
 import { DetailedSolutionModal } from "./DetailedSolutionModal";
 import { useApp } from "../context/AppContext";
 import { PageHeader } from "./PageHeader";
 import {
   BookOpen,
+  Download,
   Search,
   ExternalLink,
   Play,
@@ -669,11 +670,11 @@ export function PapersView({
                       {paper.qpUrl?.startsWith("local://") ? (
                         <button
                           type="button"
-                          onClick={() => exportQuestionPaperAsPrintPDF(paper)}
+                          onClick={() => exportQuestionPaperAsPDF(paper)}
                           className="cursor-pointer inline-flex items-center gap-1 text-[11px] text-slate-500 hover:text-slate-800 transition-colors"
                           title="Export Markdown question paper as PDF"
                         >
-                          <ExternalLink className="h-3 w-3" />
+                          <Download className="h-3 w-3" />
                           <span>PDF</span>
                         </button>
                       ) : (

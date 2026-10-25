@@ -1,19 +1,11 @@
 import { Attempt, QuestionPaper } from "./types";
 import { formatDateTime, formatTimeSeconds } from "./defaults";
+import { jsPDF } from "jspdf";
 import {
   parseMarkdownHeader,
   parseQuestionnaireMarkdown,
   stripMarkdownFormatting,
 } from "./markdownPaperParser";
-
-function escapeHtml(value: string): string {
-  return value
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;")
-    .replace(/'/g, "&#39;");
-}
 
 /**
  * Resolves a clear, official examination title and stage description.
@@ -697,11 +689,11 @@ export function exportAttemptAsPrintPDF(
 }
 
 /**
- * Opens a print-ready version of a Markdown question paper.
+ * Downloads a real PDF for a Markdown question paper.
  * Markdown papers use a local marker instead of a downloadable PDF URL, so
- * they must be rendered from their persisted questions before printing.
+ * they are laid out directly from their persisted questions here.
  */
-export function exportQuestionPaperAsPrintPDF(paper: QuestionPaper): void {
+export function exportQuestionPaperAsPDF(paper: QuestionPaper): void {
   const questions =
     paper.parsedQuestions?.length
       ? paper.parsedQuestions
@@ -726,89 +718,167 @@ export function exportQuestionPaperAsPrintPDF(paper: QuestionPaper): void {
     ? paper.instructions
     : header?.instructions || [];
 
-  const instructionHtml = instructions.length
-    ? `<section class="instructions"><h2>Instructions</h2><ul>${instructions
-        .map((instruction) => `<li>${escapeHtml(stripMarkdownFormatting(instruction))}</li>`)
-        .join("")}</ul></section>`
-    : "";
+  const doc = new jsPDF({ unit: "mm", format: "a4" });
+  const pageWidth = doc.internal.pageSize.getWidth();
+  const pageHeight = doc.internal.pageSize.getHeight();
+  const margin = 14;
+  const contentWidth = pageWidth - margin * 2;
+  const lineHeight = 4.6;
+  let y = margin;
 
-  const questionHtml = questions
-    .map((question) => {
-      const options = Object.entries(question.options || {})
-        .map(
-          ([letter, option]) =>
-            `<li><span class="option-letter">${escapeHtml(letter.toUpperCase())}</span><span>${escapeHtml(stripMarkdownFormatting(option))}</span></li>`,
-        )
-        .join("");
+  const normalizeText = (value: string) =>
+    stripMarkdownFormatting(value)
+      .replace(/[“”]/g, '"')
+      .replace(/[‘’]/g, "'")
+      .replace(/[–—]/g, "-")
+      .replace(/•/g, "-")
+      .replace(/₹/g, "Rs.");
 
-      return `<article class="question">
-        <h2><span>Q${question.questionNo}</span>${escapeHtml(stripMarkdownFormatting(question.text))}</h2>
-        <ol class="options">${options}</ol>
-      </article>`;
-    })
-    .join("");
+  const wrap = (value: string, width: number) =>
+    doc.splitTextToSize(normalizeText(value), width) as string[];
 
-  const html = `<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>${escapeHtml(title)} — Question Paper</title>
-  <style>
-    * { box-sizing: border-box; }
-    body { margin: 0; padding: 12mm; color: #172033; background: #fff; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Arial, sans-serif; font-size: 12px; line-height: 1.5; }
-    header { border-bottom: 2px solid #1d4ed8; padding-bottom: 10px; margin-bottom: 16px; }
-    h1 { margin: 0; font-size: 20px; line-height: 1.25; }
-    .meta { margin-top: 5px; color: #64748b; font-size: 11px; }
-    .instructions { border: 1px solid #dbeafe; border-radius: 8px; background: #f8fbff; padding: 10px 14px; margin-bottom: 16px; }
-    .instructions h2 { margin: 0 0 5px; color: #1e3a8a; font-size: 12px; text-transform: uppercase; letter-spacing: .08em; }
-    .instructions ul { margin: 0; padding-left: 18px; }
-    .question { break-inside: avoid; page-break-inside: avoid; border-bottom: 1px solid #e2e8f0; padding: 10px 0 12px; }
-    .question:last-child { border-bottom: 0; }
-    .question h2 { display: flex; gap: 9px; margin: 0 0 8px; font-size: 13px; line-height: 1.45; }
-    .question h2 span { flex: 0 0 auto; color: #1d4ed8; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
-    .options { display: grid; grid-template-columns: 1fr 1fr; gap: 6px 18px; list-style: none; margin: 0; padding: 0 0 0 30px; }
-    .options li { display: flex; gap: 7px; align-items: flex-start; }
-    .option-letter { flex: 0 0 auto; min-width: 18px; color: #475569; font-weight: 700; }
-    @media (max-width: 620px) { body { padding: 7mm; } .options { grid-template-columns: 1fr; } }
-    @media print { body { padding: 0; } @page { margin: 10mm 12mm; size: auto; } }
-  </style>
-</head>
-<body>
-  <header>
-    <h1>${escapeHtml(title)}</h1>
-    <div class="meta">${questions.length} questions · ${escapeHtml(String(paper.totalMarks))} marks · ${escapeHtml(String(paper.timeMinutes))} minutes</div>
-  </header>
-  ${instructionHtml}
-  <main>${questionHtml}</main>
-  <script>
-    (function () {
-      var printed = false;
-      function printPaper() {
-        if (printed) return;
-        printed = true;
-        window.focus();
-        window.print();
-      }
-      if (document.readyState === "complete") setTimeout(printPaper, 250);
-      else window.addEventListener("load", function () { setTimeout(printPaper, 250); });
-      setTimeout(printPaper, 1000);
-    })();
-  </script>
-</body>
-</html>`;
+  const addPage = () => {
+    doc.addPage();
+    y = margin;
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(9);
+    doc.setTextColor(71, 85, 105);
+    doc.text(title, margin, y);
+    doc.setDrawColor(203, 213, 225);
+    doc.line(margin, y + 3, pageWidth - margin, y + 3);
+    y += 10;
+  };
 
-  const printWindow = window.open("", "_blank");
-  if (!printWindow) {
-    window.alert("Please allow pop-ups to export this paper as a PDF.");
-    return;
+  const ensureSpace = (height: number) => {
+    if (y + height > pageHeight - margin) addPage();
+  };
+
+  const drawWrapped = (
+    lines: string[],
+    x: number,
+    width: number,
+    fontSize: number,
+    color: [number, number, number],
+    weight: "normal" | "bold" = "normal",
+  ) => {
+    doc.setFont("helvetica", weight);
+    doc.setFontSize(fontSize);
+    doc.setTextColor(...color);
+    doc.text(lines, x, y, { maxWidth: width, lineHeightFactor: 1.25 });
+    y += lines.length * lineHeight;
+  };
+
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(16);
+  doc.setTextColor(15, 23, 42);
+  const titleLines = wrap(title, contentWidth);
+  doc.text(titleLines, margin, y, { lineHeightFactor: 1.2 });
+  y += titleLines.length * 6.2;
+
+  doc.setFont("helvetica", "normal");
+  doc.setFontSize(9.5);
+  doc.setTextColor(100, 116, 139);
+  doc.text(
+    `${questions.length} questions  |  ${paper.totalMarks} marks  |  ${paper.timeMinutes} minutes`,
+    margin,
+    y,
+  );
+  y += 5;
+  doc.setDrawColor(37, 99, 235);
+  doc.setLineWidth(0.8);
+  doc.line(margin, y, pageWidth - margin, y);
+  doc.setLineWidth(0.2);
+  y += 9;
+
+  if (instructions.length > 0) {
+    const instructionLines = instructions.flatMap((instruction) => {
+      const lines = wrap(instruction, contentWidth - 14);
+      return lines.length ? [`- ${lines[0]}`, ...lines.slice(1).map((line) => `  ${line}`)] : [];
+    });
+    const boxHeight = 10 + instructionLines.length * lineHeight;
+    ensureSpace(boxHeight + 7);
+    doc.setFillColor(248, 251, 255);
+    doc.setDrawColor(191, 219, 254);
+    doc.roundedRect(margin, y, contentWidth, boxHeight, 2, 2, "FD");
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(10);
+    doc.setTextColor(30, 58, 138);
+    doc.text("INSTRUCTIONS", margin + 4, y + 6);
+    y += 11;
+    drawWrapped(instructionLines, margin + 4, contentWidth - 8, 9, [51, 65, 85]);
+    y += 5;
   }
 
-  printWindow.opener = null;
-  printWindow.document.open();
-  printWindow.document.write(html);
-  printWindow.document.close();
-  printWindow.focus();
+  const drawOption = (
+    letter: string,
+    value: string,
+    x: number,
+    rowY: number,
+    width: number,
+    height: number,
+  ) => {
+    doc.setFillColor(255, 255, 255);
+    doc.setDrawColor(226, 232, 240);
+    doc.roundedRect(x, rowY, width, height, 1.5, 1.5, "FD");
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(9);
+    doc.setTextColor(71, 85, 105);
+    doc.text(letter, x + 4, rowY + 6);
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(9);
+    doc.setTextColor(30, 41, 59);
+    doc.text(wrap(value, width - 14), x + 11, rowY + 6, {
+      lineHeightFactor: 1.25,
+    });
+  };
+
+  for (const question of questions) {
+    const questionTextLines = question.text
+      .split(/\r?\n/)
+      .flatMap((paragraph) => (paragraph.trim() ? wrap(paragraph, contentWidth - 13) : [" "]));
+    const optionEntries = ["A", "B", "C", "D"]
+      .map((letter) => [letter, question.options?.[letter] || `Option ${letter}`] as const)
+      .filter(([, value]) => value.trim().length > 0);
+    const optionWidth = (contentWidth - 6) / 2;
+    const optionHeights = optionEntries.map(([, value]) =>
+      Math.max(11, wrap(value, optionWidth - 14).length * lineHeight + 5),
+    );
+    const questionHeight = questionTextLines.length * lineHeight + 8;
+    ensureSpace(questionHeight + 12);
+
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(10);
+    doc.setTextColor(29, 78, 216);
+    doc.text(`Q${question.questionNo}`, margin, y + 4);
+    drawWrapped(
+      questionTextLines,
+      margin + 11,
+      contentWidth - 11,
+      10,
+      [15, 23, 42],
+      "bold",
+    );
+    y += 3;
+
+    for (let index = 0; index < optionEntries.length; index += 2) {
+      const first = optionEntries[index];
+      const second = optionEntries[index + 1];
+      const rowHeight = Math.max(optionHeights[index], optionHeights[index + 1] || 0);
+      ensureSpace(rowHeight + 5);
+      drawOption(first[0], first[1], margin, y, optionWidth, rowHeight);
+      if (second) {
+        drawOption(second[0], second[1], margin + optionWidth + 6, y, optionWidth, rowHeight);
+      }
+      y += rowHeight + 4;
+    }
+
+    doc.setDrawColor(226, 232, 240);
+    doc.line(margin, y, pageWidth - margin, y);
+    y += 7;
+  }
+
+  const safeTitle = title.toLowerCase().replace(/[^a-z0-9]+/g, "_").replace(/^_|_$/g, "");
+  doc.save(`${safeTitle || "question_paper"}.pdf`);
 }
 
 /**
