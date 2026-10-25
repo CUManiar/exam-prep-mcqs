@@ -845,6 +845,15 @@ export function exportQuestionPaperAsPDF(paper: QuestionPaper): void {
     ? paper.instructions
     : header?.instructions || [];
 
+  // Open the tab during the user gesture. Generating a multi-page PDF first
+  // can otherwise make browsers treat the later open as an unsolicited popup.
+  const pdfWindow = window.open("", "_blank");
+  if (pdfWindow) {
+    pdfWindow.opener = null;
+    pdfWindow.document.title = "Preparing question paper PDF";
+    pdfWindow.document.body.textContent = "Preparing PDF…";
+  }
+
   const doc = new jsPDF({ unit: "mm", format: "a4" });
   const pageWidth = doc.internal.pageSize.getWidth();
   const pageHeight = doc.internal.pageSize.getHeight();
@@ -1034,9 +1043,12 @@ export function exportQuestionPaperAsPDF(paper: QuestionPaper): void {
   }
 
   const pdfUrl = URL.createObjectURL(doc.output("blob"));
-  const pdfWindow = window.open(pdfUrl, "_blank", "noopener,noreferrer");
-  if (!pdfWindow) {
-    window.alert("Please allow pop-ups to open the PDF in a new tab.");
+  if (pdfWindow) {
+    pdfWindow.location.replace(pdfUrl);
+  } else {
+    // Popup blocking is controlled by the browser. Avoid interrupting the
+    // assessment with a repeated alert when the browser declines the tab.
+    console.warn("Question paper PDF tab was blocked by the browser.");
   }
   window.setTimeout(() => URL.revokeObjectURL(pdfUrl), 60_000);
 }
