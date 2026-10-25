@@ -1,5 +1,19 @@
-import { Attempt } from "./types";
+import { Attempt, QuestionPaper } from "./types";
 import { formatDateTime, formatTimeSeconds } from "./defaults";
+import {
+  parseMarkdownHeader,
+  parseQuestionnaireMarkdown,
+  stripMarkdownFormatting,
+} from "./markdownPaperParser";
+
+function escapeHtml(value: string): string {
+  return value
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
 
 /**
  * Resolves a clear, official examination title and stage description.
@@ -680,6 +694,121 @@ export function exportAttemptAsPrintPDF(
     );
     window.print();
   }
+}
+
+/**
+ * Opens a print-ready version of a Markdown question paper.
+ * Markdown papers use a local marker instead of a downloadable PDF URL, so
+ * they must be rendered from their persisted questions before printing.
+ */
+export function exportQuestionPaperAsPrintPDF(paper: QuestionPaper): void {
+  const questions =
+    paper.parsedQuestions?.length
+      ? paper.parsedQuestions
+      : paper.markdownContent
+        ? parseQuestionnaireMarkdown(paper.markdownContent)
+        : [];
+
+  if (questions.length === 0) {
+    window.alert(
+      "This Markdown paper has no parsed questions available to export.",
+    );
+    return;
+  }
+
+  const header = paper.markdownContent
+    ? parseMarkdownHeader(paper.markdownContent)
+    : undefined;
+  const title = stripMarkdownFormatting(
+    paper.title || paper.label || header?.exam || "Question Paper",
+  );
+  const instructions = paper.instructions?.length
+    ? paper.instructions
+    : header?.instructions || [];
+
+  const instructionHtml = instructions.length
+    ? `<section class="instructions"><h2>Instructions</h2><ul>${instructions
+        .map((instruction) => `<li>${escapeHtml(stripMarkdownFormatting(instruction))}</li>`)
+        .join("")}</ul></section>`
+    : "";
+
+  const questionHtml = questions
+    .map((question) => {
+      const options = Object.entries(question.options || {})
+        .map(
+          ([letter, option]) =>
+            `<li><span class="option-letter">${escapeHtml(letter.toUpperCase())}</span><span>${escapeHtml(stripMarkdownFormatting(option))}</span></li>`,
+        )
+        .join("");
+
+      return `<article class="question">
+        <h2><span>Q${question.questionNo}</span>${escapeHtml(stripMarkdownFormatting(question.text))}</h2>
+        <ol class="options">${options}</ol>
+      </article>`;
+    })
+    .join("");
+
+  const html = `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>${escapeHtml(title)} — Question Paper</title>
+  <style>
+    * { box-sizing: border-box; }
+    body { margin: 0; padding: 12mm; color: #172033; background: #fff; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Arial, sans-serif; font-size: 12px; line-height: 1.5; }
+    header { border-bottom: 2px solid #1d4ed8; padding-bottom: 10px; margin-bottom: 16px; }
+    h1 { margin: 0; font-size: 20px; line-height: 1.25; }
+    .meta { margin-top: 5px; color: #64748b; font-size: 11px; }
+    .instructions { border: 1px solid #dbeafe; border-radius: 8px; background: #f8fbff; padding: 10px 14px; margin-bottom: 16px; }
+    .instructions h2 { margin: 0 0 5px; color: #1e3a8a; font-size: 12px; text-transform: uppercase; letter-spacing: .08em; }
+    .instructions ul { margin: 0; padding-left: 18px; }
+    .question { break-inside: avoid; page-break-inside: avoid; border-bottom: 1px solid #e2e8f0; padding: 10px 0 12px; }
+    .question:last-child { border-bottom: 0; }
+    .question h2 { display: flex; gap: 9px; margin: 0 0 8px; font-size: 13px; line-height: 1.45; }
+    .question h2 span { flex: 0 0 auto; color: #1d4ed8; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
+    .options { display: grid; grid-template-columns: 1fr 1fr; gap: 6px 18px; list-style: none; margin: 0; padding: 0 0 0 30px; }
+    .options li { display: flex; gap: 7px; align-items: flex-start; }
+    .option-letter { flex: 0 0 auto; min-width: 18px; color: #475569; font-weight: 700; }
+    @media (max-width: 620px) { body { padding: 7mm; } .options { grid-template-columns: 1fr; } }
+    @media print { body { padding: 0; } @page { margin: 10mm 12mm; size: auto; } }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>${escapeHtml(title)}</h1>
+    <div class="meta">${questions.length} questions · ${escapeHtml(String(paper.totalMarks))} marks · ${escapeHtml(String(paper.timeMinutes))} minutes</div>
+  </header>
+  ${instructionHtml}
+  <main>${questionHtml}</main>
+  <script>
+    (function () {
+      var printed = false;
+      function printPaper() {
+        if (printed) return;
+        printed = true;
+        window.focus();
+        window.print();
+      }
+      if (document.readyState === "complete") setTimeout(printPaper, 250);
+      else window.addEventListener("load", function () { setTimeout(printPaper, 250); });
+      setTimeout(printPaper, 1000);
+    })();
+  </script>
+</body>
+</html>`;
+
+  const printWindow = window.open("", "_blank");
+  if (!printWindow) {
+    window.alert("Please allow pop-ups to export this paper as a PDF.");
+    return;
+  }
+
+  printWindow.opener = null;
+  printWindow.document.open();
+  printWindow.document.write(html);
+  printWindow.document.close();
+  printWindow.focus();
 }
 
 /**

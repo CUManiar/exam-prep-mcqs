@@ -15,6 +15,7 @@ import {
   getPaperDisplayTitle,
 } from "../lib/defaults";
 import { attachToPaperOnServer } from "../lib/storage";
+import { exportQuestionPaperAsPrintPDF } from "../lib/exportUtils";
 import { DetailedSolutionModal } from "./DetailedSolutionModal";
 import { useApp } from "../context/AppContext";
 import { PageHeader } from "./PageHeader";
@@ -665,16 +666,28 @@ export function PapersView({
                   {/* Clean Utility Footer */}
                   <div className="flex items-center justify-between text-xs pt-1">
                     <div className="flex items-center gap-2">
-                      <a
-                        href={paper.qpUrl}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="cursor-pointer inline-flex items-center gap-1 text-[11px] text-slate-500 hover:text-slate-800 transition-colors"
-                        title="Open Question Paper PDF in new tab"
-                      >
-                        <ExternalLink className="h-3 w-3" />
-                        <span>PDF</span>
-                      </a>
+                      {paper.qpUrl?.startsWith("local://") ? (
+                        <button
+                          type="button"
+                          onClick={() => exportQuestionPaperAsPrintPDF(paper)}
+                          className="cursor-pointer inline-flex items-center gap-1 text-[11px] text-slate-500 hover:text-slate-800 transition-colors"
+                          title="Export Markdown question paper as PDF"
+                        >
+                          <ExternalLink className="h-3 w-3" />
+                          <span>PDF</span>
+                        </button>
+                      ) : (
+                        <a
+                          href={paper.qpUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="cursor-pointer inline-flex items-center gap-1 text-[11px] text-slate-500 hover:text-slate-800 transition-colors"
+                          title="Open Question Paper PDF in new tab"
+                        >
+                          <ExternalLink className="h-3 w-3" />
+                          <span>PDF</span>
+                        </a>
+                      )}
 
                       <button
                         onClick={() => handleOpenAttachModal(paper, "key")}
