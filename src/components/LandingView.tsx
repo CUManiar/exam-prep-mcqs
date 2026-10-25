@@ -5,11 +5,13 @@ import {
   ArrowRight,
   BarChart3,
   BookOpen,
+  Check,
   CheckCircle2,
   Clock3,
   FileUp,
   Mail,
   Play,
+  Sparkles,
   Target,
 } from "lucide-react";
 import { QuestionPaper } from "../lib/types";
@@ -47,16 +49,14 @@ export function LandingView({
       <section className="public-hero page-container">
         <div className="public-hero-copy">
           <p className="page-eyebrow">
-            UPSC-focused · Built for serious practice
+            UPSC practice workspace · Built for clarity
           </p>
           <h1 className="public-title">
-            Turn every practice paper into a clearer next step.
+            Make every paper count.
           </h1>
           <p className="public-intro">
-            Take a paper in exam conditions, review how you answered, and see
-            where your time and accuracy are going. A focused assessment
-            workspace for aspirants—and for institutes exploring a more
-            structured mock-test workflow.
+            Attempt with focus. Review with evidence. Build a better next
+            attempt from every question you answer.
           </p>
           <div className="public-actions">
             {featuredPaper && (
@@ -83,24 +83,61 @@ export function LandingView({
               ? `${featuredPaper.label} is available to try in practice mode.`
               : "Sign in to browse the available papers and practice options."}
           </p>
+          <div className="public-hero-points" aria-label="Platform highlights">
+            <span>
+              <Check aria-hidden="true" /> Free to start
+            </span>
+            <span>
+              <Check aria-hidden="true" /> PDF + Markdown
+            </span>
+            <span>
+              <Check aria-hidden="true" /> Review every attempt
+            </span>
+          </div>
         </div>
 
         <aside
-          className="public-feature-card"
+          className="public-feature-card public-hero-visual"
           aria-label="Assessment workflow preview"
         >
+          <div className="public-visual-orb public-visual-orb-one" />
+          <div className="public-visual-orb public-visual-orb-two" />
           <div className="flex items-center justify-between gap-4 border-b border-slate-200 pb-4">
             <div>
               <p className="text-xs font-medium uppercase tracking-wide text-slate-500">
-                A complete attempt
+                Your practice loop
               </p>
               <h2 className="mt-1 text-base font-semibold text-slate-900">
-                From paper to review
+                From paper to progress
               </h2>
             </div>
-            <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-blue-50 text-blue-700">
-              <Target aria-hidden="true" className="h-4 w-4" />
+            <span className="public-ready-pill">
+              <Sparkles aria-hidden="true" className="h-3.5 w-3.5" /> Ready
             </span>
+          </div>
+          <div className="public-review-preview">
+            <div className="flex items-center justify-between gap-3">
+              <span className="public-review-preview-label">Review snapshot</span>
+              <Target aria-hidden="true" className="h-4 w-4 text-blue-600" />
+            </div>
+            <div className="public-review-metrics">
+              <span>
+                <strong>Marks</strong>
+                <small>Net score</small>
+              </span>
+              <span>
+                <strong>Accuracy</strong>
+                <small>Answer quality</small>
+              </span>
+              <span>
+                <strong>Pace</strong>
+                <small>Time insight</small>
+              </span>
+            </div>
+            <div className="public-review-progress" aria-hidden="true">
+              <span />
+            </div>
+            <p>One result. The signals that make the next attempt better.</p>
           </div>
           <ol className="mt-2 divide-y divide-slate-100">
             <li className="public-workflow-step">
@@ -204,6 +241,10 @@ export function LandingView({
               Take a free mock to understand the platform, finish the test,
               and review your result.
             </p>
+            <ul className="public-pricing-features">
+              <li><Check aria-hidden="true" /> Try the full workflow</li>
+              <li><Check aria-hidden="true" /> Review your result</li>
+            </ul>
             {featuredPaper && (
               <button
                 type="button"
@@ -216,7 +257,10 @@ export function LandingView({
             )}
           </article>
           <article className="public-pricing-card public-pricing-card-featured">
-            <p className="public-pricing-label">Individual</p>
+            <div className="flex w-full items-start justify-between gap-3">
+              <p className="public-pricing-label">Individual</p>
+              <span className="public-popular-pill">Most useful</span>
+            </div>
             <h3>
               ₹999 <span>/ year</span>
             </h3>
@@ -224,6 +268,11 @@ export function LandingView({
               Upload unlimited PDF or Markdown papers and practise without
               limits.
             </p>
+            <ul className="public-pricing-features">
+              <li><Check aria-hidden="true" /> Unlimited paper uploads</li>
+              <li><Check aria-hidden="true" /> Unlimited practice</li>
+              <li><Check aria-hidden="true" /> Saved assessment history</li>
+            </ul>
             <button
               type="button"
               onClick={onOpenAuth}
@@ -240,6 +289,10 @@ export function LandingView({
               For institutes or other enterprise-level solutions, contact us
               for a tailored conversation.
             </p>
+            <ul className="public-pricing-features">
+              <li><Check aria-hidden="true" /> Discuss your workflow</li>
+              <li><Check aria-hidden="true" /> Plan for your learners</li>
+            </ul>
             <a href="mailto:hi@chikoochi.com" className="public-text-link">
               hi@chikoochi.com <Mail aria-hidden="true" className="h-4 w-4" />
             </a>
