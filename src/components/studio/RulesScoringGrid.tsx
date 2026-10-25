@@ -2,6 +2,7 @@
 
 import React from "react";
 import { Check } from "lucide-react";
+import { CutoffType } from "../../lib/types";
 
 interface RulesScoringGridProps {
   totalQuestions: string | number;
@@ -14,6 +15,12 @@ interface RulesScoringGridProps {
   onIncorrectMarksChange: ((val: string) => void) | ((val: number) => void);
   totalMarks: string | number;
   onTotalMarksChange: ((val: string) => void) | ((val: number) => void);
+  cutoffEnabled?: boolean;
+  onCutoffEnabledChange?: (enabled: boolean) => void;
+  cutoffType?: CutoffType;
+  onCutoffTypeChange?: (type: CutoffType) => void;
+  cutoffValue?: string | number;
+  onCutoffValueChange?: ((val: string) => void) | ((val: number) => void);
   instructionsCount?: number;
 }
 
@@ -28,6 +35,12 @@ export function RulesScoringGrid({
   onIncorrectMarksChange,
   totalMarks,
   onTotalMarksChange,
+  cutoffEnabled = false,
+  onCutoffEnabledChange,
+  cutoffType = "percentage",
+  onCutoffTypeChange,
+  cutoffValue = "",
+  onCutoffValueChange,
   instructionsCount = 0,
 }: RulesScoringGridProps) {
   return (
@@ -123,6 +136,55 @@ export function RulesScoringGrid({
           />
         </div>
       </div>
+
+      {onCutoffEnabledChange && onCutoffTypeChange && onCutoffValueChange && (
+        <div className="rounded-xl border border-slate-200 bg-slate-50/70 p-3 space-y-2">
+          <label className="flex items-center gap-2 text-xs font-semibold text-slate-700 cursor-pointer">
+            <input
+              type="checkbox"
+              checked={cutoffEnabled}
+              onChange={(e) => onCutoffEnabledChange(e.target.checked)}
+              className="h-3.5 w-3.5 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
+            />
+            Set qualifying marks / cutoff
+          </label>
+          {cutoffEnabled && (
+            <div className="grid grid-cols-1 sm:grid-cols-[minmax(0,1fr)_minmax(0,1fr)] gap-2">
+              <select
+                value={cutoffType}
+                onChange={(e) => onCutoffTypeChange(e.target.value as CutoffType)}
+                className="w-full rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-800 focus:border-indigo-500 focus:outline-none"
+              >
+                <option value="percentage">Percentage</option>
+                <option value="marks">Marks</option>
+              </select>
+              <div className="relative">
+                <input
+                  type="number"
+                  min="0"
+                  step="any"
+                  value={cutoffValue}
+                  onChange={(e) => {
+                    const val = e.target.value;
+                    (onCutoffValueChange as any)(
+                      typeof cutoffValue === "number" ? parseFloat(val) || 0 : val,
+                    );
+                  }}
+                  placeholder={cutoffType === "percentage" ? "e.g. 40" : "e.g. 66.67"}
+                  className="w-full rounded-lg border border-slate-200 bg-white px-3 py-1.5 pr-16 text-xs font-mono text-slate-800 focus:border-indigo-500 focus:outline-none"
+                  required
+                />
+                <span className="pointer-events-none absolute inset-y-0 right-3 flex items-center text-[10px] text-slate-400">
+                  {cutoffType === "percentage" ? "%" : "marks"}
+                </span>
+              </div>
+            </div>
+          )}
+          <p className="text-[10px] text-slate-500">
+            Leave unchecked when this paper has no qualifying threshold.
+          </p>
+        </div>
+      )}
 
       {instructionsCount > 0 && (
         <div className="flex items-center justify-between gap-2 p-2.5 rounded-xl bg-purple-50/70 border border-purple-200 text-xs text-purple-900">

@@ -12,11 +12,35 @@ import {
 
 const STORAGE_KEYS = {
   ATTEMPTS: "exam_prep_attempts_v2",
+  GUEST_REVIEW_ATTEMPT: "exam_prep_guest_review_attempt_v1",
   CUSTOM_PAPERS: "exam_prep_custom_papers_v2",
   ACTIVE_PAGE: "exam_prep_active_page_v1",
   SELECTED_ATTEMPT_ID: "exam_prep_selected_attempt_id_v1",
   HIDDEN_PAPERS: "exam_prep_hidden_papers_v1",
 };
+
+/** Keep the latest guest result available for immediate review without adding it to history. */
+export function saveGuestReviewAttempt(attempt: Attempt): void {
+  if (typeof window === "undefined") return;
+  try {
+    localStorage.setItem(
+      STORAGE_KEYS.GUEST_REVIEW_ATTEMPT,
+      JSON.stringify(attempt),
+    );
+  } catch {
+    // The result remains available in the current React state when storage is unavailable.
+  }
+}
+
+export function getGuestReviewAttempt(): Attempt | null {
+  if (typeof window === "undefined") return null;
+  try {
+    const raw = localStorage.getItem(STORAGE_KEYS.GUEST_REVIEW_ATTEMPT);
+    return raw ? (JSON.parse(raw) as Attempt) : null;
+  } catch {
+    return null;
+  }
+}
 
 export function getLocalHiddenPaperIds(userId?: string): string[] {
   if (typeof window === "undefined") return [];

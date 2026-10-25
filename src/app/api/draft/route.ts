@@ -8,12 +8,47 @@ import {
   getBlobToken,
 } from "@/lib/cloudStorage";
 
+const REMOTE_FORWARD_TIMEOUT_MS = 5000;
+
+async function fetchRemoteDraft(
+  input: string,
+  init?: RequestInit,
+): Promise<Response> {
+  const controller = new AbortController();
+  const timeout = setTimeout(
+    () => controller.abort(),
+    REMOTE_FORWARD_TIMEOUT_MS,
+  );
+
+  try {
+    return await fetch(input, { ...init, signal: controller.signal });
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+
+function getForwardingFailureReason(error: unknown): string {
+  if (error instanceof Error && error.name === "AbortError") {
+    return "timed out";
+  }
+  if (error instanceof Error && error.message) {
+    return error.message;
+  }
+  return "network error";
+}
+
+function logForwardingFailure(action: string, error: unknown): void {
+  console.warn(
+    `Unable to forward draft ${action} to PROD (${getForwardingFailureReason(error)}); continuing locally.`,
+  );
+}
+
 // GET active draft for cross-device synchronization (desktop <-> mobile)
 export async function GET() {
   try {
     if (isProdEnv() && !process.env.VERCEL && !getBlobToken()) {
       try {
-        const res = await fetch(`${getProdApiUrl()}/api/draft`, {
+        const res = await fetchRemoteDraft(`${getProdApiUrl()}/api/draft`, {
           redirect: "follow",
           cache: "no-store",
         });
@@ -22,7 +57,7 @@ export async function GET() {
           if (data.ok) return NextResponse.json(data);
         }
       } catch (err) {
-        console.warn("Failed remote draft fetch from PROD:", err);
+        logForwardingFailure("fetch", err);
       }
     }
 
@@ -47,14 +82,17 @@ export async function POST(req: NextRequest) {
 
     if (isProdEnv() && !process.env.VERCEL && !getBlobToken()) {
       try {
-        await fetch(`${getProdApiUrl()}/api/draft`, {
+        const res = await fetchRemoteDraft(`${getProdApiUrl()}/api/draft`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify(body),
           redirect: "follow",
         });
+        if (!res.ok) {
+          logForwardingFailure("save", new Error(`HTTP ${res.status}`));
+        }
       } catch (err) {
-        console.warn("Failed forwarding draft POST to PROD:", err);
+        logForwardingFailure("save", err);
       }
     }
 
@@ -74,12 +112,15 @@ export async function DELETE() {
   try {
     if (isProdEnv() && !process.env.VERCEL && !getBlobToken()) {
       try {
-        await fetch(`${getProdApiUrl()}/api/draft`, {
+        const res = await fetchRemoteDraft(`${getProdApiUrl()}/api/draft`, {
           method: "DELETE",
           redirect: "follow",
         });
+        if (!res.ok) {
+          logForwardingFailure("delete", new Error(`HTTP ${res.status}`));
+        }
       } catch (err) {
-        console.warn("Failed forwarding draft DELETE to PROD:", err);
+        logForwardingFailure("delete", err);
       }
     }
 

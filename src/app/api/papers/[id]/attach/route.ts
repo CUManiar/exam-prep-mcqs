@@ -46,6 +46,26 @@ export async function POST(
       );
     }
 
+    const hasCutoffUpdate = formData.has("cutoffEnabled");
+    const cutoffEnabled = hasCutoffUpdate
+      ? formData.get("cutoffEnabled") === "true"
+      : Boolean(currentPaper.cutoffEnabled);
+    const cutoffType =
+      formData.get("cutoffType") === "marks"
+        ? "marks"
+        : formData.has("cutoffType")
+          ? "percentage"
+          : currentPaper.cutoffType || "percentage";
+    const cutoffValueInput = parseFloat(
+      (formData.get("cutoffValue") as string) || "",
+    );
+    const cutoffValue =
+      cutoffEnabled && Number.isFinite(cutoffValueInput) && cutoffValueInput >= 0
+        ? cutoffValueInput
+        : hasCutoffUpdate
+          ? undefined
+          : currentPaper.cutoffValue;
+
     const year = currentPaper.year || "2026";
     const cat = currentPaper.category || "prelims";
     const cleanName = cleanId.replace(/^[0-9]+_/, "") || cleanId;
@@ -156,6 +176,9 @@ export async function POST(
       markdownContent: finalMarkdownContent || undefined,
       parsedQuestions: finalParsedQuestions || undefined,
       instructions: finalInstructions || undefined,
+      cutoffEnabled,
+      cutoffType,
+      cutoffValue,
       updatedAt: new Date().toISOString(),
     };
 
@@ -178,6 +201,11 @@ export async function POST(
           id: cleanId,
           user_id: currentPaper.userId,
           title: updated.label,
+          year: parseInt(String(updated.year), 10) || new Date().getFullYear(),
+          subject: updated.subject,
+          stage: updated.category,
+          exam_type: updated.examType,
+          label: updated.label,
           total_questions: updated.totalQuestions,
           total_marks: updated.totalMarks,
           correct_marks: updated.correctMarks,
@@ -188,6 +216,13 @@ export async function POST(
           exs_url: updated.exsUrl || null,
           answer_key: updated.answerKey,
           answer_key_text: updated.answerKeyText || null,
+          markdown_content: updated.markdownContent || null,
+          parsed_questions: updated.parsedQuestions || null,
+          instructions: updated.instructions || [],
+          explanations: updated.explanations || {},
+          cutoff_enabled: updated.cutoffEnabled,
+          cutoff_type: updated.cutoffType,
+          cutoff_value: updated.cutoffValue ?? null,
           updated_at: new Date().toISOString(),
         });
       } catch (dbErr) {

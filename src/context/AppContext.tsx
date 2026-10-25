@@ -8,7 +8,14 @@ import React, {
   useCallback,
 } from "react";
 import { useRouter } from "next/navigation";
-import { QuestionPaper, Attempt, ActiveSessionDraft } from "../lib/types";
+import {
+  QuestionPaper,
+  Attempt,
+  ActiveSessionDraft,
+  AppNotification,
+  AppNotificationType,
+} from "../lib/types";
+import { getNotifications, saveNotifications } from "../lib/notifications";
 import {
   getAttempts,
   loadAttemptsFromServer,
@@ -27,6 +34,8 @@ import {
   removeLocalCustomPaper,
   saveCustomPaper,
   getCustomPapers,
+  getGuestReviewAttempt,
+  saveGuestReviewAttempt,
 } from "../lib/storage";
 import {
   parseQuestionnaireMarkdown,
@@ -84,6 +93,16 @@ interface AppContextType {
   handleUpdatePaper: (paper: QuestionPaper) => Promise<void>;
   hiddenPaperIds: string[];
   handleRestoreHiddenPapers: () => Promise<void>;
+  notifications: AppNotification[];
+  addNotification: (notification: {
+    type: AppNotificationType;
+    title: string;
+    message: string;
+    href?: string;
+  }) => void;
+  markNotificationRead: (notificationId: string) => void;
+  markAllNotificationsRead: () => void;
+  clearNotifications: () => void;
 }
 
 const AppContext = createContext<AppContextType | null>(null);
@@ -101,6 +120,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [isPro, setIsPro] = useState<boolean>(false);
   const [currentUser, setCurrentUser] = useState<User | null>(null);
+  const [notifications, setNotifications] = useState<AppNotification[]>([]);
   const [authModalOpen, setAuthModalOpen] = useState<boolean>(false);
   const [proModalOpen, setProModalOpen] = useState<boolean>(false);
   const [proModalTarget, setProModalTarget] = useState<string | undefined>(
@@ -110,6 +130,69 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     useState<Attempt | null>(null);
   const [guestCompletionModalOpen, setGuestCompletionModalOpen] =
     useState<boolean>(false);
+
+  const notificationUserId = currentUser?.id ?? null;
+
+  useEffect(() => {
+    setNotifications(getNotifications(notificationUserId));
+  }, [notificationUserId]);
+
+  const addNotification = useCallback(
+    (notification: {
+      type: AppNotificationType;
+      title: string;
+      message: string;
+      href?: string;
+    }) => {
+      const nextNotification: AppNotification = {
+        ...notification,
+        id:
+          typeof crypto !== "undefined" && "randomUUID" in crypto
+            ? crypto.randomUUID()
+            : `${Date.now()}-${Math.random().toString(36).slice(2)}`,
+        createdAt: new Date().toISOString(),
+        read: false,
+      };
+
+      setNotifications((previous) => {
+        const next = [nextNotification, ...previous].slice(0, 30);
+        saveNotifications(next, notificationUserId);
+        return next;
+      });
+    },
+    [notificationUserId],
+  );
+
+  const markNotificationRead = useCallback(
+    (notificationId: string) => {
+      setNotifications((previous) => {
+        const next = previous.map((notification) =>
+          notification.id === notificationId
+            ? { ...notification, read: true }
+            : notification,
+        );
+        saveNotifications(next, notificationUserId);
+        return next;
+      });
+    },
+    [notificationUserId],
+  );
+
+  const markAllNotificationsRead = useCallback(() => {
+    setNotifications((previous) => {
+      const next = previous.map((notification) => ({
+        ...notification,
+        read: true,
+      }));
+      saveNotifications(next, notificationUserId);
+      return next;
+    });
+  }, [notificationUserId]);
+
+  const clearNotifications = useCallback(() => {
+    setNotifications([]);
+    saveNotifications([], notificationUserId);
+  }, [notificationUserId]);
 
   useEffect(() => {
     if (currentUser) {
@@ -143,13 +226,19 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
   const handleSignOut = async () => {
     const supabase = getSupabaseClient();
-    if (supabase) {
-      await supabase.auth.signOut();
+    try {
+      if (supabase) {
+        await supabase.auth.signOut();
+      }
+    } catch (error) {
+      console.warn("Sign out request failed; clearing the local session:", error);
+    } finally {
+      setCurrentUser(null);
+      setUserPro(false);
+      setIsPro(false);
+      await loadAllData();
+      router.replace("/");
     }
-    setCurrentUser(null);
-    setUserPro(false);
-    setIsPro(false);
-    await loadAllData();
   };
 
   // Modern Confirmation & Alert Modal state
@@ -229,6 +318,27 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         setHiddenPaperIds(hidden);
 
         const localCustom = getCustomPapers();
+        // Backfill Markdown papers created before remote content fields existed.
+        // This is the recovery path for the original browser's local copy.
+        const remoteCustomById = new Map(
+          userCustomPapers.map((paper) => [paper.id, paper]),
+        );
+        const localMarkdownToSync = localCustom.filter((localPaper) => {
+          if (!localPaper.markdownContent) return false;
+          const remotePaper = remoteCustomById.get(localPaper.id);
+          return (
+            !remotePaper?.markdownContent ||
+            !remotePaper.parsedQuestions?.length
+          );
+        });
+        if (localMarkdownToSync.length > 0) {
+          await Promise.all(
+            localMarkdownToSync.map((paper) =>
+              saveUserCustomPaperToSupabase(paper, user.id),
+            ),
+          );
+        }
+
         // Merge userCustomPapers from Supabase with localCustom so parsedQuestions, markdownContent, and instructions are preserved
         const mergedUserCustom = userCustomPapers.map((ucp) => {
           const match = localCustom.find((lc) => lc.id === ucp.id);
@@ -309,7 +419,17 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     setUserPro(false);
     setIsPro(false);
     const cachedAttempts = getAttempts();
-    setAttempts(cachedAttempts);
+    const guestReviewAttempt = getGuestReviewAttempt();
+    setAttempts(
+      guestReviewAttempt
+        ? [
+            guestReviewAttempt,
+            ...cachedAttempts.filter(
+              (attempt) => attempt.id !== guestReviewAttempt.id,
+            ),
+          ]
+        : cachedAttempts,
+    );
     const localDraft = getActiveDraft();
     setActiveDraft(localDraft);
 
@@ -365,13 +485,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     };
   }, [loadAllData]);
 
-  // Start exam session - Gated for Freemium (Free: 2026 Prelims GS I & CSAT, Pro: all other papers)
-  // Mock mode requires user account / login
+  // Start exam session - free papers are available to guests; paid papers require Pro access.
   const handleStartExam = (paper: QuestionPaper, mode: "practice" | "mock") => {
-    if (mode === "mock" && !currentUser) {
-      openAuthModal();
-      return;
-    }
     if (!isPaperFree(paper) && !isPro) {
       openProUpgradeModal(paper.label);
       return;
@@ -417,8 +532,16 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
   // Finishing exam session
   const handleFinishExamSession = (attempt: Attempt) => {
-    saveAttempt(attempt);
-    setAttempts(getAttempts());
+    if (!currentUser) {
+      saveGuestReviewAttempt(attempt);
+    }
+    if (attempt.mode === "mock" && currentUser) {
+      saveAttempt(attempt);
+    }
+    setAttempts((previous) => [
+      attempt,
+      ...previous.filter((existing) => existing.id !== attempt.id),
+    ]);
     if (currentUser) {
       saveUserAttemptToSupabase(attempt, currentUser.id);
     }
@@ -428,9 +551,15 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       clearUserDraftFromSupabase(currentUser.id);
     }
 
-    // Practice mode allows immediate direct review without login!
-    // Mock mode prompts user to sign in to save test attempt.
-    if (!currentUser && attempt.mode === "mock") {
+    addNotification({
+      type: "result",
+      title: "Assessment complete",
+      message: `${attempt.paperLabel}: ${attempt.score} / ${attempt.maxScore}.`,
+      href: `/history/${encodeURIComponent(attempt.id)}`,
+    });
+
+    // Guests can review either mode immediately; signing in only adds the result to their account.
+    if (!currentUser) {
       setGuestCompletionAttempt(attempt);
       setGuestCompletionModalOpen(true);
       return;
@@ -459,7 +588,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const handleDeleteAttempt = (attemptId: string) => {
     setModalConfig({
       isOpen: true,
-      title: "Delete Mock Exam Attempt?",
+      title: "Delete Assessment?",
       message:
         "Are you sure you want to permanently delete this exam attempt from history? This record and its performance analytics cannot be recovered.",
       confirmText: "Delete Attempt",
@@ -495,6 +624,12 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
     // 4. Resync full dataset
     await loadAllData();
+    addNotification({
+      type: "paper",
+      title: "Paper added",
+      message: `${newPaper.label} is available in your paper library.`,
+      href: "/papers?tab=custom",
+    });
   };
 
   // Restore hidden papers handler
@@ -592,8 +727,11 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   // Update paper handler
   const handleUpdatePaper = async (paper: QuestionPaper) => {
     await updatePaperOnServer(paper.id, paper);
-    const freshPapers = await getAllPapers();
-    setPapers(freshPapers);
+    if (currentUser?.id && isUserUploadedPaper(paper)) {
+      await saveUserCustomPaperToSupabase(paper, currentUser.id);
+    }
+    setPapers((prev) => [paper, ...prev.filter((p) => p.id !== paper.id)]);
+    await loadAllData();
   };
 
   return (
@@ -621,6 +759,11 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         handleUpdatePaper,
         hiddenPaperIds,
         handleRestoreHiddenPapers,
+        notifications,
+        addNotification,
+        markNotificationRead,
+        markAllNotificationsRead,
+        clearNotifications,
       }}
     >
       {children}
@@ -652,17 +795,30 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         isOpen={authModalOpen}
         onClose={() => setAuthModalOpen(false)}
         onSuccess={async () => {
-          await loadAllData();
           if (guestCompletionAttempt) {
+            const completedGuestAttempt = guestCompletionAttempt;
             const user = await getCurrentUser();
             if (user) {
-              await saveUserAttemptToSupabase(guestCompletionAttempt, user.id);
+              await saveUserAttemptToSupabase(completedGuestAttempt, user.id);
             }
+
+            // Load the account first, then retain the just-completed result in
+            // memory before navigating to its detail route. Without this, the
+            // route can render between the auth refresh and the Supabase write.
+            await loadAllData();
+            setAttempts((previous) => [
+              completedGuestAttempt,
+              ...previous.filter(
+                (attempt) => attempt.id !== completedGuestAttempt.id,
+              ),
+            ]);
             setGuestCompletionModalOpen(false);
-            const targetId = guestCompletionAttempt.id;
+            const targetId = completedGuestAttempt.id;
             setGuestCompletionAttempt(null);
             router.push(`/history/${encodeURIComponent(targetId)}`);
+            return;
           }
+          await loadAllData();
         }}
       />
 

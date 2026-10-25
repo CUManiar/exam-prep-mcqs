@@ -3,7 +3,7 @@
 import React, { useState, useEffect, useMemo } from "react";
 import { useSearchParams } from "next/navigation";
 import { createPortal } from "react-dom";
-import { QuestionPaper, Attempt } from "../lib/types";
+import { CutoffType, QuestionPaper, Attempt } from "../lib/types";
 import {
   SUPPORTED_YEARS,
   hasAnswerKey,
@@ -17,6 +17,7 @@ import {
 import { attachToPaperOnServer } from "../lib/storage";
 import { DetailedSolutionModal } from "./DetailedSolutionModal";
 import { useApp } from "../context/AppContext";
+import { PageHeader } from "./PageHeader";
 import {
   BookOpen,
   Search,
@@ -37,6 +38,8 @@ import {
   ChevronRight,
   Lock,
   Sparkles,
+  Grid2X2,
+  List,
 } from "lucide-react";
 
 interface PapersViewProps {
@@ -64,6 +67,7 @@ export function PapersView({
   const [selectedAttemptFilter, setSelectedAttemptFilter] = useState<
     "all" | "attempted" | "unattempted" | "mock" | "practice"
   >("all");
+  const [paperViewMode, setPaperViewMode] = useState<"grid" | "list">("grid");
   const [mounted, setMounted] = useState(false);
   const [viewingSolutionPaper, setViewingSolutionPaper] =
     useState<QuestionPaper | null>(null);
@@ -83,6 +87,9 @@ export function PapersView({
   const [editCorrectMarks, setEditCorrectMarks] = useState<number>(2.0);
   const [editIncorrectMarks, setEditIncorrectMarks] = useState<number>(0.667);
   const [editTimeMinutes, setEditTimeMinutes] = useState<number>(120);
+  const [editCutoffEnabled, setEditCutoffEnabled] = useState(false);
+  const [editCutoffType, setEditCutoffType] = useState<CutoffType>("percentage");
+  const [editCutoffValue, setEditCutoffValue] = useState<number | "">("");
 
   // Dedicated Attach Modal (supports opening directly to 'key' or 'solution')
   const [attachingPaper, setAttachingPaper] = useState<QuestionPaper | null>(
@@ -108,6 +115,13 @@ export function PapersView({
     setEditCorrectMarks(p.correctMarks);
     setEditIncorrectMarks(p.incorrectMarks);
     setEditTimeMinutes(p.timeMinutes);
+    setEditCutoffEnabled(Boolean(p.cutoffEnabled));
+    setEditCutoffType(p.cutoffType || "percentage");
+    setEditCutoffValue(
+      typeof p.cutoffValue === "number" && Number.isFinite(p.cutoffValue)
+        ? p.cutoffValue
+        : "",
+    );
   };
 
   const handleSaveEdit = () => {
@@ -119,6 +133,12 @@ export function PapersView({
       correctMarks: editCorrectMarks,
       incorrectMarks: editIncorrectMarks,
       timeMinutes: editTimeMinutes,
+      cutoffEnabled: editCutoffEnabled,
+      cutoffType: editCutoffType,
+      cutoffValue:
+        editCutoffEnabled && editCutoffValue !== ""
+          ? Number(editCutoffValue)
+          : undefined,
     };
     onUpdatePaper(updated);
     setEditingPaper(null);
@@ -252,32 +272,18 @@ export function PapersView({
   });
 
   return (
-    <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8 space-y-8 animate-in fade-in duration-200">
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 pb-4 border-b border-slate-200/80">
-        <div>
-          <div className="flex items-center gap-2 mb-1">
-            <span className="text-[11px] font-medium uppercase tracking-wider text-indigo-700 bg-indigo-50 px-2 py-0.5 rounded-md border border-indigo-100 font-mono">
-              Papers Archive
-            </span>
-            <span className="text-slate-300">•</span>
-            <span className="text-xs text-slate-500 font-mono">
-              {papers.length} Papers
-            </span>
-          </div>
-          <h1 className="text-xl sm:text-2xl font-bold text-slate-900 tracking-tight">
-            Question Papers
-          </h1>
-        </div>
-
-        <button
-          onClick={onNavigateUpload}
-          className="cursor-pointer self-start sm:self-auto flex items-center gap-1.5 rounded-xl bg-indigo-600 px-4 py-2 text-xs font-semibold text-white hover:bg-indigo-700 transition-all shadow-xs"
-        >
-          <Plus className="h-4 w-4" />
-          <span>Upload Paper</span>
-        </button>
-      </div>
+    <div className="page-container space-y-6">
+      <PageHeader
+        eyebrow={`Paper library · ${papers.length} available`}
+        title="Question papers"
+        description="Find an assessment, review its materials, or add a paper to your library."
+        actions={
+          <button type="button" onClick={onNavigateUpload} className="button-primary">
+            <Plus className="h-4 w-4" />
+            <span>Add a paper</span>
+          </button>
+        }
+      />
 
       {/* Filter / Search Bar */}
       <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 bg-white border border-slate-200/80 rounded-2xl p-3 shadow-xs">
@@ -373,42 +379,40 @@ export function PapersView({
               </option>
             ))}
           </select>
+
+          <div
+            className="inline-flex items-center gap-0.5 rounded-xl border border-slate-200 bg-slate-100 p-0.5"
+            aria-label="Paper layout"
+          >
+            <button
+              type="button"
+              onClick={() => setPaperViewMode("grid")}
+              aria-label="Show papers as grid"
+              aria-pressed={paperViewMode === "grid"}
+              className={`cursor-pointer rounded-lg p-1.5 transition-colors ${
+                paperViewMode === "grid"
+                  ? "bg-white text-indigo-700 shadow-xs"
+                  : "text-slate-500 hover:text-slate-900"
+              }`}
+            >
+              <Grid2X2 className="h-3.5 w-3.5" />
+            </button>
+            <button
+              type="button"
+              onClick={() => setPaperViewMode("list")}
+              aria-label="Show papers as list"
+              aria-pressed={paperViewMode === "list"}
+              className={`cursor-pointer rounded-lg p-1.5 transition-colors ${
+                paperViewMode === "list"
+                  ? "bg-white text-indigo-700 shadow-xs"
+                  : "text-slate-500 hover:text-slate-900"
+              }`}
+            >
+              <List className="h-3.5 w-3.5" />
+            </button>
+          </div>
         </div>
       </div>
-
-      {/* Freemium Vault Announcement Banner */}
-      {!isPro && (
-        <div className="rounded-2xl border border-amber-200 bg-gradient-to-r from-amber-50 via-indigo-50/40 to-white p-4 sm:p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4 shadow-xs animate-in fade-in">
-          <div className="flex items-start gap-3">
-            <div className="rounded-xl bg-amber-100 p-2 text-amber-700 shrink-0 mt-0.5">
-              <Sparkles className="h-5 w-5 text-amber-600 fill-amber-400" />
-            </div>
-            <div>
-              <div className="flex items-center gap-2">
-                <h3 className="text-sm font-bold text-slate-900">
-                  Free Tier: 2026 Prelims Papers (GS I & CSAT)
-                </h3>
-                <span className="rounded-full bg-emerald-100 text-emerald-800 px-2 py-0.2 text-[10px] font-extrabold">
-                  FREE FOREVER
-                </span>
-              </div>
-              <p className="text-xs text-slate-500 mt-1 leading-relaxed">
-                Full real-time countdown timer, answer keys, confidence tagging
-                & automated evaluation included. Unlock the complete 2024, 2025,
-                and 2026 Prelims & Mains archive + unlimited custom paper
-                uploads with Lifetime Pro (₹999).
-              </p>
-            </div>
-          </div>
-          <button
-            onClick={() => openProUpgradeModal()}
-            className="cursor-pointer shrink-0 rounded-xl bg-indigo-600 hover:bg-indigo-700 active:scale-[0.98] px-4 py-2.5 text-xs font-bold text-white transition-all shadow-xs flex items-center justify-center gap-1.5"
-          >
-            <Lock className="h-3.5 w-3.5" />
-            <span>Unlock Pro Vault (₹999)</span>
-          </button>
-        </div>
-      )}
 
       {/* Papers Grid */}
       {filteredPapers.length === 0 ? (
@@ -447,7 +451,13 @@ export function PapersView({
           )}
         </div>
       ) : (
-        <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">
+        <div
+          className={
+            paperViewMode === "grid"
+              ? "grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3"
+              : "flex flex-col gap-3"
+          }
+        >
           {filteredPapers.map((paper) => {
             const keyPresent = hasAnswerKey(paper);
             const solutionPresent = hasSolution(paper);
@@ -471,9 +481,13 @@ export function PapersView({
             return (
               <div
                 key={paper.id}
-                className="flex flex-col h-full justify-between bg-white rounded-2xl border border-slate-200/80 p-5 group hover:border-slate-300 hover:shadow-sm transition-all"
+                className={`flex h-full justify-between bg-white rounded-2xl border border-slate-200/80 p-5 group hover:border-slate-300 hover:shadow-sm transition-all ${
+                  paperViewMode === "grid"
+                    ? "flex-col"
+                    : "flex-col md:grid md:grid-cols-[minmax(0,1fr)_minmax(260px,340px)] md:gap-5"
+                }`}
               >
-                <div>
+                <div className="min-w-0">
                   {/* Top Header Row: Clean, quiet badges */}
                   <div className="flex items-center justify-between gap-2">
                     <div className="flex items-center gap-1.5 flex-wrap">
@@ -590,7 +604,13 @@ export function PapersView({
                 </div>
 
                 {/* Bottom Action Area: Clean & Uncluttered */}
-                <div className="mt-4 pt-3 border-t border-slate-100 space-y-2">
+                <div
+                  className={`space-y-2 ${
+                    paperViewMode === "grid"
+                      ? "mt-4 border-t border-slate-100 pt-3"
+                      : "mt-4 border-t border-slate-100 pt-3 md:mt-0 md:border-l md:border-t-0 md:pl-5 md:pt-0 md:self-stretch md:flex md:flex-col md:justify-center"
+                  }`}
+                >
                   {/* Primary Test Actions */}
                   <div className="grid grid-cols-2 gap-2">
                     {isLocked ? (
@@ -1021,6 +1041,48 @@ export function PapersView({
                     </div>
                   </div>
                 )}
+
+                <div className="rounded-xl border border-slate-200 bg-slate-50/70 p-3 space-y-2">
+                  <label className="flex items-center gap-2 font-semibold text-slate-700 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={editCutoffEnabled}
+                      onChange={(e) => setEditCutoffEnabled(e.target.checked)}
+                      className="h-3.5 w-3.5 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
+                    />
+                    Set qualifying marks / cutoff
+                  </label>
+                  {editCutoffEnabled && (
+                    <div className="grid grid-cols-2 gap-2">
+                      <select
+                        value={editCutoffType}
+                        onChange={(e) =>
+                          setEditCutoffType(e.target.value as CutoffType)
+                        }
+                        className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs text-slate-800 focus:border-indigo-500 focus:outline-none"
+                      >
+                        <option value="percentage">Percentage</option>
+                        <option value="marks">Marks</option>
+                      </select>
+                      <input
+                        type="number"
+                        min="0"
+                        step="any"
+                        value={editCutoffValue}
+                        onChange={(e) =>
+                          setEditCutoffValue(parseFloat(e.target.value) || "")
+                        }
+                        placeholder={
+                          editCutoffType === "percentage" ? "e.g. 40" : "e.g. 66.67"
+                        }
+                        className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-mono text-slate-800 focus:border-indigo-500 focus:outline-none"
+                      />
+                    </div>
+                  )}
+                  <p className="text-[10px] text-slate-500">
+                    Leave unchecked when this paper has no cutoff.
+                  </p>
+                </div>
               </div>
 
               <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-100">

@@ -1,73 +1,64 @@
 "use client";
 
 import React, { Suspense } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useApp } from "../../context/AppContext";
 import { PapersView } from "../../components/PapersView";
-import { Lock, UserCheck, ArrowLeft } from "lucide-react";
+import { UploadView } from "../../components/UploadView";
+import { AccountRequired } from "../../components/AccountRequired";
 
-export default function QuestionPapersPage() {
+function PapersWorkspace() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const {
     papers,
     handleStartExam,
     handleDeletePaper,
     handleUpdatePaper,
-    currentUser,
-    isLoading,
-    openAuthModal,
+    handlePaperUploaded,
   } = useApp();
 
-  if (!currentUser && !isLoading) {
-    return (
-      <div className="mx-auto max-w-lg px-4 py-20 text-center space-y-6">
-        <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-2xl bg-indigo-50 text-indigo-600 border border-indigo-100 shadow-xs">
-          <Lock className="h-8 w-8" />
-        </div>
-        <div className="space-y-2">
-          <h2 className="text-2xl font-black text-slate-900">
-            Sign In to Access Question Papers
-          </h2>
-          <p className="text-xs text-slate-600 leading-relaxed max-w-sm mx-auto">
-            Browse official 2024, 2025, and 2026 UPSC papers, practice with
-            timer, or upload custom paper sets.
-          </p>
-        </div>
-        <div className="flex items-center justify-center gap-3 pt-2">
-          <button
-            onClick={() => openAuthModal()}
-            className="cursor-pointer flex items-center gap-2 px-5 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-xs font-bold text-white shadow-xs transition-colors"
-          >
-            <UserCheck className="h-4 w-4" />
-            <span>Sign In / Register</span>
-          </button>
-          <button
-            onClick={() => router.push("/")}
-            className="cursor-pointer flex items-center gap-1.5 px-4 py-2.5 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-xs font-bold text-slate-700 transition-colors"
-          >
-            <ArrowLeft className="h-3.5 w-3.5" />
-            <span>Home</span>
-          </button>
-        </div>
-      </div>
-    );
-  }
+  return (
+    <AccountRequired
+      title={
+        searchParams.get("view") === "upload"
+          ? "Add a question paper"
+          : "Your question papers"
+      }
+      description="Sign in to manage your paper library, create assessments, and keep your results with your account."
+    >
+      {searchParams.get("view") === "upload" ? (
+        <UploadView
+          papers={papers}
+          onPaperUploaded={handlePaperUploaded}
+          onUpdatePaper={handleUpdatePaper}
+          onDeletePaper={handleDeletePaper}
+          onNavigatePapers={() => router.push("/papers?tab=custom")}
+          onStartExam={handleStartExam}
+        />
+      ) : (
+        <PapersView
+          papers={papers}
+          onStartExam={handleStartExam}
+          onNavigateUpload={() => router.push("/papers?view=upload")}
+          onDeletePaper={handleDeletePaper}
+          onUpdatePaper={handleUpdatePaper}
+        />
+      )}
+    </AccountRequired>
+  );
+}
 
+export default function QuestionPapersPage() {
   return (
     <Suspense
       fallback={
-        <div className="flex items-center justify-center min-h-[400px]">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-600" />
+        <div className="page-container py-20 text-sm text-slate-500">
+          Loading paper library…
         </div>
       }
     >
-      <PapersView
-        papers={papers}
-        onStartExam={handleStartExam}
-        onNavigateUpload={() => router.push("/upload")}
-        onDeletePaper={handleDeletePaper}
-        onUpdatePaper={handleUpdatePaper}
-      />
+      <PapersWorkspace />
     </Suspense>
   );
 }

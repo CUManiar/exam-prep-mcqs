@@ -193,6 +193,11 @@ export function AttemptDetailView({
     );
   }, [matchedPaper, attempt.paperId]);
 
+  const paperDeleted = !matchedPaper;
+  const canPreviewPaper = Boolean(
+    matchedPaper && (matchedPaper.qpUrl || isMarkdownPaper),
+  );
+
   // Parse markdown questions if not already parsed
   const markdownQuestions = useMemo(() => {
     if (!isMarkdownPaper) return [];
@@ -299,7 +304,7 @@ export function AttemptDetailView({
 
   const scorePct = useMemo(() => {
     if (!effectiveMaxScore || effectiveMaxScore <= 0) return "0.0";
-    return Math.max(0, (attempt.score / effectiveMaxScore) * 100).toFixed(1);
+    return ((attempt.score / effectiveMaxScore) * 100).toFixed(1);
   }, [attempt.score, effectiveMaxScore]);
 
   const handleCopySummary = async () => {
@@ -591,7 +596,7 @@ export function AttemptDetailView({
 
   return (
     <div
-      className={`mx-auto ${showPaperSplit && matchedPaper?.qpUrl ? "max-w-[1920px] px-3 sm:px-6" : "max-w-5xl px-4 sm:px-6"} py-6 space-y-6 text-slate-800 font-sans animate-in fade-in duration-200 print:text-black print:bg-white print:p-0 print:space-y-4 print:max-w-none`}
+      className={`mx-auto ${showPaperSplit && canPreviewPaper ? "max-w-[1920px] px-3 sm:px-6" : "max-w-5xl px-4 sm:px-6"} py-6 space-y-6 text-slate-800 font-sans print:text-black print:bg-white print:p-0 print:space-y-4 print:max-w-none`}
     >
       {/* =========================================================================
           PRINT & EXPORT PDF REPORT (CLEAN, UNCLUTTERED EXECUTIVE FORMAT)
@@ -892,38 +897,50 @@ export function AttemptDetailView({
       </div>
 
       {/* 1. Header Bar & Actions (Clean, restrained, professional) */}
-      <div className="screen-only flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 border-b border-slate-200/80 pb-4">
-        <div className="flex items-center gap-3">
+      <div className="screen-only flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4 border-b border-slate-200 pb-5">
+        <div className="flex min-w-0 items-start gap-3">
           <button
             onClick={onBack}
-            className="flex items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3.5 py-2 text-xs font-bold text-slate-700 hover:bg-slate-50 hover:text-slate-900 transition-colors shadow-xs"
+            aria-label="Go back"
+            title="Go back"
+            className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-600 hover:bg-slate-50 hover:text-slate-900 transition-colors"
           >
-            <ArrowLeft className="h-3.5 w-3.5" /> Back
+            <ArrowLeft className="h-4 w-4" />
           </button>
-          <div>
-            <div className="flex items-center gap-2">
-              <span className="text-[10px] font-medium uppercase tracking-wider px-2.5 py-0.5 rounded-full bg-indigo-50 text-indigo-700 border border-indigo-200/60 font-mono">
-                Mock Assessment Report
+          <div className="min-w-0">
+            <div className="flex items-center gap-2 text-[11px] text-slate-500">
+              <span className="font-medium text-slate-700">
+                {attempt.mode === "mock" ? "Timed mock" : "Practice"} report
               </span>
-              <span className="text-xs text-slate-500 font-medium">
-                {formatDateTime(attempt.startedAt)}
+              <span aria-hidden="true" className="text-slate-300">
+                •
               </span>
+              <span>{formatDateTime(attempt.startedAt)}</span>
             </div>
-            <h1 className="text-lg sm:text-xl font-bold text-slate-900 tracking-tight mt-0.5">
+            <h1 className="text-lg sm:text-xl font-semibold text-slate-900 tracking-tight mt-0.5 leading-tight">
               {displayPaperTitle}
             </h1>
+            {paperDeleted && (
+              <span
+                className="mt-1 inline-flex items-center gap-1.5 text-[11px] font-semibold text-amber-700"
+                title="The original question paper is no longer available, but this assessment result is still available."
+              >
+                <AlertTriangle className="h-3.5 w-3.5" />
+                Original paper unavailable
+              </span>
+            )}
           </div>
         </div>
 
-        <div className="flex items-center gap-2 flex-wrap">
+        <div className="flex shrink-0 items-center justify-end gap-2 flex-wrap">
           {/* Question Paper Preview Toggle (Desktop Side-by-Side & Tablet/Mobile Vertical) */}
-          {(matchedPaper?.qpUrl || isMarkdownPaper) && (
+          {canPreviewPaper && (
             <button
               onClick={() => setShowPaperSplit(!showPaperSplit)}
-              className={`flex items-center gap-1.5 rounded-xl px-3 py-1.5 text-xs font-bold transition-all shadow-2xs cursor-pointer ${
+              className={`flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-xs font-medium transition-colors cursor-pointer ${
                 showPaperSplit
-                  ? "bg-indigo-600 text-white shadow-xs"
-                  : "border border-slate-200 bg-white text-slate-700 hover:bg-slate-50 hover:text-slate-900"
+                  ? "border-slate-900 bg-slate-900 text-white"
+                  : "border-slate-200 bg-white text-slate-700 hover:bg-slate-50 hover:text-slate-900"
               }`}
               title={
                 isMarkdownPaper
@@ -934,18 +951,10 @@ export function AttemptDetailView({
               <Columns className="h-3.5 w-3.5 hidden xl:inline" />
               <BookOpen className="h-3.5 w-3.5 xl:hidden" />
               <span className="hidden xl:inline">
-                {showPaperSplit
-                  ? "Side-by-Side: ON"
-                  : isMarkdownPaper
-                    ? "View Question Paper"
-                    : "Preview Paper PDF"}
+                {showPaperSplit ? "Hide paper" : "View paper"}
               </span>
               <span className="xl:hidden">
-                {showPaperSplit
-                  ? "Hide Question Paper"
-                  : isMarkdownPaper
-                    ? "View Question Paper"
-                    : "View Paper PDF"}
+                {showPaperSplit ? "Hide paper" : "View paper"}
               </span>
             </button>
           )}
@@ -954,7 +963,7 @@ export function AttemptDetailView({
           <div className="relative">
             <button
               onClick={() => setShowExportMenu(!showExportMenu)}
-              className="flex items-center gap-1.5 rounded-xl bg-indigo-600 px-3.5 py-2 text-xs font-semibold text-white hover:bg-indigo-700 transition-colors shadow-xs cursor-pointer"
+              className="flex items-center gap-1.5 rounded-lg bg-indigo-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-indigo-700 transition-colors cursor-pointer"
             >
               <Download className="h-3.5 w-3.5" />
               <span>Export</span>
@@ -1021,7 +1030,7 @@ export function AttemptDetailView({
           {matchedPaper?.exsUrl && (
             <button
               onClick={() => setSolutionModalOpen(true)}
-              className="flex items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-indigo-700 hover:bg-indigo-50 transition-colors shadow-2xs"
+              className="flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50 transition-colors"
             >
               <BookOpen className="h-3.5 w-3.5" />
               <span>Solution Key</span>
@@ -1031,7 +1040,7 @@ export function AttemptDetailView({
           {attempt.userSubmissionPdfUrl && (
             <button
               onClick={() => setSubmissionModalOpen(true)}
-              className="flex items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-emerald-700 hover:bg-emerald-50 transition-colors shadow-2xs"
+              className="flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50 transition-colors"
             >
               <FileText className="h-3.5 w-3.5" />
               <span>Answer Booklet</span>
@@ -1041,7 +1050,7 @@ export function AttemptDetailView({
           {matchedPaper && (
             <button
               onClick={() => handleStartExam(matchedPaper, "mock")}
-              className="flex items-center gap-1.5 rounded-xl border border-indigo-200 bg-indigo-50/80 px-3.5 py-2 text-xs font-bold text-indigo-700 hover:bg-indigo-600 hover:text-white transition-all shadow-xs cursor-pointer"
+              className="flex items-center gap-1.5 rounded-lg border border-indigo-200 bg-indigo-50/80 px-3 py-1.5 text-xs font-medium text-indigo-700 hover:bg-indigo-600 hover:text-white transition-colors cursor-pointer"
               title="Start a new mock attempt for this paper"
             >
               <RotateCcw className="h-3.5 w-3.5" />
@@ -1051,7 +1060,7 @@ export function AttemptDetailView({
 
           <button
             onClick={() => onDelete(attempt.id)}
-            className="flex items-center gap-1.5 rounded-xl border border-rose-200 bg-rose-50 px-2.5 py-1.5 text-xs font-semibold text-rose-600 hover:bg-rose-100 transition-colors shadow-2xs"
+            className="flex items-center gap-1.5 rounded-lg border border-rose-200 bg-white px-2.5 py-1.5 text-xs font-medium text-rose-600 hover:bg-rose-50 transition-colors"
             title="Delete this attempt"
           >
             <Trash2 className="h-3.5 w-3.5" />
@@ -1119,10 +1128,10 @@ export function AttemptDetailView({
 
       {/* Main Content Area: Split View Container (Desktop Side-by-Side, Tablet/Mobile Vertical) */}
       <div
-        className={`screen-only flex flex-col ${showPaperSplit && (matchedPaper?.qpUrl || isMarkdownPaper) ? "xl:flex-row" : ""} gap-6 items-start`}
+        className={`screen-only flex flex-col ${showPaperSplit && canPreviewPaper ? "xl:flex-row" : ""} gap-6 items-start`}
       >
         {/* Question Paper Viewer (Markdown Interactive Reader OR PDF Viewer) */}
-        {showPaperSplit && (matchedPaper?.qpUrl || isMarkdownPaper) && (
+        {showPaperSplit && canPreviewPaper && (
           <div className="flex flex-col w-full xl:w-1/2 xl:sticky xl:top-20 h-[55vh] sm:h-[65vh] xl:h-[calc(100vh-6.5rem)] rounded-2xl overflow-hidden border border-slate-200 bg-white shadow-md shrink-0 z-10">
             {isMarkdownPaper ? (
               <MarkdownPaperReviewViewer
@@ -1160,13 +1169,12 @@ export function AttemptDetailView({
               <>
                 {/* Unified Light Toolbar for PDF */}
                 <div className="flex items-center justify-between px-3.5 py-2.5 bg-white border-b border-slate-200 shrink-0 gap-2">
-                  <div className="flex items-center gap-2 text-xs font-bold text-slate-800 min-w-0">
-                    <BookOpen className="h-4 w-4 text-indigo-600 shrink-0" />
+                  <div className="flex items-center gap-2 text-xs font-medium text-slate-800 min-w-0">
                     <span className="truncate max-w-[160px] sm:max-w-[240px]">
                       {getPaperDisplayTitle(matchedPaper)}
                     </span>
-                    <span className="text-[10px] px-2 py-0.5 rounded-full bg-indigo-50 text-indigo-700 border border-indigo-200 uppercase font-mono font-bold shrink-0">
-                      Question Paper
+                    <span className="hidden sm:inline text-[11px] text-slate-400 font-normal">
+                      · PDF
                     </span>
                   </div>
                   <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
@@ -1178,7 +1186,7 @@ export function AttemptDetailView({
                           prev === "canvas" ? "native" : "canvas",
                         )
                       }
-                      className="flex items-center gap-1 rounded-lg border border-slate-200 bg-slate-50 hover:bg-slate-100 px-2.5 py-1 text-[11px] font-semibold text-slate-700 transition-colors shadow-2xs"
+                      className="flex items-center gap-1 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 px-2.5 py-1 text-[11px] font-medium text-slate-700 transition-colors"
                       title={
                         pdfMode === "canvas"
                           ? "Switch to Continuous Native Document Viewer"
@@ -1193,7 +1201,7 @@ export function AttemptDetailView({
                         href={matchedPaper.qpUrl}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="flex items-center gap-1 text-[11px] font-semibold text-slate-600 hover:text-slate-900 px-2.5 py-1 rounded-lg border border-slate-200 bg-slate-50 hover:bg-slate-100 transition-colors shadow-2xs"
+                        className="flex items-center gap-1 text-[11px] font-medium text-slate-600 hover:text-slate-900 px-2.5 py-1 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 transition-colors"
                         title="Open PDF in external browser tab"
                       >
                         <ExternalLink className="h-3 w-3 text-indigo-600" />
@@ -1202,7 +1210,7 @@ export function AttemptDetailView({
                     )}
                     <button
                       onClick={() => setShowPaperSplit(false)}
-                      className="text-xs font-bold text-slate-500 hover:text-rose-600 px-2 py-1 rounded-lg hover:bg-rose-50 transition-colors cursor-pointer"
+                      className="text-xs font-medium text-slate-500 hover:text-slate-900 px-2 py-1 rounded-lg hover:bg-slate-50 transition-colors cursor-pointer"
                       title="Hide question paper preview"
                     >
                       ✕ Hide
@@ -1225,73 +1233,52 @@ export function AttemptDetailView({
 
         {/* Right Side / Bottom: Assessment Report & Responses */}
         <div
-          className={`w-full ${showPaperSplit && (matchedPaper?.qpUrl || isMarkdownPaper) ? "xl:w-1/2" : "max-w-5xl mx-auto"} space-y-6 min-w-0`}
+          className={`w-full ${showPaperSplit && canPreviewPaper ? "xl:w-1/2" : "max-w-5xl mx-auto"} space-y-6 min-w-0`}
         >
           {/* PART 1: ASSESSMENT SUMMARY (COLLAPSIBLE, COLLAPSED BY DEFAULT) */}
           <div className="bi-card overflow-hidden">
             {/* Summary Top Bar (Always Visible, click to toggle full analytics) */}
             <div
               onClick={() => setSummaryExpanded((prev) => !prev)}
-              className="p-4 sm:p-5 flex flex-col md:flex-row md:items-center justify-between gap-4 cursor-pointer select-none hover:bg-slate-50/70 transition-colors"
+              className="p-4 sm:p-5 flex flex-col lg:flex-row lg:items-center justify-between gap-4 cursor-pointer select-none hover:bg-slate-50/60 transition-colors"
             >
               {/* Final Score */}
               <div className="flex items-baseline gap-2">
-                <span className="text-xs uppercase font-medium tracking-wider text-slate-500">
-                  Final Score:
+                <span className="text-xs font-medium text-slate-500">
+                  Final score
                 </span>
-                <span className="text-2xl sm:text-3xl font-bold text-slate-900 tracking-tight font-mono">
+                <span className="text-2xl sm:text-3xl font-semibold text-slate-900 tracking-tight font-mono">
                   {attempt.score}
                 </span>
                 <span className="text-sm font-medium text-slate-500 font-mono">
                   / {effectiveMaxScore}
                 </span>
-                <span className="ml-2 text-xs text-indigo-700 font-semibold bg-indigo-50 border border-indigo-200 px-2 py-0.5 rounded-full">
-                  {scorePct}%
+                <span className="ml-1 text-xs text-slate-600 font-medium">
+                  Percentage {scorePct}%
                 </span>
               </div>
 
               <div className="flex items-center gap-3 flex-wrap">
-                {/* Key Metric Chips */}
-                <div className="grid grid-cols-2 sm:grid-cols-5 gap-2 text-xs">
-                  <div className="bg-slate-50 border border-slate-200 rounded-xl p-2 text-center">
-                    <span className="text-[10px] text-slate-500 block font-medium">
-                      Accuracy
-                    </span>
-                    <span className="text-sm font-bold text-emerald-700 font-mono">
-                      {attempt.accuracyPct}%
-                    </span>
+                <div className="grid grid-cols-2 sm:grid-cols-5 divide-x divide-slate-200 text-xs">
+                  <div className="px-3 first:pl-0 text-center sm:text-left">
+                    <span className="text-[10px] text-slate-500 block">Accuracy</span>
+                    <span className="text-sm font-semibold text-slate-900 font-mono">{attempt.accuracyPct}%</span>
                   </div>
-                  <div className="bg-slate-50 border border-slate-200 rounded-xl p-2 text-center">
-                    <span className="text-[10px] text-slate-500 block font-medium">
-                      Correct
-                    </span>
-                    <span className="text-sm font-bold text-emerald-700 font-mono">
-                      {attempt.correct}
-                    </span>
+                  <div className="px-3 text-center sm:text-left">
+                    <span className="text-[10px] text-slate-500 block">Correct</span>
+                    <span className="text-sm font-semibold text-emerald-700 font-mono">{attempt.correct}</span>
                   </div>
-                  <div className="bg-slate-50 border border-slate-200 rounded-xl p-2 text-center">
-                    <span className="text-[10px] text-slate-500 block font-medium">
-                      Incorrect
-                    </span>
-                    <span className="text-sm font-bold text-rose-700 font-mono">
-                      {attempt.incorrect}
-                    </span>
+                  <div className="px-3 text-center sm:text-left">
+                    <span className="text-[10px] text-slate-500 block">Incorrect</span>
+                    <span className="text-sm font-semibold text-rose-700 font-mono">{attempt.incorrect}</span>
                   </div>
-                  <div className="bg-slate-50 border border-slate-200 rounded-xl p-2 text-center">
-                    <span className="text-[10px] text-slate-500 block font-medium">
-                      Skipped
-                    </span>
-                    <span className="text-sm font-bold text-slate-700 font-mono">
-                      {attempt.unattempted}
-                    </span>
+                  <div className="px-3 text-center sm:text-left">
+                    <span className="text-[10px] text-slate-500 block">Skipped</span>
+                    <span className="text-sm font-semibold text-slate-700 font-mono">{attempt.unattempted}</span>
                   </div>
-                  <div className="bg-slate-50 border border-slate-200 rounded-xl p-2 text-center col-span-2 sm:col-span-1">
-                    <span className="text-[10px] text-slate-500 block font-medium">
-                      Avg Pace
-                    </span>
-                    <span className="text-sm font-bold text-indigo-700 font-mono">
-                      {avgTimePerQ}s
-                    </span>
+                  <div className="px-3 last:pr-0 col-span-2 sm:col-span-1 text-center sm:text-left">
+                    <span className="text-[10px] text-slate-500 block">Avg pace</span>
+                    <span className="text-sm font-semibold text-slate-900 font-mono">{avgTimePerQ}s</span>
                   </div>
                 </div>
 
@@ -1302,10 +1289,12 @@ export function AttemptDetailView({
                     e.stopPropagation();
                     setSummaryExpanded((prev) => !prev);
                   }}
-                  className="inline-flex items-center gap-1.5 text-xs font-bold text-indigo-700 bg-indigo-50 border border-indigo-200 px-3 py-2 rounded-xl hover:bg-indigo-100 transition-colors whitespace-nowrap ml-auto md:ml-0 shadow-2xs"
+                  aria-expanded={summaryExpanded}
+                  aria-controls="attempt-summary-details"
+                  className="inline-flex items-center gap-1 text-xs font-medium text-slate-700 border border-slate-200 px-2.5 py-1.5 rounded-lg hover:bg-slate-50 transition-colors whitespace-nowrap ml-auto lg:ml-0"
                 >
                   <span>
-                    {summaryExpanded ? "Hide Summary" : "Summary Details"}
+                    {summaryExpanded ? "Hide details" : "Show details"}
                   </span>
                   {summaryExpanded ? (
                     <ChevronUp className="h-3.5 w-3.5" />
@@ -1318,12 +1307,15 @@ export function AttemptDetailView({
 
             {/* Detailed Breakdown inside Summary (Revealed when expanded) */}
             {summaryExpanded && (
-              <div className="border-t border-slate-200 p-5 space-y-5 bg-slate-50/60">
+              <div
+                id="attempt-summary-details"
+                className="border-t border-slate-200 p-5 space-y-5 bg-slate-50/60"
+              >
                 {/* Outcome Segmented Bar */}
                 <div className="space-y-1.5">
                   <div className="flex items-center justify-between text-xs text-slate-500 font-medium">
                     <span>
-                      Question Outcome Distribution ({totalQ} Total Questions)
+                      Outcome distribution ({totalQ} questions)
                     </span>
                     <span>
                       Total Time: {formatTimeSeconds(attempt.durationSeconds)}
@@ -1382,13 +1374,13 @@ export function AttemptDetailView({
                 {/* Marks Breakdown & Negative Marking Drag */}
                 <div className="rounded-xl border border-slate-200 bg-white p-4 space-y-3 shadow-2xs">
                   <div className="text-xs font-bold text-slate-500 uppercase tracking-wider">
-                    Marks Breakdown & Negative Marking Drag
+                    Score breakdown
                   </div>
 
                   <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                     <div className="rounded-xl bg-emerald-50/70 border border-emerald-200 p-3">
                       <div className="text-[11px] font-semibold text-emerald-800">
-                        Gross Marks Earned
+                        Correct marks
                       </div>
                       <div className="text-xl font-bold text-emerald-700 font-mono mt-0.5">
                         +{grossCorrectMarks}
@@ -1400,7 +1392,7 @@ export function AttemptDetailView({
 
                     <div className="rounded-xl bg-rose-50/70 border border-rose-200 p-3">
                       <div className="text-[11px] font-semibold text-rose-800">
-                        Marks Deducted (Negative Marking)
+                        Penalty marks
                       </div>
                       <div className="text-xl font-bold text-rose-700 font-mono mt-0.5">
                         -{negativePenaltyMarks}
@@ -1413,7 +1405,7 @@ export function AttemptDetailView({
 
                     <div className="rounded-xl bg-indigo-50/70 border border-indigo-200 p-3">
                       <div className="text-[11px] font-semibold text-indigo-800">
-                        Final Net Score
+                        Net score
                       </div>
                       <div className="text-xl font-bold text-slate-900 font-mono mt-0.5">
                         {attempt.score}{" "}
@@ -1436,7 +1428,7 @@ export function AttemptDetailView({
                   <div className="rounded-xl border border-slate-200 bg-white p-4 space-y-3 shadow-2xs">
                     <div className="flex items-center justify-between">
                       <div className="text-xs font-bold text-slate-500 uppercase tracking-wider">
-                        Time Analysis
+                        Timing
                       </div>
                       {slowQuestions.length > 0 && (
                         <button
@@ -1459,7 +1451,7 @@ export function AttemptDetailView({
                       </div>
                       <div className="p-2.5 rounded-xl bg-slate-50 border border-slate-200">
                         <span className="text-[11px] text-slate-500 block font-medium">
-                          Pace on Correct Qs
+                          Correct pace
                         </span>
                         <span className="font-bold text-emerald-700 font-mono text-sm">
                           {avgTimeCorrect > 0 ? `${avgTimeCorrect}s avg` : "—"}
@@ -1467,7 +1459,7 @@ export function AttemptDetailView({
                       </div>
                       <div className="p-2.5 rounded-xl bg-slate-50 border border-slate-200">
                         <span className="text-[11px] text-slate-500 block font-medium">
-                          Pace on Incorrect Qs
+                          Incorrect pace
                         </span>
                         <span className="font-bold text-rose-700 font-mono text-sm">
                           {avgTimeIncorrect > 0
@@ -1477,7 +1469,7 @@ export function AttemptDetailView({
                       </div>
                       <div className="p-2.5 rounded-xl bg-slate-50 border border-slate-200">
                         <span className="text-[11px] text-slate-500 block font-medium">
-                          Slow Questions (&gt;90s)
+                          Slow questions (&gt;90s)
                         </span>
                         <span
                           className={`font-bold font-mono text-sm ${slowQuestions.length > 0 ? "text-amber-700" : "text-slate-700"}`}
@@ -1489,7 +1481,7 @@ export function AttemptDetailView({
                     {attempt.idleTimeSeconds !== undefined &&
                       attempt.idleTimeSeconds > 0 && (
                         <div className="text-[11px] text-slate-600 bg-slate-50 p-2 rounded-xl border border-slate-200 flex justify-between font-medium">
-                          <span>Cover & Instructions Reading Buffer:</span>
+                          <span>Reading buffer:</span>
                           <span className="font-mono font-bold text-indigo-700">
                             {formatTimeSeconds(attempt.idleTimeSeconds)}
                           </span>
@@ -1501,7 +1493,7 @@ export function AttemptDetailView({
                   <div className="rounded-xl border border-slate-200 bg-white p-4 space-y-3 shadow-2xs">
                     <div className="flex items-center justify-between">
                       <div className="text-xs font-bold text-slate-500 uppercase tracking-wider">
-                        Answer Changes (Second-Guessing)
+                        Answer changes
                       </div>
                       {alteredQuestions.length > 0 && (
                         <button
@@ -1516,7 +1508,7 @@ export function AttemptDetailView({
                     <div className="grid grid-cols-2 gap-2 text-xs">
                       <div className="p-2.5 rounded-xl bg-slate-50 border border-slate-200">
                         <span className="text-[11px] text-slate-500 block font-medium">
-                          Answers Changed
+                          Questions changed
                         </span>
                         <span className="font-bold text-slate-900 font-mono text-sm">
                           {alteredQuestions.length} questions
@@ -1613,7 +1605,7 @@ export function AttemptDetailView({
                     <div className="flex items-center gap-2">
                       <FileText className="h-3.5 w-3.5 text-indigo-600" />
                       <h3 className="text-xs font-bold text-slate-800 uppercase tracking-wider">
-                        Overall Attempt Notes
+                        Attempt notes
                       </h3>
                     </div>
                     {!editingGeneralNote && (
@@ -1622,7 +1614,7 @@ export function AttemptDetailView({
                         className="text-xs text-indigo-600 hover:text-indigo-800 flex items-center gap-1 font-bold"
                       >
                         <Edit3 className="h-3 w-3" />{" "}
-                        {attempt.generalNotes ? "Edit" : "+ Add Note"}
+                        {attempt.generalNotes ? "Edit" : "+ Add note"}
                       </button>
                     )}
                   </div>
@@ -1662,225 +1654,63 @@ export function AttemptDetailView({
             )}
           </div>
 
-          {/* CONFIDENCE & TAG ANALYTICS WIDGETS (INTERACTIVE FILTERS) */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
-            {/* Sure Widget */}
-            <div
-              role="button"
-              tabIndex={0}
-              onClick={() =>
-                setFilterTab((prev) => (prev === "sure" ? "all" : "sure"))
-              }
-              className={`p-3.5 rounded-2xl border transition-all cursor-pointer select-none bi-card ${
-                filterTab === "sure"
-                  ? "border-emerald-500 bg-emerald-50/60 ring-2 ring-emerald-500/20 shadow-xs"
-                  : "border-slate-200 bg-white hover:border-emerald-300 hover:bg-emerald-50/20"
-              }`}
-            >
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-1.5 text-xs font-bold text-emerald-800 uppercase tracking-wider">
-                  <span>🎯 Sure</span>
-                  {filterTab === "sure" && (
-                    <span className="text-[10px] bg-emerald-100 text-emerald-800 border border-emerald-300 px-1.5 py-0.2 rounded font-bold lowercase">
-                      active
-                    </span>
-                  )}
-                </div>
-                <span className="text-[11px] font-mono text-slate-500 font-semibold">
-                  {sureQuestions.length} Tagged
-                </span>
-              </div>
-
-              <div className="mt-2 flex items-baseline justify-between">
-                <div className="text-base sm:text-lg font-bold text-slate-900 font-mono">
-                  {sureCorrect}{" "}
-                  <span className="text-xs font-normal text-slate-500">
-                    / {sureQuestions.length} Correct
-                  </span>
-                </div>
-                <div className="text-xs font-bold text-emerald-700 font-mono">
-                  {sureAccuracy}%
-                </div>
-              </div>
-
-              <div className="mt-2 flex items-center justify-between text-[11px] text-slate-500 pt-1.5 border-t border-slate-100 font-medium">
-                <span className="text-rose-600 font-semibold">
-                  {sureWrong} wrong
-                </span>
-                <span className="text-[10px] text-slate-400">
-                  Click to filter
-                </span>
-              </div>
+          {/* CONFIDENCE & TAG ANALYTICS (COMPACT FILTER ROW) */}
+          <section className="bi-card overflow-hidden">
+            <div className="flex items-center justify-between px-4 py-3 border-b border-slate-200">
+              <h3 className="text-xs font-semibold text-slate-900">Confidence tags</h3>
+              <span className="text-[11px] text-slate-500">Select a row to filter the review</span>
             </div>
-
-            {/* 50:50 Widget */}
-            <div
-              role="button"
-              tabIndex={0}
-              onClick={() =>
-                setFilterTab((prev) => (prev === "50-50" ? "all" : "50-50"))
-              }
-              className={`p-3.5 rounded-2xl border transition-all cursor-pointer select-none bi-card ${
-                filterTab === "50-50"
-                  ? "border-amber-500 bg-amber-50/60 ring-2 ring-amber-500/20 shadow-xs"
-                  : "border-slate-200 bg-white hover:border-amber-300 hover:bg-amber-50/20"
-              }`}
-            >
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-1.5 text-xs font-bold text-amber-800 uppercase tracking-wider">
-                  <span>⚖️ 50:50</span>
-                  {filterTab === "50-50" && (
-                    <span className="text-[10px] bg-amber-100 text-amber-800 border border-amber-300 px-1.5 py-0.2 rounded font-bold lowercase">
-                      active
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 divide-y sm:divide-y-0 sm:divide-x divide-slate-200">
+              {[
+                { id: "sure" as const, icon: "🎯", label: "Sure", total: sureQuestions.length, correct: sureCorrect, wrong: sureWrong, accuracy: sureAccuracy, accent: "text-emerald-700", selected: "bg-emerald-50/60", outline: "ring-1 ring-inset ring-emerald-200" },
+                { id: "50-50" as const, icon: "⚖️", label: "50:50", total: fiftyFiftyQuestions.length, correct: fiftyFiftyCorrect, wrong: fiftyFiftyWrong, accuracy: fiftyFiftyAccuracy, accent: "text-amber-700", selected: "bg-amber-50/60", outline: "ring-1 ring-inset ring-amber-200" },
+                { id: "elimination" as const, icon: "✂️", label: "Elimination", total: eliminationQuestions.length, correct: eliminationCorrect, wrong: eliminationWrong, accuracy: eliminationAccuracy, accent: "text-sky-700", selected: "bg-sky-50/60", outline: "ring-1 ring-inset ring-sky-200" },
+                { id: "guess" as const, icon: "🎲", label: "Guess", total: guessQuestions.length, correct: guessCorrect, wrong: guessWrong, accuracy: guessAccuracy, accent: "text-purple-700", selected: "bg-purple-50/60", outline: "ring-1 ring-inset ring-purple-200" },
+              ].map((item) => (
+                <button
+                  key={item.id}
+                  type="button"
+                  onClick={() => setFilterTab((prev) => (prev === item.id ? "all" : item.id))}
+                  className={`px-4 py-3 text-left sm:text-center transition-colors ${
+                    filterTab === item.id
+                      ? `${item.selected} ${item.outline}`
+                      : "bg-white hover:bg-slate-50/70"
+                  }`}
+                >
+                  <div className="flex items-center justify-between sm:justify-center gap-2">
+                    <span className={`text-xs font-medium ${item.accent}`}>
+                      <span aria-hidden="true">{item.icon}</span> {item.label}
                     </span>
-                  )}
-                </div>
-                <span className="text-[11px] font-mono text-slate-500 font-semibold">
-                  {fiftyFiftyQuestions.length} Tagged
-                </span>
-              </div>
-
-              <div className="mt-2 flex items-baseline justify-between">
-                <div className="text-base sm:text-lg font-bold text-slate-900 font-mono">
-                  {fiftyFiftyCorrect}{" "}
-                  <span className="text-xs font-normal text-slate-500">
-                    / {fiftyFiftyQuestions.length} Correct
-                  </span>
-                </div>
-                <div className="text-xs font-bold text-amber-700 font-mono">
-                  {fiftyFiftyAccuracy}%
-                </div>
-              </div>
-
-              <div className="mt-2 flex items-center justify-between text-[11px] text-slate-500 pt-1.5 border-t border-slate-100 font-medium">
-                <span className="text-rose-600 font-semibold">
-                  {fiftyFiftyWrong} wrong
-                </span>
-                <span className="text-[10px] text-slate-400">
-                  Click to filter
-                </span>
-              </div>
+                    <span className="text-[11px] font-mono text-slate-500">{item.total}</span>
+                  </div>
+                  <div className="mt-1 text-sm font-semibold text-slate-900 font-mono">
+                    {item.correct}<span className="text-[11px] font-normal text-slate-500">/{item.total} correct</span>
+                    <span className={`ml-2 text-[11px] font-medium ${item.accent}`}>{item.accuracy}%</span>
+                  </div>
+                  <div className="mt-0.5 text-[11px] text-slate-500">
+                    {item.wrong} wrong{filterTab === item.id && <span className="ml-1 text-slate-700">· filtered</span>}
+                  </div>
+                </button>
+              ))}
             </div>
-
-            {/* Elimination Widget */}
-            <div
-              role="button"
-              tabIndex={0}
-              onClick={() =>
-                setFilterTab((prev) =>
-                  prev === "elimination" ? "all" : "elimination",
-                )
-              }
-              className={`p-3.5 rounded-2xl border transition-all cursor-pointer select-none bi-card ${
-                filterTab === "elimination"
-                  ? "border-sky-500 bg-sky-50/60 ring-2 ring-sky-500/20 shadow-xs"
-                  : "border-slate-200 bg-white hover:border-sky-300 hover:bg-sky-50/20"
-              }`}
-            >
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-1.5 text-xs font-bold text-sky-800 uppercase tracking-wider">
-                  <span>✂️ Elimination</span>
-                  {filterTab === "elimination" && (
-                    <span className="text-[10px] bg-sky-100 text-sky-800 border border-sky-300 px-1.5 py-0.2 rounded font-bold lowercase">
-                      active
-                    </span>
-                  )}
-                </div>
-                <span className="text-[11px] font-mono text-slate-500 font-semibold">
-                  {eliminationQuestions.length} Tagged
-                </span>
-              </div>
-
-              <div className="mt-2 flex items-baseline justify-between">
-                <div className="text-base sm:text-lg font-bold text-slate-900 font-mono">
-                  {eliminationCorrect}{" "}
-                  <span className="text-xs font-normal text-slate-500">
-                    / {eliminationQuestions.length} Correct
-                  </span>
-                </div>
-                <div className="text-xs font-bold text-sky-700 font-mono">
-                  {eliminationAccuracy}%
-                </div>
-              </div>
-
-              <div className="mt-2 flex items-center justify-between text-[11px] text-slate-500 pt-1.5 border-t border-slate-100 font-medium">
-                <span className="text-rose-600 font-semibold">
-                  {eliminationWrong} wrong
-                </span>
-                <span className="text-[10px] text-slate-400">
-                  Click to filter
-                </span>
-              </div>
-            </div>
-
-            {/* Guess Widget */}
-            <div
-              role="button"
-              tabIndex={0}
-              onClick={() =>
-                setFilterTab((prev) => (prev === "guess" ? "all" : "guess"))
-              }
-              className={`p-3.5 rounded-2xl border transition-all cursor-pointer select-none bi-card ${
-                filterTab === "guess"
-                  ? "border-purple-500 bg-purple-50/60 ring-2 ring-purple-500/20 shadow-xs"
-                  : "border-slate-200 bg-white hover:border-purple-300 hover:bg-purple-50/20"
-              }`}
-            >
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-1.5 text-xs font-bold text-purple-800 uppercase tracking-wider">
-                  <span>🎲 Guess</span>
-                  {filterTab === "guess" && (
-                    <span className="text-[10px] bg-purple-100 text-purple-800 border border-purple-300 px-1.5 py-0.2 rounded font-bold lowercase">
-                      active
-                    </span>
-                  )}
-                </div>
-                <span className="text-[11px] font-mono text-slate-500 font-semibold">
-                  {guessQuestions.length} Tagged
-                </span>
-              </div>
-
-              <div className="mt-2 flex items-baseline justify-between">
-                <div className="text-base sm:text-lg font-bold text-slate-900 font-mono">
-                  {guessCorrect}{" "}
-                  <span className="text-xs font-normal text-slate-500">
-                    / {guessQuestions.length} Correct
-                  </span>
-                </div>
-                <div className="text-xs font-bold text-purple-700 font-mono">
-                  {guessAccuracy}%
-                </div>
-              </div>
-
-              <div className="mt-2 flex items-center justify-between text-[11px] text-slate-500 pt-1.5 border-t border-slate-100 font-medium">
-                <span className="text-rose-600 font-semibold">
-                  {guessWrong} wrong
-                </span>
-                <span className="text-[10px] text-slate-400">
-                  Click to filter
-                </span>
-              </div>
-            </div>
-          </div>
+          </section>
 
           {/* PART 2: QUESTION REVIEW (TABULAR PDF FORMAT & PROPER RESPONSIVE CONTROLS) */}
-          <div className="bi-card p-4 sm:p-5 space-y-4 shadow-2xs overflow-hidden">
+          <div className="bi-card p-4 sm:p-5 space-y-3 overflow-hidden">
             {/* Row 1: Header & Sorting Controls */}
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-200 pb-3">
               <div>
                 <h3 className="text-sm sm:text-base font-semibold text-slate-900">
-                  Question Review ({filteredQuestions.length} of{" "}
-                  {attempt.totalQuestions})
+                  Review {filteredQuestions.length} of {attempt.totalQuestions} questions
                 </h3>
                 <p className="text-xs text-slate-500 mt-0.5">
-                  Official answer key evaluation, candidate responses, and notes
-                  table
+                  Select a row for scoring, timing, and notes.
                 </p>
               </div>
 
               <div className="flex items-center gap-2 self-start sm:self-auto shrink-0">
                 {/* Sort Dropdown */}
-                <div className="flex items-center gap-1 bg-white px-2.5 py-1.5 rounded-xl border border-slate-200 text-xs shadow-2xs">
+                <div className="flex items-center gap-1 bg-white px-2.5 py-1.5 rounded-lg border border-slate-200 text-xs">
                   <ArrowUpDown className="h-3.5 w-3.5 text-slate-500" />
                   <select
                     value={sortOption}
@@ -1889,8 +1719,8 @@ export function AttemptDetailView({
                   >
                     <option value="qno_asc">Q1 → Q{totalQ}</option>
                     <option value="qno_desc">Q{totalQ} → Q1</option>
-                    <option value="time_desc">Time (Longest First)</option>
-                    <option value="time_asc">Time (Fastest First)</option>
+                    <option value="time_desc">Longest time</option>
+                    <option value="time_asc">Shortest time</option>
                   </select>
                 </div>
 
@@ -1901,77 +1731,63 @@ export function AttemptDetailView({
                       ? collapseAll
                       : expandAll
                   }
-                  className="text-xs font-semibold text-slate-700 hover:text-slate-900 bg-white hover:bg-slate-50 px-3 py-1.5 rounded-xl border border-slate-200 transition-colors whitespace-nowrap cursor-pointer shadow-2xs"
+                    className="text-xs font-medium text-slate-700 hover:text-slate-900 bg-white hover:bg-slate-50 px-3 py-1.5 rounded-lg border border-slate-200 transition-colors whitespace-nowrap cursor-pointer"
                 >
                   {Object.keys(expandedQuestions).length > 0
-                    ? "Collapse All"
-                    : "Expand All"}
+                    ? "Collapse all"
+                    : "Expand all"}
                 </button>
               </div>
             </div>
 
             {/* Row 2: Full-Width Scrollable / Wrapping Filter Pills */}
             <div className="w-full overflow-x-auto pb-1 no-scrollbar">
-              <div className="flex items-center gap-1.5 min-w-max p-1 bg-slate-100/80 rounded-2xl border border-slate-200 text-xs">
+              <div className="flex items-center gap-1.5 min-w-max p-1 bg-slate-50 rounded-lg border border-slate-200 text-xs">
                 {[
-                  { id: "all" as const, label: `All (${totalQ})`, color: "" },
-                  {
-                    id: "sure" as const,
-                    label: `🎯 Sure (${sureQuestions.length})`,
-                    color: "text-emerald-700 font-semibold",
-                  },
-                  {
-                    id: "50-50" as const,
-                    label: `⚖️ 50:50 (${fiftyFiftyQuestions.length})`,
-                    color: "text-amber-700 font-semibold",
-                  },
-                  {
-                    id: "elimination" as const,
-                    label: `✂️ Elimination (${eliminationQuestions.length})`,
-                    color: "text-sky-700 font-semibold",
-                  },
-                  {
-                    id: "guess" as const,
-                    label: `🎲 Guess (${guessQuestions.length})`,
-                    color: "text-purple-700 font-semibold",
-                  },
+                  { id: "all" as const, label: `All (${totalQ})`, color: "", active: "bg-slate-900" },
                   {
                     id: "incorrect" as const,
                     label: `Incorrect (${attempt.incorrect})`,
                     color: "text-rose-700 font-semibold",
+                    active: "bg-rose-600",
                   },
                   {
                     id: "correct" as const,
                     label: `Correct (${attempt.correct})`,
                     color: "text-emerald-700 font-semibold",
+                    active: "bg-emerald-600",
                   },
                   {
                     id: "skipped" as const,
                     label: `Skipped (${attempt.unattempted})`,
                     color: "",
+                    active: "bg-slate-600",
                   },
                   {
                     id: "flagged" as const,
                     label: `Flagged (${flaggedQuestions.length})`,
                     color: "text-amber-700 font-semibold",
+                    active: "bg-amber-500",
                   },
                   {
                     id: "altered" as const,
                     label: `Changed (${alteredQuestions.length})`,
                     color: "",
+                    active: "bg-indigo-600",
                   },
                   {
                     id: "slow" as const,
                     label: `Slow (${slowQuestions.length})`,
                     color: "text-amber-700 font-semibold",
+                    active: "bg-amber-500",
                   },
                 ].map((tab) => (
                   <button
                     key={tab.id}
                     onClick={() => setFilterTab(tab.id)}
-                    className={`rounded-xl px-3 py-1.5 transition-all whitespace-nowrap text-xs cursor-pointer ${
+                      className={`rounded-md px-2.5 py-1.5 transition-colors whitespace-nowrap text-xs cursor-pointer ${
                       filterTab === tab.id
-                        ? "bg-indigo-600 text-white font-bold shadow-xs"
+                          ? `${tab.active} text-white font-medium`
                         : "text-slate-600 hover:text-slate-900 hover:bg-white"
                     }`}
                   >
@@ -1993,20 +1809,16 @@ export function AttemptDetailView({
                 No questions match the selected filter.
               </div>
             ) : (
-              <div className="w-full overflow-x-auto rounded-2xl border border-slate-200 bg-white shadow-2xs">
+              <div className="w-full overflow-x-auto rounded-xl border border-slate-200 bg-white">
                 <table className="w-full border-collapse text-left text-xs">
                   <thead>
-                    <tr className="bg-slate-100/90 text-slate-700 border-b border-slate-200 text-[11px] font-bold uppercase tracking-wider">
+                    <tr className="bg-slate-50 text-slate-500 border-b border-slate-200 text-[10px] font-medium uppercase tracking-wider">
                       <th className="py-3 px-3 text-center w-16">Q. No</th>
                       <th className="py-3 px-3 text-center w-28">Status</th>
-                      <th className="py-3 px-3 text-center w-32">
-                        Aspirant&apos;s Option
-                      </th>
-                      <th className="py-3 px-3 text-center w-32">
-                        Correct Option
-                      </th>
+                      <th className="py-3 px-3 text-center w-32">Your answer</th>
+                      <th className="py-3 px-3 text-center w-32">Answer</th>
                       <th className="py-3 px-2 text-center w-20">Time</th>
-                      <th className="py-3 px-4 min-w-[220px]">Note Added</th>
+                      <th className="py-3 px-4 min-w-[220px]">Notes</th>
                       <th className="py-3 px-2 text-center w-12"></th>
                     </tr>
                   </thead>
@@ -2139,7 +1951,7 @@ export function AttemptDetailView({
                                   {/* Scoring Details */}
                                   <div className="space-y-1 bg-white p-3 rounded-xl border border-slate-200 shadow-2xs">
                                     <span className="text-[10px] uppercase font-bold text-slate-500 tracking-wider">
-                                      Evaluation Impact
+                                      Scoring
                                     </span>
                                     <div className="text-xs pt-0.5">
                                       {isCorrect && (
@@ -2176,7 +1988,7 @@ export function AttemptDetailView({
                                   {/* Pacing Context */}
                                   <div className="space-y-1 bg-white p-3 rounded-xl border border-slate-200 shadow-2xs">
                                     <span className="text-[10px] uppercase font-bold text-slate-500 tracking-wider">
-                                      Pacing Context
+                                      Timing
                                     </span>
                                     <div className="text-xs pt-0.5 text-slate-700">
                                       Time spent:{" "}
@@ -2206,7 +2018,7 @@ export function AttemptDetailView({
                                     <div className="flex items-center gap-1.5 text-[11px] uppercase font-bold text-indigo-900 tracking-wider">
                                       <BookOpen className="h-3.5 w-3.5 text-indigo-700" />
                                       <span>
-                                        Official Explanation & Key Insights
+                                        Explanation
                                       </span>
                                     </div>
                                     <p className="text-xs text-indigo-950 font-normal leading-relaxed whitespace-pre-wrap pt-0.5">

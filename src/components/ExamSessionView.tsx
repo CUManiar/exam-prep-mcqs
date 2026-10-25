@@ -15,6 +15,7 @@ import {
   parseAnswerKeyDetailed,
   getStandardTimeMinutes,
   getPaperDisplayTitle,
+  getAttemptPercentage,
 } from "../lib/defaults";
 import {
   saveActiveDraft,
@@ -57,8 +58,6 @@ import {
   Maximize2,
   Minimize2,
   RotateCcw,
-  Zap,
-  Sparkles,
 } from "lucide-react";
 
 interface ExamSessionViewProps {
@@ -144,9 +143,9 @@ export function ExamSessionView({
   const [showNoteBox, setShowNoteBox] = useState<boolean>(true);
   const [showFinishConfirm, setShowFinishConfirm] = useState<boolean>(false);
   const [solutionModalOpen, setSolutionModalOpen] = useState<boolean>(false);
-  const [mobileTab, setMobileTab] = useState<"paper" | "split" | "omr">(
-    "split",
-  );
+  const [mobileTab, setMobileTab] = useState<
+    "paper" | "split" | "questions"
+  >("questions");
   const [isPaused, setIsPaused] = useState<boolean>(false);
   const [revealedAnswers, setRevealedAnswers] = useState<
     Record<number, boolean>
@@ -270,6 +269,11 @@ export function ExamSessionView({
   const totalTimeSeconds = timeLimitMinutes * 60;
   const isPractice = mode === "practice";
   const isSubjective = paper.examType === "subjective";
+  const isMarkdownPaper = Boolean(
+    effectivePaper.markdownContent ||
+    effectivePaper.qpUrl?.startsWith("local://") ||
+    effectivePaper.parsedQuestions?.length,
+  );
 
   // In Practice mode, user can surpass time limit, tracking extra time
   const isOvertime = isPractice && elapsedSeconds > totalTimeSeconds;
@@ -507,9 +511,10 @@ export function ExamSessionView({
       };
     });
 
-    // Auto-advance to next question upon selecting an option ONLY in Mock mode if autoAdvance is enabled in Settings
+    // Auto-advance remains available for Mock mode, and is also available for
+    // Markdown papers during Practice mode.
     if (
-      mode === "mock" &&
+      (mode === "mock" || (mode === "practice" && isMarkdownPaper)) &&
       autoAdvance &&
       !isDeselecting &&
       qNo < paper.totalQuestions
@@ -840,7 +845,14 @@ export function ExamSessionView({
       unattempted: unattemptedCount,
       score: Math.round(calculatedScore * 100) / 100,
       maxScore: Math.round(maxScore * 100) / 100,
+      percentagePct: getAttemptPercentage({
+        score: calculatedScore,
+        maxScore,
+      }),
       accuracyPct: Math.round(accuracyPct * 10) / 10,
+      cutoffEnabled: paper.cutoffEnabled,
+      cutoffType: paper.cutoffType,
+      cutoffValue: paper.cutoffValue,
       avgTimePerQuestion,
       avgTimeCorrect,
       avgTimeIncorrect,
@@ -865,7 +877,7 @@ export function ExamSessionView({
   };
 
   return (
-    <div className="flex flex-col h-[calc(100dvh-4rem)] bg-slate-50 text-slate-800 overflow-hidden font-sans">
+    <div className="exam-session-shell bg-slate-50 text-slate-800 font-sans">
       {/* Top Session Bar - Highly Responsive 2-Row Layout */}
       <div className="flex flex-col border-b border-slate-200 bg-white px-3 py-2 sm:px-4 sm:py-2.5 gap-2 shrink-0 shadow-2xs">
         {/* Top Row: Exit, Pause, Solution Key, Title & Mode, Continuous Timer, Finish Exam */}
@@ -920,29 +932,32 @@ export function ExamSessionView({
 
           {/* Timer & Finish Button */}
           <div className="flex items-center gap-2 shrink-0">
-            {/* Auto-Next Quick Toggle in Mock Mode */}
-            {mode === "mock" && !isSubjective && (
-              <button
-                type="button"
-                onClick={toggleAutoAdvance}
-                title={
-                  autoAdvance
-                    ? "Auto-Next is ON: Automatically moves to next question after selecting an option. Click to turn OFF."
-                    : "Auto-Next is OFF: Stays on question after selecting an option. Click to turn ON."
-                }
-                className={`flex items-center gap-1.5 rounded-xl border px-2 sm:px-2.5 py-1 text-xs font-semibold transition-all shadow-2xs cursor-pointer ${
-                  autoAdvance
-                    ? "border-emerald-300 bg-emerald-50 text-emerald-800 hover:bg-emerald-100"
-                    : "border-slate-200 bg-white text-slate-600 hover:bg-slate-50"
-                }`}
-              >
-                <Zap
-                  className={`h-3.5 w-3.5 ${autoAdvance ? "text-emerald-600 fill-emerald-500" : "text-slate-400"}`}
-                />
-                <span className="hidden md:inline">Auto-Next:</span>
-                <span className="font-bold">{autoAdvance ? "ON" : "OFF"}</span>
-              </button>
-            )}
+            {/* Auto-Next Quick Toggle in Mock Mode and Markdown Practice */}
+            {(mode === "mock" || (mode === "practice" && isMarkdownPaper)) &&
+              !isSubjective && (
+                <button
+                  type="button"
+                  onClick={toggleAutoAdvance}
+                  title={
+                    autoAdvance
+                      ? "Auto-Next is ON: Automatically moves to next question after selecting an option. Click to turn OFF."
+                      : "Auto-Next is OFF: Stays on question after selecting an option. Click to turn ON."
+                  }
+                  className={`flex items-center gap-1.5 rounded-xl border px-2 sm:px-2.5 py-1 text-xs font-semibold transition-all shadow-2xs cursor-pointer ${
+                    autoAdvance
+                      ? "border-emerald-300 bg-emerald-50 text-emerald-800 hover:bg-emerald-100"
+                      : "border-slate-200 bg-white text-slate-600 hover:bg-slate-50"
+                  }`}
+                >
+                  <ArrowRight
+                    className={`h-3.5 w-3.5 ${autoAdvance ? "text-emerald-700" : "text-slate-400"}`}
+                  />
+                  <span className="hidden md:inline">Auto-Next:</span>
+                  <span className="font-bold">
+                    {autoAdvance ? "ON" : "OFF"}
+                  </span>
+                </button>
+              )}
 
             {/* Fullscreen Toggle */}
             <button
@@ -972,7 +987,7 @@ export function ExamSessionView({
             <div
               className={`flex items-center gap-1.5 rounded-xl px-2.5 sm:px-3 py-1 font-mono text-xs sm:text-sm font-bold transition-all shadow-2xs ${
                 isTimeCritical
-                  ? "bg-rose-50 border-2 border-rose-500 text-rose-700 animate-pulse ring-4 ring-rose-500/10"
+                  ? "bg-rose-50 border border-rose-300 text-rose-700"
                   : "bg-slate-50 border border-slate-200 text-indigo-700"
               }`}
             >
@@ -1014,20 +1029,20 @@ export function ExamSessionView({
         {/* Second Row: Counters & Mobile/Tablet View Switcher */}
         <div className="flex items-center justify-between gap-2 pt-1 border-t border-slate-100">
           {/* Status Counters */}
-          <div className="flex items-center gap-1.5 sm:gap-3 text-[11px] sm:text-xs font-medium overflow-x-auto shrink-0">
+          <div className="flex min-w-0 flex-1 items-center gap-1.5 overflow-x-auto text-[11px] font-medium sm:gap-3 sm:text-xs">
             <div className="flex items-center gap-1 rounded-md bg-emerald-50 border border-emerald-200 px-2 py-0.5 text-emerald-800 shrink-0">
               <span className="h-1.5 w-1.5 rounded-full bg-emerald-600" />
-              <span>Att: {attemptedCount}</span>
+              <span>Answered: {attemptedCount}</span>
             </div>
 
             <div className="flex items-center gap-1 rounded-md bg-slate-100 border border-slate-200 px-2 py-0.5 text-slate-700 shrink-0">
               <span className="h-1.5 w-1.5 rounded-full bg-slate-400" />
-              <span>Unatt: {unattemptedCount}</span>
+              <span>Unanswered: {unattemptedCount}</span>
             </div>
 
             <div className="flex items-center gap-1 rounded-md bg-amber-50 border border-amber-200 px-2 py-0.5 text-amber-800 shrink-0">
               <span className="h-1.5 w-1.5 rounded-full bg-amber-500" />
-              <span>Flag: {flaggedCount}</span>
+              <span>Flagged: {flaggedCount}</span>
             </div>
           </div>
 
@@ -1054,29 +1069,31 @@ export function ExamSessionView({
               Split
             </button>
             <button
-              onClick={() => setMobileTab("omr")}
+              onClick={() => setMobileTab("questions")}
               className={`px-2 py-0.5 rounded-md font-semibold transition-all ${
-                mobileTab === "omr"
+                mobileTab === "questions"
                   ? "bg-indigo-600 text-white shadow-2xs"
                   : "text-slate-600 hover:text-slate-900"
               }`}
             >
-              OMR {currentQuestion !== null ? `(Q${currentQuestion})` : ""}
+              Questions
             </button>
           </div>
         </div>
       </div>
 
       {/* Main Layout */}
-      <div className="flex flex-1 overflow-hidden flex-col lg:flex-row relative">
+      <div
+        className={`exam-session-main ${mobileTab === "split" ? "is-split" : ""}`}
+      >
         {/* Left Side: Interactive Markdown Question or PDF Viewer */}
         <div
-          className={`w-full lg:w-3/5 xl:w-2/3 border-r border-slate-200 bg-slate-100 flex flex-col ${
+          className={`exam-paper-pane w-full border-r border-slate-200 bg-slate-100 flex flex-col ${
             mobileTab === "paper"
-              ? "h-full flex-1"
-              : mobileTab === "omr"
+              ? "flex"
+              : mobileTab === "questions"
                 ? "hidden lg:flex"
-                : "h-1/2 lg:h-full"
+                : "flex"
           }`}
         >
           {effectivePaper.parsedQuestions &&
@@ -1099,7 +1116,7 @@ export function ExamSessionView({
                             : "text-slate-600 hover:text-slate-900"
                         }`}
                       >
-                        📝 Interactive Questions
+                        Interactive questions
                       </button>
                       <button
                         type="button"
@@ -1110,7 +1127,7 @@ export function ExamSessionView({
                             : "text-slate-600 hover:text-slate-900"
                         }`}
                       >
-                        📑 PDF Viewer
+                        PDF document
                       </button>
                     </div>
                   </div>
@@ -1145,7 +1162,7 @@ export function ExamSessionView({
           ) : effectivePaper.qpUrl?.startsWith("local://") ? (
             <div className="flex-1 flex flex-col items-center justify-center p-8 text-center bg-slate-50 space-y-4">
               <div className="h-14 w-14 rounded-2xl bg-purple-100 border border-purple-200 flex items-center justify-center text-purple-700">
-                <Sparkles className="h-7 w-7" />
+                <FileText className="h-7 w-7" />
               </div>
               <div className="max-w-md space-y-1.5">
                 <h3 className="text-base font-bold text-slate-800">
@@ -1156,7 +1173,7 @@ export function ExamSessionView({
                 </p>
               </div>
               <button
-                onClick={() => router.push("/upload")}
+                onClick={() => router.push("/papers?view=upload")}
                 className="cursor-pointer px-4 py-2 rounded-xl bg-purple-600 text-white font-bold text-xs hover:bg-purple-700 shadow-xs"
               >
                 Go to Upload Manager
@@ -1288,10 +1305,10 @@ export function ExamSessionView({
                       />
                     </button>
                     <button
-                      onClick={() => setMobileTab("omr")}
+                      onClick={() => setMobileTab("questions")}
                       className="px-2 py-1.5 rounded-lg bg-indigo-50 border border-indigo-200 text-indigo-700 text-xs font-bold whitespace-nowrap"
                     >
-                      OMR →
+                      Questions →
                     </button>
                   </div>
                 </>
@@ -1300,18 +1317,21 @@ export function ExamSessionView({
           )}
         </div>
 
-        {/* Right Side: Question & OMR Section */}
+        {/* Right Side: Question and answer workspace */}
         <div
-          className={`w-full lg:w-2/5 xl:w-1/3 bg-slate-50/70 border-l border-slate-200 flex flex-col overflow-hidden ${
-            mobileTab === "omr"
-              ? "h-full flex-1"
+          className={`exam-question-pane w-full bg-slate-50/70 border-l border-slate-200 flex flex-col overflow-hidden ${
+            mobileTab === "questions"
+              ? "flex"
               : mobileTab === "paper"
                 ? "hidden lg:flex"
-                : "h-1/2 lg:h-full"
+                : "flex"
           }`}
         >
           {/* Active Question Top Card */}
-          <div className="border-b border-slate-200 p-3.5 sm:p-5 bg-white shrink-0 overflow-y-auto max-h-[50%] lg:max-h-none shadow-2xs">
+          <div
+            key={currentQuestion ?? "overview"}
+            className="exam-question-content border-b border-slate-200 bg-white p-3.5 shadow-2xs sm:p-5"
+          >
             {currentQuestion === null ? (
               <div className="space-y-4 py-1">
                 <div className="flex items-center justify-between gap-2">
@@ -1475,6 +1495,7 @@ export function ExamSessionView({
 
                     {/* Show Answer Toggle for Practice Mode */}
                     {isPractice &&
+                      !isMarkdownPaper &&
                       !isSubjective &&
                       getCorrectAnswerForQ(currentQuestion) && (
                         <button
@@ -1504,153 +1525,155 @@ export function ExamSessionView({
 
                 {/* Elimination Certainty & Option Selection Section */}
                 {!isSubjective ? (
-                  <div className="mt-3 rounded-2xl border border-slate-200/90 bg-slate-50/80 p-3 sm:p-3.5 space-y-3 shadow-2xs">
-                    {/* Elimination Certainty Bar */}
-                    <div className="flex items-center justify-between gap-2 flex-wrap">
-                      <div className="flex items-center gap-1.5">
-                        <span className="text-xs font-bold text-slate-800 tracking-tight">
-                          Elimination Certainty:
-                        </span>
-                        <span className="text-[10px] text-slate-400 font-medium hidden sm:inline">
-                          (Confidence level)
-                        </span>
+                  !isMarkdownPaper ? (
+                    <div className="mt-3 rounded-2xl border border-slate-200/90 bg-slate-50/80 p-3 sm:p-3.5 space-y-3 shadow-2xs">
+                      {/* Elimination Certainty Bar */}
+                      <div className="flex items-center justify-between gap-2 flex-wrap">
+                        <div className="flex items-center gap-1.5">
+                          <span className="text-xs font-bold text-slate-800 tracking-tight">
+                            Elimination Certainty:
+                          </span>
+                          <span className="text-[10px] text-slate-400 font-medium hidden sm:inline">
+                            (Confidence level)
+                          </span>
+                        </div>
+
+                        <div className="flex items-center gap-1 bg-white p-1 rounded-xl border border-slate-200/90 shadow-2xs">
+                          {(
+                            [
+                              {
+                                id: "sure",
+                                label: "Sure",
+                                icon: "🎯",
+                                activeClass:
+                                  "bg-emerald-600 text-white shadow-xs font-bold ring-2 ring-emerald-500/25",
+                                inactiveClass:
+                                  "text-slate-600 hover:text-emerald-700 hover:bg-emerald-50/60",
+                              },
+                              {
+                                id: "50-50",
+                                label: "50:50",
+                                icon: "⚖️",
+                                activeClass:
+                                  "bg-amber-500 text-white shadow-xs font-bold ring-2 ring-amber-500/25",
+                                inactiveClass:
+                                  "text-slate-600 hover:text-amber-700 hover:bg-amber-50/60",
+                              },
+                              {
+                                id: "elimination",
+                                label: "Elimination",
+                                icon: "✂️",
+                                activeClass:
+                                  "bg-sky-600 text-white shadow-xs font-bold ring-2 ring-sky-500/25",
+                                inactiveClass:
+                                  "text-slate-600 hover:text-sky-700 hover:bg-sky-50/60",
+                              },
+                              {
+                                id: "guess",
+                                label: "Guess",
+                                icon: "🎲",
+                                activeClass:
+                                  "bg-purple-600 text-white shadow-xs font-bold ring-2 ring-purple-500/25",
+                                inactiveClass:
+                                  "text-slate-600 hover:text-purple-700 hover:bg-purple-50/60",
+                              },
+                            ] as const
+                          ).map((conf) => {
+                            const isConfSelected =
+                              currentQObj.confidence === conf.id;
+                            return (
+                              <button
+                                key={conf.id}
+                                type="button"
+                                onClick={() =>
+                                  handleSetConfidence(currentQuestion, conf.id)
+                                }
+                                title={
+                                  isConfSelected
+                                    ? `Certainty: ${conf.label} (Click to remove)`
+                                    : `Mark certainty: ${conf.label}`
+                                }
+                                className={`flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-lg text-xs font-semibold transition-all active:scale-95 cursor-pointer ${
+                                  isConfSelected
+                                    ? `${conf.activeClass}`
+                                    : `${conf.inactiveClass}`
+                                }`}
+                              >
+                                <span className="text-xs">{conf.icon}</span>
+                                <span>{conf.label}</span>
+                              </button>
+                            );
+                          })}
+                        </div>
                       </div>
 
-                      <div className="flex items-center gap-1 bg-white p-1 rounded-xl border border-slate-200/90 shadow-2xs">
-                        {(
-                          [
-                            {
-                              id: "sure",
-                              label: "Sure",
-                              icon: "🎯",
-                              activeClass:
-                                "bg-emerald-600 text-white shadow-xs font-bold ring-2 ring-emerald-500/25",
-                              inactiveClass:
-                                "text-slate-600 hover:text-emerald-700 hover:bg-emerald-50/60",
-                            },
-                            {
-                              id: "50-50",
-                              label: "50:50",
-                              icon: "⚖️",
-                              activeClass:
-                                "bg-amber-500 text-white shadow-xs font-bold ring-2 ring-amber-500/25",
-                              inactiveClass:
-                                "text-slate-600 hover:text-amber-700 hover:bg-amber-50/60",
-                            },
-                            {
-                              id: "elimination",
-                              label: "Elimination",
-                              icon: "✂️",
-                              activeClass:
-                                "bg-sky-600 text-white shadow-xs font-bold ring-2 ring-sky-500/25",
-                              inactiveClass:
-                                "text-slate-600 hover:text-sky-700 hover:bg-sky-50/60",
-                            },
-                            {
-                              id: "guess",
-                              label: "Guess",
-                              icon: "🎲",
-                              activeClass:
-                                "bg-purple-600 text-white shadow-xs font-bold ring-2 ring-purple-500/25",
-                              inactiveClass:
-                                "text-slate-600 hover:text-purple-700 hover:bg-purple-50/60",
-                            },
-                          ] as const
-                        ).map((conf) => {
-                          const isConfSelected =
-                            currentQObj.confidence === conf.id;
+                      {/* Answer Options A, B, C, D */}
+                      <div className="grid grid-cols-4 gap-2.5 sm:gap-3.5 pt-0.5">
+                        {["A", "B", "C", "D"].map((opt) => {
+                          const isSelected =
+                            currentQObj.selected?.toUpperCase() === opt;
+                          const correctAns =
+                            getCorrectAnswerForQ(currentQuestion);
+                          const isRevealed = revealedAnswers[currentQuestion];
+                          const isCorrectChoice =
+                            correctAns && opt === correctAns;
+
+                          let btnContainerStyle =
+                            "border-slate-300 bg-white text-slate-800 hover:border-indigo-400 hover:bg-indigo-50/40 hover:shadow-xs";
+
+                          if (isSelected) {
+                            btnContainerStyle =
+                              "border-indigo-600 bg-indigo-600 text-white shadow-md ring-4 ring-indigo-500/20 scale-[1.02]";
+                          }
+
+                          // Practice mode live feedback: selected wrong is RED, correct is GREEN!
+                          if (isPractice) {
+                            if (currentQObj.selected && correctAns) {
+                              if (isSelected) {
+                                if (isCorrectChoice) {
+                                  btnContainerStyle =
+                                    "border-emerald-600 bg-emerald-600 text-white shadow-md ring-4 ring-emerald-500/20 scale-[1.02]";
+                                } else {
+                                  btnContainerStyle =
+                                    "border-rose-600 bg-rose-600 text-white shadow-md ring-4 ring-rose-500/20 scale-[1.02]";
+                                }
+                              } else if (isCorrectChoice) {
+                                btnContainerStyle =
+                                  "border-2 border-emerald-500 bg-emerald-50 text-emerald-900 ring-4 ring-emerald-500/15";
+                              }
+                            } else if (isRevealed && isCorrectChoice) {
+                              btnContainerStyle =
+                                "border-2 border-emerald-500 bg-emerald-50 text-emerald-900 ring-4 ring-emerald-500/20";
+                            }
+                          }
+
                           return (
                             <button
-                              key={conf.id}
+                              key={opt}
                               type="button"
                               onClick={() =>
-                                handleSetConfidence(currentQuestion, conf.id)
+                                handleSelectOption(currentQuestion, opt)
                               }
-                              title={
-                                isConfSelected
-                                  ? `Certainty: ${conf.label} (Click to remove)`
-                                  : `Mark certainty: ${conf.label}`
-                              }
-                              className={`flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-lg text-xs font-semibold transition-all active:scale-95 cursor-pointer ${
-                                isConfSelected
-                                  ? `${conf.activeClass}`
-                                  : `${conf.inactiveClass}`
-                              }`}
+                              className={`group relative flex flex-col items-center justify-center py-3 sm:py-3.5 px-2 rounded-2xl border transition-all cursor-pointer active:scale-95 shadow-2xs ${btnContainerStyle}`}
                             >
-                              <span className="text-xs">{conf.icon}</span>
-                              <span>{conf.label}</span>
+                              <span className="text-lg sm:text-xl font-black tracking-tight leading-none">
+                                {opt}
+                              </span>
+                              <span
+                                className={`mt-1 text-[10px] font-bold tracking-wider uppercase opacity-80 ${
+                                  isSelected
+                                    ? "text-white/90"
+                                    : "text-slate-400 group-hover:text-indigo-600"
+                                }`}
+                              >
+                                Option {opt}
+                              </span>
                             </button>
                           );
                         })}
                       </div>
                     </div>
-
-                    {/* Answer Options A, B, C, D */}
-                    <div className="grid grid-cols-4 gap-2.5 sm:gap-3.5 pt-0.5">
-                      {["A", "B", "C", "D"].map((opt) => {
-                        const isSelected =
-                          currentQObj.selected?.toUpperCase() === opt;
-                        const correctAns =
-                          getCorrectAnswerForQ(currentQuestion);
-                        const isRevealed = revealedAnswers[currentQuestion];
-                        const isCorrectChoice =
-                          correctAns && opt === correctAns;
-
-                        let btnContainerStyle =
-                          "border-slate-300 bg-white text-slate-800 hover:border-indigo-400 hover:bg-indigo-50/40 hover:shadow-xs";
-
-                        if (isSelected) {
-                          btnContainerStyle =
-                            "border-indigo-600 bg-indigo-600 text-white shadow-md ring-4 ring-indigo-500/20 scale-[1.02]";
-                        }
-
-                        // Practice mode live feedback: selected wrong is RED, correct is GREEN!
-                        if (isPractice) {
-                          if (currentQObj.selected && correctAns) {
-                            if (isSelected) {
-                              if (isCorrectChoice) {
-                                btnContainerStyle =
-                                  "border-emerald-600 bg-emerald-600 text-white shadow-md ring-4 ring-emerald-500/20 scale-[1.02]";
-                              } else {
-                                btnContainerStyle =
-                                  "border-rose-600 bg-rose-600 text-white shadow-md ring-4 ring-rose-500/20 scale-[1.02]";
-                              }
-                            } else if (isCorrectChoice) {
-                              btnContainerStyle =
-                                "border-2 border-emerald-500 bg-emerald-50 text-emerald-900 ring-4 ring-emerald-500/15";
-                            }
-                          } else if (isRevealed && isCorrectChoice) {
-                            btnContainerStyle =
-                              "border-2 border-emerald-500 bg-emerald-50 text-emerald-900 ring-4 ring-emerald-500/20";
-                          }
-                        }
-
-                        return (
-                          <button
-                            key={opt}
-                            type="button"
-                            onClick={() =>
-                              handleSelectOption(currentQuestion, opt)
-                            }
-                            className={`group relative flex flex-col items-center justify-center py-3 sm:py-3.5 px-2 rounded-2xl border transition-all cursor-pointer active:scale-95 shadow-2xs ${btnContainerStyle}`}
-                          >
-                            <span className="text-lg sm:text-xl font-black tracking-tight leading-none">
-                              {opt}
-                            </span>
-                            <span
-                              className={`mt-1 text-[10px] font-bold tracking-wider uppercase opacity-80 ${
-                                isSelected
-                                  ? "text-white/90"
-                                  : "text-slate-400 group-hover:text-indigo-600"
-                              }`}
-                            >
-                              Option {opt}
-                            </span>
-                          </button>
-                        );
-                      })}
-                    </div>
-                  </div>
+                  ) : null
                 ) : (
                   /* Dedicated Subjective Pen & Paper Question Marking */
                   <div className="mt-3 sm:mt-4 space-y-3">
@@ -1937,53 +1960,64 @@ export function ExamSessionView({
                   </div>
                 )}
 
-                {/* Navigation Bottom Controls with Highlighted Clear Selection */}
-                <div className="mt-4 flex items-center justify-between gap-2 pt-2 border-t border-slate-100">
-                  <button
-                    disabled={currentQuestion <= 1}
-                    onClick={() =>
-                      setCurrentQuestion((prev) => Math.max(1, (prev || 1) - 1))
-                    }
-                    className="flex items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3.5 py-2 text-xs font-bold text-slate-700 hover:bg-slate-50 disabled:opacity-30 disabled:pointer-events-none transition-all shadow-2xs cursor-pointer active:scale-95"
-                  >
-                    <ChevronLeft className="h-4 w-4" /> Prev
-                  </button>
-
-                  {!isSubjective && (
-                    <button
-                      type="button"
-                      onClick={() => handleClearSelection(currentQuestion)}
-                      disabled={!currentQObj.selected}
-                      className={`flex items-center gap-1.5 rounded-xl border px-3.5 py-2 text-xs font-bold transition-all shadow-2xs active:scale-95 ${
-                        currentQObj.selected
-                          ? "border-rose-200 bg-rose-50 text-rose-700 hover:bg-rose-100 hover:border-rose-300 cursor-pointer shadow-xs"
-                          : "border-slate-200 bg-slate-50 text-slate-400 opacity-60 cursor-not-allowed"
-                      }`}
-                      title="Clear option selection for this question"
-                    >
-                      <RotateCcw className="h-3.5 w-3.5 text-rose-600" />
-                      <span>Clear Selection</span>
-                    </button>
-                  )}
-
-                  <button
-                    disabled={currentQuestion >= paper.totalQuestions}
-                    onClick={() =>
-                      setCurrentQuestion((prev) =>
-                        Math.min(paper.totalQuestions, (prev || 1) + 1),
-                      )
-                    }
-                    className="flex items-center gap-1 rounded-xl border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-40 disabled:pointer-events-none transition-colors shadow-2xs"
-                  >
-                    Next <ChevronRight className="h-3.5 w-3.5" />
-                  </button>
-                </div>
               </>
             )}
           </div>
 
+          {currentQuestion !== null && (
+            <div className="exam-question-footer flex items-center justify-between gap-2 border-t border-slate-200 bg-white px-3.5 py-2.5 sm:px-5">
+              <button
+                type="button"
+                disabled={currentQuestion <= 1}
+                onClick={() =>
+                  setCurrentQuestion((prev) => Math.max(1, (prev || 1) - 1))
+                }
+                aria-label="Previous question"
+                className="flex min-h-10 items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-2 text-xs font-semibold text-slate-700 transition-colors hover:bg-slate-50 disabled:pointer-events-none disabled:opacity-40 sm:px-3"
+              >
+                <ChevronLeft className="h-4 w-4" />
+                <span className="hidden sm:inline">Previous</span>
+                <span className="sm:hidden">Prev</span>
+              </button>
+
+              {!isSubjective && (
+                <button
+                  type="button"
+                  onClick={() => handleClearSelection(currentQuestion)}
+                  disabled={!currentQObj.selected}
+                  aria-label="Clear answer"
+                  className={`inline-flex min-h-10 items-center gap-1.5 rounded-lg border px-2 text-xs font-semibold transition-colors sm:px-3 ${
+                    currentQObj.selected
+                      ? "border-rose-200 bg-rose-50 text-rose-700 hover:border-rose-300 hover:bg-rose-100"
+                      : "border-slate-200 bg-slate-50 text-slate-400"
+                  }`}
+                  title="Clear option selection for this question"
+                >
+                  <RotateCcw className="h-3.5 w-3.5" />
+                  <span className="hidden sm:inline">Clear answer</span>
+                </button>
+              )}
+
+              <button
+                type="button"
+                disabled={currentQuestion >= paper.totalQuestions}
+                onClick={() =>
+                  setCurrentQuestion((prev) =>
+                    Math.min(paper.totalQuestions, (prev || 1) + 1),
+                  )
+                }
+                aria-label="Next question"
+                className="flex min-h-10 items-center gap-1.5 rounded-lg bg-blue-700 px-4 text-xs font-semibold text-white shadow-sm transition-colors hover:bg-blue-800 disabled:pointer-events-none disabled:opacity-40"
+              >
+                <span className="sm:hidden">Next</span>
+                <span className="hidden sm:inline">Next question</span>
+                <ChevronRight className="h-4 w-4" />
+              </button>
+            </div>
+          )}
+
           {/* Question Palette Section - Responsive Grid with Correct Red/Green State in Practice */}
-          <div className="flex-1 overflow-y-auto p-3 sm:p-5">
+          <div className="exam-question-palette overflow-y-auto p-3 sm:p-5">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-3 gap-2">
               <div className="flex items-center justify-between">
                 <span className="font-bold text-slate-900 text-xs shrink-0">

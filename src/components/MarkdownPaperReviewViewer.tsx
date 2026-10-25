@@ -5,7 +5,6 @@ import { QuestionPaper, ParsedQuestion, QuestionAnswer } from "../lib/types";
 import { ParsedMarkdownHeader } from "../lib/markdownPaperParser";
 import { formatTimeSeconds, getPaperDisplayTitle } from "../lib/defaults";
 import {
-  Sparkles,
   BookOpen,
   CheckCircle2,
   XCircle,
@@ -57,18 +56,12 @@ export function MarkdownPaperReviewViewer({
     <div className="flex flex-col h-full bg-slate-50 overflow-hidden">
       {/* 1. Header Toolbar */}
       <div className="flex items-center justify-between px-3.5 py-2.5 bg-white border-b border-slate-200 shrink-0 gap-2">
-        <div className="flex items-center gap-2 text-xs font-bold text-slate-800 min-w-0">
-          <div className="p-1 rounded-lg bg-purple-100 text-purple-700 shrink-0">
-            <Sparkles className="h-3.5 w-3.5" />
-          </div>
+        <div className="flex items-center gap-2 text-xs font-medium text-slate-800 min-w-0">
           <span className="truncate max-w-[150px] sm:max-w-[220px]" title={displayTitle}>
             {displayTitle}
           </span>
-          <span className="text-[10px] px-2 py-0.5 rounded-full bg-purple-50 text-purple-700 border border-purple-200 font-mono font-bold shrink-0">
-            Question Paper
-          </span>
           <span className="hidden sm:inline text-[11px] text-slate-400 font-normal">
-            ({questions.length} Qs)
+            · {questions.length} questions
           </span>
         </div>
 
@@ -83,7 +76,7 @@ export function MarkdownPaperReviewViewer({
                   onSelectQuestion?.(val);
                 }
               }}
-              className="text-xs font-semibold bg-slate-50 border border-slate-200 rounded-lg px-2.5 py-1 text-slate-700 hover:bg-slate-100 cursor-pointer transition-colors shadow-2xs"
+              className="text-xs font-medium bg-white border border-slate-200 rounded-lg px-2.5 py-1 text-slate-700 hover:bg-slate-50 cursor-pointer transition-colors"
             >
               <option value="">Jump to Q...</option>
               {questions.map((q) => {
@@ -102,7 +95,7 @@ export function MarkdownPaperReviewViewer({
             <button
               type="button"
               onClick={onClose}
-              className="text-xs font-bold text-slate-500 hover:text-rose-600 px-2 py-1 rounded-lg hover:bg-rose-50 transition-colors cursor-pointer"
+              className="text-xs font-medium text-slate-500 hover:text-slate-900 px-2 py-1 rounded-lg hover:bg-slate-50 transition-colors cursor-pointer"
               title="Hide question paper preview"
             >
               ✕ Hide
@@ -113,9 +106,9 @@ export function MarkdownPaperReviewViewer({
 
       {/* 2. Sticky Question Palette / Navigation Chips */}
       {questions.length > 0 && (
-        <div className="px-3 py-1.5 bg-slate-100/90 border-b border-slate-200 overflow-x-auto no-scrollbar flex items-center gap-1 shrink-0">
-          <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mr-1 shrink-0">
-            Jump:
+        <div className="px-3 py-1.5 bg-white border-b border-slate-200 overflow-x-auto no-scrollbar flex items-center gap-1 shrink-0">
+          <span className="text-[10px] font-medium text-slate-400 uppercase tracking-wider mr-1 shrink-0">
+            Questions:
           </span>
           {questions.map((q) => {
             const ans = answers[q.questionNo];
@@ -131,13 +124,13 @@ export function MarkdownPaperReviewViewer({
                 onClick={() => onSelectQuestion?.(q.questionNo)}
                 className={`cursor-pointer px-2 py-0.5 rounded-md text-[11px] font-mono font-bold transition-all shrink-0 ${
                   isActive
-                    ? "ring-2 ring-indigo-600 shadow-xs scale-105"
+                    ? "ring-2 ring-slate-900 scale-105"
                     : ""
                 } ${
                   isCorrect
-                    ? "bg-emerald-100 text-emerald-800 border border-emerald-300"
+                    ? "bg-emerald-50 text-emerald-800 border border-emerald-300"
                     : isWrong
-                      ? "bg-rose-100 text-rose-800 border border-rose-300"
+                      ? "bg-rose-50 text-rose-800 border border-rose-300"
                       : "bg-white text-slate-600 border border-slate-200 hover:bg-slate-50"
                 }`}
                 title={`Q${q.questionNo}: ${isCorrect ? "Correct" : isWrong ? "Incorrect" : "Unattempted"}`}
@@ -152,51 +145,51 @@ export function MarkdownPaperReviewViewer({
       {/* 3. Scrollable Paper Body */}
       <div
         ref={scrollContainerRef}
-        className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-5 bg-slate-50/70"
+        className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-5 bg-slate-50/50"
       >
         {/* Exam Header & Rules (if available) */}
         {(header || instructions.length > 0 || paper.instructions?.length) && (
-          <div className="rounded-2xl border border-indigo-200/90 bg-gradient-to-br from-indigo-50/80 via-white to-purple-50/70 p-4 sm:p-5 space-y-3 shadow-xs">
+          <div className="rounded-xl border border-slate-200 bg-white p-4 sm:p-5 space-y-3">
             <div className="flex items-center gap-2">
-              <span className="p-1 rounded-lg bg-indigo-600 text-white shadow-2xs">
+              <span className="text-slate-500">
                 <BookOpen className="h-3.5 w-3.5" />
               </span>
-              <h3 className="text-xs font-black text-indigo-950 uppercase tracking-wide">
-                Exam Rules & Paper Specifications
+              <h3 className="text-xs font-semibold text-slate-900">
+                Paper details
               </h3>
             </div>
 
             {/* Key stats */}
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 pt-1 text-xs">
-              <div className="bg-white/80 rounded-xl border border-indigo-100 p-2 shadow-2xs text-center">
-                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
+            <div className="grid grid-cols-2 sm:grid-cols-4 divide-x divide-slate-200 border-y border-slate-200 py-2 text-xs">
+              <div className="px-2 text-center first:pl-0">
+                <span className="text-[10px] font-medium text-slate-400 block">
                   Questions
                 </span>
-                <span className="font-mono font-bold text-slate-800 mt-0.5 block">
+                <span className="font-mono font-semibold text-slate-800 mt-0.5 block">
                   {paper.totalQuestions || questions.length}
                 </span>
               </div>
-              <div className="bg-white/80 rounded-xl border border-indigo-100 p-2 shadow-2xs text-center">
-                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
+              <div className="px-2 text-center">
+                <span className="text-[10px] font-medium text-slate-400 block">
                   Time Limit
                 </span>
-                <span className="font-mono font-bold text-indigo-700 mt-0.5 block">
+                <span className="font-mono font-semibold text-indigo-700 mt-0.5 block">
                   {paper.timeMinutes || 120}m
                 </span>
               </div>
-              <div className="bg-white/80 rounded-xl border border-indigo-100 p-2 shadow-2xs text-center">
-                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
+              <div className="px-2 text-center">
+                <span className="text-[10px] font-medium text-slate-400 block">
                   Per Correct
                 </span>
-                <span className="font-mono font-bold text-emerald-700 mt-0.5 block">
+                <span className="font-mono font-semibold text-emerald-700 mt-0.5 block">
                   +{paper.correctMarks || 2.0}m
                 </span>
               </div>
-              <div className="bg-white/80 rounded-xl border border-indigo-100 p-2 shadow-2xs text-center">
-                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
+              <div className="px-2 text-center last:pr-0">
+                <span className="text-[10px] font-medium text-slate-400 block">
                   Penalty
                 </span>
-                <span className="font-mono font-bold text-rose-700 mt-0.5 block">
+                <span className="font-mono font-semibold text-rose-700 mt-0.5 block">
                   -{paper.incorrectMarks || 0.667}m
                 </span>
               </div>
@@ -205,9 +198,9 @@ export function MarkdownPaperReviewViewer({
             {/* Instructions list */}
             {((instructions && instructions.length > 0) ||
               (paper.instructions && paper.instructions.length > 0)) && (
-              <div className="bg-white/85 rounded-xl border border-indigo-100/80 p-3 space-y-1.5 mt-2">
-                <span className="text-[10px] font-bold text-indigo-900 uppercase tracking-wider block">
-                  General Instructions:
+              <div className="border-t border-slate-200 pt-3 space-y-1.5 mt-2">
+                <span className="text-[10px] font-semibold text-slate-600 uppercase tracking-wider block">
+                  Instructions
                 </span>
                 <ul className="space-y-1">
                   {(instructions.length > 0 ? instructions : paper.instructions || []).map(
@@ -267,36 +260,34 @@ export function MarkdownPaperReviewViewer({
               <div
                 key={q.questionNo}
                 id={`review-q-${q.questionNo}`}
-                className={`p-4 sm:p-5 rounded-2xl bg-white border transition-all duration-200 ${
+                className={`p-4 sm:p-5 rounded-xl bg-white border transition-colors duration-200 ${
                   isSelectedActive
-                    ? "border-indigo-500 ring-2 ring-indigo-500/20 shadow-md"
-                    : "border-slate-200 shadow-2xs hover:border-slate-300"
+                    ? "border-slate-900 ring-1 ring-slate-900/10"
+                    : "border-slate-200 hover:border-slate-300"
                 }`}
               >
                 {/* Top Question Status Bar */}
                 <div className="flex items-center justify-between gap-2 flex-wrap pb-2.5 border-b border-slate-100">
                   <div className="flex items-center gap-2">
-                    <span className="font-mono text-xs font-bold bg-indigo-600 text-white px-2.5 py-0.5 rounded-lg shadow-2xs">
+                    <span className="font-mono text-xs font-semibold text-slate-900">
                       Q{q.questionNo}
                     </span>
 
                     {/* Status Pill */}
                     {isCorrect ? (
-                      <span className="inline-flex items-center gap-1 text-[11px] font-bold text-emerald-800 bg-emerald-50 px-2.5 py-0.5 rounded-full border border-emerald-200">
+                      <span className="inline-flex items-center gap-1 text-[11px] font-medium text-emerald-800">
                         <CheckCircle2 className="h-3 w-3 text-emerald-600" />
-                        <span>Correct (+{correctMarksValue})</span>
+                        <span>Correct · +{correctMarksValue}</span>
                       </span>
                     ) : isWrong ? (
-                      <span className="inline-flex items-center gap-1 text-[11px] font-bold text-rose-800 bg-rose-50 px-2.5 py-0.5 rounded-full border border-rose-200">
+                      <span className="inline-flex items-center gap-1 text-[11px] font-medium text-rose-800">
                         <XCircle className="h-3 w-3 text-rose-600" />
-                        <span>
-                          Incorrect (-{incorrectMarksValue}) • Marked ({userSelected})
-                        </span>
+                        <span>Incorrect · -{incorrectMarksValue} · {userSelected}</span>
                       </span>
                     ) : (
-                      <span className="inline-flex items-center gap-1 text-[11px] font-medium text-slate-500 bg-slate-100 px-2.5 py-0.5 rounded-full border border-slate-200">
+                      <span className="inline-flex items-center gap-1 text-[11px] font-medium text-slate-500">
                         <HelpCircle className="h-3 w-3 text-slate-400" />
-                        <span>Unattempted (0.0)</span>
+                        <span>Skipped · 0</span>
                       </span>
                     )}
                   </div>
@@ -330,25 +321,25 @@ export function MarkdownPaperReviewViewer({
                     if (isRightAnswer && isUserPick) {
                       optStyle =
                         "bg-emerald-50/90 border-emerald-300 text-emerald-950 font-medium ring-1 ring-emerald-400/30";
-                      badgeEl = (
-                        <span className="text-[10px] font-bold text-emerald-700 bg-emerald-100 px-1.5 py-0.5 rounded ml-auto flex items-center gap-0.5 shrink-0">
-                          <Check className="h-3 w-3" /> Your Choice • Correct
+                        badgeEl = (
+                        <span className="text-[10px] font-medium text-emerald-700 ml-auto flex items-center gap-0.5 shrink-0">
+                          <Check className="h-3 w-3" /> Your answer
                         </span>
                       );
                     } else if (isRightAnswer) {
                       optStyle =
                         "bg-emerald-50/70 border-emerald-300 text-emerald-950 font-medium";
                       badgeEl = (
-                        <span className="text-[10px] font-bold text-emerald-700 bg-emerald-100/80 px-1.5 py-0.5 rounded ml-auto flex items-center gap-0.5 shrink-0">
-                          <Check className="h-3 w-3" /> Correct Answer
+                        <span className="text-[10px] font-medium text-emerald-700 ml-auto flex items-center gap-0.5 shrink-0">
+                          <Check className="h-3 w-3" /> Answer
                         </span>
                       );
                     } else if (isUserPick) {
                       optStyle =
                         "bg-rose-50/90 border-rose-300 text-rose-950 font-medium ring-1 ring-rose-400/30";
                       badgeEl = (
-                        <span className="text-[10px] font-bold text-rose-700 bg-rose-100 px-1.5 py-0.5 rounded ml-auto flex items-center gap-0.5 shrink-0">
-                          <X className="h-3 w-3" /> Your Choice • Incorrect
+                        <span className="text-[10px] font-medium text-rose-700 ml-auto flex items-center gap-0.5 shrink-0">
+                          <X className="h-3 w-3" /> Your answer
                         </span>
                       );
                     }
@@ -356,7 +347,7 @@ export function MarkdownPaperReviewViewer({
                     return (
                       <div
                         key={optKey}
-                        className={`flex items-start gap-2 p-2.5 rounded-xl border text-xs leading-relaxed transition-all ${optStyle}`}
+                        className={`flex items-start gap-2 p-2.5 rounded-lg border text-xs leading-relaxed transition-colors ${optStyle}`}
                       >
                         <span
                           className={`font-mono text-[11px] font-bold px-1.5 py-0.5 rounded shrink-0 ${
@@ -378,12 +369,12 @@ export function MarkdownPaperReviewViewer({
 
                 {/* Explanation Box */}
                 {explanationText && (
-                  <div className="mt-3.5 rounded-xl bg-amber-50/70 border border-amber-200/90 p-3 space-y-1.5">
-                    <div className="flex items-center gap-1.5 text-xs font-bold text-amber-900">
-                      <Lightbulb className="h-3.5 w-3.5 text-amber-600" />
-                      <span>Explanation:</span>
+                  <div className="mt-3.5 rounded-lg bg-slate-50 border border-slate-200 p-3 space-y-1.5">
+                    <div className="flex items-center gap-1.5 text-xs font-semibold text-slate-800">
+                      <Lightbulb className="h-3.5 w-3.5 text-slate-500" />
+                      <span>Solution</span>
                     </div>
-                    <p className="text-xs text-amber-950 leading-relaxed whitespace-pre-wrap pl-5">
+                    <p className="text-xs text-slate-700 leading-relaxed whitespace-pre-wrap pl-5">
                       {explanationText}
                     </p>
                   </div>
@@ -391,9 +382,9 @@ export function MarkdownPaperReviewViewer({
 
                 {/* Candidate Note (if written during session) */}
                 {ans?.note && ans.note.trim() && (
-                  <div className="mt-2.5 rounded-xl bg-slate-100/80 border border-slate-200 p-2.5 text-xs text-slate-700 flex items-start gap-1.5">
-                    <span className="font-bold text-slate-900 shrink-0">
-                      Your Scratchpad Note:
+                  <div className="mt-2.5 rounded-lg bg-slate-50 border border-slate-200 p-2.5 text-xs text-slate-700 flex items-start gap-1.5">
+                    <span className="font-semibold text-slate-900 shrink-0">
+                      Note:
                     </span>
                     <span className="italic whitespace-pre-wrap">
                       {ans.note.trim()}

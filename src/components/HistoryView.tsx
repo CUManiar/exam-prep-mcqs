@@ -7,17 +7,24 @@ import {
   CheckCircle2,
   ChevronRight,
   Clock,
+  Grid2X2,
   History,
   Layers,
+  List,
   RotateCcw,
   Search,
   Target,
+  Trash2,
   TrendingUp,
   Zap,
 } from "lucide-react";
 import { useMemo, useState } from "react";
 import { useApp } from "../context/AppContext";
-import { formatDateTime, formatTimeSeconds } from "../lib/defaults";
+import {
+  formatDateTime,
+  formatTimeSeconds,
+  getAttemptPercentage,
+} from "../lib/defaults";
 import { Attempt } from "../lib/types";
 
 interface HistoryViewProps {
@@ -34,6 +41,9 @@ export function HistoryView({
   const { papers, handleStartExam } = useApp();
   const [search, setSearch] = useState("");
   const [viewMode, setViewMode] = useState<"all" | "cumulative">("all");
+  const [performanceViewMode, setPerformanceViewMode] = useState<
+    "grid" | "list"
+  >("grid");
   const [selectedAttemptByPaper, setSelectedAttemptByPaper] = useState<
     Record<string, string>
   >({});
@@ -187,16 +197,13 @@ export function HistoryView({
       : 200;
 
   return (
-    <div className="mx-auto max-w-7xl px-4 py-6 sm:px-6 lg:px-8 space-y-6 animate-in fade-in duration-200">
+    <div className="page-container space-y-6">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 pb-4 border-b border-slate-200/80">
-        <div className="flex items-center gap-2.5">
-          <h1 className="text-lg sm:text-xl font-bold text-slate-900 tracking-tight">
-            Mock Exam History
-          </h1>
-          <span className="text-xs font-medium text-slate-500 bg-slate-100 px-2 py-0.5 rounded-full font-mono">
-            {totalMocks} {totalMocks === 1 ? "attempt" : "attempts"}
-          </span>
+      <div className="page-heading">
+        <div>
+          <p className="page-eyebrow">Assessment record · {totalMocks} {totalMocks === 1 ? "mock" : "mocks"}</p>
+          <h1 className="page-title">Performance</h1>
+          <p className="page-description">Review individual results and compare your progress across repeated attempts.</p>
         </div>
 
         {/* View Mode Toggle & Search */}
@@ -243,6 +250,38 @@ export function HistoryView({
               placeholder="Search paper..."
               className="w-full rounded-xl border border-slate-200 bg-white pl-8 pr-3 py-1.5 text-xs text-slate-800 placeholder-slate-400 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 focus:outline-none transition-all shadow-xs"
             />
+          </div>
+
+          <div
+            className="inline-flex items-center gap-0.5 rounded-xl border border-slate-200 bg-slate-100 p-0.5 self-start sm:self-auto"
+            aria-label="Performance layout"
+          >
+            <button
+              type="button"
+              onClick={() => setPerformanceViewMode("grid")}
+              aria-label="Show performance as grid"
+              aria-pressed={performanceViewMode === "grid"}
+              className={`cursor-pointer rounded-lg p-1.5 transition-colors ${
+                performanceViewMode === "grid"
+                  ? "bg-white text-indigo-700 shadow-xs"
+                  : "text-slate-500 hover:text-slate-900"
+              }`}
+            >
+              <Grid2X2 className="h-3.5 w-3.5" />
+            </button>
+            <button
+              type="button"
+              onClick={() => setPerformanceViewMode("list")}
+              aria-label="Show performance as list"
+              aria-pressed={performanceViewMode === "list"}
+              className={`cursor-pointer rounded-lg p-1.5 transition-colors ${
+                performanceViewMode === "list"
+                  ? "bg-white text-indigo-700 shadow-xs"
+                  : "text-slate-500 hover:text-slate-900"
+              }`}
+            >
+              <List className="h-3.5 w-3.5" />
+            </button>
           </div>
         </div>
       </div>
@@ -317,6 +356,7 @@ export function HistoryView({
           <div className="space-y-6">
             {filteredGrouped.map((group) => {
               const hasMultiple = group.attempts.length > 1;
+              const paperDeleted = !group.paper;
 
               return (
                 <div
@@ -336,6 +376,15 @@ export function HistoryView({
                             ? "Attempt Logged"
                             : "Attempts Recorded Separately"}
                         </span>
+                        {paperDeleted && (
+                          <span
+                            className="inline-flex items-center justify-center rounded-md bg-amber-50 p-1 text-amber-600"
+                            aria-label="Linked paper deleted"
+                            title="The paper linked to this assessment has been deleted."
+                          >
+                            <AlertTriangle className="h-3.5 w-3.5" />
+                          </span>
+                        )}
                       </div>
                       <h3
                         title={group.paperLabel}
@@ -463,6 +512,7 @@ export function HistoryView({
                           <th className="py-2.5 px-3">Date</th>
                           <th className="py-2.5 px-3">Duration</th>
                           <th className="py-2.5 px-3">Net Score</th>
+                          <th className="py-2.5 px-3">Percentage</th>
                           <th className="py-2.5 px-3">Accuracy</th>
                           <th className="py-2.5 px-3">Breakdown</th>
                           <th className="py-2.5 px-3 text-right">Action</th>
@@ -485,6 +535,9 @@ export function HistoryView({
                             </td>
                             <td className="py-2 px-3 font-mono font-bold text-slate-900">
                               {att.score} / {att.maxScore}
+                            </td>
+                            <td className="py-2 px-3 font-mono font-bold text-indigo-700">
+                              {getAttemptPercentage(att)}%
                             </td>
                             <td className="py-2 px-3 font-mono font-bold text-teal-700">
                               {att.accuracyPct}%
@@ -533,7 +586,13 @@ export function HistoryView({
           </p>
         </div>
       ) : (
-        <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
+        <div
+          className={
+            performanceViewMode === "grid"
+              ? "grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3"
+              : "flex flex-col gap-3"
+          }
+        >
           {filteredGrouped.map((group) => {
             const hasMultiple = group.attempts.length > 1;
             const activeAttemptId =
@@ -544,10 +603,8 @@ export function HistoryView({
             const totalPaperAttempts = group.attempts.length;
             const matchedPaper =
               group.paper || papers.find((p) => p.id === group.paperId);
+            const paperDeleted = !matchedPaper;
 
-            const isCsat =
-              group.paperLabel.includes("CSAT") ||
-              group.paperLabel.includes("GS II");
             const scoreColor =
               activeAttempt.score >= 90
                 ? "text-emerald-700"
@@ -555,40 +612,35 @@ export function HistoryView({
                   ? "text-amber-700"
                   : "text-slate-800";
 
-            // Cutoff indicator badge for active attempt
-            let cutoffBadge = null;
-            if (isCsat) {
-              const qualified = activeAttempt.score >= 66.67;
-              cutoffBadge = (
-                <span
-                  className={`text-[10px] font-medium px-2 py-0.5 rounded-md flex items-center gap-1 ${
-                    qualified
-                      ? "bg-emerald-50 text-emerald-700 border border-emerald-200/50"
-                      : "bg-rose-50 text-rose-700 border border-rose-200/50"
-                  }`}
-                >
-                  {qualified ? (
-                    <CheckCircle2 className="h-3 w-3" />
-                  ) : (
-                    <AlertTriangle className="h-3 w-3" />
-                  )}
-                  {qualified ? "CSAT Qualified" : "Below Cutoff"}
-                </span>
-              );
-            } else if (activeAttempt.category === "prelims") {
-              const competitive = activeAttempt.score >= 95;
-              cutoffBadge = (
-                <span
-                  className={`text-[10px] font-medium px-2 py-0.5 rounded-md ${
-                    competitive
-                      ? "bg-emerald-50 text-emerald-700 border border-emerald-200/50"
-                      : "bg-slate-100 text-slate-600 border border-slate-200/60"
-                  }`}
-                >
-                  {competitive ? "Cutoff Cleared" : "Prelims Mock"}
-                </span>
-              );
-            }
+            // Cutoff status is shown only when the paper explicitly enables it.
+            const cutoffEnabled =
+              matchedPaper?.cutoffEnabled ?? activeAttempt.cutoffEnabled ?? false;
+            const cutoffType =
+              matchedPaper?.cutoffType || activeAttempt.cutoffType || "percentage";
+            const cutoffValue = matchedPaper?.cutoffValue ?? activeAttempt.cutoffValue;
+            const cutoffMeasure =
+              cutoffType === "marks"
+                ? activeAttempt.score
+                : getAttemptPercentage(activeAttempt);
+            const hasCutoff =
+              cutoffEnabled && cutoffValue !== undefined && Number.isFinite(cutoffValue);
+            const cutoffCleared = hasCutoff && cutoffMeasure >= cutoffValue;
+            const cutoffBadge = hasCutoff ? (
+              <span
+                className={`text-[10px] font-medium px-2 py-0.5 rounded-md flex items-center gap-1 ${
+                  cutoffCleared
+                    ? "bg-emerald-50 text-emerald-700 border border-emerald-200/50"
+                    : "bg-rose-50 text-rose-700 border border-rose-200/50"
+                }`}
+              >
+                {cutoffCleared ? (
+                  <CheckCircle2 className="h-3 w-3" />
+                ) : (
+                  <AlertTriangle className="h-3 w-3" />
+                )}
+                {cutoffCleared ? "Cutoff Cleared" : "Below Cutoff"}
+              </span>
+            ) : null;
 
             return (
               <div
@@ -612,15 +664,29 @@ export function HistoryView({
                 {/* Main Attempt Card */}
                 <div
                   onClick={() => onViewAttempt(activeAttempt)}
-                  className="cursor-pointer relative flex flex-col justify-between bi-card p-5 group hover:border-indigo-300 transition-all shadow-xs bg-white rounded-2xl h-full flex-1"
+                  className={`cursor-pointer relative flex justify-between bi-card p-5 group hover:border-indigo-300 transition-all shadow-xs bg-white rounded-2xl h-full flex-1 ${
+                    performanceViewMode === "grid"
+                      ? "flex-col"
+                      : "flex-col md:grid md:grid-cols-[minmax(0,1fr)_minmax(180px,230px)] md:gap-6"
+                  }`}
                 >
-                  <div className="space-y-3">
+                  <div className="min-w-0 space-y-3">
                     {/* Top row: Status Badge & Attempt Count & Duration */}
                     <div className="flex items-center justify-between gap-2">
                       <div className="flex items-center gap-1.5 flex-wrap">
                         {cutoffBadge || (
                           <span className="text-[10px] font-medium px-2 py-0.5 rounded-md bg-slate-100 text-slate-600 border border-slate-200/60">
                             Evaluated
+                          </span>
+                        )}
+
+                        {paperDeleted && (
+                          <span
+                            className="inline-flex items-center justify-center rounded-md bg-amber-50 p-1 text-amber-600"
+                            aria-label="Linked paper deleted"
+                            title="The paper linked to this assessment has been deleted."
+                          >
+                            <AlertTriangle className="h-3.5 w-3.5" />
                           </span>
                         )}
 
@@ -695,7 +761,7 @@ export function HistoryView({
                     </div>
 
                     {/* Score & Accuracy Box - Clean card style */}
-                    <div className="flex items-center justify-between rounded-xl bg-slate-50/80 px-4 py-3 border border-slate-100">
+                    <div className="grid grid-cols-3 gap-3 rounded-xl bg-slate-50/80 px-4 py-3 border border-slate-100">
                       <div>
                         <span className="text-[10px] text-slate-400 uppercase tracking-wider block font-medium">
                           Score
@@ -707,6 +773,14 @@ export function HistoryView({
                           <span className="text-xs text-slate-400 font-normal">
                             / {activeAttempt.maxScore}
                           </span>
+                        </div>
+                      </div>
+                      <div className="text-center">
+                        <span className="text-[10px] text-slate-400 uppercase tracking-wider block font-medium">
+                          Percentage
+                        </span>
+                        <div className="text-lg font-bold text-indigo-700 font-mono mt-0.5">
+                          {getAttemptPercentage(activeAttempt)}%
                         </div>
                       </div>
                       <div className="text-right">
@@ -740,7 +814,13 @@ export function HistoryView({
                   </div>
 
                   {/* Bottom Actions: Re-attempt Mock + Review Assessment */}
-                  <div className="mt-4 pt-3 border-t border-slate-100 flex items-center justify-between gap-2 text-xs">
+                  <div
+                    className={`mt-4 flex items-center justify-between gap-2 text-xs ${
+                      performanceViewMode === "grid"
+                        ? "border-t border-slate-100 pt-3"
+                        : "border-t border-slate-100 pt-3 md:mt-0 md:border-l md:border-t-0 md:pl-5 md:pt-0 md:self-stretch md:flex md:flex-col md:justify-center"
+                    }`}
+                  >
                     {matchedPaper ? (
                       <button
                         type="button"
@@ -755,6 +835,20 @@ export function HistoryView({
                         <span>Re-attempt</span>
                       </button>
                     ) : <span />}
+                    {paperDeleted && (
+                      <button
+                        type="button"
+                        onClick={(event) => {
+                          event.stopPropagation();
+                          onDeleteAttempt(activeAttempt.id);
+                        }}
+                        className="cursor-pointer rounded-lg p-1 text-slate-400 transition-colors hover:bg-rose-50 hover:text-rose-600"
+                        aria-label="Delete assessment"
+                        title="Delete this assessment"
+                      >
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </button>
+                    )}
                     <span className="text-indigo-600 group-hover:text-indigo-700 font-medium text-xs flex items-center gap-0.5 transition-colors">
                       Review <ChevronRight className="h-3.5 w-3.5" />
                     </span>

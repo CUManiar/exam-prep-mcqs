@@ -2,6 +2,7 @@
 
 import React from "react";
 import { ParsedQuestion } from "../../lib/types";
+import { stripMarkdownFormatting } from "../../lib/markdownPaperParser";
 import { Check, Lightbulb, BookOpen } from "lucide-react";
 
 interface QuestionStreamPreviewProps {
@@ -25,7 +26,10 @@ export function QuestionStreamPreview({
           Exam Rules & Specifications Active
         </h4>
         <p className="text-[11px] text-slate-500 max-w-sm mx-auto leading-relaxed">
-          Your rules, scoring scheme, and instructions are loaded above. Switch to the <strong>&apos;Markdown Source&apos;</strong> tab to paste or write questions separated by <strong>&apos;---&apos;</strong> with options (a), (b), (c), (d) to preview individual question cards.
+          Your rules, scoring scheme, and instructions are loaded above. Switch
+          to the <strong>&apos;Markdown Source&apos;</strong> tab to paste or
+          write questions separated by <strong>&apos;---&apos;</strong> with
+          options (a), (b), (c), (d) to preview individual question cards.
         </p>
       </div>
     );
@@ -67,7 +71,7 @@ export function QuestionStreamPreview({
             </div>
 
             <p className="text-xs text-slate-800 font-medium leading-relaxed whitespace-pre-wrap">
-              {q.text}
+              {stripMarkdownFormatting(q.text)}
             </p>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5 pt-1">
@@ -91,7 +95,9 @@ export function QuestionStreamPreview({
                     >
                       {optKey}
                     </span>
-                    <span className="whitespace-pre-wrap">{optText}</span>
+                    <span className="whitespace-pre-wrap">
+                      {stripMarkdownFormatting(optText)}
+                    </span>
                   </div>
                 );
               })}
@@ -104,7 +110,7 @@ export function QuestionStreamPreview({
                   <span>Explanation:</span>
                 </div>
                 <p className="text-[11px] leading-relaxed whitespace-pre-wrap pl-4 text-amber-900">
-                  {explanation}
+                  {stripMarkdownFormatting(explanation)}
                 </p>
               </div>
             )}

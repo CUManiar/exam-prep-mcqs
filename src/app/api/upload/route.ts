@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { uploadFile, readJsonStore, writeJsonStore } from "@/lib/cloudStorage";
 import { parseAnswerKeyDetailed } from "@/lib/defaults";
+import { parseMarkdownHeader } from "@/lib/markdownPaperParser";
 
 export async function POST(req: NextRequest) {
   try {
@@ -30,6 +31,13 @@ export async function POST(req: NextRequest) {
           ? totalQuestions * correctMarks
           : 250;
     const answerKeyTextInput = (formData.get("answerKeyText") as string) || "";
+    const cutoffEnabled = formData.get("cutoffEnabled") === "true";
+    const cutoffType = formData.get("cutoffType") === "marks" ? "marks" : "percentage";
+    const cutoffValueInput = parseFloat((formData.get("cutoffValue") as string) || "");
+    const cutoffValue =
+      cutoffEnabled && Number.isFinite(cutoffValueInput) && cutoffValueInput >= 0
+        ? cutoffValueInput
+        : undefined;
     const userId = (formData.get("userId") as string) || "";
     const isUserUpload = Boolean(
       userId && userId !== "null" && userId !== "undefined",
@@ -115,6 +123,9 @@ export async function POST(req: NextRequest) {
         console.warn("Failed parsing parsedQuestions in upload API:", e);
       }
     }
+    const markdownInstructions = markdownContent
+      ? parseMarkdownHeader(markdownContent).instructions
+      : [];
 
     if (qpFile) {
       const qpBuffer = Buffer.from(await qpFile.arrayBuffer());
@@ -182,6 +193,10 @@ export async function POST(req: NextRequest) {
       explanations: parsedExplanations,
       markdownContent: markdownContent || undefined,
       parsedQuestions: parsedQuestions || undefined,
+      instructions: markdownInstructions.length > 0 ? markdownInstructions : undefined,
+      cutoffEnabled,
+      cutoffType,
+      cutoffValue,
       isCustom: true,
       updatedAt: new Date().toISOString(),
     };
@@ -217,6 +232,13 @@ export async function POST(req: NextRequest) {
           exs_url: exsUrl || null,
           answer_key: parsedKey,
           answer_key_text: answerKeyContent || null,
+          markdown_content: markdownContent || null,
+          parsed_questions: parsedQuestions || null,
+          instructions: markdownInstructions,
+          explanations: parsedExplanations,
+          cutoff_enabled: cutoffEnabled,
+          cutoff_type: cutoffType,
+          cutoff_value: cutoffValue ?? null,
           updated_at: new Date().toISOString(),
         });
       } catch (dbErr) {
