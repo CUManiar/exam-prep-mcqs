@@ -51,9 +51,7 @@ export function LandingView({
           <p className="page-eyebrow">
             UPSC practice workspace · Built for clarity
           </p>
-          <h1 className="public-title">
-            Make every paper count.
-          </h1>
+          <h1 className="public-title">Make every paper count.</h1>
           <p className="public-intro">
             Attempt with focus. Review with evidence. Build a better next
             attempt from every question you answer.
@@ -117,7 +115,9 @@ export function LandingView({
           </div>
           <div className="public-review-preview">
             <div className="flex items-center justify-between gap-3">
-              <span className="public-review-preview-label">Review snapshot</span>
+              <span className="public-review-preview-label">
+                Review snapshot
+              </span>
               <Target aria-hidden="true" className="h-4 w-4 text-blue-600" />
             </div>
             <div className="public-review-metrics">
@@ -225,78 +225,106 @@ export function LandingView({
       </section>
 
       <section className="public-section page-container" id="pricing">
-        <div className="public-section-heading">
-          <p className="page-eyebrow">Simple access</p>
-          <h2>Start free. Upgrade when you need more.</h2>
-          <p>
-            Try the assessment workflow first. Upgrade for unlimited paper
-            uploads and self-paced practice.
-          </p>
-        </div>
-        <div className="public-pricing-grid">
-          <article className="public-pricing-card">
-            <p className="public-pricing-label">Free</p>
-            <h3>One mock attempt</h3>
-            <p>
-              Take a free mock to understand the platform, finish the test,
-              and review your result.
-            </p>
-            <ul className="public-pricing-features">
-              <li><Check aria-hidden="true" /> Try the full workflow</li>
-              <li><Check aria-hidden="true" /> Review your result</li>
-            </ul>
-            {featuredPaper && (
+        <div className="public-pricing-board">
+          <div className="public-pricing-board-header">
+            <div className="public-pricing-board-copy">
+              <p className="page-eyebrow">Simple access</p>
+              <h2>Start free. Upgrade when you need more.</h2>
+              <p>
+                Understand the workflow with one mock. Keep your own papers,
+                attempts, and practice history when you are ready.
+              </p>
+            </div>
+            <div className="public-pricing-board-note">
+              <Sparkles aria-hidden="true" className="h-4 w-4" />
+              <span>No card required to start</span>
+            </div>
+          </div>
+
+          <div className="public-plan-grid">
+            <article className="public-plan-card">
+              <div className="public-plan-topline">
+                <span className="public-plan-kicker">Free</span>
+                <span className="public-plan-context">Try first</span>
+              </div>
+              <h3>One mock attempt</h3>
+              <div className="public-plan-price">
+                ₹0 <span>to start</span>
+              </div>
+              <p>
+                Take a free mock to understand the platform, finish the test,
+                and review your result.
+              </p>
+              <ul className="public-plan-features">
+                <li><Check aria-hidden="true" /> Full mock workflow</li>
+                <li><Check aria-hidden="true" /> Immediate result review</li>
+              </ul>
+              {featuredPaper && (
+                <button
+                  type="button"
+                  onClick={() => onStartExam(featuredPaper, "mock")}
+                  className="public-plan-action public-plan-action-light"
+                >
+                  Try the free mock
+                  <ArrowRight aria-hidden="true" className="h-4 w-4" />
+                </button>
+              )}
+            </article>
+
+            <article className="public-plan-card public-plan-card-primary">
+              <div className="public-plan-topline">
+                <span className="public-plan-kicker">Individual</span>
+                <span className="public-plan-badge">Recommended</span>
+              </div>
+              <h3>Unlimited practice</h3>
+              <div className="public-plan-price">
+                ₹999 <span>/ year</span>
+              </div>
+              <p>
+                Upload unlimited PDF or Markdown papers and practise without
+                limits.
+              </p>
+              <ul className="public-plan-features">
+                <li><Check aria-hidden="true" /> Unlimited paper uploads</li>
+                <li><Check aria-hidden="true" /> Unlimited practice</li>
+                <li><Check aria-hidden="true" /> Saved assessment history</li>
+              </ul>
               <button
                 type="button"
-                onClick={() => onStartExam(featuredPaper, "mock")}
-                className="public-text-link"
+                onClick={onOpenAuth}
+                className="public-plan-action public-plan-action-primary"
               >
-                Try the free mock
+                Create an account
                 <ArrowRight aria-hidden="true" className="h-4 w-4" />
               </button>
-            )}
-          </article>
-          <article className="public-pricing-card public-pricing-card-featured">
-            <div className="flex w-full items-start justify-between gap-3">
-              <p className="public-pricing-label">Individual</p>
-              <span className="public-popular-pill">Most useful</span>
-            </div>
-            <h3>
-              ₹999 <span>/ year</span>
-            </h3>
-            <p>
-              Upload unlimited PDF or Markdown papers and practise without
-              limits.
-            </p>
-            <ul className="public-pricing-features">
-              <li><Check aria-hidden="true" /> Unlimited paper uploads</li>
-              <li><Check aria-hidden="true" /> Unlimited practice</li>
-              <li><Check aria-hidden="true" /> Saved assessment history</li>
-            </ul>
-            <button
-              type="button"
-              onClick={onOpenAuth}
-              className="public-text-link"
-            >
-              Create an account
-              <ArrowRight aria-hidden="true" className="h-4 w-4" />
-            </button>
-          </article>
-          <article className="public-pricing-card">
-            <p className="public-pricing-label">Institutes & enterprise</p>
-            <h3>Let&apos;s discuss your workflow</h3>
-            <p>
-              For institutes or other enterprise-level solutions, contact us
-              for a tailored conversation.
-            </p>
-            <ul className="public-pricing-features">
-              <li><Check aria-hidden="true" /> Discuss your workflow</li>
-              <li><Check aria-hidden="true" /> Plan for your learners</li>
-            </ul>
-            <a href="mailto:hi@chikoochi.com" className="public-text-link">
-              hi@chikoochi.com <Mail aria-hidden="true" className="h-4 w-4" />
-            </a>
-          </article>
+            </article>
+
+            <article className="public-plan-card public-plan-card-enterprise">
+              <div className="public-plan-topline">
+                <span className="public-plan-kicker">Institutes & enterprise</span>
+                <span className="public-plan-context">Talk to us</span>
+              </div>
+              <h3>A workflow built around your learners</h3>
+              <div className="public-plan-price public-plan-price-talk">
+                Let&apos;s discuss
+              </div>
+              <p>
+                For institutes or other enterprise-level solutions, contact us
+                for a tailored conversation.
+              </p>
+              <ul className="public-plan-features">
+                <li><Check aria-hidden="true" /> Discuss your workflow</li>
+                <li><Check aria-hidden="true" /> Plan for your learners</li>
+              </ul>
+              <a
+                href="mailto:hi@chikoochi.com"
+                className="public-plan-action public-plan-action-light"
+              >
+                hi@chikoochi.com
+                <Mail aria-hidden="true" className="h-4 w-4" />
+              </a>
+            </article>
+          </div>
         </div>
       </section>
 
@@ -432,7 +460,7 @@ export function LandingView({
                 rel="noreferrer"
                 className="public-footer-owner"
               >
-                A chikoochi.com product
+                A Chikoochi product
               </a>
             </div>
             <nav className="public-footer-links" aria-label="Footer navigation">
