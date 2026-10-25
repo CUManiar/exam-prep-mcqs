@@ -689,7 +689,7 @@ export function exportAttemptAsPrintPDF(
 }
 
 /**
- * Downloads a real PDF for a Markdown question paper.
+ * Opens a generated PDF for a Markdown question paper in a new browser tab.
  * Markdown papers use a local marker instead of a downloadable PDF URL, so
  * they are laid out directly from their persisted questions here.
  */
@@ -723,7 +723,6 @@ export function exportQuestionPaperAsPDF(paper: QuestionPaper): void {
   const pageHeight = doc.internal.pageSize.getHeight();
   const margin = 14;
   const contentWidth = pageWidth - margin * 2;
-  const lineHeight = 4.6;
   let y = margin;
 
   const normalizeText = (value: string) =>
@@ -734,46 +733,53 @@ export function exportQuestionPaperAsPDF(paper: QuestionPaper): void {
       .replace(/•/g, "-")
       .replace(/₹/g, "Rs.");
 
-  const wrap = (value: string, width: number) =>
-    doc.splitTextToSize(normalizeText(value), width) as string[];
+  const getLineHeight = (fontSize: number) =>
+    Math.max(3.8, fontSize * 0.3528 * 1.35);
+
+  const wrap = (value: string, width: number, fontSize: number) => {
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(fontSize);
+    return doc.splitTextToSize(normalizeText(value), width) as string[];
+  };
+
+  const drawLines = (
+    lines: string[],
+    x: number,
+    startY: number,
+    fontSize: number,
+    color: [number, number, number],
+    weight: "normal" | "bold" = "normal",
+  ) => {
+    const lineHeight = getLineHeight(fontSize);
+    doc.setFont("helvetica", weight);
+    doc.setFontSize(fontSize);
+    doc.setTextColor(...color);
+    lines.forEach((line, index) => {
+      doc.text(line, x, startY + index * lineHeight);
+    });
+    return lines.length * lineHeight;
+  };
 
   const addPage = () => {
     doc.addPage();
     y = margin;
-    doc.setFont("helvetica", "bold");
-    doc.setFontSize(9);
-    doc.setTextColor(71, 85, 105);
-    doc.text(title, margin, y);
+    const pageTitleLines = wrap(title, contentWidth, 9);
+    drawLines(pageTitleLines, margin, y, 9, [71, 85, 105], "bold");
+    y += pageTitleLines.length * getLineHeight(9);
     doc.setDrawColor(203, 213, 225);
-    doc.line(margin, y + 3, pageWidth - margin, y + 3);
-    y += 10;
+    doc.line(margin, y, pageWidth - margin, y);
+    y += 7;
   };
 
   const ensureSpace = (height: number) => {
     if (y + height > pageHeight - margin) addPage();
   };
 
-  const drawWrapped = (
-    lines: string[],
-    x: number,
-    width: number,
-    fontSize: number,
-    color: [number, number, number],
-    weight: "normal" | "bold" = "normal",
-  ) => {
-    doc.setFont("helvetica", weight);
-    doc.setFontSize(fontSize);
-    doc.setTextColor(...color);
-    doc.text(lines, x, y, { maxWidth: width, lineHeightFactor: 1.25 });
-    y += lines.length * lineHeight;
-  };
-
   doc.setFont("helvetica", "bold");
   doc.setFontSize(16);
   doc.setTextColor(15, 23, 42);
-  const titleLines = wrap(title, contentWidth);
-  doc.text(titleLines, margin, y, { lineHeightFactor: 1.2 });
-  y += titleLines.length * 6.2;
+  const titleLines = wrap(title, contentWidth, 16);
+  y += drawLines(titleLines, margin, y, 16, [15, 23, 42], "bold") + 2;
 
   doc.setFont("helvetica", "normal");
   doc.setFontSize(9.5);
@@ -792,10 +798,13 @@ export function exportQuestionPaperAsPDF(paper: QuestionPaper): void {
 
   if (instructions.length > 0) {
     const instructionLines = instructions.flatMap((instruction) => {
-      const lines = wrap(instruction, contentWidth - 14);
-      return lines.length ? [`- ${lines[0]}`, ...lines.slice(1).map((line) => `  ${line}`)] : [];
+      const lines = wrap(instruction, contentWidth - 14, 9);
+      return lines.length
+        ? [`- ${lines[0]}`, ...lines.slice(1).map((line) => `  ${line}`)]
+        : [];
     });
-    const boxHeight = 10 + instructionLines.length * lineHeight;
+    const instructionLineHeight = getLineHeight(9);
+    const boxHeight = 11 + instructionLines.length * instructionLineHeight + 4;
     ensureSpace(boxHeight + 7);
     doc.setFillColor(248, 251, 255);
     doc.setDrawColor(191, 219, 254);
@@ -804,9 +813,8 @@ export function exportQuestionPaperAsPDF(paper: QuestionPaper): void {
     doc.setFontSize(10);
     doc.setTextColor(30, 58, 138);
     doc.text("INSTRUCTIONS", margin + 4, y + 6);
-    y += 11;
-    drawWrapped(instructionLines, margin + 4, contentWidth - 8, 9, [51, 65, 85]);
-    y += 5;
+    drawLines(instructionLines, margin + 4, y + 11, 9, [51, 65, 85]);
+    y += boxHeight + 7;
   }
 
   const drawOption = (
@@ -827,43 +835,64 @@ export function exportQuestionPaperAsPDF(paper: QuestionPaper): void {
     doc.setFont("helvetica", "normal");
     doc.setFontSize(9);
     doc.setTextColor(30, 41, 59);
-    doc.text(wrap(value, width - 14), x + 11, rowY + 6, {
-      lineHeightFactor: 1.25,
-    });
+    drawLines(wrap(value, width - 14, 9), x + 11, rowY + 6, 9, [30, 41, 59]);
   };
 
   for (const question of questions) {
+    const questionFontSize = 10;
+    const optionFontSize = 9;
     const questionTextLines = question.text
       .split(/\r?\n/)
-      .flatMap((paragraph) => (paragraph.trim() ? wrap(paragraph, contentWidth - 13) : [" "]));
-    const optionEntries = ["A", "B", "C", "D"]
-      .map((letter) => [letter, question.options?.[letter] || `Option ${letter}`] as const)
-      .filter(([, value]) => value.trim().length > 0);
+      .flatMap((paragraph) =>
+        paragraph.trim()
+          ? wrap(paragraph, contentWidth - 13, questionFontSize)
+          : [" "],
+      );
+    const optionEntries = Object.entries(question.options || {}).sort(
+      ([a], [b]) => a.localeCompare(b),
+    );
     const optionWidth = (contentWidth - 6) / 2;
     const optionHeights = optionEntries.map(([, value]) =>
-      Math.max(11, wrap(value, optionWidth - 14).length * lineHeight + 5),
+      Math.max(
+        11,
+        wrap(value, optionWidth - 14, optionFontSize).length *
+          getLineHeight(optionFontSize) +
+          7,
+      ),
     );
-    const questionHeight = questionTextLines.length * lineHeight + 8;
+    const questionHeight =
+      questionTextLines.length * getLineHeight(questionFontSize) + 8;
     ensureSpace(questionHeight + 12);
 
     doc.setFont("helvetica", "bold");
-    doc.setFontSize(10);
-    doc.setTextColor(29, 78, 216);
-    doc.text(`Q${question.questionNo}`, margin, y + 4);
-    drawWrapped(
-      questionTextLines,
-      margin + 11,
-      contentWidth - 11,
-      10,
-      [15, 23, 42],
+    drawLines(
+      [`Q${question.questionNo}`],
+      margin,
+      y + getLineHeight(questionFontSize),
+      questionFontSize,
+      [29, 78, 216],
       "bold",
     );
-    y += 3;
+    const questionTextY = y + getLineHeight(questionFontSize);
+    y =
+      questionTextY +
+      drawLines(
+        questionTextLines,
+        margin + 11,
+        questionTextY,
+        questionFontSize,
+        [15, 23, 42],
+        "bold",
+      ) +
+      3;
 
     for (let index = 0; index < optionEntries.length; index += 2) {
       const first = optionEntries[index];
       const second = optionEntries[index + 1];
-      const rowHeight = Math.max(optionHeights[index], optionHeights[index + 1] || 0);
+      const rowHeight = Math.max(
+        optionHeights[index],
+        optionHeights[index + 1] || 0,
+      );
       ensureSpace(rowHeight + 5);
       drawOption(first[0], first[1], margin, y, optionWidth, rowHeight);
       if (second) {
@@ -878,7 +907,17 @@ export function exportQuestionPaperAsPDF(paper: QuestionPaper): void {
   }
 
   const safeTitle = title.toLowerCase().replace(/[^a-z0-9]+/g, "_").replace(/^_|_$/g, "");
-  doc.save(`${safeTitle || "question_paper"}.pdf`);
+  const pdfUrl = URL.createObjectURL(doc.output("blob"));
+  const pdfWindow = window.open(pdfUrl, "_blank", "noopener,noreferrer");
+  if (!pdfWindow) {
+    const downloadLink = document.createElement("a");
+    downloadLink.href = pdfUrl;
+    downloadLink.download = `${safeTitle || "question_paper"}.pdf`;
+    document.body.appendChild(downloadLink);
+    downloadLink.click();
+    downloadLink.remove();
+  }
+  window.setTimeout(() => URL.revokeObjectURL(pdfUrl), 60_000);
 }
 
 /**
