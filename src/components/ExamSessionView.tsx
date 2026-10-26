@@ -190,6 +190,23 @@ export function ExamSessionView({
     if (typeof window === "undefined") return false;
     return localStorage.getItem("exam_prep_auto_advance") === "true";
   });
+  const hasUserInteractedRef = useRef(false);
+
+  const markUserInteraction = () => {
+    hasUserInteractedRef.current = true;
+  };
+
+  const navigateToQuestion = (
+    next: number | null | ((current: number | null) => number | null),
+  ) => {
+    markUserInteraction();
+    setCurrentQuestion(next);
+  };
+
+  const setExamPaused = (paused: boolean) => {
+    markUserInteraction();
+    setIsPaused(paused);
+  };
 
   useEffect(() => {
     const handleSettingsChange = () => {
@@ -466,6 +483,7 @@ export function ExamSessionView({
 
   // Answer selection handler (Objective)
   const handleSelectOption = (qNo: number, option: string) => {
+    markUserInteraction();
     const isDeselecting = answers[qNo]?.selected === option;
     setAnswers((prev) => {
       const current = prev[qNo] || {
@@ -530,6 +548,7 @@ export function ExamSessionView({
   };
 
   const handleSetConfidence = (qNo: number, confidence: ConfidenceLevel) => {
+    markUserInteraction();
     setAnswers((prev) => {
       const current = prev[qNo] || {
         questionNo: qNo,
@@ -547,6 +566,7 @@ export function ExamSessionView({
   };
 
   const handleClearSelection = (qNo: number) => {
+    markUserInteraction();
     setAnswers((prev) => {
       const current = prev[qNo] || {
         questionNo: qNo,
@@ -566,6 +586,7 @@ export function ExamSessionView({
 
   // Flag toggle handler
   const handleToggleFlag = (qNo: number) => {
+    markUserInteraction();
     setAnswers((prev) => {
       const current = prev[qNo] || { questionNo: qNo, selected: null };
       return {
@@ -580,6 +601,7 @@ export function ExamSessionView({
 
   // Note change handler
   const handleUpdateNote = (qNo: number, noteText: string) => {
+    markUserInteraction();
     setAnswers((prev) => {
       const current = prev[qNo] || { questionNo: qNo, selected: null };
       return {
@@ -597,7 +619,12 @@ export function ExamSessionView({
     (overrides?: Partial<ActiveSessionDraft>) => {
       // Guard against saving an empty state over valid stored progress
       const answersEntries = Object.values(answers);
-      if (answersEntries.length === 0) return;
+      if (
+        answersEntries.length === 0 ||
+        (!hasUserInteractedRef.current && !overrides)
+      ) {
+        return;
+      }
 
       const draft: ActiveSessionDraft = {
         paperId: paper.id,
@@ -645,21 +672,14 @@ export function ExamSessionView({
 
   // Save immediately whenever user answers, flags, notes, or switches questions
   useEffect(() => {
+    if (!hasUserInteractedRef.current) return;
     persistSessionDraftRef.current();
-  }, [answers, currentQuestion]);
-
-  // Periodic background sync (every 3 seconds) for continuous timer and active question timings
-  useEffect(() => {
-    if (isScanUploadPhase) return;
-    const interval = setInterval(() => {
-      persistSessionDraftRef.current();
-    }, 3000);
-    return () => clearInterval(interval);
-  }, [isScanUploadPhase]);
+  }, [answers, currentQuestion, isPaused]);
 
   // Protect against accidental refresh, browser close, or tab exit
   useEffect(() => {
     const handleBeforeUnload = (e: BeforeUnloadEvent) => {
+      if (!hasUserInteractedRef.current) return;
       persistSessionDraftRef.current();
       e.preventDefault();
       e.returnValue =
@@ -672,6 +692,7 @@ export function ExamSessionView({
 
   // Save draft session and exit to resume later
   const handleSaveDraftAndExit = () => {
+    markUserInteraction();
     persistSessionDraft({
       isExited: true,
       pausedAt: new Date().toISOString(),
@@ -681,6 +702,7 @@ export function ExamSessionView({
 
   // Subjective Question status toggling (Attempted, Review, Unattempted)
   const handleToggleSubjectiveAttempt = (qNo: number) => {
+    markUserInteraction();
     setAnswers((prev) => {
       const current = prev[qNo] || { questionNo: qNo, selected: null };
       const newSelected = current.selected === "attempted" ? null : "attempted";
@@ -695,6 +717,7 @@ export function ExamSessionView({
   };
 
   const handleClearSubjectiveStatus = (qNo: number) => {
+    markUserInteraction();
     setAnswers((prev) => ({
       ...prev,
       [qNo]: {
@@ -908,7 +931,7 @@ export function ExamSessionView({
 
             {/* Pause Feature Button */}
             <button
-              onClick={() => setIsPaused(true)}
+              onClick={() => setExamPaused(true)}
               title="Pause ongoing exam"
               className="flex items-center gap-1 rounded-lg border border-amber-300 bg-amber-50 px-2 py-1 text-xs font-semibold text-amber-800 hover:bg-amber-100 transition-colors shrink-0 shadow-2xs"
             >
@@ -1163,8 +1186,8 @@ export function ExamSessionView({
                   idleTimeSeconds={idleTimeSeconds}
                   onSelectOption={handleSelectOption}
                   onClearOption={handleClearSelection}
-                  onNavigateQuestion={setCurrentQuestion}
-                  onStartExam={() => setCurrentQuestion(1)}
+                  onNavigateQuestion={navigateToQuestion}
+                  onStartExam={() => navigateToQuestion(1)}
                 />
               ) : (
                 <PdfViewer
@@ -1216,7 +1239,7 @@ export function ExamSessionView({
                     </span>
                   </div>
                   <button
-                    onClick={() => setCurrentQuestion(1)}
+                    onClick={() => navigateToQuestion(1)}
                     className="px-3 py-1.5 rounded-lg bg-indigo-600 text-white font-bold text-xs flex items-center gap-1 shadow-xs hover:bg-indigo-700 shrink-0"
                   >
                     <span>Start Q1</span>
@@ -1229,7 +1252,7 @@ export function ExamSessionView({
                     <button
                       disabled={currentQuestion <= 1}
                       onClick={() =>
-                        setCurrentQuestion((prev) =>
+                        navigateToQuestion((prev) =>
                           Math.max(1, (prev || 1) - 1),
                         )
                       }
@@ -1243,7 +1266,7 @@ export function ExamSessionView({
                     <button
                       disabled={currentQuestion >= paper.totalQuestions}
                       onClick={() =>
-                        setCurrentQuestion((prev) =>
+                        navigateToQuestion((prev) =>
                           Math.min(paper.totalQuestions, (prev || 1) + 1),
                         )
                       }
@@ -1381,7 +1404,7 @@ export function ExamSessionView({
 
                 <div className="flex items-center gap-3 pt-1">
                   <button
-                    onClick={() => setCurrentQuestion(1)}
+                    onClick={() => navigateToQuestion(1)}
                     className="flex-1 rounded-xl bg-indigo-600 px-4 py-2.5 text-xs sm:text-sm font-bold text-white shadow-xs hover:bg-indigo-700 transition-all flex items-center justify-center gap-2"
                   >
                     <span>Start Solving (Question 1)</span>
@@ -1447,7 +1470,7 @@ export function ExamSessionView({
                     {/* Buffer Mode - prominent amber pill button */}
                     <button
                       type="button"
-                      onClick={() => setCurrentQuestion(null)}
+                      onClick={() => navigateToQuestion(null)}
                       title="Switch to reading & overview buffer mode"
                       className="flex items-center gap-1.5 rounded-xl border border-amber-300 bg-amber-50 hover:bg-amber-100 text-amber-900 px-3 py-1.5 text-xs font-bold transition-all shadow-2xs cursor-pointer active:scale-95"
                     >
@@ -1987,7 +2010,7 @@ export function ExamSessionView({
                 type="button"
                 disabled={currentQuestion <= 1}
                 onClick={() =>
-                  setCurrentQuestion((prev) => Math.max(1, (prev || 1) - 1))
+                  navigateToQuestion((prev) => Math.max(1, (prev || 1) - 1))
                 }
                 aria-label="Previous question"
                 className="flex min-h-10 items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-2 text-xs font-semibold text-slate-700 transition-colors hover:bg-slate-50 disabled:pointer-events-none disabled:opacity-40 sm:px-3"
@@ -2019,7 +2042,7 @@ export function ExamSessionView({
                 type="button"
                 disabled={currentQuestion >= paper.totalQuestions}
                 onClick={() =>
-                  setCurrentQuestion((prev) =>
+                  navigateToQuestion((prev) =>
                     Math.min(paper.totalQuestions, (prev || 1) + 1),
                   )
                 }
@@ -2166,7 +2189,7 @@ export function ExamSessionView({
                   <button
                     key={qNo}
                     onClick={() =>
-                      setCurrentQuestion(currentQuestion === qNo ? null : qNo)
+                      navigateToQuestion(currentQuestion === qNo ? null : qNo)
                     }
                     className={`relative flex h-9 sm:h-10 items-center justify-center rounded-xl border text-xs transition-all gap-1.5 px-1.5 ${badgeColor}`}
                     title={
@@ -2238,7 +2261,7 @@ export function ExamSessionView({
 
             <div className="flex flex-col gap-2 pt-2">
               <button
-                onClick={() => setIsPaused(false)}
+                onClick={() => setExamPaused(false)}
                 className="flex items-center justify-center gap-2 rounded-xl bg-indigo-600 py-3 text-xs font-bold text-white shadow-xs hover:bg-indigo-700 transition-all"
               >
                 <Play className="h-4 w-4 fill-current" /> Resume Exam
@@ -2443,7 +2466,7 @@ export function ExamSessionView({
                         key={qNo}
                         onClick={() => {
                           setShowFinishConfirm(false);
-                          setCurrentQuestion(qNo);
+                          navigateToQuestion(qNo);
                         }}
                         className={`flex flex-col items-center justify-center rounded-xl p-2 border transition-all text-center shadow-2xs ${
                           isFlag
