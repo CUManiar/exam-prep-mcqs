@@ -1,6 +1,12 @@
 "use client";
 
-import React, { useState, useEffect, useCallback, useMemo } from "react";
+import React, {
+  useState,
+  useEffect,
+  useCallback,
+  useMemo,
+  useRef,
+} from "react";
 import { useRouter } from "next/navigation";
 import {
   QuestionPaper,
@@ -628,24 +634,33 @@ export function ExamSessionView({
     ],
   );
 
+  // Keep a stable reference for background persistence. The draft callback
+  // includes timer state, so its identity changes every second. Effects that
+  // depend directly on it would otherwise schedule a server request every
+  // second instead of only when the user changes the draft.
+  const persistSessionDraftRef = useRef(persistSessionDraft);
+  useEffect(() => {
+    persistSessionDraftRef.current = persistSessionDraft;
+  }, [persistSessionDraft]);
+
   // Save immediately whenever user answers, flags, notes, or switches questions
   useEffect(() => {
-    persistSessionDraft();
-  }, [answers, currentQuestion, persistSessionDraft]);
+    persistSessionDraftRef.current();
+  }, [answers, currentQuestion]);
 
   // Periodic background sync (every 3 seconds) for continuous timer and active question timings
   useEffect(() => {
     if (isScanUploadPhase) return;
     const interval = setInterval(() => {
-      persistSessionDraft();
+      persistSessionDraftRef.current();
     }, 3000);
     return () => clearInterval(interval);
-  }, [persistSessionDraft, isScanUploadPhase]);
+  }, [isScanUploadPhase]);
 
   // Protect against accidental refresh, browser close, or tab exit
   useEffect(() => {
     const handleBeforeUnload = (e: BeforeUnloadEvent) => {
-      persistSessionDraft();
+      persistSessionDraftRef.current();
       e.preventDefault();
       e.returnValue =
         "Exam in progress. Your progress and notes are saved, but are you sure you want to refresh?";
@@ -653,7 +668,7 @@ export function ExamSessionView({
 
     window.addEventListener("beforeunload", handleBeforeUnload);
     return () => window.removeEventListener("beforeunload", handleBeforeUnload);
-  }, [persistSessionDraft]);
+  }, []);
 
   // Save draft session and exit to resume later
   const handleSaveDraftAndExit = () => {

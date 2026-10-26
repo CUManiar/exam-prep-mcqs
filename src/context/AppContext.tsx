@@ -6,8 +6,9 @@ import React, {
   useState,
   useEffect,
   useCallback,
+  useRef,
 } from "react";
-import { useRouter } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import {
   QuestionPaper,
   Attempt,
@@ -76,6 +77,7 @@ interface AppContextType {
   activeDraft: ActiveSessionDraft | null;
   isLoading: boolean;
   isPro: boolean;
+  isStartingExam: boolean;
   currentUser: User | null;
   openProUpgradeModal: (targetPaperLabel?: string) => void;
   openAuthModal: () => void;
@@ -109,6 +111,7 @@ const AppContext = createContext<AppContextType | null>(null);
 
 export function AppProvider({ children }: { children: React.ReactNode }) {
   const router = useRouter();
+  const pathname = usePathname();
   const [papers, setPapers] = useState<QuestionPaper[]>([]);
   const [hiddenPaperIds, setHiddenPaperIds] = useState<string[]>([]);
   const [attempts, setAttempts] = useState<Attempt[]>([]);
@@ -119,6 +122,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   );
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [isPro, setIsPro] = useState<boolean>(false);
+  const [isStartingExam, setIsStartingExam] = useState(false);
+  const startExamLockRef = useRef(false);
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [notifications, setNotifications] = useState<AppNotification[]>([]);
   const [authModalOpen, setAuthModalOpen] = useState<boolean>(false);
@@ -223,6 +228,13 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const openAuthModal = () => {
     setAuthModalOpen(true);
   };
+
+  useEffect(() => {
+    if (pathname === "/exam") {
+      startExamLockRef.current = false;
+      setIsStartingExam(false);
+    }
+  }, [pathname]);
 
   const handleSignOut = async () => {
     const supabase = getSupabaseClient();
@@ -487,13 +499,26 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
   // Start exam session - free papers are available to guests; paid papers require Pro access.
   const handleStartExam = (paper: QuestionPaper, mode: "practice" | "mock") => {
+    // Router navigation and paper hydration can take long enough that users
+    // may click again. Lock synchronously so only the first launch can run.
+    if (startExamLockRef.current) return;
     if (!isPaperFree(paper) && !isPro) {
       openProUpgradeModal(paper.label);
       return;
     }
+    startExamLockRef.current = true;
+    setIsStartingExam(true);
     clearActiveDraft();
     setActiveDraft(null);
     router.push(`/exam?paperId=${encodeURIComponent(paper.id)}&mode=${mode}`);
+
+    // Recover if navigation is interrupted by a browser/network error.
+    window.setTimeout(() => {
+      if (startExamLockRef.current) {
+        startExamLockRef.current = false;
+        setIsStartingExam(false);
+      }
+    }, 15000);
   };
 
   // Resume paused exam draft
@@ -742,6 +767,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         activeDraft,
         isLoading,
         isPro,
+        isStartingExam,
         currentUser,
         openProUpgradeModal,
         openAuthModal,
@@ -767,6 +793,20 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       }}
     >
       {children}
+
+      {isStartingExam && (
+        <div
+          className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-950/20 backdrop-blur-[2px]"
+          role="status"
+          aria-live="polite"
+          aria-label="Opening assessment"
+        >
+          <div className="flex items-center gap-3 rounded-2xl border border-slate-200 bg-white px-5 py-3 text-sm font-medium text-slate-700 shadow-xl">
+            <span className="h-4 w-4 animate-spin rounded-full border-2 border-slate-200 border-t-indigo-600" />
+            Opening assessment…
+          </div>
+        </div>
+      )}
 
       <ConfirmationModal
         isOpen={modalConfig.isOpen}
