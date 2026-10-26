@@ -4,20 +4,25 @@ import React from "react";
 import { ActiveSessionDraft, Attempt, QuestionPaper } from "../lib/types";
 import {
   getAttemptPercentage,
+  getPaperDisplayTitle,
   isPaperFree,
   isUserUploadedPaper,
 } from "../lib/defaults";
 import {
   ArrowRight,
   AlertTriangle,
+  Award,
   BarChart3,
   BookOpen,
+  CheckCircle2,
   Clock3,
   FileCheck2,
+  Percent,
   Play,
   RotateCcw,
   Target,
   Trash2,
+  TrendingUp,
 } from "lucide-react";
 import { PageHeader } from "./PageHeader";
 
@@ -100,23 +105,36 @@ export function DashboardView({
         !isUserUploadedPaper(paper),
     ) ||
     papers.find((paper) => paper.examType === "objective");
+  const latestAttempt = completed[0];
 
   const metrics = [
     {
       label: "Assessments completed",
       value: completed.length,
       icon: FileCheck2,
+      iconClass: "text-indigo-600",
+      iconBgClass: "bg-indigo-50 ring-indigo-100",
     },
-    { label: "Questions answered", value: questionsAnswered, icon: Target },
+    {
+      label: "Questions answered",
+      value: questionsAnswered,
+      icon: Target,
+      iconClass: "text-sky-600",
+      iconBgClass: "bg-sky-50 ring-sky-100",
+    },
     {
       label: "Average accuracy",
       value: averageAccuracy === null ? "—" : `${averageAccuracy}%`,
       icon: BarChart3,
+      iconClass: "text-emerald-600",
+      iconBgClass: "bg-emerald-50 ring-emerald-100",
     },
     {
       label: "Average percentage",
       value: averagePercentage === null ? "—" : `${averagePercentage}%`,
-      icon: Target,
+      icon: Percent,
+      iconClass: "text-violet-600",
+      iconBgClass: "bg-violet-50 ring-violet-100",
     },
   ];
 
@@ -177,69 +195,144 @@ export function DashboardView({
         </section>
       )}
 
-      <section className="grid gap-4 lg:grid-cols-[minmax(0,1.5fr)_minmax(17rem,0.8fr)]">
-        <div className="surface-card flex min-h-[16rem] flex-col justify-between p-5 sm:p-7">
+      <section className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+        {metrics.map(
+          ({ label, value, icon: Icon, iconClass, iconBgClass }) => (
+            <div
+              key={label}
+              className="surface-card flex items-center gap-3 p-4 sm:p-5"
+            >
+              <span
+                className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl ring-1 ${iconBgClass}`}
+              >
+                <Icon className={`h-5 w-5 ${iconClass}`} />
+              </span>
+              <span className="min-w-0">
+                <span className="block truncate text-xs font-medium text-slate-500">
+                  {label}
+                </span>
+                <span className="mt-1 block text-xl font-semibold tracking-tight text-slate-900 tabular-nums">
+                  {value}
+                </span>
+              </span>
+            </div>
+          ),
+        )}
+      </section>
+
+      <section className="grid gap-4 lg:grid-cols-[minmax(0,1.45fr)_minmax(19rem,0.8fr)]">
+        <div className="relative isolate flex min-h-[18rem] flex-col justify-between overflow-hidden rounded-2xl bg-gradient-to-br from-indigo-700 via-blue-700 to-sky-700 p-6 text-white shadow-sm sm:p-8">
+          <div className="pointer-events-none absolute -right-20 -top-24 -z-10 h-72 w-72 rounded-full border border-white/15" />
+          <div className="pointer-events-none absolute -bottom-32 right-16 -z-10 h-72 w-72 rounded-full border border-white/10" />
           <div>
-            <p className="page-eyebrow">Ready for your next assessment</p>
-            <h2 className="mt-2 max-w-xl text-2xl font-semibold tracking-tight text-slate-900 sm:text-3xl">
-              Choose a paper. Take the assessment.
+            <div className="flex items-center justify-between gap-4">
+              <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-blue-100">
+                Next assessment
+              </p>
+              <span className="inline-flex items-center gap-1.5 rounded-full bg-white/12 px-2.5 py-1 text-[11px] font-medium text-blue-50 ring-1 ring-white/20">
+                <Award className="h-3.5 w-3.5" /> Timed mock
+              </span>
+            </div>
+            <h2 className="mt-4 max-w-2xl text-2xl font-semibold tracking-tight sm:text-3xl">
+              {recommendedPaper
+                ? getPaperDisplayTitle(recommendedPaper)
+                : "Choose your next question paper"}
             </h2>
-            <p className="mt-3 max-w-xl text-sm leading-6 text-slate-600">
-              Start a timed mock and keep the score, percentage, accuracy, and
-              review in your assessment history.
-            </p>
+            {recommendedPaper ? (
+              <div className="mt-4 flex flex-wrap items-center gap-2 text-xs text-blue-100">
+                <span className="rounded-md bg-white/12 px-2.5 py-1 ring-1 ring-white/15">
+                  {recommendedPaper.totalQuestions} questions
+                </span>
+                <span className="rounded-md bg-white/12 px-2.5 py-1 ring-1 ring-white/15">
+                  {recommendedPaper.timeMinutes} minutes
+                </span>
+                <span className="rounded-md bg-white/12 px-2.5 py-1 ring-1 ring-white/15">
+                  {recommendedPaper.totalMarks} marks
+                </span>
+              </div>
+            ) : (
+              <p className="mt-3 max-w-lg text-sm leading-6 text-blue-100">
+                Add a question paper to begin tracking your assessment record.
+              </p>
+            )}
           </div>
-          <div className="mt-6 flex flex-wrap gap-2">
+          <div className="mt-8 flex flex-wrap gap-2">
             {recommendedPaper && (
               <button
                 type="button"
                 onClick={() => onStartExam(recommendedPaper, "mock")}
-                className="button-primary"
+                className="inline-flex items-center gap-2 rounded-xl bg-white px-4 py-2.5 text-sm font-semibold text-indigo-700 shadow-sm transition hover:bg-blue-50"
               >
-                <Play className="h-4 w-4" /> Start a mock
+                <Play className="h-4 w-4" /> Start assessment
               </button>
             )}
             <button
               type="button"
               onClick={onNavigatePapers}
-              className="button-secondary"
+              className="inline-flex items-center gap-2 rounded-xl border border-white/30 bg-white/10 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-white/15"
             >
-              Choose a paper <ArrowRight className="h-4 w-4" />
+              Browse all papers <ArrowRight className="h-4 w-4" />
             </button>
           </div>
         </div>
-        <div className="surface-card p-5 sm:p-6">
-          <div className="flex items-center justify-between gap-4">
+
+        <div className="surface-card flex min-h-[18rem] flex-col p-5 sm:p-6">
+          <div className="flex items-start justify-between gap-4">
             <div>
-              <p className="page-eyebrow">Progress</p>
+              <p className="page-eyebrow">Progress snapshot</p>
               <h2 className="mt-1 text-lg font-semibold text-slate-900">
-                A steady record
+                Your latest signal
               </h2>
             </div>
-            <BarChart3 className="h-5 w-5 text-slate-500" />
+            <TrendingUp className="h-5 w-5 text-emerald-600" />
           </div>
-          <div className="mt-5 divide-y divide-slate-100">
-            {metrics.map(({ label, value, icon: Icon }) => (
-              <div
-                key={label}
-                className="flex items-center justify-between gap-4 py-3 first:pt-0 last:pb-0"
-              >
-                <span className="flex items-center gap-2 text-sm text-slate-600">
-                  <Icon className="h-4 w-4 text-slate-400" /> {label}
-                </span>
-                <span className="text-base font-semibold tabular-nums text-slate-900">
-                  {value}
-                </span>
+
+          {latestAttempt ? (
+            <div className="mt-5 flex flex-1 flex-col justify-between">
+              <div>
+                <p className="truncate text-sm font-semibold text-slate-800">
+                  {latestAttempt.paperLabel}
+                </p>
+                <p className="mt-1 text-xs text-slate-500">
+                  Latest {latestAttempt.mode === "mock" ? "mock" : "practice"} · {formatAttemptDate(latestAttempt.finishedAt || latestAttempt.startedAt)}
+                </p>
+                <div className="mt-5 flex items-end gap-4">
+                  <div>
+                    <p className="text-xs font-medium text-slate-500">Score</p>
+                    <p className="mt-1 text-3xl font-semibold tracking-tight text-slate-900 tabular-nums">
+                      {latestAttempt.score}
+                      <span className="ml-1 text-sm font-medium text-slate-400">
+                        / {latestAttempt.maxScore}
+                      </span>
+                    </p>
+                  </div>
+                  <div className="border-l border-slate-200 pl-4">
+                    <p className="text-xs font-medium text-slate-500">Accuracy</p>
+                    <p className="mt-1 text-xl font-semibold text-emerald-700 tabular-nums">
+                      {Math.round(latestAttempt.accuracyPct || 0)}%
+                    </p>
+                  </div>
+                </div>
               </div>
-            ))}
-          </div>
-          <button
-            type="button"
-            onClick={onNavigateHistory}
-            className="mt-5 inline-flex items-center gap-1.5 text-sm font-medium text-blue-700 hover:text-blue-800"
-          >
-            View detailed performance <ArrowRight className="h-4 w-4" />
-          </button>
+              <button
+                type="button"
+                onClick={() => onViewAttempt(latestAttempt)}
+                className="mt-5 inline-flex items-center gap-1.5 text-sm font-medium text-blue-700 hover:text-blue-800"
+              >
+                Review latest assessment <ArrowRight className="h-4 w-4" />
+              </button>
+            </div>
+          ) : (
+            <div className="mt-5 flex flex-1 flex-col justify-center rounded-xl bg-slate-50 p-4">
+              <CheckCircle2 className="h-6 w-6 text-slate-400" />
+              <p className="mt-3 text-sm font-semibold text-slate-800">
+                No completed assessment yet
+              </p>
+              <p className="mt-1 text-xs leading-5 text-slate-500">
+                Your first score and review will appear here after submission.
+              </p>
+            </div>
+          )}
         </div>
       </section>
 
