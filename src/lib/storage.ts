@@ -555,72 +555,6 @@ export function importAllData(jsonStr: string): boolean {
 
 const DRAFT_KEY = "exam_prep_active_draft_v2";
 
-// Draft state is written locally immediately, but network sync is coalesced.
-// This protects the API when timer updates, rapid answer changes, or route
-// transitions happen close together.
-const DRAFT_SYNC_INTERVAL_MS = 750;
-let queuedDraftSync: ActiveSessionDraft | null = null;
-let draftSyncTimer: ReturnType<typeof setTimeout> | null = null;
-let draftSyncInFlight: AbortController | null = null;
-let lastDraftSyncAt = 0;
-let lastDraftSyncPayload = "";
-
-function scheduleDraftSync(draft: ActiveSessionDraft): void {
-  const payload = JSON.stringify(draft);
-  if (
-    payload === lastDraftSyncPayload &&
-    !queuedDraftSync &&
-    !draftSyncInFlight
-  ) {
-    return;
-  }
-
-  queuedDraftSync = draft;
-  if (draftSyncTimer || draftSyncInFlight) return;
-
-  const delay = Math.max(
-    0,
-    DRAFT_SYNC_INTERVAL_MS - (Date.now() - lastDraftSyncAt),
-  );
-  draftSyncTimer = setTimeout(() => {
-    draftSyncTimer = null;
-    const nextDraft = queuedDraftSync;
-    queuedDraftSync = null;
-    if (!nextDraft) return;
-
-    const controller = new AbortController();
-    draftSyncInFlight = controller;
-    lastDraftSyncAt = Date.now();
-    lastDraftSyncPayload = JSON.stringify(nextDraft);
-
-    fetch("/api/draft", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: lastDraftSyncPayload,
-      signal: controller.signal,
-    })
-      .catch((e) => {
-        if (e?.name !== "AbortError") {
-          console.warn("Server draft sync error:", e);
-        }
-      })
-      .finally(() => {
-        draftSyncInFlight = null;
-        if (queuedDraftSync) scheduleDraftSync(queuedDraftSync);
-      });
-  }, delay);
-}
-
-function cancelDraftSync(): void {
-  queuedDraftSync = null;
-  if (draftSyncTimer) {
-    clearTimeout(draftSyncTimer);
-    draftSyncTimer = null;
-  }
-  draftSyncInFlight?.abort();
-  draftSyncInFlight = null;
-}
-
 export function saveActiveDraft(draft: ActiveSessionDraft): void {
   if (typeof window === "undefined") return;
   try {
@@ -629,9 +563,6 @@ export function saveActiveDraft(draft: ActiveSessionDraft): void {
     console.error("Failed to save draft session to localStorage:", err);
   }
 
-  // Cross-device server sync. The latest state wins; intermediate timer
-  // snapshots do not need individual requests.
-  scheduleDraftSync(draft);
 }
 
 export function getActiveDraft(): ActiveSessionDraft | null {
@@ -645,33 +576,9 @@ export function getActiveDraft(): ActiveSessionDraft | null {
   }
 }
 
-export async function loadActiveDraftFromServer(): Promise<ActiveSessionDraft | null> {
-  try {
-    const res = await fetch("/api/draft");
-    if (res.ok) {
-      const data = await res.json();
-      if (data.ok && data.draft) {
-        if (typeof window !== "undefined") {
-          localStorage.setItem(DRAFT_KEY, JSON.stringify(data.draft));
-        }
-        return data.draft;
-      }
-    }
-  } catch (err) {
-    console.warn("Failed to load draft from server, using local cache:", err);
-  }
-  return getActiveDraft();
-}
-
 export function clearActiveDraft(): void {
   if (typeof window === "undefined") return;
-  cancelDraftSync();
   try {
     localStorage.removeItem(DRAFT_KEY);
-  } catch {}
-
-  // Cross-device server clear
-  try {
-    fetch("/api/draft", { method: "DELETE" }).catch(() => {});
   } catch {}
 }

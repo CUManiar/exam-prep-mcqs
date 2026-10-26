@@ -63,29 +63,26 @@ export function DashboardView({
         new Date(b.finishedAt || b.startedAt).getTime() -
         new Date(a.finishedAt || a.startedAt).getTime(),
     );
-  // Progress metrics follow the official Performance view: completed mocks only.
-  // Practice sessions are useful in recent activity but are not part of the saved mock record.
-  const mockAttempts = completed.filter((attempt) => attempt.mode === "mock");
-  const questionsAnswered = mockAttempts.reduce(
+  const questionsAnswered = completed.reduce(
     (sum, attempt) => sum + (attempt.answered || 0),
     0,
   );
-  const averageAccuracy = mockAttempts.length
+  const averageAccuracy = completed.length
     ? Math.round(
-        (mockAttempts.reduce(
+        (completed.reduce(
           (sum, attempt) => sum + (attempt.accuracyPct || 0),
           0,
         ) /
-          mockAttempts.length) *
+          completed.length) *
           10,
       ) / 10
     : null;
-  const averagePercentage = mockAttempts.length
+  const averagePercentage = completed.length
     ? Math.round(
-        (mockAttempts.reduce(
+        (completed.reduce(
           (sum, attempt) => sum + getAttemptPercentage(attempt),
           0,
-        ) / mockAttempts.length) * 10,
+        ) / completed.length) * 10,
       ) / 10
     : null;
   const recommendedPaper =
@@ -107,17 +104,17 @@ export function DashboardView({
   const metrics = [
     {
       label: "Assessments completed",
-      value: mockAttempts.length,
+      value: completed.length,
       icon: FileCheck2,
     },
     { label: "Questions answered", value: questionsAnswered, icon: Target },
     {
-      label: "Mock average accuracy",
+      label: "Average accuracy",
       value: averageAccuracy === null ? "—" : `${averageAccuracy}%`,
       icon: BarChart3,
     },
     {
-      label: "Mock average percentage",
+      label: "Average percentage",
       value: averagePercentage === null ? "—" : `${averagePercentage}%`,
       icon: Target,
     },
@@ -183,13 +180,13 @@ export function DashboardView({
       <section className="grid gap-4 lg:grid-cols-[minmax(0,1.5fr)_minmax(17rem,0.8fr)]">
         <div className="surface-card flex min-h-[16rem] flex-col justify-between p-5 sm:p-7">
           <div>
-            <p className="page-eyebrow">Ready when you are</p>
+            <p className="page-eyebrow">Ready for your next assessment</p>
             <h2 className="mt-2 max-w-xl text-2xl font-semibold tracking-tight text-slate-900 sm:text-3xl">
-              Make your next practice session count.
+              Choose a paper. Take the assessment.
             </h2>
             <p className="mt-3 max-w-xl text-sm leading-6 text-slate-600">
-              Select a question paper and choose practice or mock mode. Your
-              results and review are available after submission.
+              Start a timed mock and keep the score, percentage, accuracy, and
+              review in your assessment history.
             </p>
           </div>
           <div className="mt-6 flex flex-wrap gap-2">

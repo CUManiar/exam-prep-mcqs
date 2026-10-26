@@ -639,6 +639,8 @@ export function ExamSessionView({
         isExited: false,
         ...overrides,
       };
+      // Local storage keeps the current tab resilient. Authenticated users
+      // sync the cross-device draft through Supabase below.
       saveActiveDraft(draft);
 
       if (currentUser?.id) {

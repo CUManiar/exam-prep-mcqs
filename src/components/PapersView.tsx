@@ -14,6 +14,7 @@ import {
   isUserUploadedPaper,
   getPaperDisplayTitle,
   getPaperDownloadFilename,
+  getAttemptPercentage,
 } from "../lib/defaults";
 import { attachToPaperOnServer } from "../lib/storage";
 import { exportQuestionPaperAsPDF } from "../lib/exportUtils";
@@ -39,7 +40,6 @@ import {
   Settings2,
   ChevronRight,
   Lock,
-  Sparkles,
   Grid2X2,
   List,
 } from "lucide-react";
@@ -463,7 +463,6 @@ export function PapersView({
           {filteredPapers.map((paper) => {
             const keyPresent = hasAnswerKey(paper);
             const solutionPresent = hasSolution(paper);
-            const isCustom = isUserUploadedPaper(paper);
             const keyCount =
               Object.keys(paper.answerKey || {}).length ||
               (keyPresent ? paper.totalQuestions : 0);
@@ -475,10 +474,38 @@ export function PapersView({
             const practiceAtts = paperAtts.filter((a) => a.mode === "practice");
             const hasMock = mockAtts.length > 0;
             const hasPractice = practiceAtts.length > 0;
-            const bestMock = mockAtts.reduce(
-              (best, cur) => (cur.score > (best?.score ?? -999) ? cur : best),
-              null as Attempt | null,
+            const latestAttempt = [...paperAtts]
+              .filter((attempt) => Boolean(attempt.finishedAt))
+              .sort(
+                (a, b) =>
+                  new Date(b.finishedAt || b.startedAt).getTime() -
+                  new Date(a.finishedAt || a.startedAt).getTime(),
+              )[0];
+            const cutoffEnabled = Boolean(
+              paper.cutoffEnabled || latestAttempt?.cutoffEnabled,
             );
+            const cutoffType =
+              paper.cutoffType || latestAttempt?.cutoffType || "percentage";
+            const cutoffValue =
+              paper.cutoffValue ?? latestAttempt?.cutoffValue;
+            const hasCutoff =
+              Boolean(cutoffEnabled) &&
+              latestAttempt &&
+              cutoffValue !== undefined &&
+              Number.isFinite(cutoffValue);
+            const cutoffMeasure = latestAttempt
+              ? cutoffType === "marks"
+                ? latestAttempt.score
+                : getAttemptPercentage(latestAttempt)
+              : null;
+            const cutoffPassed =
+              Boolean(hasCutoff) &&
+              cutoffMeasure !== null &&
+              cutoffMeasure >= (cutoffValue as number);
+            const cutoffLabel =
+              cutoffType === "marks"
+                ? `${cutoffValue} marks`
+                : `${cutoffValue}%`;
 
             return (
               <div
@@ -491,16 +518,11 @@ export function PapersView({
               >
                 <div className="min-w-0">
                   {/* Top Header Row: Clean, quiet badges */}
-                  <div className="flex items-center justify-between gap-2">
+                  <div className="flex items-start justify-between gap-2">
                     <div className="flex items-center gap-1.5 flex-wrap">
                       <span className="rounded-md bg-slate-100 px-2 py-0.5 text-xs font-medium text-slate-600 font-mono">
                         {paper.year}
                       </span>
-                      {isCustom && (
-                        <span className="text-[11px] font-medium text-purple-700 bg-purple-50 px-2 py-0.5 rounded-md border border-purple-100">
-                          Uploaded
-                        </span>
-                      )}
                       {isLocked && (
                         <span className="inline-flex items-center gap-1 rounded-md bg-amber-50 px-1.5 py-0.5 text-[10px] font-medium text-amber-800 border border-amber-200">
                           <Lock className="h-2.5 w-2.5 text-amber-600" />
@@ -509,48 +531,50 @@ export function PapersView({
                       )}
                     </div>
 
-                    <div className="flex items-center gap-1.5">
-                      {((paper.parsedQuestions && paper.parsedQuestions.length > 0) ||
-                        paper.markdownContent ||
-                        paper.qpUrl?.startsWith("local://")) ? (
-                        <span className="text-[11px] font-medium text-purple-700 bg-purple-50 px-2 py-0.5 rounded-full border border-purple-200 flex items-center gap-1">
-                          <Sparkles className="h-3 w-3 text-purple-600" />
-                          <span>Interactive</span>
-                        </span>
-                      ) : (
-                        <span className="text-[11px] font-medium text-slate-500 bg-slate-50 px-2 py-0.5 rounded-full border border-slate-200">
-                          {paper.examType === "subjective" ? "Mains" : "PDF"}
-                        </span>
-                      )}
-                    </div>
-                  </div>
-
-                  {/* Clean Title Container with subtle attempt badges */}
-                  <div className="mt-3 min-h-[40px] flex items-start gap-2">
-                    <h3 className="text-sm font-semibold text-slate-900 group-hover:text-indigo-600 transition-colors leading-snug line-clamp-2 flex-1">
-                      {getPaperDisplayTitle(paper)}
-                    </h3>
-
-                    {/* Subtle Attempt Count Chips */}
-                    <div className="flex items-center gap-1 shrink-0 mt-0.5">
+                    <div className="flex max-w-[65%] shrink-0 flex-wrap items-center justify-end gap-1">
                       {hasMock && (
                         <span
-                          title={`Mock Attempted: ${mockAtts.length} ${mockAtts.length === 1 ? "time" : "times"}${bestMock ? ` • Best Score: ${bestMock.score}/${paper.totalMarks}` : ""}`}
-                          className="inline-flex items-center justify-center px-1.5 h-5 rounded-md bg-indigo-50 border border-indigo-200 text-indigo-700 text-[10px] font-mono font-medium cursor-default"
+                          aria-label={`${mockAtts.length} mock ${mockAtts.length === 1 ? "attempt" : "attempts"}`}
+                          className="inline-flex items-center justify-center rounded-md border border-indigo-200 bg-indigo-50 px-2 py-1 text-[10px] font-semibold text-indigo-700"
                         >
-                          M{mockAtts.length}
+                          {mockAtts.length} {mockAtts.length === 1 ? "mock" : "mocks"}
                         </span>
                       )}
 
                       {hasPractice && (
                         <span
-                          title={`Practiced: ${practiceAtts.length} ${practiceAtts.length === 1 ? "session" : "sessions"}`}
-                          className="inline-flex items-center justify-center px-1.5 h-5 rounded-md bg-emerald-50 border border-emerald-200 text-emerald-700 text-[10px] font-mono font-medium cursor-default"
+                          aria-label={`${practiceAtts.length} practice ${practiceAtts.length === 1 ? "session" : "sessions"}`}
+                          className="inline-flex items-center justify-center rounded-md border border-emerald-200 bg-emerald-50 px-2 py-1 text-[10px] font-semibold text-emerald-700"
                         >
-                          P{practiceAtts.length}
+                          {practiceAtts.length} {practiceAtts.length === 1 ? "practice" : "practices"}
+                        </span>
+                      )}
+
+                      {hasCutoff && (
+                        <span
+                          title={`Latest result: ${cutoffMeasure}%${cutoffType === "marks" ? ` (${cutoffMeasure}/${latestAttempt?.maxScore})` : ""}; cutoff ${cutoffLabel}`}
+                          className={`inline-flex items-center gap-1 rounded-md border px-2 py-1 text-[10px] font-semibold ${
+                            cutoffPassed
+                              ? "border-emerald-200 bg-emerald-50 text-emerald-700"
+                              : "border-rose-200 bg-rose-50 text-rose-700"
+                          }`}
+                        >
+                          {cutoffPassed ? (
+                            <CheckCircle2 className="h-3 w-3" />
+                          ) : (
+                            <AlertTriangle className="h-3 w-3" />
+                          )}
+                          {cutoffPassed ? "Passed cutoff" : "Below cutoff"}
                         </span>
                       )}
                     </div>
+                  </div>
+
+                  {/* Clean Title Container */}
+                  <div className="mt-3 min-h-[40px]">
+                    <h3 className="text-sm font-semibold text-slate-900 group-hover:text-indigo-600 transition-colors leading-snug line-clamp-2">
+                      {getPaperDisplayTitle(paper)}
+                    </h3>
                   </div>
 
                   {/* Meta details */}
