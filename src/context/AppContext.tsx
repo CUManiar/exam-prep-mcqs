@@ -15,6 +15,7 @@ import {
   ActiveSessionDraft,
   AppNotification,
   AppNotificationType,
+  SyllabusItem,
 } from "../lib/types";
 import { getNotifications, saveNotifications } from "../lib/notifications";
 import {
@@ -31,6 +32,12 @@ import {
   clearActiveDraft,
   getLocalHiddenPaperIds,
   saveLocalHiddenPaperIds,
+  getOnlyCustomPapers,
+  saveOnlyCustomPapers,
+  getCustomSyllabus,
+  saveCustomSyllabus,
+  getCustomSyllabusMarkdown,
+  saveCustomSyllabusMarkdown,
   removeLocalCustomPaper,
   saveCustomPaper,
   getCustomPapers,
@@ -68,7 +75,15 @@ import {
   fetchUserCustomPapersFromSupabase,
   saveUserCustomPaperToSupabase,
   deleteUserCustomPaperFromSupabase,
+  updateOnlyCustomPapersInSupabase,
+  saveUserSyllabusToSupabase,
+  saveUserSyllabusMarkdownToSupabase,
 } from "../lib/supabase";
+import {
+  getSyllabusCompletion,
+  getSyllabusTopicKey,
+  parseSyllabusMarkdown,
+} from "../lib/syllabusMarkdown";
 
 interface AppContextType {
   papers: QuestionPaper[];
@@ -94,6 +109,13 @@ interface AppContextType {
   handleUpdatePaper: (paper: QuestionPaper) => Promise<void>;
   hiddenPaperIds: string[];
   handleRestoreHiddenPapers: () => Promise<void>;
+  onlyCustomPapers: boolean;
+  handleSetOnlyCustomPapers: (value: boolean) => Promise<void>;
+  syllabusItems: SyllabusItem[];
+  syllabusMarkdown: string;
+  handleImportSyllabusMarkdown: (markdown: string) => Promise<void>;
+  handleClearSyllabus: () => Promise<void>;
+  handleToggleSyllabusItem: (itemId: string) => Promise<void>;
   notifications: AppNotification[];
   addNotification: (notification: {
     type: AppNotificationType;
@@ -113,6 +135,9 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const [papers, setPapers] = useState<QuestionPaper[]>([]);
   const [hiddenPaperIds, setHiddenPaperIds] = useState<string[]>([]);
+  const [onlyCustomPapers, setOnlyCustomPapers] = useState(false);
+  const [syllabusItems, setSyllabusItems] = useState<SyllabusItem[]>([]);
+  const [syllabusMarkdown, setSyllabusMarkdown] = useState("");
   const [attempts, setAttempts] = useState<Attempt[]>([]);
   const [activeDraft, setActiveDraft] = useState<ActiveSessionDraft | null>(
     () => {
@@ -242,7 +267,10 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         await supabase.auth.signOut();
       }
     } catch (error) {
-      console.warn("Sign out request failed; clearing the local session:", error);
+      console.warn(
+        "Sign out request failed; clearing the local session:",
+        error,
+      );
     } finally {
       setCurrentUser(null);
       setUserPro(false);
@@ -327,6 +355,18 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
           ? profile.hidden_paper_ids
           : getLocalHiddenPaperIds(user.id);
         setHiddenPaperIds(hidden);
+        const customOnly =
+          profile?.only_custom_papers ?? getOnlyCustomPapers(user.id);
+        setOnlyCustomPapers(customOnly);
+        setSyllabusItems(
+          Array.isArray(profile?.custom_syllabus)
+            ? profile.custom_syllabus
+            : getCustomSyllabus(user.id),
+        );
+        setSyllabusMarkdown(
+          profile?.custom_syllabus_markdown ??
+            getCustomSyllabusMarkdown(user.id),
+        );
 
         const localCustom = getCustomPapers();
         // Backfill Markdown papers created before remote content fields existed.
@@ -361,8 +401,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
                   match.parsedQuestions && match.parsedQuestions.length > 0
                     ? match.parsedQuestions
                     : ucp.parsedQuestions,
-                markdownContent:
-                  match.markdownContent || ucp.markdownContent,
+                markdownContent: match.markdownContent || ucp.markdownContent,
                 instructions:
                   match.instructions && match.instructions.length > 0
                     ? match.instructions
@@ -401,14 +440,19 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
               p.parsedQuestions = parseQuestionnaireMarkdown(p.markdownContent);
             }
             if (!p.instructions || p.instructions.length === 0) {
-              p.instructions = parseMarkdownHeader(p.markdownContent).instructions;
+              p.instructions = parseMarkdownHeader(
+                p.markdownContent,
+              ).instructions;
             }
           }
           return p;
         });
 
         // Filter out papers hidden by this specific user
-        const visiblePapers = enriched.filter((p) => !hidden.includes(p.id));
+        const visiblePapers = enriched.filter(
+          (p) =>
+            !hidden.includes(p.id) && (!customOnly || isUserUploadedPaper(p)),
+        );
         setPapers(visiblePapers);
 
         if (profile?.is_pro) {
@@ -447,6 +491,10 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     try {
       const hidden = getLocalHiddenPaperIds();
       setHiddenPaperIds(hidden);
+      const customOnly = getOnlyCustomPapers();
+      setOnlyCustomPapers(customOnly);
+      setSyllabusItems(getCustomSyllabus());
+      setSyllabusMarkdown(getCustomSyllabusMarkdown());
       const loadedPapers = await getAllPapers();
       const enriched = loadedPapers.map((p) => {
         if (p.markdownContent) {
@@ -454,12 +502,19 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
             p.parsedQuestions = parseQuestionnaireMarkdown(p.markdownContent);
           }
           if (!p.instructions || p.instructions.length === 0) {
-            p.instructions = parseMarkdownHeader(p.markdownContent).instructions;
+            p.instructions = parseMarkdownHeader(
+              p.markdownContent,
+            ).instructions;
           }
         }
         return p;
       });
-      setPapers(enriched.filter((p) => !hidden.includes(p.id)));
+      setPapers(
+        enriched.filter(
+          (p) =>
+            !hidden.includes(p.id) && (!customOnly || isUserUploadedPaper(p)),
+        ),
+      );
     } catch (err) {
       console.warn("Failed loading papers from server:", err);
     } finally {
@@ -669,6 +724,77 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     await loadAllData();
   };
 
+  const handleSetOnlyCustomPapers = async (value: boolean) => {
+    setOnlyCustomPapers(value);
+    saveOnlyCustomPapers(value, currentUser?.id);
+    if (currentUser)
+      await updateOnlyCustomPapersInSupabase(currentUser.id, value);
+    await loadAllData();
+  };
+
+  const persistSyllabus = async (items: SyllabusItem[]) => {
+    setSyllabusItems(items);
+    saveCustomSyllabus(items, currentUser?.id);
+    if (currentUser) await saveUserSyllabusToSupabase(currentUser.id, items);
+  };
+
+  const handleImportSyllabusMarkdown = async (markdown: string) => {
+    const items = parseSyllabusMarkdown(
+      markdown,
+      syllabusMarkdown.trim() ? syllabusItems : [],
+    );
+    setSyllabusMarkdown(markdown);
+    saveCustomSyllabusMarkdown(markdown, currentUser?.id);
+    if (currentUser) {
+      await saveUserSyllabusMarkdownToSupabase(currentUser.id, markdown);
+    }
+    await persistSyllabus(items);
+  };
+
+  const handleClearSyllabus = async () => {
+    setSyllabusMarkdown("");
+    saveCustomSyllabusMarkdown("", currentUser?.id);
+    if (currentUser) {
+      await saveUserSyllabusMarkdownToSupabase(currentUser.id, "");
+    }
+    await persistSyllabus([]);
+  };
+
+  const handleToggleSyllabusItem = async (itemId: string) => {
+    const item = syllabusItems.find((candidate) => candidate.id === itemId);
+    if (!item) return;
+    const nextCompleted = !getSyllabusCompletion(item, syllabusItems);
+    const topicKey = getSyllabusTopicKey(item);
+    const affectedIds = new Set(
+      syllabusItems
+        .filter((candidate) => getSyllabusTopicKey(candidate) === topicKey)
+        .map((candidate) => candidate.id),
+    );
+    let changed = true;
+    while (changed) {
+      changed = false;
+      syllabusItems.forEach((candidate) => {
+        if (candidate.parentId && affectedIds.has(candidate.parentId)) {
+          if (!affectedIds.has(candidate.id)) {
+            affectedIds.add(candidate.id);
+            changed = true;
+          }
+        }
+      });
+    }
+    await persistSyllabus(
+      syllabusItems.map((existing) =>
+        affectedIds.has(existing.id)
+          ? {
+              ...existing,
+              completed: nextCompleted,
+              updatedAt: new Date().toISOString(),
+            }
+          : existing,
+      ),
+    );
+  };
+
   // Delete / Hide paper handler
   const handleDeletePaper = (paperId: string) => {
     const targetPaper = papers.find((p) => p.id === paperId);
@@ -787,6 +913,13 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         handleUpdatePaper,
         hiddenPaperIds,
         handleRestoreHiddenPapers,
+        onlyCustomPapers,
+        handleSetOnlyCustomPapers,
+        syllabusItems,
+        syllabusMarkdown,
+        handleImportSyllabusMarkdown,
+        handleClearSyllabus,
+        handleToggleSyllabusItem,
         notifications,
         addNotification,
         markNotificationRead,

@@ -3,7 +3,14 @@
 import React, { useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { BarChart3, BookOpen, LayoutDashboard, LogIn } from "lucide-react";
+import {
+  BarChart3,
+  BookOpen,
+  LayoutDashboard,
+  ListChecks,
+  LogIn,
+  Sparkles,
+} from "lucide-react";
 import { useApp } from "../context/AppContext";
 import { NotificationCenter } from "./NotificationCenter";
 import { ProfileSettingsModal } from "./ProfileSettingsModal";
@@ -12,6 +19,8 @@ const navigation = [
   { href: "/", label: "Overview", icon: LayoutDashboard },
   { href: "/papers", label: "Question papers", icon: BookOpen },
   { href: "/history", label: "Performance", icon: BarChart3 },
+  { href: "/syllabus", label: "Syllabus", icon: ListChecks },
+  { href: "/help/mcp", label: "AI Help", icon: Sparkles, isAi: true },
 ];
 
 export function Navbar() {
@@ -40,19 +49,19 @@ export function Navbar() {
           </Link>
 
           <nav className="app-primary-nav" aria-label="Main navigation">
-            {navigation.map(({ href, label, icon: Icon }) => {
+            {navigation.map(({ href, label, icon: Icon, isAi }) => {
               const active =
                 Boolean(currentUser) &&
                 (href === "/"
                   ? pathname === "/"
                   : pathname === href || pathname.startsWith(`${href}/`));
-              if (!currentUser && href !== "/") {
+              if (!currentUser && href !== "/" && href !== "/help/mcp") {
                 return (
                   <button
                     key={href}
                     type="button"
                     onClick={openAuthModal}
-                    className="app-nav-link"
+                    className={`app-nav-link ${isAi ? "ai-help-link" : ""}`}
                   >
                     <Icon aria-hidden="true" />
                     {label}
@@ -64,7 +73,7 @@ export function Navbar() {
                   key={href}
                   href={href}
                   aria-current={active ? "page" : undefined}
-                  className={`app-nav-link ${active ? "is-active" : ""}`}
+                  className={`app-nav-link ${isAi ? "ai-help-link" : ""} ${active ? "is-active" : ""}`}
                 >
                   <Icon aria-hidden="true" />
                   {label}
@@ -106,19 +115,19 @@ export function Navbar() {
           </div>
         </div>
         <nav className="app-mobile-nav" aria-label="Main navigation">
-          {navigation.map(({ href, label, icon: Icon }) => {
+          {navigation.map(({ href, label, icon: Icon, isAi }) => {
             const active =
               Boolean(currentUser) &&
               (href === "/"
                 ? pathname === "/"
                 : pathname === href || pathname.startsWith(`${href}/`));
-            if (!currentUser && href !== "/") {
+            if (!currentUser && href !== "/" && href !== "/help/mcp") {
               return (
                 <button
                   type="button"
                   key={href}
                   onClick={openAuthModal}
-                  className="app-mobile-nav-link"
+                  className={`app-mobile-nav-link ${isAi ? "ai-help-link" : ""}`}
                 >
                   <Icon aria-hidden="true" />
                   <span>{label}</span>
@@ -130,7 +139,7 @@ export function Navbar() {
                 key={href}
                 href={href}
                 aria-current={active ? "page" : undefined}
-                className={`app-mobile-nav-link ${active ? "is-active" : ""}`}
+                className={`app-mobile-nav-link ${isAi ? "ai-help-link" : ""} ${active ? "is-active" : ""}`}
               >
                 <Icon aria-hidden="true" />
                 <span>{label}</span>

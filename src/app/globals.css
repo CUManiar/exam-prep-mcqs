@@ -168,6 +168,38 @@ label,
   color: #0f172a;
 }
 
+.app-nav-link.ai-help-link {
+  border: 1px solid #ddd6fe;
+  background: linear-gradient(135deg, #faf5ff, #eef2ff);
+  color: #6d28d9;
+  font-weight: 650;
+}
+
+.app-nav-link.ai-help-link svg,
+.app-mobile-nav-link.ai-help-link svg {
+  color: #a855f7;
+  filter: drop-shadow(0 0 5px rgba(168, 85, 247, 0.32));
+  animation: ai-help-sparkle 2.4s ease-in-out infinite;
+}
+
+.app-nav-link.ai-help-link:hover,
+.app-nav-link.ai-help-link.is-active,
+.app-mobile-nav-link.ai-help-link.is-active {
+  border-color: #c4b5fd;
+  background: linear-gradient(135deg, #f3e8ff, #e0e7ff);
+  color: #5b21b6;
+}
+
+@keyframes ai-help-sparkle {
+  0%,
+  100% {
+    transform: rotate(-5deg) scale(1);
+  }
+  50% {
+    transform: rotate(5deg) scale(1.12);
+  }
+}
+
 .app-header-actions {
   gap: 0.5rem;
 }
@@ -563,23 +595,42 @@ label,
 }
 
 @keyframes public-fade-in {
-  from { opacity: 0; }
-  to { opacity: 1; }
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
 }
 
 @keyframes public-float {
-  0%, 100% { transform: translate3d(0, 0, 0); }
-  50% { transform: translate3d(0, -10px, 0); }
+  0%,
+  100% {
+    transform: translate3d(0, 0, 0);
+  }
+  50% {
+    transform: translate3d(0, -10px, 0);
+  }
 }
 
 @keyframes public-progress-in {
-  from { transform: scaleX(0); transform-origin: left; }
-  to { transform: scaleX(1); transform-origin: left; }
+  from {
+    transform: scaleX(0);
+    transform-origin: left;
+  }
+  to {
+    transform: scaleX(1);
+    transform-origin: left;
+  }
 }
 
 @keyframes public-shimmer {
-  from { background-position: 160% 0; }
-  to { background-position: -160% 0; }
+  from {
+    background-position: 160% 0;
+  }
+  to {
+    background-position: -160% 0;
+  }
 }
 
 .public-home > .public-hero,
@@ -590,13 +641,27 @@ label,
   animation: public-fade-up 0.72s cubic-bezier(0.22, 1, 0.36, 1) both;
 }
 
-.public-home > .public-hero { animation-delay: 0.04s; }
-.public-home > .public-section:nth-of-type(2) { animation-delay: 0.14s; }
-.public-home > .public-section:nth-of-type(3) { animation-delay: 0.22s; }
-.public-home > .public-audience-section { animation-delay: 0.3s; }
-.public-home > .public-section:nth-of-type(5) { animation-delay: 0.38s; }
-.public-home > .public-final-section { animation-delay: 0.46s; }
-.public-home > .public-footer { animation-delay: 0.54s; }
+.public-home > .public-hero {
+  animation-delay: 0.04s;
+}
+.public-home > .public-section:nth-of-type(2) {
+  animation-delay: 0.14s;
+}
+.public-home > .public-section:nth-of-type(3) {
+  animation-delay: 0.22s;
+}
+.public-home > .public-audience-section {
+  animation-delay: 0.3s;
+}
+.public-home > .public-section:nth-of-type(5) {
+  animation-delay: 0.38s;
+}
+.public-home > .public-final-section {
+  animation-delay: 0.46s;
+}
+.public-home > .public-footer {
+  animation-delay: 0.54s;
+}
 
 .public-hero {
   position: relative;
@@ -634,12 +699,24 @@ label,
   animation: public-fade-up 0.7s cubic-bezier(0.22, 1, 0.36, 1) both;
 }
 
-.public-hero-copy > :nth-child(1) { animation-delay: 0.16s; }
-.public-hero-copy > :nth-child(2) { animation-delay: 0.22s; }
-.public-hero-copy > :nth-child(3) { animation-delay: 0.28s; }
-.public-hero-copy > :nth-child(4) { animation-delay: 0.34s; }
-.public-hero-copy > :nth-child(5) { animation-delay: 0.4s; }
-.public-hero-copy > :nth-child(6) { animation-delay: 0.46s; }
+.public-hero-copy > :nth-child(1) {
+  animation-delay: 0.16s;
+}
+.public-hero-copy > :nth-child(2) {
+  animation-delay: 0.22s;
+}
+.public-hero-copy > :nth-child(3) {
+  animation-delay: 0.28s;
+}
+.public-hero-copy > :nth-child(4) {
+  animation-delay: 0.34s;
+}
+.public-hero-copy > :nth-child(5) {
+  animation-delay: 0.4s;
+}
+.public-hero-copy > :nth-child(6) {
+  animation-delay: 0.46s;
+}
 
 .public-hero-points {
   display: flex;
@@ -1924,6 +2001,12 @@ label,
   .app-mobile-nav-link.is-active {
     background: #f1f5f9;
     color: #1e3a8a;
+  }
+
+  .app-mobile-nav-link.ai-help-link {
+    border: 1px solid #ddd6fe;
+    background: linear-gradient(135deg, #faf5ff, #eef2ff);
+    color: #6d28d9;
   }
 
   .app-account-label {

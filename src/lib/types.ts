@@ -110,7 +110,13 @@ export interface Attempt {
 }
 
 export type ActivePage =
-  "dashboard" | "papers" | "session" | "history" | "upload" | "attempt-detail";
+  | "dashboard"
+  | "papers"
+  | "session"
+  | "history"
+  | "upload"
+  | "syllabus"
+  | "attempt-detail";
 
 export interface ActiveSessionDraft {
   paperId: string;
@@ -135,4 +141,19 @@ export interface AppNotification {
   createdAt: string;
   href?: string;
   read: boolean;
+}
+
+export interface SyllabusItem {
+  id: string;
+  title: string;
+  paperId?: string;
+  parentId?: string | null;
+  sourceKey?: string;
+  topicKey?: string;
+  dueDate?: string;
+  completed: boolean;
+  notes?: string;
+  order: number;
+  createdAt: string;
+  updatedAt: string;
 }
