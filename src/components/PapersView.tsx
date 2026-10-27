@@ -90,7 +90,8 @@ export function PapersView({
   const [editIncorrectMarks, setEditIncorrectMarks] = useState<number>(0.667);
   const [editTimeMinutes, setEditTimeMinutes] = useState<number>(120);
   const [editCutoffEnabled, setEditCutoffEnabled] = useState(false);
-  const [editCutoffType, setEditCutoffType] = useState<CutoffType>("percentage");
+  const [editCutoffType, setEditCutoffType] =
+    useState<CutoffType>("percentage");
   const [editCutoffValue, setEditCutoffValue] = useState<number | "">("");
 
   // Dedicated Attach Modal (supports opening directly to 'key' or 'solution')
@@ -243,10 +244,8 @@ export function PapersView({
 
   const filteredPapers = papers.filter((p) => {
     let matchesCat = true;
-    if (selectedCategory === "prelims")
-      matchesCat = p.category === "prelims";
-    else if (selectedCategory === "mains")
-      matchesCat = p.category === "mains";
+    if (selectedCategory === "prelims") matchesCat = p.category === "prelims";
+    else if (selectedCategory === "mains") matchesCat = p.category === "mains";
     else if (selectedCategory === "custom") matchesCat = isUserUploadedPaper(p);
 
     const matchesYear =
@@ -280,7 +279,11 @@ export function PapersView({
         title="Question papers"
         description="Find an assessment, review its materials, or add a paper to your library."
         actions={
-          <button type="button" onClick={onNavigateUpload} className="button-primary">
+          <button
+            type="button"
+            onClick={onNavigateUpload}
+            className="button-primary"
+          >
             <Plus className="h-4 w-4" />
             <span>Add a paper</span>
           </button>
@@ -364,9 +367,13 @@ export function PapersView({
           >
             <option value="all">All Attempts ({papers.length})</option>
             <option value="attempted">Attempted ({attemptedCount})</option>
-            <option value="unattempted">Unattempted ({unattemptedCount})</option>
+            <option value="unattempted">
+              Unattempted ({unattemptedCount})
+            </option>
             <option value="mock">Mock Only ({mockAttemptedCount})</option>
-            <option value="practice">Practice Only ({practiceAttemptedCount})</option>
+            <option value="practice">
+              Practice Only ({practiceAttemptedCount})
+            </option>
           </select>
 
           <select
@@ -486,8 +493,7 @@ export function PapersView({
             );
             const cutoffType =
               paper.cutoffType || latestAttempt?.cutoffType || "percentage";
-            const cutoffValue =
-              paper.cutoffValue ?? latestAttempt?.cutoffValue;
+            const cutoffValue = paper.cutoffValue ?? latestAttempt?.cutoffValue;
             const hasCutoff =
               Boolean(cutoffEnabled) &&
               latestAttempt &&
@@ -517,8 +523,8 @@ export function PapersView({
                 }`}
               >
                 <div className="min-w-0">
-                  {/* Top Header Row: Clean, quiet badges */}
-                  <div className="flex items-start justify-between gap-2">
+                  {/* Reserve a consistent status area so every card's content aligns. */}
+                  <div className="flex min-h-[56px] items-start justify-between gap-3">
                     <div className="flex items-center gap-1.5 flex-wrap">
                       <span className="rounded-md bg-slate-100 px-2 py-0.5 text-xs font-medium text-slate-600 font-mono">
                         {paper.year}
@@ -531,6 +537,45 @@ export function PapersView({
                       )}
                     </div>
 
+                    <div className="flex max-w-[65%] shrink-0 flex-wrap items-center justify-end gap-1">
+                      {hasMock && (
+                        <span
+                          aria-label={`${mockAtts.length} mock ${mockAtts.length === 1 ? "attempt" : "attempts"}`}
+                          className="inline-flex items-center justify-center rounded-md border border-indigo-200 bg-indigo-50 px-2 py-1 text-[10px] font-semibold text-indigo-700"
+                        >
+                          {mockAtts.length}{" "}
+                          {mockAtts.length === 1 ? "mock" : "mocks"}
+                        </span>
+                      )}
+
+                      {hasPractice && (
+                        <span
+                          aria-label={`${practiceAtts.length} practice ${practiceAtts.length === 1 ? "session" : "sessions"}`}
+                          className="inline-flex items-center justify-center rounded-md border border-emerald-200 bg-emerald-50 px-2 py-1 text-[10px] font-semibold text-emerald-700"
+                        >
+                          {practiceAtts.length}{" "}
+                          {practiceAtts.length === 1 ? "practice" : "practices"}
+                        </span>
+                      )}
+
+                      {hasCutoff && (
+                        <span
+                          title={`Latest result: ${cutoffMeasure}%${cutoffType === "marks" ? ` (${cutoffMeasure}/${latestAttempt?.maxScore})` : ""}; cutoff ${cutoffLabel}`}
+                          className={`inline-flex items-center gap-1 rounded-md border px-2 py-1 text-[10px] font-semibold ${
+                            cutoffPassed
+                              ? "border-emerald-200 bg-emerald-50 text-emerald-700"
+                              : "border-rose-200 bg-rose-50 text-rose-700"
+                          }`}
+                        >
+                          {cutoffPassed ? (
+                            <CheckCircle2 className="h-3 w-3" />
+                          ) : (
+                            <AlertTriangle className="h-3 w-3" />
+                          )}
+                          {cutoffPassed ? "Passed cutoff" : "Below cutoff"}
+                        </span>
+                      )}
+                    </div>
                   </div>
 
                   {/* Clean Title Container */}
@@ -564,12 +609,13 @@ export function PapersView({
                             <span>No Key</span>
                           </div>
                         )}
-                        {paper.explanations && Object.keys(paper.explanations).length > 0 && (
-                          <div className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[11px] font-medium bg-indigo-50/70 text-indigo-700 border border-indigo-200/60">
-                            <BookOpen className="h-3 w-3 text-indigo-600" />
-                            <span>Explanations</span>
-                          </div>
-                        )}
+                        {paper.explanations &&
+                          Object.keys(paper.explanations).length > 0 && (
+                            <div className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[11px] font-medium bg-indigo-50/70 text-indigo-700 border border-indigo-200/60">
+                              <BookOpen className="h-3 w-3 text-indigo-600" />
+                              <span>Explanations</span>
+                            </div>
+                          )}
                       </>
                     ) : (
                       <div className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[11px] font-medium bg-violet-50/70 text-violet-700 border border-violet-200/60">
@@ -587,7 +633,9 @@ export function PapersView({
                         <span>Solution</span>
                       </button>
                     ) : (
-                      <span className="text-[11px] text-slate-400">No Solution</span>
+                      <span className="text-[11px] text-slate-400">
+                        No Solution
+                      </span>
                     )}
                   </div>
                 </div>
@@ -631,7 +679,9 @@ export function PapersView({
                           </button>
                         ) : (
                           <button
-                            onClick={() => handleOpenAttachModal(paper, "key", true)}
+                            onClick={() =>
+                              handleOpenAttachModal(paper, "key", true)
+                            }
                             title="Practice mode requires an answer key"
                             className="cursor-pointer flex items-center justify-center gap-1.5 rounded-xl border border-amber-200 bg-amber-50 py-2 text-xs font-semibold text-amber-800 hover:bg-amber-100 transition-colors"
                           >
@@ -650,46 +700,6 @@ export function PapersView({
                       </>
                     )}
                   </div>
-
-                  {(hasMock || hasPractice || hasCutoff) && (
-                    <div className="flex min-h-6 flex-wrap items-center justify-end gap-1 pt-0.5">
-                      {hasMock && (
-                        <span
-                          aria-label={`${mockAtts.length} mock ${mockAtts.length === 1 ? "attempt" : "attempts"}`}
-                          className="inline-flex items-center justify-center rounded-md border border-indigo-200 bg-indigo-50 px-2 py-1 text-[10px] font-semibold text-indigo-700"
-                        >
-                          {mockAtts.length} {mockAtts.length === 1 ? "mock" : "mocks"}
-                        </span>
-                      )}
-
-                      {hasPractice && (
-                        <span
-                          aria-label={`${practiceAtts.length} practice ${practiceAtts.length === 1 ? "session" : "sessions"}`}
-                          className="inline-flex items-center justify-center rounded-md border border-emerald-200 bg-emerald-50 px-2 py-1 text-[10px] font-semibold text-emerald-700"
-                        >
-                          {practiceAtts.length} {practiceAtts.length === 1 ? "practice" : "practices"}
-                        </span>
-                      )}
-
-                      {hasCutoff && (
-                        <span
-                          title={`Latest result: ${cutoffMeasure}%${cutoffType === "marks" ? ` (${cutoffMeasure}/${latestAttempt?.maxScore})` : ""}; cutoff ${cutoffLabel}`}
-                          className={`inline-flex items-center gap-1 rounded-md border px-2 py-1 text-[10px] font-semibold ${
-                            cutoffPassed
-                              ? "border-emerald-200 bg-emerald-50 text-emerald-700"
-                              : "border-rose-200 bg-rose-50 text-rose-700"
-                          }`}
-                        >
-                          {cutoffPassed ? (
-                            <CheckCircle2 className="h-3 w-3" />
-                          ) : (
-                            <AlertTriangle className="h-3 w-3" />
-                          )}
-                          {cutoffPassed ? "Passed cutoff" : "Below cutoff"}
-                        </span>
-                      )}
-                    </div>
-                  )}
 
                   {/* Clean Utility Footer */}
                   <div className="flex items-center justify-between text-xs pt-1">
@@ -1114,7 +1124,9 @@ export function PapersView({
                           setEditCutoffValue(parseFloat(e.target.value) || "")
                         }
                         placeholder={
-                          editCutoffType === "percentage" ? "e.g. 40" : "e.g. 66.67"
+                          editCutoffType === "percentage"
+                            ? "e.g. 40"
+                            : "e.g. 66.67"
                         }
                         className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-mono text-slate-800 focus:border-indigo-500 focus:outline-none"
                       />
