@@ -17,7 +17,7 @@ export function GET(req: NextRequest): NextResponse {
       token_endpoint: `${issuer}/token`,
       registration_endpoint: `${issuer}/register`,
       revocation_endpoint: `${issuer}/revoke`,
-      client_id_metadata_document_supported: false,
+      client_id_metadata_document_supported: true,
       token_endpoint_auth_methods_supported: ["none"],
       code_challenge_methods_supported: ["S256"],
       scopes_supported: ["portal:read", "portal:write"],

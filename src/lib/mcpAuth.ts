@@ -5,6 +5,14 @@ export const MCP_READ_SCOPE = "portal:read";
 export const MCP_WRITE_SCOPE = "portal:write";
 export const MCP_SCOPES = `${MCP_READ_SCOPE} ${MCP_WRITE_SCOPE}`;
 
+// Claude's web connector is a public PKCE client. It publishes its client
+// metadata at these stable URLs instead of requiring every user to register a
+// separate client in the connector UI.
+const CLAUDE_WEB_CLIENT_IDS = new Set([
+  "https://claude.ai/oauth/mcp-oauth-client-metadata",
+  "https://claude.ai/api/oauth/mcp-oauth-client-metadata",
+]);
+
 const ACCESS_TOKEN_TTL_SECONDS = 60 * 60;
 const REFRESH_TOKEN_TTL_SECONDS = 60 * 60 * 24 * 30;
 const AUTH_CODE_TTL_SECONDS = 5 * 60;
@@ -97,6 +105,17 @@ function normalizeScope(scope?: string): string {
   return allowed.includes(MCP_READ_SCOPE) ? allowed.join(" ") : MCP_READ_SCOPE;
 }
 
+function getClaudeWebClient(clientId: string): McpOAuthClient | null {
+  if (!CLAUDE_WEB_CLIENT_IDS.has(clientId)) return null;
+  return {
+    clientId,
+    clientName: "Claude",
+    redirectUris: ["https://claude.ai/api/mcp/auth_callback"],
+    tokenEndpointAuthMethod: "none",
+    createdAt: new Date(0).toISOString(),
+  };
+}
+
 export function hasMcpScope(scope: string, required: string): boolean {
   return scope.split(/\s+/).includes(required);
 }
@@ -143,7 +162,7 @@ export async function getMcpClient(
       )
       .eq("client_id", clientId)
       .maybeSingle();
-    if (error || !data) return null;
+    if (error || !data) return getClaudeWebClient(clientId);
     return {
       clientId: data.client_id,
       clientName: data.client_name,
@@ -152,7 +171,7 @@ export async function getMcpClient(
       createdAt: data.created_at,
     };
   }
-  return memoryState.clients.get(clientId) || null;
+  return memoryState.clients.get(clientId) || getClaudeWebClient(clientId);
 }
 
 export async function createMcpAuthorizationCode(input: {
@@ -175,6 +194,21 @@ export async function createMcpAuthorizationCode(input: {
 
   const supabase = getAdminClient();
   if (supabase) {
+    const client = await getMcpClient(record.clientId);
+    if (!client) throw new Error("MCP client is not registered.");
+    const { error: clientError } = await supabase
+      .from("mcp_oauth_clients")
+      .upsert(
+        {
+          client_id: client.clientId,
+          client_name: client.clientName,
+          redirect_uris: client.redirectUris,
+          token_endpoint_auth_method: client.tokenEndpointAuthMethod,
+          created_at: client.createdAt,
+        },
+        { onConflict: "client_id", ignoreDuplicates: true },
+      );
+    if (clientError) throw new Error("MCP client could not be stored.");
     const { error } = await supabase.from("mcp_oauth_codes").insert({
       code_hash: record.codeHash,
       client_id: record.clientId,
@@ -186,6 +220,11 @@ export async function createMcpAuthorizationCode(input: {
     });
     if (error) throw new Error("MCP authorization code could not be created.");
   } else {
+    const client =
+      memoryState.clients.get(record.clientId) ||
+      getClaudeWebClient(record.clientId);
+    if (!client) throw new Error("MCP client is not registered.");
+    memoryState.clients.set(record.clientId, client);
     memoryState.codes.set(record.codeHash, record);
   }
 
