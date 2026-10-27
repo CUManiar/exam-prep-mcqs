@@ -212,7 +212,7 @@ function writeLocalDiskFile<T>(filename: string, data: T): void {
 }
 
 /**
- * Read JSON metadata store (papers.json, attempts.json, active_draft.json).
+ * Read JSON metadata store (papers.json, attempts.json).
  * Checks Vercel Blob first; if empty or not enabled, checks PROD if in PROD mode, then falls back to local files.
  */
 export async function readJsonStore<T>(
@@ -256,18 +256,6 @@ export async function readJsonStore<T>(
           if (json.ok && Array.isArray(json.attempts)) {
             writeLocalDiskFile(filename, json.attempts);
             return json.attempts as unknown as T;
-          }
-        }
-      } else if (filename === "active_draft.json") {
-        const res = await fetch(`${prodUrl}/api/draft`, {
-          redirect: "follow",
-          cache: "no-store",
-          headers: { Accept: "application/json" },
-        });
-        if (res.ok) {
-          const json = await res.json();
-          if (json.ok) {
-            return json.draft as unknown as T;
           }
         }
       }
@@ -318,27 +306,5 @@ export async function writeJsonStore<T>(
   // Local filesystem fallback (only when running locally outside Vercel)
   if (!process.env.VERCEL) {
     writeLocalDiskFile(filename, data);
-  }
-}
-
-/**
- * Delete JSON store from Vercel Blob (or local filesystem).
- */
-export async function deleteJsonStore(filename: string): Promise<void> {
-  if (isBlobEnabled()) {
-    try {
-      const delOptions: any = {};
-      const token = getBlobToken();
-      if (token) delOptions.token = token;
-      await del(filename, delOptions);
-    } catch {}
-    return;
-  }
-
-  const localPath = path.join(process.cwd(), "public", "data", filename);
-  if (fs.existsSync(localPath)) {
-    try {
-      fs.unlinkSync(localPath);
-    } catch {}
   }
 }

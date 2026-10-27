@@ -27,7 +27,6 @@ import {
   deletePaperFromServer,
   updatePaperOnServer,
   getActiveDraft,
-  loadActiveDraftFromServer,
   saveActiveDraft,
   clearActiveDraft,
   getLocalHiddenPaperIds,
@@ -510,6 +509,9 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     setIsStartingExam(true);
     clearActiveDraft();
     setActiveDraft(null);
+    if (currentUser) {
+      void clearUserDraftFromSupabase(currentUser.id);
+    }
     router.push(`/exam?paperId=${encodeURIComponent(paper.id)}&mode=${mode}`);
 
     // Recover if navigation is interrupted by a browser/network error.

@@ -2,29 +2,26 @@
 
 import React from "react";
 import { ActiveSessionDraft, Attempt, QuestionPaper } from "../lib/types";
-import {
-  getAttemptPercentage,
-  isPaperFree,
-  isUserUploadedPaper,
-} from "../lib/defaults";
+import { getAttemptPercentage } from "../lib/defaults";
 import {
   ArrowRight,
   AlertTriangle,
   BarChart3,
   BookOpen,
+  CheckCircle2,
   Clock3,
   FileCheck2,
-  Play,
+  Percent,
   RotateCcw,
   Target,
   Trash2,
+  TrendingUp,
 } from "lucide-react";
 import { PageHeader } from "./PageHeader";
 
 interface DashboardViewProps {
   papers: QuestionPaper[];
   attempts: Attempt[];
-  onStartExam: (paper: QuestionPaper, mode: "practice" | "mock") => void;
   onNavigatePapers: () => void;
   onNavigateHistory: () => void;
   onViewAttempt: (attempt: Attempt) => void;
@@ -47,7 +44,6 @@ function formatAttemptDate(value: string) {
 export function DashboardView({
   papers,
   attempts,
-  onStartExam,
   onNavigatePapers,
   onNavigateHistory,
   onViewAttempt,
@@ -63,63 +59,58 @@ export function DashboardView({
         new Date(b.finishedAt || b.startedAt).getTime() -
         new Date(a.finishedAt || a.startedAt).getTime(),
     );
-  // Progress metrics follow the official Performance view: completed mocks only.
-  // Practice sessions are useful in recent activity but are not part of the saved mock record.
-  const mockAttempts = completed.filter((attempt) => attempt.mode === "mock");
-  const questionsAnswered = mockAttempts.reduce(
+  const questionsAnswered = completed.reduce(
     (sum, attempt) => sum + (attempt.answered || 0),
     0,
   );
-  const averageAccuracy = mockAttempts.length
+  const averageAccuracy = completed.length
     ? Math.round(
-        (mockAttempts.reduce(
+        (completed.reduce(
           (sum, attempt) => sum + (attempt.accuracyPct || 0),
           0,
         ) /
-          mockAttempts.length) *
+          completed.length) *
           10,
       ) / 10
     : null;
-  const averagePercentage = mockAttempts.length
+  const averagePercentage = completed.length
     ? Math.round(
-        (mockAttempts.reduce(
+        (completed.reduce(
           (sum, attempt) => sum + getAttemptPercentage(attempt),
           0,
-        ) / mockAttempts.length) * 10,
+        ) / completed.length) * 10,
       ) / 10
     : null;
-  const recommendedPaper =
-    papers.find(
-      (paper) =>
-        paper.year === "2026" &&
-        paper.category === "prelims" &&
-        paper.examType === "objective" &&
-        !isUserUploadedPaper(paper),
-    ) ||
-    papers.find(
-      (paper) =>
-        paper.examType === "objective" &&
-        isPaperFree(paper) &&
-        !isUserUploadedPaper(paper),
-    ) ||
-    papers.find((paper) => paper.examType === "objective");
+  const latestAttempt = completed[0];
 
   const metrics = [
     {
       label: "Assessments completed",
-      value: mockAttempts.length,
+      value: completed.length,
       icon: FileCheck2,
+      iconClass: "text-indigo-600",
+      iconBgClass: "bg-indigo-50 ring-indigo-100",
     },
-    { label: "Questions answered", value: questionsAnswered, icon: Target },
     {
-      label: "Mock average accuracy",
+      label: "Questions answered",
+      value: questionsAnswered,
+      icon: Target,
+      iconClass: "text-sky-600",
+      iconBgClass: "bg-sky-50 ring-sky-100",
+    },
+    {
+      label: "Average accuracy",
       value: averageAccuracy === null ? "—" : `${averageAccuracy}%`,
       icon: BarChart3,
+      iconClass: "text-emerald-600",
+      iconBgClass: "bg-emerald-50 ring-emerald-100",
     },
     {
-      label: "Mock average percentage",
+      label: "Average percentage",
       value: averagePercentage === null ? "—" : `${averagePercentage}%`,
-      icon: Target,
+      icon: Percent,
+      iconClass: "text-violet-600",
+      iconBgClass: "bg-violet-50 ring-violet-100",
     },
   ];
 
@@ -180,69 +171,89 @@ export function DashboardView({
         </section>
       )}
 
-      <section className="grid gap-4 lg:grid-cols-[minmax(0,1.5fr)_minmax(17rem,0.8fr)]">
-        <div className="surface-card flex min-h-[16rem] flex-col justify-between p-5 sm:p-7">
-          <div>
-            <p className="page-eyebrow">Ready when you are</p>
-            <h2 className="mt-2 max-w-xl text-2xl font-semibold tracking-tight text-slate-900 sm:text-3xl">
-              Make your next practice session count.
-            </h2>
-            <p className="mt-3 max-w-xl text-sm leading-6 text-slate-600">
-              Select a question paper and choose practice or mock mode. Your
-              results and review are available after submission.
-            </p>
-          </div>
-          <div className="mt-6 flex flex-wrap gap-2">
-            {recommendedPaper && (
-              <button
-                type="button"
-                onClick={() => onStartExam(recommendedPaper, "mock")}
-                className="button-primary"
-              >
-                <Play className="h-4 w-4" /> Start a mock
-              </button>
-            )}
-            <button
-              type="button"
-              onClick={onNavigatePapers}
-              className="button-secondary"
+      <section className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+        {metrics.map(
+          ({ label, value, icon: Icon, iconClass, iconBgClass }) => (
+            <div
+              key={label}
+              className="surface-card flex items-center gap-3 p-4 sm:p-5"
             >
-              Choose a paper <ArrowRight className="h-4 w-4" />
-            </button>
-          </div>
-        </div>
-        <div className="surface-card p-5 sm:p-6">
-          <div className="flex items-center justify-between gap-4">
-            <div>
-              <p className="page-eyebrow">Progress</p>
-              <h2 className="mt-1 text-lg font-semibold text-slate-900">
-                A steady record
-              </h2>
-            </div>
-            <BarChart3 className="h-5 w-5 text-slate-500" />
-          </div>
-          <div className="mt-5 divide-y divide-slate-100">
-            {metrics.map(({ label, value, icon: Icon }) => (
-              <div
-                key={label}
-                className="flex items-center justify-between gap-4 py-3 first:pt-0 last:pb-0"
+              <span
+                className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl ring-1 ${iconBgClass}`}
               >
-                <span className="flex items-center gap-2 text-sm text-slate-600">
-                  <Icon className="h-4 w-4 text-slate-400" /> {label}
+                <Icon className={`h-5 w-5 ${iconClass}`} />
+              </span>
+              <span className="min-w-0">
+                <span className="block truncate text-xs font-medium text-slate-500">
+                  {label}
                 </span>
-                <span className="text-base font-semibold tabular-nums text-slate-900">
+                <span className="mt-1 block text-xl font-semibold tracking-tight text-slate-900 tabular-nums">
                   {value}
                 </span>
-              </div>
-            ))}
+              </span>
+            </div>
+          ),
+        )}
+      </section>
+
+      <section className="mt-4">
+        <div className="surface-card flex min-h-[18rem] flex-col p-5 sm:p-6">
+          <div className="flex items-start justify-between gap-4">
+            <div>
+              <p className="page-eyebrow">Progress snapshot</p>
+              <h2 className="mt-1 text-lg font-semibold text-slate-900">
+                Your latest signal
+              </h2>
+            </div>
+            <TrendingUp className="h-5 w-5 text-emerald-600" />
           </div>
-          <button
-            type="button"
-            onClick={onNavigateHistory}
-            className="mt-5 inline-flex items-center gap-1.5 text-sm font-medium text-blue-700 hover:text-blue-800"
-          >
-            View detailed performance <ArrowRight className="h-4 w-4" />
-          </button>
+
+          {latestAttempt ? (
+            <div className="mt-5 flex flex-1 flex-col justify-between">
+              <div>
+                <p className="truncate text-sm font-semibold text-slate-800">
+                  {latestAttempt.paperLabel}
+                </p>
+                <p className="mt-1 text-xs text-slate-500">
+                  Latest {latestAttempt.mode === "mock" ? "mock" : "practice"} · {formatAttemptDate(latestAttempt.finishedAt || latestAttempt.startedAt)}
+                </p>
+                <div className="mt-5 flex items-end gap-4">
+                  <div>
+                    <p className="text-xs font-medium text-slate-500">Score</p>
+                    <p className="mt-1 text-3xl font-semibold tracking-tight text-slate-900 tabular-nums">
+                      {latestAttempt.score}
+                      <span className="ml-1 text-sm font-medium text-slate-400">
+                        / {latestAttempt.maxScore}
+                      </span>
+                    </p>
+                  </div>
+                  <div className="border-l border-slate-200 pl-4">
+                    <p className="text-xs font-medium text-slate-500">Accuracy</p>
+                    <p className="mt-1 text-xl font-semibold text-emerald-700 tabular-nums">
+                      {Math.round(latestAttempt.accuracyPct || 0)}%
+                    </p>
+                  </div>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => onViewAttempt(latestAttempt)}
+                className="mt-5 inline-flex items-center gap-1.5 text-sm font-medium text-blue-700 hover:text-blue-800"
+              >
+                Review latest assessment <ArrowRight className="h-4 w-4" />
+              </button>
+            </div>
+          ) : (
+            <div className="mt-5 flex flex-1 flex-col justify-center rounded-xl bg-slate-50 p-4">
+              <CheckCircle2 className="h-6 w-6 text-slate-400" />
+              <p className="mt-3 text-sm font-semibold text-slate-800">
+                No completed assessment yet
+              </p>
+              <p className="mt-1 text-xs leading-5 text-slate-500">
+                Your first score and review will appear here after submission.
+              </p>
+            </div>
+          )}
         </div>
       </section>
 
@@ -351,23 +362,6 @@ export function DashboardView({
         </div>
       </section>
 
-      {!recommendedPaper && (
-        <section className="mt-6 rounded-lg border border-slate-200 bg-white p-5">
-          <p className="text-sm font-semibold text-slate-900">
-            No papers available yet
-          </p>
-          <p className="mt-1 text-sm text-slate-600">
-            Open the paper library to add a question paper to your workspace.
-          </p>
-          <button
-            type="button"
-            onClick={onNavigatePapers}
-            className="button-secondary mt-4"
-          >
-            Open paper library
-          </button>
-        </section>
-      )}
     </div>
   );
 }
