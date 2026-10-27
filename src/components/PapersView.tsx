@@ -518,7 +518,7 @@ export function PapersView({
               >
                 <div className="min-w-0">
                   {/* Top Header Row: Clean, quiet badges */}
-                  <div className="flex min-h-[56px] items-start justify-between gap-3">
+                  <div className="flex items-start justify-between gap-2">
                     <div className="flex items-center gap-1.5 flex-wrap">
                       <span className="rounded-md bg-slate-100 px-2 py-0.5 text-xs font-medium text-slate-600 font-mono">
                         {paper.year}
@@ -531,43 +531,6 @@ export function PapersView({
                       )}
                     </div>
 
-                    <div className="flex max-w-[60%] shrink-0 flex-wrap items-center justify-end gap-1 sm:max-w-[65%]">
-                      {hasMock && (
-                        <span
-                          aria-label={`${mockAtts.length} mock ${mockAtts.length === 1 ? "attempt" : "attempts"}`}
-                          className="inline-flex items-center justify-center rounded-md border border-indigo-200 bg-indigo-50 px-2 py-1 text-[10px] font-semibold text-indigo-700"
-                        >
-                          {mockAtts.length} {mockAtts.length === 1 ? "mock" : "mocks"}
-                        </span>
-                      )}
-
-                      {hasPractice && (
-                        <span
-                          aria-label={`${practiceAtts.length} practice ${practiceAtts.length === 1 ? "session" : "sessions"}`}
-                          className="inline-flex items-center justify-center rounded-md border border-emerald-200 bg-emerald-50 px-2 py-1 text-[10px] font-semibold text-emerald-700"
-                        >
-                          {practiceAtts.length} {practiceAtts.length === 1 ? "practice" : "practices"}
-                        </span>
-                      )}
-
-                      {hasCutoff && (
-                        <span
-                          title={`Latest result: ${cutoffMeasure}%${cutoffType === "marks" ? ` (${cutoffMeasure}/${latestAttempt?.maxScore})` : ""}; cutoff ${cutoffLabel}`}
-                          className={`inline-flex items-center gap-1 rounded-md border px-2 py-1 text-[10px] font-semibold ${
-                            cutoffPassed
-                              ? "border-emerald-200 bg-emerald-50 text-emerald-700"
-                              : "border-rose-200 bg-rose-50 text-rose-700"
-                          }`}
-                        >
-                          {cutoffPassed ? (
-                            <CheckCircle2 className="h-3 w-3" />
-                          ) : (
-                            <AlertTriangle className="h-3 w-3" />
-                          )}
-                          {cutoffPassed ? "Passed cutoff" : "Below cutoff"}
-                        </span>
-                      )}
-                    </div>
                   </div>
 
                   {/* Clean Title Container */}
@@ -687,6 +650,46 @@ export function PapersView({
                       </>
                     )}
                   </div>
+
+                  {(hasMock || hasPractice || hasCutoff) && (
+                    <div className="flex min-h-6 flex-wrap items-center justify-end gap-1 pt-0.5">
+                      {hasMock && (
+                        <span
+                          aria-label={`${mockAtts.length} mock ${mockAtts.length === 1 ? "attempt" : "attempts"}`}
+                          className="inline-flex items-center justify-center rounded-md border border-indigo-200 bg-indigo-50 px-2 py-1 text-[10px] font-semibold text-indigo-700"
+                        >
+                          {mockAtts.length} {mockAtts.length === 1 ? "mock" : "mocks"}
+                        </span>
+                      )}
+
+                      {hasPractice && (
+                        <span
+                          aria-label={`${practiceAtts.length} practice ${practiceAtts.length === 1 ? "session" : "sessions"}`}
+                          className="inline-flex items-center justify-center rounded-md border border-emerald-200 bg-emerald-50 px-2 py-1 text-[10px] font-semibold text-emerald-700"
+                        >
+                          {practiceAtts.length} {practiceAtts.length === 1 ? "practice" : "practices"}
+                        </span>
+                      )}
+
+                      {hasCutoff && (
+                        <span
+                          title={`Latest result: ${cutoffMeasure}%${cutoffType === "marks" ? ` (${cutoffMeasure}/${latestAttempt?.maxScore})` : ""}; cutoff ${cutoffLabel}`}
+                          className={`inline-flex items-center gap-1 rounded-md border px-2 py-1 text-[10px] font-semibold ${
+                            cutoffPassed
+                              ? "border-emerald-200 bg-emerald-50 text-emerald-700"
+                              : "border-rose-200 bg-rose-50 text-rose-700"
+                          }`}
+                        >
+                          {cutoffPassed ? (
+                            <CheckCircle2 className="h-3 w-3" />
+                          ) : (
+                            <AlertTriangle className="h-3 w-3" />
+                          )}
+                          {cutoffPassed ? "Passed cutoff" : "Below cutoff"}
+                        </span>
+                      )}
+                    </div>
+                  )}
 
                   {/* Clean Utility Footer */}
                   <div className="flex items-center justify-between text-xs pt-1">
