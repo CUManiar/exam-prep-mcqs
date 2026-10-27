@@ -7,9 +7,11 @@
     "build": "next build",
     "start": "next start",
     "format": "prettier --write ./src",
-    "clean": "npx clean-unused-imports src/"
+    "clean": "npx clean-unused-imports src/",
+    "mcp:setup": "node scripts/setup-mcp-auth.mjs"
   },
   "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.32.2",
     "@supabase/supabase-js": "^2.117.3",
     "@vercel/analytics": "^2.0.1",
     "@vercel/blob": "^2.8.1",

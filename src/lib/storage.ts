@@ -1,4 +1,9 @@
-import { Attempt, QuestionPaper, ActiveSessionDraft } from "./types";
+import {
+  Attempt,
+  QuestionPaper,
+  ActiveSessionDraft,
+  SyllabusItem,
+} from "./types";
 import {
   INITIAL_PAPERS,
   parseAnswerKeyText,
@@ -18,7 +23,75 @@ const STORAGE_KEYS = {
   ACTIVE_PAGE: "exam_prep_active_page_v1",
   SELECTED_ATTEMPT_ID: "exam_prep_selected_attempt_id_v1",
   HIDDEN_PAPERS: "exam_prep_hidden_papers_v1",
+  ONLY_CUSTOM_PAPERS: "exam_prep_only_custom_papers_v1",
+  CUSTOM_SYLLABUS: "exam_prep_custom_syllabus_v1",
+  CUSTOM_SYLLABUS_MARKDOWN: "exam_prep_custom_syllabus_markdown_v1",
 };
+
+export function getOnlyCustomPapers(userId?: string): boolean {
+  if (typeof window === "undefined") return false;
+  try {
+    return (
+      localStorage.getItem(
+        `${STORAGE_KEYS.ONLY_CUSTOM_PAPERS}_${userId || "guest"}`,
+      ) === "true"
+    );
+  } catch {
+    return false;
+  }
+}
+
+export function saveOnlyCustomPapers(value: boolean, userId?: string): void {
+  if (typeof window === "undefined") return;
+  localStorage.setItem(
+    `${STORAGE_KEYS.ONLY_CUSTOM_PAPERS}_${userId || "guest"}`,
+    String(value),
+  );
+}
+
+export function getCustomSyllabus(userId?: string): SyllabusItem[] {
+  if (typeof window === "undefined") return [];
+  try {
+    const raw = localStorage.getItem(
+      `${STORAGE_KEYS.CUSTOM_SYLLABUS}_${userId || "guest"}`,
+    );
+    const parsed = raw ? JSON.parse(raw) : [];
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
+}
+
+export function saveCustomSyllabus(
+  items: SyllabusItem[],
+  userId?: string,
+): void {
+  if (typeof window === "undefined") return;
+  localStorage.setItem(
+    `${STORAGE_KEYS.CUSTOM_SYLLABUS}_${userId || "guest"}`,
+    JSON.stringify(items),
+  );
+}
+
+export function getCustomSyllabusMarkdown(userId?: string): string {
+  if (typeof window === "undefined") return "";
+  return (
+    localStorage.getItem(
+      `${STORAGE_KEYS.CUSTOM_SYLLABUS_MARKDOWN}_${userId || "guest"}`,
+    ) || ""
+  );
+}
+
+export function saveCustomSyllabusMarkdown(
+  markdown: string,
+  userId?: string,
+): void {
+  if (typeof window === "undefined") return;
+  localStorage.setItem(
+    `${STORAGE_KEYS.CUSTOM_SYLLABUS_MARKDOWN}_${userId || "guest"}`,
+    markdown,
+  );
+}
 
 /** Keep the latest guest result available for immediate review without adding it to history. */
 export function saveGuestReviewAttempt(attempt: Attempt): void {
@@ -303,7 +376,10 @@ export async function updatePaperOnServer(
   try {
     const res = await fetch(`/api/papers/${paperId}`, {
       method: "PATCH",
-      headers: { "Content-Type": "application/json", ...(await getAuthHeaders()) },
+      headers: {
+        "Content-Type": "application/json",
+        ...(await getAuthHeaders()),
+      },
       body: JSON.stringify(updates),
     });
     if (res.ok) {
@@ -562,7 +638,6 @@ export function saveActiveDraft(draft: ActiveSessionDraft): void {
   } catch (err) {
     console.error("Failed to save draft session to localStorage:", err);
   }
-
 }
 
 export function getActiveDraft(): ActiveSessionDraft | null {

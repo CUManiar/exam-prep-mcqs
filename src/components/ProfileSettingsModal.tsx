@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Link from "next/link";
 import {
   AlertTriangle,
   Check,
@@ -8,6 +9,7 @@ import {
   LogOut,
   RotateCcw,
   Settings2,
+  Sparkles,
   ShieldCheck,
   Trash2,
   User,
@@ -35,6 +37,8 @@ export function ProfileSettingsModal({
     openAuthModal,
     hiddenPaperIds,
     handleRestoreHiddenPapers,
+    onlyCustomPapers,
+    handleSetOnlyCustomPapers,
   } = useApp();
   const [autoAdvance, setAutoAdvance] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
@@ -163,6 +167,28 @@ export function ProfileSettingsModal({
             </label>
           </div>
 
+          <div className="rounded-lg border border-indigo-200 bg-indigo-50/60">
+            <div className="flex items-start gap-3 px-4 py-4">
+              <Sparkles className="mt-0.5 h-4 w-4 shrink-0 text-indigo-700" />
+              <div>
+                <p className="text-sm font-semibold text-indigo-950">
+                  Connect ChatGPT or Claude
+                </p>
+                <p className="mt-1 text-xs leading-5 text-indigo-900/75">
+                  Ask your chatbot to read progress, import papers, and record
+                  scores in this account.
+                </p>
+                <Link
+                  href="/help/mcp"
+                  onClick={onClose}
+                  className="mt-3 inline-flex text-xs font-semibold text-indigo-700 hover:text-indigo-900"
+                >
+                  Open the connection guide →
+                </Link>
+              </div>
+            </div>
+          </div>
+
           <div className="rounded-lg border border-slate-200">
             <div className="flex items-center justify-between gap-4 px-4 py-4">
               <div>
@@ -213,6 +239,35 @@ export function ProfileSettingsModal({
               </button>
             </div>
           )}
+
+          <div className="rounded-lg border border-slate-200">
+            <div className="flex items-center gap-2 border-b border-slate-200 px-4 py-3">
+              <Settings2 className="h-4 w-4 text-slate-500" />
+              <h3 className="text-sm font-semibold text-slate-900">
+                Paper library visibility
+              </h3>
+            </div>
+            <label className="flex items-center justify-between gap-4 px-4 py-4">
+              <span>
+                <span className="block text-sm font-medium text-slate-800">
+                  Show only my uploaded papers
+                </span>
+                <span className="mt-1 block text-xs leading-5 text-slate-500">
+                  Hide every pre-loaded paper from your library without deleting
+                  it.
+                </span>
+              </span>
+              <input
+                type="checkbox"
+                checked={onlyCustomPapers}
+                onChange={(event) =>
+                  handleSetOnlyCustomPapers(event.target.checked)
+                }
+                className="h-4 w-4 rounded border-slate-300 text-blue-700 focus:ring-blue-600"
+                aria-label="Show only my uploaded papers"
+              />
+            </label>
+          </div>
 
           {!currentUser && (
             <button

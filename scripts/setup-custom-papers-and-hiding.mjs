@@ -1,4 +1,4 @@
-import { Client } from 'pg';
+import { Client } from "pg";
 
 const rawConnectionString =
   process.env.POSTGRES_URL_NON_POOLING ||
@@ -6,11 +6,11 @@ const rawConnectionString =
   process.env.POSTGRES_URL;
 
 if (!rawConnectionString) {
-  console.error('No Postgres connection string found in .env.local');
+  console.error("No Postgres connection string found in .env.local");
   process.exit(1);
 }
 
-const connectionString = rawConnectionString.split('?')[0];
+const connectionString = rawConnectionString.split("?")[0];
 
 const client = new Client({
   connectionString,
@@ -19,12 +19,15 @@ const client = new Client({
 
 async function run() {
   await client.connect();
-  console.log('Connected to Supabase Postgres.');
+  console.log("Connected to Supabase Postgres.");
 
   const sql = `
     -- 1. Add hidden_paper_ids to profiles
     ALTER TABLE public.profiles 
-      ADD COLUMN IF NOT EXISTS hidden_paper_ids TEXT[] DEFAULT '{}';
+      ADD COLUMN IF NOT EXISTS hidden_paper_ids TEXT[] DEFAULT '{}',
+      ADD COLUMN IF NOT EXISTS only_custom_papers BOOLEAN NOT NULL DEFAULT FALSE,
+      ADD COLUMN IF NOT EXISTS custom_syllabus JSONB NOT NULL DEFAULT '[]'::jsonb,
+      ADD COLUMN IF NOT EXISTS custom_syllabus_markdown TEXT NOT NULL DEFAULT '';
 
     -- 2. Create custom_papers table (isolated per user)
     CREATE TABLE IF NOT EXISTS public.custom_papers (
@@ -95,11 +98,13 @@ async function run() {
   `;
 
   await client.query(sql);
-  console.log('Successfully added hidden_paper_ids and custom_papers table with RLS!');
+  console.log(
+    "Successfully added hidden_paper_ids and custom_papers table with RLS!",
+  );
   await client.end();
 }
 
 run().catch((err) => {
-  console.error('Migration error:', err);
+  console.error("Migration error:", err);
   process.exit(1);
 });

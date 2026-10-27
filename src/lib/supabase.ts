@@ -1,5 +1,10 @@
 import { createClient, SupabaseClient, User } from "@supabase/supabase-js";
-import { Attempt, ActiveSessionDraft, QuestionPaper } from "./types";
+import {
+  Attempt,
+  ActiveSessionDraft,
+  QuestionPaper,
+  SyllabusItem,
+} from "./types";
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || "";
 const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || "";
@@ -26,6 +31,9 @@ export interface UserProfile {
   pro_purchased_at?: string;
   razorpay_payment_id?: string;
   hidden_paper_ids?: string[];
+  only_custom_papers?: boolean;
+  custom_syllabus?: SyllabusItem[];
+  custom_syllabus_markdown?: string;
 }
 
 // Check current authenticated user
@@ -283,6 +291,48 @@ export async function restoreUserHiddenPapersInSupabase(
   }
 }
 
+export async function updateOnlyCustomPapersInSupabase(
+  userId: string,
+  value: boolean,
+): Promise<boolean> {
+  const supabase = getSupabaseClient();
+  if (!supabase) return false;
+  const { error } = await supabase
+    .from("profiles")
+    .update({ only_custom_papers: value, updated_at: new Date().toISOString() })
+    .eq("id", userId);
+  return !error;
+}
+
+export async function saveUserSyllabusToSupabase(
+  userId: string,
+  items: SyllabusItem[],
+): Promise<boolean> {
+  const supabase = getSupabaseClient();
+  if (!supabase) return false;
+  const { error } = await supabase
+    .from("profiles")
+    .update({ custom_syllabus: items, updated_at: new Date().toISOString() })
+    .eq("id", userId);
+  return !error;
+}
+
+export async function saveUserSyllabusMarkdownToSupabase(
+  userId: string,
+  markdown: string,
+): Promise<boolean> {
+  const supabase = getSupabaseClient();
+  if (!supabase) return false;
+  const { error } = await supabase
+    .from("profiles")
+    .update({
+      custom_syllabus_markdown: markdown,
+      updated_at: new Date().toISOString(),
+    })
+    .eq("id", userId);
+  return !error;
+}
+
 // Fetch user's isolated custom papers from Supabase
 export async function fetchUserCustomPapersFromSupabase(
   userId: string,
@@ -338,8 +388,10 @@ export async function fetchUserCustomPapersFromSupabase(
         answerKey: row.answer_key || {},
         answerKeyText: row.answer_key_text || undefined,
         explanations: row.explanations || {},
-        markdownContent: row.markdown_content || row.markdownContent || undefined,
-        parsedQuestions: row.parsed_questions || row.parsedQuestions || undefined,
+        markdownContent:
+          row.markdown_content || row.markdownContent || undefined,
+        parsedQuestions:
+          row.parsed_questions || row.parsedQuestions || undefined,
         instructions: row.instructions || undefined,
         cutoffEnabled:
           row.cutoff_enabled === true ||
