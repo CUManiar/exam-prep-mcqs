@@ -547,6 +547,49 @@ export function ExamSessionView({
     }
   };
 
+  // Answer handler for Markdown cloze/free-text questions.
+  const handleUpdateAnswer = (qNo: number, answer: string) => {
+    markUserInteraction();
+    setAnswers((prev) => {
+      const current = prev[qNo] || {
+        questionNo: qNo,
+        selected: null,
+        confidence: undefined,
+        changesCount: 0,
+        answerHistory: [],
+      };
+      const prevSelected = current.selected;
+      const newSelected = answer.trim() ? answer : null;
+      const rawCorrect = getCorrectAnswerForQ(qNo);
+      const correct = rawCorrect ? rawCorrect.toUpperCase().trim() : undefined;
+      const isCorrect =
+        newSelected && correct
+          ? newSelected.toUpperCase().trim() === correct
+          : null;
+      let changesCount = current.changesCount || 0;
+      let answerHistory = current.answerHistory
+        ? [...current.answerHistory]
+        : [];
+
+      if (mode === "mock" && newSelected && newSelected !== prevSelected) {
+        if (prevSelected) changesCount += 1;
+        answerHistory.push(newSelected);
+      }
+
+      return {
+        ...prev,
+        [qNo]: {
+          ...current,
+          selected: newSelected,
+          correctAnswer: correct,
+          isCorrect,
+          changesCount,
+          answerHistory,
+        },
+      };
+    });
+  };
+
   const handleSetConfidence = (qNo: number, confidence: ConfidenceLevel) => {
     markUserInteraction();
     setAnswers((prev) => {
@@ -1187,6 +1230,7 @@ export function ExamSessionView({
                   mode={mode}
                   idleTimeSeconds={idleTimeSeconds}
                   onSelectOption={handleSelectOption}
+                  onUpdateAnswer={handleUpdateAnswer}
                   onClearOption={handleClearSelection}
                   onNavigateQuestion={navigateToQuestion}
                   onStartExam={() => navigateToQuestion(1)}

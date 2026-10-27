@@ -314,14 +314,14 @@ function parseQuestionBlock(
     }
   }
 
-  if (Object.keys(options).length === 0) return null;
-
   const questionNo = marker?.questionNo || fallbackQuestionNo;
   if (matchingItems.length === 0 && matchingHeaderLine) {
     promptLines.push(matchingHeaderLine);
   }
 
   const fullPrompt = promptLines.join("\n").trim();
+  if (!fullPrompt && matchingItems.length === 0) return null;
+
   return {
     questionNo,
     text: fullPrompt || `Question ${questionNo}`,
@@ -358,8 +358,12 @@ export function parseQuestionnaireMarkdown(
 
   if (!hasExplicitQuestionMarker && hasSeparator) {
     const blocks = raw.split(/^\s*-{3,}\s*$/m);
+    const firstBlockIsHeader = Boolean(
+      parseMarkdownHeader(blocks[0] || "").rawLines,
+    );
     let fallbackQuestionNo = 1;
-    for (const block of blocks) {
+    for (const [index, block] of blocks.entries()) {
+      if (index === 0 && firstBlockIsHeader) continue;
       const parsed = parseQuestionBlock(block.trim(), fallbackQuestionNo);
       if (!parsed) continue;
       parsedQuestions.push(parsed);
@@ -410,6 +414,9 @@ export function parseQuestionnaireMarkdown(
 
     let fallbackQuestionNo = 1;
     for (const block of blocks) {
+      if (!block.marker && parseMarkdownHeader(block.text.trim()).rawLines) {
+        continue;
+      }
       const parsed = parseQuestionBlock(
         block.text.trim(),
         block.marker?.questionNo || fallbackQuestionNo,

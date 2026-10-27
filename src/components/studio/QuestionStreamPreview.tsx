@@ -29,8 +29,9 @@ export function QuestionStreamPreview({
         <p className="text-[11px] text-slate-500 max-w-sm mx-auto leading-relaxed">
           Your rules, scoring scheme, and instructions are loaded above. Switch
           to the <strong>&apos;Markdown Source&apos;</strong> tab to paste or
-          write questions separated by <strong>&apos;---&apos;</strong> with
-          options (a), (b), (c), (d) to preview individual question cards.
+          write questions separated by <strong>&apos;---&apos;</strong>. MCQs
+          can use options (a), (b), (c), (d), while cloze questions can omit
+          options and accept a short free-text answer.
         </p>
       </div>
     );
@@ -63,6 +64,10 @@ export function QuestionStreamPreview({
               {ansLetter ? (
                 <span className="text-[11px] font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200 inline-flex items-center gap-1">
                   <Check className="h-3 w-3" /> Answer: Option {ansLetter}
+                </span>
+              ) : Object.keys(q.options || {}).length === 0 ? (
+                <span className="text-[11px] font-bold text-indigo-700 bg-indigo-50 px-2 py-0.5 rounded border border-indigo-200">
+                  Cloze · Free text
                 </span>
               ) : (
                 <span className="text-[10px] text-slate-400">

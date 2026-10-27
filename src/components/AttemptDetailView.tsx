@@ -187,7 +187,8 @@ export function AttemptDetailView({
   // Determine if this attempt is based on a markdown question paper
   const isMarkdownPaper = useMemo(() => {
     return (
-      (matchedPaper?.parsedQuestions && matchedPaper.parsedQuestions.length > 0) ||
+      (matchedPaper?.parsedQuestions &&
+        matchedPaper.parsedQuestions.length > 0) ||
       Boolean(matchedPaper?.markdownContent) ||
       matchedPaper?.qpUrl?.startsWith("local://") ||
       attempt.paperId?.startsWith("custom_md_") ||
@@ -203,7 +204,10 @@ export function AttemptDetailView({
   // Parse markdown questions if not already parsed
   const markdownQuestions = useMemo(() => {
     if (!isMarkdownPaper) return [];
-    if (matchedPaper?.parsedQuestions && matchedPaper.parsedQuestions.length > 0) {
+    if (
+      matchedPaper?.parsedQuestions &&
+      matchedPaper.parsedQuestions.length > 0
+    ) {
       return matchedPaper.parsedQuestions;
     }
     if (matchedPaper?.markdownContent) {
@@ -873,10 +877,16 @@ export function AttemptDetailView({
                       {statusBadge}
                     </td>
                     <td className="py-1.5 px-2 border-r border-slate-200 text-center font-mono font-semibold">
-                      {q?.selected ? `Option ${q.selected}` : "—"}
+                      {q?.selected
+                        ? q.correctAnswer
+                          ? `Option ${q.selected}`
+                          : q.selected
+                        : "—"}
                     </td>
                     <td className="py-1.5 px-2 border-r border-slate-200 text-center font-mono font-bold text-slate-800">
-                      {q?.correctAnswer ? `Option ${q.correctAnswer}` : "—"}
+                      {q?.correctAnswer
+                        ? `Option ${q.correctAnswer}`
+                        : "No key"}
                     </td>
                     <td className="py-1.5 px-2 border-r border-slate-200 text-center font-mono">
                       {marksText}
@@ -1232,18 +1242,19 @@ export function AttemptDetailView({
                       <Monitor className="h-3 w-3 text-indigo-600" />
                       <span>{pdfMode === "canvas" ? "Native" : "Canvas"}</span>
                     </button>
-                    {matchedPaper?.qpUrl && !matchedPaper.qpUrl.startsWith("local://") && (
-                      <a
-                        href={matchedPaper.qpUrl}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="flex items-center gap-1 text-[11px] font-medium text-slate-600 hover:text-slate-900 px-2.5 py-1 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 transition-colors"
-                        title="Open PDF in external browser tab"
-                      >
-                        <ExternalLink className="h-3 w-3 text-indigo-600" />
-                        <span>Popout</span>
-                      </a>
-                    )}
+                    {matchedPaper?.qpUrl &&
+                      !matchedPaper.qpUrl.startsWith("local://") && (
+                        <a
+                          href={matchedPaper.qpUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="flex items-center gap-1 text-[11px] font-medium text-slate-600 hover:text-slate-900 px-2.5 py-1 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 transition-colors"
+                          title="Open PDF in external browser tab"
+                        >
+                          <ExternalLink className="h-3 w-3 text-indigo-600" />
+                          <span>Popout</span>
+                        </a>
+                      )}
                     <button
                       onClick={() => setShowPaperSplit(false)}
                       className="text-xs font-medium text-slate-500 hover:text-slate-900 px-2 py-1 rounded-lg hover:bg-slate-50 transition-colors cursor-pointer"
@@ -1297,24 +1308,44 @@ export function AttemptDetailView({
               <div className="flex items-center gap-3 flex-wrap">
                 <div className="grid grid-cols-2 sm:grid-cols-5 divide-x divide-slate-200 text-xs">
                   <div className="px-3 first:pl-0 text-center sm:text-left">
-                    <span className="text-[10px] text-slate-500 block">Accuracy</span>
-                    <span className="text-sm font-semibold text-slate-900 font-mono">{attempt.accuracyPct}%</span>
+                    <span className="text-[10px] text-slate-500 block">
+                      Accuracy
+                    </span>
+                    <span className="text-sm font-semibold text-slate-900 font-mono">
+                      {attempt.accuracyPct}%
+                    </span>
                   </div>
                   <div className="px-3 text-center sm:text-left">
-                    <span className="text-[10px] text-slate-500 block">Correct</span>
-                    <span className="text-sm font-semibold text-emerald-700 font-mono">{attempt.correct}</span>
+                    <span className="text-[10px] text-slate-500 block">
+                      Correct
+                    </span>
+                    <span className="text-sm font-semibold text-emerald-700 font-mono">
+                      {attempt.correct}
+                    </span>
                   </div>
                   <div className="px-3 text-center sm:text-left">
-                    <span className="text-[10px] text-slate-500 block">Incorrect</span>
-                    <span className="text-sm font-semibold text-rose-700 font-mono">{attempt.incorrect}</span>
+                    <span className="text-[10px] text-slate-500 block">
+                      Incorrect
+                    </span>
+                    <span className="text-sm font-semibold text-rose-700 font-mono">
+                      {attempt.incorrect}
+                    </span>
                   </div>
                   <div className="px-3 text-center sm:text-left">
-                    <span className="text-[10px] text-slate-500 block">Skipped</span>
-                    <span className="text-sm font-semibold text-slate-700 font-mono">{attempt.unattempted}</span>
+                    <span className="text-[10px] text-slate-500 block">
+                      Skipped
+                    </span>
+                    <span className="text-sm font-semibold text-slate-700 font-mono">
+                      {attempt.unattempted}
+                    </span>
                   </div>
                   <div className="px-3 last:pr-0 col-span-2 sm:col-span-1 text-center sm:text-left">
-                    <span className="text-[10px] text-slate-500 block">Avg pace</span>
-                    <span className="text-sm font-semibold text-slate-900 font-mono">{avgTimePerQ}s</span>
+                    <span className="text-[10px] text-slate-500 block">
+                      Avg pace
+                    </span>
+                    <span className="text-sm font-semibold text-slate-900 font-mono">
+                      {avgTimePerQ}s
+                    </span>
                   </div>
                 </div>
 
@@ -1350,9 +1381,7 @@ export function AttemptDetailView({
                 {/* Outcome Segmented Bar */}
                 <div className="space-y-1.5">
                   <div className="flex items-center justify-between text-xs text-slate-500 font-medium">
-                    <span>
-                      Outcome distribution ({totalQ} questions)
-                    </span>
+                    <span>Outcome distribution ({totalQ} questions)</span>
                     <span>
                       Total Time: {formatTimeSeconds(attempt.durationSeconds)}
                     </span>
@@ -1693,20 +1722,70 @@ export function AttemptDetailView({
           {/* CONFIDENCE & TAG ANALYTICS (COMPACT FILTER ROW) */}
           <section className="bi-card overflow-hidden">
             <div className="flex items-center justify-between px-4 py-3 border-b border-slate-200">
-              <h3 className="text-xs font-semibold text-slate-900">Confidence tags</h3>
-              <span className="text-[11px] text-slate-500">Select a row to filter the review</span>
+              <h3 className="text-xs font-semibold text-slate-900">
+                Confidence tags
+              </h3>
+              <span className="text-[11px] text-slate-500">
+                Select a row to filter the review
+              </span>
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 divide-y sm:divide-y-0 sm:divide-x divide-slate-200">
               {[
-                { id: "sure" as const, icon: "🎯", label: "Sure", total: sureQuestions.length, correct: sureCorrect, wrong: sureWrong, accuracy: sureAccuracy, accent: "text-emerald-700", selected: "bg-emerald-50/60", outline: "ring-1 ring-inset ring-emerald-200" },
-                { id: "50-50" as const, icon: "⚖️", label: "50:50", total: fiftyFiftyQuestions.length, correct: fiftyFiftyCorrect, wrong: fiftyFiftyWrong, accuracy: fiftyFiftyAccuracy, accent: "text-amber-700", selected: "bg-amber-50/60", outline: "ring-1 ring-inset ring-amber-200" },
-                { id: "elimination" as const, icon: "✂️", label: "Elimination", total: eliminationQuestions.length, correct: eliminationCorrect, wrong: eliminationWrong, accuracy: eliminationAccuracy, accent: "text-sky-700", selected: "bg-sky-50/60", outline: "ring-1 ring-inset ring-sky-200" },
-                { id: "guess" as const, icon: "🎲", label: "Guess", total: guessQuestions.length, correct: guessCorrect, wrong: guessWrong, accuracy: guessAccuracy, accent: "text-purple-700", selected: "bg-purple-50/60", outline: "ring-1 ring-inset ring-purple-200" },
+                {
+                  id: "sure" as const,
+                  icon: "🎯",
+                  label: "Sure",
+                  total: sureQuestions.length,
+                  correct: sureCorrect,
+                  wrong: sureWrong,
+                  accuracy: sureAccuracy,
+                  accent: "text-emerald-700",
+                  selected: "bg-emerald-50/60",
+                  outline: "ring-1 ring-inset ring-emerald-200",
+                },
+                {
+                  id: "50-50" as const,
+                  icon: "⚖️",
+                  label: "50:50",
+                  total: fiftyFiftyQuestions.length,
+                  correct: fiftyFiftyCorrect,
+                  wrong: fiftyFiftyWrong,
+                  accuracy: fiftyFiftyAccuracy,
+                  accent: "text-amber-700",
+                  selected: "bg-amber-50/60",
+                  outline: "ring-1 ring-inset ring-amber-200",
+                },
+                {
+                  id: "elimination" as const,
+                  icon: "✂️",
+                  label: "Elimination",
+                  total: eliminationQuestions.length,
+                  correct: eliminationCorrect,
+                  wrong: eliminationWrong,
+                  accuracy: eliminationAccuracy,
+                  accent: "text-sky-700",
+                  selected: "bg-sky-50/60",
+                  outline: "ring-1 ring-inset ring-sky-200",
+                },
+                {
+                  id: "guess" as const,
+                  icon: "🎲",
+                  label: "Guess",
+                  total: guessQuestions.length,
+                  correct: guessCorrect,
+                  wrong: guessWrong,
+                  accuracy: guessAccuracy,
+                  accent: "text-purple-700",
+                  selected: "bg-purple-50/60",
+                  outline: "ring-1 ring-inset ring-purple-200",
+                },
               ].map((item) => (
                 <button
                   key={item.id}
                   type="button"
-                  onClick={() => setFilterTab((prev) => (prev === item.id ? "all" : item.id))}
+                  onClick={() =>
+                    setFilterTab((prev) => (prev === item.id ? "all" : item.id))
+                  }
                   className={`px-4 py-3 text-left sm:text-center transition-colors ${
                     filterTab === item.id
                       ? `${item.selected} ${item.outline}`
@@ -1717,14 +1796,26 @@ export function AttemptDetailView({
                     <span className={`text-xs font-medium ${item.accent}`}>
                       <span aria-hidden="true">{item.icon}</span> {item.label}
                     </span>
-                    <span className="text-[11px] font-mono text-slate-500">{item.total}</span>
+                    <span className="text-[11px] font-mono text-slate-500">
+                      {item.total}
+                    </span>
                   </div>
                   <div className="mt-1 text-sm font-semibold text-slate-900 font-mono">
-                    {item.correct}<span className="text-[11px] font-normal text-slate-500">/{item.total} correct</span>
-                    <span className={`ml-2 text-[11px] font-medium ${item.accent}`}>{item.accuracy}%</span>
+                    {item.correct}
+                    <span className="text-[11px] font-normal text-slate-500">
+                      /{item.total} correct
+                    </span>
+                    <span
+                      className={`ml-2 text-[11px] font-medium ${item.accent}`}
+                    >
+                      {item.accuracy}%
+                    </span>
                   </div>
                   <div className="mt-0.5 text-[11px] text-slate-500">
-                    {item.wrong} wrong{filterTab === item.id && <span className="ml-1 text-slate-700">· filtered</span>}
+                    {item.wrong} wrong
+                    {filterTab === item.id && (
+                      <span className="ml-1 text-slate-700">· filtered</span>
+                    )}
                   </div>
                 </button>
               ))}
@@ -1737,7 +1828,8 @@ export function AttemptDetailView({
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-200 pb-3">
               <div>
                 <h3 className="text-sm sm:text-base font-semibold text-slate-900">
-                  Review {filteredQuestions.length} of {attempt.totalQuestions} questions
+                  Review {filteredQuestions.length} of {attempt.totalQuestions}{" "}
+                  questions
                 </h3>
                 <p className="text-xs text-slate-500 mt-0.5">
                   Select a row for scoring, timing, and notes.
@@ -1767,7 +1859,7 @@ export function AttemptDetailView({
                       ? collapseAll
                       : expandAll
                   }
-                    className="text-xs font-medium text-slate-700 hover:text-slate-900 bg-white hover:bg-slate-50 px-3 py-1.5 rounded-lg border border-slate-200 transition-colors whitespace-nowrap cursor-pointer"
+                  className="text-xs font-medium text-slate-700 hover:text-slate-900 bg-white hover:bg-slate-50 px-3 py-1.5 rounded-lg border border-slate-200 transition-colors whitespace-nowrap cursor-pointer"
                 >
                   {Object.keys(expandedQuestions).length > 0
                     ? "Collapse all"
@@ -1780,7 +1872,12 @@ export function AttemptDetailView({
             <div className="w-full overflow-x-auto pb-1 no-scrollbar">
               <div className="flex items-center gap-1.5 min-w-max p-1 bg-slate-50 rounded-lg border border-slate-200 text-xs">
                 {[
-                  { id: "all" as const, label: `All (${totalQ})`, color: "", active: "bg-slate-900" },
+                  {
+                    id: "all" as const,
+                    label: `All (${totalQ})`,
+                    color: "",
+                    active: "bg-slate-900",
+                  },
                   {
                     id: "incorrect" as const,
                     label: `Incorrect (${attempt.incorrect})`,
@@ -1821,9 +1918,9 @@ export function AttemptDetailView({
                   <button
                     key={tab.id}
                     onClick={() => setFilterTab(tab.id)}
-                      className={`rounded-md px-2.5 py-1.5 transition-colors whitespace-nowrap text-xs cursor-pointer ${
+                    className={`rounded-md px-2.5 py-1.5 transition-colors whitespace-nowrap text-xs cursor-pointer ${
                       filterTab === tab.id
-                          ? `${tab.active} text-white font-medium`
+                        ? `${tab.active} text-white font-medium`
                         : "text-slate-600 hover:text-slate-900 hover:bg-white"
                     }`}
                   >
@@ -1851,7 +1948,9 @@ export function AttemptDetailView({
                     <tr className="bg-slate-50 text-slate-500 border-b border-slate-200 text-[10px] font-medium uppercase tracking-wider">
                       <th className="py-3 px-3 text-center w-16">Q. No</th>
                       <th className="py-3 px-3 text-center w-28">Status</th>
-                      <th className="py-3 px-3 text-center w-32">Your answer</th>
+                      <th className="py-3 px-3 text-center w-32">
+                        Your answer
+                      </th>
                       <th className="py-3 px-3 text-center w-32">Answer</th>
                       <th className="py-3 px-2 text-center w-20">Time</th>
                       <th className="py-3 px-4 min-w-[220px]">Notes</th>
@@ -1908,6 +2007,12 @@ export function AttemptDetailView({
                               {isWrong && (
                                 <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-rose-50 text-rose-700 border border-rose-200">
                                   <XCircle className="h-3 w-3" /> Incorrect
+                                </span>
+                              )}
+                              {isAnswered && !isCorrect && !isWrong && (
+                                <span className="text-indigo-700 font-semibold">
+                                  Free-text answer recorded; this question has
+                                  no objective answer key.
                                 </span>
                               )}
                               {!isAnswered && (
@@ -2053,9 +2158,7 @@ export function AttemptDetailView({
                                   <div className="space-y-1 bg-indigo-50/80 p-3.5 rounded-xl border border-indigo-200/90 shadow-2xs">
                                     <div className="flex items-center gap-1.5 text-[11px] uppercase font-bold text-indigo-900 tracking-wider">
                                       <BookOpen className="h-3.5 w-3.5 text-indigo-700" />
-                                      <span>
-                                        Explanation
-                                      </span>
+                                      <span>Explanation</span>
                                     </div>
                                     <p className="text-xs text-indigo-950 font-normal leading-relaxed whitespace-pre-wrap pt-0.5">
                                       {q.explanation ||

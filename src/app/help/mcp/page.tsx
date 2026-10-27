@@ -24,6 +24,7 @@ import { DEFAULT_PROD_URL } from "../../../lib/config";
 
 const promptExamples = [
   "Show my overall progress and the papers I have not attempted yet.",
+  "What was my average score across my last 3 CSAT exams?",
   "Replace my custom syllabus with this Markdown tree: [paste your .md outline]",
   "Search my papers for questions about federalism.",
   "Record 87 out of 200 for my Prelims GS1 mock.",
@@ -54,6 +55,16 @@ const faqItems = [
     question: "Why can’t I see my uploaded paper?",
     answer:
       "Open account preferences and check whether Show only my uploaded papers is enabled. If it is enabled, pre-loaded papers are intentionally hidden while your papers remain available.",
+  },
+  {
+    question: "How are 'last N exams' calculated?",
+    answer:
+      "Attempt history is newest-first and counts the latest attempt from each distinct paper by default. That means the last 3 CSAT exams are three different paper sets, even if you retried one of them several times. Ask explicitly for every attempt when you want retries included.",
+  },
+  {
+    question: "Can Markdown papers contain cloze questions?",
+    answer:
+      'Yes. Leave out all options and write a one- or two-line prompt. The student gets a free-text answer box. In the answer key, use only the question number and a quoted explanation, such as 1. """Reference explanation""".',
   },
 ];
 

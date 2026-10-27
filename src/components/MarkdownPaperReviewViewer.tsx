@@ -58,7 +58,10 @@ export function MarkdownPaperReviewViewer({
       {/* 1. Header Toolbar */}
       <div className="flex items-center justify-between px-3.5 py-2.5 bg-white border-b border-slate-200 shrink-0 gap-2">
         <div className="flex items-center gap-2 text-xs font-medium text-slate-800 min-w-0">
-          <span className="truncate max-w-[150px] sm:max-w-[220px]" title={displayTitle}>
+          <span
+            className="truncate max-w-[150px] sm:max-w-[220px]"
+            title={displayTitle}
+          >
             {displayTitle}
           </span>
           <span className="hidden sm:inline text-[11px] text-slate-400 font-normal">
@@ -113,7 +116,8 @@ export function MarkdownPaperReviewViewer({
           </span>
           {questions.map((q) => {
             const ans = answers[q.questionNo];
-            const isAnswered = ans?.selected !== null && ans?.selected !== undefined;
+            const isAnswered =
+              ans?.selected !== null && ans?.selected !== undefined;
             const isCorrect = isAnswered && ans?.isCorrect === true;
             const isWrong = isAnswered && ans?.isCorrect === false;
             const isActive = activeQuestionNo === q.questionNo;
@@ -124,9 +128,7 @@ export function MarkdownPaperReviewViewer({
                 type="button"
                 onClick={() => onSelectQuestion?.(q.questionNo)}
                 className={`cursor-pointer px-2 py-0.5 rounded-md text-[11px] font-mono font-bold transition-all shrink-0 ${
-                  isActive
-                    ? "ring-2 ring-slate-900 scale-105"
-                    : ""
+                  isActive ? "ring-2 ring-slate-900 scale-105" : ""
                 } ${
                   isCorrect
                     ? "bg-emerald-50 text-emerald-800 border border-emerald-300"
@@ -204,17 +206,18 @@ export function MarkdownPaperReviewViewer({
                   Instructions
                 </span>
                 <ul className="space-y-1">
-                  {(instructions.length > 0 ? instructions : paper.instructions || []).map(
-                    (rule, idx) => (
-                      <li
-                        key={idx}
-                        className="flex items-start gap-1.5 text-xs text-slate-700 leading-relaxed"
-                      >
-                        <Check className="h-3.5 w-3.5 text-emerald-600 shrink-0 mt-0.5" />
-                        <span>{rule}</span>
-                      </li>
-                    ),
-                  )}
+                  {(instructions.length > 0
+                    ? instructions
+                    : paper.instructions || []
+                  ).map((rule, idx) => (
+                    <li
+                      key={idx}
+                      className="flex items-start gap-1.5 text-xs text-slate-700 leading-relaxed"
+                    >
+                      <Check className="h-3.5 w-3.5 text-emerald-600 shrink-0 mt-0.5" />
+                      <span>{rule}</span>
+                    </li>
+                  ))}
                 </ul>
               </div>
             )}
@@ -229,20 +232,22 @@ export function MarkdownPaperReviewViewer({
               No questions found for this paper
             </h4>
             <p className="text-xs text-slate-500 max-w-sm mx-auto">
-              The markdown content for this paper could not be parsed into individual questions.
+              The markdown content for this paper could not be parsed into
+              individual questions.
             </p>
           </div>
         ) : (
           questions.map((q) => {
             const ans = answers[q.questionNo];
             const userSelected = ans?.selected?.toUpperCase() || null;
+            const isCloze = Object.keys(q.options || {}).length === 0;
             const correctOpt =
               paper.answerKey?.[q.questionNo]?.toUpperCase() ||
               q.answer?.toUpperCase() ||
               ans?.correctAnswer?.toUpperCase() ||
               null;
 
-            const isAnswered = userSelected !== null;
+            const isAnswered = Boolean(ans?.selected?.trim());
             const isCorrect = isAnswered && ans?.isCorrect === true;
             const isWrong = isAnswered && ans?.isCorrect === false;
             const isSelectedActive = activeQuestionNo === q.questionNo;
@@ -283,7 +288,14 @@ export function MarkdownPaperReviewViewer({
                     ) : isWrong ? (
                       <span className="inline-flex items-center gap-1 text-[11px] font-medium text-rose-800">
                         <XCircle className="h-3 w-3 text-rose-600" />
-                        <span>Incorrect · -{incorrectMarksValue} · {userSelected}</span>
+                        <span>
+                          Incorrect · -{incorrectMarksValue} · {userSelected}
+                        </span>
+                      </span>
+                    ) : isCloze && isAnswered ? (
+                      <span className="inline-flex items-center gap-1 text-[11px] font-medium text-indigo-800">
+                        <CheckCircle2 className="h-3 w-3 text-indigo-600" />
+                        <span>Answer recorded</span>
                       </span>
                     ) : (
                       <span className="inline-flex items-center gap-1 text-[11px] font-medium text-slate-500">
@@ -313,6 +325,13 @@ export function MarkdownPaperReviewViewer({
                   headers={q.matchingHeaders}
                 />
 
+                {isCloze && isAnswered && (
+                  <div className="mt-3.5 rounded-lg border border-indigo-200 bg-indigo-50/60 p-3 text-xs text-indigo-950">
+                    <span className="font-semibold">Your response:</span>{" "}
+                    <span className="whitespace-pre-wrap">{ans?.selected}</span>
+                  </div>
+                )}
+
                 {/* Options Grid */}
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 mt-3.5 pt-1">
                   {Object.entries(q.options).map(([optKey, optText]) => {
@@ -327,7 +346,7 @@ export function MarkdownPaperReviewViewer({
                     if (isRightAnswer && isUserPick) {
                       optStyle =
                         "bg-emerald-50/90 border-emerald-300 text-emerald-950 font-medium ring-1 ring-emerald-400/30";
-                        badgeEl = (
+                      badgeEl = (
                         <span className="text-[10px] font-medium text-emerald-700 ml-auto flex items-center gap-0.5 shrink-0">
                           <Check className="h-3 w-3" /> Your answer
                         </span>
@@ -366,7 +385,9 @@ export function MarkdownPaperReviewViewer({
                         >
                           {optKey}
                         </span>
-                        <span className="whitespace-pre-wrap flex-1">{optText}</span>
+                        <span className="whitespace-pre-wrap flex-1">
+                          {optText}
+                        </span>
                         {badgeEl}
                       </div>
                     );

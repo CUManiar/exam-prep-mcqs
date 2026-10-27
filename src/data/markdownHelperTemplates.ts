@@ -11,7 +11,7 @@ TOTAL MARKS: 10
 TIME: 15 Minutes
 NEGATIVE MARKING: 0.667 marks deducted per wrong answer
 INSTRUCTIONS:
-- Each question carries 2.0 marks with four alternatives.
+- Each MCQ carries 2.0 marks; cloze questions accept a short free-text response.
 - For each incorrect answer, 0.667 (1/3rd) marks will be deducted.
 - Read each question statement thoroughly before choosing the answer.
 - Practice active elimination techniques during the attempt.
@@ -49,35 +49,21 @@ Which of the statements given above are correct?
 (c) 1 and 3 only
 (d) 1, 2 and 3
 ---
-Consider the following historical pairs of Bhakti saints and their philosophical schools:
-1. Ramanujacharya — Vishishtadvaita
-2. Madhvacharya — Shuddhadvaita
-3. Adi Shankaracharya — Advaita
-4. Vallabhacharya — Dvaita
-
-How many of the pairs given above are correctly matched?
-(a) Only one pair
-(b) Only two pairs
-(c) Only three pairs
-(d) All four pairs
+Fill in the blank: The writ issued by a court to produce a person who has been unlawfully detained is called __________.
 ---
-Which of the following best describes the term **"Quantum Supremacy"** frequently mentioned in scientific news?
-(a) A theoretical point where quantum computers can crack all existing cryptographic algorithms simultaneously
-(b) The demonstration that a programmable quantum device can solve a problem that no classical supercomputer can solve in any feasible time
-(c) The permanent replacement of classical silicon microprocessors by superconducting qubit processors in data centers
-(d) The attainment of absolute zero temperature (-273.15°C) inside a scalable quantum computing laboratory`;
+In one or two lines, explain how the basic-structure doctrine limits Parliament's power to amend the Constitution of India.`;
 
 export const ANSWER_KEY_TEMPLATE = `1. b """ Statement 1 and 2 are correct. Statement 3 is incorrect because the MPC has 6 members (3 from RBI, 3 appointed by Central Government) who hold office for a non-renewable period of 4 years. """
 2. b """ Statement 1 and 2 are correct. Statement 3 is incorrect because the right to privacy under Article 21 is not absolute and is subject to the threefold test of legality, legitimate state aim, and proportionality. """
 3. d """ All three statements are correct under Norman Myers / Conservation International criteria for global Biodiversity Hotspots. India encompasses parts of 4 hotspots. """
-4. b """ Exactly two pairs (1 and 3) are correctly matched. Madhvacharya propounded Dvaita (Dualism), while Vallabhacharya propounded Shuddhadvaita (Pure Non-Dualism). """
-5. b """ Quantum Supremacy refers to a programmable quantum device performing a task that is practically impossible for any classical supercomputer. """`;
+4. """ The writ is habeas corpus, which requires the authority detaining a person to produce that person before the court so the legality of the detention can be examined. """
+5. """ The basic-structure doctrine prevents Parliament from using its Article 368 amendment power to destroy the Constitution's foundational features, even though Parliament may amend other provisions. """`;
 
 export const AI_GENERATION_PROMPT = `Act as an expert UPSC Civil Services examination question setter. 
 I need a practice test in a strictly structured markdown format so that an automated exam test engine can parse the paper, rules, questions, and answer key.
 
 Please generate a test on the following topic / specifications:
-[INSERT YOUR TOPIC / SUBJECT HERE, e.g. "Modern Indian History from 1857 to 1947" or "Current Affairs & Environment for UPSC Prelims 2026 - 15 MCQs"]
+[INSERT YOUR TOPIC / SUBJECT HERE, e.g. "Modern Indian History from 1857 to 1947" or "Current Affairs & Environment for UPSC Prelims 2026 - 15 questions"]
 
 STRICT FORMAT RULES:
 
@@ -89,27 +75,32 @@ TOTAL MARKS: <Total marks, e.g. 20>
 TIME: <Duration in minutes, e.g. 20 Minutes>
 NEGATIVE MARKING: <e.g. 0.667 marks deducted per wrong answer>
 INSTRUCTIONS:
-- Each question carries 2 marks.
+- Each MCQ carries 2 marks; cloze questions are short written responses.
 - 1/3rd marks deducted for each wrong answer.
 - Follow UPSC standard phrasing (e.g. "Which of the statements given above is/are correct?").
+- Unless the user explicitly asks for an all-MCQ paper, include a mix of MCQs and at least two cloze/free-text questions in a paper with five or more questions.
 
 2. QUESTIONS SECTION:
 - Start with a "---" line immediately after the header.
 - Separate every question with a line containing only "---".
 - Do NOT prefix questions with "Q1." or "Question 1:"; write the question text directly.
-- Provide exactly 4 options labeled with lowercase letters in parentheses:
+- For MCQs, provide exactly 4 options labeled with lowercase letters in parentheses:
   (a) Option A text
   (b) Option B text
   (c) Option C text
   (d) Option D text
+- Cloze questions are also supported: omit all options and write a one- or two-line prompt that the student answers in free text.
+- Do not add an MCQ option letter to a cloze answer-key entry; provide only the question number and the quoted reference explanation.
 - You may use UPSC formats: "Consider the following statements...", "How many of the above pairs are correctly matched? (a) Only one pair (b) Only two pairs...", or statement-reason questions.
 
 3. ANSWER KEY & DETAILED EXPLANATIONS (At the very bottom, in a clearly separated section):
-Provide the answer key in this exact syntax:
+Provide the answer key in one of these exact syntaxes:
 <question_number>. <lowercase_option_letter> """ <detailed explanation text> """
+<cloze_question_number>. """ <reference explanation text> """
 
 Example:
 1. b """ Statement 1 is correct because... Statement 2 is incorrect because... """
 2. d """ Explanation for question 2... """
+3. """ Reference explanation for the student's free-text cloze response... """
 
 Please generate the complete test now with high quality UPSC Prelims standard questions.`;
