@@ -97,19 +97,22 @@ INSTRUCTIONS:
 - Start with a "---" line immediately after the header.
 - Separate every question with a line containing only "---".
 - Do NOT prefix questions with "Q1." or "Question 1:"; write the question text directly.
-- Provide exactly 4 options labeled with lowercase letters in parentheses:
+- For MCQs, provide exactly 4 options labeled with lowercase letters in parentheses:
   (a) Option A text
   (b) Option B text
   (c) Option C text
   (d) Option D text
+- Cloze questions are also supported: omit all options and write a one- or two-line prompt that the student answers in free text.
 - You may use UPSC formats: "Consider the following statements...", "How many of the above pairs are correctly matched? (a) Only one pair (b) Only two pairs...", or statement-reason questions.
 
 3. ANSWER KEY & DETAILED EXPLANATIONS (At the very bottom, in a clearly separated section):
-Provide the answer key in this exact syntax:
+Provide the answer key in one of these exact syntaxes:
 <question_number>. <lowercase_option_letter> """ <detailed explanation text> """
+<cloze_question_number>. """ <reference explanation text> """
 
 Example:
 1. b """ Statement 1 is correct because... Statement 2 is incorrect because... """
 2. d """ Explanation for question 2... """
+3. """ Reference explanation for the student's free-text cloze response... """
 
 Please generate the complete test now with high quality UPSC Prelims standard questions.`;

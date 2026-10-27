@@ -12,14 +12,15 @@ export function parseAnswerKeyDetailed(text: string): {
   // Supports:
   // 1. a """ multiline or single line explanation """,
   // 2. c """ some explanation """,
+  // 3. 1. """ reference explanation for a cloze/free-text question """
   // Supports """ delimiter, 3+ quotes, smart/curly quotes [“"”], and backward-compatible formats
   const pattern =
-    /(\d+)[\.\)\s\-\:\t]+\s*([A-Da-d])(?:\s*[\"“”]{3,}([\s\S]*?)[\"“”]{3,})?/g;
+    /(?:^|\n)\s*(\d+)[\.\)\s\-\:\t]+\s*(?:([A-Da-d])\s*)?(?:[\"“]{3,}([\s\S]*?)[\"”]{3,})?/g;
   let match: RegExpExecArray | null;
   while ((match = pattern.exec(text)) !== null) {
     const qNo = parseInt(match[1], 10);
-    const ans = match[2].toUpperCase();
-    answers[qNo] = ans;
+    const ans = match[2]?.toUpperCase();
+    if (ans) answers[qNo] = ans;
     if (match[3] !== undefined) {
       const cleaned = match[3].replace(/^[\"“”\s]+|[\"“”\s,]+$/g, "").trim();
       if (cleaned.length > 0) {

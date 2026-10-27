@@ -65,8 +65,21 @@ npm run start
 
 The portal exposes a remote MCP server at `/mcp`. Students can connect an
 MCP-compatible chatbot, sign in through the portal's OAuth screen, and then
-ask the chatbot to read progress, search imported papers, save paper imports,
-record attempts, or hide pre-loaded papers.
+ask the chatbot to read progress, search imported papers, inspect attempt
+history, save paper imports, record attempts, or hide pre-loaded papers.
+
+Attempt history is returned newest-first. Queries such as “what was my average
+score across my last 3 CSAT exams?” use the latest attempt from three distinct
+papers by default, so repeated attempts on one paper are not counted as
+separate exams. A client can request every retry explicitly when needed.
+
+Markdown imports support both MCQs and cloze questions. Cloze questions omit
+options and accept a short free-text response. Their answer-key line contains
+only the question number and a quoted explanation, for example:
+
+```text
+1. """Reference explanation for the expected cloze response."""
+```
 
 The student-facing setup guide is available at `/help/mcp` and is also linked
 from the navigation and account settings.

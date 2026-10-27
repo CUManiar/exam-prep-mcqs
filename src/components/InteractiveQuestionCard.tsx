@@ -25,6 +25,7 @@ interface InteractiveQuestionCardProps {
   mode: "practice" | "mock";
   idleTimeSeconds: number;
   onSelectOption: (qNo: number, option: string) => void;
+  onUpdateAnswer: (qNo: number, answer: string) => void;
   onClearOption: (qNo: number) => void;
   onNavigateQuestion: (qNo: number) => void;
   onStartExam: () => void;
@@ -37,6 +38,7 @@ export function InteractiveQuestionCard({
   mode,
   idleTimeSeconds,
   onSelectOption,
+  onUpdateAnswer,
   onClearOption,
   onNavigateQuestion,
   onStartExam,
@@ -161,11 +163,17 @@ export function InteractiveQuestionCard({
   }
 
   const selectedOpt = currentAnswer?.selected?.toUpperCase() || null;
+  const selectedText = currentAnswer?.selected || "";
   const correctOpt =
     paper.answerKey[currentQuestion]?.toUpperCase() ||
-    qData.answer?.toUpperCase();
-  const hasAnswered = selectedOpt !== null;
-  const isCorrect = hasAnswered && selectedOpt === correctOpt;
+    qData.answer?.toUpperCase() ||
+    currentAnswer?.correctAnswer?.toUpperCase();
+  const hasOptions = Object.keys(qData.options || {}).length > 0;
+  const hasAnswered = selectedText.trim().length > 0;
+  const isCorrect =
+    hasAnswered && correctOpt
+      ? selectedText.trim().toUpperCase() === correctOpt
+      : null;
   const explanation =
     qData.explanation || paper.explanations?.[currentQuestion];
 
@@ -200,28 +208,39 @@ export function InteractiveQuestionCard({
               <span
                 className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold ${
                   mode === "practice"
-                    ? isCorrect
+                    ? isCorrect === true
                       ? "bg-emerald-100 text-emerald-800 border border-emerald-300"
-                      : "bg-rose-100 text-rose-800 border border-rose-300"
+                      : isCorrect === false
+                        ? "bg-rose-100 text-rose-800 border border-rose-300"
+                        : "bg-indigo-100 text-indigo-800 border border-indigo-300"
                     : "bg-indigo-100 text-indigo-800 border border-indigo-300"
                 }`}
               >
                 {mode === "practice" ? (
-                  isCorrect ? (
+                  isCorrect === true ? (
                     <>
                       <CheckCircle2 className="h-3.5 w-3.5 text-emerald-600" />
                       <span>Correct (+{paper.correctMarks})</span>
                     </>
-                  ) : (
+                  ) : isCorrect === false ? (
                     <>
                       <XCircle className="h-3.5 w-3.5 text-rose-600" />
                       <span>Incorrect (-{paper.incorrectMarks})</span>
+                    </>
+                  ) : (
+                    <>
+                      <CheckCircle2 className="h-3.5 w-3.5 text-indigo-600" />
+                      <span>Answer recorded</span>
                     </>
                   )
                 ) : (
                   <>
                     <CheckCircle2 className="h-3.5 w-3.5 text-indigo-600" />
-                    <span>Option {selectedOpt} Selected</span>
+                    <span>
+                      {hasOptions
+                        ? `Option ${selectedOpt} Selected`
+                        : "Answer recorded"}
+                    </span>
                   </>
                 )}
               </span>
@@ -253,78 +272,102 @@ export function InteractiveQuestionCard({
           />
         </div>
 
-        {/* Options List */}
-        <div className="space-y-2.5 pt-1">
-          <span className="text-[11px] font-bold uppercase tracking-wider text-slate-400 block px-1">
-            Select Your Answer
-          </span>
+        {/* Options List or cloze response */}
+        {hasOptions ? (
+          <div className="space-y-2.5 pt-1">
+            <span className="text-[11px] font-bold uppercase tracking-wider text-slate-400 block px-1">
+              Select Your Answer
+            </span>
 
-          <div className="grid grid-cols-1 gap-2.5">
-            {["A", "B", "C", "D"].map((optKey) => {
-              const optText = qData.options?.[optKey] || `Option ${optKey}`;
-              const isSelected = selectedOpt === optKey;
-              const isOptionCorrect = correctOpt === optKey;
+            <div className="grid grid-cols-1 gap-2.5">
+              {["A", "B", "C", "D"].map((optKey) => {
+                const optText = qData.options?.[optKey] || `Option ${optKey}`;
+                const isSelected = selectedOpt === optKey;
+                const isOptionCorrect = correctOpt === optKey;
 
-              let cardStyle =
-                "border-slate-200 hover:border-indigo-300 hover:bg-slate-50/80 text-slate-800 bg-white";
-              let badgeStyle =
-                "bg-slate-100 text-slate-700 border-slate-200 group-hover:bg-indigo-50 group-hover:text-indigo-700";
+                let cardStyle =
+                  "border-slate-200 hover:border-indigo-300 hover:bg-slate-50/80 text-slate-800 bg-white";
+                let badgeStyle =
+                  "bg-slate-100 text-slate-700 border-slate-200 group-hover:bg-indigo-50 group-hover:text-indigo-700";
 
-              if (mode === "practice" && hasAnswered) {
-                if (isOptionCorrect) {
+                if (mode === "practice" && hasAnswered) {
+                  if (isOptionCorrect) {
+                    cardStyle =
+                      "border-emerald-500 bg-emerald-50/90 text-emerald-950 ring-2 ring-emerald-500/30 shadow-xs";
+                    badgeStyle = "bg-emerald-600 text-white border-emerald-700";
+                  } else if (isSelected && !isOptionCorrect) {
+                    cardStyle =
+                      "border-rose-500 bg-rose-50/90 text-rose-950 ring-2 ring-rose-500/30 shadow-xs";
+                    badgeStyle = "bg-rose-600 text-white border-rose-700";
+                  } else {
+                    cardStyle =
+                      "border-slate-200 bg-white/60 text-slate-500 opacity-75";
+                    badgeStyle = "bg-slate-100 text-slate-400 border-slate-200";
+                  }
+                } else if (isSelected) {
                   cardStyle =
-                    "border-emerald-500 bg-emerald-50/90 text-emerald-950 ring-2 ring-emerald-500/30 shadow-xs";
-                  badgeStyle = "bg-emerald-600 text-white border-emerald-700";
-                } else if (isSelected && !isOptionCorrect) {
-                  cardStyle =
-                    "border-rose-500 bg-rose-50/90 text-rose-950 ring-2 ring-rose-500/30 shadow-xs";
-                  badgeStyle = "bg-rose-600 text-white border-rose-700";
-                } else {
-                  cardStyle =
-                    "border-slate-200 bg-white/60 text-slate-500 opacity-75";
-                  badgeStyle = "bg-slate-100 text-slate-400 border-slate-200";
+                    "border-indigo-600 bg-indigo-50/90 text-indigo-950 ring-2 ring-indigo-600/30 font-semibold shadow-xs";
+                  badgeStyle = "bg-indigo-600 text-white border-indigo-700";
                 }
-              } else if (isSelected) {
-                cardStyle =
-                  "border-indigo-600 bg-indigo-50/90 text-indigo-950 ring-2 ring-indigo-600/30 font-semibold shadow-xs";
-                badgeStyle = "bg-indigo-600 text-white border-indigo-700";
-              }
 
-              return (
-                <button
-                  key={optKey}
-                  type="button"
-                  onClick={() => onSelectOption(currentQuestion, optKey)}
-                  className={`group w-full rounded-2xl border p-3.5 sm:p-4 text-left transition-all duration-150 flex items-start gap-3.5 cursor-pointer shadow-2xs ${cardStyle}`}
-                >
-                  <span
-                    className={`inline-flex items-center justify-center h-7 w-7 rounded-xl font-black text-xs shrink-0 border transition-all mt-0.5 ${badgeStyle}`}
+                return (
+                  <button
+                    key={optKey}
+                    type="button"
+                    onClick={() => onSelectOption(currentQuestion, optKey)}
+                    className={`group w-full rounded-2xl border p-3.5 sm:p-4 text-left transition-all duration-150 flex items-start gap-3.5 cursor-pointer shadow-2xs ${cardStyle}`}
                   >
-                    {optKey}
-                  </span>
-                  <div className="flex-1 text-xs sm:text-sm leading-relaxed self-center font-normal">
-                    {optText}
-                  </div>
-                  {mode === "practice" && hasAnswered && isOptionCorrect && (
-                    <span className="shrink-0 flex items-center gap-1 text-[11px] font-bold text-emerald-700 bg-emerald-100/90 px-2 py-0.5 rounded-md">
-                      <CheckCircle2 className="h-3.5 w-3.5 text-emerald-600" />
-                      <span className="hidden sm:inline">Correct</span>
+                    <span
+                      className={`inline-flex items-center justify-center h-7 w-7 rounded-xl font-black text-xs shrink-0 border transition-all mt-0.5 ${badgeStyle}`}
+                    >
+                      {optKey}
                     </span>
-                  )}
-                  {mode === "practice" &&
-                    hasAnswered &&
-                    isSelected &&
-                    !isOptionCorrect && (
-                      <span className="shrink-0 flex items-center gap-1 text-[11px] font-bold text-rose-700 bg-rose-100/90 px-2 py-0.5 rounded-md">
-                        <XCircle className="h-3.5 w-3.5 text-rose-600" />
-                        <span className="hidden sm:inline">Your choice</span>
+                    <div className="flex-1 text-xs sm:text-sm leading-relaxed self-center font-normal">
+                      {optText}
+                    </div>
+                    {mode === "practice" && hasAnswered && isOptionCorrect && (
+                      <span className="shrink-0 flex items-center gap-1 text-[11px] font-bold text-emerald-700 bg-emerald-100/90 px-2 py-0.5 rounded-md">
+                        <CheckCircle2 className="h-3.5 w-3.5 text-emerald-600" />
+                        <span className="hidden sm:inline">Correct</span>
                       </span>
                     )}
-                </button>
-              );
-            })}
+                    {mode === "practice" &&
+                      hasAnswered &&
+                      isSelected &&
+                      !isOptionCorrect && (
+                        <span className="shrink-0 flex items-center gap-1 text-[11px] font-bold text-rose-700 bg-rose-100/90 px-2 py-0.5 rounded-md">
+                          <XCircle className="h-3.5 w-3.5 text-rose-600" />
+                          <span className="hidden sm:inline">Your choice</span>
+                        </span>
+                      )}
+                  </button>
+                );
+              })}
+            </div>
           </div>
-        </div>
+        ) : (
+          <div className="space-y-2.5 pt-1">
+            <label
+              htmlFor={`cloze-answer-${currentQuestion}`}
+              className="text-[11px] font-bold uppercase tracking-wider text-slate-400 block px-1"
+            >
+              Your Answer
+            </label>
+            <textarea
+              id={`cloze-answer-${currentQuestion}`}
+              value={selectedText}
+              onChange={(event) =>
+                onUpdateAnswer(currentQuestion, event.target.value)
+              }
+              rows={2}
+              placeholder="Type a one- or two-line answer..."
+              className="w-full resize-y rounded-2xl border border-slate-200 bg-white p-4 text-sm leading-relaxed text-slate-800 shadow-2xs outline-none transition focus:border-indigo-400 focus:ring-4 focus:ring-indigo-100"
+            />
+            <p className="px-1 text-[11px] text-slate-400">
+              This is a free-text cloze question. No options are provided.
+            </p>
+          </div>
+        )}
 
         {/* Practice Mode Detailed Explanation Card */}
         {shouldShowExplanation && (
@@ -339,10 +382,16 @@ export function InteractiveQuestionCard({
                     Official Solution & Conceptual Breakdown
                   </h4>
                   <span className="text-[11px] text-slate-500 font-mono">
-                    Correct Option:{" "}
-                    <strong className="text-emerald-700 font-bold">
-                      {correctOpt}
-                    </strong>
+                    {correctOpt ? (
+                      <>
+                        Correct Option:{" "}
+                        <strong className="text-emerald-700 font-bold">
+                          {correctOpt}
+                        </strong>
+                      </>
+                    ) : (
+                      "Reference explanation"
+                    )}
                   </span>
                 </div>
               </div>

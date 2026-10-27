@@ -11,12 +11,12 @@ function parseAnswerKeyDetailed(text: string): {
   if (!text) return { answers, explanations };
 
   const pattern =
-    /(\d+)[\.\)\s\-\:\t]+\s*([A-Da-d])(?:\s*["""]{3,}([\s\S]*?)["""]{3,})?/g;
+    /(?:^|\n)\s*(\d+)[\.\)\s\-\:\t]+\s*(?:([A-Da-d])\s*)?(?:["“]{3,}([\s\S]*?)["”]{3,})?/g;
   let match: RegExpExecArray | null;
   while ((match = pattern.exec(text)) !== null) {
     const qNo = parseInt(match[1], 10);
-    const ans = match[2].toUpperCase();
-    answers[qNo] = ans;
+    const ans = match[2]?.toUpperCase();
+    if (ans) answers[qNo] = ans;
     if (match[3] !== undefined) {
       const cleaned = match[3].replace(/^["""\s]+|["""\s,]+$/g, "").trim();
       if (cleaned.length > 0) {
@@ -45,11 +45,12 @@ function parseAnswerKeyDetailed(text: string): {
  *   - <rule 2>
  *
  * After the first `---`, each question block is separated by `---`.
- * Options are labeled (a), (b), (c), (d).
+ * MCQ options are labeled (a), (b), (c), (d); cloze questions may omit them.
  *
  * Answer Key (separate text block, not in questionnaire):
  *   1. b """ explanation text """
  *   2. c """ another explanation """
+ *   3. """ reference explanation for a cloze question """
  */
 
 export const SAMPLE_QUESTIONNAIRE_TEXT = `EXAM: UPSC Prelims 2026 High-Yield Mock

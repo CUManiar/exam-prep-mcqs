@@ -209,10 +209,29 @@ export async function getUserAttempts(userId: string): Promise<Attempt[]> {
       .select("payload")
       .eq("user_id", userId)
       .order("started_at", { ascending: false });
-    return (data || []).map((row) => row.payload as Attempt);
+    return sortAttemptsLatestFirst(
+      (data || []).map((row) => row.payload as Attempt),
+    );
   }
   const attempts = await readJsonStore<Attempt[]>("attempts.json", []);
-  return attempts.filter((attempt) => attempt.userId === userId);
+  return sortAttemptsLatestFirst(
+    attempts.filter((attempt) => attempt.userId === userId),
+  );
+}
+
+/** Return attempts newest-first regardless of storage backend or row order. */
+export function sortAttemptsLatestFirst(attempts: Attempt[]): Attempt[] {
+  return [...attempts].sort((a, b) => {
+    const bTime = Date.parse(b.finishedAt || b.startedAt);
+    const aTime = Date.parse(a.finishedAt || a.startedAt);
+    if (Number.isFinite(bTime) && Number.isFinite(aTime) && bTime !== aTime) {
+      return bTime - aTime;
+    }
+    if (Number.isFinite(bTime) !== Number.isFinite(aTime)) {
+      return Number.isFinite(bTime) ? -1 : 1;
+    }
+    return String(b.id).localeCompare(String(a.id));
+  });
 }
 
 export async function saveMcpPaper(

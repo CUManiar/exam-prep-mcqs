@@ -2,6 +2,7 @@ import { randomUUID } from "node:crypto";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
 import { Attempt, ParsedQuestion, QuestionPaper } from "./types";
+import { parseAnswerKeyDetailed } from "./defaults";
 import {
   getUserAttempts,
   getUserPaper,
@@ -16,6 +17,7 @@ import {
   setOnlyCustomPapers,
   searchMcpPapers,
   setPreloadedPapersHidden,
+  sortAttemptsLatestFirst,
 } from "./mcpData";
 import { MCP_READ_SCOPE, MCP_WRITE_SCOPE, hasMcpScope } from "./mcpAuth";
 import {
@@ -60,7 +62,10 @@ function paperSummary(paper: QuestionPaper) {
     examType: paper.examType,
     totalQuestions: paper.totalQuestions,
     totalMarks: paper.totalMarks,
-    hasAnswerKey: Object.keys(paper.answerKey || {}).length > 0,
+    hasAnswerKey:
+      Object.keys(paper.answerKey || {}).length > 0 ||
+      Object.keys(paper.explanations || {}).length > 0 ||
+      Boolean(paper.answerKeyText?.trim()),
     hasContent: Boolean(paper.markdownContent || paper.parsedQuestions?.length),
     source: isCustomMcpPaper(paper) ? "student" : "preloaded",
   };
@@ -102,6 +107,9 @@ function createImportedPaper(
   const examType = input.examType === "subjective" ? "subjective" : "objective";
   const category = input.category === "mains" ? "mains" : "prelims";
   const parsedQuestions = normalizeQuestions(input);
+  const parsedAnswerKey = input.answerKeyText
+    ? parseAnswerKeyDetailed(String(input.answerKeyText))
+    : { answers: {}, explanations: {} };
   const totalQuestions = Number(
     input.totalQuestions ||
       parsedQuestions.length ||
@@ -132,9 +140,12 @@ function createImportedPaper(
       input.timeMinutes || (examType === "objective" ? 120 : 180),
     ),
     qpUrl: "local://interactive_markdown",
-    answerKey: input.answerKey || {},
+    answerKey: { ...parsedAnswerKey.answers, ...(input.answerKey || {}) },
     answerKeyText: input.answerKeyText,
-    explanations: input.explanations || {},
+    explanations: {
+      ...parsedAnswerKey.explanations,
+      ...(input.explanations || {}),
+    },
     markdownContent: input.markdownContent || input.content,
     parsedQuestions: parsedQuestions.length > 0 ? parsedQuestions : undefined,
     instructions: Array.isArray(input.instructions)
@@ -149,6 +160,7 @@ function createImportedPaper(
 }
 
 function summarizeProgress(papers: QuestionPaper[], attempts: Attempt[]) {
+  const sortedAttempts = sortAttemptsLatestFirst(attempts);
   const totalScore = attempts.reduce(
     (sum, attempt) => sum + Number(attempt.score || 0),
     0,
@@ -190,7 +202,7 @@ function summarizeProgress(papers: QuestionPaper[], attempts: Attempt[]) {
     overallPercentage: totalMaxScore
       ? Number(((totalScore / totalMaxScore) * 100).toFixed(1))
       : null,
-    recentAttempts: attempts.slice(0, 10).map((attempt) => ({
+    recentAttempts: sortedAttempts.slice(0, 10).map((attempt) => ({
       id: attempt.id,
       paperId: attempt.paperId,
       paperLabel: attempt.paperLabel,
@@ -204,6 +216,24 @@ function summarizeProgress(papers: QuestionPaper[], attempts: Attempt[]) {
   };
 }
 
+function attemptSummary(attempt: Attempt, paper?: QuestionPaper | null) {
+  return {
+    id: attempt.id,
+    paperId: attempt.paperId,
+    paperLabel: attempt.paperLabel,
+    paperSubject: paper?.subject || null,
+    paperYear: paper?.year || null,
+    category: attempt.category,
+    examType: attempt.examType,
+    mode: attempt.mode,
+    score: Number(attempt.score || 0),
+    maxScore: Number(attempt.maxScore || 0),
+    percentagePct: attempt.percentagePct ?? null,
+    accuracyPct: attempt.accuracyPct ?? null,
+    finishedAt: attempt.finishedAt || attempt.startedAt,
+  };
+}
+
 export function createPortalMcpServer(
   userId: string,
   scope: string,
@@ -212,7 +242,7 @@ export function createPortalMcpServer(
     { name: "UPSC Prep Hub", version: "1.0.0" },
     {
       instructions:
-        "You are connected to a student's UPSC Prep Hub account. Read the student's data before making assumptions. Ask for confirmation before calling write tools, especially imports, score changes, or visibility changes.",
+        "You are connected to a student's UPSC Prep Hub account. Read the student's data before making assumptions. Use get_attempt_history for attempt questions: it is newest-first and defaults to one latest attempt per distinct paper, so 'last N exams' must not count retries of the same paper as separate exams. Ask for confirmation before calling write tools, especially imports, score changes, or visibility changes.",
       maxToolInputElements: 5000,
     },
   );
@@ -311,6 +341,109 @@ export function createPortalMcpServer(
   );
 
   server.registerTool(
+    "get_attempt_history",
+    {
+      title: "Get attempt history",
+      description:
+        "Read the student's attempts newest-first and calculate averages for a requested set. By default, each paper is counted once using its latest attempt, so requests such as 'my last 3 CSAT exams' mean 3 different papers rather than 3 retries of one paper. Set distinctPapers to false only when every retry should be included.",
+      annotations: { readOnlyHint: true },
+      inputSchema: {
+        search: z
+          .string()
+          .optional()
+          .describe("Match paper title, subject, year, or paper ID."),
+        paperId: z.string().optional(),
+        limit: z.number().int().min(1).max(100).optional(),
+        distinctPapers: z.boolean().optional(),
+      },
+    },
+    async ({ search, paperId, limit, distinctPapers }) => {
+      const authError = scopeError(scope, MCP_READ_SCOPE);
+      if (authError) return authError;
+
+      const [papers, rawAttempts] = await Promise.all([
+        getUserPapers(userId),
+        getUserAttempts(userId),
+      ]);
+      const paperById = new Map(papers.map((paper) => [paper.id, paper]));
+      const normalizedSearch = search?.trim().toLowerCase();
+      const filtered = sortAttemptsLatestFirst(rawAttempts).filter(
+        (attempt) => {
+          if (paperId && attempt.paperId !== paperId) return false;
+          if (!normalizedSearch) return true;
+          const paper = paperById.get(attempt.paperId);
+          const haystack = [
+            attempt.paperId,
+            attempt.paperLabel,
+            paper?.label,
+            paper?.title,
+            paper?.subject,
+            paper?.year,
+          ]
+            .filter(Boolean)
+            .join(" ")
+            .toLowerCase();
+          return haystack.includes(normalizedSearch);
+        },
+      );
+
+      const candidateAttempts =
+        distinctPapers === false
+          ? filtered
+          : sortAttemptsLatestFirst([
+              ...filtered
+                .reduce((latestByPaper, attempt) => {
+                  if (!latestByPaper.has(attempt.paperId)) {
+                    latestByPaper.set(attempt.paperId, attempt);
+                  }
+                  return latestByPaper;
+                }, new Map<string, Attempt>())
+                .values(),
+            ]);
+      const selected = candidateAttempts.slice(0, limit ?? 20);
+      const totalScore = selected.reduce(
+        (sum, attempt) => sum + Number(attempt.score || 0),
+        0,
+      );
+      const totalMaxScore = selected.reduce(
+        (sum, attempt) => sum + Number(attempt.maxScore || 0),
+        0,
+      );
+      const percentageValues = selected
+        .map((attempt) => Number(attempt.percentagePct))
+        .filter(Number.isFinite);
+
+      return textResult({
+        distinctPapers: distinctPapers !== false,
+        requestedLimit: limit ?? 20,
+        matchedAttemptCount: filtered.length,
+        duplicateAttemptsExcluded:
+          distinctPapers === false
+            ? 0
+            : Math.max(0, filtered.length - candidateAttempts.length),
+        count: selected.length,
+        averageScore: selected.length
+          ? Number((totalScore / selected.length).toFixed(2))
+          : null,
+        averagePercentage: percentageValues.length
+          ? Number(
+              (
+                percentageValues.reduce((sum, value) => sum + value, 0) /
+                percentageValues.length
+              ).toFixed(2),
+            )
+          : null,
+        combinedScore: totalMaxScore
+          ? Number(((totalScore / totalMaxScore) * 100).toFixed(2))
+          : null,
+        attempts: selected.map((attempt) =>
+          attemptSummary(attempt, paperById.get(attempt.paperId)),
+        ),
+      });
+    },
+  );
+
+  server.registerTool(
     "get_syllabus",
     {
       title: "Get custom syllabus",
@@ -371,7 +504,7 @@ export function createPortalMcpServer(
     {
       title: "Preview paper import",
       description:
-        "Validate a paper before saving it to the student's library.",
+        'Validate a paper before saving it to the student\'s library. Markdown questions may be MCQs with options (a)-(d) or cloze/free-text questions with no options. In the answer key, MCQs use \'<number>. <letter> \\"\\"\\" explanation \\"\\"\\"\' and cloze questions use \'<number>. \\"\\"\\" reference explanation \\"\\"\\"\'.',
       annotations: { readOnlyHint: true },
       inputSchema: { paper: looseObject },
     },
@@ -383,7 +516,10 @@ export function createPortalMcpServer(
       if (!imported.markdownContent && !imported.parsedQuestions?.length) {
         warnings.push("No markdownContent or questions were supplied.");
       }
-      if (!Object.keys(imported.answerKey || {}).length) {
+      if (
+        !Object.keys(imported.answerKey || {}).length &&
+        !Object.keys(imported.explanations || {}).length
+      ) {
         warnings.push(
           "No answer key was supplied; practice grading may be unavailable.",
         );

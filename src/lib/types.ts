@@ -5,6 +5,7 @@ export type CutoffType = "percentage" | "marks";
 export interface ParsedQuestion {
   questionNo: number;
   text: string;
+  /** Empty for a cloze/free-text question. */
   options: Record<string, string>; // e.g. { A: "...", B: "...", C: "...", D: "..." }
   matchingItems?: MatchingItem[];
   matchingHeaders?: {
