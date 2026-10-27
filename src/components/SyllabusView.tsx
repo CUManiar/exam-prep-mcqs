@@ -264,9 +264,7 @@ export function SyllabusView() {
   return (
     <div className="page-container space-y-6">
       <PageHeader
-        eyebrow="Markdown-powered study tree"
-        title="Custom syllabus tracker"
-        description="Paste a Markdown outline. Dates in square brackets set due dates; missing child dates inherit the nearest parent date."
+        title="Syllabus tracker"
       />
 
       <section className="relative overflow-hidden rounded-2xl border border-blue-900/70 bg-gradient-to-br from-slate-950 via-blue-950 to-indigo-900 p-5 text-white shadow-[0_12px_30px_rgba(30,64,175,0.14)] sm:p-6">
