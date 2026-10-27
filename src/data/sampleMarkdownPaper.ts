@@ -60,7 +60,7 @@ TOTAL MARKS: 10
 TIME: 15 Minutes
 NEGATIVE MARKING: 0.667 marks deducted per wrong answer
 INSTRUCTIONS:
-- Each question carries 2 marks.
+- Each MCQ carries 2 marks; cloze questions accept a short free-text response.
 - There is negative marking of 1/3rd for each wrong answer.
 - Do not mark more than one option per question.
 - Use this mock to test your preparation, not just guess.
@@ -98,29 +98,15 @@ Which of the statements given above are correct?
 (c) 1 and 3 only
 (d) 1, 2 and 3
 ---
-Consider the following historical pairs of Bhakti saints and their associated traditions:
-1. Ramanuja — Vishishtadvaita (Qualified Monism)
-2. Madhvacharya — Shuddhadvaita (Pure Non-Dualism)
-3. Shankaracharya — Advaita (Non-Dualism)
-4. Vallabhacharya — Dvaita (Dualism)
-
-How many of the pairs given above are correctly matched?
-(a) Only one pair
-(b) Only two pairs
-(c) Only three pairs
-(d) All four pairs
+Fill in the blank: The writ issued by a court to produce a person who has been unlawfully detained is called __________.
 ---
-Which of the following best describes the term **"Quantum Supremacy"** frequently mentioned in scientific news?
-(a) A theoretical point where quantum computers can crack all existing cryptographic algorithms simultaneously
-(b) The demonstration that a programmable quantum device can solve a specific problem that no classical supercomputer can solve in any feasible amount of time
-(c) The permanent replacement of classical silicon microprocessors by superconducting qubit processors in data centers
-(d) The attainment of absolute zero temperature (-273.15°C) inside a scalable quantum computing laboratory`;
+In one or two lines, explain how the basic-structure doctrine limits Parliament's power to amend the Constitution of India.`;
 
 export const SAMPLE_ANSWER_KEY_TEXT = `1. b """ Statement 1 and 2 are correct. Statement 3 is incorrect because the MPC has 6 members (3 from RBI, 3 appointed by Central Government) who serve for 4 years (not 5 years). """
 2. b """ Statement 1 and 2 are correct. Statement 3 is incorrect because the right to privacy under Article 21 is not absolute and is subject to the threefold proportionality test. """
 3. d """ All three statements are correct under Norman Myers / Conservation International criteria for global Biodiversity Hotspots. """
-4. b """ Exactly two pairs (1 and 3) are correctly matched. Madhvacharya propounded Dvaita, while Vallabhacharya propounded Shuddhadvaita. """
-5. b """ Quantum Supremacy refers to a programmable quantum device performing a defined task that no classical supercomputer could solve in any feasible time. """`;
+4. """ The writ is habeas corpus, which requires the authority detaining a person to produce that person before the court so the legality of the detention can be examined. """
+5. """ The basic-structure doctrine prevents Parliament from using its Article 368 amendment power to destroy the Constitution's foundational features, even though Parliament may amend other provisions. """`;
 
 const parsedQuestions = parseQuestionnaireMarkdown(SAMPLE_QUESTIONNAIRE_TEXT);
 const { answers, explanations } = parseAnswerKeyDetailed(
