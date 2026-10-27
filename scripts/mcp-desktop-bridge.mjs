@@ -1,5 +1,6 @@
 import { readFile, writeFile } from "node:fs/promises";
-import { resolve } from "node:path";
+import { dirname, isAbsolute, resolve } from "node:path";
+import { fileURLToPath } from "node:url";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { Server } from "@modelcontextprotocol/sdk/server/index.js";
 import {
@@ -7,9 +8,12 @@ import {
   ListToolsRequestSchema,
 } from "@modelcontextprotocol/sdk/types.js";
 
-const credentialsPath = resolve(
-  process.env.UPSC_MCP_CREDENTIALS || ".mcp/claude-desktop-credentials.json",
-);
+const repositoryPath = resolve(dirname(fileURLToPath(import.meta.url)), "..");
+const configuredCredentialsPath =
+  process.env.UPSC_MCP_CREDENTIALS || ".mcp/claude-desktop-credentials.json";
+const credentialsPath = isAbsolute(configuredCredentialsPath)
+  ? configuredCredentialsPath
+  : resolve(repositoryPath, configuredCredentialsPath);
 const defaultMcpUrl = "https://upsc-practice.vercel.app/mcp";
 let credentials;
 
