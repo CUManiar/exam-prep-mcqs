@@ -6,6 +6,7 @@ import {
   AlertTriangle,
   BookOpenCheck,
   CalendarDays,
+  Check,
   CheckCircle2,
   ChevronsDownUp,
   ChevronRight,
@@ -154,6 +155,15 @@ export function SyllabusView() {
     });
   };
 
+  const hasCompletedDescendant = (item: SyllabusItem): boolean => {
+    const children = childrenByParent.get(item.id) || [];
+    return children.some(
+      (child) =>
+        getSyllabusCompletion(child, activeItems) ||
+        hasCompletedDescendant(child),
+    );
+  };
+
   const renderTree = (items: SyllabusItem[], depth = 0): ReactNode =>
     items.map((item) => {
       const children = childrenByParent.get(item.id) || [];
@@ -161,6 +171,8 @@ export function SyllabusView() {
       const dateStatus = getSyllabusItemDateStatus(item, activeItems);
       const effectiveDueDate = getEffectiveSyllabusDueDate(item, activeItems);
       const isParent = children.length > 0;
+      const partiallyCompleted =
+        isParent && !completed && hasCompletedDescendant(item);
       const isCollapsed = collapsedIds.has(item.id);
       return (
         <div
@@ -175,13 +187,30 @@ export function SyllabusView() {
             }`}
           >
             <div className="flex items-start gap-2.5">
-              <input
-                type="checkbox"
-                checked={completed}
-                onChange={() => void handleToggleSyllabusItem(item.id)}
-                aria-label={`${completed ? "Mark incomplete" : "Mark complete"}: ${item.title}`}
-                className="mt-1 h-4 w-4 shrink-0 rounded border-slate-300 accent-blue-600"
-              />
+              <label className="mt-1 grid h-4 w-4 shrink-0 cursor-pointer place-items-center">
+                <input
+                  type="checkbox"
+                  checked={completed}
+                  onChange={() => void handleToggleSyllabusItem(item.id)}
+                  aria-label={`${completed ? "Mark incomplete" : partiallyCompleted ? "Complete all" : "Mark complete"}: ${item.title}`}
+                  className="peer sr-only"
+                />
+                <span
+                  aria-hidden="true"
+                  className={`grid h-4 w-4 place-items-center rounded border transition-colors peer-focus-visible:ring-2 peer-focus-visible:ring-blue-200 ${
+                    completed
+                      ? "border-blue-600 bg-blue-600 text-white"
+                      : partiallyCompleted
+                        ? "border-blue-500 bg-blue-50"
+                        : "border-slate-300 bg-white group-hover:border-blue-400"
+                  }`}
+                >
+                  {completed && <Check className="h-3 w-3" strokeWidth={3} />}
+                  {partiallyCompleted && (
+                    <span className="h-1.5 w-1.5 rounded-sm bg-blue-600" />
+                  )}
+                </span>
+              </label>
               {isParent && (
                 <button
                   type="button"
@@ -263,9 +292,7 @@ export function SyllabusView() {
 
   return (
     <div className="page-container space-y-6">
-      <PageHeader
-        title="Syllabus tracker"
-      />
+      <PageHeader title="Syllabus tracker" />
 
       <section className="relative overflow-hidden rounded-2xl border border-blue-900/70 bg-gradient-to-br from-slate-950 via-blue-950 to-indigo-900 p-5 text-white shadow-[0_12px_30px_rgba(30,64,175,0.14)] sm:p-6">
         <div className="pointer-events-none absolute -right-16 -top-20 h-48 w-48 rounded-full bg-blue-400/15 blur-2xl" />
