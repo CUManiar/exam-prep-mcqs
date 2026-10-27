@@ -225,7 +225,7 @@ export default function McpHelpPage() {
             </span>
           </div>
 
-          <div className="grid gap-4 p-3 sm:p-4 lg:grid-cols-[minmax(20rem,0.92fr)_minmax(0,1.48fr)]">
+          <div className="p-3 sm:p-4">
             <div className="relative overflow-hidden rounded-2xl bg-slate-950 p-5 text-white shadow-lg shadow-slate-200 sm:p-6">
               <div className="pointer-events-none absolute -right-12 -top-16 h-40 w-40 rounded-full bg-violet-500/20 blur-3xl" />
               <div className="relative">
@@ -235,25 +235,23 @@ export default function McpHelpPage() {
                 <h3 className="mt-2 text-lg font-semibold sm:text-xl">
                   Copy this into your chatbot
                 </h3>
-                <div className="mt-5 rounded-xl border border-white/10 bg-white/[0.08] p-2">
-                  <div className="flex min-w-0 flex-col gap-2 sm:flex-row sm:items-center">
-                    <code className="min-w-0 flex-1 overflow-x-auto whitespace-nowrap px-2 py-1 font-mono text-xs text-slate-200">
-                      {endpoint}
-                    </code>
-                    <button
-                      type="button"
-                      onClick={copyEndpoint}
-                      aria-label="Copy MCP server URL"
-                      className="inline-flex shrink-0 items-center justify-center gap-1.5 rounded-lg bg-white px-3 py-2 text-xs font-semibold text-slate-900 transition hover:bg-violet-50 focus:outline-none focus:ring-2 focus:ring-violet-300 focus:ring-offset-2 focus:ring-offset-slate-950"
-                    >
-                      {copied ? (
-                        <Check className="h-3.5 w-3.5" />
-                      ) : (
-                        <Clipboard className="h-3.5 w-3.5" />
-                      )}
-                      {copied ? "Copied" : "Copy URL"}
-                    </button>
-                  </div>
+                <div className="mt-5 grid gap-2 sm:grid-cols-[minmax(0,1fr)_auto]">
+                  <code className="min-w-0 overflow-x-auto whitespace-nowrap rounded-xl border border-white/10 bg-white/[0.08] px-3 py-3 font-mono text-xs leading-5 text-slate-200">
+                    {endpoint}
+                  </code>
+                  <button
+                    type="button"
+                    onClick={copyEndpoint}
+                    aria-label="Copy MCP server URL"
+                    className="inline-flex min-h-11 items-center justify-center gap-1.5 rounded-xl bg-white px-4 py-2 text-xs font-semibold text-slate-900 transition hover:bg-violet-50 focus:outline-none focus:ring-2 focus:ring-violet-300 focus:ring-offset-2 focus:ring-offset-slate-950"
+                  >
+                    {copied ? (
+                      <Check className="h-3.5 w-3.5" />
+                    ) : (
+                      <Clipboard className="h-3.5 w-3.5" />
+                    )}
+                    {copied ? "Copied" : "Copy URL"}
+                  </button>
                 </div>
                 <p className="mt-4 text-xs leading-5 text-slate-400">
                   No command or installation. Sign in when the assistant opens
@@ -262,21 +260,24 @@ export default function McpHelpPage() {
               </div>
             </div>
 
-            <div className="grid gap-3 md:grid-cols-3">
+            <div className="mt-4 grid gap-3">
               {connectionSteps.map(({ number, title, description }) => (
                 <div
                   key={number}
-                  className="flex min-h-40 flex-col rounded-2xl border border-slate-200 bg-slate-50/60 p-5 transition hover:border-violet-200 hover:bg-white hover:shadow-sm"
+                  className="flex items-start gap-4 rounded-2xl border border-slate-200 bg-slate-50/60 p-4 transition hover:border-violet-200 hover:bg-white hover:shadow-sm sm:p-5"
                 >
-                  <span className="grid h-8 w-8 place-items-center rounded-lg bg-violet-100 text-xs font-bold text-violet-700">
+                  <span className="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-violet-100 text-xs font-bold text-violet-700">
                     {number}
                   </span>
-                  <h3 className="mt-4 text-sm font-semibold text-slate-900">
-                    {title}
-                  </h3>
-                  <p className="mt-2 text-sm leading-6 text-slate-500">
-                    {description}
-                  </p>
+                  <div className="min-w-0 flex-1">
+                    <h3 className="text-sm font-semibold text-slate-900">
+                      {title}
+                    </h3>
+                    <p className="mt-1 text-sm leading-6 text-slate-500">
+                      {description}
+                    </p>
+                  </div>
+                  <ArrowRight className="mt-1 h-4 w-4 shrink-0 text-slate-300" />
                 </div>
               ))}
             </div>
