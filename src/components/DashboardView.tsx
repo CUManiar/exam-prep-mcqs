@@ -196,7 +196,7 @@ export function DashboardView({
         )}
       </section>
 
-      <section>
+      <section className="mt-4">
         <div className="surface-card flex min-h-[18rem] flex-col p-5 sm:p-6">
           <div className="flex items-start justify-between gap-4">
             <div>
