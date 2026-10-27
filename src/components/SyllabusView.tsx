@@ -7,7 +7,9 @@ import {
   BookOpenCheck,
   CalendarDays,
   CheckCircle2,
+  ChevronsDownUp,
   ChevronRight,
+  ChevronsUpDown,
   CircleDashed,
   FileText,
   Layers3,
@@ -80,11 +82,20 @@ export function SyllabusView() {
     handleClearSyllabus,
     handleToggleSyllabusItem,
   } = useApp();
+  const activeItems = syllabusMarkdown.trim() ? syllabusItems : [];
   const [draft, setDraft] = useState(syllabusMarkdown);
   const [isEditing, setIsEditing] = useState(!syllabusMarkdown.trim());
-  const [collapsedIds, setCollapsedIds] = useState<Set<string>>(new Set());
+  const [collapsedIds, setCollapsedIds] = useState<Set<string>>(
+    () =>
+      new Set(
+        activeItems
+          .filter((item) =>
+            activeItems.some((candidate) => candidate.parentId === item.id),
+          )
+          .map((item) => item.id),
+      ),
+  );
   const [message, setMessage] = useState("");
-  const activeItems = syllabusMarkdown.trim() ? syllabusItems : [];
   const progress = getSyllabusProgress(activeItems);
   const pace = getSyllabusPace(activeItems);
   const remainingTopics = Math.max(progress.total - progress.completed, 0);
@@ -102,6 +113,22 @@ export function SyllabusView() {
     result.forEach((items) => items.sort((a, b) => a.order - b.order));
     return result;
   }, [activeItems]);
+
+  const parentIds = useMemo(
+    () =>
+      activeItems
+        .filter((item) =>
+          activeItems.some((candidate) => candidate.parentId === item.id),
+        )
+        .map((item) => item.id)
+        .sort(),
+    [activeItems],
+  );
+  const parentIdsKey = parentIds.join("|");
+
+  useEffect(() => {
+    setCollapsedIds(new Set(parentIds));
+  }, [parentIdsKey, syllabusMarkdown]);
 
   const showMessage = (nextMessage: string) => {
     setMessage(nextMessage);
@@ -141,7 +168,7 @@ export function SyllabusView() {
           className={depth ? "ml-3 border-l-2 border-blue-100 pl-3" : ""}
         >
           <div
-            className={`group rounded-xl border p-3 transition-all duration-150 ${
+            className={`group cursor-pointer rounded-xl border p-3 transition-all duration-150 ${
               completed
                 ? "border-emerald-200 bg-emerald-50/45"
                 : "border-slate-200/90 bg-white hover:border-blue-200 hover:shadow-sm"
@@ -293,11 +320,35 @@ export function SyllabusView() {
                 check off what you finish
               </p>
             </div>
-            {message && !isEditing && (
-              <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-50 px-2.5 py-1 text-xs font-medium text-emerald-700">
-                <CheckCircle2 className="h-3.5 w-3.5" /> {message}
-              </span>
-            )}
+            <div className="flex flex-wrap items-center gap-2">
+              <div className="flex items-center gap-1 rounded-lg border border-slate-200 bg-slate-50 p-0.5">
+                <button
+                  type="button"
+                  onClick={() => setCollapsedIds(new Set())}
+                  disabled={!parentIds.length}
+                  className="inline-flex items-center gap-1 rounded-md px-2 py-1.5 text-[11px] font-medium text-slate-600 transition-colors hover:bg-white hover:text-blue-700 disabled:cursor-not-allowed disabled:opacity-40"
+                  title="Expand every syllabus section"
+                >
+                  <ChevronsDownUp className="h-3.5 w-3.5" />
+                  <span>Expand full</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setCollapsedIds(new Set(parentIds))}
+                  disabled={!parentIds.length}
+                  className="inline-flex items-center gap-1 rounded-md px-2 py-1.5 text-[11px] font-medium text-slate-600 transition-colors hover:bg-white hover:text-blue-700 disabled:cursor-not-allowed disabled:opacity-40"
+                  title="Collapse every syllabus section"
+                >
+                  <ChevronsUpDown className="h-3.5 w-3.5" />
+                  <span>Collapse full</span>
+                </button>
+              </div>
+              {message && !isEditing && (
+                <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-50 px-2.5 py-1 text-xs font-medium text-emerald-700">
+                  <CheckCircle2 className="h-3.5 w-3.5" /> {message}
+                </span>
+              )}
+            </div>
           </div>
           <div className="mt-4 space-y-2">
             {activeItems.length > 0 ? (
