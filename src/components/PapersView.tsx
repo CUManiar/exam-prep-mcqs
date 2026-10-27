@@ -510,7 +510,7 @@ export function PapersView({
             return (
               <div
                 key={paper.id}
-                className={`flex h-full justify-between bg-white rounded-2xl border border-slate-200/80 p-5 group hover:border-slate-300 hover:shadow-sm transition-all ${
+                className={`flex h-full justify-between overflow-hidden bg-white rounded-2xl border border-slate-200/80 p-5 group hover:border-slate-300 hover:shadow-sm transition-all ${
                   paperViewMode === "grid"
                     ? "flex-col"
                     : "flex-col md:grid md:grid-cols-[minmax(0,1fr)_minmax(260px,340px)] md:gap-5"
@@ -518,7 +518,7 @@ export function PapersView({
               >
                 <div className="min-w-0">
                   {/* Top Header Row: Clean, quiet badges */}
-                  <div className="flex items-start justify-between gap-2">
+                  <div className="flex min-h-[56px] items-start justify-between gap-3">
                     <div className="flex items-center gap-1.5 flex-wrap">
                       <span className="rounded-md bg-slate-100 px-2 py-0.5 text-xs font-medium text-slate-600 font-mono">
                         {paper.year}
@@ -531,7 +531,7 @@ export function PapersView({
                       )}
                     </div>
 
-                    <div className="flex max-w-[65%] shrink-0 flex-wrap items-center justify-end gap-1">
+                    <div className="flex max-w-[60%] shrink-0 flex-wrap items-center justify-end gap-1 sm:max-w-[65%]">
                       {hasMock && (
                         <span
                           aria-label={`${mockAtts.length} mock ${mockAtts.length === 1 ? "attempt" : "attempts"}`}
