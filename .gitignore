@@ -36,3 +36,6 @@ server.js
 # Active drafts / user state
 public/data/active_draft.json
 
+# Local Claude Desktop bridge credentials
+.mcp/claude-desktop-credentials.json
+
