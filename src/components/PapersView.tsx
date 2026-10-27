@@ -477,6 +477,7 @@ export function PapersView({
             const isLocked = !isPro && !isPaperFree(paper);
 
             const paperAtts = attemptsByPaperId.get(paper.id) || [];
+            const hasAttempt = paperAtts.length > 0;
             const mockAtts = paperAtts.filter((a) => a.mode === "mock");
             const practiceAtts = paperAtts.filter((a) => a.mode === "practice");
             const hasMock = mockAtts.length > 0;
@@ -529,6 +530,14 @@ export function PapersView({
                       <span className="rounded-md bg-slate-100 px-2 py-0.5 text-xs font-medium text-slate-600 font-mono">
                         {paper.year}
                       </span>
+                      {hasAttempt && (
+                        <span
+                          role="img"
+                          aria-label="Attempted"
+                          title="Attempted"
+                          className="inline-block h-2 w-2 shrink-0 rounded-full bg-emerald-500 ring-2 ring-emerald-100"
+                        />
+                      )}
                       {isLocked && (
                         <span className="inline-flex items-center gap-1 rounded-md bg-amber-50 px-1.5 py-0.5 text-[10px] font-medium text-amber-800 border border-amber-200">
                           <Lock className="h-2.5 w-2.5 text-amber-600" />
