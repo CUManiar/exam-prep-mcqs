@@ -47,7 +47,6 @@ export default function RootPage() {
     <DashboardView
       papers={papers}
       attempts={attempts}
-      onStartExam={handleStartExam}
       onNavigatePapers={() => router.push("/papers")}
       onNavigateHistory={() => router.push("/history")}
       onViewAttempt={handleViewAttemptDetail}

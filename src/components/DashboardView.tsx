@@ -2,23 +2,16 @@
 
 import React from "react";
 import { ActiveSessionDraft, Attempt, QuestionPaper } from "../lib/types";
-import {
-  getAttemptPercentage,
-  getPaperDisplayTitle,
-  isPaperFree,
-  isUserUploadedPaper,
-} from "../lib/defaults";
+import { getAttemptPercentage } from "../lib/defaults";
 import {
   ArrowRight,
   AlertTriangle,
-  Award,
   BarChart3,
   BookOpen,
   CheckCircle2,
   Clock3,
   FileCheck2,
   Percent,
-  Play,
   RotateCcw,
   Target,
   Trash2,
@@ -29,7 +22,6 @@ import { PageHeader } from "./PageHeader";
 interface DashboardViewProps {
   papers: QuestionPaper[];
   attempts: Attempt[];
-  onStartExam: (paper: QuestionPaper, mode: "practice" | "mock") => void;
   onNavigatePapers: () => void;
   onNavigateHistory: () => void;
   onViewAttempt: (attempt: Attempt) => void;
@@ -52,7 +44,6 @@ function formatAttemptDate(value: string) {
 export function DashboardView({
   papers,
   attempts,
-  onStartExam,
   onNavigatePapers,
   onNavigateHistory,
   onViewAttempt,
@@ -90,21 +81,6 @@ export function DashboardView({
         ) / completed.length) * 10,
       ) / 10
     : null;
-  const recommendedPaper =
-    papers.find(
-      (paper) =>
-        paper.year === "2026" &&
-        paper.category === "prelims" &&
-        paper.examType === "objective" &&
-        !isUserUploadedPaper(paper),
-    ) ||
-    papers.find(
-      (paper) =>
-        paper.examType === "objective" &&
-        isPaperFree(paper) &&
-        !isUserUploadedPaper(paper),
-    ) ||
-    papers.find((paper) => paper.examType === "objective");
   const latestAttempt = completed[0];
 
   const metrics = [
@@ -220,62 +196,7 @@ export function DashboardView({
         )}
       </section>
 
-      <section className="grid gap-4 lg:grid-cols-[minmax(0,1.45fr)_minmax(19rem,0.8fr)]">
-        <div className="relative isolate flex min-h-[18rem] flex-col justify-between overflow-hidden rounded-2xl bg-gradient-to-br from-indigo-700 via-blue-700 to-sky-700 p-6 text-white shadow-sm sm:p-8">
-          <div className="pointer-events-none absolute -right-20 -top-24 -z-10 h-72 w-72 rounded-full border border-white/15" />
-          <div className="pointer-events-none absolute -bottom-32 right-16 -z-10 h-72 w-72 rounded-full border border-white/10" />
-          <div>
-            <div className="flex items-center justify-between gap-4">
-              <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-blue-100">
-                Next assessment
-              </p>
-              <span className="inline-flex items-center gap-1.5 rounded-full bg-white/12 px-2.5 py-1 text-[11px] font-medium text-blue-50 ring-1 ring-white/20">
-                <Award className="h-3.5 w-3.5" /> Timed mock
-              </span>
-            </div>
-            <h2 className="mt-4 max-w-2xl text-2xl font-semibold tracking-tight sm:text-3xl">
-              {recommendedPaper
-                ? getPaperDisplayTitle(recommendedPaper)
-                : "Choose your next question paper"}
-            </h2>
-            {recommendedPaper ? (
-              <div className="mt-4 flex flex-wrap items-center gap-2 text-xs text-blue-100">
-                <span className="rounded-md bg-white/12 px-2.5 py-1 ring-1 ring-white/15">
-                  {recommendedPaper.totalQuestions} questions
-                </span>
-                <span className="rounded-md bg-white/12 px-2.5 py-1 ring-1 ring-white/15">
-                  {recommendedPaper.timeMinutes} minutes
-                </span>
-                <span className="rounded-md bg-white/12 px-2.5 py-1 ring-1 ring-white/15">
-                  {recommendedPaper.totalMarks} marks
-                </span>
-              </div>
-            ) : (
-              <p className="mt-3 max-w-lg text-sm leading-6 text-blue-100">
-                Add a question paper to begin tracking your assessment record.
-              </p>
-            )}
-          </div>
-          <div className="mt-8 flex flex-wrap gap-2">
-            {recommendedPaper && (
-              <button
-                type="button"
-                onClick={() => onStartExam(recommendedPaper, "mock")}
-                className="inline-flex items-center gap-2 rounded-xl bg-white px-4 py-2.5 text-sm font-semibold text-indigo-700 shadow-sm transition hover:bg-blue-50"
-              >
-                <Play className="h-4 w-4" /> Start assessment
-              </button>
-            )}
-            <button
-              type="button"
-              onClick={onNavigatePapers}
-              className="inline-flex items-center gap-2 rounded-xl border border-white/30 bg-white/10 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-white/15"
-            >
-              Browse all papers <ArrowRight className="h-4 w-4" />
-            </button>
-          </div>
-        </div>
-
+      <section>
         <div className="surface-card flex min-h-[18rem] flex-col p-5 sm:p-6">
           <div className="flex items-start justify-between gap-4">
             <div>
@@ -441,23 +362,6 @@ export function DashboardView({
         </div>
       </section>
 
-      {!recommendedPaper && (
-        <section className="mt-6 rounded-lg border border-slate-200 bg-white p-5">
-          <p className="text-sm font-semibold text-slate-900">
-            No papers available yet
-          </p>
-          <p className="mt-1 text-sm text-slate-600">
-            Open the paper library to add a question paper to your workspace.
-          </p>
-          <button
-            type="button"
-            onClick={onNavigatePapers}
-            className="button-secondary mt-4"
-          >
-            Open paper library
-          </button>
-        </section>
-      )}
     </div>
   );
 }
