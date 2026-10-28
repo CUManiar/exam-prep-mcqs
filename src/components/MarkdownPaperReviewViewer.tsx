@@ -451,29 +451,29 @@ export function MarkdownPaperReviewViewer({
                   </div>
                 )}
 
-                {/* Explanation Box */}
-                {explanationText && (
-                  <div className="mt-3 rounded-lg bg-slate-50 border border-slate-200 p-3 space-y-1">
-                    <div className="flex items-center gap-1.5 text-xs font-bold text-slate-800">
-                      <Lightbulb className="h-3.5 w-3.5 text-indigo-600" />
-                      <span>Solution</span>
-                    </div>
-                    <p className="text-xs text-slate-800 leading-relaxed whitespace-pre-wrap pl-5">
-                      {explanationText}
-                    </p>
-                  </div>
-                )}
-
-                {/* Student Note (Hero Subject Matter Highlight) */}
+                {/* Student Note (Hero Subject Matter Highlight - Above Explanation) */}
                 {ans?.note && ans.note.trim() && (
-                  <div className="mt-2.5 rounded-lg bg-amber-50 border border-amber-300 p-2.5 text-xs text-slate-900 font-mono shadow-2xs flex items-start gap-2">
-                    <FileText className="h-3.5 w-3.5 text-amber-700 mt-0.5 shrink-0" />
+                  <div className="mt-3 rounded-xl bg-amber-50 border border-amber-300 p-3 text-xs text-slate-900 font-mono shadow-2xs flex items-start gap-2.5">
+                    <FileText className="h-4 w-4 text-amber-700 mt-0.5 shrink-0" />
                     <div className="flex-1 leading-relaxed whitespace-pre-wrap">
                       <strong className="text-amber-900 font-semibold block text-[10px] uppercase tracking-wider mb-0.5">
                         Student Note
                       </strong>
                       {ans.note.trim()}
                     </div>
+                  </div>
+                )}
+
+                {/* Explanation Box (Below Student Note, Improvised Typography) */}
+                {explanationText && (
+                  <div className="mt-3 rounded-xl bg-slate-50 border border-slate-200/90 p-3.5 sm:p-4 space-y-2 shadow-2xs">
+                    <div className="flex items-center gap-2 text-xs font-bold text-slate-800 uppercase tracking-wider">
+                      <Lightbulb className="h-4 w-4 text-indigo-600" />
+                      <span>Solution & Explanation</span>
+                    </div>
+                    <p className="text-sm sm:text-[15px] text-slate-900 leading-relaxed whitespace-pre-wrap font-normal">
+                      {explanationText}
+                    </p>
                   </div>
                 )}
               </div>

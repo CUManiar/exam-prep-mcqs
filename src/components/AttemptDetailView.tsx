@@ -205,13 +205,45 @@ function ReviewAssessmentPicker({
             >
               <div className="flex items-center justify-between gap-1">
                 <span className="text-xs font-bold">{option.label}</span>
-                <span
-                  className={`text-[10px] font-mono font-bold ${
-                    isSelected ? "text-white" : "text-slate-600"
-                  }`}
-                >
-                  {option.points}
-                </span>
+                {option.value === "partial" && isSelected ? (
+                  <span
+                    onClick={(e) => e.stopPropagation()}
+                    className="inline-flex items-center gap-0.5 bg-amber-600 text-white px-1.5 py-0.5 rounded text-[11px] font-mono font-bold shadow-2xs"
+                    title="Click to adjust partial score"
+                  >
+                    <span>+</span>
+                    <input
+                      type="number"
+                      min={0}
+                      max={maxPartialMarks}
+                      step="0.1"
+                      value={
+                        partialMarks !== undefined
+                          ? partialMarks
+                          : maxPartialMarks * 0.5
+                      }
+                      onChange={(event) => {
+                        event.stopPropagation();
+                        onPartialMarksChange(
+                          Math.min(
+                            maxPartialMarks,
+                            Math.max(0, Number(event.target.value) || 0),
+                          ),
+                        );
+                      }}
+                      className="w-11 bg-white text-center font-mono font-bold text-amber-950 rounded px-1 py-0 text-xs focus:outline-none focus:ring-1 focus:ring-amber-300 border-none"
+                    />
+                    <span>pts</span>
+                  </span>
+                ) : (
+                  <span
+                    className={`text-[10px] font-mono font-bold ${
+                      isSelected ? "text-white" : "text-slate-600"
+                    }`}
+                  >
+                    {option.points}
+                  </span>
+                )}
               </div>
               <span
                 className={`mt-0.5 block text-[10px] ${
@@ -224,28 +256,6 @@ function ReviewAssessmentPicker({
           );
         })}
       </div>
-
-      {value === "partial" && (
-        <label className="mt-2 flex items-center justify-between gap-3 rounded-lg border border-amber-200 bg-white px-2.5 py-2 text-[11px] font-semibold text-amber-900 shadow-2xs">
-          <span>Marks awarded (0 to {maxPartialMarks.toFixed(2)}):</span>
-          <input
-            type="number"
-            min={0}
-            max={maxPartialMarks}
-            step="0.01"
-            value={partialMarks ?? ""}
-            onChange={(event) =>
-              onPartialMarksChange(
-                Math.min(
-                  maxPartialMarks,
-                  Math.max(0, Number(event.target.value) || 0),
-                ),
-              )
-            }
-            className="w-24 rounded-md border border-amber-300 bg-amber-50 px-2 py-1 text-right font-mono text-xs text-amber-950 focus:border-amber-500 focus:outline-none focus:ring-2 focus:ring-amber-500/20"
-          />
-        </label>
-      )}
     </div>
   );
 }
@@ -543,6 +553,8 @@ export function AttemptDetailView({
     const updatedAnswers = { ...attempt.answers };
     if (updatedAnswers[qNo]) {
       updatedAnswers[qNo] = { ...updatedAnswers[qNo], note: qNoteText };
+    } else {
+      updatedAnswers[qNo] = { questionNo: qNo, selected: null, note: qNoteText };
     }
     const updated = { ...attempt, answers: updatedAnswers };
     onUpdate(updated);
@@ -1522,52 +1534,44 @@ export function AttemptDetailView({
         </div>
       </div>
 
-      {/* Multi-Attempt History Switcher (if paper has multiple mock attempts) */}
+      {/* Multi-Attempt History Switcher (Compact Toolbar Strip) */}
       {totalRelatedAttempts > 1 && (
-        <div className="screen-only rounded-2xl border border-indigo-100 bg-gradient-to-r from-indigo-50/60 via-white to-purple-50/50 p-3 sm:p-4 shadow-xs">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
-            <div className="flex items-center gap-2">
-              <span className="flex h-6 w-6 items-center justify-center rounded-lg bg-indigo-600 text-white text-xs font-bold shadow-xs">
-                {currentAttemptIndex + 1}
-              </span>
-              <div>
-                <p className="text-xs font-bold text-slate-900">
-                  Attempt #{currentAttemptIndex + 1} of {totalRelatedAttempts}{" "}
-                  on this Paper
-                </p>
-                <p className="text-[11px] text-slate-500">
-                  Switch between historical attempts to compare your preparation
-                  and score progress
-                </p>
-              </div>
-            </div>
+        <div className="screen-only flex items-center justify-between gap-3 px-3 py-1.5 rounded-lg border border-indigo-100 bg-indigo-50/50 text-xs shadow-2xs">
+          <div className="flex items-center gap-2 min-w-0">
+            <span className="flex h-5 w-5 items-center justify-center rounded-md bg-indigo-600 text-white text-[10px] font-bold shrink-0">
+              {currentAttemptIndex + 1}
+            </span>
+            <span className="text-xs font-semibold text-slate-800 truncate">
+              Attempt #{currentAttemptIndex + 1} of {totalRelatedAttempts} on this paper
+            </span>
+          </div>
 
-            {/* Quick Switch Attempt Pills */}
-            <div className="flex items-center gap-1.5 flex-wrap">
-              {relatedAttempts.map((rel, idx) => {
-                const isCurrent = rel.id === attempt.id;
-                return (
-                  <button
-                    key={rel.id}
-                    onClick={() => {
-                      if (!isCurrent) {
-                        handleViewAttemptDetail(rel);
-                      }
-                    }}
-                    className={`flex items-center gap-1 px-2.5 py-1 rounded-xl text-xs font-bold transition-all ${
-                      isCurrent
-                        ? "bg-indigo-600 text-white shadow-xs"
-                        : "bg-white border border-slate-200 text-slate-700 hover:border-indigo-300 hover:text-indigo-600"
-                    }`}
-                  >
-                    <span>#{idx + 1}</span>
-                    <span className="text-[10px] font-medium opacity-85">
-                      ({rel.score.toFixed(1)} pts)
-                    </span>
-                  </button>
-                );
-              })}
-            </div>
+          {/* Quick Switch Attempt Pills */}
+          <div className="flex items-center gap-1.5 shrink-0">
+            {relatedAttempts.map((rel, idx) => {
+              const isCurrent = rel.id === attempt.id;
+              return (
+                <button
+                  key={rel.id}
+                  onClick={() => {
+                    if (!isCurrent) {
+                      handleViewAttemptDetail(rel);
+                    }
+                  }}
+                  className={`flex items-center gap-1 px-2 py-0.5 rounded-md text-[11px] font-bold transition-all cursor-pointer ${
+                    isCurrent
+                      ? "bg-indigo-600 text-white shadow-2xs"
+                      : "bg-white border border-slate-200 text-slate-700 hover:border-indigo-300 hover:text-indigo-600"
+                  }`}
+                  title={`Switch to Attempt #${idx + 1}`}
+                >
+                  <span>#{idx + 1}</span>
+                  <span className="text-[10px] font-mono opacity-80">
+                    ({rel.score.toFixed(1)} pts)
+                  </span>
+                </button>
+              );
+            })}
           </div>
         </div>
       )}
@@ -1691,7 +1695,7 @@ export function AttemptDetailView({
           className={`w-full ${showPaperSplit && canPreviewPaper ? "xl:w-1/2" : "max-w-5xl mx-auto"} space-y-6 min-w-0`}
         >
           {/* PART 1: ASSESSMENT SUMMARY (COMPACT PROD STRIP, EXPANDS FOR IN-DEPTH ANALYTICS) */}
-          <div className="rounded-xl border border-slate-200 bg-white overflow-hidden shadow-xs">
+          <div className="sticky top-[4.25rem] sm:top-[4.5rem] z-20 rounded-xl border border-slate-200 bg-white/95 backdrop-blur-md overflow-hidden shadow-xs">
             {/* Compact 1-line stats bar */}
             <div
               onClick={() => setSummaryExpanded((prev) => !prev)}
@@ -2430,13 +2434,16 @@ export function AttemptDetailView({
                             }`}
                           >
                             {/* Question Number */}
-                            <td className="py-3 px-2 text-center font-mono font-bold text-slate-900 whitespace-nowrap">
-                              <span>Q{q.questionNo}</span>
-                              {isCloze && (
-                                <div className="text-[9px] font-bold text-indigo-600 bg-indigo-50 rounded px-1 py-0.2 mt-0.5 inline-block">
-                                  CLOZE
-                                </div>
-                              )}
+                            <td className="py-2.5 px-2 text-center font-mono font-bold text-slate-900 whitespace-nowrap">
+                              <span className="inline-flex items-center gap-1.5 justify-center">
+                                <span>Q{q.questionNo}</span>
+                                {isCloze && (
+                                  <span
+                                    className="inline-block h-2 w-2 rounded-full bg-indigo-500 ring-2 ring-indigo-100"
+                                    title="Cloze / Fill-in-the-blank question"
+                                  />
+                                )}
+                              </span>
                               {q.confidence && (
                                 <div className="text-[10px] font-semibold text-slate-500 mt-0.5">
                                   {q.confidence === "sure"
@@ -2680,23 +2687,18 @@ export function AttemptDetailView({
                                         </div>
                                       </div>
 
-                                      {/* Official Solution */}
+                                      {/* Official Answer Key */}
                                       <div className="bg-emerald-50/40 p-3.5 rounded-xl border border-emerald-200/80 shadow-2xs space-y-1.5">
                                         <span className="text-[10px] uppercase font-bold text-emerald-800 tracking-wider flex items-center gap-1.5">
                                           <CheckCircle2 className="h-3 w-3 text-emerald-600" />
-                                          Official Key & Explanation
+                                          Official Answer Key
                                         </span>
-                                        <div className="p-2.5 rounded-lg bg-white/90 font-mono text-xs text-slate-800 border border-emerald-100 leading-relaxed whitespace-pre-wrap break-words min-h-[50px]">
-                                          {expectedAnswer && (
-                                            <div className="mb-1 font-bold text-emerald-900">
-                                              Key: {expectedAnswer}
-                                            </div>
-                                          )}
-                                          {officialExplanation ? (
-                                            <span>{officialExplanation}</span>
+                                        <div className="p-3 rounded-lg bg-white/90 font-mono text-sm font-bold text-emerald-900 border border-emerald-100 min-h-[50px] flex items-center">
+                                          {expectedAnswer ? (
+                                            <span>{expectedAnswer}</span>
                                           ) : (
-                                            <span className="text-slate-400 italic">
-                                              Refer to the Question Paper panel on the left for the full solution.
+                                            <span className="text-slate-400 italic font-normal text-xs">
+                                              Refer to Question Paper panel for key
                                             </span>
                                           )}
                                         </div>
@@ -2779,9 +2781,91 @@ export function AttemptDetailView({
                                           )}
                                         </div>
                                       </div>
+                                      </div>
+
+                                      {/* Student Note (Above Explanation) */}
+                                      <div className="pt-1">
+                                        {editingQNote === q.questionNo ? (
+                                          <div className="space-y-2">
+                                            <textarea
+                                              value={qNoteText}
+                                              onChange={(e) =>
+                                                setQNoteText(e.target.value)
+                                              }
+                                              placeholder="Write key learnings or revision notes for this question..."
+                                              rows={2}
+                                              className="w-full rounded-xl border border-slate-300 bg-white p-2.5 text-xs text-slate-900 focus:outline-none focus:border-indigo-500 shadow-2xs"
+                                            />
+                                            <div className="flex justify-end gap-2">
+                                              <button
+                                                onClick={(e) => {
+                                                  e.stopPropagation();
+                                                  setEditingQNote(null);
+                                                }}
+                                                className="rounded-lg px-2.5 py-1 text-xs font-medium text-slate-600 hover:bg-slate-100 cursor-pointer"
+                                              >
+                                                Cancel
+                                              </button>
+                                              <button
+                                                onClick={(e) => {
+                                                  e.stopPropagation();
+                                                  handleSaveQuestionNote(
+                                                    q.questionNo,
+                                                  );
+                                                }}
+                                                className="rounded-lg bg-indigo-600 px-3 py-1 text-xs font-bold text-white hover:bg-indigo-700 shadow-2xs cursor-pointer"
+                                              >
+                                                Save Note
+                                              </button>
+                                            </div>
+                                          </div>
+                                        ) : (
+                                          <div className="flex items-center justify-between bg-amber-50/80 p-3.5 rounded-xl border border-amber-200/90 shadow-2xs gap-3">
+                                            <div className="flex items-start gap-2.5">
+                                              <FileText className="h-4 w-4 text-amber-700 mt-0.5 shrink-0" />
+                                              <div className="text-xs text-slate-900 font-mono leading-relaxed whitespace-pre-wrap">
+                                                {q.note ? (
+                                                  <>
+                                                    <strong className="text-amber-900 font-semibold block text-[10px] uppercase tracking-wider mb-0.5">
+                                                      Student Note
+                                                    </strong>
+                                                    {q.note}
+                                                  </>
+                                                ) : (
+                                                  <span className="text-slate-500 italic font-sans text-xs">
+                                                    No note added for this question. Jot down revision notes or key takeaways.
+                                                  </span>
+                                                )}
+                                              </div>
+                                            </div>
+                                            <button
+                                              onClick={(e) => {
+                                                e.stopPropagation();
+                                                setEditingQNote(q.questionNo);
+                                                setQNoteText(q.note || "");
+                                              }}
+                                              className="text-xs font-bold text-amber-800 hover:text-amber-950 bg-amber-100 hover:bg-amber-200 px-2.5 py-1 rounded-md border border-amber-300 shrink-0 cursor-pointer transition-colors"
+                                            >
+                                              {q.note ? "Edit Note" : "+ Add Note"}
+                                            </button>
+                                          </div>
+                                        )}
+                                      </div>
+
+                                      {/* Official Explanation (Below Student Note, Improvised Typography) */}
+                                      {officialExplanation && (
+                                        <div className="space-y-2 bg-slate-50 p-4 rounded-xl border border-slate-200/90 shadow-2xs">
+                                          <div className="flex items-center gap-2 text-xs uppercase font-bold text-slate-800 tracking-wider">
+                                            <BookOpen className="h-4 w-4 text-indigo-600" />
+                                            <span>Official Explanation & Solution</span>
+                                          </div>
+                                          <p className="text-sm sm:text-[15px] text-slate-900 font-normal leading-relaxed whitespace-pre-wrap">
+                                            {officialExplanation}
+                                          </p>
+                                        </div>
+                                      )}
                                     </div>
-                                  </div>
-                                ) : (
+                                  ) : (
                                   /* MCQ Expanded Row */
                                   <div className="space-y-3.5">
                                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
@@ -2836,87 +2920,89 @@ export function AttemptDetailView({
                                       </div>
                                     </div>
 
-                                    {/* Official Explanation */}
-                                    {officialExplanation && (
-                                      <div className="space-y-1 bg-indigo-50/80 p-3.5 rounded-xl border border-indigo-200/90 shadow-2xs">
-                                        <div className="flex items-center gap-1.5 text-[11px] uppercase font-bold text-indigo-900 tracking-wider">
-                                          <BookOpen className="h-3.5 w-3.5 text-indigo-700" />
-                                          <span>Explanation</span>
+                                    {/* Student Note (Above Explanation) */}
+                                    <div className="pt-1">
+                                      {editingQNote === q.questionNo ? (
+                                        <div className="space-y-2">
+                                          <textarea
+                                            value={qNoteText}
+                                            onChange={(e) =>
+                                              setQNoteText(e.target.value)
+                                            }
+                                            placeholder="Write key learnings or revision notes for this question..."
+                                            rows={2}
+                                            className="w-full rounded-xl border border-slate-300 bg-white p-2.5 text-xs text-slate-900 focus:outline-none focus:border-indigo-500 shadow-2xs"
+                                          />
+                                          <div className="flex justify-end gap-2">
+                                            <button
+                                              onClick={(e) => {
+                                                e.stopPropagation();
+                                                setEditingQNote(null);
+                                              }}
+                                              className="rounded-lg px-2.5 py-1 text-xs font-medium text-slate-600 hover:bg-slate-100 cursor-pointer"
+                                            >
+                                              Cancel
+                                            </button>
+                                            <button
+                                              onClick={(e) => {
+                                                e.stopPropagation();
+                                                handleSaveQuestionNote(
+                                                  q.questionNo,
+                                                );
+                                              }}
+                                              className="rounded-lg bg-indigo-600 px-3 py-1 text-xs font-bold text-white hover:bg-indigo-700 shadow-2xs cursor-pointer"
+                                            >
+                                              Save Note
+                                            </button>
+                                          </div>
                                         </div>
-                                        <p className="text-xs text-indigo-950 font-normal leading-relaxed whitespace-pre-wrap pt-0.5">
+                                      ) : (
+                                        <div className="flex items-center justify-between bg-amber-50/80 p-3.5 rounded-xl border border-amber-200/90 shadow-2xs gap-3">
+                                          <div className="flex items-start gap-2.5">
+                                            <FileText className="h-4 w-4 text-amber-700 mt-0.5 shrink-0" />
+                                            <div className="text-xs text-slate-900 font-mono leading-relaxed whitespace-pre-wrap">
+                                              {q.note ? (
+                                                <>
+                                                  <strong className="text-amber-900 font-semibold block text-[10px] uppercase tracking-wider mb-0.5">
+                                                    Student Note
+                                                  </strong>
+                                                  {q.note}
+                                                </>
+                                              ) : (
+                                                <span className="text-slate-500 italic font-sans text-xs">
+                                                  No note added for this question. Jot down revision notes or key takeaways.
+                                                </span>
+                                              )}
+                                            </div>
+                                          </div>
+                                          <button
+                                            onClick={(e) => {
+                                              e.stopPropagation();
+                                              setEditingQNote(q.questionNo);
+                                              setQNoteText(q.note || "");
+                                            }}
+                                            className="text-xs font-bold text-amber-800 hover:text-amber-950 bg-amber-100 hover:bg-amber-200 px-2.5 py-1 rounded-md border border-amber-300 shrink-0 cursor-pointer transition-colors"
+                                          >
+                                            {q.note ? "Edit Note" : "+ Add Note"}
+                                          </button>
+                                        </div>
+                                      )}
+                                    </div>
+
+                                    {/* Official Explanation (Below Student Note, Improvised Typography) */}
+                                    {officialExplanation && (
+                                      <div className="space-y-2 bg-slate-50 p-4 rounded-xl border border-slate-200/90 shadow-2xs">
+                                        <div className="flex items-center gap-2 text-xs uppercase font-bold text-slate-800 tracking-wider">
+                                          <BookOpen className="h-4 w-4 text-indigo-600" />
+                                          <span>Official Explanation & Solution</span>
+                                        </div>
+                                        <p className="text-sm sm:text-[15px] text-slate-900 font-normal leading-relaxed whitespace-pre-wrap">
                                           {officialExplanation}
                                         </p>
                                       </div>
                                     )}
                                   </div>
                                 )}
-
-                                {/* Edit Question Note (Shared for both MCQ & Cloze) */}
-                                <div className="pt-1">
-                                  {editingQNote === q.questionNo ? (
-                                    <div className="space-y-2">
-                                      <textarea
-                                        value={qNoteText}
-                                        onChange={(e) =>
-                                          setQNoteText(e.target.value)
-                                        }
-                                        placeholder="Write key learnings or revision notes for this question..."
-                                        rows={2}
-                                        className="w-full rounded-xl border border-slate-300 bg-white p-2.5 text-xs text-slate-900 focus:outline-none focus:border-indigo-500 shadow-2xs"
-                                      />
-                                      <div className="flex justify-end gap-2">
-                                        <button
-                                          onClick={(e) => {
-                                            e.stopPropagation();
-                                            setEditingQNote(null);
-                                          }}
-                                          className="rounded-lg px-2.5 py-1 text-xs font-medium text-slate-600 hover:bg-slate-100 cursor-pointer"
-                                        >
-                                          Cancel
-                                        </button>
-                                        <button
-                                          onClick={(e) => {
-                                            e.stopPropagation();
-                                            handleSaveQuestionNote(
-                                              q.questionNo,
-                                            );
-                                          }}
-                                          className="rounded-lg bg-indigo-600 px-3 py-1 text-xs font-bold text-white hover:bg-indigo-700 shadow-2xs cursor-pointer"
-                                        >
-                                          Save Note
-                                        </button>
-                                      </div>
-                                    </div>
-                                  ) : (
-                                    <div className="flex items-center justify-between bg-amber-50/70 p-3 rounded-xl border border-amber-200/90 shadow-2xs gap-3">
-                                      <div className="flex items-start gap-2">
-                                        <FileText className="h-3.5 w-3.5 text-amber-700 mt-0.5 shrink-0" />
-                                        <div className="text-xs text-slate-900 font-mono leading-relaxed whitespace-pre-wrap">
-                                          {q.note ? (
-                                            <>
-                                              <strong className="text-amber-900 font-semibold block text-[10px] uppercase tracking-wider mb-0.5">Student Note</strong>
-                                              {q.note}
-                                            </>
-                                          ) : (
-                                            <span className="text-slate-500 italic font-sans text-[11px]">
-                                              No note added for this question. Jot down revision notes or key takeaways.
-                                            </span>
-                                          )}
-                                        </div>
-                                      </div>
-                                      <button
-                                        onClick={(e) => {
-                                          e.stopPropagation();
-                                          setEditingQNote(q.questionNo);
-                                          setQNoteText(q.note || "");
-                                        }}
-                                        className="text-xs font-bold text-amber-800 hover:text-amber-950 bg-amber-100 hover:bg-amber-200 px-2.5 py-1 rounded-md border border-amber-300 shrink-0 cursor-pointer transition-colors"
-                                      >
-                                        {q.note ? "Edit Note" : "+ Add Note"}
-                                      </button>
-                                    </div>
-                                  )}
-                                </div>
                               </td>
                             </tr>
                           )}
