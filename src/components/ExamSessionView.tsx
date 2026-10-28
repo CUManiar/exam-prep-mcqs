@@ -1019,6 +1019,18 @@ export function ExamSessionView({
     confidence: undefined,
     note: "",
   };
+  const currentQuestionData =
+    currentQuestion !== null
+      ? effectivePaper.parsedQuestions?.find(
+          (question) => question.questionNo === currentQuestion,
+        )
+      : undefined;
+  // A Markdown cloze question is objective, but has no option values. Keep
+  // its free-text answer out of MCQ-only UI.
+  const currentQuestionHasOptions =
+    !isSubjective &&
+    (!currentQuestionData ||
+      Object.keys(currentQuestionData.options || {}).length > 0);
   const currentQuestionExplanation =
     currentQuestion !== null
       ? effectivePaper.parsedQuestions?.find(
@@ -1393,7 +1405,7 @@ export function ExamSessionView({
                   </div>
 
                   {/* Quick Options A, B, C, D */}
-                  {!isSubjective ? (
+                  {currentQuestionHasOptions ? (
                     <div className="grid grid-cols-4 gap-1 flex-1 max-w-[200px] xs:max-w-[240px]">
                       {["A", "B", "C", "D"].map((opt) => {
                         const isSelected =
@@ -1535,7 +1547,7 @@ export function ExamSessionView({
                     <span className="text-base sm:text-xl font-bold text-slate-900">
                       Question {currentQuestion}
                     </span>
-                    {currentQObj.selected && !isSubjective && (
+                    {currentQObj.selected && currentQuestionHasOptions && (
                       <span className="inline-flex items-center gap-1.5 rounded-lg bg-indigo-600 px-2.5 py-0.5 text-xs font-bold text-white shadow-2xs">
                         <span className="text-[10px] uppercase font-bold text-indigo-200">
                           Selected:
@@ -1678,7 +1690,7 @@ export function ExamSessionView({
                 </div>
 
                 {/* Elimination Certainty & Option Selection Section */}
-                {!isSubjective ? (
+                {currentQuestionHasOptions ? (
                   mode === "mock" || !isMarkdownPaper ? (
                     <div className="mt-3 rounded-2xl border border-slate-200/90 bg-slate-50/80 p-3 sm:p-3.5 space-y-3 shadow-2xs">
                       {/* Elimination Certainty Bar */}
@@ -2099,7 +2111,7 @@ export function ExamSessionView({
 
                 {/* Practice Mode Live Feedback Banner + Detailed Solution Key Link (Objective) */}
                 {isPractice &&
-                  !isSubjective &&
+                  currentQuestionHasOptions &&
                   (currentQObj.selected || revealedAnswers[currentQuestion]) &&
                   getCorrectAnswerForQ(currentQuestion) &&
                   (() => {
@@ -2330,6 +2342,14 @@ export function ExamSessionView({
                   currentQuestion !== null && qNo === currentQuestion;
                 const isAnswered = isQuestionAnswered(q);
                 const isFlagged = q?.flagged;
+                const paletteQuestionData =
+                  effectivePaper.parsedQuestions?.find(
+                    (question) => question.questionNo === qNo,
+                  );
+                const paletteQuestionHasOptions =
+                  !isSubjective &&
+                  (!paletteQuestionData ||
+                    Object.keys(paletteQuestionData.options || {}).length > 0);
 
                 let badgeColor =
                   "bg-white text-slate-700 border-slate-200 hover:bg-slate-100 hover:border-slate-300 shadow-2xs";
@@ -2388,12 +2408,14 @@ export function ExamSessionView({
                     className={`relative flex h-9 sm:h-10 items-center justify-center rounded-xl border text-xs transition-all gap-1.5 px-1.5 ${badgeColor}`}
                     title={
                       q?.selected
-                        ? `Question ${qNo} (Selected: Option ${q.selected}${q.confidence ? ` - ${q.confidence}` : ""})`
+                        ? paletteQuestionHasOptions
+                          ? `Question ${qNo} (Selected: Option ${q.selected}${q.confidence ? ` - ${q.confidence}` : ""})`
+                          : `Question ${qNo} (Answer recorded${q.confidence ? ` - ${q.confidence}` : ""})`
                         : `Question ${qNo} (Unattempted)`
                     }
                   >
                     <span className="font-bold leading-none">{qNo}</span>
-                    {q?.selected && !isSubjective && (
+                    {q?.selected && paletteQuestionHasOptions && (
                       <span
                         className={`inline-flex items-center justify-center min-w-[18px] sm:min-w-[20px] h-5 sm:h-5.5 px-1 rounded-md text-xs sm:text-[13px] font-black uppercase leading-none shadow-xs border ${
                           isFlagged
