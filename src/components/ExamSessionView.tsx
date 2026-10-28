@@ -1035,7 +1035,7 @@ export function ExamSessionView({
           (question) => question.questionNo === currentQuestion,
         )
       : undefined;
-  const isClozeQuestion = (questionNo: number | null) => {
+  function isClozeQuestion(questionNo: number | null) {
     if (questionNo === null) return false;
     const question = effectivePaper.parsedQuestions?.find(
       (parsedQuestion) => parsedQuestion.questionNo === questionNo,
@@ -1043,7 +1043,7 @@ export function ExamSessionView({
     return Boolean(
       question && Object.keys(question.options || {}).length === 0,
     );
-  };
+  }
   const currentQuestionIsCloze = isClozeQuestion(currentQuestion);
   // A Markdown cloze question is objective, but has no option values. Keep
   // its free-text answer out of MCQ-only UI.
