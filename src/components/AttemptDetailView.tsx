@@ -7,6 +7,7 @@ import {
   formatDateTime,
   getPaperDisplayTitle,
   formatCustomIdentifier,
+  SUBJECTIVE_ASSESSMENT_META,
 } from "../lib/defaults";
 import { DetailedSolutionModal } from "./DetailedSolutionModal";
 import { PdfViewer } from "./PdfViewer";
@@ -405,6 +406,16 @@ export function AttemptDetailView({
   // Derived metrics & negative markings
   const correctMarksPerQ = attempt.correctMarks || 2.0;
   const incorrectMarksPerQ = attempt.incorrectMarks || 0.667;
+  const isSubjectiveAttempt = attempt.examType === "subjective";
+  const subjectivePartialCount =
+    attempt.partial ??
+    Object.values(attempt.answers || {}).filter(
+      (answer) => answer.subjectiveAssessment === "partial",
+    ).length;
+  const subjectiveMarksPerQ =
+    attempt.totalQuestions > 0
+      ? (attempt.totalMarks || attempt.maxScore || 0) / attempt.totalQuestions
+      : 0;
   const grossCorrectMarks =
     Math.round(attempt.correct * correctMarksPerQ * 100) / 100;
   const negativePenaltyMarks =
@@ -614,7 +625,11 @@ export function AttemptDetailView({
   const totalQ = attempt.totalQuestions || 100;
   const correctPct = Math.round((attempt.correct / totalQ) * 100);
   const incorrectPct = Math.round((attempt.incorrect / totalQ) * 100);
-  const skippedPct = Math.max(0, 100 - correctPct - incorrectPct);
+  const partialPct = Math.round((subjectivePartialCount / totalQ) * 100);
+  const skippedPct = Math.max(
+    0,
+    100 - correctPct - incorrectPct - (isSubjectiveAttempt ? partialPct : 0),
+  );
 
   return (
     <div
@@ -791,10 +806,16 @@ export function AttemptDetailView({
                 (_, i) => i + 1,
               ).map((qNo) => {
                 const q = attempt.answers[qNo];
-                const isAnswered =
-                  q?.selected !== null && q?.selected !== undefined;
-                const isCorrect = isAnswered && q?.isCorrect === true;
-                const isWrong = isAnswered && q?.isCorrect === false;
+                const subjectiveAssessment = q?.subjectiveAssessment;
+                const isAnswered = isSubjectiveAttempt
+                  ? q?.selected === "attempted"
+                  : q?.selected !== null && q?.selected !== undefined;
+                const isCorrect = isSubjectiveAttempt
+                  ? subjectiveAssessment === "strong"
+                  : isAnswered && q?.isCorrect === true;
+                const isWrong = isSubjectiveAttempt
+                  ? subjectiveAssessment === "needs-work"
+                  : isAnswered && q?.isCorrect === false;
 
                 let tagBadge = (
                   <span className="text-slate-400 text-[11px] font-normal">
@@ -838,7 +859,40 @@ export function AttemptDetailView({
                   </span>
                 );
 
-                if (isCorrect) {
+                if (isSubjectiveAttempt && subjectiveAssessment) {
+                  const assessment =
+                    SUBJECTIVE_ASSESSMENT_META[subjectiveAssessment];
+                  const estimatedMarks =
+                    subjectiveMarksPerQ * assessment.fraction;
+                  const assessmentClass =
+                    subjectiveAssessment === "strong"
+                      ? "text-emerald-800"
+                      : subjectiveAssessment === "partial"
+                        ? "text-amber-800"
+                        : "text-rose-800";
+                  statusBadge = (
+                    <span
+                      className={`font-bold text-[11px] ${assessmentClass}`}
+                    >
+                      {assessment.label}
+                    </span>
+                  );
+                  marksText = (
+                    <span
+                      className={`font-bold font-mono text-[11px] ${assessmentClass}`}
+                    >
+                      {estimatedMarks > 0
+                        ? `+${estimatedMarks.toFixed(2)}`
+                        : "0.00"}
+                    </span>
+                  );
+                } else if (isSubjectiveAttempt && isAnswered) {
+                  statusBadge = (
+                    <span className="font-semibold text-indigo-800 text-[11px]">
+                      Written · not assessed
+                    </span>
+                  );
+                } else if (isCorrect) {
                   statusBadge = (
                     <span className="font-bold text-emerald-800 text-[11px]">
                       Right
@@ -877,16 +931,27 @@ export function AttemptDetailView({
                       {statusBadge}
                     </td>
                     <td className="py-1.5 px-2 border-r border-slate-200 text-center font-mono font-semibold">
-                      {q?.selected
-                        ? q.correctAnswer
-                          ? `Option ${q.selected}`
-                          : q.selected
-                        : "—"}
+                      {isSubjectiveAttempt
+                        ? isAnswered
+                          ? "Written"
+                          : "—"
+                        : q?.selected
+                          ? q.correctAnswer
+                            ? `Option ${q.selected}`
+                            : q.selected
+                          : "—"}
                     </td>
                     <td className="py-1.5 px-2 border-r border-slate-200 text-center font-mono font-bold text-slate-800">
-                      {q?.correctAnswer
-                        ? `Option ${q.correctAnswer}`
-                        : "No key"}
+                      {isSubjectiveAttempt
+                        ? subjectiveAssessment
+                          ? SUBJECTIVE_ASSESSMENT_META[subjectiveAssessment]
+                              .label
+                          : isAnswered
+                            ? "Self-assess"
+                            : "—"
+                        : q?.correctAnswer
+                          ? `Option ${q.correctAnswer}`
+                          : "No key"}
                     </td>
                     <td className="py-1.5 px-2 border-r border-slate-200 text-center font-mono">
                       {marksText}
@@ -1306,7 +1371,9 @@ export function AttemptDetailView({
               </div>
 
               <div className="flex items-center gap-3 flex-wrap">
-                <div className="grid grid-cols-2 sm:grid-cols-5 divide-x divide-slate-200 text-xs">
+                <div
+                  className={`grid grid-cols-2 ${isSubjectiveAttempt ? "sm:grid-cols-6" : "sm:grid-cols-5"} divide-x divide-slate-200 text-xs`}
+                >
                   <div className="px-3 first:pl-0 text-center sm:text-left">
                     <span className="text-[10px] text-slate-500 block">
                       Accuracy
@@ -1323,6 +1390,16 @@ export function AttemptDetailView({
                       {attempt.correct}
                     </span>
                   </div>
+                  {isSubjectiveAttempt && (
+                    <div className="px-3 text-center sm:text-left">
+                      <span className="text-[10px] text-slate-500 block">
+                        Partial
+                      </span>
+                      <span className="text-sm font-semibold text-amber-700 font-mono">
+                        {subjectivePartialCount}
+                      </span>
+                    </div>
+                  )}
                   <div className="px-3 text-center sm:text-left">
                     <span className="text-[10px] text-slate-500 block">
                       Incorrect
@@ -1402,6 +1479,13 @@ export function AttemptDetailView({
                         title={`Incorrect: ${attempt.incorrect} (${incorrectPct}%)`}
                       />
                     )}
+                    {isSubjectiveAttempt && subjectivePartialCount > 0 && (
+                      <div
+                        style={{ width: `${partialPct}%` }}
+                        className="bg-amber-400 h-full"
+                        title={`Partial match: ${subjectivePartialCount} (${partialPct}%)`}
+                      />
+                    )}
                     {attempt.unattempted > 0 && (
                       <div
                         style={{ width: `${skippedPct}%` }}
@@ -1426,6 +1510,15 @@ export function AttemptDetailView({
                       </strong>{" "}
                       ({incorrectPct}%)
                     </span>
+                    {isSubjectiveAttempt && (
+                      <span className="flex items-center gap-1.5">
+                        <span className="h-2 w-2 rounded-full bg-amber-400" />
+                        <strong className="text-amber-700 font-semibold">
+                          {subjectivePartialCount} Partial
+                        </strong>{" "}
+                        ({partialPct}%)
+                      </span>
+                    )}
                     <span className="flex items-center gap-1.5">
                       <span className="h-2 w-2 rounded-full bg-slate-400" />
                       <strong className="text-slate-700 font-semibold">
@@ -1442,49 +1535,90 @@ export function AttemptDetailView({
                     Score breakdown
                   </div>
 
-                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                    <div className="rounded-xl bg-emerald-50/70 border border-emerald-200 p-3">
-                      <div className="text-[11px] font-semibold text-emerald-800">
-                        Correct marks
+                  {isSubjectiveAttempt ? (
+                    <div className="rounded-xl border border-indigo-200 bg-indigo-50/60 p-4 space-y-3">
+                      <div className="flex items-center gap-2 text-sm font-bold text-indigo-950">
+                        <Lightbulb className="h-4 w-4 text-indigo-600" />
+                        Guided reference-based estimate
                       </div>
-                      <div className="text-xl font-bold text-emerald-700 font-mono mt-0.5">
-                        +{grossCorrectMarks}
+                      <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
+                        <div className="rounded-lg border border-emerald-200 bg-emerald-50 p-3">
+                          <p className="text-[11px] font-semibold text-emerald-800">
+                            Strong match
+                          </p>
+                          <p className="mt-1 font-mono text-lg font-bold text-emerald-700">
+                            {attempt.correct}
+                          </p>
+                        </div>
+                        <div className="rounded-lg border border-amber-200 bg-amber-50 p-3">
+                          <p className="text-[11px] font-semibold text-amber-800">
+                            Partial match
+                          </p>
+                          <p className="mt-1 font-mono text-lg font-bold text-amber-700">
+                            {subjectivePartialCount}
+                          </p>
+                        </div>
+                        <div className="rounded-lg border border-rose-200 bg-rose-50 p-3">
+                          <p className="text-[11px] font-semibold text-rose-800">
+                            Needs work
+                          </p>
+                          <p className="mt-1 font-mono text-lg font-bold text-rose-700">
+                            {attempt.incorrect}
+                          </p>
+                        </div>
                       </div>
-                      <div className="text-[11px] text-emerald-700/80 mt-1">
-                        {attempt.correct} correct × {attempt.correctMarks} marks
-                      </div>
+                      <p className="text-[11px] leading-relaxed text-indigo-900/75">
+                        Estimated marks use the question&apos;s share of the
+                        paper: strong = 100%, partial = 50%, needs work = 0%.
+                        This is a self-assessment aid, not examiner marking.
+                      </p>
                     </div>
+                  ) : (
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                      <div className="rounded-xl bg-emerald-50/70 border border-emerald-200 p-3">
+                        <div className="text-[11px] font-semibold text-emerald-800">
+                          Correct marks
+                        </div>
+                        <div className="text-xl font-bold text-emerald-700 font-mono mt-0.5">
+                          +{grossCorrectMarks}
+                        </div>
+                        <div className="text-[11px] text-emerald-700/80 mt-1">
+                          {attempt.correct} correct × {attempt.correctMarks}{" "}
+                          marks
+                        </div>
+                      </div>
 
-                    <div className="rounded-xl bg-rose-50/70 border border-rose-200 p-3">
-                      <div className="text-[11px] font-semibold text-rose-800">
-                        Penalty marks
+                      <div className="rounded-xl bg-rose-50/70 border border-rose-200 p-3">
+                        <div className="text-[11px] font-semibold text-rose-800">
+                          Penalty marks
+                        </div>
+                        <div className="text-xl font-bold text-rose-700 font-mono mt-0.5">
+                          -{negativePenaltyMarks}
+                        </div>
+                        <div className="text-[11px] text-rose-700/80 mt-1">
+                          {attempt.incorrect} incorrect ×{" "}
+                          {attempt.incorrectMarks} penalty
+                        </div>
                       </div>
-                      <div className="text-xl font-bold text-rose-700 font-mono mt-0.5">
-                        -{negativePenaltyMarks}
-                      </div>
-                      <div className="text-[11px] text-rose-700/80 mt-1">
-                        {attempt.incorrect} incorrect × {attempt.incorrectMarks}{" "}
-                        penalty
-                      </div>
-                    </div>
 
-                    <div className="rounded-xl bg-indigo-50/70 border border-indigo-200 p-3">
-                      <div className="text-[11px] font-semibold text-indigo-800">
-                        Net score
-                      </div>
-                      <div className="text-xl font-bold text-slate-900 font-mono mt-0.5">
-                        {attempt.score}{" "}
-                        <span className="text-xs font-normal text-slate-500">
-                          / {effectiveMaxScore}
-                        </span>
-                      </div>
-                      <div className="text-[11px] text-indigo-700/80 mt-1">
-                        {grossCorrectMarks > 0
-                          ? `Penalties eroded ${Math.round((negativePenaltyMarks / grossCorrectMarks) * 100)}% of gross marks`
-                          : "Scored with official negative marking"}
+                      <div className="rounded-xl bg-indigo-50/70 border border-indigo-200 p-3">
+                        <div className="text-[11px] font-semibold text-indigo-800">
+                          Net score
+                        </div>
+                        <div className="text-xl font-bold text-slate-900 font-mono mt-0.5">
+                          {attempt.score}{" "}
+                          <span className="text-xs font-normal text-slate-500">
+                            / {effectiveMaxScore}
+                          </span>
+                        </div>
+                        <div className="text-[11px] text-indigo-700/80 mt-1">
+                          {grossCorrectMarks > 0
+                            ? `Penalties eroded ${Math.round((negativePenaltyMarks / grossCorrectMarks) * 100)}% of gross marks`
+                            : "Scored with official negative marking"}
+                        </div>
                       </div>
                     </div>
-                  </div>
+                  )}
                 </div>
 
                 {/* Time Analysis & Answer Changes (Vertical on Mobile/Tablet, 2-cols on Desktop) */}
@@ -1959,9 +2093,16 @@ export function AttemptDetailView({
                   </thead>
                   <tbody className="divide-y divide-slate-100">
                     {filteredQuestions.map((q) => {
-                      const isAnswered = q.selected !== null;
-                      const isCorrect = q.selected && q.isCorrect === true;
-                      const isWrong = q.selected && q.isCorrect === false;
+                      const subjectiveAssessment = q.subjectiveAssessment;
+                      const isAnswered = isSubjectiveAttempt
+                        ? q.selected === "attempted"
+                        : q.selected !== null;
+                      const isCorrect = isSubjectiveAttempt
+                        ? subjectiveAssessment === "strong"
+                        : q.selected && q.isCorrect === true;
+                      const isWrong = isSubjectiveAttempt
+                        ? subjectiveAssessment === "needs-work"
+                        : q.selected && q.isCorrect === false;
                       const isExpanded = !!expandedQuestions[q.questionNo];
                       const isSlow = (q.timeSpentSeconds || 0) >= 90;
 
@@ -1999,22 +2140,41 @@ export function AttemptDetailView({
 
                             {/* Status */}
                             <td className="py-3.5 px-3 text-center whitespace-nowrap">
-                              {isCorrect && (
+                              {isSubjectiveAttempt && subjectiveAssessment && (
+                                <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-indigo-50 text-indigo-700 border border-indigo-200">
+                                  {
+                                    SUBJECTIVE_ASSESSMENT_META[
+                                      subjectiveAssessment
+                                    ].label
+                                  }
+                                </span>
+                              )}
+                              {isSubjectiveAttempt &&
+                                isAnswered &&
+                                !subjectiveAssessment && (
+                                  <span className="text-indigo-700 font-semibold">
+                                    Written · not assessed
+                                  </span>
+                                )}
+                              {!isSubjectiveAttempt && isCorrect && (
                                 <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
                                   <CheckCircle2 className="h-3 w-3" /> Correct
                                 </span>
                               )}
-                              {isWrong && (
+                              {!isSubjectiveAttempt && isWrong && (
                                 <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-rose-50 text-rose-700 border border-rose-200">
                                   <XCircle className="h-3 w-3" /> Incorrect
                                 </span>
                               )}
-                              {isAnswered && !isCorrect && !isWrong && (
-                                <span className="text-indigo-700 font-semibold">
-                                  Free-text answer recorded; this question has
-                                  no objective answer key.
-                                </span>
-                              )}
+                              {!isSubjectiveAttempt &&
+                                isAnswered &&
+                                !isCorrect &&
+                                !isWrong && (
+                                  <span className="text-indigo-700 font-semibold">
+                                    Free-text answer recorded; this question has
+                                    no objective answer key.
+                                  </span>
+                                )}
                               {!isAnswered && (
                                 <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-slate-100 text-slate-600 border border-slate-200">
                                   Skipped
@@ -2033,14 +2193,26 @@ export function AttemptDetailView({
                                       : "text-slate-400"
                                 }`}
                               >
-                                {q.selected || "—"}
+                                {isSubjectiveAttempt
+                                  ? isAnswered
+                                    ? "Written"
+                                    : "—"
+                                  : q.selected || "—"}
                               </span>
                             </td>
 
                             {/* Correct Option */}
                             <td className="py-3.5 px-3 text-center font-mono whitespace-nowrap">
                               <span className="text-base font-black text-emerald-700">
-                                {q.correctAnswer || "—"}
+                                {isSubjectiveAttempt
+                                  ? subjectiveAssessment
+                                    ? SUBJECTIVE_ASSESSMENT_META[
+                                        subjectiveAssessment
+                                      ].label
+                                    : isAnswered
+                                      ? "Self-assess"
+                                      : "—"
+                                  : q.correctAnswer || "—"}
                               </span>
                             </td>
 
@@ -2095,26 +2267,57 @@ export function AttemptDetailView({
                                       Scoring
                                     </span>
                                     <div className="text-xs pt-0.5">
-                                      {isCorrect && (
-                                        <span className="text-emerald-700 font-semibold">
-                                          +{correctMarksPerQ} marks gained for
-                                          correct answer.
-                                        </span>
-                                      )}
-                                      {isWrong && (
-                                        <span className="text-rose-700 font-semibold">
-                                          -{incorrectMarksPerQ} marks deducted
-                                          for incorrect answer (marked &quot;
-                                          {q.selected}&quot;, official is &quot;
-                                          {q.correctAnswer}&quot;).
-                                        </span>
-                                      )}
-                                      {!isAnswered && (
-                                        <span className="text-slate-600">
-                                          Question unattempted. 0 marks deducted
-                                          (official key is &quot;
-                                          {q.correctAnswer}&quot;).
-                                        </span>
+                                      {isSubjectiveAttempt ? (
+                                        subjectiveAssessment ? (
+                                          <span className="text-indigo-800 font-semibold">
+                                            {
+                                              SUBJECTIVE_ASSESSMENT_META[
+                                                subjectiveAssessment
+                                              ].label
+                                            }{" "}
+                                            estimate: +
+                                            {(
+                                              subjectiveMarksPerQ *
+                                              SUBJECTIVE_ASSESSMENT_META[
+                                                subjectiveAssessment
+                                              ].fraction
+                                            ).toFixed(2)}{" "}
+                                            marks.
+                                          </span>
+                                        ) : isAnswered ? (
+                                          <span className="text-slate-600">
+                                            Written, but not self-assessed yet.
+                                          </span>
+                                        ) : (
+                                          <span className="text-slate-600">
+                                            Question not marked as written.
+                                          </span>
+                                        )
+                                      ) : (
+                                        <>
+                                          {isCorrect && (
+                                            <span className="text-emerald-700 font-semibold">
+                                              +{correctMarksPerQ} marks gained
+                                              for correct answer.
+                                            </span>
+                                          )}
+                                          {isWrong && (
+                                            <span className="text-rose-700 font-semibold">
+                                              -{incorrectMarksPerQ} marks
+                                              deducted for incorrect answer
+                                              (marked &quot;{q.selected}&quot;,
+                                              official is &quot;
+                                              {q.correctAnswer}&quot;).
+                                            </span>
+                                          )}
+                                          {!isAnswered && (
+                                            <span className="text-slate-600">
+                                              Question unattempted. 0 marks
+                                              deducted (official key is &quot;
+                                              {q.correctAnswer}&quot;).
+                                            </span>
+                                          )}
+                                        </>
                                       )}
                                     </div>
                                     {q.answerHistory &&

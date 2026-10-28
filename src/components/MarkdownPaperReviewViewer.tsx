@@ -325,13 +325,6 @@ export function MarkdownPaperReviewViewer({
                   headers={q.matchingHeaders}
                 />
 
-                {isCloze && isAnswered && (
-                  <div className="mt-3.5 rounded-lg border border-indigo-200 bg-indigo-50/60 p-3 text-xs text-indigo-950">
-                    <span className="font-semibold">Your response:</span>{" "}
-                    <span className="whitespace-pre-wrap">{ans?.selected}</span>
-                  </div>
-                )}
-
                 {/* Options Grid */}
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 mt-3.5 pt-1">
                   {Object.entries(q.options).map(([optKey, optText]) => {

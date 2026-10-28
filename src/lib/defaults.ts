@@ -1,5 +1,33 @@
-import { Attempt, QuestionPaper } from "./types";
+import { Attempt, QuestionPaper, SubjectiveAssessment } from "./types";
 import { SAMPLE_MARKDOWN_PAPER } from "../data/sampleMarkdownPaper";
+
+export const SUBJECTIVE_ASSESSMENT_META: Record<
+  SubjectiveAssessment,
+  { label: string; fraction: number; description: string }
+> = {
+  strong: {
+    label: "Strong match",
+    fraction: 1,
+    description: "Most key points and the required structure are present.",
+  },
+  partial: {
+    label: "Partial match",
+    fraction: 0.5,
+    description:
+      "Some important points are present, but the answer needs work.",
+  },
+  "needs-work": {
+    label: "Needs work",
+    fraction: 0,
+    description: "The response misses most of the points in the explanation.",
+  },
+};
+
+export function getSubjectiveAssessmentFraction(
+  assessment?: SubjectiveAssessment,
+): number {
+  return assessment ? SUBJECTIVE_ASSESSMENT_META[assessment].fraction : 0;
+}
 
 export function parseAnswerKeyDetailed(text: string): {
   answers: Record<number, string>;
@@ -51,7 +79,9 @@ export function formatTimeSeconds(seconds: number): string {
 }
 
 /** Percentage of the available marks earned, including negative scores. */
-export function getAttemptPercentage(attempt: Pick<Attempt, "score" | "maxScore">): number {
+export function getAttemptPercentage(
+  attempt: Pick<Attempt, "score" | "maxScore">,
+): number {
   if (!attempt.maxScore || attempt.maxScore <= 0) return 0;
   return Math.round((attempt.score / attempt.maxScore) * 1000) / 10;
 }
