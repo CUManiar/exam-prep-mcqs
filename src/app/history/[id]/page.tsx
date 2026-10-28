@@ -23,36 +23,33 @@ export default function AttemptDetailPage({
     currentUser,
   } = useApp();
 
-  // Primary lookup from app context state with fallbacks to local storage & guest review
-  const resolvedAttempt =
-    attempts.find((a) => a.id === resolvedParams.id) ||
-    (typeof window !== "undefined"
-      ? getAttempts().find((a) => a.id === resolvedParams.id) ||
-        (getGuestReviewAttempt()?.id === resolvedParams.id
-          ? getGuestReviewAttempt()
-          : null)
-      : null);
-
-  const [activeAttempt, setActiveAttempt] = useState<Attempt | null>(
-    resolvedAttempt || null,
-  );
+  const [hasMounted, setHasMounted] = useState(false);
+  const [activeAttempt, setActiveAttempt] = useState<Attempt | null>(null);
 
   useEffect(() => {
-    if (resolvedAttempt) {
-      setActiveAttempt(resolvedAttempt);
+    setHasMounted(true);
+    const found =
+      attempts.find((a) => a.id === resolvedParams.id) ||
+      getAttempts().find((a) => a.id === resolvedParams.id) ||
+      (getGuestReviewAttempt()?.id === resolvedParams.id
+        ? getGuestReviewAttempt()
+        : null);
+    if (found) {
+      setActiveAttempt(found);
     }
-  }, [resolvedAttempt]);
+  }, [attempts, resolvedParams.id]);
 
-  const attempt = activeAttempt || resolvedAttempt;
+  const attempt = activeAttempt;
+
+  if (!hasMounted || (!attempt && isLoading)) {
+    return (
+      <div className="mx-auto max-w-4xl px-4 py-20 text-center text-xs text-slate-400">
+        Loading assessment report...
+      </div>
+    );
+  }
 
   if (!attempt) {
-    if (isLoading) {
-      return (
-        <div className="mx-auto max-w-4xl px-4 py-20 text-center text-xs text-slate-400">
-          Loading assessment report...
-        </div>
-      );
-    }
 
     return (
       <div className="mx-auto max-w-4xl px-4 py-16 text-center space-y-4">

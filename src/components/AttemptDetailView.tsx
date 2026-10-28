@@ -653,10 +653,10 @@ export function AttemptDetailView({
           : answer.isCorrect === false,
       ).length,
       unattempted: Math.max(0, attempt.totalQuestions - answered),
-      score,
-      maxScore,
-      percentagePct: maxScore > 0 ? (score / maxScore) * 100 : 0,
-      accuracyPct: answered > 0 ? (subjectivePoints / answered) * 100 : 0,
+      score: Number(score.toFixed(2)),
+      maxScore: Number(maxScore.toFixed(2)),
+      percentagePct: maxScore > 0 ? Math.round(((score / maxScore) * 100) * 10) / 10 : 0,
+      accuracyPct: answered > 0 ? Math.round(((subjectivePoints / answered) * 100) * 10) / 10 : 0,
     });
   };
 
@@ -1699,45 +1699,90 @@ export function AttemptDetailView({
             {/* Compact 1-line stats bar */}
             <div
               onClick={() => setSummaryExpanded((prev) => !prev)}
-              className="px-3.5 py-2.5 sm:px-4 sm:py-3 flex flex-wrap items-center justify-between gap-3 cursor-pointer select-none hover:bg-slate-50 transition-colors"
+              className="px-4 py-2.5 sm:px-5 sm:py-3 flex flex-wrap items-center justify-between gap-3.5 cursor-pointer select-none hover:bg-slate-50/70 transition-colors"
             >
               {/* Final Score Hero */}
-              <div className="flex items-center gap-2">
-                <span className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider">
-                  Score
-                </span>
-                <span className="text-xl sm:text-2xl font-black text-slate-900 tracking-tight font-mono">
-                  {attempt.score}
-                </span>
-                <span className="text-xs font-semibold text-slate-500 font-mono">
-                  / {effectiveMaxScore}
-                </span>
-                <span className="text-xs font-bold text-indigo-700 bg-indigo-50 border border-indigo-200 px-1.5 py-0.5 rounded-md">
-                  {scorePct}%
-                </span>
+              <div className="flex items-center gap-3">
+                <div className="flex flex-col">
+                  <span className="text-[10px] uppercase font-bold tracking-wider text-slate-400">
+                    Net Score
+                  </span>
+                  <div className="flex items-baseline gap-1.5">
+                    <span
+                      className={`text-2xl sm:text-3xl font-black font-mono tracking-tight ${
+                        attempt.score < 0
+                          ? "text-rose-600"
+                          : attempt.score === 0
+                            ? "text-slate-700"
+                            : "text-slate-900"
+                      }`}
+                    >
+                      {formatReviewNumber(attempt.score)}
+                    </span>
+                    <span className="text-xs font-medium font-mono text-slate-400">
+                      / {effectiveMaxScore}
+                    </span>
+                    <span
+                      className={`ml-1 text-xs font-semibold px-2 py-0.5 rounded-full font-mono ${
+                        attempt.score < 0
+                          ? "bg-rose-50 text-rose-700 border border-rose-200"
+                          : "bg-indigo-50 text-indigo-700 border border-indigo-200"
+                      }`}
+                    >
+                      {scorePct}%
+                    </span>
+                  </div>
+                </div>
               </div>
 
-              {/* Key Metric Highlights in a compact inline row */}
-              <div className="flex items-center gap-2 sm:gap-4 text-xs font-medium flex-wrap">
-                <span className="text-slate-600">
-                  Acc: <strong className="font-mono text-slate-900">{formatReviewNumber(attempt.accuracyPct)}%</strong>
-                </span>
-                <span className="text-emerald-700 font-bold bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-md">
-                  ✓ {attempt.correct} Correct
-                </span>
-                {isSubjectiveAttempt && subjectivePartialCount > 0 && (
-                  <span className="text-amber-700 font-bold bg-amber-50 border border-amber-200 px-2 py-0.5 rounded-md">
-                    ½ {subjectivePartialCount} Partial
+              {/* Subtle divider */}
+              <div className="hidden md:block h-8 w-px bg-slate-200/80" />
+
+              {/* Key Metric Highlights in a refined, balanced row */}
+              <div className="flex items-center gap-3 sm:gap-4 text-xs font-medium flex-wrap">
+                <div className="flex items-center gap-1.5 text-slate-600">
+                  <span className="text-slate-400 text-[11px]">Accuracy:</span>
+                  <strong className="font-mono text-slate-900 font-semibold">
+                    {formatReviewNumber(attempt.accuracyPct)}%
+                  </strong>
+                </div>
+
+                <div className="flex items-center gap-1.5 text-slate-700">
+                  <span className="h-2 w-2 rounded-full bg-emerald-500 shrink-0"></span>
+                  <span className="font-mono font-semibold text-emerald-800">
+                    {attempt.correct}
                   </span>
+                  <span className="text-slate-500 text-[11px]">correct</span>
+                </div>
+
+                {isSubjectiveAttempt && subjectivePartialCount > 0 && (
+                  <div className="flex items-center gap-1.5 text-slate-700">
+                    <span className="h-2 w-2 rounded-full bg-amber-500 shrink-0"></span>
+                    <span className="font-mono font-semibold text-amber-800">
+                      {subjectivePartialCount}
+                    </span>
+                    <span className="text-slate-500 text-[11px]">partial</span>
+                  </div>
                 )}
-                <span className="text-rose-700 font-bold bg-rose-50 border border-rose-200 px-2 py-0.5 rounded-md">
-                  ✕ {attempt.incorrect} Incorrect
-                </span>
-                <span className="text-slate-600 font-mono">
-                  {attempt.unattempted} Skipped
-                </span>
-                <span className="text-slate-500 font-mono hidden sm:inline">
-                  · Pace {avgTimePerQ}s
+
+                <div className="flex items-center gap-1.5 text-slate-700">
+                  <span className="h-2 w-2 rounded-full bg-rose-500 shrink-0"></span>
+                  <span className="font-mono font-semibold text-rose-700">
+                    {attempt.incorrect}
+                  </span>
+                  <span className="text-slate-500 text-[11px]">incorrect</span>
+                </div>
+
+                <div className="flex items-center gap-1.5 text-slate-500">
+                  <span className="h-2 w-2 rounded-full bg-slate-300 shrink-0"></span>
+                  <span className="font-mono font-semibold text-slate-700">
+                    {attempt.unattempted}
+                  </span>
+                  <span className="text-slate-500 text-[11px]">skipped</span>
+                </div>
+
+                <span className="text-slate-400 font-mono text-[11px] hidden lg:inline">
+                  · {avgTimePerQ}s/q
                 </span>
 
                 {/* Details Toggle Button */}
@@ -1749,13 +1794,13 @@ export function AttemptDetailView({
                   }}
                   aria-expanded={summaryExpanded}
                   aria-controls="attempt-summary-details"
-                  className="inline-flex items-center gap-1 text-[11px] font-semibold text-slate-700 bg-slate-50 hover:bg-slate-100 border border-slate-200 px-2 py-1 rounded-md transition-colors ml-auto cursor-pointer"
+                  className="inline-flex items-center gap-1 text-[11px] font-medium text-slate-600 hover:text-slate-900 bg-slate-100 hover:bg-slate-200/80 px-2.5 py-1 rounded-lg transition-colors ml-auto cursor-pointer"
                 >
                   <span>{summaryExpanded ? "Hide analytics" : "Analytics"}</span>
                   {summaryExpanded ? (
-                    <ChevronUp className="h-3 w-3 text-slate-500" />
+                    <ChevronUp className="h-3 w-3 text-slate-400" />
                   ) : (
-                    <ChevronDown className="h-3 w-3 text-slate-500" />
+                    <ChevronDown className="h-3 w-3 text-slate-400" />
                   )}
                 </button>
               </div>
@@ -2783,59 +2828,51 @@ export function AttemptDetailView({
                                       </div>
                                       </div>
 
-                                      {/* Student Note (Above Explanation) */}
-                                      <div className="pt-1">
-                                        {editingQNote === q.questionNo ? (
-                                          <div className="space-y-2">
-                                            <textarea
-                                              value={qNoteText}
-                                              onChange={(e) =>
-                                                setQNoteText(e.target.value)
-                                              }
-                                              placeholder="Write key learnings or revision notes for this question..."
-                                              rows={2}
-                                              className="w-full rounded-xl border border-slate-300 bg-white p-2.5 text-xs text-slate-900 focus:outline-none focus:border-indigo-500 shadow-2xs"
-                                            />
-                                            <div className="flex justify-end gap-2">
-                                              <button
-                                                onClick={(e) => {
-                                                  e.stopPropagation();
-                                                  setEditingQNote(null);
-                                                }}
-                                                className="rounded-lg px-2.5 py-1 text-xs font-medium text-slate-600 hover:bg-slate-100 cursor-pointer"
-                                              >
-                                                Cancel
-                                              </button>
-                                              <button
-                                                onClick={(e) => {
-                                                  e.stopPropagation();
-                                                  handleSaveQuestionNote(
-                                                    q.questionNo,
-                                                  );
-                                                }}
-                                                className="rounded-lg bg-indigo-600 px-3 py-1 text-xs font-bold text-white hover:bg-indigo-700 shadow-2xs cursor-pointer"
-                                              >
-                                                Save Note
-                                              </button>
-                                            </div>
+                                      {/* Student Note (Above Explanation - Only when exists or editing) */}
+                                      {editingQNote === q.questionNo ? (
+                                        <div className="pt-1 space-y-2">
+                                          <textarea
+                                            value={qNoteText}
+                                            onChange={(e) =>
+                                              setQNoteText(e.target.value)
+                                            }
+                                            placeholder="Write key learnings or revision notes for this question..."
+                                            rows={2}
+                                            className="w-full rounded-xl border border-slate-300 bg-white p-2.5 text-xs text-slate-900 focus:outline-none focus:border-indigo-500 shadow-2xs"
+                                          />
+                                          <div className="flex justify-end gap-2">
+                                            <button
+                                              onClick={(e) => {
+                                                e.stopPropagation();
+                                                setEditingQNote(null);
+                                              }}
+                                              className="rounded-lg px-2.5 py-1 text-xs font-medium text-slate-600 hover:bg-slate-100 cursor-pointer"
+                                            >
+                                              Cancel
+                                            </button>
+                                            <button
+                                              onClick={(e) => {
+                                                e.stopPropagation();
+                                                handleSaveQuestionNote(
+                                                  q.questionNo,
+                                                );
+                                              }}
+                                              className="rounded-lg bg-indigo-600 px-3 py-1 text-xs font-bold text-white hover:bg-indigo-700 shadow-2xs cursor-pointer"
+                                            >
+                                              Save Note
+                                            </button>
                                           </div>
-                                        ) : (
-                                          <div className="flex items-center justify-between bg-amber-50/80 p-3.5 rounded-xl border border-amber-200/90 shadow-2xs gap-3">
+                                        </div>
+                                      ) : q.note && q.note.trim() ? (
+                                        <div className="pt-1">
+                                          <div className="flex items-center justify-between bg-amber-50/80 p-3 rounded-xl border border-amber-200/90 shadow-2xs gap-3">
                                             <div className="flex items-start gap-2.5">
                                               <FileText className="h-4 w-4 text-amber-700 mt-0.5 shrink-0" />
                                               <div className="text-xs text-slate-900 font-mono leading-relaxed whitespace-pre-wrap">
-                                                {q.note ? (
-                                                  <>
-                                                    <strong className="text-amber-900 font-semibold block text-[10px] uppercase tracking-wider mb-0.5">
-                                                      Student Note
-                                                    </strong>
-                                                    {q.note}
-                                                  </>
-                                                ) : (
-                                                  <span className="text-slate-500 italic font-sans text-xs">
-                                                    No note added for this question. Jot down revision notes or key takeaways.
-                                                  </span>
-                                                )}
+                                                <strong className="text-amber-900 font-semibold block text-[10px] uppercase tracking-wider mb-0.5">
+                                                  Student Note
+                                                </strong>
+                                                {q.note}
                                               </div>
                                             </div>
                                             <button
@@ -2844,13 +2881,28 @@ export function AttemptDetailView({
                                                 setEditingQNote(q.questionNo);
                                                 setQNoteText(q.note || "");
                                               }}
-                                              className="text-xs font-bold text-amber-800 hover:text-amber-950 bg-amber-100 hover:bg-amber-200 px-2.5 py-1 rounded-md border border-amber-300 shrink-0 cursor-pointer transition-colors"
+                                              className="text-xs font-medium text-amber-800 hover:text-amber-950 bg-amber-100/80 hover:bg-amber-200/90 px-2.5 py-1 rounded-md border border-amber-300 shrink-0 cursor-pointer transition-colors"
                                             >
-                                              {q.note ? "Edit Note" : "+ Add Note"}
+                                              Edit Note
                                             </button>
                                           </div>
-                                        )}
-                                      </div>
+                                        </div>
+                                      ) : (
+                                        <div className="pt-0.5">
+                                          <button
+                                            type="button"
+                                            onClick={(e) => {
+                                              e.stopPropagation();
+                                              setEditingQNote(q.questionNo);
+                                              setQNoteText("");
+                                            }}
+                                            className="inline-flex items-center gap-1.5 text-xs text-slate-400 hover:text-indigo-600 transition-colors font-medium cursor-pointer"
+                                          >
+                                            <FileText className="h-3.5 w-3.5 text-slate-400" />
+                                            <span>+ Add personal note</span>
+                                          </button>
+                                        </div>
+                                      )}
 
                                       {/* Official Explanation (Below Student Note, Improvised Typography) */}
                                       {officialExplanation && (
@@ -2920,59 +2972,51 @@ export function AttemptDetailView({
                                       </div>
                                     </div>
 
-                                    {/* Student Note (Above Explanation) */}
-                                    <div className="pt-1">
-                                      {editingQNote === q.questionNo ? (
-                                        <div className="space-y-2">
-                                          <textarea
-                                            value={qNoteText}
-                                            onChange={(e) =>
-                                              setQNoteText(e.target.value)
-                                            }
-                                            placeholder="Write key learnings or revision notes for this question..."
-                                            rows={2}
-                                            className="w-full rounded-xl border border-slate-300 bg-white p-2.5 text-xs text-slate-900 focus:outline-none focus:border-indigo-500 shadow-2xs"
-                                          />
-                                          <div className="flex justify-end gap-2">
-                                            <button
-                                              onClick={(e) => {
-                                                e.stopPropagation();
-                                                setEditingQNote(null);
-                                              }}
-                                              className="rounded-lg px-2.5 py-1 text-xs font-medium text-slate-600 hover:bg-slate-100 cursor-pointer"
-                                            >
-                                              Cancel
-                                            </button>
-                                            <button
-                                              onClick={(e) => {
-                                                e.stopPropagation();
-                                                handleSaveQuestionNote(
-                                                  q.questionNo,
-                                                );
-                                              }}
-                                              className="rounded-lg bg-indigo-600 px-3 py-1 text-xs font-bold text-white hover:bg-indigo-700 shadow-2xs cursor-pointer"
-                                            >
-                                              Save Note
-                                            </button>
-                                          </div>
+                                    {/* Student Note (Above Explanation - Only when exists or editing) */}
+                                    {editingQNote === q.questionNo ? (
+                                      <div className="pt-1 space-y-2">
+                                        <textarea
+                                          value={qNoteText}
+                                          onChange={(e) =>
+                                            setQNoteText(e.target.value)
+                                          }
+                                          placeholder="Write key learnings or revision notes for this question..."
+                                          rows={2}
+                                          className="w-full rounded-xl border border-slate-300 bg-white p-2.5 text-xs text-slate-900 focus:outline-none focus:border-indigo-500 shadow-2xs"
+                                        />
+                                        <div className="flex justify-end gap-2">
+                                          <button
+                                            onClick={(e) => {
+                                              e.stopPropagation();
+                                              setEditingQNote(null);
+                                            }}
+                                            className="rounded-lg px-2.5 py-1 text-xs font-medium text-slate-600 hover:bg-slate-100 cursor-pointer"
+                                          >
+                                            Cancel
+                                          </button>
+                                          <button
+                                            onClick={(e) => {
+                                              e.stopPropagation();
+                                              handleSaveQuestionNote(
+                                                q.questionNo,
+                                              );
+                                            }}
+                                            className="rounded-lg bg-indigo-600 px-3 py-1 text-xs font-bold text-white hover:bg-indigo-700 shadow-2xs cursor-pointer"
+                                          >
+                                            Save Note
+                                          </button>
                                         </div>
-                                      ) : (
-                                        <div className="flex items-center justify-between bg-amber-50/80 p-3.5 rounded-xl border border-amber-200/90 shadow-2xs gap-3">
+                                      </div>
+                                    ) : q.note && q.note.trim() ? (
+                                      <div className="pt-1">
+                                        <div className="flex items-center justify-between bg-amber-50/80 p-3 rounded-xl border border-amber-200/90 shadow-2xs gap-3">
                                           <div className="flex items-start gap-2.5">
                                             <FileText className="h-4 w-4 text-amber-700 mt-0.5 shrink-0" />
                                             <div className="text-xs text-slate-900 font-mono leading-relaxed whitespace-pre-wrap">
-                                              {q.note ? (
-                                                <>
-                                                  <strong className="text-amber-900 font-semibold block text-[10px] uppercase tracking-wider mb-0.5">
-                                                    Student Note
-                                                  </strong>
-                                                  {q.note}
-                                                </>
-                                              ) : (
-                                                <span className="text-slate-500 italic font-sans text-xs">
-                                                  No note added for this question. Jot down revision notes or key takeaways.
-                                                </span>
-                                              )}
+                                              <strong className="text-amber-900 font-semibold block text-[10px] uppercase tracking-wider mb-0.5">
+                                                Student Note
+                                              </strong>
+                                              {q.note}
                                             </div>
                                           </div>
                                           <button
@@ -2981,13 +3025,28 @@ export function AttemptDetailView({
                                               setEditingQNote(q.questionNo);
                                               setQNoteText(q.note || "");
                                             }}
-                                            className="text-xs font-bold text-amber-800 hover:text-amber-950 bg-amber-100 hover:bg-amber-200 px-2.5 py-1 rounded-md border border-amber-300 shrink-0 cursor-pointer transition-colors"
+                                            className="text-xs font-medium text-amber-800 hover:text-amber-950 bg-amber-100/80 hover:bg-amber-200/90 px-2.5 py-1 rounded-md border border-amber-300 shrink-0 cursor-pointer transition-colors"
                                           >
-                                            {q.note ? "Edit Note" : "+ Add Note"}
+                                            Edit Note
                                           </button>
                                         </div>
-                                      )}
-                                    </div>
+                                      </div>
+                                    ) : (
+                                      <div className="pt-0.5">
+                                        <button
+                                          type="button"
+                                          onClick={(e) => {
+                                            e.stopPropagation();
+                                            setEditingQNote(q.questionNo);
+                                            setQNoteText("");
+                                          }}
+                                          className="inline-flex items-center gap-1.5 text-xs text-slate-400 hover:text-indigo-600 transition-colors font-medium cursor-pointer"
+                                        >
+                                          <FileText className="h-3.5 w-3.5 text-slate-400" />
+                                          <span>+ Add personal note</span>
+                                        </button>
+                                      </div>
+                                    )}
 
                                     {/* Official Explanation (Below Student Note, Improvised Typography) */}
                                     {officialExplanation && (
