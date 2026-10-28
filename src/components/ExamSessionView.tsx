@@ -14,6 +14,7 @@ import {
   QuestionAnswer,
   ActiveSessionDraft,
   ConfidenceLevel,
+  SubjectiveAssessment,
 } from "../lib/types";
 import {
   formatTimeSeconds,
@@ -22,6 +23,8 @@ import {
   getStandardTimeMinutes,
   getPaperDisplayTitle,
   getAttemptPercentage,
+  getSubjectiveAssessmentFraction,
+  SUBJECTIVE_ASSESSMENT_META,
 } from "../lib/defaults";
 import {
   saveActiveDraft,
@@ -64,6 +67,7 @@ import {
   Maximize2,
   Minimize2,
   RotateCcw,
+  Lightbulb,
 } from "lucide-react";
 
 interface ExamSessionViewProps {
@@ -73,6 +77,12 @@ interface ExamSessionViewProps {
   onFinish: (attempt: Attempt) => void;
   onExit: () => void;
 }
+
+const subjectiveAssessmentOptions: SubjectiveAssessment[] = [
+  "strong",
+  "partial",
+  "needs-work",
+];
 
 export function ExamSessionView({
   paper,
@@ -149,9 +159,9 @@ export function ExamSessionView({
   const [showNoteBox, setShowNoteBox] = useState<boolean>(true);
   const [showFinishConfirm, setShowFinishConfirm] = useState<boolean>(false);
   const [solutionModalOpen, setSolutionModalOpen] = useState<boolean>(false);
-  const [mobileTab, setMobileTab] = useState<
-    "paper" | "split" | "questions"
-  >("questions");
+  const [mobileTab, setMobileTab] = useState<"paper" | "split" | "questions">(
+    "questions",
+  );
   const [isPaused, setIsPaused] = useState<boolean>(false);
   const [revealedAnswers, setRevealedAnswers] = useState<
     Record<number, boolean>
@@ -297,6 +307,7 @@ export function ExamSessionView({
     effectivePaper.qpUrl?.startsWith("local://") ||
     effectivePaper.parsedQuestions?.length,
   );
+  const isSubjectiveScanPaper = isSubjective && !isMarkdownPaper;
 
   // In Practice mode, user can surpass time limit, tracking extra time
   const isOvertime = isPractice && elapsedSeconds > totalTimeSeconds;
@@ -443,7 +454,7 @@ export function ExamSessionView({
       setElapsedSeconds((prev) => prev + 1);
 
       // In Mock Mode ONLY: track time taken on active question or idle/overview time
-      if (mode === "mock" && !isSubjective) {
+      if (mode === "mock" && !isSubjectiveScanPaper) {
         if (currentQuestion !== null) {
           setQTimeSpent((prev) => ({
             ...prev,
@@ -455,7 +466,13 @@ export function ExamSessionView({
       }
     }, 1000);
     return () => clearInterval(timer);
-  }, [mode, currentQuestion, isScanUploadPhase, isPaused, isSubjective]);
+  }, [
+    mode,
+    currentQuestion,
+    isScanUploadPhase,
+    isPaused,
+    isSubjectiveScanPaper,
+  ]);
 
   // In Mock Mode, auto-finish if strict time runs out
   useEffect(() => {
@@ -466,7 +483,7 @@ export function ExamSessionView({
       !isScanUploadPhase &&
       !isPaused
     ) {
-      if (isSubjective) {
+      if (isSubjectiveScanPaper) {
         setIsScanUploadPhase(true);
       } else {
         handleFinishExam();
@@ -478,7 +495,7 @@ export function ExamSessionView({
     totalTimeSeconds,
     isScanUploadPhase,
     isPaused,
-    isSubjective,
+    isSubjectiveScanPaper,
   ]);
 
   // Answer selection handler (Objective)
@@ -756,6 +773,27 @@ export function ExamSessionView({
         [qNo]: {
           ...current,
           selected: newSelected,
+          subjectiveAssessment: newSelected
+            ? current.subjectiveAssessment
+            : undefined,
+        },
+      };
+    });
+  };
+
+  const handleSetSubjectiveAssessment = (
+    qNo: number,
+    assessment: SubjectiveAssessment,
+  ) => {
+    markUserInteraction();
+    setAnswers((prev) => {
+      const current = prev[qNo] || { questionNo: qNo, selected: null };
+      return {
+        ...prev,
+        [qNo]: {
+          ...current,
+          selected: current.selected || "attempted",
+          subjectiveAssessment: assessment,
         },
       };
     });
@@ -769,6 +807,7 @@ export function ExamSessionView({
         ...(prev[qNo] || { questionNo: qNo }),
         selected: null,
         flagged: false,
+        subjectiveAssessment: undefined,
       },
     }));
   };
@@ -798,6 +837,9 @@ export function ExamSessionView({
   // Computed counts & status
   const isQuestionAnswered = (q?: QuestionAnswer) => {
     if (!q) return false;
+    if (isClozeQuestion(q.questionNo)) {
+      return Boolean(q.selected?.trim() && q.selected !== "attempted");
+    }
     if (!isSubjective) return q.selected !== null;
     return q.selected === "attempted";
   };
@@ -833,6 +875,13 @@ export function ExamSessionView({
     let alteredCount = 0;
     let alteredHarmCount = 0;
     let alteredBenefitCount = 0;
+    let partialCount = 0;
+    let subjectiveScore = 0;
+    let subjectiveAssessmentPoints = 0;
+    const subjectiveMarksPerQuestion =
+      isSubjective && paper.totalQuestions > 0
+        ? paper.totalMarks / paper.totalQuestions
+        : 0;
 
     let timeCorrectSum = 0;
     let timeIncorrectSum = 0;
@@ -848,7 +897,24 @@ export function ExamSessionView({
       const spentSecs = mode === "mock" ? qTimeSpent[i] || 0 : 0;
 
       let isCorrect: boolean | null = null;
-      if (a.selected) {
+      if (isSubjective) {
+        if (a.selected === "attempted") {
+          const fraction = getSubjectiveAssessmentFraction(
+            a.subjectiveAssessment,
+          );
+          subjectiveScore += subjectiveMarksPerQuestion * fraction;
+          subjectiveAssessmentPoints += fraction;
+          if (a.subjectiveAssessment === "strong") {
+            correctCount++;
+            isCorrect = true;
+          } else if (a.subjectiveAssessment === "partial") {
+            partialCount++;
+          } else if (a.subjectiveAssessment === "needs-work") {
+            incorrectCount++;
+            isCorrect = false;
+          }
+        }
+      } else if (a.selected) {
         if (correctAns && a.selected.toUpperCase().trim() === correctAns) {
           correctCount++;
           isCorrect = true;
@@ -888,12 +954,16 @@ export function ExamSessionView({
     }
 
     const calculatedScore = isSubjective
-      ? 0
+      ? subjectiveScore
       : correctCount * paper.correctMarks -
         incorrectCount * paper.incorrectMarks;
     const maxScore = paper.totalMarks;
     const accuracyPct =
-      attemptedCount > 0 ? (correctCount / attemptedCount) * 100 : 0;
+      attemptedCount > 0
+        ? (isSubjective
+            ? subjectiveAssessmentPoints / attemptedCount
+            : correctCount / attemptedCount) * 100
+        : 0;
 
     const activeQuestionSeconds = Math.max(0, elapsedSeconds - idleTimeSeconds);
     const avgTimePerQuestion =
@@ -924,6 +994,7 @@ export function ExamSessionView({
       overtimeSeconds: isOvertime ? overtimeSeconds : 0,
       answered: attemptedCount,
       correct: correctCount,
+      partial: partialCount,
       incorrect: incorrectCount,
       unattempted: unattemptedCount,
       score: Math.round(calculatedScore * 100) / 100,
@@ -958,6 +1029,36 @@ export function ExamSessionView({
     confidence: undefined,
     note: "",
   };
+  const currentQuestionData =
+    currentQuestion !== null
+      ? effectivePaper.parsedQuestions?.find(
+          (question) => question.questionNo === currentQuestion,
+        )
+      : undefined;
+  function isClozeQuestion(questionNo: number | null) {
+    if (questionNo === null) return false;
+    const question = effectivePaper.parsedQuestions?.find(
+      (parsedQuestion) => parsedQuestion.questionNo === questionNo,
+    );
+    return Boolean(
+      question && Object.keys(question.options || {}).length === 0,
+    );
+  }
+  const currentQuestionIsCloze = isClozeQuestion(currentQuestion);
+  // A Markdown cloze question is objective, but has no option values. Keep
+  // its free-text answer out of MCQ-only UI.
+  const currentQuestionHasOptions =
+    !isSubjective &&
+    (!currentQuestionData ||
+      Object.keys(currentQuestionData.options || {}).length > 0);
+  const currentQuestionExplanation =
+    currentQuestion !== null
+      ? effectivePaper.parsedQuestions?.find(
+          (question) => question.questionNo === currentQuestion,
+        )?.explanation ||
+        sessionExplanations[currentQuestion] ||
+        paper.explanations?.[currentQuestion]
+      : undefined;
 
   return (
     <div className="exam-session-shell bg-slate-50 text-slate-800 font-sans">
@@ -1092,12 +1193,14 @@ export function ExamSessionView({
 
             <button
               onClick={() => {
-                if (isSubjective) {
+                if (isSubjectiveScanPaper) {
                   if (mode === "mock") {
                     setIsScanUploadPhase(true);
                   } else {
                     handleFinishExam();
                   }
+                } else if (isSubjective) {
+                  handleFinishExam();
                 } else {
                   setShowFinishConfirm(true);
                 }
@@ -1253,7 +1356,8 @@ export function ExamSessionView({
                   Interactive Questionnaire Loading
                 </h3>
                 <p className="text-xs text-slate-500 leading-relaxed">
-                  Questions are being loaded. If they do not appear, you can check the questions in the Upload page.
+                  Questions are being loaded. If they do not appear, you can
+                  check the questions in the Upload page.
                 </p>
               </div>
               <button
@@ -1323,7 +1427,7 @@ export function ExamSessionView({
                   </div>
 
                   {/* Quick Options A, B, C, D */}
-                  {!isSubjective ? (
+                  {currentQuestionHasOptions ? (
                     <div className="grid grid-cols-4 gap-1 flex-1 max-w-[200px] xs:max-w-[240px]">
                       {["A", "B", "C", "D"].map((opt) => {
                         const isSelected =
@@ -1465,7 +1569,7 @@ export function ExamSessionView({
                     <span className="text-base sm:text-xl font-bold text-slate-900">
                       Question {currentQuestion}
                     </span>
-                    {currentQObj.selected && !isSubjective && (
+                    {currentQObj.selected && currentQuestionHasOptions && (
                       <span className="inline-flex items-center gap-1.5 rounded-lg bg-indigo-600 px-2.5 py-0.5 text-xs font-bold text-white shadow-2xs">
                         <span className="text-[10px] uppercase font-bold text-indigo-200">
                           Selected:
@@ -1608,7 +1712,7 @@ export function ExamSessionView({
                 </div>
 
                 {/* Elimination Certainty & Option Selection Section */}
-                {!isSubjective ? (
+                {currentQuestionHasOptions ? (
                   mode === "mock" || !isMarkdownPaper ? (
                     <div className="mt-3 rounded-2xl border border-slate-200/90 bg-slate-50/80 p-3 sm:p-3.5 space-y-3 shadow-2xs">
                       {/* Elimination Certainty Bar */}
@@ -1760,7 +1864,7 @@ export function ExamSessionView({
                       )}
                     </div>
                   ) : null
-                ) : (
+                ) : isSubjective && !currentQuestionIsCloze ? (
                   /* Dedicated Subjective Pen & Paper Question Marking */
                   <div className="mt-3 sm:mt-4 space-y-3">
                     <div className="rounded-2xl border border-slate-200 bg-slate-50 p-3.5 sm:p-4 space-y-3">
@@ -1789,8 +1893,87 @@ export function ExamSessionView({
                               Unattempted
                             </span>
                           )}
+                          {isPractice && currentQObj.subjectiveAssessment && (
+                            <span className="inline-flex items-center gap-1 rounded-full bg-indigo-50 border border-indigo-200 px-2.5 py-0.5 text-[10px] font-bold text-indigo-800">
+                              {
+                                SUBJECTIVE_ASSESSMENT_META[
+                                  currentQObj.subjectiveAssessment
+                                ].label
+                              }
+                            </span>
+                          )}
                         </div>
                       </div>
+
+                      {isPractice && currentQuestionExplanation && (
+                        <div className="rounded-xl border border-indigo-200 bg-indigo-50/55 p-3 sm:p-3.5 space-y-3">
+                          <div className="flex items-start gap-2">
+                            <Lightbulb className="mt-0.5 h-4 w-4 shrink-0 text-indigo-600" />
+                            <div>
+                              <p className="text-xs font-bold text-indigo-950">
+                                Guided self-assessment
+                              </p>
+                              <p className="mt-0.5 text-[11px] leading-relaxed text-indigo-900/70">
+                                Compare your written response with the reference
+                                explanation, then choose the closest level. This
+                                is an estimate, not automated examiner marking.
+                              </p>
+                            </div>
+                          </div>
+
+                          <details className="rounded-lg border border-indigo-200/80 bg-white/80 px-3 py-2">
+                            <summary className="cursor-pointer text-[11px] font-semibold text-indigo-800">
+                              View reference explanation
+                            </summary>
+                            <p className="mt-2 max-h-40 overflow-y-auto whitespace-pre-wrap border-t border-indigo-100 pt-2 text-xs leading-relaxed text-slate-700">
+                              {currentQuestionExplanation}
+                            </p>
+                          </details>
+
+                          <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
+                            {subjectiveAssessmentOptions.map((assessment) => {
+                              const meta =
+                                SUBJECTIVE_ASSESSMENT_META[assessment];
+                              const isSelected =
+                                currentQObj.subjectiveAssessment === assessment;
+                              const selectedStyle =
+                                assessment === "strong"
+                                  ? "border-emerald-600 bg-emerald-600 text-white"
+                                  : assessment === "partial"
+                                    ? "border-amber-500 bg-amber-500 text-white"
+                                    : "border-rose-600 bg-rose-600 text-white";
+                              const idleStyle =
+                                assessment === "strong"
+                                  ? "border-emerald-200 bg-white text-emerald-800 hover:bg-emerald-50"
+                                  : assessment === "partial"
+                                    ? "border-amber-200 bg-white text-amber-800 hover:bg-amber-50"
+                                    : "border-rose-200 bg-white text-rose-800 hover:bg-rose-50";
+                              return (
+                                <button
+                                  key={assessment}
+                                  type="button"
+                                  onClick={() =>
+                                    handleSetSubjectiveAssessment(
+                                      currentQuestion,
+                                      assessment,
+                                    )
+                                  }
+                                  className={`rounded-xl border px-2.5 py-2 text-left transition-colors ${isSelected ? selectedStyle : idleStyle}`}
+                                >
+                                  <span className="block text-xs font-bold">
+                                    {meta.label}
+                                  </span>
+                                  <span
+                                    className={`mt-0.5 block text-[10px] leading-snug ${isSelected ? "text-white/80" : "text-slate-500"}`}
+                                  >
+                                    {meta.description}
+                                  </span>
+                                </button>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      )}
 
                       {/* Quick Status Buttons to flag Attempted, Review or Unattempted */}
                       <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 pt-1">
@@ -1839,7 +2022,7 @@ export function ExamSessionView({
                     </div>
 
                     {/* In Mock Mode ONLY: Entire single booklet upload for future review */}
-                    {mode === "mock" && (
+                    {mode === "mock" && !isClozeQuestion(currentQuestion) && (
                       <div className="rounded-2xl border border-violet-200 bg-violet-50/50 p-3.5 sm:p-4 space-y-2.5">
                         <div className="flex items-center justify-between gap-2">
                           <div className="flex items-center gap-2">
@@ -1946,11 +2129,11 @@ export function ExamSessionView({
                       </div>
                     )}
                   </div>
-                )}
+                ) : null}
 
                 {/* Practice Mode Live Feedback Banner + Detailed Solution Key Link (Objective) */}
                 {isPractice &&
-                  !isSubjective &&
+                  currentQuestionHasOptions &&
                   (currentQObj.selected || revealedAnswers[currentQuestion]) &&
                   getCorrectAnswerForQ(currentQuestion) &&
                   (() => {
@@ -2045,7 +2228,6 @@ export function ExamSessionView({
                     />
                   </div>
                 )}
-
               </>
             )}
           </div>
@@ -2182,6 +2364,14 @@ export function ExamSessionView({
                   currentQuestion !== null && qNo === currentQuestion;
                 const isAnswered = isQuestionAnswered(q);
                 const isFlagged = q?.flagged;
+                const paletteQuestionData =
+                  effectivePaper.parsedQuestions?.find(
+                    (question) => question.questionNo === qNo,
+                  );
+                const paletteQuestionHasOptions =
+                  !isSubjective &&
+                  (!paletteQuestionData ||
+                    Object.keys(paletteQuestionData.options || {}).length > 0);
 
                 let badgeColor =
                   "bg-white text-slate-700 border-slate-200 hover:bg-slate-100 hover:border-slate-300 shadow-2xs";
@@ -2240,12 +2430,14 @@ export function ExamSessionView({
                     className={`relative flex h-9 sm:h-10 items-center justify-center rounded-xl border text-xs transition-all gap-1.5 px-1.5 ${badgeColor}`}
                     title={
                       q?.selected
-                        ? `Question ${qNo} (Selected: Option ${q.selected}${q.confidence ? ` - ${q.confidence}` : ""})`
+                        ? paletteQuestionHasOptions
+                          ? `Question ${qNo} (Selected: Option ${q.selected}${q.confidence ? ` - ${q.confidence}` : ""})`
+                          : `Question ${qNo} (Answer recorded${q.confidence ? ` - ${q.confidence}` : ""})`
                         : `Question ${qNo} (Unattempted)`
                     }
                   >
                     <span className="font-bold leading-none">{qNo}</span>
-                    {q?.selected && !isSubjective && (
+                    {q?.selected && paletteQuestionHasOptions && (
                       <span
                         className={`inline-flex items-center justify-center min-w-[18px] sm:min-w-[20px] h-5 sm:h-5.5 px-1 rounded-md text-xs sm:text-[13px] font-black uppercase leading-none shadow-xs border ${
                           isFlagged

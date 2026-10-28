@@ -657,12 +657,26 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
   // Updating attempt
   const handleUpdateAttempt = (updated: Attempt) => {
-    if (updated.mode === "mock") {
-      updateAttempt(updated.id, () => updated);
-      setAttempts(getAttempts());
-      if (currentUser) {
-        saveUserAttemptToSupabase(updated, currentUser.id);
+    // 1. Immediately update in-memory state so active review session never drops the attempt
+    setAttempts((prev) => {
+      const idx = prev.findIndex((a) => a.id === updated.id);
+      if (idx >= 0) {
+        const next = [...prev];
+        next[idx] = updated;
+        return next;
       }
+      return [updated, ...prev];
+    });
+
+    // 2. Persist to storage
+    updateAttempt(updated.id, () => updated);
+    if (updated.mode !== "mock") {
+      saveGuestReviewAttempt(updated);
+    }
+
+    // 3. Sync to Supabase if authenticated
+    if (currentUser) {
+      saveUserAttemptToSupabase(updated, currentUser.id);
     }
   };
 
