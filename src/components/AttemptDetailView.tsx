@@ -201,6 +201,9 @@ export function AttemptDetailView({
   onDelete,
 }: AttemptDetailViewProps) {
   const [filterTab, setFilterTab] = useState<FilterTabType>("all");
+  const [questionReviewMode, setQuestionReviewMode] = useState<
+    "all" | "single"
+  >("all");
   const [summaryExpanded, setSummaryExpanded] = useState<boolean>(false);
   const [sortOption, setSortOption] = useState<
     "qno_asc" | "qno_desc" | "time_desc" | "time_asc"
@@ -833,6 +836,22 @@ export function AttemptDetailView({
 
     return list;
   }, [questionList, filterTab, sortOption]);
+
+  const displayedReviewQuestions = useMemo(() => {
+    if (!isMarkdownPaper || questionReviewMode === "all") {
+      return filteredQuestions;
+    }
+
+    const activeQuestion = filteredQuestions.find(
+      (question) => question.questionNo === activeQuestionNo,
+    );
+    return activeQuestion ? [activeQuestion] : filteredQuestions.slice(0, 1);
+  }, [
+    activeQuestionNo,
+    filteredQuestions,
+    isMarkdownPaper,
+    questionReviewMode,
+  ]);
 
   // Section 7: Practical Review Summary recommendations (Up to 3, strictly data-driven)
   const reviewSuggestions = useMemo(() => {
@@ -2230,8 +2249,11 @@ export function AttemptDetailView({
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-200 pb-3">
               <div>
                 <h3 className="text-sm sm:text-base font-semibold text-slate-900">
-                  Review {filteredQuestions.length} of {attempt.totalQuestions}{" "}
-                  questions
+                  Review{" "}
+                  {isMarkdownPaper
+                    ? displayedReviewQuestions.length
+                    : filteredQuestions.length}{" "}
+                  of {attempt.totalQuestions} questions
                 </h3>
                 <p className="text-xs text-slate-500 mt-0.5">
                   Select a row for scoring, timing, and notes.
@@ -2239,6 +2261,30 @@ export function AttemptDetailView({
               </div>
 
               <div className="flex items-center gap-2 self-start sm:self-auto shrink-0">
+                {isMarkdownPaper && (
+                  <div className="flex items-center rounded-lg border border-slate-200 bg-white p-0.5 text-xs">
+                    {(
+                      [
+                        ["all", "All questions"],
+                        ["single", "One question"],
+                      ] as const
+                    ).map(([mode, label]) => (
+                      <button
+                        key={mode}
+                        type="button"
+                        onClick={() => setQuestionReviewMode(mode)}
+                        className={
+                          questionReviewMode === mode
+                            ? "rounded-md px-2.5 py-1.5 font-medium transition-colors bg-slate-900 text-white"
+                            : "rounded-md px-2.5 py-1.5 font-medium transition-colors text-slate-600 hover:bg-slate-50 hover:text-slate-900"
+                        }
+                      >
+                        {label}
+                      </button>
+                    ))}
+                  </div>
+                )}
+
                 {/* Sort Dropdown */}
                 <div className="flex items-center gap-1 bg-white px-2.5 py-1.5 rounded-lg border border-slate-200 text-xs">
                   <ArrowUpDown className="h-3.5 w-3.5 text-slate-500" />
@@ -2351,7 +2397,7 @@ export function AttemptDetailView({
               </div>
             ) : isMarkdownPaper ? (
               <div className="space-y-3">
-                {filteredQuestions.map((q) => {
+                {displayedReviewQuestions.map((q) => {
                   const parsedQuestion = markdownQuestions.find(
                     (question) => question.questionNo === q.questionNo,
                   );
