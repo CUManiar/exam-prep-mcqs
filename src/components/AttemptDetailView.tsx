@@ -120,6 +120,7 @@ function ReviewAssessmentPicker({
   isAnswered,
   partialMarks,
   maxPartialMarks,
+  penaltyMarks,
   onChange,
   onPartialMarksChange,
 }: {
@@ -127,19 +128,66 @@ function ReviewAssessmentPicker({
   isAnswered: boolean;
   partialMarks?: number;
   maxPartialMarks: number;
+  penaltyMarks?: number;
   onChange: (assessment: SubjectiveAssessment) => void;
   onPartialMarksChange: (marks: number) => void;
 }) {
+  const options = [
+    {
+      value: "strong" as const,
+      label: "Exact",
+      points: `+${maxPartialMarks.toFixed(2)} pts`,
+      description: "Full marks",
+      active: "border-emerald-600 bg-emerald-600 text-white shadow-xs",
+      idle: "border-emerald-200 text-emerald-800 hover:bg-emerald-50",
+    },
+    {
+      value: "partial" as const,
+      label: "Partial",
+      points: `+${(partialMarks !== undefined ? partialMarks : maxPartialMarks * 0.5).toFixed(2)} pts`,
+      description: "Half marks / Custom",
+      active: "border-amber-500 bg-amber-500 text-white shadow-xs",
+      idle: "border-amber-200 text-amber-800 hover:bg-amber-50",
+    },
+    {
+      value: "needs-work" as const,
+      label: "Wrong",
+      points: penaltyMarks ? `-${penaltyMarks.toFixed(2)} pts` : "0.00 pts",
+      description: penaltyMarks ? "Penalty applied" : "0 marks",
+      active: "border-rose-600 bg-rose-600 text-white shadow-xs",
+      idle: "border-rose-200 text-rose-800 hover:bg-rose-50",
+    },
+    {
+      value: "no-attempt" as const,
+      label: "No attempt",
+      points: "0.00 pts",
+      description: "Skipped",
+      active: "border-slate-600 bg-slate-600 text-white shadow-xs",
+      idle: "border-slate-200 text-slate-700 hover:bg-slate-50",
+    },
+  ];
+
   return (
-    <div className="rounded-xl border border-indigo-200 bg-indigo-50/60 p-3">
-      <div className="mb-2">
-        <p className="text-xs font-bold text-indigo-950">Evaluate response</p>
-        <p className="mt-0.5 text-[11px] text-indigo-900/70">
-          Choose a score only after comparing the response with the explanation.
-        </p>
+    <div className="rounded-xl border border-indigo-200 bg-indigo-50/60 p-3 sm:p-3.5 space-y-2.5">
+      <div className="flex flex-wrap items-center justify-between gap-1">
+        <div>
+          <p className="text-xs font-bold text-indigo-950 flex items-center gap-1.5">
+            <Sparkles className="h-3.5 w-3.5 text-indigo-600" />
+            Self-Assessment / Response Evaluation
+          </p>
+          <p className="text-[11px] text-indigo-900/70">
+            Compare your response with the solution above and select the score to award.
+          </p>
+        </div>
+        {value && (
+          <span className="text-[10px] font-bold text-indigo-800 bg-white px-2 py-0.5 rounded-full border border-indigo-200 shadow-2xs">
+            Assessed: {value === "strong" ? "Exact Match" : value === "partial" ? "Partial" : value === "needs-work" ? "Incorrect" : "No Attempt"}
+          </span>
+        )}
       </div>
+
       <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
-        {reviewAssessmentOptions.map((option) => {
+        {options.map((option) => {
           const isSelected = value === option.value;
           const disabled = !isAnswered && option.value !== "no-attempt";
           return (
@@ -147,12 +195,28 @@ function ReviewAssessmentPicker({
               key={option.value}
               type="button"
               disabled={disabled}
-              onClick={() => onChange(option.value)}
-              className={`rounded-lg border px-2.5 py-2 text-left transition-colors disabled:cursor-not-allowed disabled:opacity-45 ${isSelected ? option.active : `bg-white ${option.idle}`}`}
+              onClick={(e) => {
+                e.stopPropagation();
+                onChange(option.value);
+              }}
+              className={`rounded-lg border px-2.5 py-2 text-left transition-all cursor-pointer disabled:cursor-not-allowed disabled:opacity-40 ${
+                isSelected ? option.active : `bg-white ${option.idle}`
+              }`}
             >
-              <span className="block text-xs font-bold">{option.label}</span>
+              <div className="flex items-center justify-between gap-1">
+                <span className="text-xs font-bold">{option.label}</span>
+                <span
+                  className={`text-[10px] font-mono font-bold ${
+                    isSelected ? "text-white" : "text-slate-600"
+                  }`}
+                >
+                  {option.points}
+                </span>
+              </div>
               <span
-                className={`mt-0.5 block text-[10px] ${isSelected ? "text-white/80" : "text-slate-500"}`}
+                className={`mt-0.5 block text-[10px] ${
+                  isSelected ? "text-white/85" : "text-slate-500"
+                }`}
               >
                 {option.description}
               </span>
@@ -160,9 +224,10 @@ function ReviewAssessmentPicker({
           );
         })}
       </div>
+
       {value === "partial" && (
-        <label className="mt-2 flex items-center justify-between gap-3 rounded-lg border border-amber-200 bg-white px-2.5 py-2 text-[11px] font-semibold text-amber-900">
-          <span>Marks awarded</span>
+        <label className="mt-2 flex items-center justify-between gap-3 rounded-lg border border-amber-200 bg-white px-2.5 py-2 text-[11px] font-semibold text-amber-900 shadow-2xs">
+          <span>Marks awarded (0 to {maxPartialMarks.toFixed(2)}):</span>
           <input
             type="number"
             min={0}
@@ -631,9 +696,19 @@ export function AttemptDetailView({
     const question = markdownQuestions.find(
       (parsedQuestion) => parsedQuestion.questionNo === qNo,
     );
-    return Boolean(
-      question && Object.keys(question.options || {}).length === 0,
-    );
+    if (question && Object.keys(question.options || {}).length === 0) {
+      return true;
+    }
+    const ans = attempt.answers?.[qNo];
+    if (
+      ans?.selected &&
+      ans.selected.length > 1 &&
+      !["A", "B", "C", "D"].includes(ans.selected.trim().toUpperCase()) &&
+      ans.selected !== "attempted"
+    ) {
+      return true;
+    }
+    return false;
   };
   const isQuestionAnswered = (answer?: QuestionAnswer) => {
     if (!answer) return false;
@@ -1511,7 +1586,7 @@ export function AttemptDetailView({
       >
         {/* Question Paper Viewer (Markdown Interactive Reader OR PDF Viewer) */}
         {showPaperSplit && canPreviewPaper && (
-          <div className="order-2 flex flex-col w-full xl:w-1/2 xl:sticky xl:top-20 h-[55vh] sm:h-[65vh] xl:h-[calc(100vh-6.5rem)] rounded-2xl overflow-hidden border border-slate-200 bg-white shadow-md shrink-0 z-10">
+          <div className="flex flex-col w-full xl:w-1/2 xl:sticky xl:top-20 h-[55vh] sm:h-[65vh] xl:h-[calc(100vh-6.5rem)] rounded-2xl overflow-hidden border border-slate-200 bg-white shadow-md shrink-0 z-10">
             {isMarkdownPaper ? (
               <MarkdownPaperReviewViewer
                 paper={
@@ -1613,7 +1688,7 @@ export function AttemptDetailView({
 
         {/* Right Side / Bottom: Assessment Report & Responses */}
         <div
-          className={`order-1 w-full ${showPaperSplit && canPreviewPaper ? "xl:w-1/2" : "max-w-5xl mx-auto"} space-y-6 min-w-0`}
+          className={`w-full ${showPaperSplit && canPreviewPaper ? "xl:w-1/2" : "max-w-5xl mx-auto"} space-y-6 min-w-0`}
         >
           {/* PART 1: ASSESSMENT SUMMARY (COLLAPSIBLE, COLLAPSED BY DEFAULT) */}
           <div className="bi-card overflow-hidden">
@@ -2349,155 +2424,48 @@ export function AttemptDetailView({
               <div className="text-center py-10 text-xs text-slate-500">
                 No questions match the selected filter.
               </div>
-            ) : isMarkdownPaper ? (
-              <div className="space-y-3">
-                {filteredQuestions.map((q) => {
-                  const parsedQuestion = markdownQuestions.find(
-                    (question) => question.questionNo === q.questionNo,
-                  );
-                  const subjectiveAssessment = q.subjectiveAssessment;
-                  const isAnswered = isQuestionAnswered(q);
-                  const isEvaluable = isAssessmentQuestion(q.questionNo);
-                  const isCorrect = isEvaluable
-                    ? subjectiveAssessment === "strong"
-                    : q.isCorrect === true;
-                  const isWrong = isEvaluable
-                    ? subjectiveAssessment === "needs-work"
-                    : q.isCorrect === false;
-                  const explanation =
-                    q.explanation ||
-                    parsedQuestion?.explanation ||
-                    matchedPaper?.explanations?.[q.questionNo];
-                  const answerText = isClozeQuestion(q.questionNo)
-                    ? q.selected || "No response"
-                    : q.selected
-                      ? `Option ${q.selected}`
-                      : "No response";
-                  const statusLabel = subjectiveAssessment
-                    ? reviewAssessmentOptions.find(
-                        (option) => option.value === subjectiveAssessment,
-                      )?.label
-                    : isCorrect
-                      ? "Correct"
-                      : isWrong
-                        ? "Wrong"
-                        : isAnswered
-                          ? "Needs evaluation"
-                          : "Unattempted";
-                  const statusClass = isCorrect
-                    ? "border-emerald-200 bg-emerald-50 text-emerald-800"
-                    : isWrong
-                      ? "border-rose-200 bg-rose-50 text-rose-800"
-                      : subjectiveAssessment === "partial"
-                        ? "border-amber-200 bg-amber-50 text-amber-800"
-                        : "border-slate-200 bg-slate-50 text-slate-600";
-
-                  return (
-                    <article
-                      key={q.questionNo}
-                      className="rounded-2xl border border-slate-200 bg-white p-4 sm:p-5 shadow-2xs"
-                    >
-                      <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-100 pb-3">
-                        <div className="flex items-center gap-2">
-                          <span className="font-mono text-xs font-bold text-slate-900">
-                            Q{q.questionNo}
-                          </span>
-                          <span
-                            className={`rounded-full border px-2.5 py-0.5 text-[11px] font-semibold ${statusClass}`}
-                          >
-                            {statusLabel}
-                          </span>
-                        </div>
-                        <span className="text-[11px] text-slate-500">
-                          {q.timeSpentSeconds || 0}s
-                        </span>
-                      </div>
-
-                      <p className="mt-4 whitespace-pre-wrap break-words text-sm font-medium leading-relaxed text-slate-900">
-                        {parsedQuestion?.text || `Question ${q.questionNo}`}
-                      </p>
-
-                      <div className="mt-4 rounded-xl border border-slate-200 bg-slate-50/70 p-3">
-                        <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500">
-                          Your response
-                        </span>
-                        <p className="mt-1 whitespace-pre-wrap break-words text-sm font-semibold text-slate-800">
-                          {answerText}
-                        </p>
-                      </div>
-
-                      {isEvaluable && (
-                        <div className="mt-4">
-                          <ReviewAssessmentPicker
-                            value={subjectiveAssessment}
-                            isAnswered={isAnswered}
-                            partialMarks={q.subjectiveMarks}
-                            maxPartialMarks={getFullMarks(q.questionNo)}
-                            onChange={(assessment) =>
-                              handleSetSubjectiveAssessment(
-                                q.questionNo,
-                                assessment,
-                              )
-                            }
-                            onPartialMarksChange={(marks) =>
-                              handleSetSubjectiveAssessment(
-                                q.questionNo,
-                                "partial",
-                                marks,
-                              )
-                            }
-                          />
-                        </div>
-                      )}
-
-                      {explanation && (
-                        <details className="mt-4 rounded-xl border border-indigo-200 bg-indigo-50/60 p-3">
-                          <summary className="cursor-pointer text-xs font-bold text-indigo-900">
-                            View explanation
-                          </summary>
-                          <p className="mt-2 whitespace-pre-wrap break-words border-t border-indigo-100 pt-2 text-xs leading-relaxed text-indigo-950">
-                            {explanation}
-                          </p>
-                        </details>
-                      )}
-
-                      {q.note && (
-                        <p className="mt-3 whitespace-pre-wrap break-words text-[11px] text-slate-500">
-                          Note: {q.note}
-                        </p>
-                      )}
-                    </article>
-                  );
-                })}
-              </div>
             ) : (
               <div className="w-full overflow-x-auto rounded-xl border border-slate-200 bg-white">
                 <table className="w-full border-collapse text-left text-xs">
                   <thead>
                     <tr className="bg-slate-50 text-slate-500 border-b border-slate-200 text-[10px] font-medium uppercase tracking-wider">
-                      <th className="py-3 px-3 text-center w-16">Q. No</th>
-                      <th className="py-3 px-3 text-center w-28">Status</th>
-                      <th className="py-3 px-3 text-center w-32">
+                      <th className="py-2.5 px-2 text-center w-14 sm:w-16">Q. No</th>
+                      <th className="py-2.5 px-2 text-center w-28 sm:w-32">Status</th>
+                      <th className="py-2.5 px-2 text-center w-28 sm:w-32">
                         Your answer
                       </th>
-                      <th className="py-3 px-3 text-center w-32">Answer</th>
-                      <th className="py-3 px-2 text-center w-20">Time</th>
-                      <th className="py-3 px-4 min-w-[220px]">Notes</th>
-                      <th className="py-3 px-2 text-center w-12"></th>
+                      <th className="py-2.5 px-2 text-center w-28 sm:w-32">Answer</th>
+                      <th className="py-2.5 px-2 text-center w-16 sm:w-20">Time</th>
+                      <th className="py-2.5 px-3 min-w-[120px]">Notes</th>
+                      <th className="py-2.5 px-2 text-center w-8"></th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100">
                     {filteredQuestions.map((q) => {
                       const subjectiveAssessment = q.subjectiveAssessment;
                       const isAnswered = isQuestionAnswered(q);
-                      const isCorrect = isSubjectiveAttempt
+                      const isCloze = isClozeQuestion(q.questionNo);
+                      const isEvaluable = isAssessmentQuestion(q.questionNo);
+                      const isCorrect = isEvaluable
                         ? subjectiveAssessment === "strong"
                         : q.selected && q.isCorrect === true;
-                      const isWrong = isSubjectiveAttempt
+                      const isWrong = isEvaluable
                         ? subjectiveAssessment === "needs-work"
                         : q.selected && q.isCorrect === false;
                       const isExpanded = !!expandedQuestions[q.questionNo];
                       const isSlow = (q.timeSpentSeconds || 0) >= 90;
+
+                      const parsedQ = markdownQuestions.find(
+                        (mq) => mq.questionNo === q.questionNo,
+                      );
+                      const officialExplanation =
+                        q.explanation ||
+                        matchedPaper?.explanations?.[q.questionNo] ||
+                        parsedQ?.explanation;
+                      const expectedAnswer =
+                        parsedQ?.answer ||
+                        matchedPaper?.answerKey?.[q.questionNo] ||
+                        q.correctAnswer;
 
                       return (
                         <React.Fragment key={q.questionNo}>
@@ -2516,8 +2484,13 @@ export function AttemptDetailView({
                             }`}
                           >
                             {/* Question Number */}
-                            <td className="py-3.5 px-3 text-center font-mono font-bold text-slate-900 whitespace-nowrap">
+                            <td className="py-3 px-2 text-center font-mono font-bold text-slate-900 whitespace-nowrap">
                               <span>Q{q.questionNo}</span>
+                              {isCloze && (
+                                <div className="text-[9px] font-bold text-indigo-600 bg-indigo-50 rounded px-1 py-0.2 mt-0.5 inline-block">
+                                  CLOZE
+                                </div>
+                              )}
                               {q.confidence && (
                                 <div className="text-[10px] font-semibold text-slate-500 mt-0.5">
                                   {q.confidence === "sure"
@@ -2525,92 +2498,144 @@ export function AttemptDetailView({
                                     : q.confidence === "50-50"
                                       ? "⚖️ 50:50"
                                       : q.confidence === "elimination"
-                                        ? "✂️ Elimination"
+                                        ? "✂️ Elim"
                                         : "🎲 Guess"}
                                 </div>
                               )}
                             </td>
 
                             {/* Status */}
-                            <td className="py-3.5 px-3 text-center whitespace-nowrap">
-                              {isSubjectiveAttempt && subjectiveAssessment && (
-                                <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-indigo-50 text-indigo-700 border border-indigo-200">
-                                  {
-                                    SUBJECTIVE_ASSESSMENT_META[
-                                      subjectiveAssessment
-                                    ].label
-                                  }
-                                </span>
-                              )}
-                              {isSubjectiveAttempt &&
-                                isAnswered &&
-                                !subjectiveAssessment && (
-                                  <span className="text-indigo-700 font-semibold">
-                                    Written · not assessed
-                                  </span>
-                                )}
-                              {!isSubjectiveAttempt && isCorrect && (
+                            <td className="py-3 px-2 text-center whitespace-nowrap">
+                              {isCorrect && (
                                 <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
                                   <CheckCircle2 className="h-3 w-3" /> Correct
                                 </span>
                               )}
-                              {!isSubjectiveAttempt && isWrong && (
+                              {isWrong && (
                                 <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-rose-50 text-rose-700 border border-rose-200">
                                   <XCircle className="h-3 w-3" /> Incorrect
                                 </span>
                               )}
-                              {!isSubjectiveAttempt &&
+                              {isEvaluable &&
+                                subjectiveAssessment === "partial" && (
+                                  <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-amber-50 text-amber-700 border border-amber-200">
+                                    ½ Partial
+                                  </span>
+                                )}
+                              {isEvaluable &&
+                                subjectiveAssessment === "no-attempt" && (
+                                  <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-slate-100 text-slate-600 border border-slate-200">
+                                    Skipped
+                                  </span>
+                                )}
+                              {isEvaluable &&
+                                isAnswered &&
+                                !subjectiveAssessment && (
+                                  <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-indigo-100 text-indigo-700 border border-indigo-300 animate-pulse">
+                                    <Sparkles className="h-3 w-3" /> Assess
+                                  </span>
+                                )}
+                              {!isEvaluable &&
                                 isAnswered &&
                                 !isCorrect &&
                                 !isWrong && (
-                                  <span className="text-indigo-700 font-semibold">
-                                    Free-text answer recorded; this question has
-                                    no objective answer key.
+                                  <span className="text-indigo-700 font-semibold text-[11px]">
+                                    Answered
                                   </span>
                                 )}
-                              {!isAnswered && (
-                                <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-slate-100 text-slate-600 border border-slate-200">
-                                  Skipped
+                              {!isAnswered &&
+                                !(isEvaluable && subjectiveAssessment) && (
+                                  <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-slate-100 text-slate-600 border border-slate-200">
+                                    Skipped
+                                  </span>
+                                )}
+                            </td>
+
+                            {/* Aspirant's Option / Answer */}
+                            <td className="py-3 px-2 text-center whitespace-nowrap">
+                              {isCloze ? (
+                                isAnswered ? (
+                                  <span
+                                    className={`inline-block max-w-[120px] sm:max-w-[140px] truncate text-xs font-semibold px-2 py-0.5 rounded-md border ${
+                                      isCorrect
+                                        ? "bg-emerald-50 text-emerald-800 border-emerald-200"
+                                        : isWrong
+                                          ? "bg-rose-50 text-rose-800 border-rose-200"
+                                          : subjectiveAssessment === "partial"
+                                            ? "bg-amber-50 text-amber-800 border-amber-200"
+                                            : "bg-indigo-50 text-indigo-900 border-indigo-200"
+                                    }`}
+                                    title={q.selected || ""}
+                                  >
+                                    {q.selected}
+                                  </span>
+                                ) : (
+                                  <span className="text-slate-400 text-sm font-mono">—</span>
+                                )
+                              ) : isSubjectiveAttempt ? (
+                                <span
+                                  className={`text-sm font-semibold ${
+                                    isAnswered
+                                      ? "text-indigo-700"
+                                      : "text-slate-400"
+                                  }`}
+                                >
+                                  {isAnswered ? "Written" : "—"}
+                                </span>
+                              ) : (
+                                <span
+                                  className={`text-base font-black font-mono ${
+                                    isCorrect
+                                      ? "text-emerald-700"
+                                      : isWrong
+                                        ? "text-rose-700"
+                                        : "text-slate-400"
+                                  }`}
+                                >
+                                  {q.selected || "—"}
                                 </span>
                               )}
                             </td>
 
-                            {/* Aspirant's Option */}
-                            <td className="py-3.5 px-3 text-center font-mono whitespace-nowrap">
-                              <span
-                                className={`text-base font-black ${
-                                  isCorrect
-                                    ? "text-emerald-700"
-                                    : isWrong
-                                      ? "text-rose-700"
-                                      : "text-slate-400"
-                                }`}
-                              >
-                                {isSubjectiveAttempt
-                                  ? isAnswered
-                                    ? "Written"
-                                    : "—"
-                                  : q.selected || "—"}
-                              </span>
-                            </td>
-
-                            {/* Correct Option */}
-                            <td className="py-3.5 px-3 text-center font-mono whitespace-nowrap">
-                              <span className="text-base font-black text-emerald-700">
-                                {isSubjectiveAttempt
-                                  ? subjectiveAssessment
-                                    ? SUBJECTIVE_ASSESSMENT_META[
-                                        subjectiveAssessment
-                                      ].label
-                                    : isAnswered
-                                      ? "Self-assess"
-                                      : "—"
-                                  : q.correctAnswer || "—"}
-                              </span>
+                            {/* Correct Option / Assessment Key */}
+                            <td className="py-3 px-2 text-center whitespace-nowrap">
+                              {isEvaluable ? (
+                                subjectiveAssessment ? (
+                                  <span
+                                    className={`inline-flex items-center px-2 py-0.5 rounded-md text-[11px] font-bold border ${
+                                      subjectiveAssessment === "strong"
+                                        ? "bg-emerald-50 text-emerald-700 border-emerald-200"
+                                        : subjectiveAssessment === "partial"
+                                          ? "bg-amber-50 text-amber-700 border-amber-200"
+                                          : subjectiveAssessment === "needs-work"
+                                            ? "bg-rose-50 text-rose-700 border-rose-200"
+                                            : "bg-slate-100 text-slate-600 border-slate-200"
+                                    }`}
+                                  >
+                                    {subjectiveAssessment === "strong"
+                                      ? `+${getFullMarks(q.questionNo).toFixed(1)}`
+                                      : subjectiveAssessment === "partial"
+                                        ? `+${((q.subjectiveMarks !== undefined ? q.subjectiveMarks : getFullMarks(q.questionNo) * 0.5)).toFixed(1)}`
+                                        : subjectiveAssessment === "needs-work"
+                                          ? `-${incorrectMarksPerQ.toFixed(2)}`
+                                          : "0 pts"}
+                                  </span>
+                                ) : isAnswered ? (
+                                  <span className="inline-flex items-center gap-1 text-[11px] font-bold text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded-md border border-indigo-200">
+                                    <Sparkles className="h-3 w-3" /> Score
+                                  </span>
+                                ) : (
+                                  <span className="text-slate-400 font-mono text-sm">—</span>
+                                )
+                              ) : (
+                                <span className="text-base font-black font-mono text-emerald-700">
+                                  {q.correctAnswer || "—"}
+                                </span>
+                              )}
                             </td>
 
                             {/* Time Taken */}
-                            <td className="py-3.5 px-2 text-center font-mono text-[11px] whitespace-nowrap">
+                            <td className="py-3 px-2 text-center font-mono text-[11px] whitespace-nowrap">
                               {q.timeSpentSeconds && q.timeSpentSeconds > 0 ? (
                                 <span
                                   className={`inline-flex items-center gap-0.5 px-2 py-0.5 rounded-md ${
@@ -2622,14 +2647,17 @@ export function AttemptDetailView({
                                   {q.timeSpentSeconds}s
                                 </span>
                               ) : (
-                                <span className="text-slate-400">0s</span>
+                                <span className="text-slate-400 font-mono">0s</span>
                               )}
                             </td>
 
                             {/* Note */}
-                            <td className="py-3.5 px-4 text-xs text-slate-700">
+                            <td className="py-3 px-3 text-xs text-slate-700 min-w-0">
                               {q.note && q.note.trim() ? (
-                                <div className="bg-slate-50/90 rounded-lg p-2 border border-slate-200/80 font-mono text-slate-800 text-[11px] leading-relaxed whitespace-pre-wrap max-h-24 overflow-y-auto">
+                                <div
+                                  className="bg-slate-50/90 rounded-md p-1.5 border border-slate-200/80 font-mono text-slate-800 text-[11px] leading-tight truncate max-w-[180px] sm:max-w-[240px]"
+                                  title={q.note}
+                                >
                                   {q.note}
                                 </div>
                               ) : (
@@ -2640,7 +2668,7 @@ export function AttemptDetailView({
                             </td>
 
                             {/* Expand Chevron */}
-                            <td className="py-3.5 px-2 text-center text-slate-400">
+                            <td className="py-3 px-1 text-center text-slate-400">
                               <ChevronRight
                                 className={`h-4 w-4 transition-transform mx-auto ${
                                   isExpanded ? "rotate-90 text-indigo-600" : ""
@@ -2649,149 +2677,235 @@ export function AttemptDetailView({
                             </td>
                           </tr>
 
-                          {/* Expanded Detail Row for Extra Details & Editing Notes */}
+                          {/* Expanded Detail Row for Extra Details & Evaluation */}
                           {isExpanded && (
                             <tr className="bg-slate-50/70 border-b border-slate-200">
-                              <td colSpan={7} className="p-4 space-y-3">
-                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
-                                  {isAssessmentQuestion(q.questionNo) && (
-                                    <div className="sm:col-span-2">
-                                      <ReviewAssessmentPicker
-                                        value={subjectiveAssessment}
-                                        isAnswered={isAnswered}
-                                        partialMarks={q.subjectiveMarks}
-                                        maxPartialMarks={getFullMarks(
-                                          q.questionNo,
-                                        )}
-                                        onChange={(assessment) =>
-                                          handleSetSubjectiveAssessment(
-                                            q.questionNo,
-                                            assessment,
-                                          )
-                                        }
-                                        onPartialMarksChange={(marks) =>
-                                          handleSetSubjectiveAssessment(
-                                            q.questionNo,
-                                            "partial",
-                                            marks,
-                                          )
-                                        }
-                                      />
+                              <td colSpan={7} className="p-3 sm:p-5 space-y-3.5">
+                                {isCloze ? (
+                                  /* Dedicated Cloze Assessment Experience Card */
+                                  <div className="space-y-3.5">
+                                    {/* Header */}
+                                    <div className="flex flex-wrap items-center justify-between gap-2 pb-2.5 border-b border-slate-200">
+                                      <div className="flex items-center gap-2">
+                                        <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-indigo-100 text-indigo-800 border border-indigo-200">
+                                          Cloze / Fill-in-the-blank
+                                        </span>
+                                        <span className="text-xs text-slate-500 font-mono">
+                                          Max Score: +{getFullMarks(q.questionNo).toFixed(1)} pts · Penalty: -{incorrectMarksPerQ.toFixed(2)} pts
+                                        </span>
+                                      </div>
+                                      {isAnswered && !subjectiveAssessment && (
+                                        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-bold bg-amber-50 text-amber-900 border border-amber-300 animate-pulse">
+                                          <Sparkles className="h-3.5 w-3.5 text-amber-600" />
+                                          Action: Compare response and grade below
+                                        </span>
+                                      )}
                                     </div>
-                                  )}
 
-                                  {/* Scoring Details */}
-                                  <div className="space-y-1 bg-white p-3 rounded-xl border border-slate-200 shadow-2xs">
-                                    <span className="text-[10px] uppercase font-bold text-slate-500 tracking-wider">
-                                      Scoring
-                                    </span>
-                                    <div className="text-xs pt-0.5">
-                                      {isSubjectiveAttempt ? (
-                                        subjectiveAssessment ? (
-                                          <span className="text-indigo-800 font-semibold">
-                                            {
-                                              SUBJECTIVE_ASSESSMENT_META[
-                                                subjectiveAssessment
-                                              ].label
-                                            }{" "}
-                                            estimate: +
-                                            {(
-                                              subjectiveMarksPerQ *
-                                              SUBJECTIVE_ASSESSMENT_META[
-                                                subjectiveAssessment
-                                              ].fraction
-                                            ).toFixed(2)}{" "}
-                                            marks.
+                                    {/* Side-by-Side Comparison: Your Response vs Solution */}
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-xs">
+                                      {/* User Submitted Answer */}
+                                      <div className="bg-white p-3.5 rounded-xl border border-slate-200 shadow-2xs space-y-1.5">
+                                        <div className="flex items-center justify-between">
+                                          <span className="text-[10px] uppercase font-bold text-slate-500 tracking-wider flex items-center gap-1.5">
+                                            <Edit3 className="h-3 w-3 text-indigo-600" />
+                                            Your Submitted Response
                                           </span>
-                                        ) : isAnswered ? (
-                                          <span className="text-slate-600">
-                                            Written, but not self-assessed yet.
-                                          </span>
-                                        ) : (
-                                          <span className="text-slate-600">
-                                            Question not marked as written.
-                                          </span>
+                                          {q.confidence && (
+                                            <span className="text-[10px] font-semibold text-slate-500">
+                                              {q.confidence === "sure"
+                                                ? "🎯 Sure"
+                                                : q.confidence === "50-50"
+                                                  ? "⚖️ 50:50"
+                                                  : q.confidence === "elimination"
+                                                    ? "✂️ Elimination"
+                                                    : "🎲 Guess"}
+                                            </span>
+                                          )}
+                                        </div>
+                                        <div className="p-2.5 rounded-lg bg-slate-50 font-mono text-sm font-semibold text-slate-900 border border-slate-200/80 whitespace-pre-wrap break-words min-h-[50px] flex items-center">
+                                          {q.selected && q.selected.trim() ? (
+                                            q.selected
+                                          ) : (
+                                            <span className="text-slate-400 italic font-normal text-xs">
+                                              Question unattempted (No answer entered)
+                                            </span>
+                                          )}
+                                        </div>
+                                      </div>
+
+                                      {/* Official Solution */}
+                                      <div className="bg-emerald-50/40 p-3.5 rounded-xl border border-emerald-200/80 shadow-2xs space-y-1.5">
+                                        <span className="text-[10px] uppercase font-bold text-emerald-800 tracking-wider flex items-center gap-1.5">
+                                          <CheckCircle2 className="h-3 w-3 text-emerald-600" />
+                                          Official Key & Explanation
+                                        </span>
+                                        <div className="p-2.5 rounded-lg bg-white/90 font-mono text-xs text-slate-800 border border-emerald-100 leading-relaxed whitespace-pre-wrap break-words min-h-[50px]">
+                                          {expectedAnswer && (
+                                            <div className="mb-1 font-bold text-emerald-900">
+                                              Key: {expectedAnswer}
+                                            </div>
+                                          )}
+                                          {officialExplanation ? (
+                                            <span>{officialExplanation}</span>
+                                          ) : (
+                                            <span className="text-slate-400 italic">
+                                              Refer to the Question Paper panel on the left for the full solution.
+                                            </span>
+                                          )}
+                                        </div>
+                                      </div>
+                                    </div>
+
+                                    {/* Assessment Picker */}
+                                    <ReviewAssessmentPicker
+                                      value={subjectiveAssessment}
+                                      isAnswered={isAnswered}
+                                      partialMarks={q.subjectiveMarks}
+                                      maxPartialMarks={getFullMarks(q.questionNo)}
+                                      penaltyMarks={incorrectMarksPerQ}
+                                      onChange={(assessment) =>
+                                        handleSetSubjectiveAssessment(
+                                          q.questionNo,
+                                          assessment,
                                         )
-                                      ) : (
-                                        <>
+                                      }
+                                      onPartialMarksChange={(marks) =>
+                                        handleSetSubjectiveAssessment(
+                                          q.questionNo,
+                                          "partial",
+                                          marks,
+                                        )
+                                      }
+                                    />
+
+                                    {/* Scoring Breakdown & Timing */}
+                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
+                                      <div className="bg-white p-3 rounded-xl border border-slate-200 shadow-2xs space-y-1">
+                                        <span className="text-[10px] uppercase font-bold text-slate-500 tracking-wider">
+                                          Scoring Breakdown
+                                        </span>
+                                        <div className="pt-0.5">
+                                          {subjectiveAssessment === "strong" && (
+                                            <span className="text-emerald-700 font-bold">
+                                              +{getFullMarks(q.questionNo).toFixed(2)} marks awarded (Exact match).
+                                            </span>
+                                          )}
+                                          {subjectiveAssessment === "partial" && (
+                                            <span className="text-amber-700 font-bold">
+                                              +{((q.subjectiveMarks !== undefined ? q.subjectiveMarks : getFullMarks(q.questionNo) * 0.5)).toFixed(2)} marks awarded (Partial credit).
+                                            </span>
+                                          )}
+                                          {subjectiveAssessment === "needs-work" && (
+                                            <span className="text-rose-700 font-bold">
+                                              -{incorrectMarksPerQ.toFixed(2)} penalty deducted (Incorrect).
+                                            </span>
+                                          )}
+                                          {subjectiveAssessment === "no-attempt" && (
+                                            <span className="text-slate-600 font-medium">
+                                              0 marks awarded (Marked unattempted).
+                                            </span>
+                                          )}
+                                          {!subjectiveAssessment && (
+                                            <span className="text-indigo-700 font-semibold">
+                                              {isAnswered
+                                                ? "Awaiting self-evaluation above."
+                                                : "Unattempted. 0 marks deducted."}
+                                            </span>
+                                          )}
+                                        </div>
+                                      </div>
+
+                                      <div className="bg-white p-3 rounded-xl border border-slate-200 shadow-2xs space-y-1">
+                                        <span className="text-[10px] uppercase font-bold text-slate-500 tracking-wider">
+                                          Timing Analysis
+                                        </span>
+                                        <div className="pt-0.5 text-slate-700">
+                                          Time spent: <strong className="font-mono text-slate-900">{q.timeSpentSeconds || 0} seconds</strong>
+                                          {isSlow ? (
+                                            <span className="text-amber-700 ml-1 font-semibold">
+                                              (Slow: exceeded 90s target by {(q.timeSpentSeconds || 0) - 90}s)
+                                            </span>
+                                          ) : (
+                                            <span className="text-slate-500 ml-1">
+                                              (Within healthy pace)
+                                            </span>
+                                          )}
+                                        </div>
+                                      </div>
+                                    </div>
+                                  </div>
+                                ) : (
+                                  /* MCQ Expanded Row */
+                                  <div className="space-y-3.5">
+                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
+                                      <div className="space-y-1 bg-white p-3 rounded-xl border border-slate-200 shadow-2xs">
+                                        <span className="text-[10px] uppercase font-bold text-slate-500 tracking-wider">
+                                          Scoring Details
+                                        </span>
+                                        <div className="text-xs pt-0.5">
                                           {isCorrect && (
                                             <span className="text-emerald-700 font-semibold">
-                                              +{correctMarksPerQ} marks gained
-                                              for correct answer.
+                                              +{correctMarksPerQ} marks gained for correct answer.
                                             </span>
                                           )}
                                           {isWrong && (
                                             <span className="text-rose-700 font-semibold">
-                                              -{incorrectMarksPerQ} marks
-                                              deducted for incorrect answer
-                                              (marked &quot;{q.selected}&quot;,
-                                              official is &quot;
-                                              {q.correctAnswer}&quot;).
+                                              -{incorrectMarksPerQ} marks deducted for incorrect answer (marked &quot;{q.selected}&quot;, official is &quot;{q.correctAnswer}&quot;).
                                             </span>
                                           )}
                                           {!isAnswered && (
                                             <span className="text-slate-600">
-                                              Question unattempted. 0 marks
-                                              deducted (official key is &quot;
-                                              {q.correctAnswer}&quot;).
+                                              Question unattempted. 0 marks deducted (official key is &quot;{q.correctAnswer}&quot;).
                                             </span>
                                           )}
-                                        </>
-                                      )}
-                                    </div>
-                                    {q.answerHistory &&
-                                      q.answerHistory.length > 1 && (
-                                        <div className="text-[11px] text-indigo-700 font-medium pt-1">
-                                          <strong>Answer Sequence:</strong>{" "}
-                                          {q.answerHistory.join(" → ")}
                                         </div>
-                                      )}
-                                  </div>
+                                        {q.answerHistory &&
+                                          q.answerHistory.length > 1 &&
+                                          !isCloze &&
+                                          q.answerHistory.every((h) => h.length <= 2) && (
+                                            <div className="text-[11px] text-indigo-700 font-medium pt-1">
+                                              <strong>Answer Sequence:</strong>{" "}
+                                              {q.answerHistory.join(" → ")}
+                                            </div>
+                                          )}
+                                      </div>
 
-                                  {/* Pacing Context */}
-                                  <div className="space-y-1 bg-white p-3 rounded-xl border border-slate-200 shadow-2xs">
-                                    <span className="text-[10px] uppercase font-bold text-slate-500 tracking-wider">
-                                      Timing
-                                    </span>
-                                    <div className="text-xs pt-0.5 text-slate-700">
-                                      Time spent:{" "}
-                                      <strong className="font-mono text-slate-900">
-                                        {q.timeSpentSeconds || 0} seconds
-                                      </strong>
-                                      {isSlow ? (
-                                        <span className="text-amber-700 ml-1 font-semibold">
-                                          (Slow: exceeded 90s target by{" "}
-                                          {(q.timeSpentSeconds || 0) - 90}s)
+                                      <div className="space-y-1 bg-white p-3 rounded-xl border border-slate-200 shadow-2xs">
+                                        <span className="text-[10px] uppercase font-bold text-slate-500 tracking-wider">
+                                          Pacing & Timing
                                         </span>
-                                      ) : (
-                                        <span className="text-slate-500 ml-1">
-                                          (Within healthy pacing range)
-                                        </span>
-                                      )}
+                                        <div className="text-xs pt-0.5 text-slate-700">
+                                          Time spent: <strong className="font-mono text-slate-900">{q.timeSpentSeconds || 0} seconds</strong>
+                                          {isSlow ? (
+                                            <span className="text-amber-700 ml-1 font-semibold">
+                                              (Slow: exceeded 90s target by {(q.timeSpentSeconds || 0) - 90}s)
+                                            </span>
+                                          ) : (
+                                            <span className="text-slate-500 ml-1">
+                                              (Within healthy pacing range)
+                                            </span>
+                                          )}
+                                        </div>
+                                      </div>
                                     </div>
-                                  </div>
-                                </div>
 
-                                {/* Official Question Explanation */}
-                                {(q.explanation ||
-                                  matchedPaper?.explanations?.[
-                                    q.questionNo
-                                  ]) && (
-                                  <div className="space-y-1 bg-indigo-50/80 p-3.5 rounded-xl border border-indigo-200/90 shadow-2xs">
-                                    <div className="flex items-center gap-1.5 text-[11px] uppercase font-bold text-indigo-900 tracking-wider">
-                                      <BookOpen className="h-3.5 w-3.5 text-indigo-700" />
-                                      <span>Explanation</span>
-                                    </div>
-                                    <p className="text-xs text-indigo-950 font-normal leading-relaxed whitespace-pre-wrap pt-0.5">
-                                      {q.explanation ||
-                                        matchedPaper?.explanations?.[
-                                          q.questionNo
-                                        ]}
-                                    </p>
+                                    {/* Official Explanation */}
+                                    {officialExplanation && (
+                                      <div className="space-y-1 bg-indigo-50/80 p-3.5 rounded-xl border border-indigo-200/90 shadow-2xs">
+                                        <div className="flex items-center gap-1.5 text-[11px] uppercase font-bold text-indigo-900 tracking-wider">
+                                          <BookOpen className="h-3.5 w-3.5 text-indigo-700" />
+                                          <span>Explanation</span>
+                                        </div>
+                                        <p className="text-xs text-indigo-950 font-normal leading-relaxed whitespace-pre-wrap pt-0.5">
+                                          {officialExplanation}
+                                        </p>
+                                      </div>
+                                    )}
                                   </div>
                                 )}
 
-                                {/* Edit Question Note */}
+                                {/* Edit Question Note (Shared for both MCQ & Cloze) */}
                                 <div className="pt-1">
                                   {editingQNote === q.questionNo ? (
                                     <div className="space-y-2">
@@ -2800,7 +2914,7 @@ export function AttemptDetailView({
                                         onChange={(e) =>
                                           setQNoteText(e.target.value)
                                         }
-                                        placeholder="Write key learnings or revision notes for Question..."
+                                        placeholder="Write key learnings or revision notes for this question..."
                                         rows={2}
                                         className="w-full rounded-xl border border-slate-300 bg-white p-2.5 text-xs text-slate-900 focus:outline-none focus:border-indigo-500 shadow-2xs"
                                       />
