@@ -1871,7 +1871,7 @@ export function ExamSessionView({
                               Unattempted
                             </span>
                           )}
-                          {currentQObj.subjectiveAssessment && (
+                          {isPractice && currentQObj.subjectiveAssessment && (
                             <span className="inline-flex items-center gap-1 rounded-full bg-indigo-50 border border-indigo-200 px-2.5 py-0.5 text-[10px] font-bold text-indigo-800">
                               {
                                 SUBJECTIVE_ASSESSMENT_META[
@@ -1883,7 +1883,7 @@ export function ExamSessionView({
                         </div>
                       </div>
 
-                      {currentQuestionExplanation && (
+                      {isPractice && currentQuestionExplanation && (
                         <div className="rounded-xl border border-indigo-200 bg-indigo-50/55 p-3 sm:p-3.5 space-y-3">
                           <div className="flex items-start gap-2">
                             <Lightbulb className="mt-0.5 h-4 w-4 shrink-0 text-indigo-600" />

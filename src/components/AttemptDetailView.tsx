@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useMemo, useEffect } from "react";
-import { Attempt, QuestionPaper } from "../lib/types";
+import { Attempt, QuestionPaper, SubjectiveAssessment } from "../lib/types";
 import {
   formatTimeSeconds,
   formatDateTime,
@@ -361,6 +361,69 @@ export function AttemptDetailView({
     const updated = { ...attempt, answers: updatedAnswers };
     onUpdate(updated);
     setEditingQNote(null);
+  };
+
+  const handleSetSubjectiveAssessment = (
+    qNo: number,
+    assessment: SubjectiveAssessment,
+  ) => {
+    if (!isSubjectiveAttempt) return;
+
+    const updatedAnswers = { ...attempt.answers };
+    const currentAnswer = updatedAnswers[qNo] || {
+      questionNo: qNo,
+      selected: "attempted",
+    };
+    updatedAnswers[qNo] = {
+      ...currentAnswer,
+      selected: "attempted",
+      subjectiveAssessment: assessment,
+      isCorrect:
+        assessment === "strong"
+          ? true
+          : assessment === "needs-work"
+            ? false
+            : null,
+    };
+
+    const subjectiveAnswers = Object.values(updatedAnswers).filter(
+      (answer) => answer.selected === "attempted",
+    );
+    const marksPerQuestion =
+      attempt.totalQuestions > 0
+        ? (attempt.totalMarks || attempt.maxScore || 0) / attempt.totalQuestions
+        : 0;
+    const subjectivePoints = subjectiveAnswers.reduce(
+      (total, answer) =>
+        total +
+        (answer.subjectiveAssessment
+          ? SUBJECTIVE_ASSESSMENT_META[answer.subjectiveAssessment].fraction
+          : 0),
+      0,
+    );
+    const score = Math.round(subjectivePoints * marksPerQuestion * 100) / 100;
+    const maxScore = attempt.maxScore || attempt.totalMarks || 0;
+    const answered = subjectiveAnswers.length;
+
+    onUpdate({
+      ...attempt,
+      answers: updatedAnswers,
+      answered,
+      correct: subjectiveAnswers.filter(
+        (answer) => answer.subjectiveAssessment === "strong",
+      ).length,
+      partial: subjectiveAnswers.filter(
+        (answer) => answer.subjectiveAssessment === "partial",
+      ).length,
+      incorrect: subjectiveAnswers.filter(
+        (answer) => answer.subjectiveAssessment === "needs-work",
+      ).length,
+      unattempted: Math.max(0, attempt.totalQuestions - answered),
+      score,
+      maxScore,
+      percentagePct: maxScore > 0 ? (score / maxScore) * 100 : 0,
+      accuracyPct: answered > 0 ? (subjectivePoints / answered) * 100 : 0,
+    });
   };
 
   const toggleQuestionExpand = (qNo: number) => {
@@ -2261,6 +2324,77 @@ export function AttemptDetailView({
                             <tr className="bg-slate-50/70 border-b border-slate-200">
                               <td colSpan={7} className="p-4 space-y-3">
                                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
+                                  {isSubjectiveAttempt && isAnswered && (
+                                    <div className="sm:col-span-2 rounded-xl border border-indigo-200 bg-indigo-50/60 p-3">
+                                      <div className="mb-2">
+                                        <p className="text-xs font-bold text-indigo-950">
+                                          Assess this written answer
+                                        </p>
+                                        <p className="mt-0.5 text-[11px] text-indigo-900/70">
+                                          Compare it with the explanation, then
+                                          choose the closest match.
+                                        </p>
+                                      </div>
+                                      <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
+                                        {(
+                                          [
+                                            "strong",
+                                            "partial",
+                                            "needs-work",
+                                          ] as SubjectiveAssessment[]
+                                        ).map((assessment) => {
+                                          const meta =
+                                            SUBJECTIVE_ASSESSMENT_META[
+                                              assessment
+                                            ];
+                                          const isSelected =
+                                            subjectiveAssessment === assessment;
+                                          const reviewLabel =
+                                            assessment === "strong"
+                                              ? "Right"
+                                              : assessment === "partial"
+                                                ? "Partial"
+                                                : "Wrong";
+                                          const selectedStyle =
+                                            assessment === "strong"
+                                              ? "border-emerald-600 bg-emerald-600 text-white"
+                                              : assessment === "partial"
+                                                ? "border-amber-500 bg-amber-500 text-white"
+                                                : "border-rose-600 bg-rose-600 text-white";
+                                          const idleStyle =
+                                            assessment === "strong"
+                                              ? "border-emerald-200 bg-white text-emerald-800 hover:bg-emerald-50"
+                                              : assessment === "partial"
+                                                ? "border-amber-200 bg-white text-amber-800 hover:bg-amber-50"
+                                                : "border-rose-200 bg-white text-rose-800 hover:bg-rose-50";
+
+                                          return (
+                                            <button
+                                              key={assessment}
+                                              type="button"
+                                              onClick={() =>
+                                                handleSetSubjectiveAssessment(
+                                                  q.questionNo,
+                                                  assessment,
+                                                )
+                                              }
+                                              className={`rounded-xl border px-2.5 py-2 text-left transition-colors ${isSelected ? selectedStyle : idleStyle}`}
+                                            >
+                                              <span className="block text-xs font-bold">
+                                                {reviewLabel}
+                                              </span>
+                                              <span
+                                                className={`mt-0.5 block text-[10px] leading-snug ${isSelected ? "text-white/80" : "text-slate-500"}`}
+                                              >
+                                                {meta.description}
+                                              </span>
+                                            </button>
+                                          );
+                                        })}
+                                      </div>
+                                    </div>
+                                  )}
+
                                   {/* Scoring Details */}
                                   <div className="space-y-1 bg-white p-3 rounded-xl border border-slate-200 shadow-2xs">
                                     <span className="text-[10px] uppercase font-bold text-slate-500 tracking-wider">
