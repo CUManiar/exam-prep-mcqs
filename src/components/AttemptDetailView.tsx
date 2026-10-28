@@ -1,7 +1,12 @@
 "use client";
 
 import React, { useState, useMemo, useEffect } from "react";
-import { Attempt, QuestionPaper, SubjectiveAssessment } from "../lib/types";
+import {
+  Attempt,
+  QuestionAnswer,
+  QuestionPaper,
+  SubjectiveAssessment,
+} from "../lib/types";
 import {
   formatTimeSeconds,
   formatDateTime,
@@ -376,7 +381,7 @@ export function AttemptDetailView({
     };
     updatedAnswers[qNo] = {
       ...currentAnswer,
-      selected: "attempted",
+      selected: isClozeQuestion(qNo) ? currentAnswer.selected : "attempted",
       subjectiveAssessment: assessment,
       isCorrect:
         assessment === "strong"
@@ -386,8 +391,8 @@ export function AttemptDetailView({
             : null,
     };
 
-    const subjectiveAnswers = Object.values(updatedAnswers).filter(
-      (answer) => answer.selected === "attempted",
+    const subjectiveAnswers = Object.values(updatedAnswers).filter((answer) =>
+      isQuestionAnswered(answer),
     );
     const marksPerQuestion =
       attempt.totalQuestions > 0
@@ -470,6 +475,25 @@ export function AttemptDetailView({
   const correctMarksPerQ = attempt.correctMarks || 2.0;
   const incorrectMarksPerQ = attempt.incorrectMarks || 0.667;
   const isSubjectiveAttempt = attempt.examType === "subjective";
+  const isClozeQuestion = (qNo: number) => {
+    const question = markdownQuestions.find(
+      (parsedQuestion) => parsedQuestion.questionNo === qNo,
+    );
+    return Boolean(
+      question && Object.keys(question.options || {}).length === 0,
+    );
+  };
+  const isQuestionAnswered = (answer?: QuestionAnswer) => {
+    if (!answer) return false;
+    if (isClozeQuestion(answer.questionNo)) {
+      return Boolean(
+        answer.selected?.trim() && answer.selected !== "attempted",
+      );
+    }
+    return isSubjectiveAttempt
+      ? answer.selected === "attempted"
+      : answer.selected !== null && answer.selected !== undefined;
+  };
   const subjectivePartialCount =
     attempt.partial ??
     Object.values(attempt.answers || {}).filter(
@@ -870,9 +894,7 @@ export function AttemptDetailView({
               ).map((qNo) => {
                 const q = attempt.answers[qNo];
                 const subjectiveAssessment = q?.subjectiveAssessment;
-                const isAnswered = isSubjectiveAttempt
-                  ? q?.selected === "attempted"
-                  : q?.selected !== null && q?.selected !== undefined;
+                const isAnswered = isQuestionAnswered(q);
                 const isCorrect = isSubjectiveAttempt
                   ? subjectiveAssessment === "strong"
                   : isAnswered && q?.isCorrect === true;
@@ -2157,9 +2179,7 @@ export function AttemptDetailView({
                   <tbody className="divide-y divide-slate-100">
                     {filteredQuestions.map((q) => {
                       const subjectiveAssessment = q.subjectiveAssessment;
-                      const isAnswered = isSubjectiveAttempt
-                        ? q.selected === "attempted"
-                        : q.selected !== null;
+                      const isAnswered = isQuestionAnswered(q);
                       const isCorrect = isSubjectiveAttempt
                         ? subjectiveAssessment === "strong"
                         : q.selected && q.isCorrect === true;

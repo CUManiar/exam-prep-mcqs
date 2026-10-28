@@ -307,6 +307,7 @@ export function ExamSessionView({
     effectivePaper.qpUrl?.startsWith("local://") ||
     effectivePaper.parsedQuestions?.length,
   );
+  const isSubjectiveScanPaper = isSubjective && !isMarkdownPaper;
 
   // In Practice mode, user can surpass time limit, tracking extra time
   const isOvertime = isPractice && elapsedSeconds > totalTimeSeconds;
@@ -453,7 +454,7 @@ export function ExamSessionView({
       setElapsedSeconds((prev) => prev + 1);
 
       // In Mock Mode ONLY: track time taken on active question or idle/overview time
-      if (mode === "mock" && !isSubjective) {
+      if (mode === "mock" && !isSubjectiveScanPaper) {
         if (currentQuestion !== null) {
           setQTimeSpent((prev) => ({
             ...prev,
@@ -465,7 +466,13 @@ export function ExamSessionView({
       }
     }, 1000);
     return () => clearInterval(timer);
-  }, [mode, currentQuestion, isScanUploadPhase, isPaused, isSubjective]);
+  }, [
+    mode,
+    currentQuestion,
+    isScanUploadPhase,
+    isPaused,
+    isSubjectiveScanPaper,
+  ]);
 
   // In Mock Mode, auto-finish if strict time runs out
   useEffect(() => {
@@ -476,7 +483,7 @@ export function ExamSessionView({
       !isScanUploadPhase &&
       !isPaused
     ) {
-      if (isSubjective) {
+      if (isSubjectiveScanPaper) {
         setIsScanUploadPhase(true);
       } else {
         handleFinishExam();
@@ -488,7 +495,7 @@ export function ExamSessionView({
     totalTimeSeconds,
     isScanUploadPhase,
     isPaused,
-    isSubjective,
+    isSubjectiveScanPaper,
   ]);
 
   // Answer selection handler (Objective)
@@ -830,6 +837,9 @@ export function ExamSessionView({
   // Computed counts & status
   const isQuestionAnswered = (q?: QuestionAnswer) => {
     if (!q) return false;
+    if (isClozeQuestion(q.questionNo)) {
+      return Boolean(q.selected?.trim() && q.selected !== "attempted");
+    }
     if (!isSubjective) return q.selected !== null;
     return q.selected === "attempted";
   };
@@ -1025,6 +1035,16 @@ export function ExamSessionView({
           (question) => question.questionNo === currentQuestion,
         )
       : undefined;
+  const isClozeQuestion = (questionNo: number | null) => {
+    if (questionNo === null) return false;
+    const question = effectivePaper.parsedQuestions?.find(
+      (parsedQuestion) => parsedQuestion.questionNo === questionNo,
+    );
+    return Boolean(
+      question && Object.keys(question.options || {}).length === 0,
+    );
+  };
+  const currentQuestionIsCloze = isClozeQuestion(currentQuestion);
   // A Markdown cloze question is objective, but has no option values. Keep
   // its free-text answer out of MCQ-only UI.
   const currentQuestionHasOptions =
@@ -1173,12 +1193,14 @@ export function ExamSessionView({
 
             <button
               onClick={() => {
-                if (isSubjective) {
+                if (isSubjectiveScanPaper) {
                   if (mode === "mock") {
                     setIsScanUploadPhase(true);
                   } else {
                     handleFinishExam();
                   }
+                } else if (isSubjective) {
+                  handleFinishExam();
                 } else {
                   setShowFinishConfirm(true);
                 }
@@ -1842,7 +1864,7 @@ export function ExamSessionView({
                       )}
                     </div>
                   ) : null
-                ) : (
+                ) : isSubjective && !currentQuestionIsCloze ? (
                   /* Dedicated Subjective Pen & Paper Question Marking */
                   <div className="mt-3 sm:mt-4 space-y-3">
                     <div className="rounded-2xl border border-slate-200 bg-slate-50 p-3.5 sm:p-4 space-y-3">
@@ -2000,7 +2022,7 @@ export function ExamSessionView({
                     </div>
 
                     {/* In Mock Mode ONLY: Entire single booklet upload for future review */}
-                    {mode === "mock" && (
+                    {mode === "mock" && !isClozeQuestion(currentQuestion) && (
                       <div className="rounded-2xl border border-violet-200 bg-violet-50/50 p-3.5 sm:p-4 space-y-2.5">
                         <div className="flex items-center justify-between gap-2">
                           <div className="flex items-center gap-2">
@@ -2107,7 +2129,7 @@ export function ExamSessionView({
                       </div>
                     )}
                   </div>
-                )}
+                ) : null}
 
                 {/* Practice Mode Live Feedback Banner + Detailed Solution Key Link (Objective) */}
                 {isPractice &&
