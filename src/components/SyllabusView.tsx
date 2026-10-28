@@ -8,13 +8,17 @@ import {
   CalendarDays,
   Check,
   CheckCircle2,
-  ChevronsDownUp,
+  ChevronDown,
   ChevronRight,
+  ChevronsDownUp,
   ChevronsUpDown,
   CircleDashed,
+  Download,
+  ExternalLink,
   FileText,
   Layers3,
   Pencil,
+  Printer,
   RotateCcw,
   Trash2,
 } from "lucide-react";
@@ -27,6 +31,10 @@ import {
   getSyllabusPace,
   getSyllabusProgress,
 } from "../lib/syllabusMarkdown";
+import {
+  exportSyllabusAsPDF,
+  exportSyllabusAsPrintPDF,
+} from "../lib/exportUtils";
 import { PageHeader } from "./PageHeader";
 
 const SAMPLE_MARKDOWN = `# GS Paper 1
@@ -97,6 +105,8 @@ export function SyllabusView() {
       ),
   );
   const [message, setMessage] = useState("");
+  const [showExportMenu, setShowExportMenu] = useState(false);
+  const [isExporting, setIsExporting] = useState(false);
   const progress = getSyllabusProgress(activeItems);
   const pace = getSyllabusPace(activeItems);
   const remainingTopics = Math.max(progress.total - progress.completed, 0);
@@ -134,6 +144,34 @@ export function SyllabusView() {
   const showMessage = (nextMessage: string) => {
     setMessage(nextMessage);
     window.setTimeout(() => setMessage(""), 2200);
+  };
+
+  const handleExportPDF = (
+    action: "download" | "open" | "print" = "download",
+  ) => {
+    if (!activeItems.length) {
+      showMessage("Add syllabus topics first to export.");
+      return;
+    }
+    setIsExporting(true);
+    try {
+      exportSyllabusAsPDF(activeItems, {
+        markdown: syllabusMarkdown,
+        action,
+      });
+      if (action === "download") {
+        showMessage("Syllabus PDF downloaded.");
+      } else if (action === "open") {
+        showMessage("Opening PDF in new tab...");
+      } else if (action === "print") {
+        showMessage("Opening print view...");
+      }
+    } catch (err) {
+      console.error("Failed to export syllabus PDF:", err);
+      showMessage("Could not export PDF. Please try again.");
+    } finally {
+      setIsExporting(false);
+    }
   };
 
   const importMarkdown = async () => {
@@ -368,6 +406,106 @@ export function SyllabusView() {
                   <span>Collapse full</span>
                 </button>
               </div>
+
+              {/* Export PDF Split Button & Dropdown */}
+              <div className="relative inline-block text-left">
+                <div className="inline-flex rounded-lg border border-slate-200 bg-white shadow-sm">
+                  <button
+                    type="button"
+                    onClick={() => handleExportPDF("download")}
+                    disabled={!activeItems.length || isExporting}
+                    className="inline-flex items-center gap-1.5 rounded-l-lg px-2.5 py-1.5 text-[11px] font-medium text-slate-700 transition-colors hover:bg-blue-50/50 hover:text-blue-700 disabled:cursor-not-allowed disabled:opacity-40"
+                    title={
+                      activeItems.length
+                        ? "Export and download syllabus as PDF"
+                        : "Add syllabus outline to export"
+                    }
+                  >
+                    <Download className="h-3.5 w-3.5 text-blue-600" />
+                    <span>{isExporting ? "Exporting..." : "Export PDF"}</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setShowExportMenu((v) => !v)}
+                    disabled={!activeItems.length || isExporting}
+                    className="inline-flex items-center rounded-r-lg border-l border-slate-200 px-1.5 py-1.5 text-slate-500 transition-colors hover:bg-slate-50 hover:text-slate-800 disabled:cursor-not-allowed disabled:opacity-40"
+                    aria-label="More export options"
+                    aria-expanded={showExportMenu}
+                  >
+                    <ChevronDown
+                      className={`h-3 w-3 transition-transform ${showExportMenu ? "rotate-180" : ""}`}
+                    />
+                  </button>
+                </div>
+
+                {showExportMenu && (
+                  <>
+                    <div
+                      className="fixed inset-0 z-40"
+                      onClick={() => setShowExportMenu(false)}
+                    />
+                    <div className="absolute right-0 z-50 mt-1.5 w-60 rounded-xl border border-slate-200 bg-white p-1.5 shadow-xl">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setShowExportMenu(false);
+                          handleExportPDF("download");
+                        }}
+                        className="flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-left text-xs font-medium text-slate-700 transition-colors hover:bg-blue-50 hover:text-blue-700"
+                      >
+                        <Download className="h-4 w-4 text-blue-600 shrink-0" />
+                        <div>
+                          <div className="font-semibold text-slate-900">
+                            Download PDF file
+                          </div>
+                          <div className="text-[10px] text-slate-500">
+                            Save vector PDF to your device
+                          </div>
+                        </div>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setShowExportMenu(false);
+                          handleExportPDF("open");
+                        }}
+                        className="flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-left text-xs font-medium text-slate-700 transition-colors hover:bg-blue-50 hover:text-blue-700"
+                      >
+                        <ExternalLink className="h-4 w-4 text-slate-500 shrink-0" />
+                        <div>
+                          <div className="font-semibold text-slate-900">
+                            Open PDF in new tab
+                          </div>
+                          <div className="text-[10px] text-slate-500">
+                            Preview PDF in browser viewer
+                          </div>
+                        </div>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setShowExportMenu(false);
+                          exportSyllabusAsPrintPDF(activeItems, {
+                            markdown: syllabusMarkdown,
+                          });
+                        }}
+                        className="flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-left text-xs font-medium text-slate-700 transition-colors hover:bg-blue-50 hover:text-blue-700"
+                      >
+                        <Printer className="h-4 w-4 text-slate-500 shrink-0" />
+                        <div>
+                          <div className="font-semibold text-slate-900">
+                            Print / Browser PDF
+                          </div>
+                          <div className="text-[10px] text-slate-500">
+                            Open system print dialog
+                          </div>
+                        </div>
+                      </button>
+                    </div>
+                  </>
+                )}
+              </div>
+
               {message && !isEditing && (
                 <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-50 px-2.5 py-1 text-xs font-medium text-emerald-700">
                   <CheckCircle2 className="h-3.5 w-3.5" /> {message}
@@ -534,6 +672,14 @@ export function SyllabusView() {
                 </div>
               </div>
               <div className="grid gap-2 p-4">
+                <button
+                  type="button"
+                  onClick={() => handleExportPDF("download")}
+                  disabled={!activeItems.length || isExporting}
+                  className="button-primary w-full justify-center"
+                >
+                  <Download className="h-4 w-4" /> Export syllabus as PDF
+                </button>
                 <button
                   type="button"
                   onClick={() => setIsEditing(true)}

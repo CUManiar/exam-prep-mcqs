@@ -1,4 +1,4 @@
-import { Attempt, ParsedQuestion, QuestionPaper } from "./types";
+import { Attempt, ParsedQuestion, QuestionPaper, SyllabusItem } from "./types";
 import { formatDateTime, formatTimeSeconds } from "./defaults";
 import { jsPDF } from "jspdf";
 import {
@@ -6,6 +6,14 @@ import {
   parseQuestionnaireMarkdown,
   stripMarkdownFormatting,
 } from "./markdownPaperParser";
+import {
+  getEffectiveSyllabusDueDate,
+  getSyllabusCompletion,
+  getSyllabusItemDateStatus,
+  getSyllabusPace,
+  getSyllabusProgress,
+  getSyllabusTopicKey,
+} from "./syllabusMarkdown";
 
 function escapeHtml(value: unknown): string {
   return String(value ?? "")
@@ -821,12 +829,11 @@ export function exportAttemptAsPrintPDF(
  * they are laid out directly from their persisted questions here.
  */
 export function exportQuestionPaperAsPDF(paper: QuestionPaper): void {
-  const questions =
-    paper.parsedQuestions?.length
-      ? paper.parsedQuestions
-      : paper.markdownContent
-        ? parseQuestionnaireMarkdown(paper.markdownContent)
-        : [];
+  const questions = paper.parsedQuestions?.length
+    ? paper.parsedQuestions
+    : paper.markdownContent
+      ? parseQuestionnaireMarkdown(paper.markdownContent)
+      : [];
 
   if (questions.length === 0) {
     window.alert(
@@ -1032,7 +1039,14 @@ export function exportQuestionPaperAsPDF(paper: QuestionPaper): void {
       ensureSpace(rowHeight + 5);
       drawOption(first[0], first[1], margin, y, optionWidth, rowHeight);
       if (second) {
-        drawOption(second[0], second[1], margin + optionWidth + 6, y, optionWidth, rowHeight);
+        drawOption(
+          second[0],
+          second[1],
+          margin + optionWidth + 6,
+          y,
+          optionWidth,
+          rowHeight,
+        );
       }
       y += rowHeight + 4;
     }
@@ -1168,5 +1182,1049 @@ export async function copyAttemptSummaryToClipboard(
   } catch (fallbackErr) {
     console.error("Fallback clipboard copy failed:", fallbackErr);
     return false;
+  }
+}
+
+export interface SyllabusExportOptions {
+  title?: string;
+  markdown?: string;
+  filename?: string;
+  action?: "download" | "open" | "print";
+}
+
+function normalizeSyllabusText(value: string): string {
+  return stripMarkdownFormatting(value)
+    .replace(/[“”]/g, '"')
+    .replace(/[‘’]/g, "'")
+    .replace(/[–—]/g, "-")
+    .replace(/•/g, "-")
+    .replace(/₹/g, "Rs.")
+    .replace(/[^\x00-\x7F]/g, " ");
+}
+
+function formatSyllabusDate(value?: string): string {
+  if (!value) return "";
+  const match = value.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if (match) {
+    const [, y, m, d] = match;
+    const months = [
+      "Jan",
+      "Feb",
+      "Mar",
+      "Apr",
+      "May",
+      "Jun",
+      "Jul",
+      "Aug",
+      "Sep",
+      "Oct",
+      "Nov",
+      "Dec",
+    ];
+    const monthIdx = parseInt(m, 10) - 1;
+    return `${parseInt(d, 10)} ${months[monthIdx] || m} ${y}`;
+  }
+  return value;
+}
+
+function resolveSyllabusTitle(
+  items: SyllabusItem[],
+  options?: SyllabusExportOptions,
+): string {
+  if (options?.title?.trim()) return options.title.trim();
+  if (options?.markdown) {
+    const firstHeading = options.markdown
+      .split(/\r?\n/)
+      .find((line) => /^#{1,3}\s+/.test(line));
+    if (firstHeading) {
+      const match = firstHeading
+        .replace(/^#{1,3}\s+/, "")
+        .replace(/\s+\[\d{1,2}\s+[A-Za-z]+\s+\d{4}\]\s*$/, "")
+        .trim();
+      if (match) return match;
+    }
+  }
+  const root = items.find((item) => !item.parentId);
+  if (root && root.title) return root.title;
+  return "UPSC CSE Syllabus Tracker";
+}
+
+/**
+ * Exports the user's custom syllabus as a beautifully designed vector PDF document.
+ * Includes executive study metrics, visual progress bar, and hierarchical checklist with due dates.
+ */
+export function exportSyllabusAsPDF(
+  items: SyllabusItem[],
+  options?: SyllabusExportOptions,
+): void {
+  if (!items || items.length === 0) {
+    if (typeof window !== "undefined") {
+      window.alert("There are no syllabus items available to export.");
+    }
+    return;
+  }
+
+  if (options?.action === "print") {
+    exportSyllabusAsPrintPDF(items, options);
+    return;
+  }
+
+  const displayTitle = resolveSyllabusTitle(items, options);
+  const progress = getSyllabusProgress(items);
+  const pace = getSyllabusPace(items);
+  const remainingTopics = Math.max(progress.total - progress.completed, 0);
+
+  const safeTitle = displayTitle
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "_")
+    .replace(/^_+|_+$/g, "");
+  const dateStr = new Date().toISOString().split("T")[0];
+  const filename =
+    options?.filename || `${safeTitle || "syllabus"}_tracker_${dateStr}.pdf`;
+
+  const doc = new jsPDF({ unit: "mm", format: "a4" });
+  const pageWidth = doc.internal.pageSize.getWidth();
+  const pageHeight = doc.internal.pageSize.getHeight();
+  const margin = 14;
+  const contentWidth = pageWidth - margin * 2;
+  const contentBottom = pageHeight - margin - 8;
+  let y = margin;
+
+  const COLORS = {
+    primary: [37, 99, 235] as [number, number, number],
+    primaryDark: [30, 58, 138] as [number, number, number],
+    primaryLight: [239, 246, 255] as [number, number, number],
+    slateDark: [15, 23, 42] as [number, number, number],
+    slateText: [30, 41, 59] as [number, number, number],
+    slateMuted: [100, 116, 139] as [number, number, number],
+    slateLight: [248, 250, 252] as [number, number, number],
+    border: [203, 213, 225] as [number, number, number],
+    borderLight: [226, 232, 240] as [number, number, number],
+    divider: [241, 245, 249] as [number, number, number],
+    emerald: [5, 150, 105] as [number, number, number],
+    emeraldDark: [4, 120, 87] as [number, number, number],
+    emeraldLight: [236, 253, 245] as [number, number, number],
+    amber: [217, 119, 6] as [number, number, number],
+    amberDark: [180, 83, 9] as [number, number, number],
+    amberLight: [254, 243, 199] as [number, number, number],
+  };
+
+  const paceLabels = {
+    leading: "Ahead of pace",
+    "on-track": "On track",
+    lagging: "Needs attention",
+    "no-date": "No dates set",
+  } as const;
+
+  const getLineHeight = (fontSize: number) =>
+    Math.max(3.8, fontSize * 0.3528 * 1.35);
+
+  const wrap = (value: string, width: number, fontSize: number) => {
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(fontSize);
+    return doc.splitTextToSize(normalizeSyllabusText(value), width) as string[];
+  };
+
+  const addPage = () => {
+    doc.addPage();
+    y = margin;
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(8);
+    doc.setTextColor(...COLORS.slateMuted);
+    doc.text(normalizeSyllabusText(displayTitle).toUpperCase(), margin, y + 3);
+
+    const subHeader = "SYLLABUS & STUDY TRACKER";
+    const subHeaderWidth = doc.getTextWidth(subHeader);
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(8);
+    doc.text(subHeader, pageWidth - margin - subHeaderWidth, y + 3);
+
+    doc.setDrawColor(...COLORS.borderLight);
+    doc.setLineWidth(0.3);
+    doc.line(margin, y + 5.5, pageWidth - margin, y + 5.5);
+    y += 10;
+  };
+
+  const ensureSpace = (height: number) => {
+    if (y + height > contentBottom) {
+      addPage();
+    }
+  };
+
+  // 1. Header Section
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(8);
+  doc.setTextColor(...COLORS.primary);
+  doc.text(
+    "CIVIL SERVICES EXAMINATION (CSE)  |  STUDY PLAN & SYLLABUS TRACKER",
+    margin,
+    y + 2.5,
+  );
+  y += 5;
+
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(16);
+  doc.setTextColor(...COLORS.slateDark);
+  const titleLines = wrap(displayTitle, contentWidth, 16);
+  titleLines.forEach((line) => {
+    doc.text(line, margin, y + 4.5);
+    y += getLineHeight(16);
+  });
+  y += 1;
+
+  doc.setFont("helvetica", "normal");
+  doc.setFontSize(8.5);
+  doc.setTextColor(...COLORS.slateMuted);
+  const formattedDate = new Intl.DateTimeFormat("en-GB", {
+    day: "2-digit",
+    month: "short",
+    year: "numeric",
+  }).format(new Date());
+  doc.text(
+    `Generated on ${formattedDate}  ·  ${progress.total} leaf topics  ·  ${progress.completed} completed  ·  ${remainingTopics} remaining`,
+    margin,
+    y + 2.5,
+  );
+  y += 6;
+
+  doc.setDrawColor(...COLORS.primary);
+  doc.setLineWidth(0.8);
+  doc.line(margin, y, pageWidth - margin, y);
+  doc.setLineWidth(0.2);
+  y += 5;
+
+  // 2. Executive Progress Dashboard Box
+  const cardHeight = 24;
+  ensureSpace(cardHeight + 6);
+
+  doc.setFillColor(...COLORS.slateLight);
+  doc.setDrawColor(...COLORS.border);
+  doc.setLineWidth(0.3);
+  doc.roundedRect(margin, y, contentWidth, cardHeight, 2, 2, "FD");
+
+  const colWidth = contentWidth / 4;
+
+  // Col 1: Progress %
+  let colX = margin;
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(7);
+  doc.setTextColor(...COLORS.slateMuted);
+  doc.text("COMPLETION", colX + 4, y + 5);
+  doc.setFontSize(13);
+  doc.setTextColor(...COLORS.primary);
+  doc.text(`${progress.percentage}%`, colX + 4, y + 10.5);
+  doc.setFont("helvetica", "normal");
+  doc.setFontSize(7.5);
+  doc.setTextColor(...COLORS.slateMuted);
+  doc.text(
+    `${progress.completed} / ${progress.total} topics`,
+    colX + 4,
+    y + 14.5,
+  );
+
+  // Col 2: Remaining Topics
+  colX += colWidth;
+  doc.setDrawColor(...COLORS.borderLight);
+  doc.line(colX, y + 3, colX, y + cardHeight - 6);
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(7);
+  doc.setTextColor(...COLORS.slateMuted);
+  doc.text("REMAINING", colX + 4, y + 5);
+  doc.setFontSize(13);
+  doc.setTextColor(...COLORS.slateDark);
+  doc.text(`${remainingTopics}`, colX + 4, y + 10.5);
+  doc.setFont("helvetica", "normal");
+  doc.setFontSize(7.5);
+  doc.setTextColor(...COLORS.slateMuted);
+  doc.text("topics to finish", colX + 4, y + 14.5);
+
+  // Col 3: Dated Targets
+  colX += colWidth;
+  doc.line(colX, y + 3, colX, y + cardHeight - 6);
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(7);
+  doc.setTextColor(...COLORS.slateMuted);
+  doc.text("DATED TARGETS", colX + 4, y + 5);
+  doc.setFontSize(13);
+  doc.setTextColor(...COLORS.slateDark);
+  doc.text(`${pace.datedTopics}`, colX + 4, y + 10.5);
+  doc.setFont("helvetica", "normal");
+  doc.setFontSize(7.5);
+  doc.setTextColor(...COLORS.slateMuted);
+  doc.text(`${pace.completedTopics} finished`, colX + 4, y + 14.5);
+
+  // Col 4: Study Pace
+  colX += colWidth;
+  doc.line(colX, y + 3, colX, y + cardHeight - 6);
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(7);
+  doc.setTextColor(...COLORS.slateMuted);
+  doc.text("STUDY PACE", colX + 4, y + 5);
+  doc.setFontSize(10.5);
+  const paceColor =
+    pace.status === "leading" || pace.status === "on-track"
+      ? COLORS.emeraldDark
+      : pace.status === "lagging"
+        ? COLORS.amberDark
+        : COLORS.slateMuted;
+  doc.setTextColor(...paceColor);
+  doc.text(paceLabels[pace.status] || "On track", colX + 4, y + 10.5);
+  doc.setFont("helvetica", "normal");
+  doc.setFontSize(7.5);
+  doc.setTextColor(...COLORS.slateMuted);
+  const paceSub = pace.overdueTopics
+    ? `${pace.overdueTopics} overdue`
+    : pace.datedTopics
+      ? "All on schedule"
+      : "No target dates";
+  doc.text(paceSub, colX + 4, y + 14.5);
+
+  // Progress Bar
+  const barX = margin + 4;
+  const barY = y + 17.5;
+  const barWidth = contentWidth - 8;
+  const barHeight = 2.8;
+
+  doc.setFillColor(...COLORS.borderLight);
+  doc.roundedRect(barX, barY, barWidth, barHeight, 1, 1, "F");
+
+  if (progress.percentage > 0) {
+    const fillWidth = Math.max(2, (barWidth * progress.percentage) / 100);
+    const fillColor =
+      progress.percentage === 100 ? COLORS.emerald : COLORS.primary;
+    doc.setFillColor(...fillColor);
+    doc.roundedRect(barX, barY, fillWidth, barHeight, 1, 1, "F");
+  }
+
+  y += cardHeight + 6;
+
+  // 3. Section Divider & Legend
+  ensureSpace(10);
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(9);
+  doc.setTextColor(...COLORS.slateDark);
+  doc.text("SYLLABUS OUTLINE & COMPLETION RECORD", margin, y + 3);
+
+  const legend = "[v] Done   [ ] Incomplete   ! Overdue";
+  doc.setFont("helvetica", "normal");
+  doc.setFontSize(7.5);
+  doc.setTextColor(...COLORS.slateMuted);
+  const legendWidth = doc.getTextWidth(legend);
+  doc.text(legend, pageWidth - margin - legendWidth, y + 3);
+
+  y += 5.5;
+  doc.setDrawColor(...COLORS.borderLight);
+  doc.setLineWidth(0.4);
+  doc.line(margin, y, pageWidth - margin, y);
+  y += 3.5;
+
+  // 4. Build Tree
+  const childrenByParent = new Map<string | null, SyllabusItem[]>();
+  items.forEach((item) => {
+    const pId = item.parentId || null;
+    const list = childrenByParent.get(pId) || [];
+    list.push(item);
+    childrenByParent.set(pId, list);
+  });
+  childrenByParent.forEach((list) => list.sort((a, b) => a.order - b.order));
+
+  const itemsById = new Map<string, SyllabusItem>(
+    items.map((it) => [it.id, it]),
+  );
+  const rootItems = items
+    .filter((it) => !it.parentId || !itemsById.has(it.parentId))
+    .sort((a, b) => a.order - b.order);
+
+  const getDescendantLeaves = (item: SyllabusItem): SyllabusItem[] => {
+    const children = childrenByParent.get(item.id) || [];
+    if (!children.length) return [item];
+    return children.flatMap(getDescendantLeaves);
+  };
+
+  const renderItem = (item: SyllabusItem, depth = 0) => {
+    const children = childrenByParent.get(item.id) || [];
+    const isParent = children.length > 0;
+    const isCompleted = getSyllabusCompletion(item, items);
+    const effectiveDueDate = getEffectiveSyllabusDueDate(item, items);
+    const dateStatus = getSyllabusItemDateStatus(item, items);
+
+    if (depth === 0 && isParent) {
+      // Major Section Banner
+      const leaves = getDescendantLeaves(item);
+      const uniqueLeaves = Array.from(
+        new Map(leaves.map((l) => [getSyllabusTopicKey(l), l])).values(),
+      );
+      const completedLeaves = uniqueLeaves.filter((l) =>
+        getSyllabusCompletion(l, items),
+      ).length;
+      const sectionPct = uniqueLeaves.length
+        ? Math.round((completedLeaves / uniqueLeaves.length) * 100)
+        : 0;
+
+      const bannerHeight = 8;
+      ensureSpace(bannerHeight + 4);
+
+      doc.setFillColor(...COLORS.primaryLight);
+      doc.setDrawColor(...COLORS.borderLight);
+      doc.setLineWidth(0.3);
+      doc.roundedRect(margin, y, contentWidth, bannerHeight, 1.5, 1.5, "FD");
+
+      // Blue accent on left
+      doc.setFillColor(...COLORS.primary);
+      doc.roundedRect(margin, y, 2.5, bannerHeight, 1, 1, "F");
+
+      // Title
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(9.5);
+      doc.setTextColor(...COLORS.primaryDark);
+      doc.text(normalizeSyllabusText(item.title), margin + 5, y + 5.2);
+
+      // Status on right
+      const statText = `${completedLeaves}/${uniqueLeaves.length} topics (${sectionPct}%)`;
+      doc.setFont("helvetica", "normal");
+      doc.setFontSize(8);
+      doc.setTextColor(...COLORS.slateMuted);
+      const statWidth = doc.getTextWidth(statText);
+      doc.text(statText, pageWidth - margin - 4 - statWidth, y + 5.2);
+
+      y += bannerHeight + 2.5;
+    } else {
+      // Topic row
+      const indent = Math.min(depth * 4.5, 20);
+      const itemX = margin + indent;
+
+      // Badges width
+      const hasDateOrStatus = Boolean(effectiveDueDate || isCompleted);
+      const rightReserved = hasDateOrStatus ? 44 : 0;
+      const titleMaxWidth = contentWidth - indent - 6 - rightReserved;
+
+      const titleLines = wrap(item.title, titleMaxWidth, 8.5);
+      const titleHeight = titleLines.length * getLineHeight(8.5);
+      const notesLines = item.notes ? wrap(item.notes, titleMaxWidth, 7.5) : [];
+      const notesHeight = notesLines.length * getLineHeight(7.5);
+
+      const rowHeight = Math.max(
+        5.5,
+        titleHeight + (notesLines.length ? notesHeight + 1 : 0),
+      );
+      ensureSpace(rowHeight + 2);
+
+      // Checkbox
+      const boxSize = 3;
+      const boxY = y + 0.6;
+      if (isCompleted) {
+        doc.setFillColor(...COLORS.emerald);
+        doc.setDrawColor(...COLORS.emeraldDark);
+        doc.setLineWidth(0.2);
+        doc.roundedRect(itemX, boxY, boxSize, boxSize, 0.5, 0.5, "FD");
+
+        // White checkmark
+        doc.setDrawColor(255, 255, 255);
+        doc.setLineWidth(0.4);
+        doc.line(itemX + 0.7, boxY + 1.5, itemX + 1.3, boxY + 2.3);
+        doc.line(itemX + 1.3, boxY + 2.3, itemX + 2.4, boxY + 0.8);
+      } else {
+        doc.setFillColor(255, 255, 255);
+        doc.setDrawColor(...COLORS.border);
+        doc.setLineWidth(0.3);
+        doc.roundedRect(itemX, boxY, boxSize, boxSize, 0.5, 0.5, "FD");
+      }
+
+      // Title
+      const textX = itemX + 4.5;
+      doc.setFont("helvetica", isParent ? "bold" : "normal");
+      doc.setFontSize(8.5);
+      doc.setTextColor(
+        ...(isCompleted
+          ? COLORS.slateMuted
+          : isParent
+            ? COLORS.slateDark
+            : COLORS.slateText),
+      );
+
+      titleLines.forEach((line, idx) => {
+        doc.text(line, textX, y + 3 + idx * getLineHeight(8.5));
+      });
+
+      // Notes
+      if (notesLines.length > 0) {
+        doc.setFont("helvetica", "italic");
+        doc.setFontSize(7.5);
+        doc.setTextColor(...COLORS.slateMuted);
+        const notesStartY = y + 3 + titleHeight + 0.5;
+        notesLines.forEach((line, idx) => {
+          doc.text(line, textX, notesStartY + idx * getLineHeight(7.5));
+        });
+      }
+
+      // Right-side Badges
+      if (hasDateOrStatus) {
+        let badgeLabel = "";
+        let badgeBg = COLORS.slateLight;
+        let badgeText = COLORS.slateMuted;
+        let badgeBorder = COLORS.borderLight;
+
+        if (isCompleted) {
+          badgeLabel = "Done";
+          badgeBg = COLORS.emeraldLight;
+          badgeText = COLORS.emeraldDark;
+          badgeBorder = COLORS.emerald;
+        } else if (dateStatus === "lagging") {
+          badgeLabel = "Overdue";
+          badgeBg = COLORS.amberLight;
+          badgeText = COLORS.amberDark;
+          badgeBorder = COLORS.amber;
+        } else if (dateStatus === "leading") {
+          badgeLabel = "Ahead";
+          badgeBg = COLORS.emeraldLight;
+          badgeText = COLORS.emeraldDark;
+          badgeBorder = COLORS.emerald;
+        } else if (dateStatus === "on-track") {
+          badgeLabel = "On pace";
+          badgeBg = COLORS.primaryLight;
+          badgeText = COLORS.primary;
+          badgeBorder = COLORS.primary;
+        }
+
+        // Render due date
+        const badgeX = pageWidth - margin - 18;
+        if (effectiveDueDate) {
+          doc.setFont("helvetica", "normal");
+          doc.setFontSize(7.5);
+          doc.setTextColor(...COLORS.slateMuted);
+          const dateStr = formatSyllabusDate(effectiveDueDate);
+          const dateWidth = doc.getTextWidth(dateStr);
+          doc.text(dateStr, badgeX - dateWidth - 3, y + 3);
+        }
+
+        // Render badge pill
+        if (badgeLabel) {
+          doc.setFillColor(...badgeBg);
+          doc.setDrawColor(...badgeBorder);
+          doc.setLineWidth(0.2);
+          doc.roundedRect(badgeX, y + 0.5, 18, 3.8, 1, 1, "FD");
+
+          doc.setFont("helvetica", "bold");
+          doc.setFontSize(6.5);
+          doc.setTextColor(...badgeText);
+          const bw = doc.getTextWidth(badgeLabel);
+          doc.text(badgeLabel, badgeX + (18 - bw) / 2, y + 3.1);
+        }
+      }
+
+      // Hairline row divider
+      doc.setDrawColor(...COLORS.divider);
+      doc.setLineWidth(0.2);
+      doc.line(itemX, y + rowHeight + 1, pageWidth - margin, y + rowHeight + 1);
+
+      y += rowHeight + 2;
+    }
+
+    // Children
+    children.forEach((child) => renderItem(child, depth + 1));
+  };
+
+  rootItems.forEach((root) => renderItem(root, 0));
+
+  // Footers on all pages
+  const totalPages = doc.getNumberOfPages();
+  for (let pageNum = 1; pageNum <= totalPages; pageNum++) {
+    doc.setPage(pageNum);
+    const footerY = 289;
+    doc.setDrawColor(...COLORS.borderLight);
+    doc.setLineWidth(0.3);
+    doc.line(margin, footerY - 2.5, pageWidth - margin, footerY - 2.5);
+
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(7.5);
+    doc.setTextColor(...COLORS.slateMuted);
+    doc.text(
+      "UPSC CSE Practice System · Syllabus Tracker",
+      margin,
+      footerY + 1,
+    );
+
+    const pageStr = `Page ${pageNum} of ${totalPages}`;
+    const pageStrWidth = doc.getTextWidth(pageStr);
+    doc.text(pageStr, pageWidth - margin - pageStrWidth, footerY + 1);
+  }
+
+  if (options?.action === "open") {
+    const blob = doc.output("blob");
+    const blobUrl = URL.createObjectURL(blob);
+    const pdfWindow = window.open(blobUrl, "_blank");
+    if (!pdfWindow) {
+      doc.save(filename);
+    } else {
+      window.setTimeout(() => URL.revokeObjectURL(blobUrl), 60_000);
+    }
+  } else {
+    doc.save(filename);
+  }
+}
+
+/**
+ * Generates a clean standalone HTML print view for the syllabus and triggers the browser print dialog.
+ */
+export function exportSyllabusAsPrintPDF(
+  items: SyllabusItem[],
+  options?: SyllabusExportOptions,
+): void {
+  if (!items || items.length === 0) {
+    if (typeof window !== "undefined") {
+      window.alert("There are no syllabus items available to export.");
+    }
+    return;
+  }
+
+  const displayTitle = resolveSyllabusTitle(items, options);
+  const progress = getSyllabusProgress(items);
+  const pace = getSyllabusPace(items);
+  const remainingTopics = Math.max(progress.total - progress.completed, 0);
+
+  const paceLabels = {
+    leading: "Ahead of pace",
+    "on-track": "On track",
+    lagging: "Needs attention",
+    "no-date": "No dates set",
+  } as const;
+
+  const paceClass = {
+    leading: "badge-leading",
+    "on-track": "badge-ontrack",
+    lagging: "badge-lagging",
+    "no-date": "badge-nodate",
+  }[pace.status];
+
+  // Organize hierarchy
+  const childrenByParent = new Map<string | null, SyllabusItem[]>();
+  items.forEach((item) => {
+    const pId = item.parentId || null;
+    const list = childrenByParent.get(pId) || [];
+    list.push(item);
+    childrenByParent.set(pId, list);
+  });
+  childrenByParent.forEach((list) => list.sort((a, b) => a.order - b.order));
+
+  const itemsById = new Map<string, SyllabusItem>(
+    items.map((it) => [it.id, it]),
+  );
+  const rootItems = items
+    .filter((it) => !it.parentId || !itemsById.has(it.parentId))
+    .sort((a, b) => a.order - b.order);
+
+  const getDescendantLeaves = (item: SyllabusItem): SyllabusItem[] => {
+    const children = childrenByParent.get(item.id) || [];
+    if (!children.length) return [item];
+    return children.flatMap(getDescendantLeaves);
+  };
+
+  const renderTreeHtml = (node: SyllabusItem, depth = 0): string => {
+    const children = childrenByParent.get(node.id) || [];
+    const isParent = children.length > 0;
+    const isCompleted = getSyllabusCompletion(node, items);
+    const effectiveDueDate = getEffectiveSyllabusDueDate(node, items);
+    const dateStatus = getSyllabusItemDateStatus(node, items);
+
+    let rowHtml = "";
+
+    if (depth === 0 && isParent) {
+      const leaves = getDescendantLeaves(node);
+      const uniqueLeaves = Array.from(
+        new Map(leaves.map((l) => [getSyllabusTopicKey(l), l])).values(),
+      );
+      const completedLeaves = uniqueLeaves.filter((l) =>
+        getSyllabusCompletion(l, items),
+      ).length;
+      const sectionPct = uniqueLeaves.length
+        ? Math.round((completedLeaves / uniqueLeaves.length) * 100)
+        : 0;
+
+      rowHtml = `<div class="section-banner">
+        <span class="section-banner-title">${escapeHtml(node.title)}</span>
+        <span class="section-banner-stats">${completedLeaves}/${uniqueLeaves.length} topics (${sectionPct}%)</span>
+      </div>`;
+    } else {
+      const indentPx = Math.min(depth * 16, 64);
+      let badgeLabel = "";
+      let badgeClass = "";
+
+      if (isCompleted) {
+        badgeLabel = "Done";
+        badgeClass = "badge-leading";
+      } else if (dateStatus === "lagging") {
+        badgeLabel = "Overdue";
+        badgeClass = "badge-lagging";
+      } else if (dateStatus === "leading") {
+        badgeLabel = "Ahead";
+        badgeClass = "badge-leading";
+      } else if (dateStatus === "on-track") {
+        badgeLabel = "On pace";
+        badgeClass = "badge-ontrack";
+      }
+
+      const dueDateHtml = effectiveDueDate
+        ? `<span class="topic-duedate">Due ${formatSyllabusDate(effectiveDueDate)}</span>`
+        : "";
+      const badgeHtml = badgeLabel
+        ? `<span class="topic-badge ${badgeClass}">${badgeLabel}</span>`
+        : "";
+      const notesHtml = node.notes
+        ? `<div class="topic-notes">${escapeHtml(node.notes)}</div>`
+        : "";
+
+      rowHtml = `<div class="topic-row ${isCompleted ? "topic-completed" : ""}" style="padding-left: ${indentPx}px;">
+        <div class="topic-check ${isCompleted ? "checked" : ""}">
+          ${isCompleted ? "✓" : ""}
+        </div>
+        <div class="topic-content">
+          <div class="topic-title ${isParent ? "topic-parent-title" : ""}">${escapeHtml(node.title)}</div>
+          ${notesHtml}
+        </div>
+        <div class="topic-meta">
+          ${dueDateHtml}
+          ${badgeHtml}
+        </div>
+      </div>`;
+    }
+
+    const childrenHtml = children
+      .map((child) => renderTreeHtml(child, depth + 1))
+      .join("");
+    return rowHtml + childrenHtml;
+  };
+
+  const treeRows = rootItems.map((root) => renderTreeHtml(root, 0)).join("");
+
+  const formattedDate = new Intl.DateTimeFormat("en-GB", {
+    day: "2-digit",
+    month: "short",
+    year: "numeric",
+  }).format(new Date());
+
+  const html = `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>${escapeHtml(displayTitle)} — Syllabus Tracker</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif;
+      font-size: 11px;
+      color: #0f172a;
+      background: #fff;
+      padding: 10mm;
+    }
+    .header {
+      border-bottom: 2px solid #2563eb;
+      padding-bottom: 8px;
+      margin-bottom: 12px;
+    }
+    .header-sub {
+      font-size: 9px;
+      font-weight: 800;
+      text-transform: uppercase;
+      letter-spacing: 0.12em;
+      color: #2563eb;
+      margin-bottom: 3px;
+    }
+    .header-title {
+      font-size: 18px;
+      font-weight: 900;
+      color: #0f172a;
+      margin-bottom: 4px;
+    }
+    .header-meta {
+      font-size: 9.5px;
+      color: #64748b;
+      font-weight: 500;
+    }
+    .dashboard {
+      border: 1px solid #cbd5e1;
+      border-radius: 8px;
+      background: #f8fafc;
+      padding: 10px 12px;
+      margin-bottom: 14px;
+    }
+    .widgets {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 8px;
+      margin-bottom: 8px;
+    }
+    .widget {
+      text-align: left;
+    }
+    .widget-label {
+      font-size: 8px;
+      font-weight: 800;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: #64748b;
+      margin-bottom: 2px;
+    }
+    .widget-value {
+      font-size: 16px;
+      font-weight: 900;
+      font-family: monospace;
+      color: #0f172a;
+    }
+    .widget-sub {
+      font-size: 8.5px;
+      color: #64748b;
+    }
+    .progress-bar-track {
+      width: 100%;
+      height: 7px;
+      background: #e2e8f0;
+      border-radius: 4px;
+      overflow: hidden;
+    }
+    .progress-bar-fill {
+      height: 100%;
+      background: #2563eb;
+      border-radius: 4px;
+    }
+    .section-divider {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      border-bottom: 1px solid #cbd5e1;
+      padding-bottom: 4px;
+      margin-bottom: 8px;
+    }
+    .section-title {
+      font-size: 10px;
+      font-weight: 800;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: #334155;
+    }
+    .section-legend {
+      font-size: 8.5px;
+      color: #64748b;
+    }
+    .section-banner {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      background: #eff6ff;
+      border: 1px solid #bfdbfe;
+      border-left: 4px solid #2563eb;
+      border-radius: 6px;
+      padding: 6px 10px;
+      margin-top: 10px;
+      margin-bottom: 4px;
+      break-inside: avoid;
+      page-break-inside: avoid;
+    }
+    .section-banner-title {
+      font-size: 11px;
+      font-weight: 800;
+      color: #1e3a8a;
+    }
+    .section-banner-stats {
+      font-size: 9.5px;
+      font-weight: 600;
+      color: #64748b;
+    }
+    .topic-row {
+      display: flex;
+      align-items: flex-start;
+      gap: 8px;
+      padding: 4px 6px;
+      border-bottom: 1px solid #f1f5f9;
+      break-inside: avoid;
+      page-break-inside: avoid;
+    }
+    .topic-completed .topic-title {
+      color: #94a3b8;
+      text-decoration: line-through;
+    }
+    .topic-check {
+      width: 12px;
+      height: 12px;
+      border: 1.5px solid #cbd5e1;
+      border-radius: 3px;
+      display: grid;
+      place-items: center;
+      font-size: 9px;
+      font-weight: 900;
+      line-height: 1;
+      margin-top: 1px;
+      color: #fff;
+      shrink: 0;
+    }
+    .topic-check.checked {
+      background: #059669;
+      border-color: #047857;
+    }
+    .topic-content {
+      flex: 1;
+      min-width: 0;
+    }
+    .topic-title {
+      font-size: 10.5px;
+      line-height: 1.35;
+      color: #0f172a;
+    }
+    .topic-parent-title {
+      font-weight: 700;
+      color: #1e293b;
+    }
+    .topic-notes {
+      font-size: 9px;
+      font-style: italic;
+      color: #64748b;
+      margin-top: 1px;
+    }
+    .topic-meta {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      shrink: 0;
+    }
+    .topic-duedate {
+      font-size: 9px;
+      color: #64748b;
+    }
+    .topic-badge {
+      font-size: 8px;
+      font-weight: 700;
+      text-transform: uppercase;
+      padding: 1.5px 5px;
+      border-radius: 4px;
+      border: 1px solid transparent;
+    }
+    .badge-leading {
+      background: #ecfdf5;
+      color: #047857;
+      border-color: #a7f3d0;
+    }
+    .badge-ontrack {
+      background: #eff6ff;
+      color: #1d4ed8;
+      border-color: #bfdbfe;
+    }
+    .badge-lagging {
+      background: #fef2f2;
+      color: #b91c1c;
+      border-color: #fecaca;
+    }
+    .badge-nodate {
+      background: #f8fafc;
+      color: #64748b;
+      border-color: #e2e8f0;
+    }
+    .footer {
+      font-size: 8.5px;
+      color: #94a3b8;
+      display: flex;
+      justify-content: space-between;
+      border-top: 1px solid #e2e8f0;
+      padding-top: 6px;
+      margin-top: 16px;
+    }
+    @media print {
+      body { padding: 0; }
+      @page { margin: 8mm 10mm; size: auto; }
+      .section-banner, .topic-row { break-inside: avoid; page-break-inside: avoid; }
+    }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <div class="header-sub">Civil Services Examination (CSE) · Study Plan</div>
+    <div class="header-title">${escapeHtml(displayTitle)}</div>
+    <div class="header-meta">Generated on ${formattedDate} · ${progress.total} leaf topics · ${progress.completed} completed · ${remainingTopics} remaining</div>
+  </div>
+
+  <div class="dashboard">
+    <div class="widgets">
+      <div class="widget">
+        <div class="widget-label">Completion</div>
+        <div class="widget-value" style="color:#2563eb;">${progress.percentage}%</div>
+        <div class="widget-sub">${progress.completed} of ${progress.total} topics</div>
+      </div>
+      <div class="widget">
+        <div class="widget-label">Remaining</div>
+        <div class="widget-value">${remainingTopics}</div>
+        <div class="widget-sub">topics to finish</div>
+      </div>
+      <div class="widget">
+        <div class="widget-label">Dated Targets</div>
+        <div class="widget-value">${pace.datedTopics}</div>
+        <div class="widget-sub">${pace.completedTopics} finished</div>
+      </div>
+      <div class="widget">
+        <div class="widget-label">Study Pace</div>
+        <div class="widget-value">
+          <span class="topic-badge ${paceClass}" style="font-size:10px;">${paceLabels[pace.status]}</span>
+        </div>
+        <div class="widget-sub">${pace.overdueTopics ? `${pace.overdueTopics} overdue topics` : "All on schedule"}</div>
+      </div>
+    </div>
+    <div class="progress-bar-track">
+      <div class="progress-bar-fill" style="width: ${progress.percentage}%;"></div>
+    </div>
+  </div>
+
+  <div class="section-divider">
+    <div class="section-title">Syllabus Outline &amp; Completion Record</div>
+    <div class="section-legend">☑ Done &nbsp;|&nbsp; ☐ Incomplete &nbsp;|&nbsp; Overdue</div>
+  </div>
+
+  <div class="tree-list">
+    ${treeRows}
+  </div>
+
+  <div class="footer">
+    <span>UPSC CSE Practice System · Syllabus Tracker</span>
+    <span>Candidate Study Record</span>
+  </div>
+
+  <script>
+    (function() {
+      var triggered = false;
+      function doPrint() {
+        if (triggered) return;
+        triggered = true;
+        try {
+          window.focus();
+          window.print();
+        } catch(e) {}
+      }
+
+      if (document.readyState === 'complete') {
+        setTimeout(doPrint, 250);
+      } else {
+        window.addEventListener('load', function() {
+          setTimeout(doPrint, 250);
+        });
+        setTimeout(doPrint, 1000);
+      }
+    })();
+  </script>
+</body>
+</html>`;
+
+  try {
+    const printWindow = window.open("", "_blank");
+    if (printWindow) {
+      printWindow.document.open();
+      printWindow.document.write(html);
+      printWindow.document.close();
+      printWindow.focus();
+    } else {
+      window.print();
+    }
+  } catch (err) {
+    console.error(
+      "exportSyllabusAsPrintPDF error, falling back to window.print():",
+      err,
+    );
+    window.print();
   }
 }
