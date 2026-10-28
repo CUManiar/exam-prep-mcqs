@@ -310,6 +310,10 @@ export function AttemptDetailView({
     }
   }, []);
 
+  useEffect(() => {
+    window.scrollTo({ top: 0, left: 0, behavior: "auto" });
+  }, [attempt.id]);
+
   const paperDeleted = !matchedPaper;
   const canPreviewPaper = Boolean(
     matchedPaper && (matchedPaper.qpUrl || isMarkdownPaper),
