@@ -66,6 +66,7 @@ import {
 
 export type FilterTabType =
   | "all"
+  | "non-mcq"
   | "sure"
   | "50-50"
   | "elimination"
@@ -302,16 +303,12 @@ export function AttemptDetailView({
     );
   }, [matchedPaper, attempt.paperId]);
 
-  // Automatically enable desktop side-by-side view for PDF reports only.
+  // Automatically enable the side-by-side review on large screens.
   useEffect(() => {
-    if (
-      !isMarkdownPaper &&
-      typeof window !== "undefined" &&
-      window.innerWidth >= 1280
-    ) {
+    if (typeof window !== "undefined" && window.innerWidth >= 1280) {
       setShowPaperSplit(true);
     }
-  }, [isMarkdownPaper]);
+  }, []);
 
   const paperDeleted = !matchedPaper;
   const canPreviewPaper = Boolean(
@@ -425,9 +422,13 @@ export function AttemptDetailView({
     attempt.maxScore,
   ]);
 
+  const formatReviewNumber = (value: number) => {
+    if (!Number.isFinite(value)) return "0";
+    return Number(value.toFixed(4)).toString();
+  };
   const scorePct = useMemo(() => {
     if (!effectiveMaxScore || effectiveMaxScore <= 0) return "0.0";
-    return ((attempt.score / effectiveMaxScore) * 100).toFixed(1);
+    return formatReviewNumber((attempt.score / effectiveMaxScore) * 100);
   }, [attempt.score, effectiveMaxScore]);
 
   const handleCopySummary = async () => {
@@ -798,6 +799,7 @@ export function AttemptDetailView({
       if (filterTab === "50-50") return q.confidence === "50-50";
       if (filterTab === "elimination") return q.confidence === "elimination";
       if (filterTab === "guess") return q.confidence === "guess";
+      if (filterTab === "non-mcq") return isAssessmentQuestion(q.questionNo);
       if (filterTab === "correct") {
         return isAssessmentQuestion(q.questionNo)
           ? q.subjectiveAssessment === "strong"
@@ -967,7 +969,7 @@ export function AttemptDetailView({
                 Accuracy
               </span>
               <div className="text-xl font-bold text-emerald-700 font-mono mt-0.5">
-                {attempt.accuracyPct}%
+                {formatReviewNumber(attempt.accuracyPct)}%
               </div>
               <span className="text-[10px] text-slate-500 mt-0.5 block">
                 {attempt.correct} / {attempt.answered} answered
@@ -1289,7 +1291,7 @@ export function AttemptDetailView({
 
         <div className="flex shrink-0 items-center justify-end gap-2 flex-wrap">
           {/* Question Paper Preview Toggle (Desktop Side-by-Side & Tablet/Mobile Vertical) */}
-          {canPreviewPaper && !isMarkdownPaper && (
+          {canPreviewPaper && (
             <button
               onClick={() => setShowPaperSplit(!showPaperSplit)}
               className={`flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-xs font-medium transition-colors cursor-pointer ${
@@ -1505,7 +1507,7 @@ export function AttemptDetailView({
       >
         {/* Question Paper Viewer (Markdown Interactive Reader OR PDF Viewer) */}
         {showPaperSplit && canPreviewPaper && (
-          <div className="flex flex-col w-full xl:w-1/2 xl:sticky xl:top-20 h-[55vh] sm:h-[65vh] xl:h-[calc(100vh-6.5rem)] rounded-2xl overflow-hidden border border-slate-200 bg-white shadow-md shrink-0 z-10">
+          <div className="order-2 flex flex-col w-full xl:w-1/2 xl:sticky xl:top-20 h-[55vh] sm:h-[65vh] xl:h-[calc(100vh-6.5rem)] rounded-2xl overflow-hidden border border-slate-200 bg-white shadow-md shrink-0 z-10">
             {isMarkdownPaper ? (
               <MarkdownPaperReviewViewer
                 paper={
@@ -1607,7 +1609,7 @@ export function AttemptDetailView({
 
         {/* Right Side / Bottom: Assessment Report & Responses */}
         <div
-          className={`w-full ${showPaperSplit && canPreviewPaper ? "xl:w-1/2" : "max-w-5xl mx-auto"} space-y-6 min-w-0`}
+          className={`order-1 w-full ${showPaperSplit && canPreviewPaper ? "xl:w-1/2" : "max-w-5xl mx-auto"} space-y-6 min-w-0`}
         >
           {/* PART 1: ASSESSMENT SUMMARY (COLLAPSIBLE, COLLAPSED BY DEFAULT) */}
           <div className="bi-card overflow-hidden">
@@ -1641,7 +1643,7 @@ export function AttemptDetailView({
                       Accuracy
                     </span>
                     <span className="text-sm font-semibold text-slate-900 font-mono">
-                      {attempt.accuracyPct}%
+                      {formatReviewNumber(attempt.accuracyPct)}%
                     </span>
                   </div>
                   <div className="px-3 text-center sm:text-left">
@@ -2273,6 +2275,12 @@ export function AttemptDetailView({
                     label: `All (${totalQ})`,
                     color: "",
                     active: "bg-slate-900",
+                  },
+                  {
+                    id: "non-mcq" as const,
+                    label: `Non-MCQ (${questionList.filter((q) => isAssessmentQuestion(q.questionNo)).length})`,
+                    color: "text-indigo-700 font-semibold",
+                    active: "bg-indigo-600",
                   },
                   {
                     id: "incorrect" as const,

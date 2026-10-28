@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useRef, useEffect } from "react";
+import React, { useRef, useEffect, useState } from "react";
 import { QuestionPaper, ParsedQuestion, QuestionAnswer } from "../lib/types";
 import { ParsedMarkdownHeader } from "../lib/markdownPaperParser";
 import { MatchingItemsTable } from "./MatchingItemsTable";
@@ -41,6 +41,7 @@ export function MarkdownPaperReviewViewer({
   onClose,
 }: MarkdownPaperReviewViewerProps) {
   const scrollContainerRef = useRef<HTMLDivElement>(null);
+  const [viewMode, setViewMode] = useState<"all" | "single">("all");
 
   // Auto-scroll to selected question when activeQuestionNo changes
   useEffect(() => {
@@ -52,6 +53,10 @@ export function MarkdownPaperReviewViewer({
   }, [activeQuestionNo]);
 
   const displayTitle = getPaperDisplayTitle(paper);
+  const visibleQuestions =
+    viewMode === "single" && activeQuestionNo
+      ? questions.filter((q) => q.questionNo === activeQuestionNo)
+      : questions;
 
   return (
     <div className="flex flex-col h-full bg-slate-50 overflow-hidden">
@@ -70,6 +75,24 @@ export function MarkdownPaperReviewViewer({
         </div>
 
         <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
+          <div className="flex items-center rounded-lg border border-slate-200 bg-slate-50 p-0.5">
+            {(
+              [
+                ["all", "All questions"],
+                ["single", "One question"],
+              ] as const
+            ).map(([mode, label]) => (
+              <button
+                key={mode}
+                type="button"
+                onClick={() => setViewMode(mode)}
+                className={`rounded-md px-2 py-1 text-[10px] font-semibold transition-colors ${viewMode === mode ? "bg-white text-slate-900 shadow-2xs" : "text-slate-500 hover:text-slate-800"}`}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+
           {/* Quick Question Jump Dropdown */}
           {questions.length > 0 && (
             <select
@@ -237,7 +260,7 @@ export function MarkdownPaperReviewViewer({
             </p>
           </div>
         ) : (
-          questions.map((q) => {
+          visibleQuestions.map((q) => {
             const ans = answers[q.questionNo];
             const userSelected = ans?.selected?.toUpperCase() || null;
             const isCloze = Object.keys(q.options || {}).length === 0;
