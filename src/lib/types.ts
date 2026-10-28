@@ -53,6 +53,8 @@ export interface QuestionPaper {
 }
 
 export type ConfidenceLevel = "sure" | "50-50" | "guess" | "elimination";
+export type SubjectiveAssessment =
+  "strong" | "partial" | "needs-work" | "no-attempt";
 
 export interface QuestionAnswer {
   questionNo: number;
@@ -61,6 +63,8 @@ export interface QuestionAnswer {
   isCorrect?: boolean | null;
   confidence?: ConfidenceLevel;
   flagged?: boolean;
+  subjectiveAssessment?: SubjectiveAssessment;
+  subjectiveMarks?: number;
   note?: string;
   explanation?: string;
   timeSpentSeconds?: number;
@@ -89,6 +93,7 @@ export interface Attempt {
   overtimeSeconds?: number;
   answered: number;
   correct: number;
+  partial?: number;
   incorrect: number;
   unattempted: number;
   score: number;

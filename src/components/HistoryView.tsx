@@ -414,13 +414,13 @@ export function HistoryView({
                         Initial Attempt
                       </span>
                       <div className="text-base font-bold text-slate-700 font-mono mt-0.5">
-                        {group.initialAttempt.score}{" "}
+                        {Number(group.initialAttempt.score).toFixed(group.initialAttempt.score % 1 !== 0 ? 2 : 0)}{" "}
                         <span className="text-xs font-normal text-slate-400">
                           / {group.initialAttempt.maxScore}
                         </span>
                       </div>
                       <span className="text-[10px] text-slate-500 font-medium">
-                        {group.initialAttempt.accuracyPct}% accuracy
+                        {Math.round(group.initialAttempt.accuracyPct || 0)}% accuracy
                       </span>
                     </div>
 
@@ -429,13 +429,13 @@ export function HistoryView({
                         Latest Attempt
                       </span>
                       <div className="text-base font-bold text-slate-900 font-mono mt-0.5">
-                        {group.latestAttempt.score}{" "}
+                        {Number(group.latestAttempt.score).toFixed(group.latestAttempt.score % 1 !== 0 ? 2 : 0)}{" "}
                         <span className="text-xs font-normal text-slate-400">
                           / {group.latestAttempt.maxScore}
                         </span>
                       </div>
                       <span className="text-[10px] text-slate-500 font-medium">
-                        {group.latestAttempt.accuracyPct}% accuracy
+                        {Math.round(group.latestAttempt.accuracyPct || 0)}% accuracy
                       </span>
                     </div>
 
@@ -447,15 +447,15 @@ export function HistoryView({
                         <TrendingUp className="h-4 w-4 text-emerald-600" />
                         <span>
                           {group.scoreDelta >= 0
-                            ? `+${group.scoreDelta}`
-                            : group.scoreDelta}{" "}
+                            ? `+${Number(group.scoreDelta.toFixed(2))}`
+                            : Number(group.scoreDelta.toFixed(2))}{" "}
                           pts
                         </span>
                       </div>
                       <span className="text-[10px] text-emerald-700 font-medium">
                         {group.accuracyDelta >= 0
-                          ? `+${group.accuracyDelta}%`
-                          : `${group.accuracyDelta}%`}{" "}
+                          ? `+${Math.round(group.accuracyDelta)}%`
+                          : `${Math.round(group.accuracyDelta)}%`}{" "}
                         accuracy
                       </span>
                     </div>
@@ -465,13 +465,13 @@ export function HistoryView({
                         Personal Best
                       </span>
                       <div className="text-base font-bold text-indigo-900 font-mono mt-0.5">
-                        {group.bestAttempt.score}{" "}
+                        {Number(group.bestAttempt.score).toFixed(group.bestAttempt.score % 1 !== 0 ? 2 : 0)}{" "}
                         <span className="text-xs font-normal text-indigo-400">
                           / {group.bestAttempt.maxScore}
                         </span>
                       </div>
                       <span className="text-[10px] text-indigo-600 font-medium">
-                        {group.bestAttempt.accuracyPct}% accuracy
+                        {Math.round(group.bestAttempt.accuracyPct || 0)}% accuracy
                       </span>
                     </div>
                   </div>
@@ -542,7 +542,7 @@ export function HistoryView({
                               {getAttemptPercentage(att)}%
                             </td>
                             <td className="py-2 px-3 font-mono font-bold text-teal-700">
-                              {att.accuracyPct}%
+                              {Math.round(att.accuracyPct || 0)}%
                             </td>
                             <td className="py-2 px-3 text-[11px] font-mono text-slate-500">
                               <span className="text-emerald-600">
@@ -754,8 +754,8 @@ export function HistoryView({
                             }`}
                           >
                             {group.scoreDelta > 0
-                              ? `+${group.scoreDelta}`
-                              : group.scoreDelta}{" "}
+                              ? `+${Number(group.scoreDelta.toFixed(2))}`
+                              : Number(group.scoreDelta.toFixed(2))}{" "}
                             pts
                           </span>
                         )}
@@ -763,34 +763,29 @@ export function HistoryView({
                     </div>
 
                     {/* Score & Accuracy Box - Clean card style */}
-                    <div className="grid grid-cols-3 gap-3 rounded-xl bg-slate-50/80 px-4 py-3 border border-slate-100">
-                      <div>
+                    <div className="flex items-center justify-between rounded-xl bg-slate-50/90 px-3.5 py-2.5 border border-slate-200/70">
+                      <div className="min-w-0">
                         <span className="text-[10px] text-slate-400 uppercase tracking-wider block font-medium">
                           Score
                         </span>
-                        <div
-                          className={`text-lg font-bold font-mono ${scoreColor} mt-0.5`}
-                        >
-                          {activeAttempt.score}{" "}
-                          <span className="text-xs text-slate-400 font-normal">
+                        <div className="flex items-baseline gap-1.5 mt-0.5 min-w-0">
+                          <span className={`text-xl font-bold font-mono ${scoreColor}`}>
+                            {Number(activeAttempt.score).toFixed(activeAttempt.score % 1 !== 0 ? 2 : 0)}
+                          </span>
+                          <span className="text-xs text-slate-400 font-mono">
                             / {activeAttempt.maxScore}
+                          </span>
+                          <span className="ml-1 text-[11px] font-semibold text-indigo-700 bg-indigo-50 border border-indigo-200 px-1.5 py-0.5 rounded-md">
+                            {getAttemptPercentage(activeAttempt)}%
                           </span>
                         </div>
                       </div>
-                      <div className="text-center">
-                        <span className="text-[10px] text-slate-400 uppercase tracking-wider block font-medium">
-                          Percentage
-                        </span>
-                        <div className="text-lg font-bold text-indigo-700 font-mono mt-0.5">
-                          {getAttemptPercentage(activeAttempt)}%
-                        </div>
-                      </div>
-                      <div className="text-right">
+                      <div className="text-right shrink-0">
                         <span className="text-[10px] text-slate-400 uppercase tracking-wider block font-medium">
                           Accuracy
                         </span>
                         <div className="text-lg font-bold text-teal-700 font-mono mt-0.5">
-                          {activeAttempt.accuracyPct}%
+                          {Math.round(activeAttempt.accuracyPct || 0)}%
                         </div>
                       </div>
                     </div>
