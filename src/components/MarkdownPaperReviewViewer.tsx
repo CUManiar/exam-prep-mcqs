@@ -15,6 +15,7 @@ import {
   X,
   Info,
   HelpCircle,
+  FileText,
 } from "lucide-react";
 
 interface MarkdownPaperReviewViewerProps {
@@ -42,6 +43,7 @@ export function MarkdownPaperReviewViewer({
 }: MarkdownPaperReviewViewerProps) {
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const [viewMode, setViewMode] = useState<"all" | "single">("all");
+  const [showPaperDetails, setShowPaperDetails] = useState<boolean>(false);
 
   // Auto-scroll to selected question when activeQuestionNo changes
   useEffect(() => {
@@ -122,7 +124,7 @@ export function MarkdownPaperReviewViewer({
             <button
               type="button"
               onClick={onClose}
-              className="text-xs font-medium text-slate-500 hover:text-slate-900 px-2 py-1 rounded-lg hover:bg-slate-50 transition-colors cursor-pointer"
+              className="text-xs font-semibold text-slate-600 hover:text-slate-900 px-2.5 py-1 rounded-md hover:bg-slate-100 transition-colors cursor-pointer"
               title="Hide question paper preview"
             >
               ✕ Hide
@@ -134,7 +136,7 @@ export function MarkdownPaperReviewViewer({
       {/* 2. Sticky Question Palette / Navigation Chips */}
       {questions.length > 0 && (
         <div className="px-3 py-1.5 bg-white border-b border-slate-200 overflow-x-auto no-scrollbar flex items-center gap-1 shrink-0">
-          <span className="text-[10px] font-medium text-slate-400 uppercase tracking-wider mr-1 shrink-0">
+          <span className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider mr-1 shrink-0">
             Questions:
           </span>
           {questions.map((q) => {
@@ -154,10 +156,10 @@ export function MarkdownPaperReviewViewer({
                   isActive ? "ring-2 ring-slate-900 scale-105" : ""
                 } ${
                   isCorrect
-                    ? "bg-emerald-50 text-emerald-800 border border-emerald-300"
+                    ? "bg-emerald-100 text-emerald-800 border border-emerald-400"
                     : isWrong
-                      ? "bg-rose-50 text-rose-800 border border-rose-300"
-                      : "bg-white text-slate-600 border border-slate-200 hover:bg-slate-50"
+                      ? "bg-rose-100 text-rose-800 border border-rose-400"
+                      : "bg-white text-slate-700 border border-slate-200 hover:bg-slate-50"
                 }`}
                 title={`Q${q.questionNo}: ${isCorrect ? "Correct" : isWrong ? "Incorrect" : "Unattempted"}`}
               >
@@ -171,77 +173,86 @@ export function MarkdownPaperReviewViewer({
       {/* 3. Scrollable Paper Body */}
       <div
         ref={scrollContainerRef}
-        className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-5 bg-slate-50/50"
+        className="flex-1 overflow-y-auto p-3.5 sm:p-5 space-y-4 bg-slate-100/60"
       >
-        {/* Exam Header & Rules (if available) */}
+        {/* Exam Header & Rules (Collapsible, collapsed by default to save vertical space) */}
         {(header || instructions.length > 0 || paper.instructions?.length) && (
-          <div className="rounded-xl border border-slate-200 bg-white p-4 sm:p-5 space-y-3">
-            <div className="flex items-center gap-2">
-              <span className="text-slate-500">
-                <BookOpen className="h-3.5 w-3.5" />
+          <div className="rounded-xl border border-slate-200 bg-white overflow-hidden shadow-2xs">
+            <button
+              type="button"
+              onClick={() => setShowPaperDetails((prev) => !prev)}
+              className="w-full flex items-center justify-between px-3.5 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50 transition-colors cursor-pointer"
+            >
+              <div className="flex items-center gap-2">
+                <BookOpen className="h-3.5 w-3.5 text-indigo-600" />
+                <span>Paper details & marking rules</span>
+              </div>
+              <span className="text-[11px] text-indigo-600 font-medium">
+                {showPaperDetails ? "Hide rules ▲" : "Show rules ▼"}
               </span>
-              <h3 className="text-xs font-semibold text-slate-900">
-                Paper details
-              </h3>
-            </div>
+            </button>
 
-            {/* Key stats */}
-            <div className="grid grid-cols-2 sm:grid-cols-4 divide-x divide-slate-200 border-y border-slate-200 py-2 text-xs">
-              <div className="px-2 text-center first:pl-0">
-                <span className="text-[10px] font-medium text-slate-400 block">
-                  Questions
-                </span>
-                <span className="font-mono font-semibold text-slate-800 mt-0.5 block">
-                  {paper.totalQuestions || questions.length}
-                </span>
-              </div>
-              <div className="px-2 text-center">
-                <span className="text-[10px] font-medium text-slate-400 block">
-                  Time Limit
-                </span>
-                <span className="font-mono font-semibold text-indigo-700 mt-0.5 block">
-                  {paper.timeMinutes || 120}m
-                </span>
-              </div>
-              <div className="px-2 text-center">
-                <span className="text-[10px] font-medium text-slate-400 block">
-                  Per Correct
-                </span>
-                <span className="font-mono font-semibold text-emerald-700 mt-0.5 block">
-                  +{paper.correctMarks || 2.0}m
-                </span>
-              </div>
-              <div className="px-2 text-center last:pr-0">
-                <span className="text-[10px] font-medium text-slate-400 block">
-                  Penalty
-                </span>
-                <span className="font-mono font-semibold text-rose-700 mt-0.5 block">
-                  -{paper.incorrectMarks || 0.667}m
-                </span>
-              </div>
-            </div>
+            {showPaperDetails && (
+              <div className="p-3.5 border-t border-slate-200 space-y-3 bg-slate-50/50">
+                {/* Key stats */}
+                <div className="grid grid-cols-2 sm:grid-cols-4 divide-x divide-slate-200 border-y border-slate-200 py-2 text-xs bg-white rounded-lg">
+                  <div className="px-2 text-center first:pl-0">
+                    <span className="text-[10px] font-medium text-slate-400 block">
+                      Questions
+                    </span>
+                    <span className="font-mono font-semibold text-slate-800 mt-0.5 block">
+                      {paper.totalQuestions || questions.length}
+                    </span>
+                  </div>
+                  <div className="px-2 text-center">
+                    <span className="text-[10px] font-medium text-slate-400 block">
+                      Time Limit
+                    </span>
+                    <span className="font-mono font-semibold text-indigo-700 mt-0.5 block">
+                      {paper.timeMinutes || 120}m
+                    </span>
+                  </div>
+                  <div className="px-2 text-center">
+                    <span className="text-[10px] font-medium text-slate-400 block">
+                      Per Correct
+                    </span>
+                    <span className="font-mono font-semibold text-emerald-700 mt-0.5 block">
+                      +{paper.correctMarks || 2.0}m
+                    </span>
+                  </div>
+                  <div className="px-2 text-center last:pr-0">
+                    <span className="text-[10px] font-medium text-slate-400 block">
+                      Penalty
+                    </span>
+                    <span className="font-mono font-semibold text-rose-700 mt-0.5 block">
+                      -{paper.incorrectMarks || 0.667}m
+                    </span>
+                  </div>
+                </div>
 
-            {/* Instructions list */}
-            {((instructions && instructions.length > 0) ||
-              (paper.instructions && paper.instructions.length > 0)) && (
-              <div className="border-t border-slate-200 pt-3 space-y-1.5 mt-2">
-                <span className="text-[10px] font-semibold text-slate-600 uppercase tracking-wider block">
-                  Instructions
-                </span>
-                <ul className="space-y-1">
-                  {(instructions.length > 0
-                    ? instructions
-                    : paper.instructions || []
-                  ).map((rule, idx) => (
-                    <li
-                      key={idx}
-                      className="flex items-start gap-1.5 text-xs text-slate-700 leading-relaxed"
-                    >
-                      <Check className="h-3.5 w-3.5 text-emerald-600 shrink-0 mt-0.5" />
-                      <span>{rule}</span>
-                    </li>
-                  ))}
-                </ul>
+                {/* Instructions list */}
+                {((instructions && instructions.length > 0) ||
+                  (paper.instructions && paper.instructions.length > 0)) && (
+                  <div className="pt-1 space-y-1.5">
+                    <span className="text-[10px] font-semibold text-slate-600 uppercase tracking-wider block">
+                      Instructions
+                    </span>
+                    <ul className="space-y-1">
+                      {(instructions.length > 0
+                        ? instructions
+                        : paper.instructions || []
+                      ).map((rule, idx) => (
+                        <li
+                          key={idx}
+                          className="flex items-start gap-1.5 text-xs text-slate-700 leading-relaxed"
+                        >
+                          <Check className="h-3.5 w-3.5 text-emerald-600 shrink-0 mt-0.5" />
+                          <span>{rule}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
               </div>
             )}
           </div>
@@ -289,48 +300,48 @@ export function MarkdownPaperReviewViewer({
               <div
                 key={q.questionNo}
                 id={`review-q-${q.questionNo}`}
-                className={`p-4 sm:p-5 rounded-xl bg-white border transition-colors duration-200 ${
+                className={`p-3.5 sm:p-4 rounded-xl bg-white border transition-all duration-150 shadow-xs ${
                   isSelectedActive
-                    ? "border-slate-900 ring-1 ring-slate-900/10"
+                    ? "border-slate-900 ring-2 ring-slate-900/10"
                     : "border-slate-200 hover:border-slate-300"
                 }`}
               >
                 {/* Top Question Status Bar */}
-                <div className="flex items-center justify-between gap-2 flex-wrap pb-2.5 border-b border-slate-100">
+                <div className="flex items-center justify-between gap-2 flex-wrap pb-2 border-b border-slate-100">
                   <div className="flex items-center gap-2">
-                    <span className="font-mono text-xs font-semibold text-slate-900">
+                    <span className="font-mono text-xs font-bold text-slate-900">
                       Q{q.questionNo}
                     </span>
 
                     {/* Status Pill */}
                     {isCorrect ? (
-                      <span className="inline-flex items-center gap-1 text-[11px] font-medium text-emerald-800">
+                      <span className="inline-flex items-center gap-1 text-[11px] font-bold text-emerald-800 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-full shadow-2xs">
                         <CheckCircle2 className="h-3 w-3 text-emerald-600" />
                         <span>Correct · +{correctMarksValue}</span>
                       </span>
                     ) : isWrong ? (
-                      <span className="inline-flex items-center gap-1 text-[11px] font-medium text-rose-800">
+                      <span className="inline-flex items-center gap-1 text-[11px] font-bold text-rose-800 bg-rose-50 border border-rose-200 px-2 py-0.5 rounded-full shadow-2xs">
                         <XCircle className="h-3 w-3 text-rose-600" />
                         <span>
-                          Incorrect · -{incorrectMarksValue} · {userSelected}
+                          Incorrect · -{incorrectMarksValue} · Picked {userSelected}
                         </span>
                       </span>
                     ) : isCloze && isAnswered ? (
-                      <span className="inline-flex items-center gap-1 text-[11px] font-medium text-indigo-800">
+                      <span className="inline-flex items-center gap-1 text-[11px] font-bold text-indigo-800 bg-indigo-50 border border-indigo-200 px-2 py-0.5 rounded-full shadow-2xs">
                         <CheckCircle2 className="h-3 w-3 text-indigo-600" />
                         <span>Answer recorded</span>
                       </span>
                     ) : (
-                      <span className="inline-flex items-center gap-1 text-[11px] font-medium text-slate-500">
+                      <span className="inline-flex items-center gap-1 text-[11px] font-medium text-slate-500 bg-slate-100 border border-slate-200 px-2 py-0.5 rounded-full">
                         <HelpCircle className="h-3 w-3 text-slate-400" />
-                        <span>Skipped · 0</span>
+                        <span>Skipped · 0 pts</span>
                       </span>
                     )}
                   </div>
 
                   <div className="flex items-center gap-2 text-xs">
                     {timeSpent > 0 && (
-                      <span className="inline-flex items-center gap-1 text-[11px] text-slate-400 font-mono">
+                      <span className="inline-flex items-center gap-1 text-[11px] text-slate-500 font-mono">
                         <Clock className="h-3 w-3 text-slate-400" />
                         <span>{formatTimeSeconds(timeSpent)}</span>
                       </span>
@@ -339,7 +350,7 @@ export function MarkdownPaperReviewViewer({
                 </div>
 
                 {/* Question Prompt */}
-                <p className="text-sm font-semibold text-slate-900 leading-relaxed whitespace-pre-wrap mt-3">
+                <p className="text-sm font-semibold text-slate-900 leading-relaxed whitespace-pre-wrap mt-2.5">
                   {q.text}
                 </p>
 
@@ -348,90 +359,121 @@ export function MarkdownPaperReviewViewer({
                   headers={q.matchingHeaders}
                 />
 
-                {/* Options Grid */}
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 mt-3.5 pt-1">
-                  {Object.entries(q.options).map(([optKey, optText]) => {
-                    const normKey = optKey.toUpperCase();
-                    const isUserPick = userSelected === normKey;
-                    const isRightAnswer = correctOpt === normKey;
-
-                    let optStyle =
-                      "bg-slate-50/70 border-slate-200 text-slate-700";
-                    let badgeEl: React.ReactNode = null;
-
-                    if (isRightAnswer && isUserPick) {
-                      optStyle =
-                        "bg-emerald-50/90 border-emerald-300 text-emerald-950 font-medium ring-1 ring-emerald-400/30";
-                      badgeEl = (
-                        <span className="text-[10px] font-medium text-emerald-700 ml-auto flex items-center gap-0.5 shrink-0">
-                          <Check className="h-3 w-3" /> Your answer
-                        </span>
-                      );
-                    } else if (isRightAnswer) {
-                      optStyle =
-                        "bg-emerald-50/70 border-emerald-300 text-emerald-950 font-medium";
-                      badgeEl = (
-                        <span className="text-[10px] font-medium text-emerald-700 ml-auto flex items-center gap-0.5 shrink-0">
-                          <Check className="h-3 w-3" /> Answer
-                        </span>
-                      );
-                    } else if (isUserPick) {
-                      optStyle =
-                        "bg-rose-50/90 border-rose-300 text-rose-950 font-medium ring-1 ring-rose-400/30";
-                      badgeEl = (
-                        <span className="text-[10px] font-medium text-rose-700 ml-auto flex items-center gap-0.5 shrink-0">
-                          <X className="h-3 w-3" /> Your answer
-                        </span>
-                      );
-                    }
-
-                    return (
-                      <div
-                        key={optKey}
-                        className={`flex items-start gap-2 p-2.5 rounded-lg border text-xs leading-relaxed transition-colors ${optStyle}`}
-                      >
-                        <span
-                          className={`font-mono text-[11px] font-bold px-1.5 py-0.5 rounded shrink-0 ${
-                            isRightAnswer
-                              ? "bg-emerald-600 text-white"
-                              : isUserPick
-                                ? "bg-rose-600 text-white"
-                                : "bg-slate-200 text-slate-700"
-                          }`}
-                        >
-                          {optKey}
-                        </span>
-                        <span className="whitespace-pre-wrap flex-1">
-                          {optText}
-                        </span>
-                        {badgeEl}
+                {/* Cloze / Fill-in-the-blank response strip */}
+                {isCloze && (
+                  <div className="mt-3 grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
+                    <div className="p-2.5 rounded-lg border border-slate-200 bg-slate-50 space-y-1">
+                      <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500">
+                        Your submitted response
+                      </span>
+                      <div className="font-mono font-semibold text-slate-900 whitespace-pre-wrap break-words">
+                        {ans?.selected && ans.selected.trim() ? (
+                          ans.selected
+                        ) : (
+                          <span className="text-slate-400 italic font-sans font-normal">
+                            No response entered
+                          </span>
+                        )}
                       </div>
-                    );
-                  })}
-                </div>
+                    </div>
+                    <div className="p-2.5 rounded-lg border border-emerald-200 bg-emerald-50/70 space-y-1">
+                      <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-800">
+                        Expected key / solution
+                      </span>
+                      <div className="font-mono font-bold text-emerald-950 whitespace-pre-wrap break-words">
+                        {correctOpt || "Refer to solution below"}
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* MCQ Options Grid */}
+                {Object.keys(q.options || {}).length > 0 && (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 mt-3 pt-0.5">
+                    {Object.entries(q.options).map(([optKey, optText]) => {
+                      const normKey = optKey.toUpperCase();
+                      const isUserPick = userSelected === normKey;
+                      const isRightAnswer = correctOpt === normKey;
+
+                      let optStyle =
+                        "bg-slate-50 border-slate-200 text-slate-800";
+                      let badgeEl: React.ReactNode = null;
+
+                      if (isRightAnswer && isUserPick) {
+                        optStyle =
+                          "bg-emerald-50 border-2 border-emerald-500 text-emerald-950 font-semibold shadow-2xs";
+                        badgeEl = (
+                          <span className="text-[10px] font-bold text-emerald-800 ml-auto flex items-center gap-0.5 shrink-0 bg-emerald-100 px-1.5 py-0.5 rounded">
+                            <Check className="h-3 w-3 text-emerald-700" /> Your answer
+                          </span>
+                        );
+                      } else if (isRightAnswer) {
+                        optStyle =
+                          "bg-emerald-50/80 border-2 border-emerald-400 text-emerald-950 font-semibold shadow-2xs";
+                        badgeEl = (
+                          <span className="text-[10px] font-bold text-emerald-800 ml-auto flex items-center gap-0.5 shrink-0 bg-emerald-100 px-1.5 py-0.5 rounded">
+                            <Check className="h-3 w-3 text-emerald-700" /> Correct
+                          </span>
+                        );
+                      } else if (isUserPick) {
+                        optStyle =
+                          "bg-rose-50 border-2 border-rose-500 text-rose-950 font-semibold shadow-2xs";
+                        badgeEl = (
+                          <span className="text-[10px] font-bold text-rose-800 ml-auto flex items-center gap-0.5 shrink-0 bg-rose-100 px-1.5 py-0.5 rounded">
+                            <X className="h-3 w-3 text-rose-700" /> Your answer
+                          </span>
+                        );
+                      }
+
+                      return (
+                        <div
+                          key={optKey}
+                          className={`flex items-start gap-2 p-2.5 rounded-lg border text-xs leading-relaxed transition-colors ${optStyle}`}
+                        >
+                          <span
+                            className={`font-mono text-[11px] font-bold px-1.5 py-0.5 rounded shrink-0 ${
+                              isRightAnswer
+                                ? "bg-emerald-600 text-white"
+                                : isUserPick
+                                  ? "bg-rose-600 text-white"
+                                  : "bg-slate-200 text-slate-800"
+                            }`}
+                          >
+                            {optKey}
+                          </span>
+                          <span className="whitespace-pre-wrap flex-1">
+                            {optText}
+                          </span>
+                          {badgeEl}
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
 
                 {/* Explanation Box */}
                 {explanationText && (
-                  <div className="mt-3.5 rounded-lg bg-slate-50 border border-slate-200 p-3 space-y-1.5">
-                    <div className="flex items-center gap-1.5 text-xs font-semibold text-slate-800">
-                      <Lightbulb className="h-3.5 w-3.5 text-slate-500" />
+                  <div className="mt-3 rounded-lg bg-slate-50 border border-slate-200 p-3 space-y-1">
+                    <div className="flex items-center gap-1.5 text-xs font-bold text-slate-800">
+                      <Lightbulb className="h-3.5 w-3.5 text-indigo-600" />
                       <span>Solution</span>
                     </div>
-                    <p className="text-xs text-slate-700 leading-relaxed whitespace-pre-wrap pl-5">
+                    <p className="text-xs text-slate-800 leading-relaxed whitespace-pre-wrap pl-5">
                       {explanationText}
                     </p>
                   </div>
                 )}
 
-                {/* Candidate Note (if written during session) */}
+                {/* Student Note (Hero Subject Matter Highlight) */}
                 {ans?.note && ans.note.trim() && (
-                  <div className="mt-2.5 rounded-lg bg-slate-50 border border-slate-200 p-2.5 text-xs text-slate-700 flex items-start gap-1.5">
-                    <span className="font-semibold text-slate-900 shrink-0">
-                      Note:
-                    </span>
-                    <span className="italic whitespace-pre-wrap">
+                  <div className="mt-2.5 rounded-lg bg-amber-50 border border-amber-300 p-2.5 text-xs text-slate-900 font-mono shadow-2xs flex items-start gap-2">
+                    <FileText className="h-3.5 w-3.5 text-amber-700 mt-0.5 shrink-0" />
+                    <div className="flex-1 leading-relaxed whitespace-pre-wrap">
+                      <strong className="text-amber-900 font-semibold block text-[10px] uppercase tracking-wider mb-0.5">
+                        Student Note
+                      </strong>
                       {ans.note.trim()}
-                    </span>
+                    </div>
                   </div>
                 )}
               </div>
