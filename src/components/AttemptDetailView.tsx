@@ -77,6 +77,113 @@ export type FilterTabType =
   | "altered"
   | "slow";
 
+const reviewAssessmentOptions: Array<{
+  value: SubjectiveAssessment;
+  label: string;
+  description: string;
+  active: string;
+  idle: string;
+}> = [
+  {
+    value: "strong",
+    label: "Exact",
+    description: "Full marks",
+    active: "border-emerald-600 bg-emerald-600 text-white",
+    idle: "border-emerald-200 text-emerald-800 hover:bg-emerald-50",
+  },
+  {
+    value: "partial",
+    label: "Partial",
+    description: "Half marks",
+    active: "border-amber-500 bg-amber-500 text-white",
+    idle: "border-amber-200 text-amber-800 hover:bg-amber-50",
+  },
+  {
+    value: "no-attempt",
+    label: "No attempt",
+    description: "0 marks",
+    active: "border-slate-600 bg-slate-600 text-white",
+    idle: "border-slate-200 text-slate-700 hover:bg-slate-50",
+  },
+  {
+    value: "needs-work",
+    label: "Wrong",
+    description: "Penalty",
+    active: "border-rose-600 bg-rose-600 text-white",
+    idle: "border-rose-200 text-rose-800 hover:bg-rose-50",
+  },
+];
+
+function ReviewAssessmentPicker({
+  value,
+  isAnswered,
+  partialMarks,
+  maxPartialMarks,
+  onChange,
+  onPartialMarksChange,
+}: {
+  value?: SubjectiveAssessment;
+  isAnswered: boolean;
+  partialMarks?: number;
+  maxPartialMarks: number;
+  onChange: (assessment: SubjectiveAssessment) => void;
+  onPartialMarksChange: (marks: number) => void;
+}) {
+  return (
+    <div className="rounded-xl border border-indigo-200 bg-indigo-50/60 p-3">
+      <div className="mb-2">
+        <p className="text-xs font-bold text-indigo-950">Evaluate response</p>
+        <p className="mt-0.5 text-[11px] text-indigo-900/70">
+          Choose a score only after comparing the response with the explanation.
+        </p>
+      </div>
+      <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+        {reviewAssessmentOptions.map((option) => {
+          const isSelected = value === option.value;
+          const disabled = !isAnswered && option.value !== "no-attempt";
+          return (
+            <button
+              key={option.value}
+              type="button"
+              disabled={disabled}
+              onClick={() => onChange(option.value)}
+              className={`rounded-lg border px-2.5 py-2 text-left transition-colors disabled:cursor-not-allowed disabled:opacity-45 ${isSelected ? option.active : `bg-white ${option.idle}`}`}
+            >
+              <span className="block text-xs font-bold">{option.label}</span>
+              <span
+                className={`mt-0.5 block text-[10px] ${isSelected ? "text-white/80" : "text-slate-500"}`}
+              >
+                {option.description}
+              </span>
+            </button>
+          );
+        })}
+      </div>
+      {value === "partial" && (
+        <label className="mt-2 flex items-center justify-between gap-3 rounded-lg border border-amber-200 bg-white px-2.5 py-2 text-[11px] font-semibold text-amber-900">
+          <span>Marks awarded</span>
+          <input
+            type="number"
+            min={0}
+            max={maxPartialMarks}
+            step="0.01"
+            value={partialMarks ?? ""}
+            onChange={(event) =>
+              onPartialMarksChange(
+                Math.min(
+                  maxPartialMarks,
+                  Math.max(0, Number(event.target.value) || 0),
+                ),
+              )
+            }
+            className="w-24 rounded-md border border-amber-300 bg-amber-50 px-2 py-1 text-right font-mono text-xs text-amber-950 focus:border-amber-500 focus:outline-none focus:ring-2 focus:ring-amber-500/20"
+          />
+        </label>
+      )}
+    </div>
+  );
+}
+
 interface AttemptDetailViewProps {
   attempt: Attempt;
   papers: QuestionPaper[];
@@ -138,13 +245,6 @@ export function AttemptDetailView({
     useState<boolean>(false);
   const [pdfMode, setPdfMode] = useState<"native" | "canvas">("native");
 
-  // Automatically enable desktop side-by-side view on large screens (>=1280px), keep vertical on tablet/mobile
-  useEffect(() => {
-    if (typeof window !== "undefined" && window.innerWidth >= 1280) {
-      setShowPaperSplit(true);
-    }
-  }, []);
-
   const [activeQuestionNo, setActiveQuestionNo] = useState<number>(1);
 
   // Match corresponding paper for solution PDF / markdown paper with backwards compatibility
@@ -201,6 +301,17 @@ export function AttemptDetailView({
       false
     );
   }, [matchedPaper, attempt.paperId]);
+
+  // Automatically enable desktop side-by-side view for PDF reports only.
+  useEffect(() => {
+    if (
+      !isMarkdownPaper &&
+      typeof window !== "undefined" &&
+      window.innerWidth >= 1280
+    ) {
+      setShowPaperSplit(true);
+    }
+  }, [isMarkdownPaper]);
 
   const paperDeleted = !matchedPaper;
   const canPreviewPaper = Boolean(
@@ -371,8 +482,9 @@ export function AttemptDetailView({
   const handleSetSubjectiveAssessment = (
     qNo: number,
     assessment: SubjectiveAssessment,
+    subjectiveMarks?: number,
   ) => {
-    if (!isSubjectiveAttempt) return;
+    if (!isSubjectiveAttempt && !isClozeQuestion(qNo)) return;
 
     const updatedAnswers = { ...attempt.answers };
     const currentAnswer = updatedAnswers[qNo] || {
@@ -381,8 +493,18 @@ export function AttemptDetailView({
     };
     updatedAnswers[qNo] = {
       ...currentAnswer,
-      selected: isClozeQuestion(qNo) ? currentAnswer.selected : "attempted",
+      selected: isClozeQuestion(qNo)
+        ? currentAnswer.selected
+        : assessment === "no-attempt"
+          ? null
+          : currentAnswer.selected || "attempted",
       subjectiveAssessment: assessment,
+      subjectiveMarks:
+        assessment === "partial"
+          ? (subjectiveMarks ??
+            currentAnswer.subjectiveMarks ??
+            getFullMarks(qNo) * 0.5)
+          : undefined,
       isCorrect:
         assessment === "strong"
           ? true
@@ -391,37 +513,62 @@ export function AttemptDetailView({
             : null,
     };
 
-    const subjectiveAnswers = Object.values(updatedAnswers).filter((answer) =>
+    const allAnswers = Object.values(updatedAnswers);
+    const attemptedAnswers = allAnswers.filter((answer) =>
       isQuestionAnswered(answer),
     );
-    const marksPerQuestion =
-      attempt.totalQuestions > 0
-        ? (attempt.totalMarks || attempt.maxScore || 0) / attempt.totalQuestions
-        : 0;
-    const subjectivePoints = subjectiveAnswers.reduce(
+    const score =
+      Math.round(
+        allAnswers.reduce((total, answer) => {
+          if (isAssessmentQuestion(answer.questionNo)) {
+            return isQuestionAnswered(answer)
+              ? total +
+                  getAssessmentMarks(
+                    answer.questionNo,
+                    answer.subjectiveAssessment,
+                    answer.subjectiveMarks,
+                  )
+              : total;
+          }
+          if (answer.isCorrect === true) return total + correctMarksPerQ;
+          if (answer.isCorrect === false) return total - incorrectMarksPerQ;
+          return total;
+        }, 0) * 100,
+      ) / 100;
+    const maxScore = attempt.maxScore || attempt.totalMarks || 0;
+    const answered = attemptedAnswers.length;
+    const subjectivePoints = attemptedAnswers.reduce(
       (total, answer) =>
         total +
-        (answer.subjectiveAssessment
+        (isAssessmentQuestion(answer.questionNo) && answer.subjectiveAssessment
           ? SUBJECTIVE_ASSESSMENT_META[answer.subjectiveAssessment].fraction
-          : 0),
+          : answer.isCorrect === true
+            ? 1
+            : 0),
       0,
     );
-    const score = Math.round(subjectivePoints * marksPerQuestion * 100) / 100;
-    const maxScore = attempt.maxScore || attempt.totalMarks || 0;
-    const answered = subjectiveAnswers.length;
 
     onUpdate({
       ...attempt,
       answers: updatedAnswers,
       answered,
-      correct: subjectiveAnswers.filter(
-        (answer) => answer.subjectiveAssessment === "strong",
+      correct: allAnswers.filter((answer) =>
+        isAssessmentQuestion(answer.questionNo)
+          ? isQuestionAnswered(answer) &&
+            answer.subjectiveAssessment === "strong"
+          : answer.isCorrect === true,
       ).length,
-      partial: subjectiveAnswers.filter(
-        (answer) => answer.subjectiveAssessment === "partial",
+      partial: allAnswers.filter(
+        (answer) =>
+          isAssessmentQuestion(answer.questionNo) &&
+          isQuestionAnswered(answer) &&
+          answer.subjectiveAssessment === "partial",
       ).length,
-      incorrect: subjectiveAnswers.filter(
-        (answer) => answer.subjectiveAssessment === "needs-work",
+      incorrect: allAnswers.filter((answer) =>
+        isAssessmentQuestion(answer.questionNo)
+          ? isQuestionAnswered(answer) &&
+            answer.subjectiveAssessment === "needs-work"
+          : answer.isCorrect === false,
       ).length,
       unattempted: Math.max(0, attempt.totalQuestions - answered),
       score,
@@ -503,6 +650,28 @@ export function AttemptDetailView({
     attempt.totalQuestions > 0
       ? (attempt.totalMarks || attempt.maxScore || 0) / attempt.totalQuestions
       : 0;
+  const isAssessmentQuestion = (qNo: number) =>
+    isSubjectiveAttempt || isClozeQuestion(qNo);
+  const getFullMarks = (qNo: number) =>
+    isClozeQuestion(qNo) ? correctMarksPerQ : subjectiveMarksPerQ;
+  const getAssessmentMarks = (
+    qNo: number,
+    assessment?: SubjectiveAssessment,
+    subjectiveMarks?: number,
+  ) => {
+    if (!assessment) return 0;
+    const fullMarks = getFullMarks(qNo);
+    const penaltyMarks = isClozeQuestion(qNo) ? incorrectMarksPerQ : 0;
+    if (assessment === "strong") return fullMarks;
+    if (assessment === "partial") {
+      return Math.min(
+        fullMarks,
+        Math.max(0, subjectiveMarks ?? fullMarks * 0.5),
+      );
+    }
+    if (assessment === "needs-work") return -penaltyMarks;
+    return 0;
+  };
   const grossCorrectMarks =
     Math.round(attempt.correct * correctMarksPerQ * 100) / 100;
   const negativePenaltyMarks =
@@ -629,9 +798,17 @@ export function AttemptDetailView({
       if (filterTab === "50-50") return q.confidence === "50-50";
       if (filterTab === "elimination") return q.confidence === "elimination";
       if (filterTab === "guess") return q.confidence === "guess";
-      if (filterTab === "correct") return q.selected && q.isCorrect === true;
-      if (filterTab === "incorrect") return q.selected && q.isCorrect === false;
-      if (filterTab === "skipped") return !q.selected;
+      if (filterTab === "correct") {
+        return isAssessmentQuestion(q.questionNo)
+          ? q.subjectiveAssessment === "strong"
+          : q.selected && q.isCorrect === true;
+      }
+      if (filterTab === "incorrect") {
+        return isAssessmentQuestion(q.questionNo)
+          ? q.subjectiveAssessment === "needs-work"
+          : q.selected && q.isCorrect === false;
+      }
+      if (filterTab === "skipped") return !isQuestionAnswered(q);
       if (filterTab === "flagged") return q.flagged;
       if (filterTab === "altered") return q.changesCount && q.changesCount > 0;
       if (filterTab === "slow") return (q.timeSpentSeconds || 0) >= 90;
@@ -1112,7 +1289,7 @@ export function AttemptDetailView({
 
         <div className="flex shrink-0 items-center justify-end gap-2 flex-wrap">
           {/* Question Paper Preview Toggle (Desktop Side-by-Side & Tablet/Mobile Vertical) */}
-          {canPreviewPaper && (
+          {canPreviewPaper && !isMarkdownPaper && (
             <button
               onClick={() => setShowPaperSplit(!showPaperSplit)}
               className={`flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-xs font-medium transition-colors cursor-pointer ${
@@ -2160,6 +2337,127 @@ export function AttemptDetailView({
               <div className="text-center py-10 text-xs text-slate-500">
                 No questions match the selected filter.
               </div>
+            ) : isMarkdownPaper ? (
+              <div className="space-y-3">
+                {filteredQuestions.map((q) => {
+                  const parsedQuestion = markdownQuestions.find(
+                    (question) => question.questionNo === q.questionNo,
+                  );
+                  const subjectiveAssessment = q.subjectiveAssessment;
+                  const isAnswered = isQuestionAnswered(q);
+                  const isEvaluable = isAssessmentQuestion(q.questionNo);
+                  const isCorrect = isEvaluable
+                    ? subjectiveAssessment === "strong"
+                    : q.isCorrect === true;
+                  const isWrong = isEvaluable
+                    ? subjectiveAssessment === "needs-work"
+                    : q.isCorrect === false;
+                  const explanation =
+                    q.explanation ||
+                    parsedQuestion?.explanation ||
+                    matchedPaper?.explanations?.[q.questionNo];
+                  const answerText = isClozeQuestion(q.questionNo)
+                    ? q.selected || "No response"
+                    : q.selected
+                      ? `Option ${q.selected}`
+                      : "No response";
+                  const statusLabel = subjectiveAssessment
+                    ? reviewAssessmentOptions.find(
+                        (option) => option.value === subjectiveAssessment,
+                      )?.label
+                    : isCorrect
+                      ? "Correct"
+                      : isWrong
+                        ? "Wrong"
+                        : isAnswered
+                          ? "Needs evaluation"
+                          : "Unattempted";
+                  const statusClass = isCorrect
+                    ? "border-emerald-200 bg-emerald-50 text-emerald-800"
+                    : isWrong
+                      ? "border-rose-200 bg-rose-50 text-rose-800"
+                      : subjectiveAssessment === "partial"
+                        ? "border-amber-200 bg-amber-50 text-amber-800"
+                        : "border-slate-200 bg-slate-50 text-slate-600";
+
+                  return (
+                    <article
+                      key={q.questionNo}
+                      className="rounded-2xl border border-slate-200 bg-white p-4 sm:p-5 shadow-2xs"
+                    >
+                      <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-100 pb-3">
+                        <div className="flex items-center gap-2">
+                          <span className="font-mono text-xs font-bold text-slate-900">
+                            Q{q.questionNo}
+                          </span>
+                          <span
+                            className={`rounded-full border px-2.5 py-0.5 text-[11px] font-semibold ${statusClass}`}
+                          >
+                            {statusLabel}
+                          </span>
+                        </div>
+                        <span className="text-[11px] text-slate-500">
+                          {q.timeSpentSeconds || 0}s
+                        </span>
+                      </div>
+
+                      <p className="mt-4 whitespace-pre-wrap break-words text-sm font-medium leading-relaxed text-slate-900">
+                        {parsedQuestion?.text || `Question ${q.questionNo}`}
+                      </p>
+
+                      <div className="mt-4 rounded-xl border border-slate-200 bg-slate-50/70 p-3">
+                        <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500">
+                          Your response
+                        </span>
+                        <p className="mt-1 whitespace-pre-wrap break-words text-sm font-semibold text-slate-800">
+                          {answerText}
+                        </p>
+                      </div>
+
+                      {isEvaluable && (
+                        <div className="mt-4">
+                          <ReviewAssessmentPicker
+                            value={subjectiveAssessment}
+                            isAnswered={isAnswered}
+                            partialMarks={q.subjectiveMarks}
+                            maxPartialMarks={getFullMarks(q.questionNo)}
+                            onChange={(assessment) =>
+                              handleSetSubjectiveAssessment(
+                                q.questionNo,
+                                assessment,
+                              )
+                            }
+                            onPartialMarksChange={(marks) =>
+                              handleSetSubjectiveAssessment(
+                                q.questionNo,
+                                "partial",
+                                marks,
+                              )
+                            }
+                          />
+                        </div>
+                      )}
+
+                      {explanation && (
+                        <details className="mt-4 rounded-xl border border-indigo-200 bg-indigo-50/60 p-3">
+                          <summary className="cursor-pointer text-xs font-bold text-indigo-900">
+                            View explanation
+                          </summary>
+                          <p className="mt-2 whitespace-pre-wrap break-words border-t border-indigo-100 pt-2 text-xs leading-relaxed text-indigo-950">
+                            {explanation}
+                          </p>
+                        </details>
+                      )}
+
+                      {q.note && (
+                        <p className="mt-3 whitespace-pre-wrap break-words text-[11px] text-slate-500">
+                          Note: {q.note}
+                        </p>
+                      )}
+                    </article>
+                  );
+                })}
+              </div>
             ) : (
               <div className="w-full overflow-x-auto rounded-xl border border-slate-200 bg-white">
                 <table className="w-full border-collapse text-left text-xs">
@@ -2344,74 +2642,29 @@ export function AttemptDetailView({
                             <tr className="bg-slate-50/70 border-b border-slate-200">
                               <td colSpan={7} className="p-4 space-y-3">
                                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
-                                  {isSubjectiveAttempt && isAnswered && (
-                                    <div className="sm:col-span-2 rounded-xl border border-indigo-200 bg-indigo-50/60 p-3">
-                                      <div className="mb-2">
-                                        <p className="text-xs font-bold text-indigo-950">
-                                          Assess this written answer
-                                        </p>
-                                        <p className="mt-0.5 text-[11px] text-indigo-900/70">
-                                          Compare it with the explanation, then
-                                          choose the closest match.
-                                        </p>
-                                      </div>
-                                      <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
-                                        {(
-                                          [
-                                            "strong",
+                                  {isAssessmentQuestion(q.questionNo) && (
+                                    <div className="sm:col-span-2">
+                                      <ReviewAssessmentPicker
+                                        value={subjectiveAssessment}
+                                        isAnswered={isAnswered}
+                                        partialMarks={q.subjectiveMarks}
+                                        maxPartialMarks={getFullMarks(
+                                          q.questionNo,
+                                        )}
+                                        onChange={(assessment) =>
+                                          handleSetSubjectiveAssessment(
+                                            q.questionNo,
+                                            assessment,
+                                          )
+                                        }
+                                        onPartialMarksChange={(marks) =>
+                                          handleSetSubjectiveAssessment(
+                                            q.questionNo,
                                             "partial",
-                                            "needs-work",
-                                          ] as SubjectiveAssessment[]
-                                        ).map((assessment) => {
-                                          const meta =
-                                            SUBJECTIVE_ASSESSMENT_META[
-                                              assessment
-                                            ];
-                                          const isSelected =
-                                            subjectiveAssessment === assessment;
-                                          const reviewLabel =
-                                            assessment === "strong"
-                                              ? "Right"
-                                              : assessment === "partial"
-                                                ? "Partial"
-                                                : "Wrong";
-                                          const selectedStyle =
-                                            assessment === "strong"
-                                              ? "border-emerald-600 bg-emerald-600 text-white"
-                                              : assessment === "partial"
-                                                ? "border-amber-500 bg-amber-500 text-white"
-                                                : "border-rose-600 bg-rose-600 text-white";
-                                          const idleStyle =
-                                            assessment === "strong"
-                                              ? "border-emerald-200 bg-white text-emerald-800 hover:bg-emerald-50"
-                                              : assessment === "partial"
-                                                ? "border-amber-200 bg-white text-amber-800 hover:bg-amber-50"
-                                                : "border-rose-200 bg-white text-rose-800 hover:bg-rose-50";
-
-                                          return (
-                                            <button
-                                              key={assessment}
-                                              type="button"
-                                              onClick={() =>
-                                                handleSetSubjectiveAssessment(
-                                                  q.questionNo,
-                                                  assessment,
-                                                )
-                                              }
-                                              className={`rounded-xl border px-2.5 py-2 text-left transition-colors ${isSelected ? selectedStyle : idleStyle}`}
-                                            >
-                                              <span className="block text-xs font-bold">
-                                                {reviewLabel}
-                                              </span>
-                                              <span
-                                                className={`mt-0.5 block text-[10px] leading-snug ${isSelected ? "text-white/80" : "text-slate-500"}`}
-                                              >
-                                                {meta.description}
-                                              </span>
-                                            </button>
-                                          );
-                                        })}
-                                      </div>
+                                            marks,
+                                          )
+                                        }
+                                      />
                                     </div>
                                   )}
 

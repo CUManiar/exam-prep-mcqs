@@ -21,6 +21,11 @@ export const SUBJECTIVE_ASSESSMENT_META: Record<
     fraction: 0,
     description: "The response misses most of the points in the explanation.",
   },
+  "no-attempt": {
+    label: "No attempt",
+    fraction: 0,
+    description: "Leave this at zero when the question was not attempted.",
+  },
 };
 
 export function getSubjectiveAssessmentFraction(
