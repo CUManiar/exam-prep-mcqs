@@ -1,6 +1,12 @@
 "use client";
 
-import React, { useState, useMemo, useCallback, useEffect, useRef } from "react";
+import React, {
+  useState,
+  useMemo,
+  useCallback,
+  useEffect,
+  useRef,
+} from "react";
 import { CutoffType, QuestionPaper, ExamType } from "../lib/types";
 import {
   SUPPORTED_YEARS,
@@ -135,7 +141,10 @@ function getFilenameFromUrl(url?: string, fallbackLabel?: string): string {
     // fallback
   }
   if (fallbackLabel) {
-    const slug = fallbackLabel.toLowerCase().replace(/[^a-z0-9_-]/g, "_").replace(/_+/g, "_");
+    const slug = fallbackLabel
+      .toLowerCase()
+      .replace(/[^a-z0-9_-]/g, "_")
+      .replace(/_+/g, "_");
     return `${slug}.pdf`;
   }
   return "document.pdf";
@@ -152,7 +161,9 @@ export function UploadView({
   const { currentUser } = useApp();
 
   // Mode: 'custom' (Fast practice upload) | 'preset' (Official UPSC) | 'update'
-  const [viewMode, setViewMode] = useState<"custom" | "preset" | "update">("custom");
+  const [viewMode, setViewMode] = useState<"custom" | "preset" | "update">(
+    "custom",
+  );
 
   // =========================================================================
   // SEGMENT 1: RULES & SETTINGS (Custom Mode)
@@ -160,12 +171,15 @@ export function UploadView({
   const [customPaperName, setCustomPaperName] = useState<string>("");
   const [customTotalQuestions, setCustomTotalQuestions] = useState<string>("");
   const [customPositiveMarks, setCustomPositiveMarks] = useState<string>("2");
-  const [customNegativeMarks, setCustomNegativeMarks] = useState<string>("0.667");
+  const [customNegativeMarks, setCustomNegativeMarks] =
+    useState<string>("0.667");
   const [customTotalMarks, setCustomTotalMarks] = useState<string>("");
-  const [customTotalMarksEdited, setCustomTotalMarksEdited] = useState<boolean>(false);
+  const [customTotalMarksEdited, setCustomTotalMarksEdited] =
+    useState<boolean>(false);
   const [customTimeMinutes, setCustomTimeMinutes] = useState<string>("120");
   const [customCutoffEnabled, setCustomCutoffEnabled] = useState(false);
-  const [customCutoffType, setCustomCutoffType] = useState<CutoffType>("percentage");
+  const [customCutoffType, setCustomCutoffType] =
+    useState<CutoffType>("percentage");
   const [customCutoffValue, setCustomCutoffValue] = useState<string>("");
 
   // Automatic calculation helpers
@@ -203,11 +217,15 @@ export function UploadView({
   // =========================================================================
   // SEGMENT 2: QUESTIONNAIRE (Custom Mode)
   // =========================================================================
-  const [customQpFormat, setCustomQpFormat] = useState<"pdf" | "markdown">("markdown");
+  const [customQpFormat, setCustomQpFormat] = useState<"pdf" | "markdown">(
+    "markdown",
+  );
   const [customQpMarkdown, setCustomQpMarkdown] = useState<string>("");
   const [customQpFile, setCustomQpFile] = useState<File | null>(null);
   const [customExsFile, setCustomExsFile] = useState<File | null>(null);
-  const [customViewTab, setCustomViewTab] = useState<"editor" | "preview">("editor");
+  const [customViewTab, setCustomViewTab] = useState<"editor" | "preview">(
+    "editor",
+  );
 
   const detectedQuestions = useMemo(() => {
     if (!customQpMarkdown.trim()) return [];
@@ -219,7 +237,14 @@ export function UploadView({
   const detectedHeader = useMemo(() => {
     if (!customQpMarkdown.trim()) return null;
     const h = parseMarkdownHeader(customQpMarkdown);
-    if (!h.exam && !h.subject && !h.instructions?.length && !h.time && !h.totalQuestions) return null;
+    if (
+      !h.exam &&
+      !h.subject &&
+      !h.instructions?.length &&
+      !h.time &&
+      !h.totalQuestions
+    )
+      return null;
     return h;
   }, [customQpMarkdown]);
 
@@ -236,8 +261,11 @@ export function UploadView({
   }, [customAkText]);
 
   // Helpers Modal
-  const [formatGuideModalOpen, setFormatGuideModalOpen] = useState<boolean>(false);
-  const [formatGuideModalTab, setFormatGuideModalTab] = useState<"template" | "ai_prompt">("template");
+  const [formatGuideModalOpen, setFormatGuideModalOpen] =
+    useState<boolean>(false);
+  const [formatGuideModalTab, setFormatGuideModalTab] = useState<
+    "template" | "ai_prompt"
+  >("template");
 
   // Instructions loaded from rules/headers
   const [customInstructions, setCustomInstructions] = useState<string[]>([]);
@@ -247,7 +275,10 @@ export function UploadView({
   const [headerRulesApplied, setHeaderRulesApplied] = useState<boolean>(false);
 
   // Apply detected rules to Segment 1
-  const handleApplyRules = (hdr: ParsedMarkdownHeader | null, targetMode: "custom" | "update") => {
+  const handleApplyRules = (
+    hdr: ParsedMarkdownHeader | null,
+    targetMode: "custom" | "update",
+  ) => {
     if (!hdr) return;
     if (targetMode === "custom") {
       if (hdr.exam) setCustomPaperName(hdr.exam);
@@ -289,14 +320,18 @@ export function UploadView({
     }
 
     setHeaderRulesApplied(true);
-    setStatusMsg({ text: "Applied rules from markdown header to the Rules segment." });
+    setStatusMsg({
+      text: "Applied rules from markdown header to the Rules segment.",
+    });
     setTimeout(() => setHeaderRulesApplied(false), 2500);
   };
 
   // =========================================================================
   // UPDATE / EDIT PAPER STATES (All 3 Segments)
   // =========================================================================
-  const [selectedPaperId, setSelectedPaperId] = useState<string>(papers[0]?.id || "");
+  const [selectedPaperId, setSelectedPaperId] = useState<string>(
+    papers[0]?.id || "",
+  );
   const [paperSearchQuery, setPaperSearchQuery] = useState<string>("");
   const [isSearchSelectOpen, setIsSearchSelectOpen] = useState<boolean>(false);
 
@@ -305,7 +340,8 @@ export function UploadView({
   const [year, setYear] = useState<string>("2026");
   const [subjectPreset, setSubjectPreset] = useState<string>("GS I");
   const [customSubject, setCustomSubject] = useState<string>("");
-  const [paperIdentifier, setPaperIdentifier] = useState<string>("prelims_gs_i");
+  const [paperIdentifier, setPaperIdentifier] =
+    useState<string>("prelims_gs_i");
   const [totalQuestions, setTotalQuestions] = useState<number>(100);
   const [totalMarks, setTotalMarks] = useState<number>(200);
   const [correctMarks, setCorrectMarks] = useState<number>(2.0);
@@ -316,9 +352,13 @@ export function UploadView({
   const [cutoffValue, setCutoffValue] = useState<number | "">("");
 
   // Update mode: Segment 2 (Questionnaire)
-  const [updateQpFormat, setUpdateQpFormat] = useState<"pdf" | "markdown">("markdown");
+  const [updateQpFormat, setUpdateQpFormat] = useState<"pdf" | "markdown">(
+    "markdown",
+  );
   const [updateMarkdown, setUpdateMarkdown] = useState<string>("");
-  const [updateViewTab, setUpdateViewTab] = useState<"editor" | "preview">("editor");
+  const [updateViewTab, setUpdateViewTab] = useState<"editor" | "preview">(
+    "editor",
+  );
   const [qpFile, setQpFile] = useState<File | null>(null);
   const [exsFile, setExsFile] = useState<File | null>(null);
 
@@ -335,7 +375,10 @@ export function UploadView({
   const isSelectedPaperMarkdown = useMemo(() => {
     if (!currentSelectedPaper) return false;
     return (
-      Boolean(currentSelectedPaper.parsedQuestions && currentSelectedPaper.parsedQuestions.length > 0) ||
+      Boolean(
+        currentSelectedPaper.parsedQuestions &&
+        currentSelectedPaper.parsedQuestions.length > 0,
+      ) ||
       Boolean(currentSelectedPaper.markdownContent) ||
       currentSelectedPaper.qpUrl?.startsWith("local://") ||
       currentSelectedPaper.id?.startsWith("custom_md_")
@@ -369,7 +412,14 @@ export function UploadView({
   const detectedUpdateHeader = useMemo(() => {
     if (!updateMarkdown.trim()) return null;
     const h = parseMarkdownHeader(updateMarkdown);
-    if (!h.exam && !h.subject && !h.instructions?.length && !h.time && !h.totalQuestions) return null;
+    if (
+      !h.exam &&
+      !h.subject &&
+      !h.instructions?.length &&
+      !h.time &&
+      !h.totalQuestions
+    )
+      return null;
     return h;
   }, [updateMarkdown]);
 
@@ -641,7 +691,10 @@ export function UploadView({
             newPaper = { ...newPaper, ...data.paper };
           }
         } catch (serverErr) {
-          console.warn("Could not sync markdown paper to server, using local store:", serverErr);
+          console.warn(
+            "Could not sync markdown paper to server, using local store:",
+            serverErr,
+          );
         }
 
         saveCustomPaper(newPaper);
@@ -802,7 +855,8 @@ export function UploadView({
 
         updated = {
           ...currentSelectedPaper,
-          totalQuestions: parsed && parsed.length > 0 ? parsed.length : calculatedQCount,
+          totalQuestions:
+            parsed && parsed.length > 0 ? parsed.length : calculatedQCount,
           totalMarks: totalMarks,
           correctMarks: correctMarks,
           incorrectMarks: incorrectMarks,
@@ -985,56 +1039,56 @@ export function UploadView({
         description="Configure rules, questionnaire, and answer key in three clear segments."
         actions={
           <div className="inline-flex items-center p-1 rounded-lg bg-slate-100 border border-slate-200 text-xs font-medium">
-          <button
-            type="button"
-            onClick={() => {
-              setViewMode("custom");
-              setStatusMsg(null);
-            }}
-            className={`cursor-pointer inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg transition-all ${
-              viewMode === "custom"
-                ? "bg-white text-indigo-700 font-bold shadow-2xs"
-                : "text-slate-600 hover:text-slate-900"
-            }`}
-          >
-            <Zap className="h-3.5 w-3.5 text-amber-500 fill-amber-400" />
-            <span>Fast Custom</span>
-          </button>
-          <button
-            type="button"
-            onClick={() => {
-              setViewMode("preset");
-              setStatusMsg(null);
-            }}
-            className={`cursor-pointer inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg transition-all ${
-              viewMode === "preset"
-                ? "bg-white text-indigo-700 font-bold shadow-2xs"
-                : "text-slate-600 hover:text-slate-900"
-            }`}
-          >
-            <Sliders className="h-3.5 w-3.5 text-slate-500" />
-            <span>UPSC Preset</span>
-          </button>
-          <button
-            type="button"
-            onClick={() => {
-              setViewMode("update");
-              if (papers.length > 0 && !selectedPaperId) {
-                handleSelectPaperToUpdate(papers[0].id);
-              } else if (selectedPaperId) {
-                handleSelectPaperToUpdate(selectedPaperId);
-              }
-              setStatusMsg(null);
-            }}
-            className={`cursor-pointer inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg transition-all ${
-              viewMode === "update"
-                ? "bg-white text-indigo-700 font-bold shadow-2xs"
-                : "text-slate-600 hover:text-slate-900"
-            }`}
-          >
-            <Edit3 className="h-3.5 w-3.5 text-indigo-600" />
-            <span>Update Paper</span>
-          </button>
+            <button
+              type="button"
+              onClick={() => {
+                setViewMode("custom");
+                setStatusMsg(null);
+              }}
+              className={`cursor-pointer inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg transition-all ${
+                viewMode === "custom"
+                  ? "bg-white text-indigo-700 font-bold shadow-2xs"
+                  : "text-slate-600 hover:text-slate-900"
+              }`}
+            >
+              <Zap className="h-3.5 w-3.5 text-amber-500 fill-amber-400" />
+              <span>Fast Custom</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setViewMode("preset");
+                setStatusMsg(null);
+              }}
+              className={`cursor-pointer inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg transition-all ${
+                viewMode === "preset"
+                  ? "bg-white text-indigo-700 font-bold shadow-2xs"
+                  : "text-slate-600 hover:text-slate-900"
+              }`}
+            >
+              <Sliders className="h-3.5 w-3.5 text-slate-500" />
+              <span>UPSC Preset</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setViewMode("update");
+                if (papers.length > 0 && !selectedPaperId) {
+                  handleSelectPaperToUpdate(papers[0].id);
+                } else if (selectedPaperId) {
+                  handleSelectPaperToUpdate(selectedPaperId);
+                }
+                setStatusMsg(null);
+              }}
+              className={`cursor-pointer inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg transition-all ${
+                viewMode === "update"
+                  ? "bg-white text-indigo-700 font-bold shadow-2xs"
+                  : "text-slate-600 hover:text-slate-900"
+              }`}
+            >
+              <Edit3 className="h-3.5 w-3.5 text-indigo-600" />
+              <span>Update Paper</span>
+            </button>
           </div>
         }
       />
@@ -1190,7 +1244,9 @@ export function UploadView({
                   <button
                     type="button"
                     onClick={() => {
-                      setCustomPaperName("High-Yield Practice Mock (Markdown Interactive)");
+                      setCustomPaperName(
+                        "High-Yield Practice Mock (Markdown Interactive)",
+                      );
                       setCustomTotalQuestions("5");
                       setCustomPositiveMarks("2");
                       setCustomNegativeMarks("0.667");
@@ -1198,7 +1254,10 @@ export function UploadView({
                       setCustomTimeMinutes("15");
                       setCustomQpMarkdown(SAMPLE_QUESTIONNAIRE_TEXT);
                       setCustomAkText(SAMPLE_ANSWER_KEY_TEXT);
-                      handleApplyRules(parseMarkdownHeader(SAMPLE_QUESTIONNAIRE_TEXT), "custom");
+                      handleApplyRules(
+                        parseMarkdownHeader(SAMPLE_QUESTIONNAIRE_TEXT),
+                        "custom",
+                      );
                     }}
                     className="cursor-pointer inline-flex items-center gap-1 text-xs font-medium text-slate-600 hover:text-slate-900 bg-transparent hover:bg-slate-100 px-2 py-1 rounded-lg transition-colors"
                   >
@@ -1217,8 +1276,11 @@ export function UploadView({
                     <div className="flex items-center gap-2 truncate">
                       <BookOpen className="h-4 w-4 text-purple-600 shrink-0" />
                       <span className="truncate">
-                        Rules detected in header: {detectedHeader.exam || "Mock Test"}
-                        {detectedHeader.totalQuestions ? ` • ${detectedHeader.totalQuestions} Qs` : ""}
+                        Rules detected in header:{" "}
+                        {detectedHeader.exam || "Mock Test"}
+                        {detectedHeader.totalQuestions
+                          ? ` • ${detectedHeader.totalQuestions} Qs`
+                          : ""}
                         {detectedHeader.time ? ` • ${detectedHeader.time}` : ""}
                       </span>
                     </div>
@@ -1298,8 +1360,10 @@ export function UploadView({
                           if (file) {
                             const text = await file.text();
                             setCustomQpMarkdown(text);
-                            const count = parseQuestionnaireMarkdown(text).length;
-                            if (count > 0) handleCustomQuestionsChange(String(count));
+                            const count =
+                              parseQuestionnaireMarkdown(text).length;
+                            if (count > 0)
+                              handleCustomQuestionsChange(String(count));
                           }
                         }}
                         className="hidden"
@@ -1328,14 +1392,26 @@ export function UploadView({
                 {customViewTab === "preview" && (
                   <div className="space-y-3.5 max-h-[500px] overflow-y-auto pr-1">
                     <ExamCoverCard
-                      title={customPaperName.trim() || detectedHeader?.exam || "Custom Practice Test"}
+                      title={
+                        customPaperName.trim() ||
+                        detectedHeader?.exam ||
+                        "Custom Practice Test"
+                      }
                       subject={detectedHeader?.subject}
-                      timeMinutes={customTimeMinutes || detectedHeader?.time || "120"}
-                      questionsCount={detectedQuestionsCount > 0 ? detectedQuestionsCount : (customTotalQuestions || "—")}
+                      timeMinutes={
+                        customTimeMinutes || detectedHeader?.time || "120"
+                      }
+                      questionsCount={
+                        detectedQuestionsCount > 0
+                          ? detectedQuestionsCount
+                          : customTotalQuestions || "—"
+                      }
                       totalMarks={customTotalMarks || "100"}
                       correctMarks={customPositiveMarks || "2"}
                       incorrectMarks={customNegativeMarks || "0.667"}
-                      mappedAnswersCount={Object.keys(detectedAnswerKey.answers).length}
+                      mappedAnswersCount={
+                        Object.keys(detectedAnswerKey.answers).length
+                      }
                       instructions={
                         customInstructions.length > 0
                           ? customInstructions
@@ -1451,7 +1527,9 @@ export function UploadView({
                           {getPaperDisplayTitle(currentSelectedPaper)}
                         </span>
                         <span className="text-[10px] font-mono font-medium px-2 py-0.5 rounded-full bg-slate-100 text-slate-600 border border-slate-200">
-                          {currentSelectedPaper.year} • {currentSelectedPaper.subject} • {currentSelectedPaper.totalQuestions} Qs
+                          {currentSelectedPaper.year} •{" "}
+                          {currentSelectedPaper.subject} •{" "}
+                          {currentSelectedPaper.totalQuestions} Qs
                         </span>
                         {isUserUploadedPaper(currentSelectedPaper) && (
                           <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-50 text-amber-700 border border-amber-200">
@@ -1511,7 +1589,9 @@ export function UploadView({
                           const isSelected = p.id === selectedPaperId;
                           const isUser = isUserUploadedPaper(p);
                           const isMd =
-                            Boolean(p.parsedQuestions && p.parsedQuestions.length > 0) ||
+                            Boolean(
+                              p.parsedQuestions && p.parsedQuestions.length > 0,
+                            ) ||
                             Boolean(p.markdownContent) ||
                             p.qpUrl?.startsWith("local://");
 
@@ -1551,7 +1631,8 @@ export function UploadView({
                                   )}
                                 </div>
                                 <div className="text-[11px] text-slate-500 font-normal mt-0.5">
-                                  {p.year} • {p.subject} • {p.totalQuestions} Qs • {p.timeMinutes || 120}m
+                                  {p.year} • {p.subject} • {p.totalQuestions} Qs
+                                  • {p.timeMinutes || 120}m
                                 </div>
                               </div>
                               {isSelected && (
@@ -1574,20 +1655,22 @@ export function UploadView({
                   <FileText className="h-3 w-3 text-slate-500" />
                   <span>
                     {currentSelectedPaper.qpUrl?.startsWith("local://") ||
-                    (currentSelectedPaper.parsedQuestions && currentSelectedPaper.parsedQuestions.length > 0)
+                    (currentSelectedPaper.parsedQuestions &&
+                      currentSelectedPaper.parsedQuestions.length > 0)
                       ? `Interactive Markdown (${currentSelectedPaper.totalQuestions} Qs)`
                       : "PDF Document"}
                   </span>
-                  {currentSelectedPaper.qpUrl && !currentSelectedPaper.qpUrl.startsWith("local://") && (
-                    <a
-                      href={currentSelectedPaper.qpUrl}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="text-indigo-600 hover:text-indigo-800 ml-1 inline-flex items-center"
-                    >
-                      <ExternalLink className="h-2.5 w-2.5" />
-                    </a>
-                  )}
+                  {currentSelectedPaper.qpUrl &&
+                    !currentSelectedPaper.qpUrl.startsWith("local://") && (
+                      <a
+                        href={currentSelectedPaper.qpUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-indigo-600 hover:text-indigo-800 ml-1 inline-flex items-center"
+                      >
+                        <ExternalLink className="h-2.5 w-2.5" />
+                      </a>
+                    )}
                 </span>
 
                 <span
@@ -1601,7 +1684,12 @@ export function UploadView({
                     <>
                       <Check className="h-3 w-3 text-emerald-600" />
                       <span>
-                        Key Attached ({Object.keys(currentSelectedPaper.answerKey || {}).length} Qs)
+                        Key Attached (
+                        {
+                          Object.keys(currentSelectedPaper.answerKey || {})
+                            .length
+                        }{" "}
+                        Qs)
                       </span>
                     </>
                   ) : (
@@ -1661,7 +1749,14 @@ export function UploadView({
                   onCutoffTypeChange={setCutoffType}
                   cutoffValue={cutoffValue}
                   onCutoffValueChange={setCutoffValue}
-                  instructionsCount={(updateInstructions.length > 0 ? updateInstructions : (detectedUpdateHeader?.instructions || currentSelectedPaper.instructions || [])).length}
+                  instructionsCount={
+                    (updateInstructions.length > 0
+                      ? updateInstructions
+                      : detectedUpdateHeader?.instructions ||
+                        currentSelectedPaper.instructions ||
+                        []
+                    ).length
+                  }
                 />
               </div>
 
@@ -1730,14 +1825,21 @@ export function UploadView({
                         <div className="flex items-center gap-2 truncate">
                           <BookOpen className="h-4 w-4 text-purple-600 shrink-0" />
                           <span className="truncate">
-                            Rules detected in header: {detectedUpdateHeader.exam || "Paper"}
-                            {detectedUpdateHeader.totalQuestions ? ` • ${detectedUpdateHeader.totalQuestions} Qs` : ""}
-                            {detectedUpdateHeader.time ? ` • ${detectedUpdateHeader.time}` : ""}
+                            Rules detected in header:{" "}
+                            {detectedUpdateHeader.exam || "Paper"}
+                            {detectedUpdateHeader.totalQuestions
+                              ? ` • ${detectedUpdateHeader.totalQuestions} Qs`
+                              : ""}
+                            {detectedUpdateHeader.time
+                              ? ` • ${detectedUpdateHeader.time}`
+                              : ""}
                           </span>
                         </div>
                         <button
                           type="button"
-                          onClick={() => handleApplyRules(detectedUpdateHeader, "update")}
+                          onClick={() =>
+                            handleApplyRules(detectedUpdateHeader, "update")
+                          }
                           className={`cursor-pointer shrink-0 inline-flex items-center gap-1 text-[11px] font-bold px-3 py-1 rounded-lg border shadow-2xs transition-all ${
                             headerRulesApplied
                               ? "bg-emerald-600 text-white border-emerald-600"
@@ -1783,7 +1885,9 @@ export function UploadView({
                           }`}
                         >
                           <Eye className="h-3.5 w-3.5" />
-                          <span>Preview ({detectedUpdateQuestions.length} Qs)</span>
+                          <span>
+                            Preview ({detectedUpdateQuestions.length} Qs)
+                          </span>
                         </button>
                       </div>
 
@@ -1791,7 +1895,10 @@ export function UploadView({
                         {detectedUpdateQuestions.length > 0 ? (
                           <span className="inline-flex items-center gap-1 text-emerald-700 bg-emerald-50 px-2.5 py-0.5 rounded-full border border-emerald-200 font-medium">
                             <Check className="h-3 w-3" />
-                            <span>{detectedUpdateQuestions.length} Questions detected</span>
+                            <span>
+                              {detectedUpdateQuestions.length} Questions
+                              detected
+                            </span>
                           </span>
                         ) : (
                           <span className="text-slate-400 text-[11px]">
@@ -1832,14 +1939,39 @@ export function UploadView({
                       <div className="space-y-3.5 max-h-[500px] overflow-y-auto pr-1">
                         <ExamCoverCard
                           title={getPaperDisplayTitle(currentSelectedPaper)}
-                          subject={detectedUpdateHeader?.subject || currentSelectedPaper.subject}
-                          timeMinutes={timeMinutes || currentSelectedPaper.timeMinutes || 120}
-                          questionsCount={detectedUpdateQuestions.length > 0 ? detectedUpdateQuestions.length : (totalQuestions || currentSelectedPaper.totalQuestions)}
-                          totalMarks={totalMarks || currentSelectedPaper.totalMarks}
+                          subject={
+                            detectedUpdateHeader?.subject ||
+                            currentSelectedPaper.subject
+                          }
+                          timeMinutes={
+                            timeMinutes ||
+                            currentSelectedPaper.timeMinutes ||
+                            120
+                          }
+                          questionsCount={
+                            detectedUpdateQuestions.length > 0
+                              ? detectedUpdateQuestions.length
+                              : totalQuestions ||
+                                currentSelectedPaper.totalQuestions
+                          }
+                          totalMarks={
+                            totalMarks || currentSelectedPaper.totalMarks
+                          }
                           correctMarks={correctMarks}
                           incorrectMarks={incorrectMarks}
-                          mappedAnswersCount={Object.keys(detectedUpdateAnswerKey.answers).length || Object.keys(currentSelectedPaper.answerKey || {}).length}
-                          instructions={updateInstructions.length > 0 ? updateInstructions : (detectedUpdateHeader?.instructions || currentSelectedPaper.instructions || [])}
+                          mappedAnswersCount={
+                            Object.keys(detectedUpdateAnswerKey.answers)
+                              .length ||
+                            Object.keys(currentSelectedPaper.answerKey || {})
+                              .length
+                          }
+                          instructions={
+                            updateInstructions.length > 0
+                              ? updateInstructions
+                              : detectedUpdateHeader?.instructions ||
+                                currentSelectedPaper.instructions ||
+                                []
+                          }
                         />
 
                         <QuestionStreamPreview
@@ -1854,7 +1986,10 @@ export function UploadView({
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
                     <PdfAttachmentCard
                       title="Question Paper PDF"
-                      currentFilename={getFilenameFromUrl(currentSelectedPaper.qpUrl, currentSelectedPaper.label)}
+                      currentFilename={getFilenameFromUrl(
+                        currentSelectedPaper.qpUrl,
+                        currentSelectedPaper.label,
+                      )}
                       currentUrl={currentSelectedPaper.qpUrl}
                       selectedFile={qpFile}
                       onFileSelected={setQpFile}
@@ -1862,8 +1997,19 @@ export function UploadView({
 
                     <PdfAttachmentCard
                       title="Solution Booklet PDF"
-                      currentFilename={hasSolution(currentSelectedPaper) ? getFilenameFromUrl(currentSelectedPaper.exsUrl, `${currentSelectedPaper.label}_solution`) : undefined}
-                      currentUrl={hasSolution(currentSelectedPaper) ? currentSelectedPaper.exsUrl : undefined}
+                      currentFilename={
+                        hasSolution(currentSelectedPaper)
+                          ? getFilenameFromUrl(
+                              currentSelectedPaper.exsUrl,
+                              `${currentSelectedPaper.label}_solution`,
+                            )
+                          : undefined
+                      }
+                      currentUrl={
+                        hasSolution(currentSelectedPaper)
+                          ? currentSelectedPaper.exsUrl
+                          : undefined
+                      }
                       selectedFile={exsFile}
                       onFileSelected={setExsFile}
                     />
@@ -1882,7 +2028,9 @@ export function UploadView({
                   onTextChange={setAkText}
                   fileValue={akFile}
                   onFileChange={setAkFile}
-                  mappedCount={Object.keys(detectedUpdateAnswerKey.answers).length}
+                  mappedCount={
+                    Object.keys(detectedUpdateAnswerKey.answers).length
+                  }
                 />
               </div>
 
@@ -1906,8 +2054,12 @@ export function UploadView({
                   disabled={isSubmitting}
                   className="cursor-pointer flex items-center gap-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 px-5 py-2.5 text-xs font-bold text-white shadow-xs disabled:opacity-40 transition-all"
                 >
-                  <RefreshCw className={`h-4 w-4 ${isSubmitting ? "animate-spin" : ""}`} />
-                  <span>{isSubmitting ? "Saving Updates..." : "Save Updates"}</span>
+                  <RefreshCw
+                    className={`h-4 w-4 ${isSubmitting ? "animate-spin" : ""}`}
+                  />
+                  <span>
+                    {isSubmitting ? "Saving Updates..." : "Save Updates"}
+                  </span>
                 </button>
               </div>
             </form>
@@ -1926,7 +2078,8 @@ export function UploadView({
                       Delete Question Paper?
                     </h3>
                     <p className="text-xs text-slate-500 mt-1">
-                      Are you sure you want to permanently delete &quot;{currentSelectedPaper.label}&quot;?
+                      Are you sure you want to permanently delete &quot;
+                      {currentSelectedPaper.label}&quot;?
                     </p>
                   </div>
                 </div>
@@ -1982,11 +2135,16 @@ export function UploadView({
                 }`}
               >
                 <div className="flex items-center justify-between">
-                  <span className="font-bold text-xs text-slate-900">Objective (Prelims)</span>
-                  {examType === "objective" && <Check className="h-4 w-4 text-indigo-600" />}
+                  <span className="font-bold text-xs text-slate-900">
+                    Objective (Prelims)
+                  </span>
+                  {examType === "objective" && (
+                    <Check className="h-4 w-4 text-indigo-600" />
+                  )}
                 </div>
                 <p className="text-[11px] text-slate-500 mt-0.5">
-                  Interactive OMR practice, auto-evaluation, and negative marking.
+                  Interactive OMR practice, auto-evaluation, and negative
+                  marking.
                 </p>
               </button>
 
@@ -2000,11 +2158,16 @@ export function UploadView({
                 }`}
               >
                 <div className="flex items-center justify-between">
-                  <span className="font-bold text-xs text-slate-900">Subjective (Mains)</span>
-                  {examType === "subjective" && <Check className="h-4 w-4 text-indigo-600" />}
+                  <span className="font-bold text-xs text-slate-900">
+                    Subjective (Mains)
+                  </span>
+                  {examType === "subjective" && (
+                    <Check className="h-4 w-4 text-indigo-600" />
+                  )}
                 </div>
                 <p className="text-[11px] text-slate-500 mt-0.5">
-                  Descriptive answer writing questions with handwritten PDF submission.
+                  Descriptive answer writing questions with handwritten PDF
+                  submission.
                 </p>
               </button>
             </div>
@@ -2038,17 +2201,31 @@ export function UploadView({
                 >
                   {examType === "objective" ? (
                     <>
-                      <option value="GS I">Prelims GS I (100 Qs • 200 Marks)</option>
-                      <option value="GS II CSAT">Prelims GS II CSAT (80 Qs • 200 Marks)</option>
+                      <option value="GS I">
+                        Prelims GS I (100 Qs • 200 Marks)
+                      </option>
+                      <option value="GS II CSAT">
+                        Prelims GS II CSAT (80 Qs • 200 Marks)
+                      </option>
                       <option value="Custom">Custom Paper</option>
                     </>
                   ) : (
                     <>
-                      <option value="Mains GS I">Mains GS I (20 Qs • 250 Marks)</option>
-                      <option value="Mains GS II">Mains GS II (20 Qs • 250 Marks)</option>
-                      <option value="Mains GS III">Mains GS III (20 Qs • 250 Marks)</option>
-                      <option value="Mains GS IV">Mains GS IV (Ethics • 250 Marks)</option>
-                      <option value="Mains Essay">Mains Essay (250 Marks)</option>
+                      <option value="Mains GS I">
+                        Mains GS I (20 Qs • 250 Marks)
+                      </option>
+                      <option value="Mains GS II">
+                        Mains GS II (20 Qs • 250 Marks)
+                      </option>
+                      <option value="Mains GS III">
+                        Mains GS III (20 Qs • 250 Marks)
+                      </option>
+                      <option value="Mains GS IV">
+                        Mains GS IV (Ethics • 250 Marks)
+                      </option>
+                      <option value="Mains Essay">
+                        Mains Essay (250 Marks)
+                      </option>
                       <option value="Custom">Custom Subjective</option>
                     </>
                   )}
@@ -2187,7 +2364,9 @@ export function UploadView({
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
             {papers.filter(isUserUploadedPaper).map((paper) => {
               const isMarkdown =
-                Boolean(paper.parsedQuestions && paper.parsedQuestions.length > 0) ||
+                Boolean(
+                  paper.parsedQuestions && paper.parsedQuestions.length > 0,
+                ) ||
                 Boolean(paper.markdownContent) ||
                 paper.qpUrl?.startsWith("local://");
 

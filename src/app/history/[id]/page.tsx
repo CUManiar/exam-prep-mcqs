@@ -50,7 +50,6 @@ export default function AttemptDetailPage({
   }
 
   if (!attempt) {
-
     return (
       <div className="mx-auto max-w-4xl px-4 py-16 text-center space-y-4">
         <h2 className="text-xl font-semibold text-slate-900">

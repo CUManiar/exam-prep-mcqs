@@ -323,7 +323,8 @@ export function MarkdownPaperReviewViewer({
                       <span className="inline-flex items-center gap-1 text-[11px] font-bold text-rose-800 bg-rose-50 border border-rose-200 px-2 py-0.5 rounded-full shadow-2xs">
                         <XCircle className="h-3 w-3 text-rose-600" />
                         <span>
-                          Incorrect · -{incorrectMarksValue} · Picked {userSelected}
+                          Incorrect · -{incorrectMarksValue} · Picked{" "}
+                          {userSelected}
                         </span>
                       </span>
                     ) : isCloze && isAnswered ? (
@@ -404,7 +405,8 @@ export function MarkdownPaperReviewViewer({
                           "bg-emerald-50 border-2 border-emerald-500 text-emerald-950 font-semibold shadow-2xs";
                         badgeEl = (
                           <span className="text-[10px] font-bold text-emerald-800 ml-auto flex items-center gap-0.5 shrink-0 bg-emerald-100 px-1.5 py-0.5 rounded">
-                            <Check className="h-3 w-3 text-emerald-700" /> Your answer
+                            <Check className="h-3 w-3 text-emerald-700" /> Your
+                            answer
                           </span>
                         );
                       } else if (isRightAnswer) {
@@ -412,7 +414,8 @@ export function MarkdownPaperReviewViewer({
                           "bg-emerald-50/80 border-2 border-emerald-400 text-emerald-950 font-semibold shadow-2xs";
                         badgeEl = (
                           <span className="text-[10px] font-bold text-emerald-800 ml-auto flex items-center gap-0.5 shrink-0 bg-emerald-100 px-1.5 py-0.5 rounded">
-                            <Check className="h-3 w-3 text-emerald-700" /> Correct
+                            <Check className="h-3 w-3 text-emerald-700" />{" "}
+                            Correct
                           </span>
                         );
                       } else if (isUserPick) {

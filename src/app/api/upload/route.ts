@@ -47,10 +47,15 @@ export async function POST(req: NextRequest) {
           : 250;
     const answerKeyTextInput = (formData.get("answerKeyText") as string) || "";
     const cutoffEnabled = formData.get("cutoffEnabled") === "true";
-    const cutoffType = formData.get("cutoffType") === "marks" ? "marks" : "percentage";
-    const cutoffValueInput = parseFloat((formData.get("cutoffValue") as string) || "");
+    const cutoffType =
+      formData.get("cutoffType") === "marks" ? "marks" : "percentage";
+    const cutoffValueInput = parseFloat(
+      (formData.get("cutoffValue") as string) || "",
+    );
     const cutoffValue =
-      cutoffEnabled && Number.isFinite(cutoffValueInput) && cutoffValueInput >= 0
+      cutoffEnabled &&
+      Number.isFinite(cutoffValueInput) &&
+      cutoffValueInput >= 0
         ? cutoffValueInput
         : undefined;
     const userId = user.id;
@@ -149,7 +154,10 @@ export async function POST(req: NextRequest) {
       }),
     ].find(Boolean);
     if (uploadErrors) {
-      return NextResponse.json({ ok: false, error: uploadErrors }, { status: 413 });
+      return NextResponse.json(
+        { ok: false, error: uploadErrors },
+        { status: 413 },
+      );
     }
     if (new TextEncoder().encode(markdownContent).length > 2 * 1024 * 1024) {
       return NextResponse.json(
@@ -235,7 +243,8 @@ export async function POST(req: NextRequest) {
       explanations: parsedExplanations,
       markdownContent: markdownContent || undefined,
       parsedQuestions: parsedQuestions || undefined,
-      instructions: markdownInstructions.length > 0 ? markdownInstructions : undefined,
+      instructions:
+        markdownInstructions.length > 0 ? markdownInstructions : undefined,
       cutoffEnabled,
       cutoffType,
       cutoffValue,

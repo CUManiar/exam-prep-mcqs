@@ -203,9 +203,15 @@ export function HistoryView({
       {/* Header */}
       <div className="page-heading">
         <div>
-          <p className="page-eyebrow">Assessment record · {totalMocks} {totalMocks === 1 ? "mock" : "mocks"}</p>
+          <p className="page-eyebrow">
+            Assessment record · {totalMocks}{" "}
+            {totalMocks === 1 ? "mock" : "mocks"}
+          </p>
           <h1 className="page-title">Performance</h1>
-          <p className="page-description">Review individual results and compare your progress across repeated attempts.</p>
+          <p className="page-description">
+            Review individual results and compare your progress across repeated
+            attempts.
+          </p>
         </div>
 
         {/* View Mode Toggle & Search */}
@@ -222,7 +228,9 @@ export function HistoryView({
             >
               <History className="h-3.5 w-3.5 text-indigo-600 shrink-0" />
               <span>Exam Papers</span>
-              <span className={`text-[11px] font-mono px-1.5 py-0.2 rounded-full ${viewMode === "all" ? "bg-indigo-50 text-indigo-700" : "bg-slate-200/70 text-slate-600"}`}>
+              <span
+                className={`text-[11px] font-mono px-1.5 py-0.2 rounded-full ${viewMode === "all" ? "bg-indigo-50 text-indigo-700" : "bg-slate-200/70 text-slate-600"}`}
+              >
                 {groupedByPaper.length}
               </span>
             </button>
@@ -236,7 +244,9 @@ export function HistoryView({
             >
               <Layers className="h-3.5 w-3.5 text-indigo-600 shrink-0" />
               <span>Cumulative</span>
-              <span className={`text-[11px] font-mono px-1.5 py-0.2 rounded-full ${viewMode === "cumulative" ? "bg-indigo-50 text-indigo-700" : "bg-slate-200/70 text-slate-600"}`}>
+              <span
+                className={`text-[11px] font-mono px-1.5 py-0.2 rounded-full ${viewMode === "cumulative" ? "bg-indigo-50 text-indigo-700" : "bg-slate-200/70 text-slate-600"}`}
+              >
                 {groupedByPaper.length}
               </span>
             </button>
@@ -414,13 +424,16 @@ export function HistoryView({
                         Initial Attempt
                       </span>
                       <div className="text-base font-bold text-slate-700 font-mono mt-0.5">
-                        {Number(group.initialAttempt.score).toFixed(group.initialAttempt.score % 1 !== 0 ? 2 : 0)}{" "}
+                        {Number(group.initialAttempt.score).toFixed(
+                          group.initialAttempt.score % 1 !== 0 ? 2 : 0,
+                        )}{" "}
                         <span className="text-xs font-normal text-slate-400">
                           / {group.initialAttempt.maxScore}
                         </span>
                       </div>
                       <span className="text-[10px] text-slate-500 font-medium">
-                        {Math.round(group.initialAttempt.accuracyPct || 0)}% accuracy
+                        {Math.round(group.initialAttempt.accuracyPct || 0)}%
+                        accuracy
                       </span>
                     </div>
 
@@ -429,13 +442,16 @@ export function HistoryView({
                         Latest Attempt
                       </span>
                       <div className="text-base font-bold text-slate-900 font-mono mt-0.5">
-                        {Number(group.latestAttempt.score).toFixed(group.latestAttempt.score % 1 !== 0 ? 2 : 0)}{" "}
+                        {Number(group.latestAttempt.score).toFixed(
+                          group.latestAttempt.score % 1 !== 0 ? 2 : 0,
+                        )}{" "}
                         <span className="text-xs font-normal text-slate-400">
                           / {group.latestAttempt.maxScore}
                         </span>
                       </div>
                       <span className="text-[10px] text-slate-500 font-medium">
-                        {Math.round(group.latestAttempt.accuracyPct || 0)}% accuracy
+                        {Math.round(group.latestAttempt.accuracyPct || 0)}%
+                        accuracy
                       </span>
                     </div>
 
@@ -465,13 +481,16 @@ export function HistoryView({
                         Personal Best
                       </span>
                       <div className="text-base font-bold text-indigo-900 font-mono mt-0.5">
-                        {Number(group.bestAttempt.score).toFixed(group.bestAttempt.score % 1 !== 0 ? 2 : 0)}{" "}
+                        {Number(group.bestAttempt.score).toFixed(
+                          group.bestAttempt.score % 1 !== 0 ? 2 : 0,
+                        )}{" "}
                         <span className="text-xs font-normal text-indigo-400">
                           / {group.bestAttempt.maxScore}
                         </span>
                       </div>
                       <span className="text-[10px] text-indigo-600 font-medium">
-                        {Math.round(group.bestAttempt.accuracyPct || 0)}% accuracy
+                        {Math.round(group.bestAttempt.accuracyPct || 0)}%
+                        accuracy
                       </span>
                     </div>
                   </div>
@@ -616,16 +635,23 @@ export function HistoryView({
 
             // Cutoff status is shown only when the paper explicitly enables it.
             const cutoffEnabled =
-              matchedPaper?.cutoffEnabled ?? activeAttempt.cutoffEnabled ?? false;
+              matchedPaper?.cutoffEnabled ??
+              activeAttempt.cutoffEnabled ??
+              false;
             const cutoffType =
-              matchedPaper?.cutoffType || activeAttempt.cutoffType || "percentage";
-            const cutoffValue = matchedPaper?.cutoffValue ?? activeAttempt.cutoffValue;
+              matchedPaper?.cutoffType ||
+              activeAttempt.cutoffType ||
+              "percentage";
+            const cutoffValue =
+              matchedPaper?.cutoffValue ?? activeAttempt.cutoffValue;
             const cutoffMeasure =
               cutoffType === "marks"
                 ? activeAttempt.score
                 : getAttemptPercentage(activeAttempt);
             const hasCutoff =
-              cutoffEnabled && cutoffValue !== undefined && Number.isFinite(cutoffValue);
+              cutoffEnabled &&
+              cutoffValue !== undefined &&
+              Number.isFinite(cutoffValue);
             const cutoffCleared = hasCutoff && cutoffMeasure >= cutoffValue;
             const cutoffBadge = hasCutoff ? (
               <span
@@ -769,8 +795,12 @@ export function HistoryView({
                           Score
                         </span>
                         <div className="flex items-baseline gap-1.5 mt-0.5 min-w-0">
-                          <span className={`text-xl font-bold font-mono ${scoreColor}`}>
-                            {Number(activeAttempt.score).toFixed(activeAttempt.score % 1 !== 0 ? 2 : 0)}
+                          <span
+                            className={`text-xl font-bold font-mono ${scoreColor}`}
+                          >
+                            {Number(activeAttempt.score).toFixed(
+                              activeAttempt.score % 1 !== 0 ? 2 : 0,
+                            )}
                           </span>
                           <span className="text-xs text-slate-400 font-mono">
                             / {activeAttempt.maxScore}
@@ -794,18 +824,30 @@ export function HistoryView({
                     <div className="flex items-center justify-between text-xs font-mono text-slate-500 px-1 pt-1">
                       <span className="flex items-center gap-1">
                         <span className="inline-block h-1.5 w-1.5 rounded-full bg-emerald-500"></span>
-                        <span className="text-slate-700 font-semibold">{activeAttempt.correct}</span>
-                        <span className="text-slate-400 font-normal">correct</span>
+                        <span className="text-slate-700 font-semibold">
+                          {activeAttempt.correct}
+                        </span>
+                        <span className="text-slate-400 font-normal">
+                          correct
+                        </span>
                       </span>
                       <span className="flex items-center gap-1">
                         <span className="inline-block h-1.5 w-1.5 rounded-full bg-rose-500"></span>
-                        <span className="text-slate-700 font-semibold">{activeAttempt.incorrect}</span>
-                        <span className="text-slate-400 font-normal">wrong</span>
+                        <span className="text-slate-700 font-semibold">
+                          {activeAttempt.incorrect}
+                        </span>
+                        <span className="text-slate-400 font-normal">
+                          wrong
+                        </span>
                       </span>
                       <span className="flex items-center gap-1">
                         <span className="inline-block h-1.5 w-1.5 rounded-full bg-slate-300"></span>
-                        <span className="text-slate-700 font-semibold">{activeAttempt.unattempted}</span>
-                        <span className="text-slate-400 font-normal">skipped</span>
+                        <span className="text-slate-700 font-semibold">
+                          {activeAttempt.unattempted}
+                        </span>
+                        <span className="text-slate-400 font-normal">
+                          skipped
+                        </span>
                       </span>
                     </div>
                   </div>
@@ -831,7 +873,9 @@ export function HistoryView({
                         <RotateCcw className="h-3 w-3 text-slate-500 group-hover:text-indigo-600" />
                         <span>Re-attempt</span>
                       </button>
-                    ) : <span />}
+                    ) : (
+                      <span />
+                    )}
                     {paperDeleted && (
                       <button
                         type="button"

@@ -26,9 +26,7 @@ export default function RootPage() {
     return (
       <div className="min-h-[70vh] flex flex-col items-center justify-center space-y-3">
         <div className="h-8 w-8 animate-spin rounded-full border-2 border-slate-300 border-t-blue-700" />
-        <span className="text-sm text-slate-500">
-          Loading your workspace…
-        </span>
+        <span className="text-sm text-slate-500">Loading your workspace…</span>
       </div>
     );
   }

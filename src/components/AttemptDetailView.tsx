@@ -176,12 +176,20 @@ function ReviewAssessmentPicker({
             Self-Assessment / Response Evaluation
           </p>
           <p className="text-[11px] text-indigo-900/70">
-            Compare your response with the solution above and select the score to award.
+            Compare your response with the solution above and select the score
+            to award.
           </p>
         </div>
         {value && (
           <span className="text-[10px] font-bold text-indigo-800 bg-white px-2 py-0.5 rounded-full border border-indigo-200 shadow-2xs">
-            Assessed: {value === "strong" ? "Exact Match" : value === "partial" ? "Partial" : value === "needs-work" ? "Incorrect" : "No Attempt"}
+            Assessed:{" "}
+            {value === "strong"
+              ? "Exact Match"
+              : value === "partial"
+                ? "Partial"
+                : value === "needs-work"
+                  ? "Incorrect"
+                  : "No Attempt"}
           </span>
         )}
       </div>
@@ -554,7 +562,11 @@ export function AttemptDetailView({
     if (updatedAnswers[qNo]) {
       updatedAnswers[qNo] = { ...updatedAnswers[qNo], note: qNoteText };
     } else {
-      updatedAnswers[qNo] = { questionNo: qNo, selected: null, note: qNoteText };
+      updatedAnswers[qNo] = {
+        questionNo: qNo,
+        selected: null,
+        note: qNoteText,
+      };
     }
     const updated = { ...attempt, answers: updatedAnswers };
     onUpdate(updated);
@@ -655,8 +667,12 @@ export function AttemptDetailView({
       unattempted: Math.max(0, attempt.totalQuestions - answered),
       score: Number(score.toFixed(2)),
       maxScore: Number(maxScore.toFixed(2)),
-      percentagePct: maxScore > 0 ? Math.round(((score / maxScore) * 100) * 10) / 10 : 0,
-      accuracyPct: answered > 0 ? Math.round(((subjectivePoints / answered) * 100) * 10) / 10 : 0,
+      percentagePct:
+        maxScore > 0 ? Math.round((score / maxScore) * 100 * 10) / 10 : 0,
+      accuracyPct:
+        answered > 0
+          ? Math.round((subjectivePoints / answered) * 100 * 10) / 10
+          : 0,
     });
   };
 
@@ -1542,7 +1558,8 @@ export function AttemptDetailView({
               {currentAttemptIndex + 1}
             </span>
             <span className="text-xs font-semibold text-slate-800 truncate">
-              Attempt #{currentAttemptIndex + 1} of {totalRelatedAttempts} on this paper
+              Attempt #{currentAttemptIndex + 1} of {totalRelatedAttempts} on
+              this paper
             </span>
           </div>
 
@@ -1796,7 +1813,9 @@ export function AttemptDetailView({
                   aria-controls="attempt-summary-details"
                   className="inline-flex items-center gap-1 text-[11px] font-medium text-slate-600 hover:text-slate-900 bg-slate-100 hover:bg-slate-200/80 px-2.5 py-1 rounded-lg transition-colors ml-auto cursor-pointer"
                 >
-                  <span>{summaryExpanded ? "Hide analytics" : "Analytics"}</span>
+                  <span>
+                    {summaryExpanded ? "Hide analytics" : "Analytics"}
+                  </span>
                   {summaryExpanded ? (
                     <ChevronUp className="h-3 w-3 text-slate-400" />
                   ) : (
@@ -2216,7 +2235,9 @@ export function AttemptDetailView({
                         key={item.id}
                         type="button"
                         onClick={() =>
-                          setFilterTab((prev) => (prev === item.id ? "all" : item.id))
+                          setFilterTab((prev) =>
+                            prev === item.id ? "all" : item.id,
+                          )
                         }
                         className={`p-2.5 rounded-lg border text-left transition-colors cursor-pointer ${
                           filterTab === item.id
@@ -2225,12 +2246,18 @@ export function AttemptDetailView({
                         }`}
                       >
                         <div className="flex items-center justify-between text-xs font-semibold">
-                          <span className={item.accent}>{item.icon} {item.label}</span>
-                          <span className="font-mono text-slate-500">{item.total}</span>
+                          <span className={item.accent}>
+                            {item.icon} {item.label}
+                          </span>
+                          <span className="font-mono text-slate-500">
+                            {item.total}
+                          </span>
                         </div>
                         <div className="mt-1 text-xs font-bold text-slate-800 font-mono">
                           {item.correct}/{item.total}{" "}
-                          <span className={`text-[11px] font-medium ${item.accent}`}>
+                          <span
+                            className={`text-[11px] font-medium ${item.accent}`}
+                          >
                             ({item.accuracy}%)
                           </span>
                         </div>
@@ -2361,7 +2388,8 @@ export function AttemptDetailView({
                     badgeColor: "text-emerald-700 font-bold",
                     activeBg: "bg-emerald-600 text-white",
                   },
-                  ...(isSubjectiveAttempt || questionList.some((q) => isAssessmentQuestion(q.questionNo))
+                  ...(isSubjectiveAttempt ||
+                  questionList.some((q) => isAssessmentQuestion(q.questionNo))
                     ? [
                         {
                           id: "non-mcq" as const,
@@ -2424,14 +2452,24 @@ export function AttemptDetailView({
                 <table className="w-full border-collapse text-left text-xs">
                   <thead>
                     <tr className="bg-slate-100/80 text-slate-700 border-b border-slate-200 text-[10px] font-bold uppercase tracking-wider">
-                      <th className="py-2.5 px-2 text-center w-14 sm:w-16">Q. No</th>
-                      <th className="py-2.5 px-2 text-center w-28 sm:w-32">Status</th>
+                      <th className="py-2.5 px-2 text-center w-14 sm:w-16">
+                        Q. No
+                      </th>
+                      <th className="py-2.5 px-2 text-center w-28 sm:w-32">
+                        Status
+                      </th>
                       <th className="py-2.5 px-2 text-center w-28 sm:w-32">
                         Your answer
                       </th>
-                      <th className="py-2.5 px-2 text-center w-28 sm:w-32">Correct answer</th>
-                      <th className="py-2.5 px-2 text-center w-16 sm:w-20">Time</th>
-                      <th className="py-2.5 px-3 min-w-[140px]">Student notes</th>
+                      <th className="py-2.5 px-2 text-center w-28 sm:w-32">
+                        Correct answer
+                      </th>
+                      <th className="py-2.5 px-2 text-center w-16 sm:w-20">
+                        Time
+                      </th>
+                      <th className="py-2.5 px-3 min-w-[140px]">
+                        Student notes
+                      </th>
                       <th className="py-2.5 px-2 text-center w-8"></th>
                     </tr>
                   </thead>
@@ -2506,12 +2544,14 @@ export function AttemptDetailView({
                             <td className="py-2.5 px-2 text-center whitespace-nowrap">
                               {isCorrect && (
                                 <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-emerald-100 text-emerald-800 border border-emerald-300 shadow-2xs">
-                                  <CheckCircle2 className="h-3 w-3 text-emerald-700" /> Correct
+                                  <CheckCircle2 className="h-3 w-3 text-emerald-700" />{" "}
+                                  Correct
                                 </span>
                               )}
                               {isWrong && (
                                 <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-rose-100 text-rose-800 border border-rose-300 shadow-2xs">
-                                  <XCircle className="h-3 w-3 text-rose-700" /> Incorrect
+                                  <XCircle className="h-3 w-3 text-rose-700" />{" "}
+                                  Incorrect
                                 </span>
                               )}
                               {isEvaluable &&
@@ -2568,7 +2608,9 @@ export function AttemptDetailView({
                                     {q.selected}
                                   </span>
                                 ) : (
-                                  <span className="text-slate-400 text-sm font-mono">—</span>
+                                  <span className="text-slate-400 text-sm font-mono">
+                                    —
+                                  </span>
                                 )
                               ) : isSubjectiveAttempt ? (
                                 <span
@@ -2605,7 +2647,8 @@ export function AttemptDetailView({
                                         ? "bg-emerald-100 text-emerald-800 border-emerald-300"
                                         : subjectiveAssessment === "partial"
                                           ? "bg-amber-100 text-amber-800 border-amber-300"
-                                          : subjectiveAssessment === "needs-work"
+                                          : subjectiveAssessment ===
+                                              "needs-work"
                                             ? "bg-rose-100 text-rose-800 border-rose-300"
                                             : "bg-slate-100 text-slate-600 border-slate-200"
                                     }`}
@@ -2613,7 +2656,7 @@ export function AttemptDetailView({
                                     {subjectiveAssessment === "strong"
                                       ? `+${getFullMarks(q.questionNo).toFixed(1)}`
                                       : subjectiveAssessment === "partial"
-                                        ? `+${((q.subjectiveMarks !== undefined ? q.subjectiveMarks : getFullMarks(q.questionNo) * 0.5)).toFixed(1)}`
+                                        ? `+${(q.subjectiveMarks !== undefined ? q.subjectiveMarks : getFullMarks(q.questionNo) * 0.5).toFixed(1)}`
                                         : subjectiveAssessment === "needs-work"
                                           ? `-${incorrectMarksPerQ.toFixed(2)}`
                                           : "0 pts"}
@@ -2623,7 +2666,9 @@ export function AttemptDetailView({
                                     <Sparkles className="h-3 w-3" /> Assess
                                   </span>
                                 ) : (
-                                  <span className="text-slate-400 font-mono text-sm">—</span>
+                                  <span className="text-slate-400 font-mono text-sm">
+                                    —
+                                  </span>
                                 )
                               ) : (
                                 <span className="text-base font-black font-mono text-emerald-800 bg-emerald-50 border border-emerald-300 px-2 py-0.5 rounded-md inline-block shadow-2xs">
@@ -2645,7 +2690,9 @@ export function AttemptDetailView({
                                   {q.timeSpentSeconds}s
                                 </span>
                               ) : (
-                                <span className="text-slate-400 font-mono">0s</span>
+                                <span className="text-slate-400 font-mono">
+                                  0s
+                                </span>
                               )}
                             </td>
 
@@ -2678,7 +2725,10 @@ export function AttemptDetailView({
                           {/* Expanded Detail Row for Extra Details & Evaluation */}
                           {isExpanded && (
                             <tr className="bg-slate-50/70 border-b border-slate-200">
-                              <td colSpan={7} className="p-3 sm:p-5 space-y-3.5">
+                              <td
+                                colSpan={7}
+                                className="p-3 sm:p-5 space-y-3.5"
+                              >
                                 {isCloze ? (
                                   /* Dedicated Cloze Assessment Experience Card */
                                   <div className="space-y-3.5">
@@ -2689,13 +2739,19 @@ export function AttemptDetailView({
                                           Cloze / Fill-in-the-blank
                                         </span>
                                         <span className="text-xs text-slate-500 font-mono">
-                                          Max Score: +{getFullMarks(q.questionNo).toFixed(1)} pts · Penalty: -{incorrectMarksPerQ.toFixed(2)} pts
+                                          Max Score: +
+                                          {getFullMarks(q.questionNo).toFixed(
+                                            1,
+                                          )}{" "}
+                                          pts · Penalty: -
+                                          {incorrectMarksPerQ.toFixed(2)} pts
                                         </span>
                                       </div>
                                       {isAnswered && !subjectiveAssessment && (
                                         <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-bold bg-amber-50 text-amber-900 border border-amber-300 animate-pulse">
                                           <Sparkles className="h-3.5 w-3.5 text-amber-600" />
-                                          Action: Compare response and grade below
+                                          Action: Compare response and grade
+                                          below
                                         </span>
                                       )}
                                     </div>
@@ -2715,7 +2771,8 @@ export function AttemptDetailView({
                                                 ? "🎯 Sure"
                                                 : q.confidence === "50-50"
                                                   ? "⚖️ 50:50"
-                                                  : q.confidence === "elimination"
+                                                  : q.confidence ===
+                                                      "elimination"
                                                     ? "✂️ Elimination"
                                                     : "🎲 Guess"}
                                             </span>
@@ -2726,7 +2783,8 @@ export function AttemptDetailView({
                                             q.selected
                                           ) : (
                                             <span className="text-slate-400 italic font-normal text-xs">
-                                              Question unattempted (No answer entered)
+                                              Question unattempted (No answer
+                                              entered)
                                             </span>
                                           )}
                                         </div>
@@ -2743,7 +2801,8 @@ export function AttemptDetailView({
                                             <span>{expectedAnswer}</span>
                                           ) : (
                                             <span className="text-slate-400 italic font-normal text-xs">
-                                              Refer to Question Paper panel for key
+                                              Refer to Question Paper panel for
+                                              key
                                             </span>
                                           )}
                                         </div>
@@ -2755,7 +2814,9 @@ export function AttemptDetailView({
                                       value={subjectiveAssessment}
                                       isAnswered={isAnswered}
                                       partialMarks={q.subjectiveMarks}
-                                      maxPartialMarks={getFullMarks(q.questionNo)}
+                                      maxPartialMarks={getFullMarks(
+                                        q.questionNo,
+                                      )}
                                       penaltyMarks={incorrectMarksPerQ}
                                       onChange={(assessment) =>
                                         handleSetSubjectiveAssessment(
@@ -2779,24 +2840,40 @@ export function AttemptDetailView({
                                           Scoring Breakdown
                                         </span>
                                         <div className="pt-0.5">
-                                          {subjectiveAssessment === "strong" && (
+                                          {subjectiveAssessment ===
+                                            "strong" && (
                                             <span className="text-emerald-700 font-bold">
-                                              +{getFullMarks(q.questionNo).toFixed(2)} marks awarded (Exact match).
+                                              +
+                                              {getFullMarks(
+                                                q.questionNo,
+                                              ).toFixed(2)}{" "}
+                                              marks awarded (Exact match).
                                             </span>
                                           )}
-                                          {subjectiveAssessment === "partial" && (
+                                          {subjectiveAssessment ===
+                                            "partial" && (
                                             <span className="text-amber-700 font-bold">
-                                              +{((q.subjectiveMarks !== undefined ? q.subjectiveMarks : getFullMarks(q.questionNo) * 0.5)).toFixed(2)} marks awarded (Partial credit).
+                                              +
+                                              {(q.subjectiveMarks !== undefined
+                                                ? q.subjectiveMarks
+                                                : getFullMarks(q.questionNo) *
+                                                  0.5
+                                              ).toFixed(2)}{" "}
+                                              marks awarded (Partial credit).
                                             </span>
                                           )}
-                                          {subjectiveAssessment === "needs-work" && (
+                                          {subjectiveAssessment ===
+                                            "needs-work" && (
                                             <span className="text-rose-700 font-bold">
-                                              -{incorrectMarksPerQ.toFixed(2)} penalty deducted (Incorrect).
+                                              -{incorrectMarksPerQ.toFixed(2)}{" "}
+                                              penalty deducted (Incorrect).
                                             </span>
                                           )}
-                                          {subjectiveAssessment === "no-attempt" && (
+                                          {subjectiveAssessment ===
+                                            "no-attempt" && (
                                             <span className="text-slate-600 font-medium">
-                                              0 marks awarded (Marked unattempted).
+                                              0 marks awarded (Marked
+                                              unattempted).
                                             </span>
                                           )}
                                           {!subjectiveAssessment && (
@@ -2814,10 +2891,14 @@ export function AttemptDetailView({
                                           Timing Analysis
                                         </span>
                                         <div className="pt-0.5 text-slate-700">
-                                          Time spent: <strong className="font-mono text-slate-900">{q.timeSpentSeconds || 0} seconds</strong>
+                                          Time spent:{" "}
+                                          <strong className="font-mono text-slate-900">
+                                            {q.timeSpentSeconds || 0} seconds
+                                          </strong>
                                           {isSlow ? (
                                             <span className="text-amber-700 ml-1 font-semibold">
-                                              (Slow: exceeded 90s target by {(q.timeSpentSeconds || 0) - 90}s)
+                                              (Slow: exceeded 90s target by{" "}
+                                              {(q.timeSpentSeconds || 0) - 90}s)
                                             </span>
                                           ) : (
                                             <span className="text-slate-500 ml-1">
@@ -2826,98 +2907,100 @@ export function AttemptDetailView({
                                           )}
                                         </div>
                                       </div>
-                                      </div>
+                                    </div>
 
-                                      {/* Student Note (Above Explanation - Only when exists or editing) */}
-                                      {editingQNote === q.questionNo ? (
-                                        <div className="pt-1 space-y-2">
-                                          <textarea
-                                            value={qNoteText}
-                                            onChange={(e) =>
-                                              setQNoteText(e.target.value)
-                                            }
-                                            placeholder="Write key learnings or revision notes for this question..."
-                                            rows={2}
-                                            className="w-full rounded-xl border border-slate-300 bg-white p-2.5 text-xs text-slate-900 focus:outline-none focus:border-indigo-500 shadow-2xs"
-                                          />
-                                          <div className="flex justify-end gap-2">
-                                            <button
-                                              onClick={(e) => {
-                                                e.stopPropagation();
-                                                setEditingQNote(null);
-                                              }}
-                                              className="rounded-lg px-2.5 py-1 text-xs font-medium text-slate-600 hover:bg-slate-100 cursor-pointer"
-                                            >
-                                              Cancel
-                                            </button>
-                                            <button
-                                              onClick={(e) => {
-                                                e.stopPropagation();
-                                                handleSaveQuestionNote(
-                                                  q.questionNo,
-                                                );
-                                              }}
-                                              className="rounded-lg bg-indigo-600 px-3 py-1 text-xs font-bold text-white hover:bg-indigo-700 shadow-2xs cursor-pointer"
-                                            >
-                                              Save Note
-                                            </button>
-                                          </div>
-                                        </div>
-                                      ) : q.note && q.note.trim() ? (
-                                        <div className="pt-1">
-                                          <div className="flex items-center justify-between bg-amber-50/80 p-3 rounded-xl border border-amber-200/90 shadow-2xs gap-3">
-                                            <div className="flex items-start gap-2.5">
-                                              <FileText className="h-4 w-4 text-amber-700 mt-0.5 shrink-0" />
-                                              <div className="text-xs text-slate-900 font-mono leading-relaxed whitespace-pre-wrap">
-                                                <strong className="text-amber-900 font-semibold block text-[10px] uppercase tracking-wider mb-0.5">
-                                                  Student Note
-                                                </strong>
-                                                {q.note}
-                                              </div>
-                                            </div>
-                                            <button
-                                              onClick={(e) => {
-                                                e.stopPropagation();
-                                                setEditingQNote(q.questionNo);
-                                                setQNoteText(q.note || "");
-                                              }}
-                                              className="text-xs font-medium text-amber-800 hover:text-amber-950 bg-amber-100/80 hover:bg-amber-200/90 px-2.5 py-1 rounded-md border border-amber-300 shrink-0 cursor-pointer transition-colors"
-                                            >
-                                              Edit Note
-                                            </button>
-                                          </div>
-                                        </div>
-                                      ) : (
-                                        <div className="pt-0.5">
+                                    {/* Student Note (Above Explanation - Only when exists or editing) */}
+                                    {editingQNote === q.questionNo ? (
+                                      <div className="pt-1 space-y-2">
+                                        <textarea
+                                          value={qNoteText}
+                                          onChange={(e) =>
+                                            setQNoteText(e.target.value)
+                                          }
+                                          placeholder="Write key learnings or revision notes for this question..."
+                                          rows={2}
+                                          className="w-full rounded-xl border border-slate-300 bg-white p-2.5 text-xs text-slate-900 focus:outline-none focus:border-indigo-500 shadow-2xs"
+                                        />
+                                        <div className="flex justify-end gap-2">
                                           <button
-                                            type="button"
+                                            onClick={(e) => {
+                                              e.stopPropagation();
+                                              setEditingQNote(null);
+                                            }}
+                                            className="rounded-lg px-2.5 py-1 text-xs font-medium text-slate-600 hover:bg-slate-100 cursor-pointer"
+                                          >
+                                            Cancel
+                                          </button>
+                                          <button
+                                            onClick={(e) => {
+                                              e.stopPropagation();
+                                              handleSaveQuestionNote(
+                                                q.questionNo,
+                                              );
+                                            }}
+                                            className="rounded-lg bg-indigo-600 px-3 py-1 text-xs font-bold text-white hover:bg-indigo-700 shadow-2xs cursor-pointer"
+                                          >
+                                            Save Note
+                                          </button>
+                                        </div>
+                                      </div>
+                                    ) : q.note && q.note.trim() ? (
+                                      <div className="pt-1">
+                                        <div className="flex items-center justify-between bg-amber-50/80 p-3 rounded-xl border border-amber-200/90 shadow-2xs gap-3">
+                                          <div className="flex items-start gap-2.5">
+                                            <FileText className="h-4 w-4 text-amber-700 mt-0.5 shrink-0" />
+                                            <div className="text-xs text-slate-900 font-mono leading-relaxed whitespace-pre-wrap">
+                                              <strong className="text-amber-900 font-semibold block text-[10px] uppercase tracking-wider mb-0.5">
+                                                Student Note
+                                              </strong>
+                                              {q.note}
+                                            </div>
+                                          </div>
+                                          <button
                                             onClick={(e) => {
                                               e.stopPropagation();
                                               setEditingQNote(q.questionNo);
-                                              setQNoteText("");
+                                              setQNoteText(q.note || "");
                                             }}
-                                            className="inline-flex items-center gap-1.5 text-xs text-slate-400 hover:text-indigo-600 transition-colors font-medium cursor-pointer"
+                                            className="text-xs font-medium text-amber-800 hover:text-amber-950 bg-amber-100/80 hover:bg-amber-200/90 px-2.5 py-1 rounded-md border border-amber-300 shrink-0 cursor-pointer transition-colors"
                                           >
-                                            <FileText className="h-3.5 w-3.5 text-slate-400" />
-                                            <span>+ Add personal note</span>
+                                            Edit Note
                                           </button>
                                         </div>
-                                      )}
+                                      </div>
+                                    ) : (
+                                      <div className="pt-0.5">
+                                        <button
+                                          type="button"
+                                          onClick={(e) => {
+                                            e.stopPropagation();
+                                            setEditingQNote(q.questionNo);
+                                            setQNoteText("");
+                                          }}
+                                          className="inline-flex items-center gap-1.5 text-xs text-slate-400 hover:text-indigo-600 transition-colors font-medium cursor-pointer"
+                                        >
+                                          <FileText className="h-3.5 w-3.5 text-slate-400" />
+                                          <span>+ Add personal note</span>
+                                        </button>
+                                      </div>
+                                    )}
 
-                                      {/* Official Explanation (Below Student Note, Improvised Typography) */}
-                                      {officialExplanation && (
-                                        <div className="space-y-2 bg-slate-50 p-4 rounded-xl border border-slate-200/90 shadow-2xs">
-                                          <div className="flex items-center gap-2 text-xs uppercase font-bold text-slate-800 tracking-wider">
-                                            <BookOpen className="h-4 w-4 text-indigo-600" />
-                                            <span>Official Explanation & Solution</span>
-                                          </div>
-                                          <p className="text-sm sm:text-[15px] text-slate-900 font-normal leading-relaxed whitespace-pre-wrap">
-                                            {officialExplanation}
-                                          </p>
+                                    {/* Official Explanation (Below Student Note, Improvised Typography) */}
+                                    {officialExplanation && (
+                                      <div className="space-y-2 bg-slate-50 p-4 rounded-xl border border-slate-200/90 shadow-2xs">
+                                        <div className="flex items-center gap-2 text-xs uppercase font-bold text-slate-800 tracking-wider">
+                                          <BookOpen className="h-4 w-4 text-indigo-600" />
+                                          <span>
+                                            Official Explanation & Solution
+                                          </span>
                                         </div>
-                                      )}
-                                    </div>
-                                  ) : (
+                                        <p className="text-sm sm:text-[15px] text-slate-900 font-normal leading-relaxed whitespace-pre-wrap">
+                                          {officialExplanation}
+                                        </p>
+                                      </div>
+                                    )}
+                                  </div>
+                                ) : (
                                   /* MCQ Expanded Row */
                                   <div className="space-y-3.5">
                                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
@@ -2928,24 +3011,33 @@ export function AttemptDetailView({
                                         <div className="text-xs pt-0.5">
                                           {isCorrect && (
                                             <span className="text-emerald-700 font-semibold">
-                                              +{correctMarksPerQ} marks gained for correct answer.
+                                              +{correctMarksPerQ} marks gained
+                                              for correct answer.
                                             </span>
                                           )}
                                           {isWrong && (
                                             <span className="text-rose-700 font-semibold">
-                                              -{incorrectMarksPerQ} marks deducted for incorrect answer (marked &quot;{q.selected}&quot;, official is &quot;{q.correctAnswer}&quot;).
+                                              -{incorrectMarksPerQ} marks
+                                              deducted for incorrect answer
+                                              (marked &quot;{q.selected}&quot;,
+                                              official is &quot;
+                                              {q.correctAnswer}&quot;).
                                             </span>
                                           )}
                                           {!isAnswered && (
                                             <span className="text-slate-600">
-                                              Question unattempted. 0 marks deducted (official key is &quot;{q.correctAnswer}&quot;).
+                                              Question unattempted. 0 marks
+                                              deducted (official key is &quot;
+                                              {q.correctAnswer}&quot;).
                                             </span>
                                           )}
                                         </div>
                                         {q.answerHistory &&
                                           q.answerHistory.length > 1 &&
                                           !isCloze &&
-                                          q.answerHistory.every((h) => h.length <= 2) && (
+                                          q.answerHistory.every(
+                                            (h) => h.length <= 2,
+                                          ) && (
                                             <div className="text-[11px] text-indigo-700 font-medium pt-1">
                                               <strong>Answer Sequence:</strong>{" "}
                                               {q.answerHistory.join(" → ")}
@@ -2958,10 +3050,14 @@ export function AttemptDetailView({
                                           Pacing & Timing
                                         </span>
                                         <div className="text-xs pt-0.5 text-slate-700">
-                                          Time spent: <strong className="font-mono text-slate-900">{q.timeSpentSeconds || 0} seconds</strong>
+                                          Time spent:{" "}
+                                          <strong className="font-mono text-slate-900">
+                                            {q.timeSpentSeconds || 0} seconds
+                                          </strong>
                                           {isSlow ? (
                                             <span className="text-amber-700 ml-1 font-semibold">
-                                              (Slow: exceeded 90s target by {(q.timeSpentSeconds || 0) - 90}s)
+                                              (Slow: exceeded 90s target by{" "}
+                                              {(q.timeSpentSeconds || 0) - 90}s)
                                             </span>
                                           ) : (
                                             <span className="text-slate-500 ml-1">
@@ -3053,7 +3149,9 @@ export function AttemptDetailView({
                                       <div className="space-y-2 bg-slate-50 p-4 rounded-xl border border-slate-200/90 shadow-2xs">
                                         <div className="flex items-center gap-2 text-xs uppercase font-bold text-slate-800 tracking-wider">
                                           <BookOpen className="h-4 w-4 text-indigo-600" />
-                                          <span>Official Explanation & Solution</span>
+                                          <span>
+                                            Official Explanation & Solution
+                                          </span>
                                         </div>
                                         <p className="text-sm sm:text-[15px] text-slate-900 font-normal leading-relaxed whitespace-pre-wrap">
                                           {officialExplanation}

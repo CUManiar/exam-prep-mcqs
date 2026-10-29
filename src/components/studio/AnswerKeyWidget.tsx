@@ -74,7 +74,9 @@ export function AnswerKeyWidget({
       {mode === "upload" ? (
         <label className="cursor-pointer flex items-center justify-center gap-2 rounded-xl border border-dashed border-slate-300 bg-white p-3.5 text-xs font-semibold text-slate-700 hover:border-slate-500 shadow-2xs transition-colors">
           <FileUp className="h-4 w-4 text-slate-500" />
-          <span>{fileValue ? fileValue.name : "Select .txt answer key file"}</span>
+          <span>
+            {fileValue ? fileValue.name : "Select .txt answer key file"}
+          </span>
           <input
             type="file"
             accept=".txt"
