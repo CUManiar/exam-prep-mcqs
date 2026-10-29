@@ -16,11 +16,37 @@ import { NotificationCenter } from "./NotificationCenter";
 import { ProfileSettingsModal } from "./ProfileSettingsModal";
 
 const navigation = [
-  { href: "/", label: "Overview", icon: LayoutDashboard },
-  { href: "/papers", label: "Question papers", icon: BookOpen },
-  { href: "/history", label: "Performance", icon: BarChart3 },
-  { href: "/syllabus", label: "Syllabus", icon: ListChecks },
-  { href: "/help/mcp", label: "AI Help", icon: Sparkles, isAi: true },
+  {
+    href: "/",
+    label: "Overview",
+    mobileLabel: "Overview",
+    icon: LayoutDashboard,
+  },
+  {
+    href: "/papers",
+    label: "Question papers",
+    mobileLabel: "Papers",
+    icon: BookOpen,
+  },
+  {
+    href: "/history",
+    label: "Performance",
+    mobileLabel: "History",
+    icon: BarChart3,
+  },
+  {
+    href: "/syllabus",
+    label: "Syllabus",
+    mobileLabel: "Syllabus",
+    icon: ListChecks,
+  },
+  {
+    href: "/help/mcp",
+    label: "AI Help",
+    mobileLabel: "AI Help",
+    icon: Sparkles,
+    isAi: true,
+  },
 ];
 
 export function Navbar() {
@@ -114,40 +140,44 @@ export function Navbar() {
             )}
           </div>
         </div>
-        <nav className="app-mobile-nav" aria-label="Main navigation">
-          {navigation.map(({ href, label, icon: Icon, isAi }) => {
-            const active =
-              Boolean(currentUser) &&
-              (href === "/"
-                ? pathname === "/"
-                : pathname === href || pathname.startsWith(`${href}/`));
-            if (!currentUser && href !== "/" && href !== "/help/mcp") {
-              return (
-                <button
-                  type="button"
-                  key={href}
-                  onClick={openAuthModal}
-                  className={`app-mobile-nav-link ${isAi ? "ai-help-link" : ""}`}
-                >
-                  <Icon aria-hidden="true" />
-                  <span>{label}</span>
-                </button>
-              );
-            }
+      </header>
+
+      <nav
+        className="app-mobile-nav print:hidden"
+        aria-label="Mobile bottom navigation"
+      >
+        {navigation.map(({ href, label, mobileLabel, icon: Icon, isAi }) => {
+          const active =
+            Boolean(currentUser) &&
+            (href === "/"
+              ? pathname === "/"
+              : pathname === href || pathname.startsWith(`${href}/`));
+          if (!currentUser && href !== "/" && href !== "/help/mcp") {
             return (
-              <Link
+              <button
+                type="button"
                 key={href}
-                href={href}
-                aria-current={active ? "page" : undefined}
-                className={`app-mobile-nav-link ${isAi ? "ai-help-link" : ""} ${active ? "is-active" : ""}`}
+                onClick={openAuthModal}
+                className={`app-mobile-nav-link ${isAi ? "ai-help-link" : ""}`}
               >
                 <Icon aria-hidden="true" />
-                <span>{label}</span>
-              </Link>
+                <span>{mobileLabel || label}</span>
+              </button>
             );
-          })}
-        </nav>
-      </header>
+          }
+          return (
+            <Link
+              key={href}
+              href={href}
+              aria-current={active ? "page" : undefined}
+              className={`app-mobile-nav-link ${isAi ? "ai-help-link" : ""} ${active ? "is-active" : ""}`}
+            >
+              <Icon aria-hidden="true" />
+              <span>{mobileLabel || label}</span>
+            </Link>
+          );
+        })}
+      </nav>
       <ProfileSettingsModal
         isOpen={showProfile}
         onClose={() => setShowProfile(false)}

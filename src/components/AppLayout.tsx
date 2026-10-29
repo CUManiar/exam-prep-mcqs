@@ -16,7 +16,7 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
         className={
           isInExam
             ? "exam-app-main"
-            : "min-h-[calc(100vh-7rem)] sm:min-h-[calc(100vh-4rem)]"
+            : "min-h-[calc(100vh-7rem)] sm:min-h-[calc(100vh-4rem)] pb-16 md:pb-0"
         }
       >
         {children}
