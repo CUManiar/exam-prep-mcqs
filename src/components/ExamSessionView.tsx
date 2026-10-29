@@ -42,6 +42,7 @@ import { DetailedSolutionModal } from "./DetailedSolutionModal";
 import { ConfirmationModal } from "./ConfirmationModal";
 import { PdfViewer } from "./PdfViewer";
 import { InteractiveQuestionCard } from "./InteractiveQuestionCard";
+import { KeyboardShortcutsModal } from "./KeyboardShortcutsModal";
 import {
   Clock,
   Flag,
@@ -55,6 +56,7 @@ import {
   UploadCloud,
   FileUp,
   FileText,
+  FileSpreadsheet,
   Trash2,
   Loader2,
   AlertTriangle,
@@ -68,6 +70,8 @@ import {
   Minimize2,
   RotateCcw,
   Lightbulb,
+  Keyboard,
+  Sparkles,
 } from "lucide-react";
 
 interface ExamSessionViewProps {
@@ -159,6 +163,28 @@ export function ExamSessionView({
   const [showNoteBox, setShowNoteBox] = useState<boolean>(true);
   const [showFinishConfirm, setShowFinishConfirm] = useState<boolean>(false);
   const [solutionModalOpen, setSolutionModalOpen] = useState<boolean>(false);
+  const [showShortcutsModal, setShowShortcutsModal] = useState<boolean>(false);
+  const [paletteViewMode, setPaletteViewMode] = useState<"grid" | "omr">(
+    "grid",
+  );
+  const [fontScale, setFontScale] = useState<"normal" | "large" | "xlarge">(
+    () => {
+      if (typeof localStorage !== "undefined") {
+        const stored = localStorage.getItem("exam_prep_font_scale");
+        if (stored === "normal" || stored === "large" || stored === "xlarge") {
+          return stored;
+        }
+      }
+      return "normal";
+    },
+  );
+
+  const handleFontScaleChange = (scale: "normal" | "large" | "xlarge") => {
+    setFontScale(scale);
+    try {
+      localStorage.setItem("exam_prep_font_scale", scale);
+    } catch {}
+  };
   const [mobileTab, setMobileTab] = useState<"paper" | "split" | "questions">(
     "questions",
   );
@@ -216,6 +242,59 @@ export function ExamSessionView({
   const setExamPaused = (paused: boolean) => {
     markUserInteraction();
     setIsPaused(paused);
+  };
+
+  // Mobile Touch Swipe Navigation (Swipe left -> Next, Swipe right -> Prev)
+  const touchStartRef = useRef<{ x: number; y: number; time: number } | null>(
+    null,
+  );
+
+  const handleTouchStart = (e: React.TouchEvent) => {
+    const target = e.target as HTMLElement | null;
+    if (
+      target &&
+      (target.tagName === "INPUT" ||
+        target.tagName === "TEXTAREA" ||
+        target.isContentEditable)
+    ) {
+      return;
+    }
+    const touch = e.touches[0];
+    touchStartRef.current = {
+      x: touch.clientX,
+      y: touch.clientY,
+      time: Date.now(),
+    };
+  };
+
+  const handleTouchEnd = (e: React.TouchEvent) => {
+    if (!touchStartRef.current) return;
+    const touch = e.changedTouches[0];
+    const deltaX = touch.clientX - touchStartRef.current.x;
+    const deltaY = touch.clientY - touchStartRef.current.y;
+    const deltaTime = Date.now() - touchStartRef.current.time;
+    touchStartRef.current = null;
+
+    // Swift swipe (<650ms), significant horizontal displacement (>45px), dominating vertical scroll (>1.3x)
+    if (
+      deltaTime < 650 &&
+      Math.abs(deltaX) > 45 &&
+      Math.abs(deltaX) > Math.abs(deltaY) * 1.3
+    ) {
+      if (deltaX < 0) {
+        // Swipe Left: Next question
+        if (currentQuestion === null) {
+          navigateToQuestion(1);
+        } else if (currentQuestion < paper.totalQuestions) {
+          navigateToQuestion(currentQuestion + 1);
+        }
+      } else {
+        // Swipe Right: Previous question
+        if (currentQuestion !== null && currentQuestion > 1) {
+          navigateToQuestion(currentQuestion - 1);
+        }
+      }
+    }
   };
 
   useEffect(() => {
@@ -564,6 +643,19 @@ export function ExamSessionView({
     }
   };
 
+  const isClozeQuestion = useCallback(
+    (questionNo: number | null) => {
+      if (questionNo === null) return false;
+      const question = effectivePaper.parsedQuestions?.find(
+        (parsedQuestion) => parsedQuestion.questionNo === questionNo,
+      );
+      return Boolean(
+        question && Object.keys(question.options || {}).length === 0,
+      );
+    },
+    [effectivePaper.parsedQuestions],
+  );
+
   // Answer handler for Markdown cloze/free-text questions.
   const handleUpdateAnswer = (qNo: number, answer: string) => {
     markUserInteraction();
@@ -577,6 +669,12 @@ export function ExamSessionView({
       };
       const prevSelected = current.selected;
       const newSelected = answer.trim() ? answer : null;
+
+      // If unchanged, do not mutate state
+      if (prevSelected === newSelected) {
+        return prev;
+      }
+
       const rawCorrect = getCorrectAnswerForQ(qNo);
       const correct = rawCorrect ? rawCorrect.toUpperCase().trim() : undefined;
       const isCorrect =
@@ -588,9 +686,12 @@ export function ExamSessionView({
         ? [...current.answerHistory]
         : [];
 
-      if (mode === "mock" && newSelected && newSelected !== prevSelected) {
-        if (prevSelected) changesCount += 1;
-        answerHistory.push(newSelected);
+      // Only track alteration metrics for MCQs (never for cloze free-text)
+      if (!isClozeQuestion(qNo)) {
+        if (mode === "mock" && newSelected && newSelected !== prevSelected) {
+          if (prevSelected) changesCount += 1;
+          answerHistory.push(newSelected);
+        }
       }
 
       return {
@@ -673,6 +774,99 @@ export function ExamSessionView({
       };
     });
   };
+
+  // Keyboard navigation shortcuts for exam session
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      const target = e.target as HTMLElement | null;
+      if (
+        target &&
+        (target.tagName === "INPUT" ||
+          target.tagName === "TEXTAREA" ||
+          target.isContentEditable)
+      ) {
+        return;
+      }
+
+      if (e.metaKey || e.ctrlKey) return;
+
+      const key = e.key.toUpperCase();
+
+      if (e.key === "?" || (key === "H" && !e.altKey)) {
+        e.preventDefault();
+        setShowShortcutsModal((prev) => !prev);
+        return;
+      }
+
+      if (showShortcutsModal || showFinishConfirm || solutionModalOpen) {
+        return;
+      }
+
+      if (currentQuestion === null) return;
+
+      // Options selection (A, B, C, D)
+      if (["A", "B", "C", "D"].includes(key) && !e.altKey) {
+        e.preventDefault();
+        handleSelectOption(currentQuestion, key);
+        return;
+      }
+
+      // Previous Question: ArrowLeft or J (J is to the left of K)
+      if (e.key === "ArrowLeft" || key === "J") {
+        e.preventDefault();
+        if (currentQuestion > 1) {
+          navigateToQuestion(currentQuestion - 1);
+        }
+        return;
+      }
+
+      // Next Question: ArrowRight or K (K is to the right of J)
+      if (e.key === "ArrowRight" || key === "K") {
+        e.preventDefault();
+        if (currentQuestion < paper.totalQuestions) {
+          navigateToQuestion(currentQuestion + 1);
+        }
+        return;
+      }
+
+      // Clear answer: Backspace or Delete
+      if (e.key === "Backspace" || e.key === "Delete") {
+        e.preventDefault();
+        handleClearSelection(currentQuestion);
+        return;
+      }
+
+      // Flag question: F
+      if (key === "F" && !e.altKey) {
+        e.preventDefault();
+        handleToggleFlag(currentQuestion);
+        return;
+      }
+
+      // Confidence tags: 1 (Sure), 2 (50:50), 3 (Elimination), 4 (Guess)
+      if (["1", "2", "3", "4"].includes(e.key) && !e.altKey) {
+        e.preventDefault();
+        const confMap: Record<string, ConfidenceLevel> = {
+          "1": "sure",
+          "2": "50-50",
+          "3": "elimination",
+          "4": "guess",
+        };
+        const conf = confMap[e.key];
+        if (conf) handleSetConfidence(currentQuestion, conf);
+        return;
+      }
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [
+    currentQuestion,
+    paper.totalQuestions,
+    showShortcutsModal,
+    showFinishConfirm,
+    solutionModalOpen,
+  ]);
 
   // Real-time automatic persistence to localStorage, Supabase & server
   const persistSessionDraft = useCallback(
@@ -926,8 +1120,13 @@ export function ExamSessionView({
         }
       }
 
-      // Check alteration nuance in Mock mode
-      if (mode === "mock" && a.changesCount && a.changesCount > 0) {
+      // Check alteration nuance in Mock mode (exclude cloze free-text questions)
+      if (
+        mode === "mock" &&
+        !isClozeQuestion(i) &&
+        a.changesCount &&
+        a.changesCount > 0
+      ) {
         alteredCount++;
         const history = a.answerHistory || [];
         if (history.length >= 2 && correctAns) {
@@ -942,6 +1141,9 @@ export function ExamSessionView({
         }
       }
 
+      const qMeta = effectivePaper.parsedQuestions?.find(
+        (pq) => pq.questionNo === i,
+      );
       finalAnswers[i] = {
         ...a,
         confidence: a.selected ? a.confidence : undefined,
@@ -950,6 +1152,8 @@ export function ExamSessionView({
           sessionExplanations[i] || paper.explanations?.[i] || undefined,
         isCorrect,
         timeSpentSeconds: spentSecs,
+        subject: a.subject || qMeta?.subject || undefined,
+        topic: a.topic || qMeta?.topic || undefined,
       };
     }
 
@@ -1035,15 +1239,6 @@ export function ExamSessionView({
           (question) => question.questionNo === currentQuestion,
         )
       : undefined;
-  function isClozeQuestion(questionNo: number | null) {
-    if (questionNo === null) return false;
-    const question = effectivePaper.parsedQuestions?.find(
-      (parsedQuestion) => parsedQuestion.questionNo === questionNo,
-    );
-    return Boolean(
-      question && Object.keys(question.options || {}).length === 0,
-    );
-  }
   const currentQuestionIsCloze = isClozeQuestion(currentQuestion);
   // A Markdown cloze question is objective, but has no option values. Keep
   // its free-text answer out of MCQ-only UI.
@@ -1167,6 +1362,20 @@ export function ExamSessionView({
               )}
             </button>
 
+            {/* Keyboard Shortcuts Guide Button */}
+            <button
+              type="button"
+              onClick={() => setShowShortcutsModal(true)}
+              title="Keyboard Shortcuts (?)"
+              className="hidden sm:flex items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-2.5 py-1 text-xs font-semibold text-slate-700 hover:bg-slate-50 transition-colors shadow-2xs cursor-pointer"
+            >
+              <Keyboard className="h-3.5 w-3.5 text-slate-500" />
+              <span className="hidden md:inline">Shortcuts</span>
+              <kbd className="rounded bg-slate-100 px-1 py-0.2 font-mono text-[9px] font-bold text-slate-500">
+                ?
+              </kbd>
+            </button>
+
             {/* Continuous Timer (HH:MM:SS format) */}
             <div
               className={`flex items-center gap-1.5 rounded-xl px-2.5 sm:px-3 py-1 font-mono text-xs sm:text-sm font-bold transition-all shadow-2xs ${
@@ -1271,6 +1480,8 @@ export function ExamSessionView({
       {/* Main Layout */}
       <div
         className={`exam-session-main ${mobileTab === "split" ? "is-split" : ""}`}
+        onTouchStart={handleTouchStart}
+        onTouchEnd={handleTouchEnd}
       >
         {/* Left Side: Interactive Markdown Question or PDF Viewer */}
         <div
@@ -1332,6 +1543,7 @@ export function ExamSessionView({
                   }
                   mode={mode}
                   idleTimeSeconds={idleTimeSeconds}
+                  fontScale={fontScale}
                   onSelectOption={handleSelectOption}
                   onUpdateAnswer={handleUpdateAnswer}
                   onClearOption={handleClearSelection}
@@ -1392,7 +1604,7 @@ export function ExamSessionView({
                     onClick={() => navigateToQuestion(1)}
                     className="px-3 py-1.5 rounded-lg bg-indigo-600 text-white font-bold text-xs flex items-center gap-1 shadow-xs hover:bg-indigo-700 shrink-0"
                   >
-                    <span>Start Q1</span>
+                    <span>Begin</span>
                     <ArrowRight className="h-3.5 w-3.5" />
                   </button>
                 </div>
@@ -1557,7 +1769,7 @@ export function ExamSessionView({
                     onClick={() => navigateToQuestion(1)}
                     className="flex-1 rounded-xl bg-indigo-600 px-4 py-2.5 text-xs sm:text-sm font-bold text-white shadow-xs hover:bg-indigo-700 transition-all flex items-center justify-center gap-2"
                   >
-                    <span>Start Solving (Question 1)</span>
+                    <span>Begin</span>
                     <ArrowRight className="h-4 w-4" />
                   </button>
                 </div>
@@ -1604,6 +1816,46 @@ export function ExamSessionView({
                   </div>
 
                   <div className="flex items-center gap-2 flex-wrap">
+                    {/* Reading Font Size Controls */}
+                    <div className="flex items-center rounded-lg border border-slate-200 bg-slate-50 p-0.5 text-xs">
+                      <button
+                        type="button"
+                        onClick={() => handleFontScaleChange("normal")}
+                        title="Normal reading text size"
+                        className={`px-1.5 py-0.5 text-[10px] font-bold rounded ${
+                          fontScale === "normal"
+                            ? "bg-white text-blue-700 shadow-2xs"
+                            : "text-slate-500 hover:text-slate-900"
+                        }`}
+                      >
+                        A
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleFontScaleChange("large")}
+                        title="Large reading text size"
+                        className={`px-1.5 py-0.5 text-[11px] font-bold rounded ${
+                          fontScale === "large"
+                            ? "bg-white text-blue-700 shadow-2xs"
+                            : "text-slate-500 hover:text-slate-900"
+                        }`}
+                      >
+                        A+
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleFontScaleChange("xlarge")}
+                        title="Extra large reading text size"
+                        className={`px-1.5 py-0.5 text-xs font-bold rounded ${
+                          fontScale === "xlarge"
+                            ? "bg-white text-blue-700 shadow-2xs"
+                            : "text-slate-500 hover:text-slate-900"
+                        }`}
+                      >
+                        A++
+                      </button>
+                    </div>
+
                     {/* Solution Key Button in Header */}
                     {paper.exsUrl && (
                       <button
@@ -2287,10 +2539,38 @@ export function ExamSessionView({
           {/* Question Palette Section - Responsive Grid with Correct Red/Green State in Practice */}
           <div className="exam-question-palette overflow-y-auto p-3 sm:p-5">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-3 gap-2">
-              <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
                 <span className="font-bold text-slate-900 text-xs shrink-0">
-                  Question Palette
+                  {paletteViewMode === "omr"
+                    ? "OMR Bubble Sheet"
+                    : "Question Palette"}
                 </span>
+                {!isSubjective && (
+                  <div className="flex items-center rounded-lg border border-slate-200 bg-slate-100 p-0.5 text-[10px]">
+                    <button
+                      type="button"
+                      onClick={() => setPaletteViewMode("grid")}
+                      className={`px-1.5 py-0.5 rounded font-bold transition-all ${
+                        paletteViewMode === "grid"
+                          ? "bg-white text-indigo-700 shadow-2xs"
+                          : "text-slate-500 hover:text-slate-800"
+                      }`}
+                    >
+                      Grid
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setPaletteViewMode("omr")}
+                      className={`px-1.5 py-0.5 rounded font-bold transition-all ${
+                        paletteViewMode === "omr"
+                          ? "bg-white text-indigo-700 shadow-2xs"
+                          : "text-slate-500 hover:text-slate-800"
+                      }`}
+                    >
+                      OMR
+                    </button>
+                  </div>
+                )}
                 <span className="text-[11px] text-slate-500 sm:hidden">
                   {filteredQuestionNumbers.length} Qs
                 </span>
@@ -2313,6 +2593,73 @@ export function ExamSessionView({
                 )}
               </div>
             </div>
+
+            {/* Inline OMR Bubble Sheet Strip */}
+            {paletteViewMode === "omr" && !isSubjective ? (
+              <div className="space-y-1 rounded-xl border border-slate-200 bg-white p-2 mb-3">
+                <div className="flex items-center justify-between pb-1.5 text-[10px] font-bold text-slate-400 border-b border-slate-100 px-2">
+                  <span>Q#</span>
+                  <div className="flex items-center gap-3 pr-1">
+                    <span>A</span>
+                    <span>B</span>
+                    <span>C</span>
+                    <span>D</span>
+                  </div>
+                </div>
+                <div className="space-y-1 max-h-80 overflow-y-auto pr-1">
+                  {filteredQuestionNumbers.map((qNo) => {
+                    const q = answers[qNo];
+                    const selected = q?.selected;
+                    const isCur = currentQuestion === qNo;
+                    const isFlag = Boolean(q?.flagged);
+                    return (
+                      <div
+                        key={qNo}
+                        className={`flex items-center justify-between px-2 py-1 rounded transition-colors ${
+                          isCur ? "bg-blue-50 font-bold" : "hover:bg-slate-50"
+                        }`}
+                      >
+                        <div className="flex items-center gap-1.5">
+                          <button
+                            type="button"
+                            onClick={() => navigateToQuestion(qNo)}
+                            className={`font-mono text-xs ${
+                              isCur
+                                ? "text-blue-700 font-black"
+                                : "text-slate-700 hover:text-blue-600"
+                            }`}
+                          >
+                            Q{qNo}
+                          </button>
+                          {isFlag && (
+                            <Flag className="h-2.5 w-2.5 text-amber-500 fill-amber-500" />
+                          )}
+                        </div>
+                        <div className="flex items-center gap-2">
+                          {["A", "B", "C", "D"].map((opt) => {
+                            const isMarked = selected === opt;
+                            return (
+                              <button
+                                key={opt}
+                                type="button"
+                                onClick={() => handleSelectOption(qNo, opt)}
+                                className={`flex h-4.5 w-4.5 items-center justify-center rounded-full text-[9px] font-bold transition-all ${
+                                  isMarked
+                                    ? "bg-slate-950 text-white shadow-inner"
+                                    : "border border-slate-300 bg-white text-slate-600 hover:border-slate-500"
+                                }`}
+                              >
+                                {opt}
+                              </button>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            ) : null}
 
             {/* Color Legend */}
             {mode === "mock" && !isSubjective && (
@@ -2877,6 +3224,12 @@ export function ExamSessionView({
         variant="warning"
         onConfirm={handleConfirmExit}
         onCancel={() => setShowExitConfirm(false)}
+      />
+
+      {/* Keyboard Shortcuts Guide Modal */}
+      <KeyboardShortcutsModal
+        isOpen={showShortcutsModal}
+        onClose={() => setShowShortcutsModal(false)}
       />
     </div>
   );

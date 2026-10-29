@@ -24,6 +24,7 @@ import {
   formatDateTime,
   formatTimeSeconds,
   getAttemptPercentage,
+  getPaperCutoffStatus,
 } from "../lib/defaults";
 import { Attempt } from "../lib/types";
 
@@ -633,40 +634,25 @@ export function HistoryView({
                   ? "text-amber-700"
                   : "text-slate-800";
 
-            // Cutoff status is shown only when the paper explicitly enables it.
-            const cutoffEnabled =
-              matchedPaper?.cutoffEnabled ??
-              activeAttempt.cutoffEnabled ??
-              false;
-            const cutoffType =
-              matchedPaper?.cutoffType ||
-              activeAttempt.cutoffType ||
-              "percentage";
-            const cutoffValue =
-              matchedPaper?.cutoffValue ?? activeAttempt.cutoffValue;
-            const cutoffMeasure =
-              cutoffType === "marks"
-                ? activeAttempt.score
-                : getAttemptPercentage(activeAttempt);
-            const hasCutoff =
-              cutoffEnabled &&
-              cutoffValue !== undefined &&
-              Number.isFinite(cutoffValue);
-            const cutoffCleared = hasCutoff && cutoffMeasure >= cutoffValue;
-            const cutoffBadge = hasCutoff ? (
+            // Standardized cutoff / qualification status (CSAT 33.3% statutory or custom paper benchmark)
+            const cutoffStatus = getPaperCutoffStatus(
+              matchedPaper,
+              activeAttempt,
+            );
+            const cutoffBadge = cutoffStatus?.hasCutoff ? (
               <span
-                className={`text-[10px] font-medium px-2 py-0.5 rounded-md flex items-center gap-1 ${
-                  cutoffCleared
-                    ? "bg-emerald-50 text-emerald-700 border border-emerald-200/50"
-                    : "bg-rose-50 text-rose-700 border border-rose-200/50"
+                className={`text-[10px] font-semibold px-2 py-0.5 rounded-md flex items-center gap-1 ${
+                  cutoffStatus.cutoffCleared
+                    ? "bg-emerald-50 text-emerald-700 border border-emerald-200/60"
+                    : "bg-rose-50 text-rose-700 border border-rose-200/60"
                 }`}
               >
-                {cutoffCleared ? (
+                {cutoffStatus.cutoffCleared ? (
                   <CheckCircle2 className="h-3 w-3" />
                 ) : (
                   <AlertTriangle className="h-3 w-3" />
                 )}
-                {cutoffCleared ? "Cutoff Cleared" : "Below Cutoff"}
+                {cutoffStatus.badgeText}
               </span>
             ) : null;
 

@@ -17,6 +17,7 @@ import {
 import { DetailedSolutionModal } from "./DetailedSolutionModal";
 import { PdfViewer } from "./PdfViewer";
 import { MarkdownPaperReviewViewer } from "./MarkdownPaperReviewViewer";
+import { MatchingItemsTable } from "./MatchingItemsTable";
 import { getCustomPapers } from "../lib/storage";
 import {
   parseQuestionnaireMarkdown,
@@ -46,15 +47,18 @@ import {
   ChevronDown,
   ChevronUp,
   ChevronRight,
+  ChevronLeft,
   ArrowUpDown,
   Filter,
   Lightbulb,
   Columns,
+  Monitor,
   ExternalLink,
   Maximize2,
   Minimize2,
-  Monitor,
   Sparkles,
+  ListChecks,
+  BarChart3,
 } from "lucide-react";
 import {
   exportAttemptAsJSON,
@@ -324,10 +328,12 @@ export function AttemptDetailView({
   const [showExportMenu, setShowExportMenu] = useState<boolean>(false);
   const [copiedToast, setCopiedToast] = useState<boolean>(false);
   const [isExportingPacket, setIsExportingPacket] = useState<boolean>(false);
-  const [showPaperSplit, setShowPaperSplit] = useState<boolean>(false);
-  const [mobilePaperModalOpen, setMobilePaperModalOpen] =
-    useState<boolean>(false);
+  const [showPaperSplit, setShowPaperSplit] = useState<boolean>(true);
+  const [mobileViewTab, setMobileViewTab] = useState<
+    "summary" | "questions" | "paper"
+  >("questions");
   const [pdfMode, setPdfMode] = useState<"native" | "canvas">("native");
+  const [paperModalOpen, setPaperModalOpen] = useState<boolean>(false);
 
   const [activeQuestionNo, setActiveQuestionNo] = useState<number>(1);
 
@@ -385,13 +391,6 @@ export function AttemptDetailView({
       false
     );
   }, [matchedPaper, attempt.paperId]);
-
-  // Automatically enable the side-by-side review on large screens.
-  useEffect(() => {
-    if (typeof window !== "undefined" && window.innerWidth >= 1280) {
-      setShowPaperSplit(true);
-    }
-  }, []);
 
   useEffect(() => {
     window.scrollTo({ top: 0, left: 0, behavior: "auto" });
@@ -798,8 +797,14 @@ export function AttemptDetailView({
   const avgTimeIncorrect = attempt.avgTimeIncorrect || 0;
 
   const alteredQuestions = useMemo(
-    () => questionList.filter((q) => q.changesCount && q.changesCount > 0),
-    [questionList],
+    () =>
+      questionList.filter(
+        (q) =>
+          !isClozeQuestion(q.questionNo) &&
+          q.changesCount &&
+          q.changesCount > 0,
+      ),
+    [questionList, isClozeQuestion],
   );
   const slowQuestions = useMemo(
     () => questionList.filter((q) => (q.timeSpentSeconds || 0) >= 90),
@@ -834,6 +839,16 @@ export function AttemptDetailView({
     () => questionList.filter((q) => q.confidence === "50-50"),
     [questionList],
   );
+
+  // List of incorrect questions for rapid navigation
+  const incorrectQuestionsList = useMemo(() => {
+    return questionList.filter((q) => {
+      if (isAssessmentQuestion(q.questionNo)) {
+        return q.subjectiveAssessment === "needs-work";
+      }
+      return q.selected && q.isCorrect === false;
+    });
+  }, [questionList]);
   const fiftyFiftyCorrect = useMemo(
     () =>
       fiftyFiftyQuestions.filter((q) => q.selected && q.isCorrect === true)
@@ -919,7 +934,10 @@ export function AttemptDetailView({
       }
       if (filterTab === "skipped") return !isQuestionAnswered(q);
       if (filterTab === "flagged") return q.flagged;
-      if (filterTab === "altered") return q.changesCount && q.changesCount > 0;
+      if (filterTab === "altered")
+        return (
+          !isClozeQuestion(q.questionNo) && q.changesCount && q.changesCount > 0
+        );
       if (filterTab === "slow") return (q.timeSpentSeconds || 0) >= 90;
       return true;
     });
@@ -936,6 +954,22 @@ export function AttemptDetailView({
 
     return list;
   }, [questionList, filterTab, sortOption]);
+
+  const jumpToQuestion = (qNo: number) => {
+    setActiveQuestionNo(qNo);
+    setExpandedQuestions((prev) => ({ ...prev, [qNo]: true }));
+    setMobileViewTab("questions");
+    const isVisible = filteredQuestions.some((q) => q.questionNo === qNo);
+    if (!isVisible) {
+      setFilterTab("all");
+    }
+    setTimeout(() => {
+      const el = document.getElementById(`table-q-${qNo}`);
+      if (el) {
+        el.scrollIntoView({ behavior: "smooth", block: "center" });
+      }
+    }, 60);
+  };
 
   // Section 7: Practical Review Summary recommendations (Up to 3, strictly data-driven)
   const reviewSuggestions = useMemo(() => {
@@ -994,6 +1028,241 @@ export function AttemptDetailView({
     return list.slice(0, 3);
   }, [attempt, negativePenaltyMarks, slowQuestions, flaggedQuestions]);
 
+  // Cutoff benchmark calculation
+  const isCsat = useMemo(() => {
+    const label = (attempt.paperLabel || "").toLowerCase();
+    const cat = (attempt.category || "").toLowerCase();
+    const subj = (matchedPaper?.subject || "").toLowerCase();
+    return (
+      cat === "csat" ||
+      label.includes("csat") ||
+      label.includes("paper 2") ||
+      label.includes("paper ii") ||
+      subj.includes("csat")
+    );
+  }, [attempt.category, attempt.paperLabel, matchedPaper?.subject]);
+
+  const cutoffBenchmark = useMemo(() => {
+    if (isCsat) {
+      // CSAT is qualifying: 33.33% (66.67 out of 200)
+      const target = Number(((effectiveMaxScore || 200) * (1 / 3)).toFixed(1));
+      const diff = Number((attempt.score - target).toFixed(1));
+      const isQualified = attempt.score >= target;
+      return {
+        isCsat: true,
+        targetScore: target,
+        targetLabel: "33.3% (Qualifying)",
+        diff,
+        status: isQualified ? "QUALIFIED" : "NOT QUALIFIED",
+        statusColor: isQualified
+          ? "bg-emerald-50 text-emerald-800 border-emerald-200"
+          : "bg-rose-50 text-rose-800 border-rose-200",
+        barColor: isQualified ? "bg-emerald-500" : "bg-rose-500",
+        message: isQualified
+          ? `Cleared CSAT qualifying mark by +${diff} pts. Your score safely exceeds the 33.3% threshold.`
+          : `Fell short of CSAT qualifying mark by ${Math.abs(diff)} pts. CSAT requires min 33.3% to have GS Paper 1 evaluated.`,
+      };
+    }
+
+    // General Studies standard prelims cutoff benchmark (~44% = 88 / 200)
+    const target = Number(((effectiveMaxScore || 200) * 0.44).toFixed(1));
+    const diff = Number((attempt.score - target).toFixed(1));
+    const isClear = diff >= 0;
+    const isComfortable = diff >= 10;
+    const isBorderline = diff >= -6 && diff < 10;
+
+    let status = "BELOW BENCHMARK";
+    let statusColor = "bg-rose-50 text-rose-800 border-rose-200";
+    let barColor = "bg-rose-500";
+    let message = `Short by ${Math.abs(diff)} pts of the ~${target} pts estimated UPSC prelims benchmark. Target 75%+ accuracy on 75+ attempts.`;
+
+    if (isComfortable) {
+      status = "SAFE CUTOFF CLEARANCE";
+      statusColor = "bg-emerald-50 text-emerald-800 border-emerald-200";
+      barColor = "bg-emerald-500";
+      message = `Outstanding clearance! You are +${diff} pts above the estimated UPSC Prelims benchmark (~${target} pts).`;
+    } else if (isClear) {
+      status = "BORDERLINE CLEAR";
+      statusColor = "bg-teal-50 text-teal-800 border-teal-200";
+      barColor = "bg-teal-500";
+      message = `Cleared by +${diff} pts over the ~${target} pts benchmark. Safe zone requires a +10 to +15 cushion against tricky prelims variations.`;
+    } else if (isBorderline) {
+      status = "STRIKING DISTANCE";
+      statusColor = "bg-amber-50 text-amber-800 border-amber-200";
+      barColor = "bg-amber-500";
+      message = `Within striking distance: only ${Math.abs(diff)} pts below the ~${target} pts benchmark. Eliminating ${Math.ceil(Math.abs(diff) / (correctMarksPerQ + incorrectMarksPerQ))} negative slips would clear it!`;
+    }
+
+    return {
+      isCsat: false,
+      targetScore: target,
+      targetLabel: `~${target} pts (Est. Cutoff)`,
+      diff,
+      status,
+      statusColor,
+      barColor,
+      message,
+    };
+  }, [
+    isCsat,
+    effectiveMaxScore,
+    attempt.score,
+    correctMarksPerQ,
+    incorrectMarksPerQ,
+  ]);
+
+  const topTakeaways = useMemo(() => {
+    const items: Array<{
+      id: string;
+      title: string;
+      metric: string;
+      desc: string;
+      badge: string;
+      badgeStyle: string;
+      iconType: "negative" | "confidence" | "pacing";
+      actionTab: FilterTabType;
+      actionText: string;
+    }> = [];
+
+    // 1. Second-Guessing & Penalty Analysis
+    if ((attempt.alteredHarmCount || 0) > (attempt.alteredBenefitCount || 0)) {
+      items.push({
+        id: "alteration_penalty",
+        title: "Second-Guessing Cost",
+        metric: `-${Math.abs(netAlterationMarks)} pts net`,
+        desc: `You altered ${alteredQuestions.length} responses, but ${attempt.alteredHarmCount} were flipped from Right to Wrong (vs ${attempt.alteredBenefitCount || 0} beneficial). Stick with your first educated instinct.`,
+        badge: "Harmful revisions",
+        badgeStyle: "bg-rose-100 text-rose-800 border-rose-200",
+        iconType: "negative",
+        actionTab: "altered",
+        actionText: `Review ${alteredQuestions.length} altered questions →`,
+      });
+    } else if ((attempt.alteredBenefitCount || 0) > 0) {
+      items.push({
+        id: "alteration_gain",
+        title: "Effective Re-Checking",
+        metric: `+${netAlterationMarks} pts gained`,
+        desc: `Your second passes were disciplined: ${attempt.alteredBenefitCount} revisions successfully recovered marks from earlier slips.`,
+        badge: "Disciplined review",
+        badgeStyle: "bg-emerald-100 text-emerald-800 border-emerald-200",
+        iconType: "negative",
+        actionTab: "altered",
+        actionText: `Inspect ${alteredQuestions.length} revised questions →`,
+      });
+    } else {
+      items.push({
+        id: "negative_erosion",
+        title: "Negative Marks Erosion",
+        metric: `-${negativePenaltyMarks} pts lost`,
+        desc: `${attempt.incorrect} incorrect choices eroded ${grossCorrectMarks > 0 ? Math.round((negativePenaltyMarks / grossCorrectMarks) * 100) : 0}% of your gross marks (+${grossCorrectMarks} pts). Be more conservative on low-confidence guesses.`,
+        badge: `${attempt.incorrect} wrong answers`,
+        badgeStyle: "bg-rose-100 text-rose-800 border-rose-200",
+        iconType: "negative",
+        actionTab: "incorrect",
+        actionText: `Review ${attempt.incorrect} incorrect answers →`,
+      });
+    }
+
+    // 2. Confidence Calibration
+    if (sureQuestions.length > 0 && sureAccuracy < 80) {
+      const wrongSure = sureQuestions.length - sureCorrect;
+      items.push({
+        id: "sure_blindspot",
+        title: "Confidence Blindspots",
+        metric: `${wrongSure} 'Sure' errors`,
+        desc: `Accuracy on marked 'Sure' questions was ${sureAccuracy}% (${wrongSure} unexpected errors). Usually caused by misreading questions ("Which is NOT correct") or overestimating recall.`,
+        badge: `${sureAccuracy}% accuracy`,
+        badgeStyle: "bg-amber-100 text-amber-800 border-amber-200",
+        iconType: "confidence",
+        actionTab: "sure",
+        actionText: `Inspect ${sureQuestions.length} 'Sure' questions →`,
+      });
+    } else if (fiftyFiftyQuestions.length > 0 && fiftyFiftyAccuracy >= 50) {
+      items.push({
+        id: "elimination_strength",
+        title: "50:50 Elimination Edge",
+        metric: `${fiftyFiftyAccuracy}% accuracy`,
+        desc: `Strong elimination skills! You solved ${fiftyFiftyCorrect} of ${fiftyFiftyQuestions.length} bifurcated questions correctly, producing positive net marks yield.`,
+        badge: "Positive EV",
+        badgeStyle: "bg-emerald-100 text-emerald-800 border-emerald-200",
+        iconType: "confidence",
+        actionTab: "50-50",
+        actionText: `Inspect ${fiftyFiftyQuestions.length} 50:50 questions →`,
+      });
+    } else if (sureQuestions.length > 0) {
+      items.push({
+        id: "core_accuracy",
+        title: "Strong Core Recall",
+        metric: `${sureAccuracy}% precision`,
+        desc: `Excellent discipline on your core syllabus domains: ${sureCorrect} of ${sureQuestions.length} high-confidence questions secured cleanly.`,
+        badge: "Solid Foundation",
+        badgeStyle: "bg-emerald-100 text-emerald-800 border-emerald-200",
+        iconType: "confidence",
+        actionTab: "sure",
+        actionText: `View ${sureQuestions.length} 'Sure' questions →`,
+      });
+    } else {
+      items.push({
+        id: "accuracy_profile",
+        title: "Accuracy Profile",
+        metric: `${formatReviewNumber(attempt.accuracyPct)}% accuracy`,
+        desc: `You answered ${attempt.correct} correctly out of ${attempt.answered} attempted. UPSC Prelims clearance generally requires 75%+ accuracy across 75+ attempts.`,
+        badge: `${attempt.correct}/${attempt.answered} hit rate`,
+        badgeStyle: "bg-indigo-100 text-indigo-800 border-indigo-200",
+        iconType: "confidence",
+        actionTab: "all",
+        actionText: "View all questions →",
+      });
+    }
+
+    // 3. Pacing & Time Traps
+    if (slowQuestions.length >= 2) {
+      const slowSec = slowQuestions.reduce(
+        (acc, q) => acc + (q.timeSpentSeconds || 0),
+        0,
+      );
+      items.push({
+        id: "pacing_traps",
+        title: "Pacing & Time Traps",
+        metric: `${slowQuestions.length} slow Qs (>90s)`,
+        desc: `These questions consumed ${formatTimeSeconds(slowSec)} of exam time. If stuck between two options after 70 seconds, flag and move on to protect your second round.`,
+        badge: `${Math.round(slowSec / 60)} min spent`,
+        badgeStyle: "bg-amber-100 text-amber-800 border-amber-200",
+        iconType: "pacing",
+        actionTab: "slow",
+        actionText: `View ${slowQuestions.length} slow questions →`,
+      });
+    } else {
+      items.push({
+        id: "pacing_tempo",
+        title: "Pacing Tempo",
+        metric: `${avgTimePerQ}s / question`,
+        desc: `You maintained a steady pace across ${attempt.totalQuestions} questions with ${formatTimeSeconds(attempt.durationSeconds)} total time. Good time discipline!`,
+        badge: "Steady rhythm",
+        badgeStyle: "bg-emerald-100 text-emerald-800 border-emerald-200",
+        iconType: "pacing",
+        actionTab: "all",
+        actionText: "View all questions →",
+      });
+    }
+
+    return items.slice(0, 3);
+  }, [
+    attempt,
+    alteredQuestions,
+    netAlterationMarks,
+    negativePenaltyMarks,
+    grossCorrectMarks,
+    sureQuestions,
+    sureCorrect,
+    sureAccuracy,
+    fiftyFiftyQuestions,
+    fiftyFiftyCorrect,
+    fiftyFiftyAccuracy,
+    slowQuestions,
+    avgTimePerQ,
+  ]);
+
   // Proportions for horizontal segmented bar
   const totalQ = attempt.totalQuestions || 100;
   const correctPct = Math.round((attempt.correct / totalQ) * 100);
@@ -1006,7 +1275,11 @@ export function AttemptDetailView({
 
   return (
     <div
-      className={`mx-auto ${showPaperSplit && canPreviewPaper ? "max-w-[1920px] px-3 sm:px-6" : "max-w-5xl px-4 sm:px-6"} py-6 space-y-6 text-slate-800 font-sans print:text-black print:bg-white print:p-0 print:space-y-4 print:max-w-none`}
+      className={`mx-auto ${
+        showPaperSplit && canPreviewPaper
+          ? "max-w-[1920px] px-3 sm:px-6"
+          : "max-w-5xl px-4 sm:px-6"
+      } py-6 space-y-6 text-slate-800 font-sans print:text-black print:bg-white print:p-0 print:space-y-4 print:max-w-none`}
     >
       {/* =========================================================================
           PRINT & EXPORT PDF REPORT (CLEAN, UNCLUTTERED EXECUTIVE FORMAT)
@@ -1397,18 +1670,23 @@ export function AttemptDetailView({
         </div>
 
         <div className="flex shrink-0 items-center justify-end gap-2 flex-wrap">
-          {/* Question Paper Preview Toggle (Desktop Side-by-Side & Tablet/Mobile Vertical) */}
+          {/* Question Paper Preview Toggle (Desktop Side-by-Side & Tablet/Mobile View) */}
           {canPreviewPaper && (
             <button
-              onClick={() => setShowPaperSplit(!showPaperSplit)}
+              onClick={() => {
+                setShowPaperSplit(!showPaperSplit);
+                setMobileViewTab((prev) =>
+                  prev === "paper" ? "questions" : "paper",
+                );
+              }}
               className={`flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-xs font-medium transition-colors cursor-pointer ${
-                showPaperSplit
+                showPaperSplit || mobileViewTab === "paper"
                   ? "border-slate-900 bg-slate-900 text-white"
                   : "border-slate-200 bg-white text-slate-700 hover:bg-slate-50 hover:text-slate-900"
               }`}
               title={
                 isMarkdownPaper
-                  ? "Toggle Interactive Markdown Question Paper review"
+                  ? "Toggle Interactive Question Paper review"
                   : "Toggle Question Paper PDF preview"
               }
             >
@@ -1418,7 +1696,7 @@ export function AttemptDetailView({
                 {showPaperSplit ? "Hide paper" : "View paper"}
               </span>
               <span className="xl:hidden">
-                {showPaperSplit ? "Hide paper" : "View paper"}
+                {mobileViewTab === "paper" ? "Close paper" : "View paper"}
               </span>
             </button>
           )}
@@ -1601,13 +1879,63 @@ export function AttemptDetailView({
         </div>
       )}
 
-      {/* Main Content Area: Split View Container (Desktop Side-by-Side, Tablet/Mobile Vertical) */}
+      {/* Mobile Segmented Navigation Bar (Only on screens < xl) */}
+      <div className="xl:hidden sticky top-14 sm:top-16 z-30 -mx-4 px-4 py-2 bg-slate-100/95 backdrop-blur-md border-b border-slate-200">
+        <div className="flex rounded-xl bg-slate-200/80 p-1 max-w-md mx-auto shadow-inner xl:hidden">
+          <button
+            type="button"
+            onClick={() => setMobileViewTab("summary")}
+            className={`flex-1 flex items-center justify-center gap-1.5 py-1.5 px-3 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
+              mobileViewTab === "summary"
+                ? "bg-white text-indigo-700 shadow-xs"
+                : "text-slate-600 hover:text-slate-900"
+            }`}
+          >
+            <BarChart3 className="h-3.5 w-3.5" />
+            <span>Summary</span>
+          </button>
+          <button
+            type="button"
+            onClick={() => setMobileViewTab("questions")}
+            className={`flex-1 flex items-center justify-center gap-1.5 py-1.5 px-3 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
+              mobileViewTab === "questions"
+                ? "bg-white text-indigo-700 shadow-xs"
+                : "text-slate-600 hover:text-slate-900"
+            }`}
+          >
+            <ListChecks className="h-3.5 w-3.5" />
+            <span>Questions ({questionList.length})</span>
+          </button>
+          {canPreviewPaper && (
+            <button
+              type="button"
+              onClick={() => setMobileViewTab("paper")}
+              className={`flex-1 flex items-center justify-center gap-1.5 py-1.5 px-3 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
+                mobileViewTab === "paper"
+                  ? "bg-white text-indigo-700 shadow-xs"
+                  : "text-slate-600 hover:text-slate-900"
+              }`}
+            >
+              <BookOpen className="h-3.5 w-3.5" />
+              <span>Paper</span>
+            </button>
+          )}
+        </div>
+      </div>
+
+      {/* Main Content Area: Side-by-Side Split View Container */}
       <div
-        className={`screen-only flex flex-col ${showPaperSplit && canPreviewPaper ? "xl:flex-row" : ""} gap-6 items-start`}
+        className={`screen-only flex flex-col ${
+          showPaperSplit && canPreviewPaper ? "xl:flex-row" : ""
+        } gap-6 items-start`}
       >
-        {/* Question Paper Viewer (Markdown Interactive Reader OR PDF Viewer) */}
-        {showPaperSplit && canPreviewPaper && (
-          <div className="flex flex-col w-full xl:w-1/2 xl:sticky xl:top-20 h-[55vh] sm:h-[65vh] xl:h-[calc(100vh-6.5rem)] rounded-2xl overflow-hidden border border-slate-200 bg-white shadow-md shrink-0 z-10">
+        {/* Left Side: Question Paper Viewer (Desktop Side-by-Side OR Mobile Paper Tab) */}
+        {canPreviewPaper && (
+          <div
+            className={`${mobileViewTab === "paper" ? "flex" : "hidden"} ${
+              showPaperSplit ? "xl:flex" : "xl:hidden"
+            } flex-col w-full xl:w-1/2 xl:sticky xl:top-20 h-[calc(100vh-10rem)] xl:h-[calc(100vh-6.5rem)] rounded-2xl overflow-hidden border border-slate-200 bg-white shadow-md shrink-0 z-10`}
+          >
             {isMarkdownPaper ? (
               <MarkdownPaperReviewViewer
                 paper={
@@ -1637,8 +1965,11 @@ export function AttemptDetailView({
                 }
                 header={markdownHeader}
                 activeQuestionNo={activeQuestionNo}
-                onSelectQuestion={setActiveQuestionNo}
-                onClose={() => setShowPaperSplit(false)}
+                onSelectQuestion={(qNo) => jumpToQuestion(qNo)}
+                onClose={() => {
+                  setShowPaperSplit(false);
+                  setMobileViewTab("questions");
+                }}
               />
             ) : (
               <>
@@ -1653,7 +1984,6 @@ export function AttemptDetailView({
                     </span>
                   </div>
                   <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
-                    {/* Toggle Canvas / Native inside the single header */}
                     <button
                       type="button"
                       onClick={() =>
@@ -1685,7 +2015,10 @@ export function AttemptDetailView({
                         </a>
                       )}
                     <button
-                      onClick={() => setShowPaperSplit(false)}
+                      onClick={() => {
+                        setShowPaperSplit(false);
+                        setMobileViewTab("questions");
+                      }}
                       className="text-xs font-medium text-slate-500 hover:text-slate-900 px-2 py-1 rounded-lg hover:bg-slate-50 transition-colors cursor-pointer"
                       title="Hide question paper preview"
                     >
@@ -1707,12 +2040,20 @@ export function AttemptDetailView({
           </div>
         )}
 
-        {/* Right Side / Bottom: Assessment Report & Responses */}
+        {/* Right Side / Report Container */}
         <div
-          className={`w-full ${showPaperSplit && canPreviewPaper ? "xl:w-1/2" : "max-w-5xl mx-auto"} space-y-6 min-w-0`}
+          className={`w-full ${
+            showPaperSplit && canPreviewPaper ? "xl:w-1/2" : "max-w-5xl mx-auto"
+          } space-y-6 min-w-0 ${
+            mobileViewTab === "paper" ? "hidden xl:block" : "block"
+          }`}
         >
           {/* PART 1: ASSESSMENT SUMMARY (COMPACT PROD STRIP, EXPANDS FOR IN-DEPTH ANALYTICS) */}
-          <div className="sticky top-[4.25rem] sm:top-[4.5rem] z-20 rounded-xl border border-slate-200 bg-white/95 backdrop-blur-md overflow-hidden shadow-xs">
+          <div
+            className={`${
+              mobileViewTab === "questions" ? "hidden xl:block" : "block"
+            } ${summaryExpanded ? "relative" : "sticky top-[4.25rem] sm:top-[4.5rem] z-20"} rounded-xl border border-slate-200 bg-white/95 backdrop-blur-md overflow-hidden shadow-xs`}
+          >
             {/* Compact 1-line stats bar */}
             <div
               onClick={() => setSummaryExpanded((prev) => !prev)}
@@ -2321,8 +2662,134 @@ export function AttemptDetailView({
             )}
           </div>
 
+          {/* EXECUTIVE PERFORMANCE CARD: CUTOFF VERDICT & TOP 3 GOLDEN TAKEAWAYS */}
+          <div className="rounded-2xl border border-slate-200 bg-white p-4 sm:p-5 space-y-4 shadow-xs">
+            {/* Row 1: Cutoff Benchmark Verdict */}
+            <div className="rounded-xl border border-slate-200/90 bg-gradient-to-r from-slate-50 via-white to-slate-50 p-4 space-y-3">
+              <div className="flex flex-wrap items-center justify-between gap-2.5">
+                <div className="flex items-center gap-2">
+                  <Award className="h-4 w-4 text-indigo-600" />
+                  <span className="text-xs font-bold uppercase tracking-wider text-slate-800">
+                    {cutoffBenchmark.isCsat
+                      ? "CSAT Qualifying Verdict"
+                      : "UPSC Prelims Cutoff Verdict"}
+                  </span>
+                </div>
+                <span
+                  className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold border shadow-2xs ${cutoffBenchmark.statusColor}`}
+                >
+                  <span
+                    className={`h-2 w-2 rounded-full ${cutoffBenchmark.barColor}`}
+                  />
+                  {cutoffBenchmark.status}
+                </span>
+              </div>
+
+              {/* Progress and score delta comparison */}
+              <div className="space-y-1.5 pt-1">
+                <div className="flex items-center justify-between text-xs font-medium">
+                  <div className="flex items-baseline gap-1.5">
+                    <span className="text-slate-500 font-medium text-[11px]">
+                      Your Score:
+                    </span>
+                    <span className="font-mono font-bold text-slate-900 text-sm">
+                      {formatReviewNumber(attempt.score)} pts
+                    </span>
+                  </div>
+                  <div className="flex items-baseline gap-1.5">
+                    <span className="text-slate-500 font-medium text-[11px]">
+                      Benchmark:
+                    </span>
+                    <span className="font-mono font-semibold text-slate-700 text-xs">
+                      {cutoffBenchmark.targetLabel}
+                    </span>
+                  </div>
+                </div>
+
+                {/* Progress bar towards cutoff */}
+                <div className="relative h-2.5 w-full rounded-full bg-slate-200 overflow-hidden">
+                  <div
+                    className={`h-full rounded-full transition-all duration-500 ${cutoffBenchmark.barColor}`}
+                    style={{
+                      width: `${Math.min(100, Math.max(0, (attempt.score / (effectiveMaxScore || 200)) * 100))}%`,
+                    }}
+                  />
+                  {/* Cutoff marker line */}
+                  <div
+                    className="absolute top-0 bottom-0 w-0.5 bg-slate-900 z-10"
+                    style={{
+                      left: `${Math.min(100, Math.max(0, (cutoffBenchmark.targetScore / (effectiveMaxScore || 200)) * 100))}%`,
+                    }}
+                    title={`Benchmark Cutoff: ${cutoffBenchmark.targetScore} pts`}
+                  />
+                </div>
+              </div>
+
+              <p className="text-xs text-slate-600 leading-relaxed font-normal pt-0.5">
+                {cutoffBenchmark.message}
+              </p>
+            </div>
+
+            {/* Row 2: Top 3 Actionable Takeaways */}
+            <div className="space-y-2.5">
+              <div className="flex items-center gap-2">
+                <Sparkles className="h-4 w-4 text-amber-500" />
+                <h4 className="text-xs font-bold uppercase tracking-wider text-slate-800">
+                  Top 3 Actionable Takeaways
+                </h4>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                {topTakeaways.map((item) => (
+                  <div
+                    key={item.id}
+                    className="flex flex-col justify-between rounded-xl border border-slate-200 bg-slate-50/70 p-3.5 hover:bg-slate-50 transition-colors gap-3"
+                  >
+                    <div className="space-y-1.5">
+                      <div className="flex items-center justify-between gap-1.5">
+                        <span className="text-[11px] font-bold text-slate-700 uppercase tracking-wide">
+                          {item.title}
+                        </span>
+                        <span
+                          className={`text-[10px] font-bold px-2 py-0.5 rounded-md border ${item.badgeStyle}`}
+                        >
+                          {item.badge}
+                        </span>
+                      </div>
+                      <div className="text-sm font-bold font-mono text-slate-900">
+                        {item.metric}
+                      </div>
+                      <p className="text-xs text-slate-600 leading-relaxed">
+                        {item.desc}
+                      </p>
+                    </div>
+
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setFilterTab(item.actionTab);
+                        setMobileViewTab("questions");
+                        document
+                          .getElementById("questions-section")
+                          ?.scrollIntoView({ behavior: "smooth" });
+                      }}
+                      className="self-start text-[11px] font-bold text-indigo-600 hover:text-indigo-800 hover:underline transition-colors pt-0.5 cursor-pointer"
+                    >
+                      {item.actionText}
+                    </button>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+
           {/* PART 2: QUESTION REVIEW (TABULAR PRODUCTION FORMAT) */}
-          <div className="rounded-xl border border-slate-200 bg-white p-3.5 sm:p-4 space-y-3 shadow-xs overflow-hidden">
+          <div
+            id="questions-section"
+            className={`${
+              mobileViewTab === "summary" ? "hidden xl:block" : "block"
+            } rounded-xl border border-slate-200 bg-white p-3.5 sm:p-4 space-y-3 shadow-xs overflow-hidden`}
+          >
             {/* Header & Controls */}
             <div className="flex items-center justify-between gap-3 border-b border-slate-200 pb-2.5 flex-wrap">
               <div className="flex items-baseline gap-2">
@@ -2367,7 +2834,7 @@ export function AttemptDetailView({
               </div>
             </div>
 
-            {/* Filter Pills */}
+            {/* Consolidated Filter Bar (Outcomes, Confidence Scores & Nuance) */}
             <div className="w-full overflow-x-auto pb-0.5 no-scrollbar">
               <div className="flex items-center gap-1.5 min-w-max p-1 bg-slate-100/80 rounded-lg border border-slate-200 text-xs">
                 {[
@@ -2378,7 +2845,7 @@ export function AttemptDetailView({
                   },
                   {
                     id: "incorrect" as const,
-                    label: `✕ Incorrect (${attempt.incorrect})`,
+                    label: `✕ Mistakes (${attempt.incorrect})`,
                     badgeColor: "text-rose-700 font-bold",
                     activeBg: "bg-rose-600 text-white",
                   },
@@ -2388,23 +2855,62 @@ export function AttemptDetailView({
                     badgeColor: "text-emerald-700 font-bold",
                     activeBg: "bg-emerald-600 text-white",
                   },
-                  ...(isSubjectiveAttempt ||
-                  questionList.some((q) => isAssessmentQuestion(q.questionNo))
-                    ? [
-                        {
-                          id: "non-mcq" as const,
-                          label: `⚡ Cloze/Eval (${questionList.filter((q) => isAssessmentQuestion(q.questionNo)).length})`,
-                          badgeColor: "text-indigo-700 font-bold",
-                          activeBg: "bg-indigo-600 text-white",
-                        },
-                      ]
-                    : []),
                   {
                     id: "skipped" as const,
                     label: `Skipped (${attempt.unattempted})`,
                     badgeColor: "text-slate-600",
                     activeBg: "bg-slate-700 text-white",
                   },
+                  ...(sureQuestions.length > 0
+                    ? [
+                        {
+                          id: "sure" as const,
+                          label: `🎯 Sure (${sureQuestions.length})`,
+                          badgeColor: "text-emerald-700 font-semibold",
+                          activeBg: "bg-emerald-600 text-white",
+                        },
+                      ]
+                    : []),
+                  ...(fiftyFiftyQuestions.length > 0
+                    ? [
+                        {
+                          id: "50-50" as const,
+                          label: `⚖️ 50:50 (${fiftyFiftyQuestions.length})`,
+                          badgeColor: "text-amber-700 font-semibold",
+                          activeBg: "bg-amber-600 text-white",
+                        },
+                      ]
+                    : []),
+                  ...(eliminationQuestions.length > 0
+                    ? [
+                        {
+                          id: "elimination" as const,
+                          label: `✂️ Elim (${eliminationQuestions.length})`,
+                          badgeColor: "text-sky-700 font-semibold",
+                          activeBg: "bg-sky-600 text-white",
+                        },
+                      ]
+                    : []),
+                  ...(guessQuestions.length > 0
+                    ? [
+                        {
+                          id: "guess" as const,
+                          label: `🎲 Guess (${guessQuestions.length})`,
+                          badgeColor: "text-purple-700 font-semibold",
+                          activeBg: "bg-purple-600 text-white",
+                        },
+                      ]
+                    : []),
+                  ...(alteredQuestions.length > 0
+                    ? [
+                        {
+                          id: "altered" as const,
+                          label: `🔄 Altered (${alteredQuestions.length})`,
+                          badgeColor: "text-indigo-700 font-semibold",
+                          activeBg: "bg-indigo-600 text-white",
+                        },
+                      ]
+                    : []),
                   ...(flaggedQuestions.length > 0
                     ? [
                         {
@@ -2425,6 +2931,17 @@ export function AttemptDetailView({
                         },
                       ]
                     : []),
+                  ...(isSubjectiveAttempt ||
+                  questionList.some((q) => isAssessmentQuestion(q.questionNo))
+                    ? [
+                        {
+                          id: "non-mcq" as const,
+                          label: `⚡ Cloze/Eval (${questionList.filter((q) => isAssessmentQuestion(q.questionNo)).length})`,
+                          badgeColor: "text-indigo-700 font-bold",
+                          activeBg: "bg-indigo-600 text-white",
+                        },
+                      ]
+                    : []),
                 ].map((tab) => (
                   <button
                     key={tab.id}
@@ -2439,6 +2956,18 @@ export function AttemptDetailView({
                     {tab.label}
                   </button>
                 ))}
+
+                {filterTab !== "all" && (
+                  <button
+                    type="button"
+                    onClick={() => setFilterTab("all")}
+                    className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-[11px] font-semibold text-rose-700 bg-rose-50 hover:bg-rose-100 border border-rose-200 transition-colors whitespace-nowrap cursor-pointer shrink-0 ml-1"
+                    title="Reset filter to show all questions"
+                  >
+                    <RotateCcw className="h-3 w-3" />
+                    <span>Reset filter</span>
+                  </button>
+                )}
               </div>
             </div>
 
@@ -2503,12 +3032,10 @@ export function AttemptDetailView({
                       return (
                         <React.Fragment key={q.questionNo}>
                           <tr
+                            id={`review-q-${q.questionNo}`}
                             onClick={() => {
                               setActiveQuestionNo(q.questionNo);
                               toggleQuestionExpand(q.questionNo);
-                              if (isMarkdownPaper && !showPaperSplit) {
-                                setShowPaperSplit(true);
-                              }
                             }}
                             className={`cursor-pointer transition-colors ${
                               isExpanded
@@ -3003,6 +3530,78 @@ export function AttemptDetailView({
                                 ) : (
                                   /* MCQ Expanded Row */
                                   <div className="space-y-3.5">
+                                    {/* Question Text & Options (Inline in Table when Expanded) */}
+                                    {parsedQ && (
+                                      <div className="space-y-3 bg-white p-4 rounded-xl border border-slate-200 shadow-2xs">
+                                        <p className="text-sm font-semibold text-slate-900 leading-relaxed whitespace-pre-wrap">
+                                          {parsedQ.text}
+                                        </p>
+                                        {parsedQ.matchingItems && (
+                                          <MatchingItemsTable
+                                            items={parsedQ.matchingItems}
+                                            headers={parsedQ.matchingHeaders}
+                                          />
+                                        )}
+                                        {parsedQ.options &&
+                                          Object.keys(parsedQ.options).length >
+                                            0 && (
+                                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-1">
+                                              {Object.entries(
+                                                parsedQ.options,
+                                              ).map(([optKey, optText]) => {
+                                                const normKey =
+                                                  optKey.toUpperCase();
+                                                const isPicked =
+                                                  q.selected?.toUpperCase() ===
+                                                  normKey;
+                                                const isThisCorrect =
+                                                  (
+                                                    expectedAnswer ||
+                                                    q.correctAnswer
+                                                  )?.toUpperCase() === normKey;
+                                                let cardStyle =
+                                                  "border-slate-200 bg-slate-50 text-slate-800";
+                                                if (isThisCorrect) {
+                                                  cardStyle =
+                                                    "border-emerald-500 bg-emerald-50 text-emerald-950 ring-1 ring-emerald-500/30 font-medium";
+                                                } else if (
+                                                  isPicked &&
+                                                  !isThisCorrect
+                                                ) {
+                                                  cardStyle =
+                                                    "border-rose-500 bg-rose-50 text-rose-950 ring-1 ring-rose-500/30";
+                                                }
+
+                                                return (
+                                                  <div
+                                                    key={optKey}
+                                                    className={`p-2.5 rounded-lg border text-xs flex items-start gap-2 ${cardStyle}`}
+                                                  >
+                                                    <span className="font-bold font-mono px-1.5 py-0.5 rounded bg-white border border-slate-200 text-[11px] shrink-0">
+                                                      {normKey}
+                                                    </span>
+                                                    <span className="leading-snug pt-0.5 flex-1">
+                                                      {optText}
+                                                    </span>
+                                                    {isThisCorrect && (
+                                                      <span className="text-[10px] font-bold text-emerald-700 bg-emerald-100 px-1.5 py-0.5 rounded shrink-0">
+                                                        Correct
+                                                      </span>
+                                                    )}
+                                                    {isPicked &&
+                                                      !isThisCorrect && (
+                                                        <span className="text-[10px] font-bold text-rose-700 bg-rose-100 px-1.5 py-0.5 rounded shrink-0">
+                                                          Picked
+                                                        </span>
+                                                      )}
+                                                  </div>
+                                                );
+                                              })}
+                                            </div>
+                                          )}
+                                      </div>
+                                    )}
+
                                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
                                       <div className="space-y-1 bg-white p-3 rounded-xl border border-slate-200 shadow-2xs">
                                         <span className="text-[10px] uppercase font-bold text-slate-500 tracking-wider">
@@ -3019,8 +3618,9 @@ export function AttemptDetailView({
                                             <span className="text-rose-700 font-semibold">
                                               -{incorrectMarksPerQ} marks
                                               deducted for incorrect answer
-                                              (marked &quot;{q.selected}&quot;,
-                                              official is &quot;
+                                              (marked &quot;
+                                              {q.selected}&quot;, official is
+                                              &quot;
                                               {q.correctAnswer}&quot;).
                                             </span>
                                           )}
@@ -3174,10 +3774,10 @@ export function AttemptDetailView({
         </div>
       </div>
 
-      {/* Mobile Question Paper Modal */}
+      {/* Question Paper Modal for PDF papers */}
       <DetailedSolutionModal
-        isOpen={mobilePaperModalOpen}
-        onClose={() => setMobilePaperModalOpen(false)}
+        isOpen={paperModalOpen}
+        onClose={() => setPaperModalOpen(false)}
         pdfUrl={matchedPaper?.qpUrl}
         paperTitle={`${displayPaperTitle} - Question Paper`}
       />

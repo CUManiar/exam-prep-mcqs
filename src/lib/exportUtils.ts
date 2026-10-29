@@ -804,6 +804,29 @@ export function exportAttemptAsPrintPDF(
 </html>`;
 
   try {
+    const isMobile =
+      typeof navigator !== "undefined" &&
+      /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent);
+
+    const blob = new Blob([html], { type: "text/html;charset=utf-8" });
+    const blobUrl = URL.createObjectURL(blob);
+
+    if (isMobile) {
+      // On mobile browsers, window.print() or opening an empty tab with document.write
+      // triggers popup blocker crashes or blank screens.
+      // Opening the blob URL directly allows mobile browsers to render the report cleanly
+      // where users can use the native Share -> Print / Save to Files / Save as PDF action.
+      const win = window.open(blobUrl, "_blank");
+      if (!win) {
+        const a = document.createElement("a");
+        a.href = blobUrl;
+        a.target = "_blank";
+        a.rel = "noopener noreferrer";
+        a.click();
+      }
+      return;
+    }
+
     const printWindow = window.open("", "_blank");
     if (printWindow) {
       printWindow.document.open();
@@ -811,15 +834,17 @@ export function exportAttemptAsPrintPDF(
       printWindow.document.close();
       printWindow.focus();
     } else {
-      // Fallback: popup blocked by browser
-      window.print();
+      window.open(blobUrl, "_blank");
     }
   } catch (err) {
-    console.error(
-      "exportAttemptAsPrintPDF error, falling back to window.print():",
-      err,
-    );
-    window.print();
+    console.error("exportAttemptAsPrintPDF error:", err);
+    try {
+      const blob = new Blob([html], { type: "text/html;charset=utf-8" });
+      const blobUrl = URL.createObjectURL(blob);
+      window.open(blobUrl, "_blank");
+    } catch {
+      window.print();
+    }
   }
 }
 

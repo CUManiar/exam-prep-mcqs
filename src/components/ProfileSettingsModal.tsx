@@ -11,6 +11,7 @@ import {
   Settings2,
   Sparkles,
   ShieldCheck,
+  Palette,
   Trash2,
   User,
   X,
@@ -39,6 +40,8 @@ export function ProfileSettingsModal({
     handleRestoreHiddenPapers,
     onlyCustomPapers,
     handleSetOnlyCustomPapers,
+    theme,
+    setTheme,
   } = useApp();
   const [autoAdvance, setAutoAdvance] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
@@ -267,6 +270,62 @@ export function ProfileSettingsModal({
                 aria-label="Show only my uploaded papers"
               />
             </label>
+          </div>
+
+          {/* Reading Comfort & Theme */}
+          <div className="rounded-lg border border-slate-200">
+            <div className="flex items-center gap-2 border-b border-slate-200 px-4 py-3">
+              <Palette className="h-4 w-4 text-slate-500" />
+              <h3 className="text-sm font-semibold text-slate-900">
+                Visual Comfort & Reading Theme
+              </h3>
+            </div>
+            <div className="p-4 space-y-2.5">
+              <p className="text-xs text-slate-500 leading-relaxed">
+                Switch themes to reduce eye strain during prolonged question
+                reading sessions.
+              </p>
+              <div className="grid grid-cols-3 gap-2 pt-1">
+                <button
+                  type="button"
+                  onClick={() => setTheme("light")}
+                  className={`flex flex-col items-center justify-center p-2.5 rounded-lg border text-xs font-bold transition-all cursor-pointer ${
+                    theme === "light"
+                      ? "border-indigo-600 bg-indigo-50/70 text-indigo-900 ring-2 ring-indigo-600/20"
+                      : "border-slate-200 bg-white text-slate-700 hover:bg-slate-50"
+                  }`}
+                >
+                  <span className="h-4 w-4 rounded-full bg-white border border-slate-300 shadow-2xs mb-1.5" />
+                  <span>Light</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setTheme("sepia")}
+                  className={`flex flex-col items-center justify-center p-2.5 rounded-lg border text-xs font-bold transition-all cursor-pointer ${
+                    theme === "sepia"
+                      ? "border-amber-700 bg-amber-50 text-amber-900 ring-2 ring-amber-700/20"
+                      : "border-slate-200 bg-[#f7f0e3] text-[#382c1e] hover:brightness-95"
+                  }`}
+                >
+                  <span className="h-4 w-4 rounded-full bg-[#fbf0d9] border border-[#d6c7b2] shadow-2xs mb-1.5" />
+                  <span>Warm Sepia</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setTheme("dark")}
+                  className={`flex flex-col items-center justify-center p-2.5 rounded-lg border text-xs font-bold transition-all cursor-pointer ${
+                    theme === "dark"
+                      ? "border-indigo-500 bg-slate-900 text-white ring-2 ring-indigo-500/30"
+                      : "border-slate-200 bg-slate-800 text-slate-200 hover:bg-slate-700"
+                  }`}
+                >
+                  <span className="h-4 w-4 rounded-full bg-slate-900 border border-slate-700 shadow-2xs mb-1.5" />
+                  <span>Dark</span>
+                </button>
+              </div>
+            </div>
           </div>
 
           {!currentUser && (

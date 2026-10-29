@@ -1,3 +1,4 @@
+[Subject: Economy | Topic: Monetary Policy]
 With reference to the **Monetary Policy Committee (MPC)** of the Reserve Bank of India, consider the following statements:
 
 1. It determines the policy repo rate required to achieve the inflation target.
@@ -11,6 +12,7 @@ Which of the statements given above is/are correct?
 (d) 1, 2 and 3
 ---
 
+[Subject: Polity | Topic: Fundamental Rights]
 Consider the following statements regarding **Article 21** and the right to privacy under the Indian Constitution:
 
 1. The Right to Privacy was declared a fundamental right under Article 21 by a 9-judge Constitution Bench in the _K.S. Puttaswamy v. Union of India_ (2017) judgment.
@@ -24,6 +26,7 @@ Which of the statements given above is/are correct?
 (d) 1, 2 and 3
 ---
 
+[Subject: Environment | Topic: Biodiversity Hotspots]
 With reference to **Biodiversity Hotspots**, consider the following statements:
 
 1. To qualify as a biodiversity hotspot, a region must contain at least 1,500 species of vascular plants as endemics.
@@ -37,6 +40,7 @@ Which of the statements given above are correct?
 (d) 1, 2 and 3
 ---
 
+[Subject: History | Topic: Bhakti Movement]
 Consider the following historical pairs of Bhakti saints and their associated traditions:
 
 1. Ramanuja — Vishishtadvaita (Qualified Monism)
@@ -51,6 +55,7 @@ How many of the pairs given above are correctly matched?
 (d) All four pairs
 ---
 
+[Subject: Science & Tech | Topic: Quantum Computing]
 Which of the following best describes the term **"Quantum Supremacy"** frequently mentioned in scientific news?
 (a) A theoretical point where quantum computers can crack all existing cryptographic algorithms simultaneously
 (b) The demonstration that a programmable quantum device can solve a specific problem that no classical supercomputer can solve in any feasible amount of time

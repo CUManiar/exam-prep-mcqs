@@ -48,7 +48,7 @@ export function MarkdownPaperReviewViewer({
   // Auto-scroll to selected question when activeQuestionNo changes
   useEffect(() => {
     if (!activeQuestionNo || !scrollContainerRef.current) return;
-    const targetEl = document.getElementById(`review-q-${activeQuestionNo}`);
+    const targetEl = document.getElementById(`paper-q-${activeQuestionNo}`);
     if (targetEl) {
       targetEl.scrollIntoView({ behavior: "smooth", block: "start" });
     }
@@ -299,7 +299,7 @@ export function MarkdownPaperReviewViewer({
             return (
               <div
                 key={q.questionNo}
-                id={`review-q-${q.questionNo}`}
+                id={`paper-q-${q.questionNo}`}
                 className={`p-3.5 sm:p-4 rounded-xl bg-white border transition-all duration-150 shadow-xs ${
                   isSelectedActive
                     ? "border-slate-900 ring-2 ring-slate-900/10"

@@ -9,26 +9,56 @@ import {
   LayoutDashboard,
   ListChecks,
   LogIn,
+  Moon,
   Sparkles,
+  Sun,
 } from "lucide-react";
 import { useApp } from "../context/AppContext";
 import { NotificationCenter } from "./NotificationCenter";
 import { ProfileSettingsModal } from "./ProfileSettingsModal";
 
 const navigation = [
-  { href: "/", label: "Overview", icon: LayoutDashboard },
-  { href: "/papers", label: "Question papers", icon: BookOpen },
-  { href: "/history", label: "Performance", icon: BarChart3 },
-  { href: "/syllabus", label: "Syllabus", icon: ListChecks },
-  { href: "/help/mcp", label: "AI Help", icon: Sparkles, isAi: true },
+  {
+    href: "/",
+    label: "Overview",
+    mobileLabel: "Overview",
+    icon: LayoutDashboard,
+  },
+  {
+    href: "/papers",
+    label: "Question papers",
+    mobileLabel: "Papers",
+    icon: BookOpen,
+  },
+  {
+    href: "/history",
+    label: "Performance",
+    mobileLabel: "History",
+    icon: BarChart3,
+  },
+  {
+    href: "/syllabus",
+    label: "Syllabus",
+    mobileLabel: "Syllabus",
+    icon: ListChecks,
+  },
+  {
+    href: "/help/mcp",
+    label: "AI Help",
+    mobileLabel: "AI Help",
+    icon: Sparkles,
+    isAi: true,
+  },
 ];
 
 export function Navbar() {
   const pathname = usePathname() || "/";
-  const { currentUser, openAuthModal } = useApp();
+  const { currentUser, openAuthModal, theme, setTheme } = useApp();
   const [showProfile, setShowProfile] = useState(false);
 
-  if (pathname.startsWith("/exam")) return null;
+  if (pathname.startsWith("/exam") || pathname.match(/^\/history\/[^/]+$/)) {
+    return null;
+  }
 
   return (
     <>
@@ -83,6 +113,31 @@ export function Navbar() {
           </nav>
 
           <div className="app-header-actions">
+            {/* Quick Reading Theme Toggle */}
+            <button
+              type="button"
+              onClick={() => {
+                const nextTheme =
+                  theme === "light"
+                    ? "sepia"
+                    : theme === "sepia"
+                      ? "dark"
+                      : "light";
+                setTheme(nextTheme);
+              }}
+              title={`Switch visual comfort theme (Current: ${theme})`}
+              aria-label={`Switch visual comfort theme. Current theme: ${theme}`}
+              className="flex h-9 w-9 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-600 hover:bg-slate-50 hover:text-slate-900 transition-colors cursor-pointer"
+            >
+              {theme === "light" ? (
+                <Sun className="h-4 w-4 text-amber-500" />
+              ) : theme === "sepia" ? (
+                <BookOpen className="h-4 w-4 text-amber-700" />
+              ) : (
+                <Moon className="h-4 w-4 text-indigo-400" />
+              )}
+            </button>
+
             <NotificationCenter />
             {currentUser ? (
               <button
@@ -114,40 +169,44 @@ export function Navbar() {
             )}
           </div>
         </div>
-        <nav className="app-mobile-nav" aria-label="Main navigation">
-          {navigation.map(({ href, label, icon: Icon, isAi }) => {
-            const active =
-              Boolean(currentUser) &&
-              (href === "/"
-                ? pathname === "/"
-                : pathname === href || pathname.startsWith(`${href}/`));
-            if (!currentUser && href !== "/" && href !== "/help/mcp") {
-              return (
-                <button
-                  type="button"
-                  key={href}
-                  onClick={openAuthModal}
-                  className={`app-mobile-nav-link ${isAi ? "ai-help-link" : ""}`}
-                >
-                  <Icon aria-hidden="true" />
-                  <span>{label}</span>
-                </button>
-              );
-            }
+      </header>
+
+      <nav
+        className="app-mobile-nav print:hidden"
+        aria-label="Mobile bottom navigation"
+      >
+        {navigation.map(({ href, label, mobileLabel, icon: Icon, isAi }) => {
+          const active =
+            Boolean(currentUser) &&
+            (href === "/"
+              ? pathname === "/"
+              : pathname === href || pathname.startsWith(`${href}/`));
+          if (!currentUser && href !== "/" && href !== "/help/mcp") {
             return (
-              <Link
+              <button
+                type="button"
                 key={href}
-                href={href}
-                aria-current={active ? "page" : undefined}
-                className={`app-mobile-nav-link ${isAi ? "ai-help-link" : ""} ${active ? "is-active" : ""}`}
+                onClick={openAuthModal}
+                className={`app-mobile-nav-link ${isAi ? "ai-help-link" : ""}`}
               >
                 <Icon aria-hidden="true" />
-                <span>{label}</span>
-              </Link>
+                <span>{mobileLabel || label}</span>
+              </button>
             );
-          })}
-        </nav>
-      </header>
+          }
+          return (
+            <Link
+              key={href}
+              href={href}
+              aria-current={active ? "page" : undefined}
+              className={`app-mobile-nav-link ${isAi ? "ai-help-link" : ""} ${active ? "is-active" : ""}`}
+            >
+              <Icon aria-hidden="true" />
+              <span>{mobileLabel || label}</span>
+            </Link>
+          );
+        })}
+      </nav>
       <ProfileSettingsModal
         isOpen={showProfile}
         onClose={() => setShowProfile(false)}

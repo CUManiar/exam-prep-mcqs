@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { QuestionPaper, ParsedQuestion, QuestionAnswer } from "../lib/types";
 import { MatchingItemsTable } from "./MatchingItemsTable";
 import {
@@ -24,6 +24,7 @@ interface InteractiveQuestionCardProps {
   currentAnswer?: QuestionAnswer;
   mode: "practice" | "mock";
   idleTimeSeconds: number;
+  fontScale?: "normal" | "large" | "xlarge";
   onSelectOption: (qNo: number, option: string) => void;
   onUpdateAnswer: (qNo: number, answer: string) => void;
   onClearOption: (qNo: number) => void;
@@ -37,6 +38,7 @@ export function InteractiveQuestionCard({
   currentAnswer,
   mode,
   idleTimeSeconds,
+  fontScale = "normal",
   onSelectOption,
   onUpdateAnswer,
   onClearOption,
@@ -46,6 +48,58 @@ export function InteractiveQuestionCard({
   const [showExplanationManual, setShowExplanationManual] =
     useState<boolean>(false);
   const questions = paper.parsedQuestions || [];
+
+  // Local state for Cloze answers so keystrokes do NOT fire server API calls
+  const [clozeDraft, setClozeDraft] = useState<string>(
+    currentAnswer?.selected || "",
+  );
+  const prevQuestionRef = useRef<number | null>(currentQuestion);
+  const clozeDraftRef = useRef<string>(clozeDraft);
+  const savedAnswerRef = useRef<string>(currentAnswer?.selected || "");
+
+  useEffect(() => {
+    clozeDraftRef.current = clozeDraft;
+  }, [clozeDraft]);
+
+  // Save cloze answer only when changing question or when answer externally updates
+  useEffect(() => {
+    const prevQ = prevQuestionRef.current;
+    const draft = clozeDraftRef.current;
+    const lastSaved = savedAnswerRef.current;
+
+    if (prevQ !== null && prevQ !== currentQuestion) {
+      if (draft.trim() !== lastSaved.trim()) {
+        onUpdateAnswer(prevQ, draft);
+      }
+    }
+
+    prevQuestionRef.current = currentQuestion;
+    const nextSaved = currentAnswer?.selected || "";
+    setClozeDraft(nextSaved);
+    savedAnswerRef.current = nextSaved;
+  }, [currentQuestion, currentAnswer?.selected, onUpdateAnswer]);
+
+  // Flush unsaved draft on unmount
+  useEffect(() => {
+    return () => {
+      const q = prevQuestionRef.current;
+      const draft = clozeDraftRef.current;
+      const lastSaved = savedAnswerRef.current;
+      if (q !== null && draft.trim() !== lastSaved.trim()) {
+        onUpdateAnswer(q, draft);
+      }
+    };
+  }, [onUpdateAnswer]);
+
+  const handleClozeBlur = () => {
+    if (
+      currentQuestion !== null &&
+      clozeDraft.trim() !== savedAnswerRef.current.trim()
+    ) {
+      savedAnswerRef.current = clozeDraft;
+      onUpdateAnswer(currentQuestion, clozeDraft);
+    }
+  };
 
   // 1. INSTRUCTIONS / BUFFER SCREEN (When currentQuestion is null)
   if (currentQuestion === null) {
@@ -143,13 +197,27 @@ export function InteractiveQuestionCard({
             onClick={onStartExam}
             className="w-full rounded-2xl bg-indigo-600 hover:bg-indigo-700 active:scale-[0.99] text-white py-3.5 px-6 font-bold text-sm shadow-md hover:shadow-lg transition-all flex items-center justify-center gap-2 cursor-pointer"
           >
-            <span>Begin Solving — Question 1</span>
+            <span>Begin</span>
             <ArrowRight className="h-4 w-4" />
           </button>
         </div>
       </div>
     );
   }
+
+  const questionTextSize =
+    fontScale === "xlarge"
+      ? "text-base sm:text-lg lg:text-xl"
+      : fontScale === "large"
+        ? "text-sm sm:text-base lg:text-lg"
+        : "text-xs sm:text-sm lg:text-base";
+
+  const optionTextSize =
+    fontScale === "xlarge"
+      ? "text-sm sm:text-base lg:text-lg"
+      : fontScale === "large"
+        ? "text-xs sm:text-sm lg:text-base"
+        : "text-xs sm:text-sm";
 
   // 2. ACTIVE QUESTION SCREEN
   const qData = questions.find((q) => q.questionNo === currentQuestion);
@@ -263,7 +331,9 @@ export function InteractiveQuestionCard({
 
         {/* Question Text Box */}
         <div className="bg-white rounded-2xl border border-slate-200/90 p-5 sm:p-6 shadow-2xs space-y-3">
-          <div className="text-slate-900 text-sm sm:text-base font-medium leading-relaxed whitespace-pre-wrap select-text">
+          <div
+            className={`text-slate-900 ${questionTextSize} font-medium leading-relaxed whitespace-pre-wrap select-text`}
+          >
             {qData.text}
           </div>
           <MatchingItemsTable
@@ -322,7 +392,9 @@ export function InteractiveQuestionCard({
                     >
                       {optKey}
                     </span>
-                    <div className="flex-1 text-xs sm:text-sm leading-relaxed self-center font-normal">
+                    <div
+                      className={`flex-1 ${optionTextSize} leading-relaxed self-center font-normal`}
+                    >
                       {optText}
                     </div>
                     {mode === "practice" && hasAnswered && isOptionCorrect && (
@@ -355,16 +427,16 @@ export function InteractiveQuestionCard({
             </label>
             <textarea
               id={`cloze-answer-${currentQuestion}`}
-              value={selectedText}
-              onChange={(event) =>
-                onUpdateAnswer(currentQuestion, event.target.value)
-              }
+              value={clozeDraft}
+              onChange={(event) => setClozeDraft(event.target.value)}
+              onBlur={handleClozeBlur}
               rows={2}
               placeholder="Type a one- or two-line answer..."
               className="w-full resize-y rounded-2xl border border-slate-200 bg-white p-4 text-sm leading-relaxed text-slate-800 shadow-2xs outline-none transition focus:border-indigo-400 focus:ring-4 focus:ring-indigo-100"
             />
             <p className="px-1 text-[11px] text-slate-400">
               This is a free-text cloze question. No options are provided.
+              Answer is saved when switching questions.
             </p>
           </div>
         )}

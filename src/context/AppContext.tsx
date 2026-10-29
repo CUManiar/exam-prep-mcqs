@@ -85,6 +85,8 @@ import {
   parseSyllabusMarkdown,
 } from "../lib/syllabusMarkdown";
 
+export type AppTheme = "light" | "sepia" | "dark";
+
 interface AppContextType {
   papers: QuestionPaper[];
   attempts: Attempt[];
@@ -93,6 +95,8 @@ interface AppContextType {
   isPro: boolean;
   isStartingExam: boolean;
   currentUser: User | null;
+  theme: AppTheme;
+  setTheme: (theme: AppTheme) => void;
   openProUpgradeModal: (targetPaperLabel?: string) => void;
   openAuthModal: () => void;
   handleSignOut: () => Promise<void>;
@@ -159,6 +163,30 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     useState<Attempt | null>(null);
   const [guestCompletionModalOpen, setGuestCompletionModalOpen] =
     useState<boolean>(false);
+
+  const [theme, setThemeState] = useState<AppTheme>(() => {
+    if (typeof window === "undefined") return "light";
+    const saved = localStorage.getItem("exam_prep_theme") as AppTheme | null;
+    return saved === "sepia" || saved === "dark" ? saved : "light";
+  });
+
+  const setTheme = useCallback((newTheme: AppTheme) => {
+    setThemeState(newTheme);
+    if (typeof window !== "undefined") {
+      try {
+        localStorage.setItem("exam_prep_theme", newTheme);
+      } catch {}
+      document.documentElement.setAttribute("data-theme", newTheme);
+      document.documentElement.classList.toggle("dark", newTheme === "dark");
+    }
+  }, []);
+
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      document.documentElement.setAttribute("data-theme", theme);
+      document.documentElement.classList.toggle("dark", theme === "dark");
+    }
+  }, [theme]);
 
   const notificationUserId = currentUser?.id ?? null;
 
@@ -911,6 +939,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         isPro,
         isStartingExam,
         currentUser,
+        theme,
+        setTheme,
         openProUpgradeModal,
         openAuthModal,
         handleSignOut,

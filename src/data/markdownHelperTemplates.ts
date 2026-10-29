@@ -16,6 +16,7 @@ INSTRUCTIONS:
 - Read each question statement thoroughly before choosing the answer.
 - Practice active elimination techniques during the attempt.
 ---
+[Subject: Economy | Topic: Monetary Policy]
 With reference to the **Monetary Policy Committee (MPC)** of the Reserve Bank of India, consider the following statements:
 1. It determines the policy repo rate required to achieve the inflation target.
 2. The Governor of the RBI is the ex-officio Chairperson of the Committee and has a casting vote.
@@ -27,6 +28,7 @@ Which of the statements given above is/are correct?
 (c) 2 and 3 only
 (d) 1, 2 and 3
 ---
+[Subject: Polity | Topic: Fundamental Rights]
 Consider the following statements regarding **Article 21** and the right to privacy under the Indian Constitution:
 1. The Right to Privacy was affirmed as a fundamental right by a 9-judge Constitution Bench in the *K.S. Puttaswamy* (2017) judgment.
 2. The right to be forgotten is recognized as an integral part of personal informational privacy.
@@ -38,6 +40,7 @@ Which of the statements given above is/are correct?
 (c) 2 and 3 only
 (d) 1, 2 and 3
 ---
+[Subject: Environment | Topic: Biodiversity Hotspots]
 With reference to global **Biodiversity Hotspots**, consider the following statements:
 1. A region must contain at least 1,500 species of vascular plants as endemics.
 2. It must have lost at least 70% of its original natural habitat.
@@ -49,8 +52,10 @@ Which of the statements given above are correct?
 (c) 1 and 3 only
 (d) 1, 2 and 3
 ---
+[Subject: Polity | Topic: Writs]
 Fill in the blank: The writ issued by a court to produce a person who has been unlawfully detained is called __________.
 ---
+[Subject: Polity | Topic: Basic Structure Doctrine]
 In one or two lines, explain how the basic-structure doctrine limits Parliament's power to amend the Constitution of India.`;
 
 export const ANSWER_KEY_TEMPLATE = `1. b """ Statement 1 and 2 are correct. Statement 3 is incorrect because the MPC has 6 members (3 from RBI, 3 appointed by Central Government) who hold office for a non-renewable period of 4 years. """
@@ -97,6 +102,13 @@ INSTRUCTIONS:
 Provide the answer key in one of these exact syntaxes:
 <question_number>. <lowercase_option_letter> """ <detailed explanation text> """
 <cloze_question_number>. """ <reference explanation text> """
+
+4. SUBJECT TAGGING & MIXED PAPERS:
+- Single-Subject Paper: If the paper focuses strictly on one subject (e.g. SUBJECT: Indian Polity), all questions inherit that subject and mix-up is disallowed.
+- Mixed / Revision / Daily Quizzes: If the paper is a multi-subject test (e.g. SUBJECT: Mixed Revision Quiz), tag each question with its individual subject bracket at the start:
+  [Subject: Polity | Topic: Fundamental Rights]
+  or [Subject: Economy]
+  This allows the student's dashboard analytics to track individual subject mastery accurately.
 
 Example:
 1. b """ Statement 1 is correct because... Statement 2 is incorrect because... """
