@@ -36,7 +36,8 @@ export async function POST(
     const exsFile = formData.get("exsFile") as File | null;
     const qpFile = formData.get("qpFile") as File | null;
     const markdownContent = (formData.get("markdownContent") as string) || "";
-    const parsedQuestionsRaw = (formData.get("parsedQuestions") as string) || "";
+    const parsedQuestionsRaw =
+      (formData.get("parsedQuestions") as string) || "";
 
     const uploadErrors = [
       validateUploadFile(qpFile, {
@@ -59,7 +60,10 @@ export async function POST(
       }),
     ].find(Boolean);
     if (uploadErrors) {
-      return NextResponse.json({ ok: false, error: uploadErrors }, { status: 413 });
+      return NextResponse.json(
+        { ok: false, error: uploadErrors },
+        { status: 413 },
+      );
     }
     if (new TextEncoder().encode(markdownContent).length > 2 * 1024 * 1024) {
       return NextResponse.json(
@@ -113,7 +117,9 @@ export async function POST(
       (formData.get("cutoffValue") as string) || "",
     );
     const cutoffValue =
-      cutoffEnabled && Number.isFinite(cutoffValueInput) && cutoffValueInput >= 0
+      cutoffEnabled &&
+      Number.isFinite(cutoffValueInput) &&
+      cutoffValueInput >= 0
         ? cutoffValueInput
         : hasCutoffUpdate
           ? undefined
@@ -204,7 +210,7 @@ export async function POST(
       subject: subject || currentPaper.subject,
       totalQuestions: totalQuestionsStr
         ? parseInt(totalQuestionsStr)
-        : (finalParsedQuestions && finalParsedQuestions.length > 0)
+        : finalParsedQuestions && finalParsedQuestions.length > 0
           ? finalParsedQuestions.length
           : currentPaper.totalQuestions,
       totalMarks: totalMarksStr

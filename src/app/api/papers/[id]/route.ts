@@ -204,9 +204,9 @@ export async function PATCH(
           method: "PATCH",
           headers: { "Content-Type": "application/json" },
           // Preserve the caller's identity when forwarding local requests.
-          ...req.headers.get("authorization")
+          ...(req.headers.get("authorization")
             ? { Authorization: req.headers.get("authorization") as string }
-            : {},
+            : {}),
           body: JSON.stringify(body),
           redirect: "follow",
         });

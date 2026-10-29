@@ -20,7 +20,9 @@ export function PdfAttachmentCard({
   onFileSelected,
   isRequired = false,
 }: PdfAttachmentCardProps) {
-  const hasUploadedFile = Boolean(currentUrl && !currentUrl.startsWith("local://"));
+  const hasUploadedFile = Boolean(
+    currentUrl && !currentUrl.startsWith("local://"),
+  );
 
   return (
     <div className="rounded-xl border border-slate-200 bg-slate-50/60 p-4 space-y-3">
@@ -58,7 +60,11 @@ export function PdfAttachmentCard({
       <label className="cursor-pointer flex items-center justify-center gap-2 rounded-xl border border-dashed border-slate-300 bg-white hover:border-indigo-500 hover:bg-slate-50 p-2.5 text-xs font-semibold text-slate-700 transition-colors shadow-2xs">
         <FileUp className="h-4 w-4 text-indigo-600 shrink-0" />
         <span className="truncate max-w-[220px]">
-          {selectedFile ? `New: ${selectedFile.name}` : (currentFilename ? `Replace ${title}` : `Select ${title}`)}
+          {selectedFile
+            ? `New: ${selectedFile.name}`
+            : currentFilename
+              ? `Replace ${title}`
+              : `Select ${title}`}
         </span>
         <input
           type="file"

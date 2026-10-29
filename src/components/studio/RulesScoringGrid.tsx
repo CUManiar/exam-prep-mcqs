@@ -57,7 +57,9 @@ export function RulesScoringGrid({
             value={totalQuestions}
             onChange={(e) => {
               const val = e.target.value;
-              (onTotalQuestionsChange as any)(typeof totalQuestions === "number" ? parseInt(val) || 0 : val);
+              (onTotalQuestionsChange as any)(
+                typeof totalQuestions === "number" ? parseInt(val) || 0 : val,
+              );
             }}
             placeholder="100"
             className="w-full rounded-lg border border-slate-200 bg-slate-50 px-3 py-1.5 text-xs font-mono text-slate-800 focus:bg-white focus:border-indigo-500 transition-colors"
@@ -75,7 +77,9 @@ export function RulesScoringGrid({
             value={timeMinutes}
             onChange={(e) => {
               const val = e.target.value;
-              (onTimeMinutesChange as any)(typeof timeMinutes === "number" ? parseInt(val) || 0 : val);
+              (onTimeMinutesChange as any)(
+                typeof timeMinutes === "number" ? parseInt(val) || 0 : val,
+              );
             }}
             placeholder="120"
             className="w-full rounded-lg border border-slate-200 bg-slate-50 px-3 py-1.5 text-xs font-mono text-slate-800 focus:bg-white focus:border-indigo-500 transition-colors"
@@ -92,7 +96,9 @@ export function RulesScoringGrid({
             value={correctMarks}
             onChange={(e) => {
               const val = e.target.value;
-              (onCorrectMarksChange as any)(typeof correctMarks === "number" ? parseFloat(val) || 0 : val);
+              (onCorrectMarksChange as any)(
+                typeof correctMarks === "number" ? parseFloat(val) || 0 : val,
+              );
             }}
             placeholder="2"
             className="w-full rounded-lg border border-slate-200 bg-slate-50 px-3 py-1.5 text-xs font-mono text-slate-800 focus:bg-white focus:border-indigo-500 transition-colors"
@@ -110,7 +116,9 @@ export function RulesScoringGrid({
             value={incorrectMarks}
             onChange={(e) => {
               const val = e.target.value;
-              (onIncorrectMarksChange as any)(typeof incorrectMarks === "number" ? parseFloat(val) || 0 : val);
+              (onIncorrectMarksChange as any)(
+                typeof incorrectMarks === "number" ? parseFloat(val) || 0 : val,
+              );
             }}
             placeholder="0.667"
             className="w-full rounded-lg border border-slate-200 bg-slate-50 px-3 py-1.5 text-xs font-mono text-slate-800 focus:bg-white focus:border-indigo-500 transition-colors"
@@ -128,7 +136,9 @@ export function RulesScoringGrid({
             value={totalMarks}
             onChange={(e) => {
               const val = e.target.value;
-              (onTotalMarksChange as any)(typeof totalMarks === "number" ? parseFloat(val) || 0 : val);
+              (onTotalMarksChange as any)(
+                typeof totalMarks === "number" ? parseFloat(val) || 0 : val,
+              );
             }}
             placeholder="200"
             className="w-full rounded-lg border border-slate-200 bg-slate-50 px-3 py-1.5 text-xs font-mono text-slate-800 focus:bg-white focus:border-indigo-500 transition-colors"
@@ -152,7 +162,9 @@ export function RulesScoringGrid({
             <div className="grid grid-cols-1 sm:grid-cols-[minmax(0,1fr)_minmax(0,1fr)] gap-2">
               <select
                 value={cutoffType}
-                onChange={(e) => onCutoffTypeChange(e.target.value as CutoffType)}
+                onChange={(e) =>
+                  onCutoffTypeChange(e.target.value as CutoffType)
+                }
                 className="w-full rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-800 focus:border-indigo-500 focus:outline-none"
               >
                 <option value="percentage">Percentage</option>
@@ -167,10 +179,14 @@ export function RulesScoringGrid({
                   onChange={(e) => {
                     const val = e.target.value;
                     (onCutoffValueChange as any)(
-                      typeof cutoffValue === "number" ? parseFloat(val) || 0 : val,
+                      typeof cutoffValue === "number"
+                        ? parseFloat(val) || 0
+                        : val,
                     );
                   }}
-                  placeholder={cutoffType === "percentage" ? "e.g. 40" : "e.g. 66.67"}
+                  placeholder={
+                    cutoffType === "percentage" ? "e.g. 40" : "e.g. 66.67"
+                  }
                   className="w-full rounded-lg border border-slate-200 bg-white px-3 py-1.5 pr-16 text-xs font-mono text-slate-800 focus:border-indigo-500 focus:outline-none"
                   required
                 />

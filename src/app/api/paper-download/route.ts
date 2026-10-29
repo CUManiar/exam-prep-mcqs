@@ -57,7 +57,8 @@ export async function GET(request: NextRequest) {
       });
     }
 
-    const contentType = upstream.headers.get("content-type") || "application/pdf";
+    const contentType =
+      upstream.headers.get("content-type") || "application/pdf";
     if (!contentType.toLowerCase().includes("pdf")) {
       return new NextResponse("Question paper is not a PDF", { status: 415 });
     }

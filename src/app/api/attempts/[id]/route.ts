@@ -29,7 +29,11 @@ export async function DELETE(
 
     const { id } = await params;
     const currentList = await readJsonStore<Attempt[]>("attempts.json", []);
-    if (!currentList.some((attempt) => attempt.id === id && attempt.userId === user.id)) {
+    if (
+      !currentList.some(
+        (attempt) => attempt.id === id && attempt.userId === user.id,
+      )
+    ) {
       return NextResponse.json(
         { ok: false, error: "Attempt not found." },
         { status: 404 },

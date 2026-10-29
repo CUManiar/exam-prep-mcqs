@@ -256,8 +256,12 @@ export function LandingView({
                 and review your result.
               </p>
               <ul className="public-plan-features">
-                <li><Check aria-hidden="true" /> Full mock workflow</li>
-                <li><Check aria-hidden="true" /> Immediate result review</li>
+                <li>
+                  <Check aria-hidden="true" /> Full mock workflow
+                </li>
+                <li>
+                  <Check aria-hidden="true" /> Immediate result review
+                </li>
               </ul>
               {featuredPaper && (
                 <button
@@ -285,9 +289,15 @@ export function LandingView({
                 limits.
               </p>
               <ul className="public-plan-features">
-                <li><Check aria-hidden="true" /> Unlimited paper uploads</li>
-                <li><Check aria-hidden="true" /> Unlimited practice</li>
-                <li><Check aria-hidden="true" /> Saved assessment history</li>
+                <li>
+                  <Check aria-hidden="true" /> Unlimited paper uploads
+                </li>
+                <li>
+                  <Check aria-hidden="true" /> Unlimited practice
+                </li>
+                <li>
+                  <Check aria-hidden="true" /> Saved assessment history
+                </li>
               </ul>
               <button
                 type="button"
@@ -301,7 +311,9 @@ export function LandingView({
 
             <article className="public-plan-card public-plan-card-enterprise">
               <div className="public-plan-topline">
-                <span className="public-plan-kicker">Institutes & enterprise</span>
+                <span className="public-plan-kicker">
+                  Institutes & enterprise
+                </span>
                 <span className="public-plan-context">Talk to us</span>
               </div>
               <h3>A workflow built around your learners</h3>
@@ -313,8 +325,12 @@ export function LandingView({
                 for a tailored conversation.
               </p>
               <ul className="public-plan-features">
-                <li><Check aria-hidden="true" /> Discuss your workflow</li>
-                <li><Check aria-hidden="true" /> Plan for your learners</li>
+                <li>
+                  <Check aria-hidden="true" /> Discuss your workflow
+                </li>
+                <li>
+                  <Check aria-hidden="true" /> Plan for your learners
+                </li>
               </ul>
               <a
                 href="mailto:hi@chikoochi.com"

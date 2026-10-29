@@ -78,7 +78,9 @@ export function DashboardView({
         (completed.reduce(
           (sum, attempt) => sum + getAttemptPercentage(attempt),
           0,
-        ) / completed.length) * 10,
+        ) /
+          completed.length) *
+          10,
       ) / 10
     : null;
   const latestAttempt = completed[0];
@@ -172,28 +174,26 @@ export function DashboardView({
       )}
 
       <section className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-        {metrics.map(
-          ({ label, value, icon: Icon, iconClass, iconBgClass }) => (
-            <div
-              key={label}
-              className="surface-card flex items-center gap-3 p-4 sm:p-5"
+        {metrics.map(({ label, value, icon: Icon, iconClass, iconBgClass }) => (
+          <div
+            key={label}
+            className="surface-card flex items-center gap-3 p-4 sm:p-5"
+          >
+            <span
+              className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl ring-1 ${iconBgClass}`}
             >
-              <span
-                className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl ring-1 ${iconBgClass}`}
-              >
-                <Icon className={`h-5 w-5 ${iconClass}`} />
+              <Icon className={`h-5 w-5 ${iconClass}`} />
+            </span>
+            <span className="min-w-0">
+              <span className="block truncate text-xs font-medium text-slate-500">
+                {label}
               </span>
-              <span className="min-w-0">
-                <span className="block truncate text-xs font-medium text-slate-500">
-                  {label}
-                </span>
-                <span className="mt-1 block text-xl font-semibold tracking-tight text-slate-900 tabular-nums">
-                  {value}
-                </span>
+              <span className="mt-1 block text-xl font-semibold tracking-tight text-slate-900 tabular-nums">
+                {value}
               </span>
-            </div>
-          ),
-        )}
+            </span>
+          </div>
+        ))}
       </section>
 
       <section className="mt-4">
@@ -215,7 +215,10 @@ export function DashboardView({
                   {latestAttempt.paperLabel}
                 </p>
                 <p className="mt-1 text-xs text-slate-500">
-                  Latest {latestAttempt.mode === "mock" ? "mock" : "practice"} · {formatAttemptDate(latestAttempt.finishedAt || latestAttempt.startedAt)}
+                  Latest {latestAttempt.mode === "mock" ? "mock" : "practice"} ·{" "}
+                  {formatAttemptDate(
+                    latestAttempt.finishedAt || latestAttempt.startedAt,
+                  )}
                 </p>
                 <div className="mt-5 flex items-end gap-4">
                   <div>
@@ -228,7 +231,9 @@ export function DashboardView({
                     </p>
                   </div>
                   <div className="border-l border-slate-200 pl-4">
-                    <p className="text-xs font-medium text-slate-500">Accuracy</p>
+                    <p className="text-xs font-medium text-slate-500">
+                      Accuracy
+                    </p>
                     <p className="mt-1 text-xl font-semibold text-emerald-700 tabular-nums">
                       {Math.round(latestAttempt.accuracyPct || 0)}%
                     </p>
@@ -291,69 +296,72 @@ export function DashboardView({
                 );
                 return (
                   <li key={attempt.id}>
-                  <div
-                    role="button"
-                    tabIndex={0}
-                    onClick={() => onViewAttempt(attempt)}
-                    onKeyDown={(event) => {
-                      if (event.key === "Enter" || event.key === " ") {
-                        event.preventDefault();
-                        onViewAttempt(attempt);
-                      }
-                    }}
-                    className="flex w-full cursor-pointer flex-col gap-3 px-4 py-4 text-left transition hover:bg-slate-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 sm:flex-row sm:items-center sm:justify-between sm:px-5"
-                  >
-                    <span className="min-w-0">
-                      <span className="flex items-center gap-1.5 truncate text-sm font-semibold text-slate-900">
-                        <span className="truncate">{attempt.paperLabel}</span>
-                        {!paperExists && (
-                          <span
-                            className="shrink-0 text-amber-600"
-                            aria-label="Linked paper deleted"
-                            title="The paper linked to this assessment has been deleted."
+                    <div
+                      role="button"
+                      tabIndex={0}
+                      onClick={() => onViewAttempt(attempt)}
+                      onKeyDown={(event) => {
+                        if (event.key === "Enter" || event.key === " ") {
+                          event.preventDefault();
+                          onViewAttempt(attempt);
+                        }
+                      }}
+                      className="flex w-full cursor-pointer flex-col gap-3 px-4 py-4 text-left transition hover:bg-slate-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 sm:flex-row sm:items-center sm:justify-between sm:px-5"
+                    >
+                      <span className="min-w-0">
+                        <span className="flex items-center gap-1.5 truncate text-sm font-semibold text-slate-900">
+                          <span className="truncate">{attempt.paperLabel}</span>
+                          {!paperExists && (
+                            <span
+                              className="shrink-0 text-amber-600"
+                              aria-label="Linked paper deleted"
+                              title="The paper linked to this assessment has been deleted."
+                            >
+                              <AlertTriangle
+                                className="h-3.5 w-3.5"
+                                aria-hidden="true"
+                              />
+                            </span>
+                          )}
+                        </span>
+                        <span className="mt-1 block text-xs text-slate-500">
+                          {formatAttemptDate(
+                            attempt.finishedAt || attempt.startedAt,
+                          )}{" "}
+                          <span className="mx-1.5">·</span>{" "}
+                          {attempt.mode === "mock" ? "Mock" : "Practice"}
+                        </span>
+                      </span>
+                      <span className="flex items-center gap-4 text-xs sm:justify-end">
+                        <span className="text-slate-600">
+                          {attempt.answered}/{attempt.totalQuestions} answered
+                        </span>
+                        <span className="font-semibold tabular-nums text-slate-900">
+                          {attempt.score}/{attempt.maxScore}
+                        </span>
+                        <span className="font-medium tabular-nums text-indigo-700">
+                          {getAttemptPercentage(attempt)}%
+                        </span>
+                        <span className="font-medium tabular-nums text-slate-700">
+                          {Math.round(attempt.accuracyPct || 0)}%
+                        </span>
+                        {!paperExists && onDeleteAttempt && (
+                          <button
+                            type="button"
+                            onClick={(event) => {
+                              event.stopPropagation();
+                              onDeleteAttempt(attempt.id);
+                            }}
+                            className="rounded-md p-1 text-slate-400 transition hover:bg-rose-50 hover:text-rose-600"
+                            aria-label="Delete assessment"
+                            title="Delete this assessment"
                           >
-                            <AlertTriangle className="h-3.5 w-3.5" aria-hidden="true" />
-                          </span>
+                            <Trash2 className="h-3.5 w-3.5" />
+                          </button>
                         )}
+                        <ArrowRight className="hidden h-4 w-4 text-slate-400 sm:block" />
                       </span>
-                      <span className="mt-1 block text-xs text-slate-500">
-                        {formatAttemptDate(
-                          attempt.finishedAt || attempt.startedAt,
-                        )}{" "}
-                        <span className="mx-1.5">·</span>{" "}
-                        {attempt.mode === "mock" ? "Mock" : "Practice"}
-                      </span>
-                    </span>
-                    <span className="flex items-center gap-4 text-xs sm:justify-end">
-                      <span className="text-slate-600">
-                        {attempt.answered}/{attempt.totalQuestions} answered
-                      </span>
-                      <span className="font-semibold tabular-nums text-slate-900">
-                        {attempt.score}/{attempt.maxScore}
-                      </span>
-                      <span className="font-medium tabular-nums text-indigo-700">
-                        {getAttemptPercentage(attempt)}%
-                      </span>
-                      <span className="font-medium tabular-nums text-slate-700">
-                        {Math.round(attempt.accuracyPct || 0)}%
-                      </span>
-                      {!paperExists && onDeleteAttempt && (
-                        <button
-                          type="button"
-                          onClick={(event) => {
-                            event.stopPropagation();
-                            onDeleteAttempt(attempt.id);
-                          }}
-                          className="rounded-md p-1 text-slate-400 transition hover:bg-rose-50 hover:text-rose-600"
-                          aria-label="Delete assessment"
-                          title="Delete this assessment"
-                        >
-                          <Trash2 className="h-3.5 w-3.5" />
-                        </button>
-                      )}
-                      <ArrowRight className="hidden h-4 w-4 text-slate-400 sm:block" />
-                    </span>
-                  </div>
+                    </div>
                   </li>
                 );
               })}
@@ -361,7 +369,6 @@ export function DashboardView({
           )}
         </div>
       </section>
-
     </div>
   );
 }

@@ -56,27 +56,37 @@ export function ExamCoverCard({
       {/* 4-Column Metrics Grid */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-xs">
         <div className="bg-white/90 rounded-lg p-2 border border-purple-100">
-          <span className="text-[10px] text-slate-400 block font-medium">Questions</span>
+          <span className="text-[10px] text-slate-400 block font-medium">
+            Questions
+          </span>
           <span className="font-mono font-bold text-slate-800">
             {questionsCount ? `${questionsCount} MCQs` : "—"}
           </span>
         </div>
         <div className="bg-white/90 rounded-lg p-2 border border-purple-100">
-          <span className="text-[10px] text-slate-400 block font-medium">Total Marks</span>
+          <span className="text-[10px] text-slate-400 block font-medium">
+            Total Marks
+          </span>
           <span className="font-mono font-bold text-slate-800">
             {totalMarks || "200"} Marks
           </span>
         </div>
         <div className="bg-white/90 rounded-lg p-2 border border-purple-100">
-          <span className="text-[10px] text-slate-400 block font-medium">Marking</span>
+          <span className="text-[10px] text-slate-400 block font-medium">
+            Marking
+          </span>
           <span className="font-mono font-bold text-emerald-700">
             +{correctMarks || "2"} / -{incorrectMarks || "0.667"}
           </span>
         </div>
         <div className="bg-white/90 rounded-lg p-2 border border-purple-100">
-          <span className="text-[10px] text-slate-400 block font-medium">Answer Key</span>
+          <span className="text-[10px] text-slate-400 block font-medium">
+            Answer Key
+          </span>
           <span className="font-mono font-bold text-purple-700">
-            {mappedAnswersCount !== undefined ? `${mappedAnswersCount} Mapped` : "—"}
+            {mappedAnswersCount !== undefined
+              ? `${mappedAnswersCount} Mapped`
+              : "—"}
           </span>
         </div>
       </div>
@@ -98,15 +108,25 @@ export function ExamCoverCard({
             <>
               <li className="flex items-start gap-1.5 leading-relaxed">
                 <Check className="h-3 w-3 text-purple-600 shrink-0 mt-0.5" />
-                <span>All {questionsCount || 100} questions are compulsory and carry equal marks.</span>
+                <span>
+                  All {questionsCount || 100} questions are compulsory and carry
+                  equal marks.
+                </span>
               </li>
               <li className="flex items-start gap-1.5 leading-relaxed">
                 <Check className="h-3 w-3 text-purple-600 shrink-0 mt-0.5" />
-                <span>Each correct answer awards +{correctMarks || "2"} marks; each wrong answer incurs a penalty of -{incorrectMarks || "0.667"} marks.</span>
+                <span>
+                  Each correct answer awards +{correctMarks || "2"} marks; each
+                  wrong answer incurs a penalty of -{incorrectMarks || "0.667"}{" "}
+                  marks.
+                </span>
               </li>
               <li className="flex items-start gap-1.5 leading-relaxed">
                 <Check className="h-3 w-3 text-purple-600 shrink-0 mt-0.5" />
-                <span>Only one option is correct per question. No penalty for unattempted questions.</span>
+                <span>
+                  Only one option is correct per question. No penalty for
+                  unattempted questions.
+                </span>
               </li>
             </>
           )}
