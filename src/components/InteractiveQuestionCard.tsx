@@ -24,6 +24,7 @@ interface InteractiveQuestionCardProps {
   currentAnswer?: QuestionAnswer;
   mode: "practice" | "mock";
   idleTimeSeconds: number;
+  fontScale?: "normal" | "large" | "xlarge";
   onSelectOption: (qNo: number, option: string) => void;
   onUpdateAnswer: (qNo: number, answer: string) => void;
   onClearOption: (qNo: number) => void;
@@ -37,6 +38,7 @@ export function InteractiveQuestionCard({
   currentAnswer,
   mode,
   idleTimeSeconds,
+  fontScale = "normal",
   onSelectOption,
   onUpdateAnswer,
   onClearOption,
@@ -143,13 +145,27 @@ export function InteractiveQuestionCard({
             onClick={onStartExam}
             className="w-full rounded-2xl bg-indigo-600 hover:bg-indigo-700 active:scale-[0.99] text-white py-3.5 px-6 font-bold text-sm shadow-md hover:shadow-lg transition-all flex items-center justify-center gap-2 cursor-pointer"
           >
-            <span>Begin Solving — Question 1</span>
+            <span>Begin</span>
             <ArrowRight className="h-4 w-4" />
           </button>
         </div>
       </div>
     );
   }
+
+  const questionTextSize =
+    fontScale === "xlarge"
+      ? "text-base sm:text-lg lg:text-xl"
+      : fontScale === "large"
+        ? "text-sm sm:text-base lg:text-lg"
+        : "text-xs sm:text-sm lg:text-base";
+
+  const optionTextSize =
+    fontScale === "xlarge"
+      ? "text-sm sm:text-base lg:text-lg"
+      : fontScale === "large"
+        ? "text-xs sm:text-sm lg:text-base"
+        : "text-xs sm:text-sm";
 
   // 2. ACTIVE QUESTION SCREEN
   const qData = questions.find((q) => q.questionNo === currentQuestion);
@@ -263,7 +279,9 @@ export function InteractiveQuestionCard({
 
         {/* Question Text Box */}
         <div className="bg-white rounded-2xl border border-slate-200/90 p-5 sm:p-6 shadow-2xs space-y-3">
-          <div className="text-slate-900 text-sm sm:text-base font-medium leading-relaxed whitespace-pre-wrap select-text">
+          <div
+            className={`text-slate-900 ${questionTextSize} font-medium leading-relaxed whitespace-pre-wrap select-text`}
+          >
             {qData.text}
           </div>
           <MatchingItemsTable
@@ -322,7 +340,9 @@ export function InteractiveQuestionCard({
                     >
                       {optKey}
                     </span>
-                    <div className="flex-1 text-xs sm:text-sm leading-relaxed self-center font-normal">
+                    <div
+                      className={`flex-1 ${optionTextSize} leading-relaxed self-center font-normal`}
+                    >
                       {optText}
                     </div>
                     {mode === "practice" && hasAnswered && isOptionCorrect && (

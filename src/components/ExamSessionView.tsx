@@ -43,7 +43,6 @@ import { ConfirmationModal } from "./ConfirmationModal";
 import { PdfViewer } from "./PdfViewer";
 import { InteractiveQuestionCard } from "./InteractiveQuestionCard";
 import { KeyboardShortcutsModal } from "./KeyboardShortcutsModal";
-import { OmrSheetModal } from "./OmrSheetModal";
 import {
   Clock,
   Flag,
@@ -165,8 +164,6 @@ export function ExamSessionView({
   const [showFinishConfirm, setShowFinishConfirm] = useState<boolean>(false);
   const [solutionModalOpen, setSolutionModalOpen] = useState<boolean>(false);
   const [showShortcutsModal, setShowShortcutsModal] = useState<boolean>(false);
-  const [showOmrModal, setShowOmrModal] = useState<boolean>(false);
-  const [isZenMode, setIsZenMode] = useState<boolean>(false);
   const [paletteViewMode, setPaletteViewMode] = useState<"grid" | "omr">(
     "grid",
   );
@@ -779,33 +776,7 @@ export function ExamSessionView({
         return;
       }
 
-      // Toggle OMR Bubble Sheet: O
-      if (key === "O" && !e.altKey) {
-        e.preventDefault();
-        setShowOmrModal((prev) => !prev);
-        return;
-      }
-
-      // Toggle Zen Focus Mode: Z
-      if (key === "Z" && !e.altKey) {
-        e.preventDefault();
-        setIsZenMode((prev) => !prev);
-        return;
-      }
-
-      // Exit Zen Mode with Escape
-      if (e.key === "Escape" && isZenMode) {
-        e.preventDefault();
-        setIsZenMode(false);
-        return;
-      }
-
-      if (
-        showShortcutsModal ||
-        showOmrModal ||
-        showFinishConfirm ||
-        solutionModalOpen
-      ) {
+      if (showShortcutsModal || showFinishConfirm || solutionModalOpen) {
         return;
       }
 
@@ -818,20 +789,20 @@ export function ExamSessionView({
         return;
       }
 
-      // Next Question: ArrowRight or J
-      if (e.key === "ArrowRight" || key === "J") {
+      // Previous Question: ArrowLeft or J (J is to the left of K)
+      if (e.key === "ArrowLeft" || key === "J") {
         e.preventDefault();
-        if (currentQuestion < paper.totalQuestions) {
-          navigateToQuestion(currentQuestion + 1);
+        if (currentQuestion > 1) {
+          navigateToQuestion(currentQuestion - 1);
         }
         return;
       }
 
-      // Previous Question: ArrowLeft or K
-      if (e.key === "ArrowLeft" || key === "K") {
+      // Next Question: ArrowRight or K (K is to the right of J)
+      if (e.key === "ArrowRight" || key === "K") {
         e.preventDefault();
-        if (currentQuestion > 1) {
-          navigateToQuestion(currentQuestion - 1);
+        if (currentQuestion < paper.totalQuestions) {
+          navigateToQuestion(currentQuestion + 1);
         }
         return;
       }
@@ -871,10 +842,8 @@ export function ExamSessionView({
     currentQuestion,
     paper.totalQuestions,
     showShortcutsModal,
-    showOmrModal,
     showFinishConfirm,
     solutionModalOpen,
-    isZenMode,
   ]);
 
   // Real-time automatic persistence to localStorage, Supabase & server
@@ -1384,44 +1353,6 @@ export function ExamSessionView({
               </kbd>
             </button>
 
-            {/* OMR Bubble Sheet Button */}
-            {!isSubjective && (
-              <button
-                type="button"
-                onClick={() => setShowOmrModal(true)}
-                title="Open OMR Bubble Sheet (O)"
-                className="flex items-center gap-1.5 rounded-xl border border-amber-300 bg-amber-50 px-2.5 py-1 text-xs font-semibold text-amber-900 hover:bg-amber-100 transition-colors shadow-2xs cursor-pointer"
-              >
-                <FileSpreadsheet className="h-3.5 w-3.5 text-amber-700" />
-                <span className="hidden sm:inline">OMR</span>
-                <kbd className="hidden md:inline-block rounded bg-amber-100 px-1 py-0.2 font-mono text-[9px] font-bold text-amber-800">
-                  O
-                </kbd>
-              </button>
-            )}
-
-            {/* Zen / Focus Mode Toggle */}
-            <button
-              type="button"
-              onClick={() => setIsZenMode((prev) => !prev)}
-              title={
-                isZenMode ? "Exit Focus Mode (Z)" : "Enter Focus / Zen Mode (Z)"
-              }
-              className={`flex items-center gap-1.5 rounded-xl border px-2.5 py-1 text-xs font-semibold transition-all shadow-2xs cursor-pointer ${
-                isZenMode
-                  ? "border-purple-300 bg-purple-50 text-purple-900 hover:bg-purple-100"
-                  : "border-slate-200 bg-white text-slate-700 hover:bg-slate-50"
-              }`}
-            >
-              <Sparkles className="h-3.5 w-3.5 text-purple-600" />
-              <span className="hidden sm:inline">
-                {isZenMode ? "Exit Zen" : "Zen"}
-              </span>
-              <kbd className="hidden md:inline-block rounded bg-slate-100 px-1 py-0.2 font-mono text-[9px] font-bold text-slate-500">
-                Z
-              </kbd>
-            </button>
-
             {/* Continuous Timer (HH:MM:SS format) */}
             <div
               className={`flex items-center gap-1.5 rounded-xl px-2.5 sm:px-3 py-1 font-mono text-xs sm:text-sm font-bold transition-all shadow-2xs ${
@@ -1532,13 +1463,11 @@ export function ExamSessionView({
         {/* Left Side: Interactive Markdown Question or PDF Viewer */}
         <div
           className={`exam-paper-pane w-full border-r border-slate-200 bg-slate-100 flex flex-col ${
-            isZenMode
-              ? "hidden"
-              : mobileTab === "paper"
-                ? "flex"
-                : mobileTab === "questions"
-                  ? "hidden lg:flex"
-                  : "flex"
+            mobileTab === "paper"
+              ? "flex"
+              : mobileTab === "questions"
+                ? "hidden lg:flex"
+                : "flex"
           }`}
         >
           {effectivePaper.parsedQuestions &&
@@ -1591,6 +1520,7 @@ export function ExamSessionView({
                   }
                   mode={mode}
                   idleTimeSeconds={idleTimeSeconds}
+                  fontScale={fontScale}
                   onSelectOption={handleSelectOption}
                   onUpdateAnswer={handleUpdateAnswer}
                   onClearOption={handleClearSelection}
@@ -1651,7 +1581,7 @@ export function ExamSessionView({
                     onClick={() => navigateToQuestion(1)}
                     className="px-3 py-1.5 rounded-lg bg-indigo-600 text-white font-bold text-xs flex items-center gap-1 shadow-xs hover:bg-indigo-700 shrink-0"
                   >
-                    <span>Start Q1</span>
+                    <span>Begin</span>
                     <ArrowRight className="h-3.5 w-3.5" />
                   </button>
                 </div>
@@ -1816,7 +1746,7 @@ export function ExamSessionView({
                     onClick={() => navigateToQuestion(1)}
                     className="flex-1 rounded-xl bg-indigo-600 px-4 py-2.5 text-xs sm:text-sm font-bold text-white shadow-xs hover:bg-indigo-700 transition-all flex items-center justify-center gap-2"
                   >
-                    <span>Start Solving (Question 1)</span>
+                    <span>Begin</span>
                     <ArrowRight className="h-4 w-4" />
                   </button>
                 </div>
@@ -3277,19 +3207,6 @@ export function ExamSessionView({
       <KeyboardShortcutsModal
         isOpen={showShortcutsModal}
         onClose={() => setShowShortcutsModal(false)}
-      />
-
-      {/* OMR Bubble Sheet Modal */}
-      <OmrSheetModal
-        isOpen={showOmrModal}
-        onClose={() => setShowOmrModal(false)}
-        totalQuestions={paper.totalQuestions}
-        answers={answers}
-        currentQuestion={currentQuestion}
-        onSelectOption={handleSelectOption}
-        onNavigateQuestion={navigateToQuestion}
-        onToggleFlag={handleToggleFlag}
-        paperTitle={getPaperDisplayTitle(paper)}
       />
     </div>
   );

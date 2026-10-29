@@ -38,8 +38,8 @@ export function KeyboardShortcutsModal({
     {
       title: "Navigation",
       items: [
-        { keys: ["→", "J"], description: "Next question" },
-        { keys: ["←", "K"], description: "Previous question" },
+        { keys: ["←", "J"], description: "Previous question (backward)" },
+        { keys: ["→", "K"], description: "Next question (forward)" },
       ],
     },
     {
@@ -53,12 +53,10 @@ export function KeyboardShortcutsModal({
       ],
     },
     {
-      title: "Exam Views & Tools",
+      title: "Help & Shortcuts",
       items: [
-        { keys: ["Z"], description: "Toggle Zen / Focus Mode", badge: "New" },
-        { keys: ["O"], description: "Toggle OMR Bubble Sheet", badge: "New" },
-        { keys: ["?"], description: "Open keyboard shortcuts guide" },
-        { keys: ["Esc"], description: "Close dialogs / Exit Zen mode" },
+        { keys: ["?", "H"], description: "Toggle keyboard shortcuts guide" },
+        { keys: ["Esc"], description: "Close dialogs" },
       ],
     },
   ];

@@ -56,7 +56,9 @@ export function Navbar() {
   const { currentUser, openAuthModal, theme, setTheme } = useApp();
   const [showProfile, setShowProfile] = useState(false);
 
-  if (pathname.startsWith("/exam")) return null;
+  if (pathname.startsWith("/exam") || pathname.match(/^\/history\/[^/]+$/)) {
+    return null;
+  }
 
   return (
     <>
