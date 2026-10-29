@@ -9,7 +9,9 @@ import {
   LayoutDashboard,
   ListChecks,
   LogIn,
+  Moon,
   Sparkles,
+  Sun,
 } from "lucide-react";
 import { useApp } from "../context/AppContext";
 import { NotificationCenter } from "./NotificationCenter";
@@ -51,7 +53,7 @@ const navigation = [
 
 export function Navbar() {
   const pathname = usePathname() || "/";
-  const { currentUser, openAuthModal } = useApp();
+  const { currentUser, openAuthModal, theme, setTheme } = useApp();
   const [showProfile, setShowProfile] = useState(false);
 
   if (pathname.startsWith("/exam")) return null;
@@ -109,6 +111,31 @@ export function Navbar() {
           </nav>
 
           <div className="app-header-actions">
+            {/* Quick Reading Theme Toggle */}
+            <button
+              type="button"
+              onClick={() => {
+                const nextTheme =
+                  theme === "light"
+                    ? "sepia"
+                    : theme === "sepia"
+                      ? "dark"
+                      : "light";
+                setTheme(nextTheme);
+              }}
+              title={`Switch visual comfort theme (Current: ${theme})`}
+              aria-label={`Switch visual comfort theme. Current theme: ${theme}`}
+              className="flex h-9 w-9 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-600 hover:bg-slate-50 hover:text-slate-900 transition-colors cursor-pointer"
+            >
+              {theme === "light" ? (
+                <Sun className="h-4 w-4 text-amber-500" />
+              ) : theme === "sepia" ? (
+                <BookOpen className="h-4 w-4 text-amber-700" />
+              ) : (
+                <Moon className="h-4 w-4 text-indigo-400" />
+              )}
+            </button>
+
             <NotificationCenter />
             {currentUser ? (
               <button
