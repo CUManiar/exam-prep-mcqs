@@ -15,6 +15,7 @@ import {
   getPaperDisplayTitle,
   getPaperDownloadFilename,
   getAttemptPercentage,
+  getPaperCutoffStatus,
 } from "../lib/defaults";
 import { attachToPaperOnServer } from "../lib/storage";
 import { exportQuestionPaperAsPDF } from "../lib/exportUtils";
@@ -489,45 +490,22 @@ export function PapersView({
                   new Date(b.finishedAt || b.startedAt).getTime() -
                   new Date(a.finishedAt || a.startedAt).getTime(),
               )[0];
-            const cutoffEnabled = Boolean(
-              paper.cutoffEnabled || latestAttempt?.cutoffEnabled,
-            );
-            const cutoffType =
-              paper.cutoffType || latestAttempt?.cutoffType || "percentage";
-            const cutoffValue = paper.cutoffValue ?? latestAttempt?.cutoffValue;
-            const hasCutoff =
-              Boolean(cutoffEnabled) &&
-              latestAttempt &&
-              cutoffValue !== undefined &&
-              Number.isFinite(cutoffValue);
-            const cutoffMeasure = latestAttempt
-              ? cutoffType === "marks"
-                ? latestAttempt.score
-                : getAttemptPercentage(latestAttempt)
-              : null;
-            const cutoffPassed =
-              Boolean(hasCutoff) &&
-              cutoffMeasure !== null &&
-              cutoffMeasure >= (cutoffValue as number);
-            const cutoffLabel =
-              cutoffType === "marks"
-                ? `${cutoffValue} marks`
-                : `${cutoffValue}%`;
+            const cutoffStatus = getPaperCutoffStatus(paper, latestAttempt);
 
             return (
               <div
                 key={paper.id}
-                className={`flex h-full justify-between overflow-hidden bg-white rounded-2xl border border-slate-200/80 p-5 group hover:border-slate-300 hover:shadow-sm transition-all ${
+                className={`flex overflow-hidden bg-white rounded-2xl border border-slate-200/80 p-5 group hover:border-slate-300 hover:shadow-sm transition-all ${
                   paperViewMode === "grid"
-                    ? "flex-col"
+                    ? "flex-col h-full"
                     : "flex-col md:grid md:grid-cols-[minmax(0,1fr)_minmax(260px,340px)] md:gap-5"
                 }`}
               >
-                <div className="min-w-0">
-                  {/* Reserve a consistent status area so every card's content aligns. */}
-                  <div className="flex min-h-[56px] items-start justify-between gap-3">
-                    <div className="flex items-center gap-1.5 flex-wrap">
-                      <span className="rounded-md bg-slate-100 px-2 py-0.5 text-xs font-medium text-slate-600 font-mono">
+                <div className="flex flex-col flex-1 min-w-0">
+                  {/* Fixed-height Header Bar (Year on left, Attempt & Cutoff badges on right) */}
+                  <div className="flex h-7 items-center justify-between gap-2 shrink-0">
+                    <div className="flex items-center gap-1.5 shrink-0">
+                      <span className="rounded-md bg-slate-100 px-2 py-0.5 text-xs font-semibold text-slate-600 font-mono">
                         {paper.year}
                       </span>
                       {hasAttempt && (
@@ -546,11 +524,11 @@ export function PapersView({
                       )}
                     </div>
 
-                    <div className="flex max-w-[65%] shrink-0 flex-wrap items-center justify-end gap-1">
+                    <div className="flex items-center justify-end gap-1.5 shrink-0 text-[10px] font-semibold">
                       {hasMock && (
                         <span
                           aria-label={`${mockAtts.length} mock ${mockAtts.length === 1 ? "attempt" : "attempts"}`}
-                          className="inline-flex items-center justify-center rounded-md border border-indigo-200 bg-indigo-50 px-2 py-1 text-[10px] font-semibold text-indigo-700"
+                          className="inline-flex items-center justify-center rounded-md border border-indigo-200 bg-indigo-50 px-2 py-0.5 text-indigo-700"
                         >
                           {mockAtts.length}{" "}
                           {mockAtts.length === 1 ? "mock" : "mocks"}
@@ -560,42 +538,49 @@ export function PapersView({
                       {hasPractice && (
                         <span
                           aria-label={`${practiceAtts.length} practice ${practiceAtts.length === 1 ? "session" : "sessions"}`}
-                          className="inline-flex items-center justify-center rounded-md border border-emerald-200 bg-emerald-50 px-2 py-1 text-[10px] font-semibold text-emerald-700"
+                          className="inline-flex items-center justify-center rounded-md border border-emerald-200 bg-emerald-50 px-2 py-0.5 text-emerald-700"
                         >
                           {practiceAtts.length}{" "}
                           {practiceAtts.length === 1 ? "practice" : "practices"}
                         </span>
                       )}
 
-                      {hasCutoff && (
+                      {cutoffStatus?.hasCutoff && (
                         <span
-                          title={`Latest result: ${cutoffMeasure}%${cutoffType === "marks" ? ` (${cutoffMeasure}/${latestAttempt?.maxScore})` : ""}; cutoff ${cutoffLabel}`}
-                          className={`inline-flex items-center gap-1 rounded-md border px-2 py-1 text-[10px] font-semibold ${
-                            cutoffPassed
+                          title={
+                            cutoffStatus.isCsat
+                              ? `UPSC CSAT Qualifying benchmark: 33.3% (${cutoffStatus.cutoffCleared ? "Cleared" : "Below"})`
+                              : `Cutoff benchmark: ${cutoffStatus.cutoffValue}${cutoffStatus.cutoffType === "percentage" ? "%" : " marks"} (${cutoffStatus.cutoffCleared ? "Cleared" : "Below"})`
+                          }
+                          className={`inline-flex items-center gap-1 rounded-md border px-2 py-0.5 ${
+                            cutoffStatus.cutoffCleared
                               ? "border-emerald-200 bg-emerald-50 text-emerald-700"
                               : "border-rose-200 bg-rose-50 text-rose-700"
                           }`}
                         >
-                          {cutoffPassed ? (
-                            <CheckCircle2 className="h-3 w-3" />
+                          {cutoffStatus.cutoffCleared ? (
+                            <CheckCircle2 className="h-2.5 w-2.5" />
                           ) : (
-                            <AlertTriangle className="h-3 w-3" />
+                            <AlertTriangle className="h-2.5 w-2.5" />
                           )}
-                          {cutoffPassed ? "Passed cutoff" : "Below cutoff"}
+                          <span>{cutoffStatus.badgeText}</span>
                         </span>
                       )}
                     </div>
                   </div>
 
-                  {/* Clean Title Container */}
-                  <div className="mt-3 min-h-[40px]">
-                    <h3 className="text-sm font-semibold text-slate-900 group-hover:text-indigo-600 transition-colors leading-snug line-clamp-2">
+                  {/* Clean Title Container - strictly 44px (h-11) across every card */}
+                  <div className="mt-2.5 h-11 flex items-start overflow-hidden">
+                    <h3
+                      className="text-sm font-semibold text-slate-900 group-hover:text-indigo-600 transition-colors leading-snug line-clamp-2"
+                      title={getPaperDisplayTitle(paper)}
+                    >
                       {getPaperDisplayTitle(paper)}
                     </h3>
                   </div>
 
-                  {/* Meta details */}
-                  <div className="mt-1.5 flex items-center gap-2 text-xs text-slate-400 font-normal">
+                  {/* Meta details row - strictly 20px (h-5) */}
+                  <div className="mt-1.5 h-5 flex items-center gap-2 text-xs text-slate-400 font-normal truncate">
                     <span>{paper.totalQuestions} Questions</span>
                     <span>•</span>
                     <span>{paper.timeMinutes} mins</span>
@@ -603,31 +588,31 @@ export function PapersView({
                     <span>{paper.totalMarks} Marks</span>
                   </div>
 
-                  {/* Status Indicators - Clean, Quiet Visual Badges */}
-                  <div className="mt-3 pt-2.5 border-t border-slate-100 flex items-center gap-2 flex-wrap">
+                  {/* Status Indicators row - strictly 28px (h-7) */}
+                  <div className="mt-2.5 pt-2 border-t border-slate-100 h-7 flex items-center gap-1.5 overflow-hidden text-[11px]">
                     {paper.examType === "objective" ? (
                       <>
                         {keyPresent ? (
-                          <div className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[11px] font-medium bg-emerald-50/70 text-emerald-700 border border-emerald-200/60">
+                          <div className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[11px] font-medium bg-emerald-50/70 text-emerald-700 border border-emerald-200/60 shrink-0">
                             <CheckCircle2 className="h-3 w-3 text-emerald-600" />
                             <span>Key ({keyCount} Qs)</span>
                           </div>
                         ) : (
-                          <div className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[11px] font-medium bg-amber-50/70 text-amber-700 border border-amber-200/60">
+                          <div className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[11px] font-medium bg-amber-50/70 text-amber-700 border border-amber-200/60 shrink-0">
                             <AlertCircle className="h-3 w-3 text-amber-600" />
                             <span>No Key</span>
                           </div>
                         )}
                         {paper.explanations &&
                           Object.keys(paper.explanations).length > 0 && (
-                            <div className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[11px] font-medium bg-indigo-50/70 text-indigo-700 border border-indigo-200/60">
+                            <div className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[11px] font-medium bg-indigo-50/70 text-indigo-700 border border-indigo-200/60 shrink-0">
                               <BookOpen className="h-3 w-3 text-indigo-600" />
                               <span>Explanations</span>
                             </div>
                           )}
                       </>
                     ) : (
-                      <div className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[11px] font-medium bg-violet-50/70 text-violet-700 border border-violet-200/60">
+                      <div className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[11px] font-medium bg-violet-50/70 text-violet-700 border border-violet-200/60 shrink-0">
                         <span>Subjective</span>
                       </div>
                     )}
@@ -635,25 +620,25 @@ export function PapersView({
                     {solutionPresent ? (
                       <button
                         onClick={() => setViewingSolutionPaper(paper)}
-                        className="cursor-pointer inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[11px] font-medium bg-slate-50 text-slate-600 border border-slate-200 hover:bg-slate-100 hover:text-slate-900 transition-colors"
+                        className="cursor-pointer inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[11px] font-medium bg-slate-50 text-slate-600 border border-slate-200 hover:bg-slate-100 hover:text-slate-900 transition-colors shrink-0"
                         title="Click to view attached solution booklet"
                       >
                         <FileText className="h-3 w-3 text-slate-500" />
                         <span>Solution</span>
                       </button>
                     ) : (
-                      <span className="text-[11px] text-slate-400">
+                      <span className="text-[11px] text-slate-400 shrink-0">
                         No Solution
                       </span>
                     )}
                   </div>
                 </div>
 
-                {/* Bottom Action Area: Clean & Uncluttered */}
+                {/* Bottom Action Area: Uniformly anchored to bottom */}
                 <div
                   className={`space-y-2 ${
                     paperViewMode === "grid"
-                      ? "mt-4 border-t border-slate-100 pt-3"
+                      ? "mt-auto pt-3 border-t border-slate-100"
                       : "mt-4 border-t border-slate-100 pt-3 md:mt-0 md:border-l md:border-t-0 md:pl-5 md:pt-0 md:self-stretch md:flex md:flex-col md:justify-center"
                   }`}
                 >

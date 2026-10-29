@@ -91,6 +91,95 @@ export function getAttemptPercentage(
   return Math.round((attempt.score / attempt.maxScore) * 1000) / 10;
 }
 
+/** Determine whether a paper or attempt is a CSAT (UPSC Prelims Paper-II) assessment */
+export function isCsatPaper(
+  paper?: {
+    label?: string;
+    title?: string;
+    subject?: string;
+    category?: string;
+  } | null,
+  attempt?: { paperLabel?: string; category?: string } | null,
+): boolean {
+  const category = (attempt?.category || paper?.category || "").toLowerCase();
+  if (category === "mains") return false;
+  const label = (
+    attempt?.paperLabel ||
+    paper?.label ||
+    paper?.title ||
+    ""
+  ).toLowerCase();
+  const subj = (paper?.subject || "").toLowerCase();
+  return (
+    label.includes("csat") ||
+    label.includes("paper 2") ||
+    label.includes("paper-2") ||
+    label.includes("paper ii") ||
+    subj.includes("csat")
+  );
+}
+
+export interface PaperCutoffStatus {
+  hasCutoff: boolean;
+  isCsat: boolean;
+  cutoffType: "percentage" | "marks";
+  cutoffValue: number;
+  cutoffCleared: boolean;
+  badgeText: string;
+}
+
+export function getPaperCutoffStatus(
+  paper?: QuestionPaper | null,
+  attempt?: Attempt | null,
+): PaperCutoffStatus | null {
+  if (!attempt && !paper) return null;
+
+  const isCsat = isCsatPaper(paper, attempt);
+
+  // 1. In CSAT, the UPSC standard qualifying threshold is 33.33%
+  if (isCsat) {
+    const cutoffValue = 33.33;
+    const percentage = attempt ? getAttemptPercentage(attempt) : null;
+    const cutoffCleared = percentage !== null && percentage >= cutoffValue;
+    return {
+      hasCutoff: true,
+      isCsat: true,
+      cutoffType: "percentage",
+      cutoffValue: 33.33,
+      cutoffCleared,
+      badgeText: cutoffCleared ? "Qualified" : "Not Qualified",
+    };
+  }
+
+  // 2. Custom cutoff explicitly configured on paper or attempt
+  const cutoffEnabled = Boolean(paper?.cutoffEnabled || attempt?.cutoffEnabled);
+  const cutoffType = paper?.cutoffType || attempt?.cutoffType || "percentage";
+  const cutoffValue = paper?.cutoffValue ?? attempt?.cutoffValue;
+
+  if (
+    cutoffEnabled &&
+    cutoffValue !== undefined &&
+    Number.isFinite(cutoffValue)
+  ) {
+    const measure = attempt
+      ? cutoffType === "marks"
+        ? attempt.score
+        : getAttemptPercentage(attempt)
+      : null;
+    const cutoffCleared = measure !== null && measure >= cutoffValue;
+    return {
+      hasCutoff: true,
+      isCsat: false,
+      cutoffType,
+      cutoffValue,
+      cutoffCleared,
+      badgeText: cutoffCleared ? "Passed cutoff" : "Below cutoff",
+    };
+  }
+
+  return null;
+}
+
 export function getStandardTimeMinutes(
   category?: string,
   examType?: string,

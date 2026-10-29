@@ -2112,7 +2112,7 @@ export function AttemptDetailView({
           <div
             className={`${
               mobileViewTab === "questions" ? "hidden xl:block" : "block"
-            } sticky top-[4.25rem] sm:top-[4.5rem] z-20 rounded-xl border border-slate-200 bg-white/95 backdrop-blur-md overflow-hidden shadow-xs`}
+            } ${summaryExpanded ? "relative" : "sticky top-[4.25rem] sm:top-[4.5rem] z-20"} rounded-xl border border-slate-200 bg-white/95 backdrop-blur-md overflow-hidden shadow-xs`}
           >
             {/* Compact 1-line stats bar */}
             <div
