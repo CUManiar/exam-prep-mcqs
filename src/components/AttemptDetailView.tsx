@@ -46,6 +46,7 @@ import {
   ChevronDown,
   ChevronUp,
   ChevronRight,
+  ChevronLeft,
   ArrowUpDown,
   Filter,
   Lightbulb,
@@ -993,6 +994,241 @@ export function AttemptDetailView({
 
     return list.slice(0, 3);
   }, [attempt, negativePenaltyMarks, slowQuestions, flaggedQuestions]);
+
+  // Cutoff benchmark calculation
+  const isCsat = useMemo(() => {
+    const label = (attempt.paperLabel || "").toLowerCase();
+    const cat = (attempt.category || "").toLowerCase();
+    const subj = (matchedPaper?.subject || "").toLowerCase();
+    return (
+      cat === "csat" ||
+      label.includes("csat") ||
+      label.includes("paper 2") ||
+      label.includes("paper ii") ||
+      subj.includes("csat")
+    );
+  }, [attempt.category, attempt.paperLabel, matchedPaper?.subject]);
+
+  const cutoffBenchmark = useMemo(() => {
+    if (isCsat) {
+      // CSAT is qualifying: 33.33% (66.67 out of 200)
+      const target = Number(((effectiveMaxScore || 200) * (1 / 3)).toFixed(1));
+      const diff = Number((attempt.score - target).toFixed(1));
+      const isQualified = attempt.score >= target;
+      return {
+        isCsat: true,
+        targetScore: target,
+        targetLabel: "33.3% (Qualifying)",
+        diff,
+        status: isQualified ? "QUALIFIED" : "NOT QUALIFIED",
+        statusColor: isQualified
+          ? "bg-emerald-50 text-emerald-800 border-emerald-200"
+          : "bg-rose-50 text-rose-800 border-rose-200",
+        barColor: isQualified ? "bg-emerald-500" : "bg-rose-500",
+        message: isQualified
+          ? `Cleared CSAT qualifying mark by +${diff} pts. Your score safely exceeds the 33.3% threshold.`
+          : `Fell short of CSAT qualifying mark by ${Math.abs(diff)} pts. CSAT requires min 33.3% to have GS Paper 1 evaluated.`,
+      };
+    }
+
+    // General Studies standard prelims cutoff benchmark (~44% = 88 / 200)
+    const target = Number(((effectiveMaxScore || 200) * 0.44).toFixed(1));
+    const diff = Number((attempt.score - target).toFixed(1));
+    const isClear = diff >= 0;
+    const isComfortable = diff >= 10;
+    const isBorderline = diff >= -6 && diff < 10;
+
+    let status = "BELOW BENCHMARK";
+    let statusColor = "bg-rose-50 text-rose-800 border-rose-200";
+    let barColor = "bg-rose-500";
+    let message = `Short by ${Math.abs(diff)} pts of the ~${target} pts estimated UPSC prelims benchmark. Target 75%+ accuracy on 75+ attempts.`;
+
+    if (isComfortable) {
+      status = "SAFE CUTOFF CLEARANCE";
+      statusColor = "bg-emerald-50 text-emerald-800 border-emerald-200";
+      barColor = "bg-emerald-500";
+      message = `Outstanding clearance! You are +${diff} pts above the estimated UPSC Prelims benchmark (~${target} pts).`;
+    } else if (isClear) {
+      status = "BORDERLINE CLEAR";
+      statusColor = "bg-teal-50 text-teal-800 border-teal-200";
+      barColor = "bg-teal-500";
+      message = `Cleared by +${diff} pts over the ~${target} pts benchmark. Safe zone requires a +10 to +15 cushion against tricky prelims variations.`;
+    } else if (isBorderline) {
+      status = "STRIKING DISTANCE";
+      statusColor = "bg-amber-50 text-amber-800 border-amber-200";
+      barColor = "bg-amber-500";
+      message = `Within striking distance: only ${Math.abs(diff)} pts below the ~${target} pts benchmark. Eliminating ${Math.ceil(Math.abs(diff) / (correctMarksPerQ + incorrectMarksPerQ))} negative slips would clear it!`;
+    }
+
+    return {
+      isCsat: false,
+      targetScore: target,
+      targetLabel: `~${target} pts (Est. Cutoff)`,
+      diff,
+      status,
+      statusColor,
+      barColor,
+      message,
+    };
+  }, [
+    isCsat,
+    effectiveMaxScore,
+    attempt.score,
+    correctMarksPerQ,
+    incorrectMarksPerQ,
+  ]);
+
+  const topTakeaways = useMemo(() => {
+    const items: Array<{
+      id: string;
+      title: string;
+      metric: string;
+      desc: string;
+      badge: string;
+      badgeStyle: string;
+      iconType: "negative" | "confidence" | "pacing";
+      actionTab: FilterTabType;
+      actionText: string;
+    }> = [];
+
+    // 1. Second-Guessing & Penalty Analysis
+    if ((attempt.alteredHarmCount || 0) > (attempt.alteredBenefitCount || 0)) {
+      items.push({
+        id: "alteration_penalty",
+        title: "Second-Guessing Cost",
+        metric: `-${Math.abs(netAlterationMarks)} pts net`,
+        desc: `You altered ${alteredQuestions.length} responses, but ${attempt.alteredHarmCount} were flipped from Right to Wrong (vs ${attempt.alteredBenefitCount || 0} beneficial). Stick with your first educated instinct.`,
+        badge: "Harmful revisions",
+        badgeStyle: "bg-rose-100 text-rose-800 border-rose-200",
+        iconType: "negative",
+        actionTab: "altered",
+        actionText: `Review ${alteredQuestions.length} altered questions →`,
+      });
+    } else if ((attempt.alteredBenefitCount || 0) > 0) {
+      items.push({
+        id: "alteration_gain",
+        title: "Effective Re-Checking",
+        metric: `+${netAlterationMarks} pts gained`,
+        desc: `Your second passes were disciplined: ${attempt.alteredBenefitCount} revisions successfully recovered marks from earlier slips.`,
+        badge: "Disciplined review",
+        badgeStyle: "bg-emerald-100 text-emerald-800 border-emerald-200",
+        iconType: "negative",
+        actionTab: "altered",
+        actionText: `Inspect ${alteredQuestions.length} revised questions →`,
+      });
+    } else {
+      items.push({
+        id: "negative_erosion",
+        title: "Negative Marks Erosion",
+        metric: `-${negativePenaltyMarks} pts lost`,
+        desc: `${attempt.incorrect} incorrect choices eroded ${grossCorrectMarks > 0 ? Math.round((negativePenaltyMarks / grossCorrectMarks) * 100) : 0}% of your gross marks (+${grossCorrectMarks} pts). Be more conservative on low-confidence guesses.`,
+        badge: `${attempt.incorrect} wrong answers`,
+        badgeStyle: "bg-rose-100 text-rose-800 border-rose-200",
+        iconType: "negative",
+        actionTab: "incorrect",
+        actionText: `Review ${attempt.incorrect} incorrect answers →`,
+      });
+    }
+
+    // 2. Confidence Calibration
+    if (sureQuestions.length > 0 && sureAccuracy < 80) {
+      const wrongSure = sureQuestions.length - sureCorrect;
+      items.push({
+        id: "sure_blindspot",
+        title: "Confidence Blindspots",
+        metric: `${wrongSure} 'Sure' errors`,
+        desc: `Accuracy on marked 'Sure' questions was ${sureAccuracy}% (${wrongSure} unexpected errors). Usually caused by misreading questions ("Which is NOT correct") or overestimating recall.`,
+        badge: `${sureAccuracy}% accuracy`,
+        badgeStyle: "bg-amber-100 text-amber-800 border-amber-200",
+        iconType: "confidence",
+        actionTab: "sure",
+        actionText: `Inspect ${sureQuestions.length} 'Sure' questions →`,
+      });
+    } else if (fiftyFiftyQuestions.length > 0 && fiftyFiftyAccuracy >= 50) {
+      items.push({
+        id: "elimination_strength",
+        title: "50:50 Elimination Edge",
+        metric: `${fiftyFiftyAccuracy}% accuracy`,
+        desc: `Strong elimination skills! You solved ${fiftyFiftyCorrect} of ${fiftyFiftyQuestions.length} bifurcated questions correctly, producing positive net marks yield.`,
+        badge: "Positive EV",
+        badgeStyle: "bg-emerald-100 text-emerald-800 border-emerald-200",
+        iconType: "confidence",
+        actionTab: "50-50",
+        actionText: `Inspect ${fiftyFiftyQuestions.length} 50:50 questions →`,
+      });
+    } else if (sureQuestions.length > 0) {
+      items.push({
+        id: "core_accuracy",
+        title: "Strong Core Recall",
+        metric: `${sureAccuracy}% precision`,
+        desc: `Excellent discipline on your core syllabus domains: ${sureCorrect} of ${sureQuestions.length} high-confidence questions secured cleanly.`,
+        badge: "Solid Foundation",
+        badgeStyle: "bg-emerald-100 text-emerald-800 border-emerald-200",
+        iconType: "confidence",
+        actionTab: "sure",
+        actionText: `View ${sureQuestions.length} 'Sure' questions →`,
+      });
+    } else {
+      items.push({
+        id: "accuracy_profile",
+        title: "Accuracy Profile",
+        metric: `${formatReviewNumber(attempt.accuracyPct)}% accuracy`,
+        desc: `You answered ${attempt.correct} correctly out of ${attempt.answered} attempted. UPSC Prelims clearance generally requires 75%+ accuracy across 75+ attempts.`,
+        badge: `${attempt.correct}/${attempt.answered} hit rate`,
+        badgeStyle: "bg-indigo-100 text-indigo-800 border-indigo-200",
+        iconType: "confidence",
+        actionTab: "all",
+        actionText: "View all questions →",
+      });
+    }
+
+    // 3. Pacing & Time Traps
+    if (slowQuestions.length >= 2) {
+      const slowSec = slowQuestions.reduce(
+        (acc, q) => acc + (q.timeSpentSeconds || 0),
+        0,
+      );
+      items.push({
+        id: "pacing_traps",
+        title: "Pacing & Time Traps",
+        metric: `${slowQuestions.length} slow Qs (>90s)`,
+        desc: `These questions consumed ${formatTimeSeconds(slowSec)} of exam time. If stuck between two options after 70 seconds, flag and move on to protect your second round.`,
+        badge: `${Math.round(slowSec / 60)} min spent`,
+        badgeStyle: "bg-amber-100 text-amber-800 border-amber-200",
+        iconType: "pacing",
+        actionTab: "slow",
+        actionText: `View ${slowQuestions.length} slow questions →`,
+      });
+    } else {
+      items.push({
+        id: "pacing_tempo",
+        title: "Pacing Tempo",
+        metric: `${avgTimePerQ}s / question`,
+        desc: `You maintained a steady pace across ${attempt.totalQuestions} questions with ${formatTimeSeconds(attempt.durationSeconds)} total time. Good time discipline!`,
+        badge: "Steady rhythm",
+        badgeStyle: "bg-emerald-100 text-emerald-800 border-emerald-200",
+        iconType: "pacing",
+        actionTab: "all",
+        actionText: "View all questions →",
+      });
+    }
+
+    return items.slice(0, 3);
+  }, [
+    attempt,
+    alteredQuestions,
+    netAlterationMarks,
+    negativePenaltyMarks,
+    grossCorrectMarks,
+    sureQuestions,
+    sureCorrect,
+    sureAccuracy,
+    fiftyFiftyQuestions,
+    fiftyFiftyCorrect,
+    fiftyFiftyAccuracy,
+    slowQuestions,
+    avgTimePerQ,
+  ]);
 
   // Proportions for horizontal segmented bar
   const totalQ = attempt.totalQuestions || 100;
@@ -2319,6 +2555,121 @@ export function AttemptDetailView({
                 </div>
               </div>
             )}
+          </div>
+
+          {/* EXECUTIVE PERFORMANCE CARD: CUTOFF VERDICT & TOP 3 GOLDEN TAKEAWAYS */}
+          <div className="rounded-2xl border border-slate-200 bg-white p-4 sm:p-5 space-y-4 shadow-xs">
+            {/* Row 1: Cutoff Benchmark Verdict */}
+            <div className="rounded-xl border border-slate-200/90 bg-gradient-to-r from-slate-50 via-white to-slate-50 p-4 space-y-3">
+              <div className="flex flex-wrap items-center justify-between gap-2.5">
+                <div className="flex items-center gap-2">
+                  <Award className="h-4 w-4 text-indigo-600" />
+                  <span className="text-xs font-bold uppercase tracking-wider text-slate-800">
+                    {cutoffBenchmark.isCsat
+                      ? "CSAT Qualifying Verdict"
+                      : "UPSC Prelims Cutoff Verdict"}
+                  </span>
+                </div>
+                <span
+                  className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold border shadow-2xs ${cutoffBenchmark.statusColor}`}
+                >
+                  <span
+                    className={`h-2 w-2 rounded-full ${cutoffBenchmark.barColor}`}
+                  />
+                  {cutoffBenchmark.status}
+                </span>
+              </div>
+
+              {/* Progress and score delta comparison */}
+              <div className="space-y-1.5 pt-1">
+                <div className="flex items-center justify-between text-xs font-medium">
+                  <div className="flex items-baseline gap-1.5">
+                    <span className="text-slate-500 font-medium text-[11px]">
+                      Your Score:
+                    </span>
+                    <span className="font-mono font-bold text-slate-900 text-sm">
+                      {formatReviewNumber(attempt.score)} pts
+                    </span>
+                  </div>
+                  <div className="flex items-baseline gap-1.5">
+                    <span className="text-slate-500 font-medium text-[11px]">
+                      Benchmark:
+                    </span>
+                    <span className="font-mono font-semibold text-slate-700 text-xs">
+                      {cutoffBenchmark.targetLabel}
+                    </span>
+                  </div>
+                </div>
+
+                {/* Progress bar towards cutoff */}
+                <div className="relative h-2.5 w-full rounded-full bg-slate-200 overflow-hidden">
+                  <div
+                    className={`h-full rounded-full transition-all duration-500 ${cutoffBenchmark.barColor}`}
+                    style={{
+                      width: `${Math.min(100, Math.max(0, (attempt.score / (effectiveMaxScore || 200)) * 100))}%`,
+                    }}
+                  />
+                  {/* Cutoff marker line */}
+                  <div
+                    className="absolute top-0 bottom-0 w-0.5 bg-slate-900 z-10"
+                    style={{
+                      left: `${Math.min(100, Math.max(0, (cutoffBenchmark.targetScore / (effectiveMaxScore || 200)) * 100))}%`,
+                    }}
+                    title={`Benchmark Cutoff: ${cutoffBenchmark.targetScore} pts`}
+                  />
+                </div>
+              </div>
+
+              <p className="text-xs text-slate-600 leading-relaxed font-normal pt-0.5">
+                {cutoffBenchmark.message}
+              </p>
+            </div>
+
+            {/* Row 2: Top 3 Actionable Takeaways */}
+            <div className="space-y-2.5">
+              <div className="flex items-center gap-2">
+                <Sparkles className="h-4 w-4 text-amber-500" />
+                <h4 className="text-xs font-bold uppercase tracking-wider text-slate-800">
+                  Top 3 Actionable Takeaways
+                </h4>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                {topTakeaways.map((item) => (
+                  <div
+                    key={item.id}
+                    className="flex flex-col justify-between rounded-xl border border-slate-200 bg-slate-50/70 p-3.5 hover:bg-slate-50 transition-colors gap-3"
+                  >
+                    <div className="space-y-1.5">
+                      <div className="flex items-center justify-between gap-1.5">
+                        <span className="text-[11px] font-bold text-slate-700 uppercase tracking-wide">
+                          {item.title}
+                        </span>
+                        <span
+                          className={`text-[10px] font-bold px-2 py-0.5 rounded-md border ${item.badgeStyle}`}
+                        >
+                          {item.badge}
+                        </span>
+                      </div>
+                      <div className="text-sm font-bold font-mono text-slate-900">
+                        {item.metric}
+                      </div>
+                      <p className="text-xs text-slate-600 leading-relaxed">
+                        {item.desc}
+                      </p>
+                    </div>
+
+                    <button
+                      type="button"
+                      onClick={() => setFilterTab(item.actionTab)}
+                      className="self-start text-[11px] font-bold text-indigo-600 hover:text-indigo-800 hover:underline transition-colors pt-0.5 cursor-pointer"
+                    >
+                      {item.actionText}
+                    </button>
+                  </div>
+                ))}
+              </div>
+            </div>
           </div>
 
           {/* PART 2: QUESTION REVIEW (TABULAR PRODUCTION FORMAT) */}
