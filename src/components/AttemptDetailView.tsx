@@ -56,6 +56,8 @@ import {
   Minimize2,
   Monitor,
   Sparkles,
+  ListChecks,
+  BarChart3,
 } from "lucide-react";
 import {
   exportAttemptAsJSON,
@@ -326,6 +328,9 @@ export function AttemptDetailView({
   const [copiedToast, setCopiedToast] = useState<boolean>(false);
   const [isExportingPacket, setIsExportingPacket] = useState<boolean>(false);
   const [showPaperSplit, setShowPaperSplit] = useState<boolean>(false);
+  const [mobileViewTab, setMobileViewTab] = useState<
+    "summary" | "questions" | "paper"
+  >("summary");
   const [mobilePaperModalOpen, setMobilePaperModalOpen] =
     useState<boolean>(false);
   const [pdfMode, setPdfMode] = useState<"native" | "canvas">("native");
@@ -951,7 +956,12 @@ export function AttemptDetailView({
   const jumpToQuestion = (qNo: number) => {
     setActiveQuestionNo(qNo);
     setExpandedQuestions((prev) => ({ ...prev, [qNo]: true }));
-    if (isMarkdownPaper && !showPaperSplit) {
+    if (
+      isMarkdownPaper &&
+      !showPaperSplit &&
+      typeof window !== "undefined" &&
+      window.innerWidth >= 1280
+    ) {
       setShowPaperSplit(true);
     }
     const isVisible = filteredQuestions.some((q) => q.questionNo === qNo);
@@ -1721,12 +1731,17 @@ export function AttemptDetailView({
         </div>
 
         <div className="flex shrink-0 items-center justify-end gap-2 flex-wrap">
-          {/* Question Paper Preview Toggle (Desktop Side-by-Side & Tablet/Mobile Vertical) */}
+          {/* Question Paper Preview Toggle (Desktop Side-by-Side & Tablet/Mobile View) */}
           {canPreviewPaper && (
             <button
-              onClick={() => setShowPaperSplit(!showPaperSplit)}
+              onClick={() => {
+                setShowPaperSplit(!showPaperSplit);
+                setMobileViewTab((prev) =>
+                  prev === "paper" ? "summary" : "paper",
+                );
+              }}
               className={`flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-xs font-medium transition-colors cursor-pointer ${
-                showPaperSplit
+                showPaperSplit || mobileViewTab === "paper"
                   ? "border-slate-900 bg-slate-900 text-white"
                   : "border-slate-200 bg-white text-slate-700 hover:bg-slate-50 hover:text-slate-900"
               }`}
@@ -1742,7 +1757,7 @@ export function AttemptDetailView({
                 {showPaperSplit ? "Hide paper" : "View paper"}
               </span>
               <span className="xl:hidden">
-                {showPaperSplit ? "Hide paper" : "View paper"}
+                {mobileViewTab === "paper" ? "Close paper" : "View paper"}
               </span>
             </button>
           )}
@@ -1925,13 +1940,61 @@ export function AttemptDetailView({
         </div>
       )}
 
-      {/* Main Content Area: Split View Container (Desktop Side-by-Side, Tablet/Mobile Vertical) */}
+      {/* Mobile Segmented Navigation Bar (Only on screens < xl) */}
+      <div className="xl:hidden sticky top-14 sm:top-16 z-30 -mx-4 px-4 py-2 bg-slate-100/95 backdrop-blur-md border-b border-slate-200">
+        <div className="flex rounded-xl bg-slate-200/80 p-1 max-w-md mx-auto shadow-inner">
+          <button
+            type="button"
+            onClick={() => setMobileViewTab("summary")}
+            className={`flex-1 flex items-center justify-center gap-1.5 py-1.5 px-3 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
+              mobileViewTab === "summary"
+                ? "bg-white text-indigo-700 shadow-xs"
+                : "text-slate-600 hover:text-slate-900"
+            }`}
+          >
+            <BarChart3 className="h-3.5 w-3.5" />
+            <span>Summary</span>
+          </button>
+          <button
+            type="button"
+            onClick={() => setMobileViewTab("questions")}
+            className={`flex-1 flex items-center justify-center gap-1.5 py-1.5 px-3 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
+              mobileViewTab === "questions"
+                ? "bg-white text-indigo-700 shadow-xs"
+                : "text-slate-600 hover:text-slate-900"
+            }`}
+          >
+            <ListChecks className="h-3.5 w-3.5" />
+            <span>Questions ({questionList.length})</span>
+          </button>
+          {canPreviewPaper && (
+            <button
+              type="button"
+              onClick={() => setMobileViewTab("paper")}
+              className={`flex-1 flex items-center justify-center gap-1.5 py-1.5 px-3 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
+                mobileViewTab === "paper"
+                  ? "bg-white text-indigo-700 shadow-xs"
+                  : "text-slate-600 hover:text-slate-900"
+              }`}
+            >
+              <BookOpen className="h-3.5 w-3.5" />
+              <span>Paper</span>
+            </button>
+          )}
+        </div>
+      </div>
+
+      {/* Main Content Area: Split View Container */}
       <div
         className={`screen-only flex flex-col ${showPaperSplit && canPreviewPaper ? "xl:flex-row" : ""} gap-6 items-start`}
       >
-        {/* Question Paper Viewer (Markdown Interactive Reader OR PDF Viewer) */}
-        {showPaperSplit && canPreviewPaper && (
-          <div className="flex flex-col w-full xl:w-1/2 xl:sticky xl:top-20 h-[55vh] sm:h-[65vh] xl:h-[calc(100vh-6.5rem)] rounded-2xl overflow-hidden border border-slate-200 bg-white shadow-md shrink-0 z-10">
+        {/* Question Paper Viewer (Desktop Side-by-Side OR Mobile Paper Tab) */}
+        {canPreviewPaper && (
+          <div
+            className={`${mobileViewTab === "paper" ? "flex" : "hidden"} ${
+              showPaperSplit ? "xl:flex" : "xl:hidden"
+            } flex-col w-full xl:w-1/2 xl:sticky xl:top-20 h-[calc(100vh-10rem)] xl:h-[calc(100vh-6.5rem)] rounded-2xl overflow-hidden border border-slate-200 bg-white shadow-md shrink-0 z-10`}
+          >
             {isMarkdownPaper ? (
               <MarkdownPaperReviewViewer
                 paper={
@@ -1962,7 +2025,10 @@ export function AttemptDetailView({
                 header={markdownHeader}
                 activeQuestionNo={activeQuestionNo}
                 onSelectQuestion={setActiveQuestionNo}
-                onClose={() => setShowPaperSplit(false)}
+                onClose={() => {
+                  setShowPaperSplit(false);
+                  setMobileViewTab("summary");
+                }}
               />
             ) : (
               <>
@@ -2009,7 +2075,10 @@ export function AttemptDetailView({
                         </a>
                       )}
                     <button
-                      onClick={() => setShowPaperSplit(false)}
+                      onClick={() => {
+                        setShowPaperSplit(false);
+                        setMobileViewTab("summary");
+                      }}
                       className="text-xs font-medium text-slate-500 hover:text-slate-900 px-2 py-1 rounded-lg hover:bg-slate-50 transition-colors cursor-pointer"
                       title="Hide question paper preview"
                     >
@@ -2031,12 +2100,20 @@ export function AttemptDetailView({
           </div>
         )}
 
-        {/* Right Side / Bottom: Assessment Report & Responses */}
+        {/* Right Side / Report Container */}
         <div
-          className={`w-full ${showPaperSplit && canPreviewPaper ? "xl:w-1/2" : "max-w-5xl mx-auto"} space-y-6 min-w-0`}
+          className={`w-full ${
+            showPaperSplit && canPreviewPaper ? "xl:w-1/2" : "max-w-5xl mx-auto"
+          } space-y-6 min-w-0 ${
+            mobileViewTab === "paper" ? "hidden xl:block" : "block"
+          }`}
         >
           {/* PART 1: ASSESSMENT SUMMARY (COMPACT PROD STRIP, EXPANDS FOR IN-DEPTH ANALYTICS) */}
-          <div className="sticky top-[4.25rem] sm:top-[4.5rem] z-20 rounded-xl border border-slate-200 bg-white/95 backdrop-blur-md overflow-hidden shadow-xs">
+          <div
+            className={`${
+              mobileViewTab === "questions" ? "hidden xl:block" : "block"
+            } sticky top-[4.25rem] sm:top-[4.5rem] z-20 rounded-xl border border-slate-200 bg-white/95 backdrop-blur-md overflow-hidden shadow-xs`}
+          >
             {/* Compact 1-line stats bar */}
             <div
               onClick={() => setSummaryExpanded((prev) => !prev)}
@@ -2749,7 +2826,13 @@ export function AttemptDetailView({
 
                     <button
                       type="button"
-                      onClick={() => setFilterTab(item.actionTab)}
+                      onClick={() => {
+                        setFilterTab(item.actionTab);
+                        setMobileViewTab("questions");
+                        document
+                          .getElementById("questions-section")
+                          ?.scrollIntoView({ behavior: "smooth" });
+                      }}
                       className="self-start text-[11px] font-bold text-indigo-600 hover:text-indigo-800 hover:underline transition-colors pt-0.5 cursor-pointer"
                     >
                       {item.actionText}
@@ -2761,7 +2844,12 @@ export function AttemptDetailView({
           </div>
 
           {/* PART 2: QUESTION REVIEW (TABULAR PRODUCTION FORMAT) */}
-          <div className="rounded-xl border border-slate-200 bg-white p-3.5 sm:p-4 space-y-3 shadow-xs overflow-hidden">
+          <div
+            id="questions-section"
+            className={`${
+              mobileViewTab === "summary" ? "hidden xl:block" : "block"
+            } rounded-xl border border-slate-200 bg-white p-3.5 sm:p-4 space-y-3 shadow-xs overflow-hidden`}
+          >
             {/* Header & Controls */}
             <div className="flex items-center justify-between gap-3 border-b border-slate-200 pb-2.5 flex-wrap">
               <div className="flex items-baseline gap-2">
@@ -2877,7 +2965,7 @@ export function AttemptDetailView({
               </div>
             )}
 
-            {/* Filter Pills */}
+            {/* Consolidated Filter Bar (Outcomes, Confidence Scores & Nuance) */}
             <div className="w-full overflow-x-auto pb-0.5 no-scrollbar">
               <div className="flex items-center gap-1.5 min-w-max p-1 bg-slate-100/80 rounded-lg border border-slate-200 text-xs">
                 {[
@@ -2888,7 +2976,7 @@ export function AttemptDetailView({
                   },
                   {
                     id: "incorrect" as const,
-                    label: `✕ Incorrect (${attempt.incorrect})`,
+                    label: `✕ Mistakes (${attempt.incorrect})`,
                     badgeColor: "text-rose-700 font-bold",
                     activeBg: "bg-rose-600 text-white",
                   },
@@ -2898,23 +2986,62 @@ export function AttemptDetailView({
                     badgeColor: "text-emerald-700 font-bold",
                     activeBg: "bg-emerald-600 text-white",
                   },
-                  ...(isSubjectiveAttempt ||
-                  questionList.some((q) => isAssessmentQuestion(q.questionNo))
-                    ? [
-                        {
-                          id: "non-mcq" as const,
-                          label: `⚡ Cloze/Eval (${questionList.filter((q) => isAssessmentQuestion(q.questionNo)).length})`,
-                          badgeColor: "text-indigo-700 font-bold",
-                          activeBg: "bg-indigo-600 text-white",
-                        },
-                      ]
-                    : []),
                   {
                     id: "skipped" as const,
                     label: `Skipped (${attempt.unattempted})`,
                     badgeColor: "text-slate-600",
                     activeBg: "bg-slate-700 text-white",
                   },
+                  ...(sureQuestions.length > 0
+                    ? [
+                        {
+                          id: "sure" as const,
+                          label: `🎯 Sure (${sureQuestions.length})`,
+                          badgeColor: "text-emerald-700 font-semibold",
+                          activeBg: "bg-emerald-600 text-white",
+                        },
+                      ]
+                    : []),
+                  ...(fiftyFiftyQuestions.length > 0
+                    ? [
+                        {
+                          id: "50-50" as const,
+                          label: `⚖️ 50:50 (${fiftyFiftyQuestions.length})`,
+                          badgeColor: "text-amber-700 font-semibold",
+                          activeBg: "bg-amber-600 text-white",
+                        },
+                      ]
+                    : []),
+                  ...(eliminationQuestions.length > 0
+                    ? [
+                        {
+                          id: "elimination" as const,
+                          label: `✂️ Elim (${eliminationQuestions.length})`,
+                          badgeColor: "text-sky-700 font-semibold",
+                          activeBg: "bg-sky-600 text-white",
+                        },
+                      ]
+                    : []),
+                  ...(guessQuestions.length > 0
+                    ? [
+                        {
+                          id: "guess" as const,
+                          label: `🎲 Guess (${guessQuestions.length})`,
+                          badgeColor: "text-purple-700 font-semibold",
+                          activeBg: "bg-purple-600 text-white",
+                        },
+                      ]
+                    : []),
+                  ...(alteredQuestions.length > 0
+                    ? [
+                        {
+                          id: "altered" as const,
+                          label: `🔄 Altered (${alteredQuestions.length})`,
+                          badgeColor: "text-indigo-700 font-semibold",
+                          activeBg: "bg-indigo-600 text-white",
+                        },
+                      ]
+                    : []),
                   ...(flaggedQuestions.length > 0
                     ? [
                         {
@@ -2935,6 +3062,17 @@ export function AttemptDetailView({
                         },
                       ]
                     : []),
+                  ...(isSubjectiveAttempt ||
+                  questionList.some((q) => isAssessmentQuestion(q.questionNo))
+                    ? [
+                        {
+                          id: "non-mcq" as const,
+                          label: `⚡ Cloze/Eval (${questionList.filter((q) => isAssessmentQuestion(q.questionNo)).length})`,
+                          badgeColor: "text-indigo-700 font-bold",
+                          activeBg: "bg-indigo-600 text-white",
+                        },
+                      ]
+                    : []),
                 ].map((tab) => (
                   <button
                     key={tab.id}
@@ -2949,6 +3087,18 @@ export function AttemptDetailView({
                     {tab.label}
                   </button>
                 ))}
+
+                {filterTab !== "all" && (
+                  <button
+                    type="button"
+                    onClick={() => setFilterTab("all")}
+                    className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-[11px] font-semibold text-rose-700 bg-rose-50 hover:bg-rose-100 border border-rose-200 transition-colors whitespace-nowrap cursor-pointer shrink-0 ml-1"
+                    title="Reset filter to show all questions"
+                  >
+                    <RotateCcw className="h-3 w-3" />
+                    <span>Reset filter</span>
+                  </button>
+                )}
               </div>
             </div>
 
@@ -3017,7 +3167,12 @@ export function AttemptDetailView({
                             onClick={() => {
                               setActiveQuestionNo(q.questionNo);
                               toggleQuestionExpand(q.questionNo);
-                              if (isMarkdownPaper && !showPaperSplit) {
+                              if (
+                                isMarkdownPaper &&
+                                !showPaperSplit &&
+                                typeof window !== "undefined" &&
+                                window.innerWidth >= 1280
+                              ) {
                                 setShowPaperSplit(true);
                               }
                             }}
