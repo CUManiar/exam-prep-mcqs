@@ -43,6 +43,7 @@ import { ConfirmationModal } from "./ConfirmationModal";
 import { PdfViewer } from "./PdfViewer";
 import { InteractiveQuestionCard } from "./InteractiveQuestionCard";
 import { KeyboardShortcutsModal } from "./KeyboardShortcutsModal";
+import { OmrSheetModal } from "./OmrSheetModal";
 import {
   Clock,
   Flag,
@@ -56,6 +57,7 @@ import {
   UploadCloud,
   FileUp,
   FileText,
+  FileSpreadsheet,
   Trash2,
   Loader2,
   AlertTriangle,
@@ -70,6 +72,7 @@ import {
   RotateCcw,
   Lightbulb,
   Keyboard,
+  Sparkles,
 } from "lucide-react";
 
 interface ExamSessionViewProps {
@@ -162,6 +165,29 @@ export function ExamSessionView({
   const [showFinishConfirm, setShowFinishConfirm] = useState<boolean>(false);
   const [solutionModalOpen, setSolutionModalOpen] = useState<boolean>(false);
   const [showShortcutsModal, setShowShortcutsModal] = useState<boolean>(false);
+  const [showOmrModal, setShowOmrModal] = useState<boolean>(false);
+  const [isZenMode, setIsZenMode] = useState<boolean>(false);
+  const [paletteViewMode, setPaletteViewMode] = useState<"grid" | "omr">(
+    "grid",
+  );
+  const [fontScale, setFontScale] = useState<"normal" | "large" | "xlarge">(
+    () => {
+      if (typeof localStorage !== "undefined") {
+        const stored = localStorage.getItem("exam_prep_font_scale");
+        if (stored === "normal" || stored === "large" || stored === "xlarge") {
+          return stored;
+        }
+      }
+      return "normal";
+    },
+  );
+
+  const handleFontScaleChange = (scale: "normal" | "large" | "xlarge") => {
+    setFontScale(scale);
+    try {
+      localStorage.setItem("exam_prep_font_scale", scale);
+    } catch {}
+  };
   const [mobileTab, setMobileTab] = useState<"paper" | "split" | "questions">(
     "questions",
   );
@@ -692,19 +718,45 @@ export function ExamSessionView({
 
       if (e.metaKey || e.ctrlKey) return;
 
-      if (e.key === "?" || ((e.key === "h" || e.key === "H") && !e.altKey)) {
+      const key = e.key.toUpperCase();
+
+      if (e.key === "?" || (key === "H" && !e.altKey)) {
         e.preventDefault();
         setShowShortcutsModal((prev) => !prev);
         return;
       }
 
-      if (showShortcutsModal || showFinishConfirm || solutionModalOpen) {
+      // Toggle OMR Bubble Sheet: O
+      if (key === "O" && !e.altKey) {
+        e.preventDefault();
+        setShowOmrModal((prev) => !prev);
+        return;
+      }
+
+      // Toggle Zen Focus Mode: Z
+      if (key === "Z" && !e.altKey) {
+        e.preventDefault();
+        setIsZenMode((prev) => !prev);
+        return;
+      }
+
+      // Exit Zen Mode with Escape
+      if (e.key === "Escape" && isZenMode) {
+        e.preventDefault();
+        setIsZenMode(false);
+        return;
+      }
+
+      if (
+        showShortcutsModal ||
+        showOmrModal ||
+        showFinishConfirm ||
+        solutionModalOpen
+      ) {
         return;
       }
 
       if (currentQuestion === null) return;
-
-      const key = e.key.toUpperCase();
 
       // Options selection (A, B, C, D)
       if (["A", "B", "C", "D"].includes(key) && !e.altKey) {
@@ -766,8 +818,10 @@ export function ExamSessionView({
     currentQuestion,
     paper.totalQuestions,
     showShortcutsModal,
+    showOmrModal,
     showFinishConfirm,
     solutionModalOpen,
+    isZenMode,
   ]);
 
   // Real-time automatic persistence to localStorage, Supabase & server
@@ -1277,6 +1331,44 @@ export function ExamSessionView({
               </kbd>
             </button>
 
+            {/* OMR Bubble Sheet Button */}
+            {!isSubjective && (
+              <button
+                type="button"
+                onClick={() => setShowOmrModal(true)}
+                title="Open OMR Bubble Sheet (O)"
+                className="flex items-center gap-1.5 rounded-xl border border-amber-300 bg-amber-50 px-2.5 py-1 text-xs font-semibold text-amber-900 hover:bg-amber-100 transition-colors shadow-2xs cursor-pointer"
+              >
+                <FileSpreadsheet className="h-3.5 w-3.5 text-amber-700" />
+                <span className="hidden sm:inline">OMR</span>
+                <kbd className="hidden md:inline-block rounded bg-amber-100 px-1 py-0.2 font-mono text-[9px] font-bold text-amber-800">
+                  O
+                </kbd>
+              </button>
+            )}
+
+            {/* Zen / Focus Mode Toggle */}
+            <button
+              type="button"
+              onClick={() => setIsZenMode((prev) => !prev)}
+              title={
+                isZenMode ? "Exit Focus Mode (Z)" : "Enter Focus / Zen Mode (Z)"
+              }
+              className={`flex items-center gap-1.5 rounded-xl border px-2.5 py-1 text-xs font-semibold transition-all shadow-2xs cursor-pointer ${
+                isZenMode
+                  ? "border-purple-300 bg-purple-50 text-purple-900 hover:bg-purple-100"
+                  : "border-slate-200 bg-white text-slate-700 hover:bg-slate-50"
+              }`}
+            >
+              <Sparkles className="h-3.5 w-3.5 text-purple-600" />
+              <span className="hidden sm:inline">
+                {isZenMode ? "Exit Zen" : "Zen"}
+              </span>
+              <kbd className="hidden md:inline-block rounded bg-slate-100 px-1 py-0.2 font-mono text-[9px] font-bold text-slate-500">
+                Z
+              </kbd>
+            </button>
+
             {/* Continuous Timer (HH:MM:SS format) */}
             <div
               className={`flex items-center gap-1.5 rounded-xl px-2.5 sm:px-3 py-1 font-mono text-xs sm:text-sm font-bold transition-all shadow-2xs ${
@@ -1385,11 +1477,13 @@ export function ExamSessionView({
         {/* Left Side: Interactive Markdown Question or PDF Viewer */}
         <div
           className={`exam-paper-pane w-full border-r border-slate-200 bg-slate-100 flex flex-col ${
-            mobileTab === "paper"
-              ? "flex"
-              : mobileTab === "questions"
-                ? "hidden lg:flex"
-                : "flex"
+            isZenMode
+              ? "hidden"
+              : mobileTab === "paper"
+                ? "flex"
+                : mobileTab === "questions"
+                  ? "hidden lg:flex"
+                  : "flex"
           }`}
         >
           {effectivePaper.parsedQuestions &&
@@ -1714,6 +1808,46 @@ export function ExamSessionView({
                   </div>
 
                   <div className="flex items-center gap-2 flex-wrap">
+                    {/* Reading Font Size Controls */}
+                    <div className="flex items-center rounded-lg border border-slate-200 bg-slate-50 p-0.5 text-xs">
+                      <button
+                        type="button"
+                        onClick={() => handleFontScaleChange("normal")}
+                        title="Normal reading text size"
+                        className={`px-1.5 py-0.5 text-[10px] font-bold rounded ${
+                          fontScale === "normal"
+                            ? "bg-white text-blue-700 shadow-2xs"
+                            : "text-slate-500 hover:text-slate-900"
+                        }`}
+                      >
+                        A
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleFontScaleChange("large")}
+                        title="Large reading text size"
+                        className={`px-1.5 py-0.5 text-[11px] font-bold rounded ${
+                          fontScale === "large"
+                            ? "bg-white text-blue-700 shadow-2xs"
+                            : "text-slate-500 hover:text-slate-900"
+                        }`}
+                      >
+                        A+
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleFontScaleChange("xlarge")}
+                        title="Extra large reading text size"
+                        className={`px-1.5 py-0.5 text-xs font-bold rounded ${
+                          fontScale === "xlarge"
+                            ? "bg-white text-blue-700 shadow-2xs"
+                            : "text-slate-500 hover:text-slate-900"
+                        }`}
+                      >
+                        A++
+                      </button>
+                    </div>
+
                     {/* Solution Key Button in Header */}
                     {paper.exsUrl && (
                       <button
@@ -2397,10 +2531,38 @@ export function ExamSessionView({
           {/* Question Palette Section - Responsive Grid with Correct Red/Green State in Practice */}
           <div className="exam-question-palette overflow-y-auto p-3 sm:p-5">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-3 gap-2">
-              <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
                 <span className="font-bold text-slate-900 text-xs shrink-0">
-                  Question Palette
+                  {paletteViewMode === "omr"
+                    ? "OMR Bubble Sheet"
+                    : "Question Palette"}
                 </span>
+                {!isSubjective && (
+                  <div className="flex items-center rounded-lg border border-slate-200 bg-slate-100 p-0.5 text-[10px]">
+                    <button
+                      type="button"
+                      onClick={() => setPaletteViewMode("grid")}
+                      className={`px-1.5 py-0.5 rounded font-bold transition-all ${
+                        paletteViewMode === "grid"
+                          ? "bg-white text-indigo-700 shadow-2xs"
+                          : "text-slate-500 hover:text-slate-800"
+                      }`}
+                    >
+                      Grid
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setPaletteViewMode("omr")}
+                      className={`px-1.5 py-0.5 rounded font-bold transition-all ${
+                        paletteViewMode === "omr"
+                          ? "bg-white text-indigo-700 shadow-2xs"
+                          : "text-slate-500 hover:text-slate-800"
+                      }`}
+                    >
+                      OMR
+                    </button>
+                  </div>
+                )}
                 <span className="text-[11px] text-slate-500 sm:hidden">
                   {filteredQuestionNumbers.length} Qs
                 </span>
@@ -2423,6 +2585,73 @@ export function ExamSessionView({
                 )}
               </div>
             </div>
+
+            {/* Inline OMR Bubble Sheet Strip */}
+            {paletteViewMode === "omr" && !isSubjective ? (
+              <div className="space-y-1 rounded-xl border border-slate-200 bg-white p-2 mb-3">
+                <div className="flex items-center justify-between pb-1.5 text-[10px] font-bold text-slate-400 border-b border-slate-100 px-2">
+                  <span>Q#</span>
+                  <div className="flex items-center gap-3 pr-1">
+                    <span>A</span>
+                    <span>B</span>
+                    <span>C</span>
+                    <span>D</span>
+                  </div>
+                </div>
+                <div className="space-y-1 max-h-80 overflow-y-auto pr-1">
+                  {filteredQuestionNumbers.map((qNo) => {
+                    const q = answers[qNo];
+                    const selected = q?.selected;
+                    const isCur = currentQuestion === qNo;
+                    const isFlag = Boolean(q?.flagged);
+                    return (
+                      <div
+                        key={qNo}
+                        className={`flex items-center justify-between px-2 py-1 rounded transition-colors ${
+                          isCur ? "bg-blue-50 font-bold" : "hover:bg-slate-50"
+                        }`}
+                      >
+                        <div className="flex items-center gap-1.5">
+                          <button
+                            type="button"
+                            onClick={() => navigateToQuestion(qNo)}
+                            className={`font-mono text-xs ${
+                              isCur
+                                ? "text-blue-700 font-black"
+                                : "text-slate-700 hover:text-blue-600"
+                            }`}
+                          >
+                            Q{qNo}
+                          </button>
+                          {isFlag && (
+                            <Flag className="h-2.5 w-2.5 text-amber-500 fill-amber-500" />
+                          )}
+                        </div>
+                        <div className="flex items-center gap-2">
+                          {["A", "B", "C", "D"].map((opt) => {
+                            const isMarked = selected === opt;
+                            return (
+                              <button
+                                key={opt}
+                                type="button"
+                                onClick={() => handleSelectOption(qNo, opt)}
+                                className={`flex h-4.5 w-4.5 items-center justify-center rounded-full text-[9px] font-bold transition-all ${
+                                  isMarked
+                                    ? "bg-slate-950 text-white shadow-inner"
+                                    : "border border-slate-300 bg-white text-slate-600 hover:border-slate-500"
+                                }`}
+                              >
+                                {opt}
+                              </button>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            ) : null}
 
             {/* Color Legend */}
             {mode === "mock" && !isSubjective && (
@@ -2993,6 +3222,19 @@ export function ExamSessionView({
       <KeyboardShortcutsModal
         isOpen={showShortcutsModal}
         onClose={() => setShowShortcutsModal(false)}
+      />
+
+      {/* OMR Bubble Sheet Modal */}
+      <OmrSheetModal
+        isOpen={showOmrModal}
+        onClose={() => setShowOmrModal(false)}
+        totalQuestions={paper.totalQuestions}
+        answers={answers}
+        currentQuestion={currentQuestion}
+        onSelectOption={handleSelectOption}
+        onNavigateQuestion={navigateToQuestion}
+        onToggleFlag={handleToggleFlag}
+        paperTitle={getPaperDisplayTitle(paper)}
       />
     </div>
   );
