@@ -835,6 +835,16 @@ export function AttemptDetailView({
     () => questionList.filter((q) => q.confidence === "50-50"),
     [questionList],
   );
+
+  // List of incorrect questions for rapid navigation
+  const incorrectQuestionsList = useMemo(() => {
+    return questionList.filter((q) => {
+      if (isAssessmentQuestion(q.questionNo)) {
+        return q.subjectiveAssessment === "needs-work";
+      }
+      return q.selected && q.isCorrect === false;
+    });
+  }, [questionList]);
   const fiftyFiftyCorrect = useMemo(
     () =>
       fiftyFiftyQuestions.filter((q) => q.selected && q.isCorrect === true)
@@ -937,6 +947,84 @@ export function AttemptDetailView({
 
     return list;
   }, [questionList, filterTab, sortOption]);
+
+  const jumpToQuestion = (qNo: number) => {
+    setActiveQuestionNo(qNo);
+    setExpandedQuestions((prev) => ({ ...prev, [qNo]: true }));
+    if (isMarkdownPaper && !showPaperSplit) {
+      setShowPaperSplit(true);
+    }
+    const isVisible = filteredQuestions.some((q) => q.questionNo === qNo);
+    if (!isVisible) {
+      setFilterTab("all");
+    }
+    setTimeout(() => {
+      const el = document.getElementById(`review-q-${qNo}`);
+      if (el) {
+        el.scrollIntoView({ behavior: "smooth", block: "center" });
+      }
+    }, 60);
+  };
+
+  const handleNextIncorrect = () => {
+    if (incorrectQuestionsList.length === 0) return;
+    const currentIdx = incorrectQuestionsList.findIndex(
+      (q) => q.questionNo === activeQuestionNo,
+    );
+    const nextIdx =
+      currentIdx === -1 || currentIdx >= incorrectQuestionsList.length - 1
+        ? 0
+        : currentIdx + 1;
+    jumpToQuestion(incorrectQuestionsList[nextIdx].questionNo);
+  };
+
+  const handlePrevIncorrect = () => {
+    if (incorrectQuestionsList.length === 0) return;
+    const currentIdx = incorrectQuestionsList.findIndex(
+      (q) => q.questionNo === activeQuestionNo,
+    );
+    const prevIdx =
+      currentIdx <= 0 ? incorrectQuestionsList.length - 1 : currentIdx - 1;
+    jumpToQuestion(incorrectQuestionsList[prevIdx].questionNo);
+  };
+
+  const handleNextAltered = () => {
+    if (alteredQuestions.length === 0) return;
+    const currentIdx = alteredQuestions.findIndex(
+      (q) => q.questionNo === activeQuestionNo,
+    );
+    const nextIdx =
+      currentIdx === -1 || currentIdx >= alteredQuestions.length - 1
+        ? 0
+        : currentIdx + 1;
+    jumpToQuestion(alteredQuestions[nextIdx].questionNo);
+  };
+
+  const handlePrevAltered = () => {
+    if (alteredQuestions.length === 0) return;
+    const currentIdx = alteredQuestions.findIndex(
+      (q) => q.questionNo === activeQuestionNo,
+    );
+    const prevIdx =
+      currentIdx <= 0 ? alteredQuestions.length - 1 : currentIdx - 1;
+    jumpToQuestion(alteredQuestions[prevIdx].questionNo);
+  };
+
+  const currentIncorrectPos = useMemo(() => {
+    if (!activeQuestionNo || incorrectQuestionsList.length === 0) return null;
+    const idx = incorrectQuestionsList.findIndex(
+      (q) => q.questionNo === activeQuestionNo,
+    );
+    return idx !== -1 ? idx + 1 : null;
+  }, [activeQuestionNo, incorrectQuestionsList]);
+
+  const currentAlteredPos = useMemo(() => {
+    if (!activeQuestionNo || alteredQuestions.length === 0) return null;
+    const idx = alteredQuestions.findIndex(
+      (q) => q.questionNo === activeQuestionNo,
+    );
+    return idx !== -1 ? idx + 1 : null;
+  }, [activeQuestionNo, alteredQuestions]);
 
   // Section 7: Practical Review Summary recommendations (Up to 3, strictly data-driven)
   const reviewSuggestions = useMemo(() => {
@@ -2718,6 +2806,77 @@ export function AttemptDetailView({
               </div>
             </div>
 
+            {/* Rapid Review Navigator Bar */}
+            {(incorrectQuestionsList.length > 0 ||
+              alteredQuestions.length > 0) && (
+              <div className="flex flex-wrap items-center justify-between gap-2.5 p-2.5 bg-slate-50/90 rounded-xl border border-slate-200">
+                <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider flex items-center gap-1.5">
+                  <Zap className="h-3.5 w-3.5 text-indigo-600" />
+                  Rapid Mistake & Revision Navigation
+                </span>
+
+                <div className="flex items-center gap-2 flex-wrap">
+                  {/* Next / Prev Incorrect */}
+                  {incorrectQuestionsList.length > 0 && (
+                    <div className="inline-flex items-center rounded-lg border border-rose-200 bg-rose-50/70 p-0.5 text-xs shadow-2xs">
+                      <button
+                        type="button"
+                        onClick={handlePrevIncorrect}
+                        title="Jump to previous incorrect question"
+                        className="px-2 py-1 rounded-md text-rose-700 hover:bg-rose-100 font-bold transition-colors flex items-center gap-1 cursor-pointer"
+                      >
+                        <ChevronLeft className="h-3.5 w-3.5" />
+                        <span className="hidden sm:inline">Prev</span>
+                      </button>
+                      <span className="px-2 text-[11px] font-mono font-bold text-rose-900 border-x border-rose-200">
+                        {currentIncorrectPos !== null
+                          ? `Mistake ${currentIncorrectPos}/${incorrectQuestionsList.length}`
+                          : `Mistakes (${incorrectQuestionsList.length})`}
+                      </span>
+                      <button
+                        type="button"
+                        onClick={handleNextIncorrect}
+                        title="Jump to next incorrect question"
+                        className="px-2 py-1 rounded-md text-rose-700 hover:bg-rose-100 font-bold transition-colors flex items-center gap-1 cursor-pointer"
+                      >
+                        <span className="hidden sm:inline">Next</span>
+                        <ChevronRight className="h-3.5 w-3.5" />
+                      </button>
+                    </div>
+                  )}
+
+                  {/* Next / Prev Altered */}
+                  {alteredQuestions.length > 0 && (
+                    <div className="inline-flex items-center rounded-lg border border-indigo-200 bg-indigo-50/70 p-0.5 text-xs shadow-2xs">
+                      <button
+                        type="button"
+                        onClick={handlePrevAltered}
+                        title="Jump to previous changed answer"
+                        className="px-2 py-1 rounded-md text-indigo-700 hover:bg-indigo-100 font-bold transition-colors flex items-center gap-1 cursor-pointer"
+                      >
+                        <ChevronLeft className="h-3.5 w-3.5" />
+                        <span className="hidden sm:inline">Prev</span>
+                      </button>
+                      <span className="px-2 text-[11px] font-mono font-bold text-indigo-900 border-x border-indigo-200">
+                        {currentAlteredPos !== null
+                          ? `Altered ${currentAlteredPos}/${alteredQuestions.length}`
+                          : `Altered (${alteredQuestions.length})`}
+                      </span>
+                      <button
+                        type="button"
+                        onClick={handleNextAltered}
+                        title="Jump to next changed answer"
+                        className="px-2 py-1 rounded-md text-indigo-700 hover:bg-indigo-100 font-bold transition-colors flex items-center gap-1 cursor-pointer"
+                      >
+                        <span className="hidden sm:inline">Next</span>
+                        <ChevronRight className="h-3.5 w-3.5" />
+                      </button>
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+
             {/* Filter Pills */}
             <div className="w-full overflow-x-auto pb-0.5 no-scrollbar">
               <div className="flex items-center gap-1.5 min-w-max p-1 bg-slate-100/80 rounded-lg border border-slate-200 text-xs">
@@ -2854,6 +3013,7 @@ export function AttemptDetailView({
                       return (
                         <React.Fragment key={q.questionNo}>
                           <tr
+                            id={`review-q-${q.questionNo}`}
                             onClick={() => {
                               setActiveQuestionNo(q.questionNo);
                               toggleQuestionExpand(q.questionNo);
