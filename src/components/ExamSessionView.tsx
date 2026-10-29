@@ -42,6 +42,7 @@ import { DetailedSolutionModal } from "./DetailedSolutionModal";
 import { ConfirmationModal } from "./ConfirmationModal";
 import { PdfViewer } from "./PdfViewer";
 import { InteractiveQuestionCard } from "./InteractiveQuestionCard";
+import { KeyboardShortcutsModal } from "./KeyboardShortcutsModal";
 import {
   Clock,
   Flag,
@@ -68,6 +69,7 @@ import {
   Minimize2,
   RotateCcw,
   Lightbulb,
+  Keyboard,
 } from "lucide-react";
 
 interface ExamSessionViewProps {
@@ -159,6 +161,7 @@ export function ExamSessionView({
   const [showNoteBox, setShowNoteBox] = useState<boolean>(true);
   const [showFinishConfirm, setShowFinishConfirm] = useState<boolean>(false);
   const [solutionModalOpen, setSolutionModalOpen] = useState<boolean>(false);
+  const [showShortcutsModal, setShowShortcutsModal] = useState<boolean>(false);
   const [mobileTab, setMobileTab] = useState<"paper" | "split" | "questions">(
     "questions",
   );
@@ -674,6 +677,99 @@ export function ExamSessionView({
     });
   };
 
+  // Keyboard navigation shortcuts for exam session
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      const target = e.target as HTMLElement | null;
+      if (
+        target &&
+        (target.tagName === "INPUT" ||
+          target.tagName === "TEXTAREA" ||
+          target.isContentEditable)
+      ) {
+        return;
+      }
+
+      if (e.metaKey || e.ctrlKey) return;
+
+      if (e.key === "?" || ((e.key === "h" || e.key === "H") && !e.altKey)) {
+        e.preventDefault();
+        setShowShortcutsModal((prev) => !prev);
+        return;
+      }
+
+      if (showShortcutsModal || showFinishConfirm || solutionModalOpen) {
+        return;
+      }
+
+      if (currentQuestion === null) return;
+
+      const key = e.key.toUpperCase();
+
+      // Options selection (A, B, C, D)
+      if (["A", "B", "C", "D"].includes(key) && !e.altKey) {
+        e.preventDefault();
+        handleSelectOption(currentQuestion, key);
+        return;
+      }
+
+      // Next Question: ArrowRight or J
+      if (e.key === "ArrowRight" || key === "J") {
+        e.preventDefault();
+        if (currentQuestion < paper.totalQuestions) {
+          navigateToQuestion(currentQuestion + 1);
+        }
+        return;
+      }
+
+      // Previous Question: ArrowLeft or K
+      if (e.key === "ArrowLeft" || key === "K") {
+        e.preventDefault();
+        if (currentQuestion > 1) {
+          navigateToQuestion(currentQuestion - 1);
+        }
+        return;
+      }
+
+      // Clear answer: Backspace or Delete
+      if (e.key === "Backspace" || e.key === "Delete") {
+        e.preventDefault();
+        handleClearSelection(currentQuestion);
+        return;
+      }
+
+      // Flag question: F
+      if (key === "F" && !e.altKey) {
+        e.preventDefault();
+        handleToggleFlag(currentQuestion);
+        return;
+      }
+
+      // Confidence tags: 1 (Sure), 2 (50:50), 3 (Elimination), 4 (Guess)
+      if (["1", "2", "3", "4"].includes(e.key) && !e.altKey) {
+        e.preventDefault();
+        const confMap: Record<string, ConfidenceLevel> = {
+          "1": "sure",
+          "2": "50-50",
+          "3": "elimination",
+          "4": "guess",
+        };
+        const conf = confMap[e.key];
+        if (conf) handleSetConfidence(currentQuestion, conf);
+        return;
+      }
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [
+    currentQuestion,
+    paper.totalQuestions,
+    showShortcutsModal,
+    showFinishConfirm,
+    solutionModalOpen,
+  ]);
+
   // Real-time automatic persistence to localStorage, Supabase & server
   const persistSessionDraft = useCallback(
     (overrides?: Partial<ActiveSessionDraft>) => {
@@ -1165,6 +1261,20 @@ export function ExamSessionView({
                   <span className="hidden md:inline">Fullscreen</span>
                 </>
               )}
+            </button>
+
+            {/* Keyboard Shortcuts Guide Button */}
+            <button
+              type="button"
+              onClick={() => setShowShortcutsModal(true)}
+              title="Keyboard Shortcuts (?)"
+              className="hidden sm:flex items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-2.5 py-1 text-xs font-semibold text-slate-700 hover:bg-slate-50 transition-colors shadow-2xs cursor-pointer"
+            >
+              <Keyboard className="h-3.5 w-3.5 text-slate-500" />
+              <span className="hidden md:inline">Shortcuts</span>
+              <kbd className="rounded bg-slate-100 px-1 py-0.2 font-mono text-[9px] font-bold text-slate-500">
+                ?
+              </kbd>
             </button>
 
             {/* Continuous Timer (HH:MM:SS format) */}
@@ -2877,6 +2987,12 @@ export function ExamSessionView({
         variant="warning"
         onConfirm={handleConfirmExit}
         onCancel={() => setShowExitConfirm(false)}
+      />
+
+      {/* Keyboard Shortcuts Guide Modal */}
+      <KeyboardShortcutsModal
+        isOpen={showShortcutsModal}
+        onClose={() => setShowShortcutsModal(false)}
       />
     </div>
   );
