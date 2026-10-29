@@ -3,6 +3,7 @@
 import React, { useState, useMemo } from "react";
 import { ActiveSessionDraft, Attempt, QuestionPaper } from "../lib/types";
 import { getAttemptPercentage } from "../lib/defaults";
+import { isSpecificSingleSubject } from "../lib/markdownPaperParser";
 import {
   ArrowRight,
   AlertTriangle,
@@ -80,6 +81,30 @@ function calculatePracticeStreak(attempts: Attempt[]) {
   }
 
   return { currentStreak: streak, isActiveToday };
+}
+
+function normalizeSubjectName(subj: string): string {
+  const s = (subj || "").trim();
+  const lower = s.toLowerCase();
+  if (lower === "gs" || lower === "general" || lower === "general studies") {
+    return "General Studies";
+  }
+  if (
+    lower === "csat" ||
+    lower === "gs ii csat" ||
+    lower === "gs 2" ||
+    lower === "gs ii"
+  ) {
+    return "CSAT";
+  }
+  if (lower.includes("polity")) return "Polity";
+  if (lower.includes("economy")) return "Economy";
+  if (lower.includes("geography")) return "Geography";
+  if (lower.includes("history")) return "History";
+  if (lower.includes("environment")) return "Environment";
+  if (lower.includes("science")) return "Science & Tech";
+  if (lower.includes("ethics")) return "Ethics";
+  return s || "General Studies";
 }
 
 export function DashboardView({
@@ -165,28 +190,88 @@ export function DashboardView({
 
     completed.forEach((att) => {
       const matched = papers.find((p) => p.id === att.paperId);
-      let subj = matched?.subject || att.category || "General Studies";
-      if (subj.toLowerCase() === "gs" || subj.toLowerCase() === "general") {
-        subj = "General Studies";
-      } else if (subj.toLowerCase() === "csat") {
-        subj = "CSAT";
-      }
+      const paperSubject =
+        matched?.subject || att.paperLabel || att.category || "General Studies";
+      const isSingleSubject = isSpecificSingleSubject(paperSubject);
 
-      if (!map[subj]) {
-        map[subj] = {
-          subject: subj,
-          attemptsCount: 0,
-          totalQuestions: 0,
-          totalAnswered: 0,
-          totalCorrect: 0,
-          totalIncorrect: 0,
-        };
+      if (isSingleSubject) {
+        // Top-level subject explicitly specified: mix-up not allowed, all questions belong to paper subject
+        const subj = normalizeSubjectName(paperSubject);
+        if (!map[subj]) {
+          map[subj] = {
+            subject: subj,
+            attemptsCount: 0,
+            totalQuestions: 0,
+            totalAnswered: 0,
+            totalCorrect: 0,
+            totalIncorrect: 0,
+          };
+        }
+        map[subj].attemptsCount += 1;
+        map[subj].totalQuestions += att.totalQuestions || 0;
+        map[subj].totalAnswered += att.answered || 0;
+        map[subj].totalCorrect += att.correct || 0;
+        map[subj].totalIncorrect += att.incorrect || 0;
+      } else {
+        // Mixed paper, revision quiz, or daily quiz: attribute each question to its individual subject
+        const answerEntries = Object.values(att.answers || {});
+        if (answerEntries.length > 0) {
+          const subjectsInThisAttempt = new Set<string>();
+
+          answerEntries.forEach((ans) => {
+            const rawSubj =
+              ans.subject ||
+              matched?.parsedQuestions?.find(
+                (pq) => pq.questionNo === ans.questionNo,
+              )?.subject ||
+              paperSubject;
+            const normSubj = normalizeSubjectName(rawSubj);
+            subjectsInThisAttempt.add(normSubj);
+
+            if (!map[normSubj]) {
+              map[normSubj] = {
+                subject: normSubj,
+                attemptsCount: 0,
+                totalQuestions: 0,
+                totalAnswered: 0,
+                totalCorrect: 0,
+                totalIncorrect: 0,
+              };
+            }
+            map[normSubj].totalQuestions += 1;
+            if (ans.selected) {
+              map[normSubj].totalAnswered += 1;
+              if (ans.isCorrect) {
+                map[normSubj].totalCorrect += 1;
+              } else if (ans.isCorrect === false) {
+                map[normSubj].totalIncorrect += 1;
+              }
+            }
+          });
+
+          subjectsInThisAttempt.forEach((s) => {
+            if (map[s]) map[s].attemptsCount += 1;
+          });
+        } else {
+          // Fallback if no individual answers object exists
+          const subj = normalizeSubjectName(paperSubject);
+          if (!map[subj]) {
+            map[subj] = {
+              subject: subj,
+              attemptsCount: 0,
+              totalQuestions: 0,
+              totalAnswered: 0,
+              totalCorrect: 0,
+              totalIncorrect: 0,
+            };
+          }
+          map[subj].attemptsCount += 1;
+          map[subj].totalQuestions += att.totalQuestions || 0;
+          map[subj].totalAnswered += att.answered || 0;
+          map[subj].totalCorrect += att.correct || 0;
+          map[subj].totalIncorrect += att.incorrect || 0;
+        }
       }
-      map[subj].attemptsCount += 1;
-      map[subj].totalQuestions += att.totalQuestions || 0;
-      map[subj].totalAnswered += att.answered || 0;
-      map[subj].totalCorrect += att.correct || 0;
-      map[subj].totalIncorrect += att.incorrect || 0;
     });
 
     return Object.values(map)

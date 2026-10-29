@@ -3,6 +3,7 @@ import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
 import { Attempt, ParsedQuestion, QuestionPaper } from "./types";
 import { parseAnswerKeyDetailed } from "./defaults";
+import { isSpecificSingleSubject } from "./markdownPaperParser";
 import {
   getUserAttempts,
   getUserPaper,
@@ -83,6 +84,8 @@ function normalizeQuestions(input: Record<string, any>): ParsedQuestion[] {
       matchingHeaders: question.matchingHeaders,
       answer: question.answer,
       explanation: question.explanation,
+      subject: question.subject ? String(question.subject).trim() : undefined,
+      topic: question.topic ? String(question.topic).trim() : undefined,
     }))
     .filter((question) => question.text);
 }
@@ -106,7 +109,14 @@ function createImportedPaper(
       .slice(0, 48) || "paper";
   const examType = input.examType === "subjective" ? "subjective" : "objective";
   const category = input.category === "mains" ? "mains" : "prelims";
+  const paperSubject = String(input.subject || title);
+  const enforceSingleSubject = isSpecificSingleSubject(paperSubject);
   const parsedQuestions = normalizeQuestions(input);
+  if (enforceSingleSubject) {
+    parsedQuestions.forEach((q) => {
+      q.subject = paperSubject;
+    });
+  }
   const parsedAnswerKey = input.answerKeyText
     ? parseAnswerKeyDetailed(String(input.answerKeyText))
     : { answers: {}, explanations: {} };

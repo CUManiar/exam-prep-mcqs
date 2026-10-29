@@ -1114,6 +1114,9 @@ export function ExamSessionView({
         }
       }
 
+      const qMeta = effectivePaper.parsedQuestions?.find(
+        (pq) => pq.questionNo === i,
+      );
       finalAnswers[i] = {
         ...a,
         confidence: a.selected ? a.confidence : undefined,
@@ -1122,6 +1125,8 @@ export function ExamSessionView({
           sessionExplanations[i] || paper.explanations?.[i] || undefined,
         isCorrect,
         timeSpentSeconds: spentSecs,
+        subject: a.subject || qMeta?.subject || undefined,
+        topic: a.topic || qMeta?.topic || undefined,
       };
     }
 

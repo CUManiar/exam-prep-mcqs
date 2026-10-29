@@ -14,6 +14,8 @@ export interface ParsedQuestion {
   };
   answer?: string;
   explanation?: string;
+  subject?: string;
+  topic?: string;
 }
 
 export interface MatchingItem {
@@ -72,6 +74,8 @@ export interface QuestionAnswer {
   answerHistory?: string[];
   submissionFileUrl?: string;
   submissionFileName?: string;
+  subject?: string;
+  topic?: string;
 }
 
 export interface Attempt {

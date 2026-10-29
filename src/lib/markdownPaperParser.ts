@@ -91,10 +91,49 @@ function firstExplicitQuestionIndex(markdown: string): number {
   return -1;
 }
 
-function cleanHeaderValue(value: string): string {
+export function cleanHeaderValue(value: string): string {
   return stripMarkdownFormatting(value)
     .replace(/[\u2212]/g, "-")
     .trim();
+}
+
+/**
+ * Determines whether a paper's subject designates a dedicated single subject
+ * (e.g., "Polity", "Economy", "Geography", "History", "Environment & Ecology")
+ * rather than a mixed test, revision quiz, or generic paper.
+ * If true, mix-up of questions is not allowed: all questions inherit this subject.
+ */
+export function isSpecificSingleSubject(subject?: string): boolean {
+  if (!subject) return false;
+  const s = subject.trim().toLowerCase();
+
+  // Mixed or revision quiz indicators
+  if (
+    s === "mixed" ||
+    s === "revision" ||
+    s.startsWith("revision") ||
+    s.startsWith("daily") ||
+    s.includes("daily quiz") ||
+    s.includes("revision quiz") ||
+    s.includes("mixed revision") ||
+    s.includes("mixed mock") ||
+    s === "general" ||
+    s === "general studies" ||
+    s === "gs" ||
+    s === "gs i" ||
+    s === "gs-i" ||
+    s === "gs 1" ||
+    s === "gs ii" ||
+    s === "gs-ii" ||
+    s === "gs 2" ||
+    s === "mock" ||
+    s.includes(",") ||
+    s.includes(";")
+  ) {
+    return false;
+  }
+
+  return true;
 }
 
 function parseHeaderKeyValue(
@@ -267,6 +306,8 @@ function parseQuestionBlock(
   let inMatchingSection = false;
   let foundOption = false;
   let currentOptKey: string | null = null;
+  let questionSubject: string | undefined;
+  let questionTopic: string | undefined;
 
   for (const line of lines) {
     const normalizedLine = stripMarkdownFormatting(line).trim();
@@ -310,7 +351,43 @@ function parseQuestionBlock(
     } else if (foundOption && currentOptKey && line.trim()) {
       options[currentOptKey] += `\n${line.trim()}`;
     } else if (!foundOption) {
-      promptLines.push(line);
+      const inlineSubjectMatch = line.match(
+        /^\s*(?:\*\*|__)?Subject(?:\*\*|__)?\s*:\s*([^\n]+)$/i,
+      );
+      if (inlineSubjectMatch) {
+        questionSubject = cleanHeaderValue(inlineSubjectMatch[1]);
+        continue;
+      }
+
+      const inlineTopicMatch = line.match(
+        /^\s*(?:\*\*|__)?Topic(?:\*\*|__)?\s*:\s*([^\n]+)$/i,
+      );
+      if (inlineTopicMatch) {
+        questionTopic = cleanHeaderValue(inlineTopicMatch[1]);
+        continue;
+      }
+
+      let lineText = line;
+      const tagMatch = lineText.match(
+        /\[\s*Subject\s*:\s*([^\]\|,]+)(?:[\|,]\s*Topic\s*:\s*([^\]]+))?\s*\]/i,
+      );
+      if (tagMatch) {
+        questionSubject = cleanHeaderValue(tagMatch[1]);
+        if (tagMatch[2]) {
+          questionTopic = cleanHeaderValue(tagMatch[2]);
+        }
+        lineText = lineText.replace(tagMatch[0], "").trim();
+      }
+
+      const topicTagMatch = lineText.match(/\[\s*Topic\s*:\s*([^\]]+)\s*\]/i);
+      if (topicTagMatch) {
+        questionTopic = cleanHeaderValue(topicTagMatch[1]);
+        lineText = lineText.replace(topicTagMatch[0], "").trim();
+      }
+
+      if (lineText.trim()) {
+        promptLines.push(lineText);
+      }
     }
   }
 
@@ -328,6 +405,8 @@ function parseQuestionBlock(
     options,
     ...(matchingItems.length > 0 ? { matchingItems } : {}),
     ...(matchingItems.length > 0 && matchingHeaders ? { matchingHeaders } : {}),
+    ...(questionSubject ? { subject: questionSubject } : {}),
+    ...(questionTopic ? { topic: questionTopic } : {}),
   };
 }
 
@@ -345,9 +424,18 @@ function hasOptionLine(lines: string[]): boolean {
  */
 export function parseQuestionnaireMarkdown(
   markdownText: string,
+  paperSubject?: string,
 ): ParsedQuestion[] {
   const raw = (markdownText || "").replace(/\r\n?/g, "\n").trim();
   if (!raw) return [];
+
+  const parsedHeader = parseMarkdownHeader(raw);
+  const resolvedPaperSubject = (
+    paperSubject ||
+    parsedHeader.subject ||
+    ""
+  ).trim();
+  const enforceSingleSubject = isSpecificSingleSubject(resolvedPaperSubject);
 
   const lines = raw.split("\n");
   const hasExplicitQuestionMarker = lines.some(
@@ -432,5 +520,21 @@ export function parseQuestionnaireMarkdown(
   }
 
   parsedQuestions.sort((a, b) => a.questionNo - b.questionNo);
+
+  if (enforceSingleSubject && resolvedPaperSubject) {
+    // If a specific single subject is declared on top, mix-up is not allowed:
+    // all questions inherit the paper's subject regardless of individual question tags.
+    for (const q of parsedQuestions) {
+      q.subject = resolvedPaperSubject;
+    }
+  } else if (resolvedPaperSubject) {
+    // In mixed/revision papers, fill in questions that lacked an explicit subject tag
+    for (const q of parsedQuestions) {
+      if (!q.subject) {
+        q.subject = resolvedPaperSubject;
+      }
+    }
+  }
+
   return parsedQuestions;
 }

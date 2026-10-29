@@ -65,6 +65,7 @@ INSTRUCTIONS:
 - Do not mark more than one option per question.
 - Use this mock to test your preparation, not just guess.
 ---
+[Subject: Economy | Topic: Monetary Policy]
 With reference to the **Monetary Policy Committee (MPC)** of the Reserve Bank of India, consider the following statements:
 1. It determines the policy repo rate required to achieve the inflation target.
 2. The Governor of the RBI is the ex-officio Chairman of the Committee and has a second or casting vote in case of a tie.
@@ -76,6 +77,7 @@ Which of the statements given above is/are correct?
 (c) 2 and 3 only
 (d) 1, 2 and 3
 ---
+[Subject: Polity | Topic: Fundamental Rights]
 Consider the following statements regarding **Article 21** and the right to privacy under the Indian Constitution:
 1. The Right to Privacy was declared a fundamental right under Article 21 by a 9-judge Constitution Bench in the *K.S. Puttaswamy v. Union of India* (2017) judgment.
 2. The right to be forgotten is recognized as an intrinsic part of the right to privacy under Indian jurisprudence.
@@ -87,6 +89,7 @@ Which of the statements given above is/are correct?
 (c) 2 and 3 only
 (d) 1, 2 and 3
 ---
+[Subject: Environment | Topic: Biodiversity Hotspots]
 With reference to **Biodiversity Hotspots**, consider the following statements:
 1. To qualify as a biodiversity hotspot, a region must contain at least 1,500 species of vascular plants as endemics.
 2. It must have lost at least 70 percent of its primary native vegetation.
@@ -98,8 +101,10 @@ Which of the statements given above are correct?
 (c) 1 and 3 only
 (d) 1, 2 and 3
 ---
+[Subject: Polity | Topic: Writs]
 Fill in the blank: The writ issued by a court to produce a person who has been unlawfully detained is called __________.
 ---
+[Subject: Polity | Topic: Basic Structure Doctrine]
 In one or two lines, explain how the basic-structure doctrine limits Parliament's power to amend the Constitution of India.`;
 
 export const SAMPLE_ANSWER_KEY_TEXT = `1. b """ Statement 1 and 2 are correct. Statement 3 is incorrect because the MPC has 6 members (3 from RBI, 3 appointed by Central Government) who serve for 4 years (not 5 years). """
