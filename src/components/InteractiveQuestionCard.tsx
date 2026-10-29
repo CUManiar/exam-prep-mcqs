@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { QuestionPaper, ParsedQuestion, QuestionAnswer } from "../lib/types";
 import { MatchingItemsTable } from "./MatchingItemsTable";
 import {
@@ -48,6 +48,58 @@ export function InteractiveQuestionCard({
   const [showExplanationManual, setShowExplanationManual] =
     useState<boolean>(false);
   const questions = paper.parsedQuestions || [];
+
+  // Local state for Cloze answers so keystrokes do NOT fire server API calls
+  const [clozeDraft, setClozeDraft] = useState<string>(
+    currentAnswer?.selected || "",
+  );
+  const prevQuestionRef = useRef<number | null>(currentQuestion);
+  const clozeDraftRef = useRef<string>(clozeDraft);
+  const savedAnswerRef = useRef<string>(currentAnswer?.selected || "");
+
+  useEffect(() => {
+    clozeDraftRef.current = clozeDraft;
+  }, [clozeDraft]);
+
+  // Save cloze answer only when changing question or when answer externally updates
+  useEffect(() => {
+    const prevQ = prevQuestionRef.current;
+    const draft = clozeDraftRef.current;
+    const lastSaved = savedAnswerRef.current;
+
+    if (prevQ !== null && prevQ !== currentQuestion) {
+      if (draft.trim() !== lastSaved.trim()) {
+        onUpdateAnswer(prevQ, draft);
+      }
+    }
+
+    prevQuestionRef.current = currentQuestion;
+    const nextSaved = currentAnswer?.selected || "";
+    setClozeDraft(nextSaved);
+    savedAnswerRef.current = nextSaved;
+  }, [currentQuestion, currentAnswer?.selected, onUpdateAnswer]);
+
+  // Flush unsaved draft on unmount
+  useEffect(() => {
+    return () => {
+      const q = prevQuestionRef.current;
+      const draft = clozeDraftRef.current;
+      const lastSaved = savedAnswerRef.current;
+      if (q !== null && draft.trim() !== lastSaved.trim()) {
+        onUpdateAnswer(q, draft);
+      }
+    };
+  }, [onUpdateAnswer]);
+
+  const handleClozeBlur = () => {
+    if (
+      currentQuestion !== null &&
+      clozeDraft.trim() !== savedAnswerRef.current.trim()
+    ) {
+      savedAnswerRef.current = clozeDraft;
+      onUpdateAnswer(currentQuestion, clozeDraft);
+    }
+  };
 
   // 1. INSTRUCTIONS / BUFFER SCREEN (When currentQuestion is null)
   if (currentQuestion === null) {
@@ -375,16 +427,16 @@ export function InteractiveQuestionCard({
             </label>
             <textarea
               id={`cloze-answer-${currentQuestion}`}
-              value={selectedText}
-              onChange={(event) =>
-                onUpdateAnswer(currentQuestion, event.target.value)
-              }
+              value={clozeDraft}
+              onChange={(event) => setClozeDraft(event.target.value)}
+              onBlur={handleClozeBlur}
               rows={2}
               placeholder="Type a one- or two-line answer..."
               className="w-full resize-y rounded-2xl border border-slate-200 bg-white p-4 text-sm leading-relaxed text-slate-800 shadow-2xs outline-none transition focus:border-indigo-400 focus:ring-4 focus:ring-indigo-100"
             />
             <p className="px-1 text-[11px] text-slate-400">
               This is a free-text cloze question. No options are provided.
+              Answer is saved when switching questions.
             </p>
           </div>
         )}

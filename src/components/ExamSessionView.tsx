@@ -643,6 +643,19 @@ export function ExamSessionView({
     }
   };
 
+  const isClozeQuestion = useCallback(
+    (questionNo: number | null) => {
+      if (questionNo === null) return false;
+      const question = effectivePaper.parsedQuestions?.find(
+        (parsedQuestion) => parsedQuestion.questionNo === questionNo,
+      );
+      return Boolean(
+        question && Object.keys(question.options || {}).length === 0,
+      );
+    },
+    [effectivePaper.parsedQuestions],
+  );
+
   // Answer handler for Markdown cloze/free-text questions.
   const handleUpdateAnswer = (qNo: number, answer: string) => {
     markUserInteraction();
@@ -656,6 +669,12 @@ export function ExamSessionView({
       };
       const prevSelected = current.selected;
       const newSelected = answer.trim() ? answer : null;
+
+      // If unchanged, do not mutate state
+      if (prevSelected === newSelected) {
+        return prev;
+      }
+
       const rawCorrect = getCorrectAnswerForQ(qNo);
       const correct = rawCorrect ? rawCorrect.toUpperCase().trim() : undefined;
       const isCorrect =
@@ -667,9 +686,12 @@ export function ExamSessionView({
         ? [...current.answerHistory]
         : [];
 
-      if (mode === "mock" && newSelected && newSelected !== prevSelected) {
-        if (prevSelected) changesCount += 1;
-        answerHistory.push(newSelected);
+      // Only track alteration metrics for MCQs (never for cloze free-text)
+      if (!isClozeQuestion(qNo)) {
+        if (mode === "mock" && newSelected && newSelected !== prevSelected) {
+          if (prevSelected) changesCount += 1;
+          answerHistory.push(newSelected);
+        }
       }
 
       return {
@@ -1098,8 +1120,13 @@ export function ExamSessionView({
         }
       }
 
-      // Check alteration nuance in Mock mode
-      if (mode === "mock" && a.changesCount && a.changesCount > 0) {
+      // Check alteration nuance in Mock mode (exclude cloze free-text questions)
+      if (
+        mode === "mock" &&
+        !isClozeQuestion(i) &&
+        a.changesCount &&
+        a.changesCount > 0
+      ) {
         alteredCount++;
         const history = a.answerHistory || [];
         if (history.length >= 2 && correctAns) {
@@ -1212,15 +1239,6 @@ export function ExamSessionView({
           (question) => question.questionNo === currentQuestion,
         )
       : undefined;
-  function isClozeQuestion(questionNo: number | null) {
-    if (questionNo === null) return false;
-    const question = effectivePaper.parsedQuestions?.find(
-      (parsedQuestion) => parsedQuestion.questionNo === questionNo,
-    );
-    return Boolean(
-      question && Object.keys(question.options || {}).length === 0,
-    );
-  }
   const currentQuestionIsCloze = isClozeQuestion(currentQuestion);
   // A Markdown cloze question is objective, but has no option values. Keep
   // its free-text answer out of MCQ-only UI.

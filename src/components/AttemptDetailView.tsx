@@ -17,6 +17,7 @@ import {
 import { DetailedSolutionModal } from "./DetailedSolutionModal";
 import { PdfViewer } from "./PdfViewer";
 import { MarkdownPaperReviewViewer } from "./MarkdownPaperReviewViewer";
+import { MatchingItemsTable } from "./MatchingItemsTable";
 import { getCustomPapers } from "../lib/storage";
 import {
   parseQuestionnaireMarkdown,
@@ -51,10 +52,10 @@ import {
   Filter,
   Lightbulb,
   Columns,
+  Monitor,
   ExternalLink,
   Maximize2,
   Minimize2,
-  Monitor,
   Sparkles,
   ListChecks,
   BarChart3,
@@ -327,13 +328,12 @@ export function AttemptDetailView({
   const [showExportMenu, setShowExportMenu] = useState<boolean>(false);
   const [copiedToast, setCopiedToast] = useState<boolean>(false);
   const [isExportingPacket, setIsExportingPacket] = useState<boolean>(false);
-  const [showPaperSplit, setShowPaperSplit] = useState<boolean>(false);
+  const [showPaperSplit, setShowPaperSplit] = useState<boolean>(true);
   const [mobileViewTab, setMobileViewTab] = useState<
     "summary" | "questions" | "paper"
-  >("summary");
-  const [mobilePaperModalOpen, setMobilePaperModalOpen] =
-    useState<boolean>(false);
+  >("questions");
   const [pdfMode, setPdfMode] = useState<"native" | "canvas">("native");
+  const [paperModalOpen, setPaperModalOpen] = useState<boolean>(false);
 
   const [activeQuestionNo, setActiveQuestionNo] = useState<number>(1);
 
@@ -391,13 +391,6 @@ export function AttemptDetailView({
       false
     );
   }, [matchedPaper, attempt.paperId]);
-
-  // Automatically enable the side-by-side review on large screens.
-  useEffect(() => {
-    if (typeof window !== "undefined" && window.innerWidth >= 1280) {
-      setShowPaperSplit(true);
-    }
-  }, []);
 
   useEffect(() => {
     window.scrollTo({ top: 0, left: 0, behavior: "auto" });
@@ -804,8 +797,14 @@ export function AttemptDetailView({
   const avgTimeIncorrect = attempt.avgTimeIncorrect || 0;
 
   const alteredQuestions = useMemo(
-    () => questionList.filter((q) => q.changesCount && q.changesCount > 0),
-    [questionList],
+    () =>
+      questionList.filter(
+        (q) =>
+          !isClozeQuestion(q.questionNo) &&
+          q.changesCount &&
+          q.changesCount > 0,
+      ),
+    [questionList, isClozeQuestion],
   );
   const slowQuestions = useMemo(
     () => questionList.filter((q) => (q.timeSpentSeconds || 0) >= 90),
@@ -935,7 +934,10 @@ export function AttemptDetailView({
       }
       if (filterTab === "skipped") return !isQuestionAnswered(q);
       if (filterTab === "flagged") return q.flagged;
-      if (filterTab === "altered") return q.changesCount && q.changesCount > 0;
+      if (filterTab === "altered")
+        return (
+          !isClozeQuestion(q.questionNo) && q.changesCount && q.changesCount > 0
+        );
       if (filterTab === "slow") return (q.timeSpentSeconds || 0) >= 90;
       return true;
     });
@@ -956,85 +958,18 @@ export function AttemptDetailView({
   const jumpToQuestion = (qNo: number) => {
     setActiveQuestionNo(qNo);
     setExpandedQuestions((prev) => ({ ...prev, [qNo]: true }));
-    if (
-      isMarkdownPaper &&
-      !showPaperSplit &&
-      typeof window !== "undefined" &&
-      window.innerWidth >= 1280
-    ) {
-      setShowPaperSplit(true);
-    }
+    setMobileViewTab("questions");
     const isVisible = filteredQuestions.some((q) => q.questionNo === qNo);
     if (!isVisible) {
       setFilterTab("all");
     }
     setTimeout(() => {
-      const el = document.getElementById(`review-q-${qNo}`);
+      const el = document.getElementById(`table-q-${qNo}`);
       if (el) {
         el.scrollIntoView({ behavior: "smooth", block: "center" });
       }
     }, 60);
   };
-
-  const handleNextIncorrect = () => {
-    if (incorrectQuestionsList.length === 0) return;
-    const currentIdx = incorrectQuestionsList.findIndex(
-      (q) => q.questionNo === activeQuestionNo,
-    );
-    const nextIdx =
-      currentIdx === -1 || currentIdx >= incorrectQuestionsList.length - 1
-        ? 0
-        : currentIdx + 1;
-    jumpToQuestion(incorrectQuestionsList[nextIdx].questionNo);
-  };
-
-  const handlePrevIncorrect = () => {
-    if (incorrectQuestionsList.length === 0) return;
-    const currentIdx = incorrectQuestionsList.findIndex(
-      (q) => q.questionNo === activeQuestionNo,
-    );
-    const prevIdx =
-      currentIdx <= 0 ? incorrectQuestionsList.length - 1 : currentIdx - 1;
-    jumpToQuestion(incorrectQuestionsList[prevIdx].questionNo);
-  };
-
-  const handleNextAltered = () => {
-    if (alteredQuestions.length === 0) return;
-    const currentIdx = alteredQuestions.findIndex(
-      (q) => q.questionNo === activeQuestionNo,
-    );
-    const nextIdx =
-      currentIdx === -1 || currentIdx >= alteredQuestions.length - 1
-        ? 0
-        : currentIdx + 1;
-    jumpToQuestion(alteredQuestions[nextIdx].questionNo);
-  };
-
-  const handlePrevAltered = () => {
-    if (alteredQuestions.length === 0) return;
-    const currentIdx = alteredQuestions.findIndex(
-      (q) => q.questionNo === activeQuestionNo,
-    );
-    const prevIdx =
-      currentIdx <= 0 ? alteredQuestions.length - 1 : currentIdx - 1;
-    jumpToQuestion(alteredQuestions[prevIdx].questionNo);
-  };
-
-  const currentIncorrectPos = useMemo(() => {
-    if (!activeQuestionNo || incorrectQuestionsList.length === 0) return null;
-    const idx = incorrectQuestionsList.findIndex(
-      (q) => q.questionNo === activeQuestionNo,
-    );
-    return idx !== -1 ? idx + 1 : null;
-  }, [activeQuestionNo, incorrectQuestionsList]);
-
-  const currentAlteredPos = useMemo(() => {
-    if (!activeQuestionNo || alteredQuestions.length === 0) return null;
-    const idx = alteredQuestions.findIndex(
-      (q) => q.questionNo === activeQuestionNo,
-    );
-    return idx !== -1 ? idx + 1 : null;
-  }, [activeQuestionNo, alteredQuestions]);
 
   // Section 7: Practical Review Summary recommendations (Up to 3, strictly data-driven)
   const reviewSuggestions = useMemo(() => {
@@ -1340,7 +1275,11 @@ export function AttemptDetailView({
 
   return (
     <div
-      className={`mx-auto ${showPaperSplit && canPreviewPaper ? "max-w-[1920px] px-3 sm:px-6" : "max-w-5xl px-4 sm:px-6"} py-6 space-y-6 text-slate-800 font-sans print:text-black print:bg-white print:p-0 print:space-y-4 print:max-w-none`}
+      className={`mx-auto ${
+        showPaperSplit && canPreviewPaper
+          ? "max-w-[1920px] px-3 sm:px-6"
+          : "max-w-5xl px-4 sm:px-6"
+      } py-6 space-y-6 text-slate-800 font-sans print:text-black print:bg-white print:p-0 print:space-y-4 print:max-w-none`}
     >
       {/* =========================================================================
           PRINT & EXPORT PDF REPORT (CLEAN, UNCLUTTERED EXECUTIVE FORMAT)
@@ -1737,7 +1676,7 @@ export function AttemptDetailView({
               onClick={() => {
                 setShowPaperSplit(!showPaperSplit);
                 setMobileViewTab((prev) =>
-                  prev === "paper" ? "summary" : "paper",
+                  prev === "paper" ? "questions" : "paper",
                 );
               }}
               className={`flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-xs font-medium transition-colors cursor-pointer ${
@@ -1747,7 +1686,7 @@ export function AttemptDetailView({
               }`}
               title={
                 isMarkdownPaper
-                  ? "Toggle Interactive Markdown Question Paper review"
+                  ? "Toggle Interactive Question Paper review"
                   : "Toggle Question Paper PDF preview"
               }
             >
@@ -1942,7 +1881,7 @@ export function AttemptDetailView({
 
       {/* Mobile Segmented Navigation Bar (Only on screens < xl) */}
       <div className="xl:hidden sticky top-14 sm:top-16 z-30 -mx-4 px-4 py-2 bg-slate-100/95 backdrop-blur-md border-b border-slate-200">
-        <div className="flex rounded-xl bg-slate-200/80 p-1 max-w-md mx-auto shadow-inner">
+        <div className="flex rounded-xl bg-slate-200/80 p-1 max-w-md mx-auto shadow-inner xl:hidden">
           <button
             type="button"
             onClick={() => setMobileViewTab("summary")}
@@ -1984,11 +1923,13 @@ export function AttemptDetailView({
         </div>
       </div>
 
-      {/* Main Content Area: Split View Container */}
+      {/* Main Content Area: Side-by-Side Split View Container */}
       <div
-        className={`screen-only flex flex-col ${showPaperSplit && canPreviewPaper ? "xl:flex-row" : ""} gap-6 items-start`}
+        className={`screen-only flex flex-col ${
+          showPaperSplit && canPreviewPaper ? "xl:flex-row" : ""
+        } gap-6 items-start`}
       >
-        {/* Question Paper Viewer (Desktop Side-by-Side OR Mobile Paper Tab) */}
+        {/* Left Side: Question Paper Viewer (Desktop Side-by-Side OR Mobile Paper Tab) */}
         {canPreviewPaper && (
           <div
             className={`${mobileViewTab === "paper" ? "flex" : "hidden"} ${
@@ -2024,10 +1965,10 @@ export function AttemptDetailView({
                 }
                 header={markdownHeader}
                 activeQuestionNo={activeQuestionNo}
-                onSelectQuestion={setActiveQuestionNo}
+                onSelectQuestion={(qNo) => jumpToQuestion(qNo)}
                 onClose={() => {
                   setShowPaperSplit(false);
-                  setMobileViewTab("summary");
+                  setMobileViewTab("questions");
                 }}
               />
             ) : (
@@ -2043,7 +1984,6 @@ export function AttemptDetailView({
                     </span>
                   </div>
                   <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
-                    {/* Toggle Canvas / Native inside the single header */}
                     <button
                       type="button"
                       onClick={() =>
@@ -2077,7 +2017,7 @@ export function AttemptDetailView({
                     <button
                       onClick={() => {
                         setShowPaperSplit(false);
-                        setMobileViewTab("summary");
+                        setMobileViewTab("questions");
                       }}
                       className="text-xs font-medium text-slate-500 hover:text-slate-900 px-2 py-1 rounded-lg hover:bg-slate-50 transition-colors cursor-pointer"
                       title="Hide question paper preview"
@@ -2894,77 +2834,6 @@ export function AttemptDetailView({
               </div>
             </div>
 
-            {/* Rapid Review Navigator Bar */}
-            {(incorrectQuestionsList.length > 0 ||
-              alteredQuestions.length > 0) && (
-              <div className="flex flex-wrap items-center justify-between gap-2.5 p-2.5 bg-slate-50/90 rounded-xl border border-slate-200">
-                <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider flex items-center gap-1.5">
-                  <Zap className="h-3.5 w-3.5 text-indigo-600" />
-                  Rapid Mistake & Revision Navigation
-                </span>
-
-                <div className="flex items-center gap-2 flex-wrap">
-                  {/* Next / Prev Incorrect */}
-                  {incorrectQuestionsList.length > 0 && (
-                    <div className="inline-flex items-center rounded-lg border border-rose-200 bg-rose-50/70 p-0.5 text-xs shadow-2xs">
-                      <button
-                        type="button"
-                        onClick={handlePrevIncorrect}
-                        title="Jump to previous incorrect question"
-                        className="px-2 py-1 rounded-md text-rose-700 hover:bg-rose-100 font-bold transition-colors flex items-center gap-1 cursor-pointer"
-                      >
-                        <ChevronLeft className="h-3.5 w-3.5" />
-                        <span className="hidden sm:inline">Prev</span>
-                      </button>
-                      <span className="px-2 text-[11px] font-mono font-bold text-rose-900 border-x border-rose-200">
-                        {currentIncorrectPos !== null
-                          ? `Mistake ${currentIncorrectPos}/${incorrectQuestionsList.length}`
-                          : `Mistakes (${incorrectQuestionsList.length})`}
-                      </span>
-                      <button
-                        type="button"
-                        onClick={handleNextIncorrect}
-                        title="Jump to next incorrect question"
-                        className="px-2 py-1 rounded-md text-rose-700 hover:bg-rose-100 font-bold transition-colors flex items-center gap-1 cursor-pointer"
-                      >
-                        <span className="hidden sm:inline">Next</span>
-                        <ChevronRight className="h-3.5 w-3.5" />
-                      </button>
-                    </div>
-                  )}
-
-                  {/* Next / Prev Altered */}
-                  {alteredQuestions.length > 0 && (
-                    <div className="inline-flex items-center rounded-lg border border-indigo-200 bg-indigo-50/70 p-0.5 text-xs shadow-2xs">
-                      <button
-                        type="button"
-                        onClick={handlePrevAltered}
-                        title="Jump to previous changed answer"
-                        className="px-2 py-1 rounded-md text-indigo-700 hover:bg-indigo-100 font-bold transition-colors flex items-center gap-1 cursor-pointer"
-                      >
-                        <ChevronLeft className="h-3.5 w-3.5" />
-                        <span className="hidden sm:inline">Prev</span>
-                      </button>
-                      <span className="px-2 text-[11px] font-mono font-bold text-indigo-900 border-x border-indigo-200">
-                        {currentAlteredPos !== null
-                          ? `Altered ${currentAlteredPos}/${alteredQuestions.length}`
-                          : `Altered (${alteredQuestions.length})`}
-                      </span>
-                      <button
-                        type="button"
-                        onClick={handleNextAltered}
-                        title="Jump to next changed answer"
-                        className="px-2 py-1 rounded-md text-indigo-700 hover:bg-indigo-100 font-bold transition-colors flex items-center gap-1 cursor-pointer"
-                      >
-                        <span className="hidden sm:inline">Next</span>
-                        <ChevronRight className="h-3.5 w-3.5" />
-                      </button>
-                    </div>
-                  )}
-                </div>
-              </div>
-            )}
-
             {/* Consolidated Filter Bar (Outcomes, Confidence Scores & Nuance) */}
             <div className="w-full overflow-x-auto pb-0.5 no-scrollbar">
               <div className="flex items-center gap-1.5 min-w-max p-1 bg-slate-100/80 rounded-lg border border-slate-200 text-xs">
@@ -3167,14 +3036,6 @@ export function AttemptDetailView({
                             onClick={() => {
                               setActiveQuestionNo(q.questionNo);
                               toggleQuestionExpand(q.questionNo);
-                              if (
-                                isMarkdownPaper &&
-                                !showPaperSplit &&
-                                typeof window !== "undefined" &&
-                                window.innerWidth >= 1280
-                              ) {
-                                setShowPaperSplit(true);
-                              }
                             }}
                             className={`cursor-pointer transition-colors ${
                               isExpanded
@@ -3669,6 +3530,78 @@ export function AttemptDetailView({
                                 ) : (
                                   /* MCQ Expanded Row */
                                   <div className="space-y-3.5">
+                                    {/* Question Text & Options (Inline in Table when Expanded) */}
+                                    {parsedQ && (
+                                      <div className="space-y-3 bg-white p-4 rounded-xl border border-slate-200 shadow-2xs">
+                                        <p className="text-sm font-semibold text-slate-900 leading-relaxed whitespace-pre-wrap">
+                                          {parsedQ.text}
+                                        </p>
+                                        {parsedQ.matchingItems && (
+                                          <MatchingItemsTable
+                                            items={parsedQ.matchingItems}
+                                            headers={parsedQ.matchingHeaders}
+                                          />
+                                        )}
+                                        {parsedQ.options &&
+                                          Object.keys(parsedQ.options).length >
+                                            0 && (
+                                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-1">
+                                              {Object.entries(
+                                                parsedQ.options,
+                                              ).map(([optKey, optText]) => {
+                                                const normKey =
+                                                  optKey.toUpperCase();
+                                                const isPicked =
+                                                  q.selected?.toUpperCase() ===
+                                                  normKey;
+                                                const isThisCorrect =
+                                                  (
+                                                    expectedAnswer ||
+                                                    q.correctAnswer
+                                                  )?.toUpperCase() === normKey;
+                                                let cardStyle =
+                                                  "border-slate-200 bg-slate-50 text-slate-800";
+                                                if (isThisCorrect) {
+                                                  cardStyle =
+                                                    "border-emerald-500 bg-emerald-50 text-emerald-950 ring-1 ring-emerald-500/30 font-medium";
+                                                } else if (
+                                                  isPicked &&
+                                                  !isThisCorrect
+                                                ) {
+                                                  cardStyle =
+                                                    "border-rose-500 bg-rose-50 text-rose-950 ring-1 ring-rose-500/30";
+                                                }
+
+                                                return (
+                                                  <div
+                                                    key={optKey}
+                                                    className={`p-2.5 rounded-lg border text-xs flex items-start gap-2 ${cardStyle}`}
+                                                  >
+                                                    <span className="font-bold font-mono px-1.5 py-0.5 rounded bg-white border border-slate-200 text-[11px] shrink-0">
+                                                      {normKey}
+                                                    </span>
+                                                    <span className="leading-snug pt-0.5 flex-1">
+                                                      {optText}
+                                                    </span>
+                                                    {isThisCorrect && (
+                                                      <span className="text-[10px] font-bold text-emerald-700 bg-emerald-100 px-1.5 py-0.5 rounded shrink-0">
+                                                        Correct
+                                                      </span>
+                                                    )}
+                                                    {isPicked &&
+                                                      !isThisCorrect && (
+                                                        <span className="text-[10px] font-bold text-rose-700 bg-rose-100 px-1.5 py-0.5 rounded shrink-0">
+                                                          Picked
+                                                        </span>
+                                                      )}
+                                                  </div>
+                                                );
+                                              })}
+                                            </div>
+                                          )}
+                                      </div>
+                                    )}
+
                                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
                                       <div className="space-y-1 bg-white p-3 rounded-xl border border-slate-200 shadow-2xs">
                                         <span className="text-[10px] uppercase font-bold text-slate-500 tracking-wider">
@@ -3685,8 +3618,9 @@ export function AttemptDetailView({
                                             <span className="text-rose-700 font-semibold">
                                               -{incorrectMarksPerQ} marks
                                               deducted for incorrect answer
-                                              (marked &quot;{q.selected}&quot;,
-                                              official is &quot;
+                                              (marked &quot;
+                                              {q.selected}&quot;, official is
+                                              &quot;
                                               {q.correctAnswer}&quot;).
                                             </span>
                                           )}
@@ -3840,10 +3774,10 @@ export function AttemptDetailView({
         </div>
       </div>
 
-      {/* Mobile Question Paper Modal */}
+      {/* Question Paper Modal for PDF papers */}
       <DetailedSolutionModal
-        isOpen={mobilePaperModalOpen}
-        onClose={() => setMobilePaperModalOpen(false)}
+        isOpen={paperModalOpen}
+        onClose={() => setPaperModalOpen(false)}
         pdfUrl={matchedPaper?.qpUrl}
         paperTitle={`${displayPaperTitle} - Question Paper`}
       />
