@@ -247,6 +247,59 @@ export function ExamSessionView({
     setIsPaused(paused);
   };
 
+  // Mobile Touch Swipe Navigation (Swipe left -> Next, Swipe right -> Prev)
+  const touchStartRef = useRef<{ x: number; y: number; time: number } | null>(
+    null,
+  );
+
+  const handleTouchStart = (e: React.TouchEvent) => {
+    const target = e.target as HTMLElement | null;
+    if (
+      target &&
+      (target.tagName === "INPUT" ||
+        target.tagName === "TEXTAREA" ||
+        target.isContentEditable)
+    ) {
+      return;
+    }
+    const touch = e.touches[0];
+    touchStartRef.current = {
+      x: touch.clientX,
+      y: touch.clientY,
+      time: Date.now(),
+    };
+  };
+
+  const handleTouchEnd = (e: React.TouchEvent) => {
+    if (!touchStartRef.current) return;
+    const touch = e.changedTouches[0];
+    const deltaX = touch.clientX - touchStartRef.current.x;
+    const deltaY = touch.clientY - touchStartRef.current.y;
+    const deltaTime = Date.now() - touchStartRef.current.time;
+    touchStartRef.current = null;
+
+    // Swift swipe (<650ms), significant horizontal displacement (>45px), dominating vertical scroll (>1.3x)
+    if (
+      deltaTime < 650 &&
+      Math.abs(deltaX) > 45 &&
+      Math.abs(deltaX) > Math.abs(deltaY) * 1.3
+    ) {
+      if (deltaX < 0) {
+        // Swipe Left: Next question
+        if (currentQuestion === null) {
+          navigateToQuestion(1);
+        } else if (currentQuestion < paper.totalQuestions) {
+          navigateToQuestion(currentQuestion + 1);
+        }
+      } else {
+        // Swipe Right: Previous question
+        if (currentQuestion !== null && currentQuestion > 1) {
+          navigateToQuestion(currentQuestion - 1);
+        }
+      }
+    }
+  };
+
   useEffect(() => {
     const handleSettingsChange = () => {
       try {
@@ -1473,6 +1526,8 @@ export function ExamSessionView({
       {/* Main Layout */}
       <div
         className={`exam-session-main ${mobileTab === "split" ? "is-split" : ""}`}
+        onTouchStart={handleTouchStart}
+        onTouchEnd={handleTouchEnd}
       >
         {/* Left Side: Interactive Markdown Question or PDF Viewer */}
         <div
