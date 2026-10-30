@@ -21,6 +21,7 @@ import {
   AlertTriangle,
   Bookmark,
   ArrowRight,
+  Eye,
 } from "lucide-react";
 
 interface QuestionInspectorProps {
@@ -41,6 +42,9 @@ interface QuestionInspectorProps {
   onNavigateNext: () => void;
   onJumpToNextMistake?: () => void;
   hasNextMistake?: boolean;
+  canPreviewPaper?: boolean;
+  showPaperSplit?: boolean;
+  onTogglePaperSplit?: () => void;
 }
 
 export function QuestionInspector({
@@ -57,6 +61,9 @@ export function QuestionInspector({
   onNavigateNext,
   onJumpToNextMistake,
   hasNextMistake,
+  canPreviewPaper,
+  showPaperSplit,
+  onTogglePaperSplit,
 }: QuestionInspectorProps) {
   const [isEditingNote, setIsEditingNote] = useState(false);
   const [noteText, setNoteText] = useState(question.note || "");
@@ -71,16 +78,16 @@ export function QuestionInspector({
 
   const isCorrect = isEvaluable
     ? subjectiveAssessment === "strong"
-    : question.selected && question.isCorrect === true;
+    : Boolean(question.selected && question.isCorrect === true);
   const isWrong = isEvaluable
     ? subjectiveAssessment === "needs-work"
-    : question.selected && question.isCorrect === false;
+    : Boolean(question.selected && question.isCorrect === false);
   const isPartial = isEvaluable && subjectiveAssessment === "partial";
   const isSkipped = !isAnswered && !subjectiveAssessment;
   const isSlow = (question.timeSpentSeconds || 0) >= 90;
 
   const fullMarks = getFullMarks(qNo);
-  const expectedAnswer = parsedQuestion?.answer || question.correctAnswer;
+  const expectedAnswer = (parsedQuestion?.answer || question.correctAnswer || "").trim().toUpperCase();
   const officialExplanation = parsedQuestion?.explanation || question.explanation;
 
   const handleSaveNote = () => {
@@ -93,8 +100,12 @@ export function QuestionInspector({
     setIsEditingNote(false);
   };
 
+  const hasParsedOptions = Boolean(
+    parsedQuestion?.options && Object.keys(parsedQuestion.options).length > 0,
+  );
+
   return (
-    <div className="rounded-2xl border border-slate-200/90 bg-white shadow-xs overflow-hidden flex flex-col justify-between min-h-[640px]">
+    <div className="rounded-2xl border border-slate-200/90 bg-white shadow-xs overflow-hidden flex flex-col justify-between min-h-[580px]">
       {/* 1. Header Bar: Q.No, Outcome, Marks, Time, Confidence */}
       <div className="border-b border-slate-200/90 bg-slate-50/70 p-4 sm:p-5 flex flex-wrap items-center justify-between gap-3">
         {/* Left: Question No & Badges */}
@@ -174,14 +185,14 @@ export function QuestionInspector({
 
       {/* 2. Main Question Statement & Options Area */}
       <div className="p-4 sm:p-6 space-y-5 overflow-y-auto max-h-[calc(100vh-22rem)]">
-        {/* Altered Response Nuance Alert Banner (Mock Mode) */}
-        {!isCloze && question.changesCount && question.changesCount > 0 && (
+        {/* Altered Response Nuance Alert Banner (Mock Mode) - Fixed Boolean guard against 0 */}
+        {!isCloze && Boolean(question.changesCount && question.changesCount > 0) && (
           <div className="rounded-xl border border-indigo-200 bg-indigo-50/60 p-3 text-xs text-indigo-950 flex items-center justify-between gap-2 shadow-2xs">
             <div className="flex items-center gap-2">
               <RotateCcw className="h-4 w-4 text-indigo-600 shrink-0" />
               <span>
                 <strong>Response altered during test:</strong> Candidate changed their selection {question.changesCount} time(s).
-                {question.answerHistory && question.answerHistory.length > 0 && (
+                {Boolean(question.answerHistory && question.answerHistory.length > 0) && (
                   <span className="ml-1 font-mono">
                     ({question.answerHistory.join(" → ")} → {question.selected})
                   </span>
@@ -207,21 +218,36 @@ export function QuestionInspector({
               {parsedQuestion.text}
             </div>
           ) : (
-            <div className="rounded-xl border border-slate-200 bg-slate-50 p-4 text-xs text-slate-500 italic">
-              Question statement text is available in the original Question Paper panel.
+            <div className="rounded-xl border border-indigo-100 bg-indigo-50/40 p-4 text-xs text-slate-600 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2.5">
+              <div className="flex items-center gap-2">
+                <FileText className="h-4 w-4 text-indigo-600 shrink-0" />
+                <span>
+                  Question {qNo} statement text is in the original Question Paper PDF.
+                </span>
+              </div>
+              {canPreviewPaper && onTogglePaperSplit && !showPaperSplit && (
+                <button
+                  type="button"
+                  onClick={onTogglePaperSplit}
+                  className="inline-flex items-center gap-1.5 px-3 py-1 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white font-semibold text-xs transition-colors shrink-0 cursor-pointer shadow-2xs"
+                >
+                  <Eye className="h-3.5 w-3.5" />
+                  <span>View Paper PDF</span>
+                </button>
+              )}
             </div>
           )}
 
           {/* Matching Items Table (if present) */}
-          {parsedQuestion?.matchingItems && parsedQuestion.matchingItems.length > 0 && (
+          {Boolean(parsedQuestion?.matchingItems && parsedQuestion.matchingItems.length > 0) && (
             <MatchingItemsTable
-              items={parsedQuestion.matchingItems}
-              headers={parsedQuestion.matchingHeaders}
+              items={parsedQuestion!.matchingItems!}
+              headers={parsedQuestion?.matchingHeaders}
             />
           )}
         </div>
 
-        {/* 3. Options List (For MCQ) OR Cloze Comparison */}
+        {/* 3. Options List (For MCQ) OR Cloze Comparison OR PDF Paper Answer Comparison */}
         {isCloze ? (
           /* Cloze Response Evaluation Box */
           <div className="rounded-2xl border border-slate-200 bg-slate-50/60 p-4 sm:p-5 space-y-4">
@@ -270,78 +296,181 @@ export function QuestionInspector({
               }
             />
           </div>
-        ) : (
-          /* MCQ Option Cards */
-          parsedQuestion?.options && Object.keys(parsedQuestion.options).length > 0 && (
-            <div className="space-y-2.5 pt-1">
-              <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block px-1">
-                Options Comparison
-              </span>
+        ) : hasParsedOptions ? (
+          /* MCQ Option Cards with full text */
+          <div className="space-y-2.5 pt-1">
+            <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block px-1">
+              Options Comparison
+            </span>
 
-              <div className="grid grid-cols-1 gap-2.5">
-                {["A", "B", "C", "D"].map((optKey) => {
-                  const optText = parsedQuestion.options[optKey];
-                  if (!optText) return null;
+            <div className="grid grid-cols-1 gap-2.5">
+              {["A", "B", "C", "D"].map((optKey) => {
+                const optText = parsedQuestion!.options[optKey];
+                if (!optText) return null;
 
-                  const isCandidateChoice = question.selected === optKey;
-                  const isOfficialCorrect = expectedAnswer?.toUpperCase().trim() === optKey;
+                const isCandidateChoice = question.selected?.toUpperCase().trim() === optKey;
+                const isOfficialCorrect = expectedAnswer === optKey;
 
-                  let cardStyle =
-                    "border-slate-200 bg-white text-slate-800 hover:border-slate-300";
-                  let badgeStyle = "bg-slate-100 text-slate-700 border-slate-200";
+                let cardStyle =
+                  "border-slate-200 bg-white text-slate-800 hover:border-slate-300";
+                let badgeStyle = "bg-slate-100 text-slate-700 border-slate-200";
 
-                  if (isOfficialCorrect) {
-                    cardStyle =
-                      "border-emerald-500 bg-emerald-50/90 text-emerald-950 ring-2 ring-emerald-500/20 shadow-xs";
-                    badgeStyle = "bg-emerald-600 text-white border-emerald-700";
-                  } else if (isCandidateChoice && !isOfficialCorrect) {
-                    cardStyle =
-                      "border-rose-500 bg-rose-50/90 text-rose-950 ring-2 ring-rose-500/20 shadow-xs";
-                    badgeStyle = "bg-rose-600 text-white border-rose-700";
-                  } else {
-                    cardStyle = "border-slate-200 bg-white text-slate-700";
-                    badgeStyle = "bg-slate-100 text-slate-500 border-slate-200";
-                  }
+                if (isOfficialCorrect) {
+                  cardStyle =
+                    "border-emerald-500 bg-emerald-50/90 text-emerald-950 ring-2 ring-emerald-500/20 shadow-xs";
+                  badgeStyle = "bg-emerald-600 text-white border-emerald-700";
+                } else if (isCandidateChoice && !isOfficialCorrect) {
+                  cardStyle =
+                    "border-rose-500 bg-rose-50/90 text-rose-950 ring-2 ring-rose-500/20 shadow-xs";
+                  badgeStyle = "bg-rose-600 text-white border-rose-700";
+                } else {
+                  cardStyle = "border-slate-200 bg-white text-slate-700";
+                  badgeStyle = "bg-slate-100 text-slate-500 border-slate-200";
+                }
 
-                  return (
-                    <div
-                      key={optKey}
-                      className={`w-full rounded-xl border p-3.5 text-left flex items-start gap-3 transition-all ${cardStyle}`}
+                return (
+                  <div
+                    key={optKey}
+                    className={`w-full rounded-xl border p-3.5 text-left flex items-start gap-3 transition-all ${cardStyle}`}
+                  >
+                    <span
+                      className={`inline-flex items-center justify-center h-6 w-6 rounded-lg font-black text-xs shrink-0 border transition-all mt-0.5 ${badgeStyle}`}
                     >
-                      <span
-                        className={`inline-flex items-center justify-center h-6 w-6 rounded-lg font-black text-xs shrink-0 border transition-all mt-0.5 ${badgeStyle}`}
-                      >
-                        {optKey}
-                      </span>
-                      <div className="flex-1 text-xs sm:text-sm leading-relaxed self-center font-normal">
-                        {optText}
-                      </div>
-
-                      {/* Status Tags */}
-                      {isCandidateChoice && isOfficialCorrect && (
-                        <span className="shrink-0 inline-flex items-center gap-1 text-[11px] font-bold text-emerald-800 bg-emerald-100 px-2 py-0.5 rounded-md border border-emerald-300">
-                          <CheckCircle2 className="h-3.5 w-3.5 text-emerald-600" />
-                          <span>Your answer (Correct)</span>
-                        </span>
-                      )}
-                      {isCandidateChoice && !isOfficialCorrect && (
-                        <span className="shrink-0 inline-flex items-center gap-1 text-[11px] font-bold text-rose-800 bg-rose-100 px-2 py-0.5 rounded-md border border-rose-300">
-                          <XCircle className="h-3.5 w-3.5 text-rose-600" />
-                          <span>Your answer</span>
-                        </span>
-                      )}
-                      {!isCandidateChoice && isOfficialCorrect && (
-                        <span className="shrink-0 inline-flex items-center gap-1 text-[11px] font-bold text-emerald-800 bg-emerald-100 px-2 py-0.5 rounded-md border border-emerald-300">
-                          <CheckCircle2 className="h-3.5 w-3.5 text-emerald-600" />
-                          <span>Correct answer</span>
-                        </span>
-                      )}
+                      {optKey}
+                    </span>
+                    <div className="flex-1 text-xs sm:text-sm leading-relaxed self-center font-normal">
+                      {optText}
                     </div>
-                  );
-                })}
+
+                    {/* Status Tags */}
+                    {isCandidateChoice && isOfficialCorrect && (
+                      <span className="shrink-0 inline-flex items-center gap-1 text-[11px] font-bold text-emerald-800 bg-emerald-100 px-2 py-0.5 rounded-md border border-emerald-300">
+                        <CheckCircle2 className="h-3.5 w-3.5 text-emerald-600" />
+                        <span>Your answer (Correct)</span>
+                      </span>
+                    )}
+                    {isCandidateChoice && !isOfficialCorrect && (
+                      <span className="shrink-0 inline-flex items-center gap-1 text-[11px] font-bold text-rose-800 bg-rose-100 px-2 py-0.5 rounded-md border border-rose-300">
+                        <XCircle className="h-3.5 w-3.5 text-rose-600" />
+                        <span>Your answer</span>
+                      </span>
+                    )}
+                    {!isCandidateChoice && isOfficialCorrect && (
+                      <span className="shrink-0 inline-flex items-center gap-1 text-[11px] font-bold text-emerald-800 bg-emerald-100 px-2 py-0.5 rounded-md border border-emerald-300">
+                        <CheckCircle2 className="h-3.5 w-3.5 text-emerald-600" />
+                        <span>Correct answer</span>
+                      </span>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        ) : (
+          /* PDF Papers / Questions without Parsed Markdown Options - Complete Answer & Option Badges */
+          <div className="space-y-3.5 pt-1">
+            <div className="flex items-center justify-between">
+              <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block px-1">
+                Answer Options & Key Comparison
+              </span>
+              <div className="text-xs font-semibold">
+                {isCorrect ? (
+                  <span className="text-emerald-700 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-md">
+                    +{fullMarks.toFixed(2)} pts awarded
+                  </span>
+                ) : isWrong ? (
+                  <span className="text-rose-700 bg-rose-50 border border-rose-200 px-2 py-0.5 rounded-md">
+                    -{incorrectMarksPerQ.toFixed(2)} penalty
+                  </span>
+                ) : (
+                  <span className="text-slate-500 bg-slate-100 px-2 py-0.5 rounded-md">
+                    0 pts (Skipped)
+                  </span>
+                )}
               </div>
             </div>
-          )
+
+            {/* 4 Option Badges Comparison Grid */}
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
+              {["A", "B", "C", "D"].map((optKey) => {
+                const isCandidateChoice = question.selected?.toUpperCase().trim() === optKey;
+                const isOfficialCorrect = expectedAnswer === optKey;
+
+                let cardStyle = "border-slate-200 bg-white text-slate-700 hover:bg-slate-50";
+                let badgeStyle = "bg-slate-100 text-slate-700 border-slate-200";
+                let label: string | null = null;
+
+                if (isOfficialCorrect) {
+                  cardStyle =
+                    "border-emerald-500 bg-emerald-50/90 text-emerald-950 ring-2 ring-emerald-500/20 font-bold shadow-xs";
+                  badgeStyle = "bg-emerald-600 text-white border-emerald-700";
+                  label = isCandidateChoice ? "Your choice (Correct)" : "Correct Key";
+                } else if (isCandidateChoice && !isOfficialCorrect) {
+                  cardStyle =
+                    "border-rose-500 bg-rose-50/90 text-rose-950 ring-2 ring-rose-500/20 font-bold shadow-xs";
+                  badgeStyle = "bg-rose-600 text-white border-rose-700";
+                  label = "Your choice";
+                }
+
+                return (
+                  <div
+                    key={optKey}
+                    className={`rounded-xl border p-3 flex flex-col items-center justify-center text-center gap-1.5 transition-all ${cardStyle}`}
+                  >
+                    <span
+                      className={`inline-flex items-center justify-center h-8 w-8 rounded-xl font-mono font-black text-sm border shadow-2xs ${badgeStyle}`}
+                    >
+                      {optKey}
+                    </span>
+                    {label ? (
+                      <span
+                        className={`text-[10px] font-bold px-2 py-0.5 rounded-md ${
+                          isOfficialCorrect
+                            ? "bg-emerald-100 text-emerald-800 border border-emerald-200"
+                            : "bg-rose-100 text-rose-800 border border-rose-200"
+                        }`}
+                      >
+                        {label}
+                      </span>
+                    ) : (
+                      <span className="text-[11px] text-slate-400 font-medium">
+                        Option {optKey}
+                      </span>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+
+            {/* Status Summary Banner */}
+            <div className="rounded-xl border border-slate-200 bg-slate-50/80 p-3 flex flex-wrap items-center justify-between gap-2 text-xs">
+              <div className="flex items-center gap-2">
+                <span className="text-slate-500 text-[11px] font-medium">
+                  Your Marked Response:
+                </span>
+                <span
+                  className={`font-mono font-bold px-2 py-0.5 rounded-md text-xs ${
+                    isCorrect
+                      ? "bg-emerald-100 text-emerald-800 border border-emerald-200"
+                      : isWrong
+                        ? "bg-rose-100 text-rose-800 border border-rose-200"
+                        : "bg-slate-200 text-slate-600"
+                  }`}
+                >
+                  {question.selected ? `Option ${question.selected.toUpperCase()}` : "Unattempted"}
+                </span>
+              </div>
+
+              <div className="flex items-center gap-2">
+                <span className="text-slate-500 text-[11px] font-medium">
+                  Official Solution Key:
+                </span>
+                <span className="font-mono font-bold px-2 py-0.5 rounded-md text-xs bg-emerald-100 text-emerald-800 border border-emerald-200">
+                  Option {expectedAnswer || "No key provided"}
+                </span>
+              </div>
+            </div>
+          </div>
         )}
 
         {/* 4. Student Scratchpad Note (Hero Position) */}
@@ -468,4 +597,5 @@ export function QuestionInspector({
     </div>
   );
 }
+
 
