@@ -14,6 +14,32 @@ export type FilterTabType =
   | "guess"
   | "non-mcq";
 
+export interface ReviewFilterState {
+  outcome?: "incorrect" | "correct" | "skipped" | null;
+  confidence?: "sure" | "50-50" | "guess" | "elimination" | null;
+  flagged?: boolean;
+  slow?: boolean;
+  altered?: boolean;
+}
+
+export const EMPTY_FILTER_STATE: ReviewFilterState = {
+  outcome: null,
+  confidence: null,
+  flagged: false,
+  slow: false,
+  altered: false,
+};
+
+export function isFilterActive(filters: ReviewFilterState): boolean {
+  return Boolean(
+    filters.outcome ||
+      filters.confidence ||
+      filters.flagged ||
+      filters.slow ||
+      filters.altered,
+  );
+}
+
 export type SortOptionType =
   | "qno_asc"
   | "qno_desc"
@@ -40,6 +66,7 @@ export interface TakeawayItem {
   badgeStyle: string;
   iconType: "negative" | "confidence" | "pacing";
   actionTab: FilterTabType;
+  actionFilter?: ReviewFilterState;
   actionText: string;
 }
 

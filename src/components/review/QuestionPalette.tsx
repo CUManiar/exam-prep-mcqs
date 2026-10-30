@@ -27,6 +27,7 @@ interface QuestionPaletteProps {
   incorrectMarksPerQ?: number;
   getFullMarks?: (qNo: number) => number;
   filteredQuestionNos?: Set<number>;
+  hasActiveFilters?: boolean;
   filterTab?: string;
 }
 
@@ -43,6 +44,7 @@ export function QuestionPalette({
   incorrectMarksPerQ = 0.667,
   getFullMarks,
   filteredQuestionNos,
+  hasActiveFilters,
   filterTab,
 }: QuestionPaletteProps) {
   // Collapsed by default until expanded by click
@@ -112,7 +114,7 @@ export function QuestionPalette({
           <span className="font-bold text-slate-700 uppercase tracking-wider text-[11px]">
             Question Palette ({questions.length})
           </span>
-          {filterTab && filterTab !== "all" && filteredQuestionNos && (
+          {(hasActiveFilters || (filterTab && filterTab !== "all")) && filteredQuestionNos && (
             <span className="text-[10px] font-semibold text-indigo-700 bg-indigo-50 border border-indigo-200 px-1.5 py-0.5 rounded-md">
               {filteredQuestionNos.size} match
             </span>
@@ -140,7 +142,9 @@ export function QuestionPalette({
           const isSelected = q.questionNo === activeQuestionNo;
           const isCurrentExpanded = q.questionNo === expandedQNo;
           const isFilteredOut =
-            filterTab && filterTab !== "all" && filteredQuestionNos && !filteredQuestionNos.has(q.questionNo);
+            (hasActiveFilters || (filterTab && filterTab !== "all")) &&
+            filteredQuestionNos &&
+            !filteredQuestionNos.has(q.questionNo);
           const qIsEvaluable = isAssessmentQuestion(q.questionNo);
           const isCorrect = qIsEvaluable
             ? q.subjectiveAssessment === "strong"

@@ -3,7 +3,7 @@
 import React, { useState } from "react";
 import { Attempt } from "../../lib/types";
 import { formatTimeSeconds } from "../../lib/defaults";
-import { CutoffVerdict, TakeawayItem, FilterTabType } from "./reviewTypes";
+import { CutoffVerdict, TakeawayItem, FilterTabType, ReviewFilterState, EMPTY_FILTER_STATE } from "./reviewTypes";
 import {
   Award,
   ChevronDown,
@@ -26,7 +26,7 @@ interface ReviewScoreHeroProps {
   avgTimePerQ: number;
   cutoffVerdict: CutoffVerdict;
   topTakeaways: TakeawayItem[];
-  onSelectFilter: (tab: FilterTabType) => void;
+  onSelectFilter: (tab: FilterTabType, filterState?: ReviewFilterState) => void;
   formatReviewNumber: (val: number) => string;
 }
 
@@ -101,7 +101,7 @@ export function ReviewScoreHero({
             <div className="flex items-center gap-2 flex-wrap">
               <button
                 type="button"
-                onClick={() => onSelectFilter("all")}
+                onClick={() => onSelectFilter("all", EMPTY_FILTER_STATE)}
                 className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 transition-colors text-xs cursor-pointer shadow-2xs"
               >
                 <span className="text-slate-400 text-[11px]">Accuracy:</span>
@@ -112,7 +112,7 @@ export function ReviewScoreHero({
 
               <button
                 type="button"
-                onClick={() => onSelectFilter("correct")}
+                onClick={() => onSelectFilter("correct", { outcome: "correct" })}
                 className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg border border-emerald-200 bg-emerald-50 text-emerald-900 hover:bg-emerald-100 text-xs font-semibold cursor-pointer shadow-2xs"
               >
                 <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
@@ -122,7 +122,7 @@ export function ReviewScoreHero({
 
               <button
                 type="button"
-                onClick={() => onSelectFilter("incorrect")}
+                onClick={() => onSelectFilter("incorrect", { outcome: "incorrect" })}
                 className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg border border-rose-200 bg-rose-50 text-rose-900 hover:bg-rose-100 text-xs font-semibold cursor-pointer shadow-2xs"
               >
                 <span className="h-1.5 w-1.5 rounded-full bg-rose-500" />
@@ -132,7 +132,7 @@ export function ReviewScoreHero({
 
               <button
                 type="button"
-                onClick={() => onSelectFilter("skipped")}
+                onClick={() => onSelectFilter("skipped", { outcome: "skipped" })}
                 className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg border border-slate-200 bg-slate-50 text-slate-700 hover:bg-slate-100 text-xs font-medium cursor-pointer shadow-2xs"
               >
                 <span className="h-1.5 w-1.5 rounded-full bg-slate-300" />
@@ -256,7 +256,7 @@ export function ReviewScoreHero({
                         <button
                           key={item.id}
                           type="button"
-                          onClick={() => onSelectFilter(item.actionTab)}
+                          onClick={() => onSelectFilter(item.actionTab, item.actionFilter)}
                           className="w-full text-left rounded-xl border border-slate-200/90 bg-slate-50/70 p-3 hover:bg-white hover:border-indigo-300 hover:shadow-xs transition-all cursor-pointer space-y-1.5 group"
                         >
                           <div className="flex items-center justify-between gap-1.5">

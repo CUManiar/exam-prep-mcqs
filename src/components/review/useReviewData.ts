@@ -25,6 +25,7 @@ import {
   ReviewSuggestion,
   FilterTabType,
   SortOptionType,
+  ReviewFilterState,
 } from "./reviewTypes";
 
 // ─── Paper matching ────────────────────────────────────────────────────────────
@@ -339,31 +340,31 @@ export function useReviewData(attempt: Attempt, papers: QuestionPaper[]) {
         id: "alteration_penalty", title: "Second-Guessing Cost", metric: `-${Math.abs(netAlterationMarks)} pts net`,
         desc: `You altered ${alteredQuestions.length} responses, but ${attempt.alteredHarmCount} flipped Right→Wrong. Stick with your first instinct.`,
         badge: "Harmful revisions", badgeStyle: "bg-rose-100 text-rose-800 border-rose-200", iconType: "negative",
-        actionTab: "altered", actionText: `Review ${alteredQuestions.length} altered questions →`,
+        actionTab: "altered", actionFilter: { altered: true }, actionText: `Review ${alteredQuestions.length} altered questions →`,
       });
     } else {
       items.push({
         id: "negative_erosion", title: "Negative Marks Erosion", metric: `-${negativePenaltyMarks} pts lost`,
         desc: `${attempt.incorrect} incorrect choices eroded ${grossCorrectMarks > 0 ? Math.round((negativePenaltyMarks / grossCorrectMarks) * 100) : 0}% of your gross marks (+${grossCorrectMarks} pts).`,
         badge: `${attempt.incorrect} wrong`, badgeStyle: "bg-rose-100 text-rose-800 border-rose-200", iconType: "negative",
-        actionTab: "incorrect", actionText: `Review ${attempt.incorrect} incorrect →`,
+        actionTab: "incorrect", actionFilter: { outcome: "incorrect" }, actionText: `Review ${attempt.incorrect} incorrect →`,
       });
     }
 
-    // 2. Confidence calibration
+    // 2. Confidence calibration: Highlights interaction of Mistakes + Sure!
     if (sureQuestions.length > 0 && sureAccuracy < 80) {
       items.push({
         id: "sure_blindspot", title: "Confidence Blindspots", metric: `${sureQuestions.length - sureCorrect} 'Sure' errors`,
         desc: `Accuracy on 'Sure' questions was ${sureAccuracy}%. Usually caused by misreading or overestimating recall.`,
         badge: `${sureAccuracy}% accuracy`, badgeStyle: "bg-amber-100 text-amber-800 border-amber-200", iconType: "confidence",
-        actionTab: "sure", actionText: `Inspect ${sureQuestions.length} 'Sure' questions →`,
+        actionTab: "sure", actionFilter: { outcome: "incorrect", confidence: "sure" }, actionText: `Inspect ${sureQuestions.length - sureCorrect} 'Sure' errors →`,
       });
     } else {
       items.push({
         id: "accuracy_profile", title: "Accuracy Profile", metric: `${formatReviewNumber(attempt.accuracyPct)}%`,
         desc: `${attempt.correct} correct out of ${attempt.answered} attempted.`,
         badge: `${attempt.correct}/${attempt.answered} hit rate`, badgeStyle: "bg-indigo-100 text-indigo-800 border-indigo-200", iconType: "confidence",
-        actionTab: "all", actionText: "View all questions →",
+        actionTab: "all", actionFilter: {}, actionText: "View all questions →",
       });
     }
 
@@ -374,35 +375,84 @@ export function useReviewData(attempt: Attempt, papers: QuestionPaper[]) {
         id: "pacing_traps", title: "Pacing & Time Traps", metric: `${slowQuestions.length} slow Qs (>90s)`,
         desc: `These questions consumed ${formatTimeSeconds(slowSec)} of exam time. Flag and move on after 70s.`,
         badge: `${Math.round(slowSec / 60)} min spent`, badgeStyle: "bg-amber-100 text-amber-800 border-amber-200", iconType: "pacing",
-        actionTab: "slow", actionText: `View ${slowQuestions.length} slow questions →`,
+        actionTab: "slow", actionFilter: { slow: true }, actionText: `View ${slowQuestions.length} slow questions →`,
       });
     } else {
       items.push({
         id: "pacing_tempo", title: "Pacing Tempo", metric: `${avgTimePerQ}s / question`,
         desc: `Steady pace across ${attempt.totalQuestions} questions in ${formatTimeSeconds(attempt.durationSeconds)}.`,
         badge: "Steady rhythm", badgeStyle: "bg-emerald-100 text-emerald-800 border-emerald-200", iconType: "pacing",
-        actionTab: "all", actionText: "View all questions →",
+        actionTab: "all", actionFilter: {}, actionText: "View all questions →",
       });
     }
     return items.slice(0, 3);
   }, [attempt, alteredQuestions, slowQuestions, sureQuestions, sureCorrect, sureAccuracy, negativePenaltyMarks, grossCorrectMarks, netAlterationMarks, avgTimePerQ]);
 
-  // Filter function
-  const getFilteredQuestions = (filterTab: FilterTabType, sortOption: SortOptionType): QuestionAnswer[] => {
+  // AND Filter function: Supports composite AND filtering
+  const getFilteredQuestions = (
+    filters: ReviewFilterState | FilterTabType,
+    sortOption: SortOptionType,
+  ): QuestionAnswer[] => {
+    // Normalize filter state
+    const filterState: ReviewFilterState =
+      typeof filters === "string"
+        ? {
+            outcome:
+              filters === "correct" || filters === "incorrect" || filters === "skipped"
+                ? filters
+                : null,
+            confidence:
+              filters === "sure" || filters === "50-50" || filters === "guess" || filters === "elimination"
+                ? filters
+                : null,
+            flagged: filters === "flagged",
+            slow: filters === "slow",
+            altered: filters === "altered",
+          }
+        : filters;
+
     let list = questionList.filter((q) => {
-      if (filterTab === "sure") return q.confidence === "sure";
-      if (filterTab === "50-50") return q.confidence === "50-50";
-      if (filterTab === "elimination") return q.confidence === "elimination";
-      if (filterTab === "guess") return q.confidence === "guess";
-      if (filterTab === "non-mcq") return isAssessmentQuestion(q.questionNo);
-      if (filterTab === "correct") return isAssessmentQuestion(q.questionNo) ? q.subjectiveAssessment === "strong" : q.selected && q.isCorrect === true;
-      if (filterTab === "incorrect") return isAssessmentQuestion(q.questionNo) ? q.subjectiveAssessment === "needs-work" : q.selected && q.isCorrect === false;
-      if (filterTab === "skipped") return !isQuestionAnswered(q);
-      if (filterTab === "flagged") return q.flagged;
-      if (filterTab === "altered") return !isClozeQuestion(q.questionNo) && q.changesCount && q.changesCount > 0;
-      if (filterTab === "slow") return (q.timeSpentSeconds || 0) >= 90;
+      // 1. Outcome filter
+      if (filterState.outcome) {
+        const evaluable = isAssessmentQuestion(q.questionNo);
+        if (filterState.outcome === "correct") {
+          const isCorrect = evaluable
+            ? q.subjectiveAssessment === "strong"
+            : q.selected && q.isCorrect === true;
+          if (!isCorrect) return false;
+        } else if (filterState.outcome === "incorrect") {
+          const isIncorrect = evaluable
+            ? q.subjectiveAssessment === "needs-work"
+            : q.selected && q.isCorrect === false;
+          if (!isIncorrect) return false;
+        } else if (filterState.outcome === "skipped") {
+          if (isQuestionAnswered(q)) return false;
+        }
+      }
+
+      // 2. Confidence filter
+      if (filterState.confidence) {
+        if (filterState.confidence === "guess") {
+          if (q.confidence !== "guess" && q.confidence !== "elimination") return false;
+        } else {
+          if (q.confidence !== filterState.confidence) return false;
+        }
+      }
+
+      // 3. Flagged filter
+      if (filterState.flagged && !q.flagged) return false;
+
+      // 4. Slow (>90s) filter
+      if (filterState.slow && (q.timeSpentSeconds || 0) < 90) return false;
+
+      // 5. Altered filter
+      if (filterState.altered && (isClozeQuestion(q.questionNo) || !q.changesCount || q.changesCount <= 0)) {
+        return false;
+      }
+
       return true;
     });
+
     list.sort((a, b) => {
       if (sortOption === "qno_desc") return b.questionNo - a.questionNo;
       if (sortOption === "time_desc") return (b.timeSpentSeconds || 0) - (a.timeSpentSeconds || 0);

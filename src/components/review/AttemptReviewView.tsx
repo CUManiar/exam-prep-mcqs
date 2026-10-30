@@ -1,7 +1,12 @@
 "use client";
 
 import React, { useState, useMemo, useEffect } from "react";
-import { Attempt, QuestionPaper, SubjectiveAssessment } from "../../lib/types";
+import {
+  Attempt,
+  QuestionPaper,
+  QuestionAnswer,
+  SubjectiveAssessment,
+} from "../../lib/types";
 import { useReviewData } from "./useReviewData";
 import { ReviewHeader } from "./ReviewHeader";
 import { ReviewScoreHero } from "./ReviewScoreHero";
@@ -12,7 +17,13 @@ import { PaperPreviewPanel } from "./PaperPreviewPanel";
 import { GeneralNotesCard } from "./GeneralNotesCard";
 import { DetailedSolutionModal } from "../DetailedSolutionModal";
 import { useApp } from "../../context/AppContext";
-import { FilterTabType, SortOptionType } from "./reviewTypes";
+import {
+  FilterTabType,
+  SortOptionType,
+  ReviewFilterState,
+  EMPTY_FILTER_STATE,
+  isFilterActive,
+} from "./reviewTypes";
 import { SUBJECTIVE_ASSESSMENT_META } from "../../lib/defaults";
 import { BarChart3, Columns, LayoutGrid } from "lucide-react";
 
@@ -67,8 +78,8 @@ export function AttemptReviewView({
     getFilteredQuestions,
   } = useReviewData(attempt, papers);
 
-  // 2. View State
-  const [filterTab, setFilterTab] = useState<FilterTabType>("all");
+  // 2. View State: Composite AND Filter state
+  const [filters, setFilters] = useState<ReviewFilterState>(EMPTY_FILTER_STATE);
   const [sortOption, setSortOption] = useState<SortOptionType>("qno_asc");
   const [activeQuestionNo, setActiveQuestionNo] = useState<number>(1);
   const [showPaperSplit, setShowPaperSplit] = useState<boolean>(true);
@@ -80,11 +91,13 @@ export function AttemptReviewView({
   const [solutionModalOpen, setSolutionModalOpen] = useState(false);
   const [submissionModalOpen, setSubmissionModalOpen] = useState(false);
 
-  // Filtered questions
+  // Filtered questions using AND interaction
   const filteredQuestions = useMemo(
-    () => getFilteredQuestions(filterTab, sortOption),
-    [getFilteredQuestions, filterTab, sortOption],
+    () => getFilteredQuestions(filters, sortOption),
+    [getFilteredQuestions, filters, sortOption],
   );
+
+  const hasActiveFilters = isFilterActive(filters);
 
   // Ensure active question stays valid
   const currentQuestionAnswer = useMemo(() => {
@@ -111,15 +124,75 @@ export function AttemptReviewView({
     return new Set(filteredQuestions.map((q) => q.questionNo));
   }, [filteredQuestions]);
 
-  const handleSelectFilter = (tab: FilterTabType) => {
-    setFilterTab(tab);
-    const matches = getFilteredQuestions(tab, sortOption);
+  const syncActiveQuestionToMatches = (matches: QuestionAnswer[]) => {
     if (matches.length > 0) {
-      const currentInMatches = matches.some((q) => q.questionNo === activeQuestionNo);
-      if (!currentInMatches) {
+      const inMatches = matches.some((q) => q.questionNo === activeQuestionNo);
+      if (!inMatches) {
         jumpToQuestion(matches[0].questionNo);
       }
     }
+  };
+
+  const handleToggleOutcome = (outcome: "incorrect" | "correct" | "skipped") => {
+    setFilters((prev) => {
+      const next = { ...prev, outcome: prev.outcome === outcome ? null : outcome };
+      syncActiveQuestionToMatches(getFilteredQuestions(next, sortOption));
+      return next;
+    });
+  };
+
+  const handleToggleConfidence = (confidence: "sure" | "50-50" | "guess") => {
+    setFilters((prev) => {
+      const next = { ...prev, confidence: prev.confidence === confidence ? null : confidence };
+      syncActiveQuestionToMatches(getFilteredQuestions(next, sortOption));
+      return next;
+    });
+  };
+
+  const handleToggleFlagged = () => {
+    setFilters((prev) => {
+      const next = { ...prev, flagged: !prev.flagged };
+      syncActiveQuestionToMatches(getFilteredQuestions(next, sortOption));
+      return next;
+    });
+  };
+
+  const handleToggleSlow = () => {
+    setFilters((prev) => {
+      const next = { ...prev, slow: !prev.slow };
+      syncActiveQuestionToMatches(getFilteredQuestions(next, sortOption));
+      return next;
+    });
+  };
+
+  const handleToggleAltered = () => {
+    setFilters((prev) => {
+      const next = { ...prev, altered: !prev.altered };
+      syncActiveQuestionToMatches(getFilteredQuestions(next, sortOption));
+      return next;
+    });
+  };
+
+  const handleResetFilters = () => {
+    setFilters(EMPTY_FILTER_STATE);
+  };
+
+  const handleApplyTakeawayFilter = (tab: FilterTabType, filterState?: ReviewFilterState) => {
+    if (filterState) {
+      setFilters(filterState);
+      syncActiveQuestionToMatches(getFilteredQuestions(filterState, sortOption));
+    } else {
+      if (tab === "all") handleResetFilters();
+      else if (tab === "incorrect") handleToggleOutcome("incorrect");
+      else if (tab === "correct") handleToggleOutcome("correct");
+      else if (tab === "skipped") handleToggleOutcome("skipped");
+      else if (tab === "sure") handleToggleConfidence("sure");
+      else if (tab === "50-50") handleToggleConfidence("50-50");
+      else if (tab === "guess") handleToggleConfidence("guess");
+      else if (tab === "slow") handleToggleSlow();
+      else if (tab === "altered") handleToggleAltered();
+    }
+    setActiveMobileView("review");
   };
 
   // Next mistake navigation
@@ -336,8 +409,13 @@ export function AttemptReviewView({
             {/* Filter Bar: on top of the left panel */}
             <div className="w-full">
               <QuestionFilterBar
-                currentTab={filterTab}
-                onSelectTab={handleSelectFilter}
+                filters={filters}
+                onToggleOutcome={handleToggleOutcome}
+                onToggleFlagged={handleToggleFlagged}
+                onToggleConfidence={handleToggleConfidence}
+                onToggleSlow={handleToggleSlow}
+                onToggleAltered={handleToggleAltered}
+                onResetFilters={handleResetFilters}
                 counts={{
                   all: questionList.length,
                   correct: attempt.correct,
@@ -430,10 +508,7 @@ export function AttemptReviewView({
                 avgTimePerQ={avgTimePerQ}
                 cutoffVerdict={cutoffVerdict}
                 topTakeaways={topTakeaways}
-                onSelectFilter={(tab) => {
-                  handleSelectFilter(tab);
-                  setActiveMobileView("review");
-                }}
+                onSelectFilter={handleApplyTakeawayFilter}
                 formatReviewNumber={formatReviewNumber}
               />
             </div>
@@ -457,7 +532,7 @@ export function AttemptReviewView({
                 incorrectMarksPerQ={attempt.incorrectMarks || 0.667}
                 getFullMarks={getFullMarks}
                 filteredQuestionNos={filteredQuestionNosSet}
-                filterTab={filterTab}
+                hasActiveFilters={hasActiveFilters}
               />
             </div>
 
