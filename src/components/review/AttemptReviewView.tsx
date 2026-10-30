@@ -72,7 +72,7 @@ export function AttemptReviewView({
   const [filterTab, setFilterTab] = useState<FilterTabType>("all");
   const [sortOption, setSortOption] = useState<SortOptionType>("qno_asc");
   const [activeQuestionNo, setActiveQuestionNo] = useState<number>(1);
-  const [showPaperSplit, setShowPaperSplit] = useState<boolean>(false);
+  const [showPaperSplit, setShowPaperSplit] = useState<boolean>(true);
   const [activeMobileView, setActiveMobileView] = useState<
     "inspector" | "list" | "score" | "paper"
   >("inspector");
@@ -349,13 +349,18 @@ export function AttemptReviewView({
               LEFT COLUMN (70% on lg+): PRIMARY CONTENT / WORKBENCH
               ============================================================ */}
           <section className="lg:col-span-7 space-y-4">
-            {/* If paper split is open on desktop, show PDF + Question Inspector side by side inside 70% */}
+            {/* If paper split is open on desktop:
+                - For Markdown papers: Full 70% width MarkdownPaperReviewViewer (matching Attachment 1)
+                - For PDF papers: Side-by-side PDF Booklet + Question Inspector
+            */}
             {showPaperSplit && canPreviewPaper ? (
-              <div className="grid grid-cols-1 xl:grid-cols-2 gap-4 items-start">
-                {/* PDF Paper Viewer */}
+              isMarkdownPaper ? (
+                /* Markdown Paper: Full-Width Rich Review Viewer */
                 <div
                   className={`w-full ${
-                    activeMobileView === "paper" ? "block" : "hidden lg:block"
+                    activeMobileView === "paper" || activeMobileView === "inspector"
+                      ? "block"
+                      : "hidden lg:block"
                   }`}
                 >
                   <PaperPreviewPanel
@@ -380,35 +385,67 @@ export function AttemptReviewView({
                     }}
                   />
                 </div>
+              ) : (
+                /* PDF Paper: Side-by-Side PDF Booklet (Left) + Question Inspector (Right) */
+                <div className="grid grid-cols-1 xl:grid-cols-2 gap-4 items-start">
+                  {/* PDF Paper Booklet */}
+                  <div
+                    className={`w-full ${
+                      activeMobileView === "paper" ? "block" : "hidden lg:block"
+                    }`}
+                  >
+                    <PaperPreviewPanel
+                      matchedPaper={matchedPaper}
+                      isMarkdownPaper={isMarkdownPaper}
+                      markdownQuestions={markdownQuestions}
+                      markdownHeader={markdownHeader}
+                      answers={attempt.answers || {}}
+                      activeQuestionNo={activeQuestionNo}
+                      onSelectQuestion={jumpToQuestion}
+                      onClose={() => {
+                        setShowPaperSplit(false);
+                        setActiveMobileView("inspector");
+                      }}
+                      attemptFallbackData={{
+                        paperId: attempt.paperId,
+                        paperLabel: attempt.paperLabel,
+                        totalQuestions: attempt.totalQuestions,
+                        maxScore: attempt.maxScore,
+                        correctMarks: attempt.correctMarks,
+                        incorrectMarks: attempt.incorrectMarks,
+                      }}
+                    />
+                  </div>
 
-                {/* Question Inspector */}
-                <div
-                  className={`w-full ${
-                    activeMobileView === "inspector" ? "block" : "hidden lg:block"
-                  }`}
-                >
-                  <QuestionInspector
-                    question={currentQuestionAnswer}
-                    parsedQuestion={currentParsedQuestion}
-                    totalQuestions={questionList.length}
-                    isAssessmentQuestion={isAssessmentQuestion}
-                    isClozeQuestion={isClozeQuestion}
-                    getFullMarks={getFullMarks}
-                    incorrectMarksPerQ={attempt.incorrectMarks || 0.667}
-                    onSaveQuestionNote={handleSaveQuestionNote}
-                    onSetSubjectiveAssessment={handleSetSubjectiveAssessment}
-                    onNavigatePrev={() => jumpToQuestion(Math.max(1, activeQuestionNo - 1))}
-                    onNavigateNext={() =>
-                      jumpToQuestion(Math.min(questionList.length, activeQuestionNo + 1))
-                    }
-                    onJumpToNextMistake={handleJumpToNextMistake}
-                    hasNextMistake={incorrectQuestionsList.length > 0}
-                    canPreviewPaper={canPreviewPaper}
-                    showPaperSplit={showPaperSplit}
-                    onTogglePaperSplit={() => setShowPaperSplit(!showPaperSplit)}
-                  />
+                  {/* Question Inspector */}
+                  <div
+                    className={`w-full ${
+                      activeMobileView === "inspector" ? "block" : "hidden lg:block"
+                    }`}
+                  >
+                    <QuestionInspector
+                      question={currentQuestionAnswer}
+                      parsedQuestion={currentParsedQuestion}
+                      totalQuestions={questionList.length}
+                      isAssessmentQuestion={isAssessmentQuestion}
+                      isClozeQuestion={isClozeQuestion}
+                      getFullMarks={getFullMarks}
+                      incorrectMarksPerQ={attempt.incorrectMarks || 0.667}
+                      onSaveQuestionNote={handleSaveQuestionNote}
+                      onSetSubjectiveAssessment={handleSetSubjectiveAssessment}
+                      onNavigatePrev={() => jumpToQuestion(Math.max(1, activeQuestionNo - 1))}
+                      onNavigateNext={() =>
+                        jumpToQuestion(Math.min(questionList.length, activeQuestionNo + 1))
+                      }
+                      onJumpToNextMistake={handleJumpToNextMistake}
+                      hasNextMistake={incorrectQuestionsList.length > 0}
+                      canPreviewPaper={canPreviewPaper}
+                      showPaperSplit={showPaperSplit}
+                      onTogglePaperSplit={() => setShowPaperSplit(!showPaperSplit)}
+                    />
+                  </div>
                 </div>
-              </div>
+              )
             ) : (
               /* Full-Width Question Inspector (70% width) */
               <div

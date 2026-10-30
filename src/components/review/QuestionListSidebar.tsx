@@ -2,7 +2,6 @@
 
 import React from "react";
 import { QuestionAnswer, ParsedQuestion } from "../../lib/types";
-import { formatTimeSeconds } from "../../lib/defaults";
 import {
   CheckCircle2,
   XCircle,
@@ -43,124 +42,174 @@ export function QuestionListSidebar({
 
   return (
     <div className="rounded-2xl border border-slate-200/90 bg-white shadow-2xs overflow-hidden">
-      <div className="divide-y divide-slate-100 max-h-[640px] overflow-y-auto">
-        {questions.map((q) => {
-          const isSelected = q.questionNo === activeQuestionNo;
-          const isEvaluable = isAssessmentQuestion(q.questionNo);
-          const isCloze = isClozeQuestion(q.questionNo);
-          const isCorrect = isEvaluable
-            ? q.subjectiveAssessment === "strong"
-            : q.selected && q.isCorrect === true;
-          const isWrong = isEvaluable
-            ? q.subjectiveAssessment === "needs-work"
-            : q.selected && q.isCorrect === false;
-          const isPartial = isEvaluable && q.subjectiveAssessment === "partial";
-          const isSkipped = !q.selected && !q.subjectiveAssessment;
+      {/* Table Header Bar */}
+      <div className="px-3.5 py-2.5 bg-slate-50/80 border-b border-slate-200 flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <span className="text-xs font-bold text-slate-800 uppercase tracking-wider">
+            Question Review
+          </span>
+          <span className="text-[11px] font-semibold text-slate-500 font-mono">
+            ({questions.length})
+          </span>
+        </div>
+        <span className="text-[10px] text-slate-400 font-medium">
+          Click any row to inspect
+        </span>
+      </div>
 
-          const parsedQ = markdownQuestions.find((mq) => mq.questionNo === q.questionNo);
-          const expectedAns = parsedQ?.answer || q.correctAnswer;
+      {/* Responsive Table Container */}
+      <div className="overflow-x-auto max-h-[600px] overflow-y-auto">
+        <table className="w-full text-left text-xs border-collapse">
+          <thead className="sticky top-0 bg-slate-50/95 backdrop-blur-xs text-[10px] uppercase font-bold text-slate-500 tracking-wider border-b border-slate-200 z-10 select-none">
+            <tr>
+              <th className="py-2 px-3">Q. No</th>
+              <th className="py-2 px-2.5">Status</th>
+              <th className="py-2 px-2 text-center">Your Answer</th>
+              <th className="py-2 px-2 text-center">Correct Answer</th>
+              <th className="py-2 px-2 text-center">Time</th>
+              <th className="py-2 px-3">Student Notes</th>
+              <th className="py-2 pr-2.5 w-6"></th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-slate-100 font-sans">
+            {questions.map((q) => {
+              const isSelected = q.questionNo === activeQuestionNo;
+              const isEvaluable = isAssessmentQuestion(q.questionNo);
+              const isCloze = isClozeQuestion(q.questionNo);
+              const isCorrect = isEvaluable
+                ? q.subjectiveAssessment === "strong"
+                : q.selected && q.isCorrect === true;
+              const isWrong = isEvaluable
+                ? q.subjectiveAssessment === "needs-work"
+                : q.selected && q.isCorrect === false;
+              const isPartial = isEvaluable && q.subjectiveAssessment === "partial";
+              const isSkipped = !q.selected && !q.subjectiveAssessment;
 
-          return (
-            <button
-              key={q.questionNo}
-              type="button"
-              id={`sidebar-q-${q.questionNo}`}
-              onClick={() => onSelectQuestion(q.questionNo)}
-              className={`w-full text-left p-3 sm:p-3.5 transition-all flex items-center justify-between gap-3 cursor-pointer ${
-                isSelected
-                  ? "bg-indigo-50/70 border-l-4 border-indigo-600 pl-2.5 sm:pl-3"
-                  : "hover:bg-slate-50/80"
-              }`}
-            >
-              {/* Left Info: Q.No, Confidence badge, Status */}
-              <div className="flex items-center gap-2.5 min-w-0">
-                <div className="flex flex-col items-center">
-                  <span
-                    className={`font-mono text-xs font-black ${
-                      isSelected ? "text-indigo-900" : "text-slate-800"
-                    }`}
-                  >
-                    Q{q.questionNo}
-                  </span>
-                  {isCloze && (
-                    <span className="text-[9px] font-bold text-indigo-600 bg-indigo-50 px-1 rounded">
-                      cloze
-                    </span>
-                  )}
-                </div>
+              const parsedQ = markdownQuestions.find((mq) => mq.questionNo === q.questionNo);
+              const expectedAns = (parsedQ?.answer || q.correctAnswer || "").replace(/[\(\)\[\]\.\s]/g, "").toUpperCase();
+              const candidateAns = (q.selected || "").replace(/[\(\)\[\]\.\s]/g, "").toUpperCase();
 
-                {/* Status indicator */}
-                <div>
-                  {isCorrect ? (
-                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800 border border-emerald-300">
-                      <CheckCircle2 className="h-3 w-3 text-emerald-600 shrink-0" />
-                      Correct
-                    </span>
-                  ) : isWrong ? (
-                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-rose-100 text-rose-800 border border-rose-300">
-                      <XCircle className="h-3 w-3 text-rose-600 shrink-0" />
-                      Wrong
-                    </span>
-                  ) : isPartial ? (
-                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 text-amber-800 border border-amber-300">
-                      Partial
-                    </span>
-                  ) : (
-                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium bg-slate-100 text-slate-500 border border-slate-200">
-                      Skipped
-                    </span>
-                  )}
-                </div>
-
-                {/* Answer comparison pill */}
-                {!isCloze && !isEvaluable && (
-                  <div className="hidden sm:flex items-center gap-1 font-mono text-[11px]">
-                    <span
-                      className={`font-bold px-1.5 py-0.2 rounded ${
-                        isCorrect
-                          ? "bg-emerald-50 text-emerald-900"
-                          : isWrong
-                            ? "bg-rose-50 text-rose-900 line-through"
-                            : "text-slate-400"
-                      }`}
-                    >
-                      {q.selected || "—"}
-                    </span>
-                    {!isCorrect && expectedAns && (
-                      <>
-                        <span className="text-slate-300">→</span>
-                        <span className="font-bold text-emerald-700 bg-emerald-50 px-1.5 py-0.2 rounded">
-                          {expectedAns}
-                        </span>
-                      </>
-                    )}
-                  </div>
-                )}
-              </div>
-
-              {/* Right Info: Time, Note icon, Flag, Arrow */}
-              <div className="flex items-center gap-2 text-slate-400 shrink-0">
-                {q.flagged && (
-                  <Bookmark className="h-3.5 w-3.5 text-amber-500 fill-amber-500" />
-                )}
-                {q.note && q.note.trim() && (
-                  <span title="Student note attached">
-                    <FileText className="h-3.5 w-3.5 text-amber-600" />
-                  </span>
-                )}
-                <span className="font-mono text-[11px] text-slate-500 flex items-center gap-0.5">
-                  <Clock className="h-3 w-3 text-slate-400" />
-                  {q.timeSpentSeconds || 0}s
-                </span>
-                <ChevronRight
-                  className={`h-4 w-4 transition-transform ${
-                    isSelected ? "text-indigo-600 translate-x-0.5" : "text-slate-300"
+              return (
+                <tr
+                  key={q.questionNo}
+                  id={`sidebar-q-${q.questionNo}`}
+                  onClick={() => onSelectQuestion(q.questionNo)}
+                  className={`transition-colors cursor-pointer group ${
+                    isSelected
+                      ? "bg-indigo-50/80 font-medium"
+                      : "hover:bg-slate-50/80"
                   }`}
-                />
-              </div>
-            </button>
-          );
-        })}
+                >
+                  {/* Q. No Column */}
+                  <td className="py-2.5 px-3 whitespace-nowrap">
+                    <div className="flex flex-col">
+                      <div className="flex items-center gap-1">
+                        <span
+                          className={`font-mono font-bold text-xs ${
+                            isSelected ? "text-indigo-900" : "text-slate-800"
+                          }`}
+                        >
+                          Q{q.questionNo}
+                        </span>
+                        {q.flagged && (
+                          <Bookmark className="h-3 w-3 text-amber-500 fill-amber-500 shrink-0" />
+                        )}
+                      </div>
+                      {q.confidence && (
+                        <span className="text-[9px] text-slate-400 capitalize font-medium">
+                          {q.confidence}
+                        </span>
+                      )}
+                    </div>
+                  </td>
+
+                  {/* Status Pill Column */}
+                  <td className="py-2.5 px-2.5 whitespace-nowrap">
+                    {isCorrect ? (
+                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-50 text-emerald-800 border border-emerald-200">
+                        <CheckCircle2 className="h-3 w-3 text-emerald-600 shrink-0" />
+                        <span>Correct</span>
+                      </span>
+                    ) : isWrong ? (
+                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-rose-50 text-rose-800 border border-rose-200">
+                        <XCircle className="h-3 w-3 text-rose-600 shrink-0" />
+                        <span>Incorrect</span>
+                      </span>
+                    ) : isPartial ? (
+                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-50 text-amber-800 border border-amber-200">
+                        <span>% Partial</span>
+                      </span>
+                    ) : (
+                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium bg-slate-100 text-slate-500 border border-slate-200">
+                        <span>Skipped</span>
+                      </span>
+                    )}
+                  </td>
+
+                  {/* Candidate Answer Column */}
+                  <td className="py-2.5 px-2 text-center whitespace-nowrap">
+                    {candidateAns ? (
+                      <span
+                        className={`inline-block font-mono text-xs font-bold px-2 py-0.5 rounded border ${
+                          isCorrect
+                            ? "bg-emerald-50 text-emerald-900 border-emerald-200"
+                            : isWrong
+                              ? "bg-rose-50 text-rose-900 border-rose-200"
+                              : "bg-slate-100 text-slate-800 border-slate-200"
+                        }`}
+                      >
+                        {candidateAns}
+                      </span>
+                    ) : (
+                      <span className="text-slate-300 font-mono text-xs">—</span>
+                    )}
+                  </td>
+
+                  {/* Correct Key Column */}
+                  <td className="py-2.5 px-2 text-center whitespace-nowrap">
+                    {expectedAns ? (
+                      <span className="inline-block font-mono text-xs font-bold px-2 py-0.5 rounded bg-emerald-50 text-emerald-800 border border-emerald-200">
+                        {expectedAns}
+                      </span>
+                    ) : (
+                      <span className="text-slate-300 font-mono text-xs">—</span>
+                    )}
+                  </td>
+
+                  {/* Time Spent Column */}
+                  <td className="py-2.5 px-2 text-center whitespace-nowrap font-mono text-[11px] text-slate-500">
+                    {q.timeSpentSeconds ? `${q.timeSpentSeconds}s` : "0s"}
+                  </td>
+
+                  {/* Student Notes Column */}
+                  <td className="py-2.5 px-3 max-w-[200px]">
+                    {q.note && q.note.trim() ? (
+                      <div
+                        className="truncate text-[11px] font-mono bg-amber-50 text-amber-900 border border-amber-200/90 px-2 py-0.5 rounded-md"
+                        title={q.note}
+                      >
+                        {q.note}
+                      </div>
+                    ) : (
+                      <span className="text-slate-300 text-xs">—</span>
+                    )}
+                  </td>
+
+                  {/* Jump Arrow */}
+                  <td className="py-2.5 pr-2.5 text-right whitespace-nowrap">
+                    <ChevronRight
+                      className={`h-3.5 w-3.5 transition-transform ${
+                        isSelected
+                          ? "text-indigo-600 translate-x-0.5"
+                          : "text-slate-300 group-hover:text-slate-600"
+                      }`}
+                    />
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
       </div>
     </div>
   );

@@ -87,7 +87,10 @@ export function QuestionInspector({
   const isSlow = (question.timeSpentSeconds || 0) >= 90;
 
   const fullMarks = getFullMarks(qNo);
-  const expectedAnswer = (parsedQuestion?.answer || question.correctAnswer || "").trim().toUpperCase();
+  const rawExpected = (parsedQuestion?.answer || question.correctAnswer || "").trim();
+  const expectedAnswer = rawExpected.replace(/[\(\)\[\]\.\s]/g, "").toUpperCase();
+  const rawCandidate = (question.selected || "").trim();
+  const candidateAnswer = rawCandidate.replace(/[\(\)\[\]\.\s]/g, "").toUpperCase();
   const officialExplanation = parsedQuestion?.explanation || question.explanation;
 
   const handleSaveNote = () => {
@@ -308,7 +311,7 @@ export function QuestionInspector({
                 const optText = parsedQuestion!.options[optKey];
                 if (!optText) return null;
 
-                const isCandidateChoice = question.selected?.toUpperCase().trim() === optKey;
+                const isCandidateChoice = candidateAnswer === optKey;
                 const isOfficialCorrect = expectedAnswer === optKey;
 
                 let cardStyle =
@@ -393,7 +396,7 @@ export function QuestionInspector({
             {/* 4 Option Badges Comparison Grid */}
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
               {["A", "B", "C", "D"].map((optKey) => {
-                const isCandidateChoice = question.selected?.toUpperCase().trim() === optKey;
+                const isCandidateChoice = candidateAnswer === optKey;
                 const isOfficialCorrect = expectedAnswer === optKey;
 
                 let cardStyle = "border-slate-200 bg-white text-slate-700 hover:bg-slate-50";

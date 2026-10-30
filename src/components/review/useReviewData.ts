@@ -203,20 +203,32 @@ export function useReviewData(attempt: Attempt, papers: QuestionPaper[]) {
   const questionList: QuestionAnswer[] = useMemo(
     () =>
       Array.from({ length: attempt.totalQuestions }, (_, i) => i + 1).map(
-        (qNo) =>
-          attempt.answers[qNo] || {
+        (qNo) => {
+          const ans = attempt.answers[qNo];
+          const paperCorrect = matchedPaper?.answerKey?.[qNo];
+          const paperExp = matchedPaper?.explanations?.[qNo];
+          if (ans) {
+            return {
+              ...ans,
+              correctAnswer: ans.correctAnswer || paperCorrect,
+              explanation: ans.explanation || paperExp,
+            };
+          }
+          return {
             questionNo: qNo,
             selected: null,
-            correctAnswer: undefined,
+            correctAnswer: paperCorrect,
+            explanation: paperExp,
             isCorrect: null,
             flagged: false,
             note: "",
             timeSpentSeconds: 0,
             changesCount: 0,
             answerHistory: [],
-          },
+          };
+        },
       ),
-    [attempt],
+    [attempt, matchedPaper?.answerKey, matchedPaper?.explanations],
   );
 
   // Derived metrics
