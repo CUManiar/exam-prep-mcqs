@@ -1,6 +1,6 @@
 "use client";
 
-import React, { Suspense } from "react";
+import React, { Suspense, useEffect } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useApp } from "../../context/AppContext";
 import { ExamSessionView } from "../../components/ExamSessionView";
@@ -83,6 +83,7 @@ function ExamSessionContent() {
     isLoading,
     isPro,
     openProUpgradeModal,
+    notifyExamReady,
   } = useApp();
 
   const localDraft = typeof window !== "undefined" ? getActiveDraft() : null;
@@ -115,6 +116,17 @@ function ExamSessionContent() {
       }
     }
   }
+
+  // Dismiss the "Opening assessment…" overlay once the paper is fully resolved
+  // and we're about to render the ExamSessionView. This guarantees the loader
+  // stays visible for the entire hydration/data-fetch period.
+  useEffect(() => {
+    if (paper) {
+      notifyExamReady();
+    }
+    // Run once per resolved paper — notifyExamReady is stable.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [!!paper]);
 
   if (isLoading && !paper) {
     return <ExamSessionLoadingBuffer message="Restoring Exam Session..." />;
@@ -153,7 +165,7 @@ function ExamSessionContent() {
           </h2>
           <p className="text-sm text-slate-600">
             <strong>{paper.label}</strong> belongs to the Pro Archive. Free tier
-            includes 2026 Prelims papers (GS I & CSAT).
+            includes 2026 Prelims papers (GS I &amp; CSAT).
           </p>
         </div>
         <div className="flex items-center justify-center gap-3">
