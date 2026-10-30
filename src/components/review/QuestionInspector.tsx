@@ -220,15 +220,10 @@ export function QuestionInspector({
             <div className="text-sm sm:text-base text-slate-900 font-medium leading-relaxed whitespace-pre-wrap select-text">
               {parsedQuestion.text}
             </div>
-          ) : (
-            <div className="rounded-xl border border-indigo-100 bg-indigo-50/40 p-4 text-xs text-slate-600 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2.5">
-              <div className="flex items-center gap-2">
-                <FileText className="h-4 w-4 text-indigo-600 shrink-0" />
-                <span>
-                  Question {qNo} statement text is in the original Question Paper PDF.
-                </span>
-              </div>
-              {canPreviewPaper && onTogglePaperSplit && !showPaperSplit && (
+          ) : !showPaperSplit ? (
+            <div className="rounded-xl border border-indigo-100 bg-indigo-50/40 p-3 text-xs text-slate-600 flex items-center justify-between gap-2.5">
+              <span>Question {qNo} statement text is in the original Question Paper PDF.</span>
+              {canPreviewPaper && onTogglePaperSplit && (
                 <button
                   type="button"
                   onClick={onTogglePaperSplit}
@@ -239,7 +234,7 @@ export function QuestionInspector({
                 </button>
               )}
             </div>
-          )}
+          ) : null}
 
           {/* Matching Items Table (if present) */}
           {Boolean(parsedQuestion?.matchingItems && parsedQuestion.matchingItems.length > 0) && (
@@ -370,106 +365,76 @@ export function QuestionInspector({
             </div>
           </div>
         ) : (
-          /* PDF Papers / Questions without Parsed Markdown Options - Complete Answer & Option Badges */
-          <div className="space-y-3.5 pt-1">
-            <div className="flex items-center justify-between">
-              <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block px-1">
-                Answer Options & Key Comparison
+          /* PDF Papers / Questions without Parsed Markdown Options - Clean, Compact Answer Status Strip */
+          <div className="rounded-xl border border-slate-200/90 bg-white p-3.5 sm:p-4 shadow-2xs space-y-3">
+            <div className="flex items-center justify-between flex-wrap gap-2">
+              <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
+                Answer Evaluation & Key
               </span>
               <div className="text-xs font-semibold">
                 {isCorrect ? (
-                  <span className="text-emerald-700 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-md">
+                  <span className="inline-flex items-center gap-1 text-emerald-700 bg-emerald-50 border border-emerald-200 px-2.5 py-0.5 rounded-full text-xs font-bold">
+                    <CheckCircle2 className="h-3.5 w-3.5 text-emerald-600" />
                     +{fullMarks.toFixed(2)} pts awarded
                   </span>
                 ) : isWrong ? (
-                  <span className="text-rose-700 bg-rose-50 border border-rose-200 px-2 py-0.5 rounded-md">
+                  <span className="inline-flex items-center gap-1 text-rose-700 bg-rose-50 border border-rose-200 px-2.5 py-0.5 rounded-full text-xs font-bold">
+                    <XCircle className="h-3.5 w-3.5 text-rose-600" />
                     -{incorrectMarksPerQ.toFixed(2)} penalty
                   </span>
                 ) : (
-                  <span className="text-slate-500 bg-slate-100 px-2 py-0.5 rounded-md">
-                    0 pts (Skipped)
+                  <span className="text-slate-500 bg-slate-100 px-2.5 py-0.5 rounded-full text-xs font-medium">
+                    Skipped · 0 pts
                   </span>
                 )}
               </div>
             </div>
 
-            {/* 4 Option Badges Comparison Grid */}
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
-              {["A", "B", "C", "D"].map((optKey) => {
-                const isCandidateChoice = candidateAnswer === optKey;
-                const isOfficialCorrect = expectedAnswer === optKey;
-
-                let cardStyle = "border-slate-200 bg-white text-slate-700 hover:bg-slate-50";
-                let badgeStyle = "bg-slate-100 text-slate-700 border-slate-200";
-                let label: string | null = null;
-
-                if (isOfficialCorrect) {
-                  cardStyle =
-                    "border-emerald-500 bg-emerald-50/90 text-emerald-950 ring-2 ring-emerald-500/20 font-bold shadow-xs";
-                  badgeStyle = "bg-emerald-600 text-white border-emerald-700";
-                  label = isCandidateChoice ? "Your choice (Correct)" : "Correct Key";
-                } else if (isCandidateChoice && !isOfficialCorrect) {
-                  cardStyle =
-                    "border-rose-500 bg-rose-50/90 text-rose-950 ring-2 ring-rose-500/20 font-bold shadow-xs";
-                  badgeStyle = "bg-rose-600 text-white border-rose-700";
-                  label = "Your choice";
-                }
-
-                return (
-                  <div
-                    key={optKey}
-                    className={`rounded-xl border p-3 flex flex-col items-center justify-center text-center gap-1.5 transition-all ${cardStyle}`}
-                  >
-                    <span
-                      className={`inline-flex items-center justify-center h-8 w-8 rounded-xl font-mono font-black text-sm border shadow-2xs ${badgeStyle}`}
-                    >
-                      {optKey}
-                    </span>
-                    {label ? (
-                      <span
-                        className={`text-[10px] font-bold px-2 py-0.5 rounded-md ${
-                          isOfficialCorrect
-                            ? "bg-emerald-100 text-emerald-800 border border-emerald-200"
-                            : "bg-rose-100 text-rose-800 border border-rose-200"
-                        }`}
-                      >
-                        {label}
-                      </span>
-                    ) : (
-                      <span className="text-[11px] text-slate-400 font-medium">
-                        Option {optKey}
-                      </span>
-                    )}
-                  </div>
-                );
-              })}
-            </div>
-
-            {/* Status Summary Banner */}
-            <div className="rounded-xl border border-slate-200 bg-slate-50/80 p-3 flex flex-wrap items-center justify-between gap-2 text-xs">
-              <div className="flex items-center gap-2">
-                <span className="text-slate-500 text-[11px] font-medium">
-                  Your Marked Response:
-                </span>
+            {/* Crisp 2-Card Marked vs Official Key Grid */}
+            <div className="grid grid-cols-2 gap-2.5">
+              {/* Candidate Selection */}
+              <div
+                className={`rounded-xl border p-2.5 sm:p-3 flex items-center justify-between gap-2 transition-all ${
+                  isCorrect
+                    ? "border-emerald-300 bg-emerald-50/70 text-emerald-950"
+                    : isWrong
+                      ? "border-rose-300 bg-rose-50/70 text-rose-950"
+                      : "border-slate-200 bg-slate-50 text-slate-700"
+                }`}
+              >
+                <div className="flex flex-col min-w-0">
+                  <span className="text-[10px] uppercase font-bold text-slate-500 tracking-wider">
+                    Your Answer
+                  </span>
+                  <span className="font-mono text-sm sm:text-base font-black truncate mt-0.5">
+                    {candidateAnswer ? `Option ${candidateAnswer}` : "Unattempted"}
+                  </span>
+                </div>
                 <span
-                  className={`font-mono font-bold px-2 py-0.5 rounded-md text-xs ${
+                  className={`h-7 w-7 rounded-lg flex items-center justify-center font-mono font-black text-sm shrink-0 border ${
                     isCorrect
-                      ? "bg-emerald-100 text-emerald-800 border border-emerald-200"
+                      ? "bg-emerald-600 text-white border-emerald-700"
                       : isWrong
-                        ? "bg-rose-100 text-rose-800 border border-rose-200"
-                        : "bg-slate-200 text-slate-600"
+                        ? "bg-rose-600 text-white border-rose-700"
+                        : "bg-slate-200 text-slate-500 border-slate-300"
                   }`}
                 >
-                  {question.selected ? `Option ${question.selected.toUpperCase()}` : "Unattempted"}
+                  {candidateAnswer || "—"}
                 </span>
               </div>
 
-              <div className="flex items-center gap-2">
-                <span className="text-slate-500 text-[11px] font-medium">
-                  Official Solution Key:
-                </span>
-                <span className="font-mono font-bold px-2 py-0.5 rounded-md text-xs bg-emerald-100 text-emerald-800 border border-emerald-200">
-                  Option {expectedAnswer || "No key provided"}
+              {/* Official Key */}
+              <div className="rounded-xl border border-emerald-300 bg-emerald-50/70 p-2.5 sm:p-3 flex items-center justify-between gap-2 text-emerald-950">
+                <div className="flex flex-col min-w-0">
+                  <span className="text-[10px] uppercase font-bold text-emerald-800 tracking-wider">
+                    Official Key
+                  </span>
+                  <span className="font-mono text-sm sm:text-base font-black truncate mt-0.5 text-emerald-900">
+                    {expectedAnswer ? `Option ${expectedAnswer}` : "Refer below"}
+                  </span>
+                </div>
+                <span className="h-7 w-7 rounded-lg flex items-center justify-center font-mono font-black text-sm shrink-0 bg-emerald-600 text-white border border-emerald-700">
+                  {expectedAnswer || "✓"}
                 </span>
               </div>
             </div>

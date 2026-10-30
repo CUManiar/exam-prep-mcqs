@@ -107,10 +107,16 @@ export function AttemptReviewView({
   const jumpToQuestion = (qNo: number) => {
     setActiveQuestionNo(qNo);
     setActiveMobileView("inspector");
-    // Scroll list into view if available
+    // Scroll list into view if available without scrolling the window
     const el = document.getElementById(`sidebar-q-${qNo}`);
     if (el) {
-      el.scrollIntoView({ behavior: "smooth", block: "nearest" });
+      const scrollParent = el.closest(".overflow-y-auto");
+      if (scrollParent) {
+        const parentRect = scrollParent.getBoundingClientRect();
+        const elRect = el.getBoundingClientRect();
+        const targetTop = elRect.top - parentRect.top + scrollParent.scrollTop;
+        scrollParent.scrollTo({ top: Math.max(0, targetTop - 40), behavior: "smooth" });
+      }
     }
   };
 
@@ -346,108 +352,42 @@ export function AttemptReviewView({
       <main className="max-w-[1720px] w-full mx-auto px-3 sm:px-5 lg:px-6 py-4 sm:py-6 flex-1">
         <div className="grid grid-cols-1 lg:grid-cols-10 gap-5 sm:gap-6 items-start">
           {/* ============================================================
-              LEFT COLUMN (70% on lg+): PRIMARY CONTENT / WORKBENCH
+              LEFT COLUMN (70% on lg+): PRIMARY WORKBENCH
               ============================================================ */}
           <section className="lg:col-span-7 space-y-4">
-            {/* If paper split is open on desktop:
-                - For Markdown papers: Full 70% width MarkdownPaperReviewViewer (matching Attachment 1)
-                - For PDF papers: Side-by-side PDF Booklet + Question Inspector
-            */}
             {showPaperSplit && canPreviewPaper ? (
-              isMarkdownPaper ? (
-                /* Markdown Paper: Full-Width Rich Review Viewer */
-                <div
-                  className={`w-full ${
-                    activeMobileView === "paper" || activeMobileView === "inspector"
-                      ? "block"
-                      : "hidden lg:block"
-                  }`}
-                >
-                  <PaperPreviewPanel
-                    matchedPaper={matchedPaper}
-                    isMarkdownPaper={isMarkdownPaper}
-                    markdownQuestions={markdownQuestions}
-                    markdownHeader={markdownHeader}
-                    answers={attempt.answers || {}}
-                    activeQuestionNo={activeQuestionNo}
-                    onSelectQuestion={jumpToQuestion}
-                    onClose={() => {
-                      setShowPaperSplit(false);
-                      setActiveMobileView("inspector");
-                    }}
-                    attemptFallbackData={{
-                      paperId: attempt.paperId,
-                      paperLabel: attempt.paperLabel,
-                      totalQuestions: attempt.totalQuestions,
-                      maxScore: attempt.maxScore,
-                      correctMarks: attempt.correctMarks,
-                      incorrectMarks: attempt.incorrectMarks,
-                    }}
-                  />
-                </div>
-              ) : (
-                /* PDF Paper: Side-by-Side PDF Booklet (Left) + Question Inspector (Right) */
-                <div className="grid grid-cols-1 xl:grid-cols-2 gap-4 items-start">
-                  {/* PDF Paper Booklet */}
-                  <div
-                    className={`w-full ${
-                      activeMobileView === "paper" ? "block" : "hidden lg:block"
-                    }`}
-                  >
-                    <PaperPreviewPanel
-                      matchedPaper={matchedPaper}
-                      isMarkdownPaper={isMarkdownPaper}
-                      markdownQuestions={markdownQuestions}
-                      markdownHeader={markdownHeader}
-                      answers={attempt.answers || {}}
-                      activeQuestionNo={activeQuestionNo}
-                      onSelectQuestion={jumpToQuestion}
-                      onClose={() => {
-                        setShowPaperSplit(false);
-                        setActiveMobileView("inspector");
-                      }}
-                      attemptFallbackData={{
-                        paperId: attempt.paperId,
-                        paperLabel: attempt.paperLabel,
-                        totalQuestions: attempt.totalQuestions,
-                        maxScore: attempt.maxScore,
-                        correctMarks: attempt.correctMarks,
-                        incorrectMarks: attempt.incorrectMarks,
-                      }}
-                    />
-                  </div>
-
-                  {/* Question Inspector */}
-                  <div
-                    className={`w-full ${
-                      activeMobileView === "inspector" ? "block" : "hidden lg:block"
-                    }`}
-                  >
-                    <QuestionInspector
-                      question={currentQuestionAnswer}
-                      parsedQuestion={currentParsedQuestion}
-                      totalQuestions={questionList.length}
-                      isAssessmentQuestion={isAssessmentQuestion}
-                      isClozeQuestion={isClozeQuestion}
-                      getFullMarks={getFullMarks}
-                      incorrectMarksPerQ={attempt.incorrectMarks || 0.667}
-                      onSaveQuestionNote={handleSaveQuestionNote}
-                      onSetSubjectiveAssessment={handleSetSubjectiveAssessment}
-                      onNavigatePrev={() => jumpToQuestion(Math.max(1, activeQuestionNo - 1))}
-                      onNavigateNext={() =>
-                        jumpToQuestion(Math.min(questionList.length, activeQuestionNo + 1))
-                      }
-                      onJumpToNextMistake={handleJumpToNextMistake}
-                      hasNextMistake={incorrectQuestionsList.length > 0}
-                      canPreviewPaper={canPreviewPaper}
-                      showPaperSplit={showPaperSplit}
-                      onTogglePaperSplit={() => setShowPaperSplit(!showPaperSplit)}
-                    />
-                  </div>
-                </div>
-              )
+              /* Paper is visible (PDF or Markdown) - Takes the full 70% column */
+              <div
+                className={`w-full ${
+                  activeMobileView === "paper" || (isMarkdownPaper && activeMobileView === "inspector")
+                    ? "block"
+                    : "hidden lg:block"
+                }`}
+              >
+                <PaperPreviewPanel
+                  matchedPaper={matchedPaper}
+                  isMarkdownPaper={isMarkdownPaper}
+                  markdownQuestions={markdownQuestions}
+                  markdownHeader={markdownHeader}
+                  answers={attempt.answers || {}}
+                  activeQuestionNo={activeQuestionNo}
+                  onSelectQuestion={jumpToQuestion}
+                  onClose={() => {
+                    setShowPaperSplit(false);
+                    setActiveMobileView("inspector");
+                  }}
+                  attemptFallbackData={{
+                    paperId: attempt.paperId,
+                    paperLabel: attempt.paperLabel,
+                    totalQuestions: attempt.totalQuestions,
+                    maxScore: attempt.maxScore,
+                    correctMarks: attempt.correctMarks,
+                    incorrectMarks: attempt.incorrectMarks,
+                  }}
+                />
+              </div>
             ) : (
-              /* Full-Width Question Inspector (70% width) */
+              /* Full-Width Question Inspector (When paper preview is hidden) */
               <div
                 className={`${
                   activeMobileView === "inspector" ? "block" : "hidden lg:block"
@@ -478,10 +418,10 @@ export function AttemptReviewView({
           </section>
 
           {/* ============================================================
-              RIGHT COLUMN (30% on lg+): SCORE, DIAGNOSTICS, NAVIGATOR
+              RIGHT COLUMN (30% on lg+): REVIEW COMPANION
               ============================================================ */}
           <aside className="lg:col-span-3 space-y-4">
-            {/* 1. Score & Cutoff Card (Collapsible) + Diagnostic Insights (Collapsible) */}
+            {/* 1. Scorecard & Cutoff Target (Collapsible, Analytics holds Diagnostics) */}
             <div
               className={`${
                 activeMobileView === "score" ? "block" : "hidden lg:block"
@@ -505,7 +445,53 @@ export function AttemptReviewView({
               />
             </div>
 
-            {/* 2. Question Filter Bar */}
+            {/* 2. Visual Question Palette (1..N grid) */}
+            <div
+              className={`${
+                activeMobileView === "list" || activeMobileView === "inspector"
+                  ? "block"
+                  : "hidden lg:block"
+              }`}
+            >
+              <QuestionPalette
+                questions={questionList}
+                activeQuestionNo={activeQuestionNo}
+                onSelectQuestion={jumpToQuestion}
+                isAssessmentQuestion={isAssessmentQuestion}
+              />
+            </div>
+
+            {/* 3. For PDF Papers: Active Question Review Card (Right beside the PDF) */}
+            {(!isMarkdownPaper || activeMobileView === "inspector") && (
+              <div
+                className={`w-full ${
+                  activeMobileView === "inspector" ? "block" : "hidden lg:block"
+                }`}
+              >
+                <QuestionInspector
+                  question={currentQuestionAnswer}
+                  parsedQuestion={currentParsedQuestion}
+                  totalQuestions={questionList.length}
+                  isAssessmentQuestion={isAssessmentQuestion}
+                  isClozeQuestion={isClozeQuestion}
+                  getFullMarks={getFullMarks}
+                  incorrectMarksPerQ={attempt.incorrectMarks || 0.667}
+                  onSaveQuestionNote={handleSaveQuestionNote}
+                  onSetSubjectiveAssessment={handleSetSubjectiveAssessment}
+                  onNavigatePrev={() => jumpToQuestion(Math.max(1, activeQuestionNo - 1))}
+                  onNavigateNext={() =>
+                    jumpToQuestion(Math.min(questionList.length, activeQuestionNo + 1))
+                  }
+                  onJumpToNextMistake={handleJumpToNextMistake}
+                  hasNextMistake={incorrectQuestionsList.length > 0}
+                  canPreviewPaper={canPreviewPaper}
+                  showPaperSplit={showPaperSplit}
+                  onTogglePaperSplit={() => setShowPaperSplit(!showPaperSplit)}
+                />
+              </div>
+            )}
+
+            {/* 4. Filter Bar */}
             <div
               className={`${
                 activeMobileView === "list" ? "block" : "hidden lg:block"
@@ -533,21 +519,7 @@ export function AttemptReviewView({
               />
             </div>
 
-            {/* 3. Visual Question Palette (1..N grid) */}
-            <div
-              className={`${
-                activeMobileView === "list" ? "block" : "hidden lg:block"
-              }`}
-            >
-              <QuestionPalette
-                questions={questionList}
-                activeQuestionNo={activeQuestionNo}
-                onSelectQuestion={jumpToQuestion}
-                isAssessmentQuestion={isAssessmentQuestion}
-              />
-            </div>
-
-            {/* 4. Filtered Question List Navigator */}
+            {/* 5. Question Review Table */}
             <div
               className={`${
                 activeMobileView === "list" ? "block" : "hidden lg:block"
@@ -563,7 +535,7 @@ export function AttemptReviewView({
               />
             </div>
 
-            {/* 5. General Strategy Reflections & Notes */}
+            {/* 6. General Strategy Reflections */}
             <div
               className={`${
                 activeMobileView === "score" ? "block" : "hidden lg:block"

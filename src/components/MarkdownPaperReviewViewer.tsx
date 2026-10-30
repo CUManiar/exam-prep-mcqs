@@ -45,12 +45,16 @@ export function MarkdownPaperReviewViewer({
   const [viewMode, setViewMode] = useState<"all" | "single">("all");
   const [showPaperDetails, setShowPaperDetails] = useState<boolean>(false);
 
-  // Auto-scroll to selected question when activeQuestionNo changes
+  // Auto-scroll to selected question inside the paper container only (never scrolling the window)
   useEffect(() => {
     if (!activeQuestionNo || !scrollContainerRef.current) return;
+    const container = scrollContainerRef.current;
     const targetEl = document.getElementById(`paper-q-${activeQuestionNo}`);
-    if (targetEl) {
-      targetEl.scrollIntoView({ behavior: "smooth", block: "start" });
+    if (container && targetEl) {
+      const containerRect = container.getBoundingClientRect();
+      const targetRect = targetEl.getBoundingClientRect();
+      const targetTop = targetRect.top - containerRect.top + container.scrollTop;
+      container.scrollTo({ top: Math.max(0, targetTop - 12), behavior: "smooth" });
     }
   }, [activeQuestionNo]);
 
