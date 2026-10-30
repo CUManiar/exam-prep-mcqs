@@ -18,28 +18,28 @@ export function QuestionPalette({
   isAssessmentQuestion,
 }: QuestionPaletteProps) {
   return (
-    <div className="rounded-2xl border border-slate-200/90 bg-white p-3 sm:p-4 shadow-2xs space-y-2.5">
-      <div className="flex items-center justify-between text-xs">
+    <div className="rounded-2xl border border-slate-200/90 bg-white p-3 sm:p-3.5 shadow-2xs space-y-2">
+      <div className="flex items-center justify-between gap-1 flex-wrap pb-1.5 border-b border-slate-100">
         <span className="font-bold text-slate-700 uppercase tracking-wider text-[11px]">
           Question Palette ({questions.length})
         </span>
-        <div className="flex items-center gap-3 text-[10px] text-slate-500 font-medium">
-          <span className="flex items-center gap-1">
-            <span className="h-2 w-2 rounded-full bg-emerald-500" />
+        <div className="flex items-center gap-2 text-[10px] text-slate-500 font-medium shrink-0">
+          <span className="inline-flex items-center gap-1">
+            <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
             Correct
           </span>
-          <span className="flex items-center gap-1">
-            <span className="h-2 w-2 rounded-full bg-rose-500" />
+          <span className="inline-flex items-center gap-1">
+            <span className="h-1.5 w-1.5 rounded-full bg-rose-500" />
             Wrong
           </span>
-          <span className="flex items-center gap-1">
-            <span className="h-2 w-2 rounded-full bg-slate-300" />
-            Skipped
+          <span className="inline-flex items-center gap-1">
+            <span className="h-1.5 w-1.5 rounded-full bg-slate-300" />
+            Skip
           </span>
         </div>
       </div>
 
-      <div className="flex flex-wrap gap-1.5 max-h-[160px] overflow-y-auto pr-1">
+      <div className="flex flex-wrap gap-1.5 pt-0.5">
         {questions.map((q) => {
           const isSelected = q.questionNo === activeQuestionNo;
           const isEvaluable = isAssessmentQuestion(q.questionNo);
@@ -68,7 +68,7 @@ export function QuestionPalette({
               key={q.questionNo}
               type="button"
               onClick={() => onSelectQuestion(q.questionNo)}
-              className={`relative h-7 w-7 sm:h-8 sm:w-8 rounded-lg border text-xs font-mono font-bold transition-all flex items-center justify-center cursor-pointer ${badgeColor} ${
+              className={`relative h-7 w-7 rounded-lg border text-xs font-mono font-bold transition-all flex items-center justify-center cursor-pointer ${badgeColor} ${
                 isSelected
                   ? "ring-2 ring-indigo-600 ring-offset-1 font-black shadow-xs z-10 scale-105"
                   : ""
