@@ -483,14 +483,14 @@ export function PapersView({
             const practiceAtts = paperAtts.filter((a) => a.mode === "practice");
             const hasMock = mockAtts.length > 0;
             const hasPractice = practiceAtts.length > 0;
-            const latestAttempt = [...paperAtts]
-              .filter((attempt) => Boolean(attempt.finishedAt))
+            const finishedAttempts = paperAtts.filter((attempt) => Boolean(attempt.finishedAt));
+            const latestAttempt = (finishedAttempts.length > 0 ? finishedAttempts : paperAtts)
               .sort(
                 (a, b) =>
                   new Date(b.finishedAt || b.startedAt).getTime() -
                   new Date(a.finishedAt || a.startedAt).getTime(),
               )[0];
-            const cutoffStatus = getPaperCutoffStatus(paper, latestAttempt);
+            const cutoffStatus = hasAttempt && latestAttempt ? getPaperCutoffStatus(paper, latestAttempt) : null;
 
             return (
               <div
