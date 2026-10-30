@@ -137,44 +137,7 @@ export function MarkdownPaperReviewViewer({
         </div>
       </div>
 
-      {/* 2. Sticky Question Palette / Navigation Chips */}
-      {questions.length > 0 && (
-        <div className="px-3 py-1.5 bg-white border-b border-slate-200 overflow-x-auto no-scrollbar flex items-center gap-1 shrink-0">
-          <span className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider mr-1 shrink-0">
-            Questions:
-          </span>
-          {questions.map((q) => {
-            const ans = answers[q.questionNo];
-            const isAnswered =
-              ans?.selected !== null && ans?.selected !== undefined;
-            const isCorrect = isAnswered && ans?.isCorrect === true;
-            const isWrong = isAnswered && ans?.isCorrect === false;
-            const isActive = activeQuestionNo === q.questionNo;
-
-            return (
-              <button
-                key={q.questionNo}
-                type="button"
-                onClick={() => onSelectQuestion?.(q.questionNo)}
-                className={`cursor-pointer px-2 py-0.5 rounded-md text-[11px] font-mono font-bold transition-all shrink-0 ${
-                  isActive ? "ring-2 ring-slate-900 scale-105" : ""
-                } ${
-                  isCorrect
-                    ? "bg-emerald-100 text-emerald-800 border border-emerald-400"
-                    : isWrong
-                      ? "bg-rose-100 text-rose-800 border border-rose-400"
-                      : "bg-white text-slate-700 border border-slate-200 hover:bg-slate-50"
-                }`}
-                title={`Q${q.questionNo}: ${isCorrect ? "Correct" : isWrong ? "Incorrect" : "Unattempted"}`}
-              >
-                {q.questionNo}
-              </button>
-            );
-          })}
-        </div>
-      )}
-
-      {/* 3. Scrollable Paper Body */}
+      {/* 2. Scrollable Paper Body */}
       <div
         ref={scrollContainerRef}
         className="flex-1 overflow-y-auto p-3.5 sm:p-5 space-y-4 bg-slate-100/60"
