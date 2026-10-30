@@ -132,7 +132,8 @@ export function getPaperCutoffStatus(
   paper?: QuestionPaper | null,
   attempt?: Attempt | null,
 ): PaperCutoffStatus | null {
-  if (!attempt && !paper) return null;
+  // Cutoff status & qualification tag must appear ONLY after a test is attempted
+  if (!attempt) return null;
 
   const isCsat = isCsatPaper(paper, attempt);
 
