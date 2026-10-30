@@ -105,6 +105,7 @@ interface AppContextType {
   handleResumeDraft: (draft: ActiveSessionDraft) => void;
   handleDiscardDraft: () => void;
   handleFinishExamSession: (attempt: Attempt) => void;
+  notifyExamReady: () => void;
   handleViewAttemptDetail: (attempt: Attempt) => void;
   handleUpdateAttempt: (updated: Attempt) => void;
   handleDeleteAttempt: (attemptId: string) => void;
@@ -281,12 +282,14 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     setAuthModalOpen(true);
   };
 
-  useEffect(() => {
-    if (pathname === "/exam") {
-      startExamLockRef.current = false;
-      setIsStartingExam(false);
-    }
-  }, [pathname]);
+  // Called by the exam page once the paper is fully rendered, dismissing
+  // the "Opening assessment…" overlay that was shown when the user clicked
+  // Mock/Practice. Using an explicit signal (instead of a pathname effect)
+  // ensures the loader stays visible for the full hydration period.
+  const notifyExamReady = () => {
+    startExamLockRef.current = false;
+    setIsStartingExam(false);
+  };
 
   const handleSignOut = async () => {
     const supabase = getSupabaseClient();
@@ -949,6 +952,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         handleResumeDraft,
         handleDiscardDraft,
         handleFinishExamSession,
+        notifyExamReady,
         handleViewAttemptDetail,
         handleUpdateAttempt,
         handleDeleteAttempt,

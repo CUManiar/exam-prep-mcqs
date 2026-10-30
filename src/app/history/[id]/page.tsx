@@ -3,7 +3,7 @@
 import React, { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useApp } from "../../../context/AppContext";
-import { AttemptDetailView } from "../../../components/AttemptDetailView";
+import { AttemptReviewView } from "../../../components/review/AttemptReviewView";
 import { getAttempts, getGuestReviewAttempt } from "../../../lib/storage";
 import { Attempt } from "../../../lib/types";
 
@@ -70,7 +70,7 @@ export default function AttemptDetailPage({
   }
 
   return (
-    <AttemptDetailView
+    <AttemptReviewView
       attempt={attempt}
       papers={papers}
       onBack={() => router.push(currentUser ? "/history" : "/")}

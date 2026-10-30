@@ -228,13 +228,51 @@ export function ExamSessionView({
   });
   const hasUserInteractedRef = useRef(false);
 
+  // Local draft for the scratchpad note box — prevents per-keystroke
+  // writes to global `answers` state (and the resulting Supabase calls).
+  // The draft is flushed to `answers` on blur or when the question changes.
+  const [noteDraft, setNoteDraft] = useState<string>("");
+  // Refs hold the live draft value and the last-flushed value without
+  // causing re-renders or effect dependency issues.
+  const noteDraftRef = useRef<string>("");
+  const noteDraftSavedRef = useRef<string>("");
+  // Stable ref to `answers` so the note-load effect reads the latest map
+  // without being listed as a dependency (avoids resetting on every MCQ click).
+  const answersRef = useRef(answers);
+  useEffect(() => {
+    answersRef.current = answers;
+  });
+  // Stable ref to `setAnswers` used by the pre-navigate flush below.
+  const setAnswersRef = useRef(setAnswers);
+  useEffect(() => {
+    setAnswersRef.current = setAnswers;
+  }, [setAnswers]);
+
   const markUserInteraction = () => {
     hasUserInteractedRef.current = true;
+  };
+
+  // Flush any pending scratchpad draft for qNo into global answers state.
+  // Uses refs so it can be called inside navigateToQuestion without
+  // capturing a stale answers closure.
+  const flushNoteDraftForQ = (qNo: number | null) => {
+    if (qNo === null) return;
+    const draft = noteDraftRef.current;
+    const lastSaved = noteDraftSavedRef.current;
+    if (draft === lastSaved) return;
+    noteDraftSavedRef.current = draft;
+    hasUserInteractedRef.current = true;
+    setAnswersRef.current((prev) => {
+      const current = prev[qNo] || { questionNo: qNo, selected: null };
+      return { ...prev, [qNo]: { ...current, note: draft } };
+    });
   };
 
   const navigateToQuestion = (
     next: number | null | ((current: number | null) => number | null),
   ) => {
+    // Flush scratchpad note before leaving the current question.
+    flushNoteDraftForQ(currentQuestion);
     markUserInteraction();
     setCurrentQuestion(next);
   };
@@ -243,6 +281,19 @@ export function ExamSessionView({
     markUserInteraction();
     setIsPaused(paused);
   };
+
+  // Load the stored note into local draft whenever the active question changes.
+  // Flushing is handled by navigateToQuestion and the onBlur handler, so this
+  // effect only READS from answers (via answersRef) and never writes.
+  useEffect(() => {
+    const nextNote =
+      currentQuestion !== null
+        ? (answersRef.current[currentQuestion]?.note ?? "")
+        : "";
+    setNoteDraft(nextNote);
+    noteDraftRef.current = nextNote;
+    noteDraftSavedRef.current = nextNote;
+  }, [currentQuestion]);
 
   // Mobile Touch Swipe Navigation (Swipe left -> Next, Swipe right -> Prev)
   const touchStartRef = useRef<{ x: number; y: number; time: number } | null>(
@@ -926,11 +977,21 @@ export function ExamSessionView({
     persistSessionDraftRef.current = persistSessionDraft;
   }, [persistSessionDraft]);
 
-  // Save immediately whenever user answers, flags, notes, or switches questions
+  // Save immediately on navigation/pause events, but debounce answer/note
+  // keystrokes so rapid typing (cloze answer, scratchpad notes) does not
+  // fire a Supabase + localStorage write on every character.
   useEffect(() => {
     if (!hasUserInteractedRef.current) return;
     persistSessionDraftRef.current();
-  }, [answers, currentQuestion, isPaused]);
+  }, [currentQuestion, isPaused]);
+
+  useEffect(() => {
+    if (!hasUserInteractedRef.current) return;
+    const timer = setTimeout(() => {
+      persistSessionDraftRef.current();
+    }, 1500);
+    return () => clearTimeout(timer);
+  }, [answers]);
 
   // Protect against accidental refresh, browser close, or tab exit
   useEffect(() => {
@@ -2470,10 +2531,13 @@ export function ExamSessionView({
                       </span>
                     </div>
                     <textarea
-                      value={currentQObj.note || ""}
-                      onChange={(e) =>
-                        handleUpdateNote(currentQuestion, e.target.value)
-                      }
+                      value={noteDraft}
+                      onChange={(e) => {
+                        const val = e.target.value;
+                        setNoteDraft(val);
+                        noteDraftRef.current = val;
+                      }}
+                      onBlur={() => flushNoteDraftForQ(currentQuestion)}
                       placeholder="Jot down keywords, elimination notes, rough outline or formulas while solving..."
                       rows={5}
                       className="w-full rounded-xl border border-slate-300 bg-white p-3 text-xs text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 resize-y min-h-[110px] font-sans transition-all shadow-inner"

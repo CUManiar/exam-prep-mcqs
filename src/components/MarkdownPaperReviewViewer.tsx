@@ -16,6 +16,7 @@ import {
   Info,
   HelpCircle,
   FileText,
+  RotateCcw,
 } from "lucide-react";
 
 interface MarkdownPaperReviewViewerProps {
@@ -28,6 +29,8 @@ interface MarkdownPaperReviewViewerProps {
   activeQuestionNo?: number | null;
   onSelectQuestion?: (qNo: number) => void;
   onClose?: () => void;
+  hasActiveFilters?: boolean;
+  onResetFilters?: () => void;
 }
 
 export function MarkdownPaperReviewViewer({
@@ -40,17 +43,23 @@ export function MarkdownPaperReviewViewer({
   activeQuestionNo,
   onSelectQuestion,
   onClose,
+  hasActiveFilters,
+  onResetFilters,
 }: MarkdownPaperReviewViewerProps) {
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const [viewMode, setViewMode] = useState<"all" | "single">("all");
   const [showPaperDetails, setShowPaperDetails] = useState<boolean>(false);
 
-  // Auto-scroll to selected question when activeQuestionNo changes
+  // Auto-scroll to selected question inside the paper container only (never scrolling the window)
   useEffect(() => {
     if (!activeQuestionNo || !scrollContainerRef.current) return;
+    const container = scrollContainerRef.current;
     const targetEl = document.getElementById(`paper-q-${activeQuestionNo}`);
-    if (targetEl) {
-      targetEl.scrollIntoView({ behavior: "smooth", block: "start" });
+    if (container && targetEl) {
+      const containerRect = container.getBoundingClientRect();
+      const targetRect = targetEl.getBoundingClientRect();
+      const targetTop = targetRect.top - containerRect.top + container.scrollTop;
+      container.scrollTo({ top: Math.max(0, targetTop - 12), behavior: "smooth" });
     }
   }, [activeQuestionNo]);
 
@@ -133,44 +142,7 @@ export function MarkdownPaperReviewViewer({
         </div>
       </div>
 
-      {/* 2. Sticky Question Palette / Navigation Chips */}
-      {questions.length > 0 && (
-        <div className="px-3 py-1.5 bg-white border-b border-slate-200 overflow-x-auto no-scrollbar flex items-center gap-1 shrink-0">
-          <span className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider mr-1 shrink-0">
-            Questions:
-          </span>
-          {questions.map((q) => {
-            const ans = answers[q.questionNo];
-            const isAnswered =
-              ans?.selected !== null && ans?.selected !== undefined;
-            const isCorrect = isAnswered && ans?.isCorrect === true;
-            const isWrong = isAnswered && ans?.isCorrect === false;
-            const isActive = activeQuestionNo === q.questionNo;
-
-            return (
-              <button
-                key={q.questionNo}
-                type="button"
-                onClick={() => onSelectQuestion?.(q.questionNo)}
-                className={`cursor-pointer px-2 py-0.5 rounded-md text-[11px] font-mono font-bold transition-all shrink-0 ${
-                  isActive ? "ring-2 ring-slate-900 scale-105" : ""
-                } ${
-                  isCorrect
-                    ? "bg-emerald-100 text-emerald-800 border border-emerald-400"
-                    : isWrong
-                      ? "bg-rose-100 text-rose-800 border border-rose-400"
-                      : "bg-white text-slate-700 border border-slate-200 hover:bg-slate-50"
-                }`}
-                title={`Q${q.questionNo}: ${isCorrect ? "Correct" : isWrong ? "Incorrect" : "Unattempted"}`}
-              >
-                {q.questionNo}
-              </button>
-            );
-          })}
-        </div>
-      )}
-
-      {/* 3. Scrollable Paper Body */}
+      {/* 2. Scrollable Paper Body */}
       <div
         ref={scrollContainerRef}
         className="flex-1 overflow-y-auto p-3.5 sm:p-5 space-y-4 bg-slate-100/60"
@@ -260,16 +232,42 @@ export function MarkdownPaperReviewViewer({
 
         {/* Questions List */}
         {questions.length === 0 ? (
-          <div className="p-8 text-center rounded-2xl border border-dashed border-slate-300 bg-white space-y-2">
-            <Info className="h-8 w-8 text-slate-400 mx-auto" />
-            <h4 className="text-sm font-bold text-slate-700">
-              No questions found for this paper
-            </h4>
-            <p className="text-xs text-slate-500 max-w-sm mx-auto">
-              The markdown content for this paper could not be parsed into
-              individual questions.
-            </p>
-          </div>
+          hasActiveFilters ? (
+            <div className="p-10 text-center rounded-2xl border border-dashed border-slate-300 bg-white space-y-3.5 my-4">
+              <div className="h-12 w-12 rounded-full bg-slate-100 flex items-center justify-center mx-auto text-slate-400">
+                <RotateCcw className="h-5 w-5 text-slate-500" />
+              </div>
+              <div className="space-y-1">
+                <h4 className="text-sm font-bold text-slate-800">
+                  No matching questions
+                </h4>
+                <p className="text-xs text-slate-500 max-w-sm mx-auto">
+                  No questions in this paper match the selected filter combination.
+                </p>
+              </div>
+              {onResetFilters && (
+                <button
+                  type="button"
+                  onClick={onResetFilters}
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold bg-indigo-600 hover:bg-indigo-700 text-white shadow-xs cursor-pointer transition-colors"
+                >
+                  <RotateCcw className="h-3.5 w-3.5" />
+                  <span>Reset Filters</span>
+                </button>
+              )}
+            </div>
+          ) : (
+            <div className="p-8 text-center rounded-2xl border border-dashed border-slate-300 bg-white space-y-2">
+              <Info className="h-8 w-8 text-slate-400 mx-auto" />
+              <h4 className="text-sm font-bold text-slate-700">
+                No questions found for this paper
+              </h4>
+              <p className="text-xs text-slate-500 max-w-sm mx-auto">
+                The markdown content for this paper could not be parsed into
+                individual questions.
+              </p>
+            </div>
+          )
         ) : (
           visibleQuestions.map((q) => {
             const ans = answers[q.questionNo];
