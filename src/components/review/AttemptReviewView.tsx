@@ -7,7 +7,6 @@ import { ReviewHeader } from "./ReviewHeader";
 import { ReviewScoreHero } from "./ReviewScoreHero";
 import { QuestionFilterBar } from "./QuestionFilterBar";
 import { QuestionPalette } from "./QuestionPalette";
-import { QuestionListSidebar } from "./QuestionListSidebar";
 import { QuestionInspector } from "./QuestionInspector";
 import { PaperPreviewPanel } from "./PaperPreviewPanel";
 import { GeneralNotesCard } from "./GeneralNotesCard";
@@ -15,7 +14,7 @@ import { DetailedSolutionModal } from "../DetailedSolutionModal";
 import { useApp } from "../../context/AppContext";
 import { FilterTabType, SortOptionType } from "./reviewTypes";
 import { SUBJECTIVE_ASSESSMENT_META } from "../../lib/defaults";
-import { Eye, ListFilter, Columns, BarChart3 } from "lucide-react";
+import { BarChart3, Columns, LayoutGrid } from "lucide-react";
 
 interface AttemptReviewViewProps {
   attempt: Attempt;
@@ -74,8 +73,8 @@ export function AttemptReviewView({
   const [activeQuestionNo, setActiveQuestionNo] = useState<number>(1);
   const [showPaperSplit, setShowPaperSplit] = useState<boolean>(true);
   const [activeMobileView, setActiveMobileView] = useState<
-    "inspector" | "list" | "score" | "paper"
-  >("inspector");
+    "paper" | "palette" | "score"
+  >("paper");
 
   // Modals
   const [solutionModalOpen, setSolutionModalOpen] = useState(false);
@@ -106,16 +105,19 @@ export function AttemptReviewView({
   // Jump to specific question
   const jumpToQuestion = (qNo: number) => {
     setActiveQuestionNo(qNo);
-    setActiveMobileView("inspector");
-    // Scroll list into view if available without scrolling the window
-    const el = document.getElementById(`sidebar-q-${qNo}`);
-    if (el) {
-      const scrollParent = el.closest(".overflow-y-auto");
-      if (scrollParent) {
-        const parentRect = scrollParent.getBoundingClientRect();
-        const elRect = el.getBoundingClientRect();
-        const targetTop = elRect.top - parentRect.top + scrollParent.scrollTop;
-        scrollParent.scrollTo({ top: Math.max(0, targetTop - 40), behavior: "smooth" });
+  };
+
+  const filteredQuestionNosSet = useMemo(() => {
+    return new Set(filteredQuestions.map((q) => q.questionNo));
+  }, [filteredQuestions]);
+
+  const handleSelectFilter = (tab: FilterTabType) => {
+    setFilterTab(tab);
+    const matches = getFilteredQuestions(tab, sortOption);
+    if (matches.length > 0) {
+      const currentInMatches = matches.some((q) => q.questionNo === activeQuestionNo);
+      if (!currentInMatches) {
+        jumpToQuestion(matches[0].questionNo);
       }
     }
   };
@@ -271,7 +273,6 @@ export function AttemptReviewView({
         showPaperSplit={showPaperSplit}
         onTogglePaperSplit={() => {
           setShowPaperSplit(!showPaperSplit);
-          setActiveMobileView((prev) => (prev === "paper" ? "inspector" : "paper"));
         }}
         onBack={onBack}
         onDelete={onDelete}
@@ -294,27 +295,27 @@ export function AttemptReviewView({
         <div className="flex rounded-xl border border-slate-200 bg-white p-1 shadow-2xs">
           <button
             type="button"
-            onClick={() => setActiveMobileView("inspector")}
+            onClick={() => setActiveMobileView("paper")}
             className={`flex-1 flex items-center justify-center gap-1.5 py-2 text-xs font-bold rounded-lg transition-colors cursor-pointer ${
-              activeMobileView === "inspector"
+              activeMobileView === "paper"
                 ? "bg-slate-900 text-white shadow-xs"
                 : "text-slate-600 hover:text-slate-900"
             }`}
           >
-            <Eye className="h-3.5 w-3.5" />
-            <span>Inspector</span>
+            <Columns className="h-3.5 w-3.5" />
+            <span>Paper</span>
           </button>
 
           <button
             type="button"
-            onClick={() => setActiveMobileView("list")}
+            onClick={() => setActiveMobileView("palette")}
             className={`flex-1 flex items-center justify-center gap-1.5 py-2 text-xs font-bold rounded-lg transition-colors cursor-pointer ${
-              activeMobileView === "list"
+              activeMobileView === "palette"
                 ? "bg-slate-900 text-white shadow-xs"
                 : "text-slate-600 hover:text-slate-900"
             }`}
           >
-            <ListFilter className="h-3.5 w-3.5" />
+            <LayoutGrid className="h-3.5 w-3.5" />
             <span>Questions ({filteredQuestions.length})</span>
           </button>
 
@@ -330,21 +331,6 @@ export function AttemptReviewView({
             <BarChart3 className="h-3.5 w-3.5" />
             <span>Scorecard</span>
           </button>
-
-          {canPreviewPaper && (
-            <button
-              type="button"
-              onClick={() => setActiveMobileView("paper")}
-              className={`flex-1 flex items-center justify-center gap-1.5 py-2 text-xs font-bold rounded-lg transition-colors cursor-pointer ${
-                activeMobileView === "paper"
-                  ? "bg-slate-900 text-white shadow-xs"
-                  : "text-slate-600 hover:text-slate-900"
-              }`}
-            >
-              <Columns className="h-3.5 w-3.5" />
-              <span>Paper PDF</span>
-            </button>
-          )}
         </div>
       </div>
 
@@ -352,17 +338,45 @@ export function AttemptReviewView({
       <main className="max-w-[1720px] w-full mx-auto px-3 sm:px-5 lg:px-6 py-4 sm:py-6 flex-1">
         <div className="grid grid-cols-1 lg:grid-cols-10 gap-5 sm:gap-6 items-start">
           {/* ============================================================
-              LEFT COLUMN (70% on lg+): PRIMARY WORKBENCH (PDF or Markdown Paper)
-              Occupies the entire left panel.
+              LEFT COLUMN (70% on lg+): PRIMARY WORKBENCH (Paper & Filters)
+              Filters are at the top, followed by the Paper Booklet
               ============================================================ */}
-          <section className="lg:col-span-7 space-y-4">
+          <section className="lg:col-span-7 space-y-3.5">
+            {/* Filter Bar: on top of the left panel */}
+            <div
+              className={`w-full ${
+                activeMobileView === "paper" || activeMobileView === "palette"
+                  ? "block"
+                  : "hidden lg:block"
+              }`}
+            >
+              <QuestionFilterBar
+                currentTab={filterTab}
+                onSelectTab={handleSelectFilter}
+                counts={{
+                  all: questionList.length,
+                  correct: attempt.correct,
+                  incorrect: attempt.incorrect,
+                  skipped: attempt.unattempted,
+                  flagged: flaggedQuestions.length,
+                  altered: alteredQuestions.length,
+                  slow: slowQuestions.length,
+                  sure: sureQuestions.length,
+                  fiftyFifty: fiftyFiftyQuestions.length,
+                  elimination: eliminationQuestions.length,
+                  guess: guessQuestions.length,
+                }}
+                sortOption={sortOption}
+                onChangeSort={setSortOption}
+                filteredCount={filteredQuestions.length}
+              />
+            </div>
+
+            {/* Paper Preview Panel (PDF Booklet or Markdown Paper) */}
             {showPaperSplit && canPreviewPaper ? (
-              /* Paper is visible (PDF Booklet or Markdown Paper) - Occupies the entire left panel */
               <div
                 className={`w-full ${
-                  activeMobileView === "paper" || (isMarkdownPaper && activeMobileView === "inspector")
-                    ? "block"
-                    : "hidden lg:block"
+                  activeMobileView === "paper" ? "block" : "hidden lg:block"
                 }`}
               >
                 <PaperPreviewPanel
@@ -375,7 +389,6 @@ export function AttemptReviewView({
                   onSelectQuestion={jumpToQuestion}
                   onClose={() => {
                     setShowPaperSplit(false);
-                    setActiveMobileView("inspector");
                   }}
                   attemptFallbackData={{
                     paperId: attempt.paperId,
@@ -388,10 +401,10 @@ export function AttemptReviewView({
                 />
               </div>
             ) : (
-              /* Full-Width Question Inspector (When paper preview is hidden) */
+              /* Question Inspector (When paper preview is toggled off) */
               <div
                 className={`${
-                  activeMobileView === "inspector" ? "block" : "hidden lg:block"
+                  activeMobileView === "paper" ? "block" : "hidden lg:block"
                 }`}
               >
                 <QuestionInspector
@@ -420,6 +433,7 @@ export function AttemptReviewView({
 
           {/* ============================================================
               RIGHT COLUMN (30% on lg+): REVIEW COMPANION
+              Scorecard Hero, Palette with Accordion, General Reflections
               ============================================================ */}
           <aside className="lg:col-span-3 space-y-4">
             {/* 1. Scorecard & Cutoff Target (Collapsible, Analytics holds Diagnostics) */}
@@ -439,19 +453,16 @@ export function AttemptReviewView({
                 cutoffVerdict={cutoffVerdict}
                 topTakeaways={topTakeaways}
                 onSelectFilter={(tab) => {
-                  setFilterTab(tab);
-                  setActiveMobileView("list");
+                  handleSelectFilter(tab);
                 }}
                 formatReviewNumber={formatReviewNumber}
               />
             </div>
 
-            {/* 2. Visual Question Palette (1..N grid) */}
+            {/* 2. Visual Question Palette (1..N grid with accordion for question details on click) */}
             <div
               className={`${
-                activeMobileView === "list" || activeMobileView === "inspector"
-                  ? "block"
-                  : "hidden lg:block"
+                activeMobileView === "palette" ? "block" : "hidden lg:block"
               }`}
             >
               <QuestionPalette
@@ -459,55 +470,19 @@ export function AttemptReviewView({
                 activeQuestionNo={activeQuestionNo}
                 onSelectQuestion={jumpToQuestion}
                 isAssessmentQuestion={isAssessmentQuestion}
-              />
-            </div>
-
-            {/* 3. Filter Bar */}
-            <div
-              className={`${
-                activeMobileView === "list" ? "block" : "hidden lg:block"
-              }`}
-            >
-              <QuestionFilterBar
-                currentTab={filterTab}
-                onSelectTab={setFilterTab}
-                counts={{
-                  all: questionList.length,
-                  correct: attempt.correct,
-                  incorrect: attempt.incorrect,
-                  skipped: attempt.unattempted,
-                  flagged: flaggedQuestions.length,
-                  altered: alteredQuestions.length,
-                  slow: slowQuestions.length,
-                  sure: sureQuestions.length,
-                  fiftyFifty: fiftyFiftyQuestions.length,
-                  elimination: eliminationQuestions.length,
-                  guess: guessQuestions.length,
-                }}
-                sortOption={sortOption}
-                onChangeSort={setSortOption}
-                filteredCount={filteredQuestions.length}
-              />
-            </div>
-
-            {/* 4. Question Review Table */}
-            <div
-              className={`${
-                activeMobileView === "list" ? "block" : "hidden lg:block"
-              }`}
-            >
-              <QuestionListSidebar
-                questions={filteredQuestions}
-                activeQuestionNo={activeQuestionNo}
-                onSelectQuestion={jumpToQuestion}
-                isAssessmentQuestion={isAssessmentQuestion}
                 isClozeQuestion={isClozeQuestion}
                 markdownQuestions={markdownQuestions}
                 onSaveQuestionNote={handleSaveQuestionNote}
+                onJumpToNextMistake={handleJumpToNextMistake}
+                hasNextMistake={incorrectQuestionsList.length > 0}
+                incorrectMarksPerQ={attempt.incorrectMarks || 0.667}
+                getFullMarks={getFullMarks}
+                filteredQuestionNos={filteredQuestionNosSet}
+                filterTab={filterTab}
               />
             </div>
 
-            {/* 5. General Strategy Reflections */}
+            {/* 3. General Strategy Reflections */}
             <div
               className={`${
                 activeMobileView === "score" ? "block" : "hidden lg:block"
