@@ -56,7 +56,7 @@ export function ReviewScoreHero({
       {/* 1. Score & Benchmark Card (Collapsible) */}
       <div className="rounded-2xl border border-slate-200/90 bg-white shadow-2xs overflow-hidden transition-all">
         {/* Header Bar */}
-        <div className="p-3.5 sm:p-4 bg-gradient-to-r from-white via-slate-50/50 to-indigo-50/20 flex items-center justify-between gap-3 border-b border-slate-100">
+        <div className="p-3.5 sm:p-4 bg-gradient-to-r from-white via-slate-50/50 to-indigo-50/20 flex items-center justify-between gap-2.5 sm:gap-3 border-b border-slate-100 flex-wrap">
           <div className="flex items-center gap-2.5 min-w-0">
             <span className="text-xs font-bold uppercase tracking-wider text-slate-500">
               Score & Cutoff

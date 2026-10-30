@@ -316,7 +316,7 @@ export function AttemptReviewView({
             }`}
           >
             <BarChart3 className="h-3.5 w-3.5" />
-            <span>Scorecard</span>
+            <span>Scorecard ({formatReviewNumber(attempt.score)}/{effectiveMaxScore})</span>
           </button>
         </div>
       </div>

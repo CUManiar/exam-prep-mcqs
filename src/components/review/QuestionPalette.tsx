@@ -10,6 +10,8 @@ import {
   ChevronUp,
   Lightbulb,
   ArrowRight,
+  Check,
+  X,
 } from "lucide-react";
 
 interface QuestionPaletteProps {
@@ -88,12 +90,16 @@ export function QuestionPalette({
     ? markdownQuestions.find((mq) => mq.questionNo === expandedQuestion.questionNo)
     : null;
 
-  const expandedKey = (parsedQ?.answer || expandedQuestion?.correctAnswer || "")
-    .replace(/[\(\)\[\]\.\s]/g, "")
-    .toUpperCase();
-  const expandedCandidate = (expandedQuestion?.selected || "")
-    .replace(/[\(\)\[\]\.\s]/g, "")
-    .toUpperCase();
+  const rawCandidate = (expandedQuestion?.selected || "").trim();
+  const rawKey = (parsedQ?.answer || expandedQuestion?.correctAnswer || "").trim();
+
+  // Test if candidate/key is a standard single letter MCQ (A, B, C, D)
+  const candidateLetterMatch = rawCandidate.replace(/[\(\)\[\]\.\s]/g, "").toUpperCase();
+  const isCandidateSingleLetter = /^[A-D]$/.test(candidateLetterMatch);
+
+  const keyLetterMatch = rawKey.replace(/[\(\)\[\]\.\s]/g, "").toUpperCase();
+  const isKeySingleLetter = /^[A-D]$/.test(keyLetterMatch);
+
   const explanationText = parsedQ?.explanation || expandedQuestion?.explanation;
 
   const fullMarks = expandedQuestion && getFullMarks ? getFullMarks(expandedQuestion.questionNo) : 2.0;
@@ -234,11 +240,11 @@ export function QuestionPalette({
             </div>
           </div>
 
-          {/* Answer Comparison Strip */}
-          <div className="grid grid-cols-2 gap-2 text-xs">
+          {/* Answer Comparison Strip: responsive column on narrow, row on wider */}
+          <div className="flex flex-col sm:flex-row gap-2 text-xs">
             {/* Candidate Pick */}
             <div
-              className={`p-2.5 rounded-xl border flex items-center justify-between gap-1.5 transition-all ${
+              className={`flex-1 min-w-0 p-2.5 rounded-xl border flex items-center justify-between gap-2 overflow-hidden transition-all ${
                 expandedIsCorrect
                   ? "bg-emerald-50/70 border-emerald-200 text-emerald-950"
                   : expandedIsWrong
@@ -246,14 +252,25 @@ export function QuestionPalette({
                     : "bg-slate-50 border-slate-200 text-slate-700"
               }`}
             >
-              <div className="flex flex-col min-w-0">
+              <div className="flex flex-col min-w-0 overflow-hidden flex-1">
                 <span className="text-[9px] uppercase font-bold text-slate-500 tracking-wider">
-                  Your Answer
+                  Your Answer {isEvaluable && expandedQuestion.subjectiveAssessment ? `(${expandedQuestion.subjectiveAssessment})` : ""}
                 </span>
-                <span className="font-mono text-xs font-black truncate mt-0.5">
-                  {expandedCandidate ? `Option ${expandedCandidate}` : "Unattempted"}
-                </span>
+                {isCandidateSingleLetter ? (
+                  <span className="font-mono text-xs font-black truncate mt-0.5">
+                    Option {candidateLetterMatch}
+                  </span>
+                ) : rawCandidate ? (
+                  <p className="text-xs font-medium text-slate-900 mt-0.5 break-words line-clamp-2 leading-tight">
+                    {rawCandidate}
+                  </p>
+                ) : (
+                  <span className="text-xs font-medium text-slate-400 mt-0.5 italic">
+                    Unattempted
+                  </span>
+                )}
               </div>
+
               <span
                 className={`h-6 w-6 rounded-lg flex items-center justify-center font-mono font-black text-xs shrink-0 border ${
                   expandedIsCorrect
@@ -263,34 +280,56 @@ export function QuestionPalette({
                       : "bg-slate-200 text-slate-500 border-slate-300"
                 }`}
               >
-                {expandedCandidate || "—"}
+                {isCandidateSingleLetter ? (
+                  candidateLetterMatch
+                ) : expandedIsCorrect ? (
+                  <Check className="h-3.5 w-3.5 text-white" />
+                ) : expandedIsWrong ? (
+                  <X className="h-3.5 w-3.5 text-white" />
+                ) : (
+                  "—"
+                )}
               </span>
             </div>
 
             {/* Official Key */}
-            <div className="p-2.5 rounded-xl border border-emerald-200 bg-emerald-50/70 text-emerald-950 flex items-center justify-between gap-1.5">
-              <div className="flex flex-col min-w-0">
+            <div className="flex-1 min-w-0 p-2.5 rounded-xl border border-emerald-200 bg-emerald-50/70 text-emerald-950 flex items-center justify-between gap-2 overflow-hidden">
+              <div className="flex flex-col min-w-0 overflow-hidden flex-1">
                 <span className="text-[9px] uppercase font-bold text-emerald-800 tracking-wider">
                   Official Key
                 </span>
-                <span className="font-mono text-xs font-black truncate mt-0.5 text-emerald-900">
-                  {expandedKey ? `Option ${expandedKey}` : "Refer below"}
-                </span>
+                {isKeySingleLetter ? (
+                  <span className="font-mono text-xs font-black truncate mt-0.5 text-emerald-900">
+                    Option {keyLetterMatch}
+                  </span>
+                ) : rawKey ? (
+                  <p className="text-xs font-medium text-emerald-900 mt-0.5 break-words line-clamp-2 leading-tight">
+                    {rawKey}
+                  </p>
+                ) : (
+                  <span className="text-xs font-medium text-emerald-800 mt-0.5">
+                    Refer below
+                  </span>
+                )}
               </div>
               <span className="h-6 w-6 rounded-lg flex items-center justify-center font-mono font-black text-xs shrink-0 bg-emerald-600 text-white border border-emerald-700">
-                {expandedKey || "✓"}
+                {isKeySingleLetter ? (
+                  keyLetterMatch
+                ) : (
+                  <Check className="h-3.5 w-3.5 text-white" />
+                )}
               </span>
             </div>
           </div>
 
           {/* Official Solution & Explanation */}
           {explanationText ? (
-            <div className="rounded-xl border border-indigo-200/90 bg-indigo-50/30 p-3 space-y-1 shadow-2xs">
+            <div className="rounded-xl border border-indigo-200/90 bg-indigo-50/30 p-3 space-y-1 shadow-2xs overflow-hidden">
               <div className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wider text-indigo-900">
                 <Lightbulb className="h-3.5 w-3.5 text-indigo-600 shrink-0" />
                 <span>Official Solution</span>
               </div>
-              <p className="text-xs text-slate-800 leading-relaxed whitespace-pre-wrap font-normal select-text">
+              <p className="text-xs text-slate-800 leading-relaxed whitespace-pre-wrap font-normal select-text break-words">
                 {explanationText}
               </p>
             </div>
@@ -302,7 +341,7 @@ export function QuestionPalette({
 
           {/* Student Scratchpad Note */}
           {expandedQuestion.note && expandedQuestion.note.trim() ? (
-            <div className="rounded-xl border border-amber-300 bg-amber-50/80 p-3 shadow-2xs space-y-1">
+            <div className="rounded-xl border border-amber-300 bg-amber-50/80 p-3 shadow-2xs space-y-1 overflow-hidden">
               <div className="flex items-center justify-between text-[10px] font-bold uppercase tracking-wider text-amber-900">
                 <span className="flex items-center gap-1.5">
                   <FileText className="h-3.5 w-3.5 text-amber-700 shrink-0" />
@@ -350,7 +389,7 @@ export function QuestionPalette({
                   </div>
                 </div>
               ) : (
-                <div className="text-xs font-mono text-slate-900 leading-relaxed whitespace-pre-wrap">
+                <div className="text-xs font-mono text-slate-900 leading-relaxed whitespace-pre-wrap break-words">
                   {expandedQuestion.note}
                 </div>
               )}
