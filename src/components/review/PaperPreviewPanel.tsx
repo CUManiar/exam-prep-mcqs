@@ -17,6 +17,8 @@ interface PaperPreviewPanelProps {
   activeQuestionNo: number;
   onSelectQuestion: (qNo: number) => void;
   onClose: () => void;
+  hasActiveFilters?: boolean;
+  onResetFilters?: () => void;
   attemptFallbackData: {
     paperId: string;
     paperLabel: string;
@@ -37,6 +39,8 @@ export function PaperPreviewPanel({
   activeQuestionNo,
   onSelectQuestion,
   onClose,
+  hasActiveFilters,
+  onResetFilters,
   attemptFallbackData,
 }: PaperPreviewPanelProps) {
   const [pdfMode, setPdfMode] = useState<"native" | "canvas">("native");
@@ -76,6 +80,8 @@ export function PaperPreviewPanel({
           activeQuestionNo={activeQuestionNo}
           onSelectQuestion={onSelectQuestion}
           onClose={onClose}
+          hasActiveFilters={hasActiveFilters}
+          onResetFilters={onResetFilters}
         />
       ) : (
         <>

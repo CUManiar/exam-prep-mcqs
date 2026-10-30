@@ -25,7 +25,7 @@ import {
   isFilterActive,
 } from "./reviewTypes";
 import { SUBJECTIVE_ASSESSMENT_META } from "../../lib/defaults";
-import { BarChart3, Columns, LayoutGrid } from "lucide-react";
+import { BarChart3, Columns, LayoutGrid, RotateCcw } from "lucide-react";
 
 interface AttemptReviewViewProps {
   attempt: Attempt;
@@ -123,6 +123,13 @@ export function AttemptReviewView({
   const filteredQuestionNosSet = useMemo(() => {
     return new Set(filteredQuestions.map((q) => q.questionNo));
   }, [filteredQuestions]);
+
+  // For Markdown paper: filter questions when filters are active!
+  // For PDF: "PDF no changes" (PDF remains full booklet)
+  const displayedMarkdownQuestions = useMemo(() => {
+    if (!hasActiveFilters) return markdownQuestions;
+    return markdownQuestions.filter((mq) => filteredQuestionNosSet.has(mq.questionNo));
+  }, [markdownQuestions, hasActiveFilters, filteredQuestionNosSet]);
 
   const syncActiveQuestionToMatches = (matches: QuestionAnswer[]) => {
     if (matches.length > 0) {
@@ -441,7 +448,7 @@ export function AttemptReviewView({
                 <PaperPreviewPanel
                   matchedPaper={matchedPaper}
                   isMarkdownPaper={isMarkdownPaper}
-                  markdownQuestions={markdownQuestions}
+                  markdownQuestions={displayedMarkdownQuestions}
                   markdownHeader={markdownHeader}
                   answers={attempt.answers || {}}
                   activeQuestionNo={activeQuestionNo}
@@ -449,6 +456,8 @@ export function AttemptReviewView({
                   onClose={() => {
                     setShowPaperSplit(false);
                   }}
+                  hasActiveFilters={hasActiveFilters}
+                  onResetFilters={handleResetFilters}
                   attemptFallbackData={{
                     paperId: attempt.paperId,
                     paperLabel: attempt.paperLabel,
@@ -458,6 +467,26 @@ export function AttemptReviewView({
                     incorrectMarks: attempt.incorrectMarks,
                   }}
                 />
+              </div>
+            ) : hasActiveFilters && filteredQuestions.length === 0 ? (
+              <div className="rounded-2xl border border-dashed border-slate-300 bg-white p-10 text-center space-y-3.5">
+                <div className="h-12 w-12 rounded-full bg-slate-100 flex items-center justify-center mx-auto text-slate-400">
+                  <RotateCcw className="h-5 w-5 text-slate-500" />
+                </div>
+                <div className="space-y-1">
+                  <h4 className="text-sm font-bold text-slate-800">No matching questions</h4>
+                  <p className="text-xs text-slate-500 max-w-sm mx-auto">
+                    No questions match the active filter combination.
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={handleResetFilters}
+                  className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl text-xs font-bold bg-indigo-600 hover:bg-indigo-700 text-white shadow-xs cursor-pointer transition-colors"
+                >
+                  <RotateCcw className="h-3.5 w-3.5" />
+                  <span>Reset Filters</span>
+                </button>
               </div>
             ) : (
               /* Question Inspector (When paper preview is toggled off) */

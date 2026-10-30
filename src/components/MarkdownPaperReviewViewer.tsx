@@ -16,6 +16,7 @@ import {
   Info,
   HelpCircle,
   FileText,
+  RotateCcw,
 } from "lucide-react";
 
 interface MarkdownPaperReviewViewerProps {
@@ -28,6 +29,8 @@ interface MarkdownPaperReviewViewerProps {
   activeQuestionNo?: number | null;
   onSelectQuestion?: (qNo: number) => void;
   onClose?: () => void;
+  hasActiveFilters?: boolean;
+  onResetFilters?: () => void;
 }
 
 export function MarkdownPaperReviewViewer({
@@ -40,6 +43,8 @@ export function MarkdownPaperReviewViewer({
   activeQuestionNo,
   onSelectQuestion,
   onClose,
+  hasActiveFilters,
+  onResetFilters,
 }: MarkdownPaperReviewViewerProps) {
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const [viewMode, setViewMode] = useState<"all" | "single">("all");
@@ -227,16 +232,42 @@ export function MarkdownPaperReviewViewer({
 
         {/* Questions List */}
         {questions.length === 0 ? (
-          <div className="p-8 text-center rounded-2xl border border-dashed border-slate-300 bg-white space-y-2">
-            <Info className="h-8 w-8 text-slate-400 mx-auto" />
-            <h4 className="text-sm font-bold text-slate-700">
-              No questions found for this paper
-            </h4>
-            <p className="text-xs text-slate-500 max-w-sm mx-auto">
-              The markdown content for this paper could not be parsed into
-              individual questions.
-            </p>
-          </div>
+          hasActiveFilters ? (
+            <div className="p-10 text-center rounded-2xl border border-dashed border-slate-300 bg-white space-y-3.5 my-4">
+              <div className="h-12 w-12 rounded-full bg-slate-100 flex items-center justify-center mx-auto text-slate-400">
+                <RotateCcw className="h-5 w-5 text-slate-500" />
+              </div>
+              <div className="space-y-1">
+                <h4 className="text-sm font-bold text-slate-800">
+                  No matching questions
+                </h4>
+                <p className="text-xs text-slate-500 max-w-sm mx-auto">
+                  No questions in this paper match the selected filter combination.
+                </p>
+              </div>
+              {onResetFilters && (
+                <button
+                  type="button"
+                  onClick={onResetFilters}
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold bg-indigo-600 hover:bg-indigo-700 text-white shadow-xs cursor-pointer transition-colors"
+                >
+                  <RotateCcw className="h-3.5 w-3.5" />
+                  <span>Reset Filters</span>
+                </button>
+              )}
+            </div>
+          ) : (
+            <div className="p-8 text-center rounded-2xl border border-dashed border-slate-300 bg-white space-y-2">
+              <Info className="h-8 w-8 text-slate-400 mx-auto" />
+              <h4 className="text-sm font-bold text-slate-700">
+                No questions found for this paper
+              </h4>
+              <p className="text-xs text-slate-500 max-w-sm mx-auto">
+                The markdown content for this paper could not be parsed into
+                individual questions.
+              </p>
+            </div>
+          )
         ) : (
           visibleQuestions.map((q) => {
             const ans = answers[q.questionNo];
