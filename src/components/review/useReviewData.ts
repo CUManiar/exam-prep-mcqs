@@ -456,8 +456,16 @@ export function useReviewData(attempt: Attempt, papers: QuestionPaper[]) {
 
     list.sort((a, b) => {
       if (sortOption === "qno_desc") return b.questionNo - a.questionNo;
-      if (sortOption === "time_desc") return (b.timeSpentSeconds || 0) - (a.timeSpentSeconds || 0);
-      if (sortOption === "time_asc") return (a.timeSpentSeconds || 0) - (b.timeSpentSeconds || 0);
+      if (sortOption === "time_desc") {
+        const diff = (b.timeSpentSeconds || 0) - (a.timeSpentSeconds || 0);
+        if (diff !== 0) return diff;
+        return a.questionNo - b.questionNo;
+      }
+      if (sortOption === "time_asc") {
+        const diff = (a.timeSpentSeconds || 0) - (b.timeSpentSeconds || 0);
+        if (diff !== 0) return diff;
+        return a.questionNo - b.questionNo;
+      }
       return a.questionNo - b.questionNo;
     });
     return list;

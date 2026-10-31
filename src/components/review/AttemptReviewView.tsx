@@ -6,6 +6,7 @@ import {
   QuestionPaper,
   QuestionAnswer,
   SubjectiveAssessment,
+  ParsedQuestion,
 } from "../../lib/types";
 import { useReviewData } from "./useReviewData";
 import { ReviewHeader } from "./ReviewHeader";
@@ -125,12 +126,40 @@ export function AttemptReviewView({
     return new Set(filteredQuestions.map((q) => q.questionNo));
   }, [filteredQuestions]);
 
-  // For Markdown paper: filter questions when filters are active!
+  // For Markdown paper: filter and sort questions respecting active filters and sortOption!
   // For PDF: "PDF no changes" (PDF remains full booklet)
   const displayedMarkdownQuestions = useMemo(() => {
-    if (!hasActiveFilters) return markdownQuestions;
-    return markdownQuestions.filter((mq) => filteredQuestionNosSet.has(mq.questionNo));
-  }, [markdownQuestions, hasActiveFilters, filteredQuestionNosSet]);
+    const mqMap = new Map<number, ParsedQuestion>();
+    markdownQuestions.forEach((mq) => mqMap.set(mq.questionNo, mq));
+
+    // Order matches filteredQuestions which respects both AND filters and sortOption!
+    const result: ParsedQuestion[] = [];
+    filteredQuestions.forEach((fq) => {
+      const mq = mqMap.get(fq.questionNo);
+      if (mq) {
+        result.push(mq);
+      }
+    });
+
+    if (result.length === 0 && !hasActiveFilters && markdownQuestions.length > 0) {
+      return [...markdownQuestions].sort((a, b) => {
+        const timeA = attempt.answers?.[a.questionNo]?.timeSpentSeconds || 0;
+        const timeB = attempt.answers?.[b.questionNo]?.timeSpentSeconds || 0;
+        if (sortOption === "qno_desc") return b.questionNo - a.questionNo;
+        if (sortOption === "time_desc") {
+          const diff = timeB - timeA;
+          return diff !== 0 ? diff : a.questionNo - b.questionNo;
+        }
+        if (sortOption === "time_asc") {
+          const diff = timeA - timeB;
+          return diff !== 0 ? diff : a.questionNo - b.questionNo;
+        }
+        return a.questionNo - b.questionNo;
+      });
+    }
+
+    return result;
+  }, [markdownQuestions, filteredQuestions, hasActiveFilters, attempt.answers, sortOption]);
 
   const syncActiveQuestionToMatches = (matches: QuestionAnswer[]) => {
     if (matches.length > 0) {
@@ -183,6 +212,18 @@ export function AttemptReviewView({
 
   const handleResetFilters = () => {
     setFilters(EMPTY_FILTER_STATE);
+    setSortOption("qno_asc");
+    if (questionList.length > 0) {
+      jumpToQuestion(1);
+    }
+  };
+
+  const handleSortChange = (newSort: SortOptionType) => {
+    setSortOption(newSort);
+    const sorted = getFilteredQuestions(filters, newSort);
+    if (sorted.length > 0) {
+      setActiveQuestionNo(sorted[0].questionNo);
+    }
   };
 
   const handleApplyTakeawayFilter = (tab: FilterTabType, filterState?: ReviewFilterState) => {
@@ -230,7 +271,7 @@ export function AttemptReviewView({
     }
   };
 
-  const currentNavigationList = hasActiveFilters ? filteredQuestions : questionList;
+  const currentNavigationList = filteredQuestions;
   const currentNavIndex = currentNavigationList.findIndex(
     (q) => q.questionNo === activeQuestionNo,
   );
@@ -384,7 +425,7 @@ export function AttemptReviewView({
   }, [attempt.id]);
 
   return (
-    <div className="min-h-screen bg-slate-100/60 text-slate-900 pb-16 flex flex-col font-sans">
+    <div className="h-screen h-[100dvh] bg-slate-100/60 text-slate-900 flex flex-col font-sans overflow-hidden">
       {/* 1. Sticky Header Bar */}
       <ReviewHeader
         attempt={attempt}
@@ -413,7 +454,7 @@ export function AttemptReviewView({
       />
 
       {/* 2. Mobile Responsive Tab Switcher */}
-      <div className="lg:hidden px-3 pt-3">
+      <div className="lg:hidden px-3 pt-2 shrink-0">
         <div className="flex rounded-xl border border-slate-200 bg-white p-1 shadow-2xs">
           <button
             type="button"
@@ -444,19 +485,19 @@ export function AttemptReviewView({
       </div>
 
       {/* 3. Main Workspace: 70/30 Separation on Larger Screens, Vertical Split on Mobile */}
-      <main className="max-w-[1720px] w-full mx-auto px-3 sm:px-5 lg:px-6 py-4 sm:py-6 flex-1">
-        <div className="grid grid-cols-1 lg:grid-cols-10 gap-5 sm:gap-6 items-start">
+      <main className="max-w-[1720px] w-full mx-auto px-3 sm:px-5 lg:px-6 py-2.5 sm:py-3.5 flex-1 min-h-0 overflow-hidden flex flex-col">
+        <div className="grid grid-cols-1 lg:grid-cols-10 gap-4 sm:gap-5 items-stretch flex-1 min-h-0 h-full">
           {/* ============================================================
               LEFT COLUMN (70% on lg+): PRIMARY WORKBENCH (Paper & Filters)
               On mobile: visible when activeMobileView === "review"
               ============================================================ */}
           <section
-            className={`lg:col-span-7 space-y-3.5 ${
-              activeMobileView === "review" ? "block" : "hidden lg:block"
+            className={`lg:col-span-7 flex flex-col h-full min-h-0 space-y-2.5 ${
+              activeMobileView === "review" ? "flex" : "hidden lg:flex"
             }`}
           >
-            {/* Filter Bar: on top of the left panel */}
-            <div className="w-full">
+            {/* Filter Bar: on top of the left panel (fixed, never scrolls) */}
+            <div className="w-full shrink-0">
               <QuestionFilterBar
                 filters={filters}
                 onToggleOutcome={handleToggleOutcome}
@@ -479,14 +520,14 @@ export function AttemptReviewView({
                   guess: guessQuestions.length,
                 }}
                 sortOption={sortOption}
-                onChangeSort={setSortOption}
+                onChangeSort={handleSortChange}
                 filteredCount={filteredQuestions.length}
               />
             </div>
 
             {/* Paper Preview Panel (PDF Booklet or Markdown Paper) */}
             {showPaperSplit && canPreviewPaper ? (
-              <div className="w-full">
+              <div className="w-full flex-1 min-h-0 flex flex-col">
                 <PaperPreviewPanel
                   matchedPaper={matchedPaper}
                   isMarkdownPaper={isMarkdownPaper}
@@ -511,7 +552,7 @@ export function AttemptReviewView({
                 />
               </div>
             ) : hasActiveFilters && filteredQuestions.length === 0 ? (
-              <div className="rounded-2xl border border-dashed border-slate-300 bg-white p-10 text-center space-y-3.5">
+              <div className="w-full flex-1 min-h-0 flex flex-col items-center justify-center rounded-2xl border border-dashed border-slate-300 bg-white p-8 text-center space-y-3.5 overflow-y-auto">
                 <div className="h-12 w-12 rounded-full bg-slate-100 flex items-center justify-center mx-auto text-slate-400">
                   <RotateCcw className="h-5 w-5 text-slate-500" />
                 </div>
@@ -532,7 +573,7 @@ export function AttemptReviewView({
               </div>
             ) : (
               /* Question Inspector (When paper preview is toggled off) */
-              <div>
+              <div className="w-full flex-1 min-h-0 overflow-y-auto">
                 <QuestionInspector
                   question={currentQuestionAnswer}
                   parsedQuestion={currentParsedQuestion}
@@ -562,12 +603,16 @@ export function AttemptReviewView({
               On mobile: Question Palette is stacked below Paper in "review" mode;
               Scorecard & Reflections are shown in "score" mode.
               ============================================================ */}
-          <aside className="lg:col-span-3 space-y-4">
+          <aside
+            className={`lg:col-span-3 flex flex-col h-full min-h-0 space-y-3.5 overflow-y-auto pr-1 scrollbar-thin ${
+              activeMobileView === "score" ? "flex" : "hidden lg:flex"
+            }`}
+          >
             {/* 1. Scorecard & Cutoff Target (Collapsible, Analytics holds Diagnostics) */}
             <div
               className={`${
                 activeMobileView === "score" ? "block" : "hidden lg:block"
-              }`}
+              } shrink-0`}
             >
               <ReviewScoreHero
                 attempt={attempt}
@@ -588,7 +633,7 @@ export function AttemptReviewView({
             <div
               className={`${
                 activeMobileView === "review" ? "block" : "hidden lg:block"
-              }`}
+              } shrink-0`}
             >
               <QuestionPalette
                 questions={questionList}
@@ -618,7 +663,7 @@ export function AttemptReviewView({
             <div
               className={`${
                 activeMobileView === "score" ? "block" : "hidden lg:block"
-              }`}
+              } shrink-0`}
             >
               <GeneralNotesCard
                 initialNotes={attempt.generalNotes}

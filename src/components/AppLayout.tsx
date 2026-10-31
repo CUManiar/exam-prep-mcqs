@@ -21,7 +21,7 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
           isExamView
             ? "exam-app-main"
             : isReviewDetail
-              ? "min-h-screen w-full"
+              ? "h-screen h-[100dvh] w-full overflow-hidden"
               : "min-h-[calc(100vh-7rem)] sm:min-h-[calc(100vh-4rem)] pb-16 md:pb-0"
         }
       >

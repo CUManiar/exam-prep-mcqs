@@ -64,7 +64,7 @@ export function PaperPreviewPanel({
   const title = getPaperDisplayTitle(effectivePaper);
 
   return (
-    <aside className="flex flex-col w-full h-[46vh] sm:h-[52vh] lg:h-[calc(100vh-10rem)] xl:h-[calc(100vh-7rem)] rounded-2xl overflow-hidden border border-slate-200 bg-white shadow-md shrink-0 z-10 lg:sticky lg:top-20">
+    <aside className="flex flex-col w-full h-full min-h-0 rounded-2xl overflow-hidden border border-slate-200 bg-white shadow-md shrink-0 z-10">
       {isMarkdownPaper ? (
         <MarkdownPaperReviewViewer
           paper={effectivePaper}
