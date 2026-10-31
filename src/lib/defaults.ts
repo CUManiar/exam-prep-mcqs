@@ -135,27 +135,14 @@ export function getPaperCutoffStatus(
   // Cutoff status & qualification tag must appear ONLY after a test is attempted
   if (!attempt) return null;
 
-  const isCsat = isCsatPaper(paper, attempt);
-
-  // 1. In CSAT, the UPSC standard qualifying threshold is 33.33%
-  if (isCsat) {
-    const cutoffValue = 33.33;
-    const percentage = attempt ? getAttemptPercentage(attempt) : null;
-    const cutoffCleared = percentage !== null && percentage >= cutoffValue;
-    return {
-      hasCutoff: true,
-      isCsat: true,
-      cutoffType: "percentage",
-      cutoffValue: 33.33,
-      cutoffCleared,
-      badgeText: cutoffCleared ? "Qualified" : "Not Qualified",
-    };
-  }
-
-  // 2. Custom cutoff explicitly configured on paper or attempt
-  const cutoffEnabled = Boolean(paper?.cutoffEnabled || attempt?.cutoffEnabled);
-  const cutoffType = paper?.cutoffType || attempt?.cutoffType || "percentage";
+  // 1. Explicit cutoff configured on paper or attempt takes top precedence!
   const cutoffValue = paper?.cutoffValue ?? attempt?.cutoffValue;
+  const cutoffType = paper?.cutoffType || attempt?.cutoffType || "percentage";
+  const cutoffEnabled = Boolean(
+    paper?.cutoffEnabled ||
+    attempt?.cutoffEnabled ||
+    (cutoffValue !== undefined && Number.isFinite(cutoffValue) && cutoffValue > 0),
+  );
 
   if (
     cutoffEnabled &&
@@ -170,11 +157,27 @@ export function getPaperCutoffStatus(
     const cutoffCleared = measure !== null && measure >= cutoffValue;
     return {
       hasCutoff: true,
-      isCsat: false,
+      isCsat: isCsatPaper(paper, attempt),
       cutoffType,
       cutoffValue,
       cutoffCleared,
-      badgeText: cutoffCleared ? "Passed cutoff" : "Below cutoff",
+      badgeText: cutoffCleared ? "Qualified" : "Not Qualified",
+    };
+  }
+
+  // 2. In CSAT (if no custom cutoff configured), UPSC standard qualifying threshold is 33.33%
+  const isCsat = isCsatPaper(paper, attempt);
+  if (isCsat) {
+    const cutoffValue = 33.33;
+    const percentage = attempt ? getAttemptPercentage(attempt) : null;
+    const cutoffCleared = percentage !== null && percentage >= cutoffValue;
+    return {
+      hasCutoff: true,
+      isCsat: true,
+      cutoffType: "percentage",
+      cutoffValue: 33.33,
+      cutoffCleared,
+      badgeText: cutoffCleared ? "Qualified" : "Not Qualified",
     };
   }
 

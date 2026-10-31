@@ -548,7 +548,7 @@ export function PapersView({
                       {cutoffStatus?.hasCutoff && (
                         <span
                           title={
-                            cutoffStatus.isCsat
+                            cutoffStatus.isCsat && cutoffStatus.cutoffValue === 33.33
                               ? `UPSC CSAT Qualifying benchmark: 33.3% (${cutoffStatus.cutoffCleared ? "Cleared" : "Below"})`
                               : `Cutoff benchmark: ${cutoffStatus.cutoffValue}${cutoffStatus.cutoffType === "percentage" ? "%" : " marks"} (${cutoffStatus.cutoffCleared ? "Cleared" : "Below"})`
                           }

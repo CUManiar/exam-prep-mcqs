@@ -286,6 +286,47 @@ export function useReviewData(attempt: Attempt, papers: QuestionPaper[]) {
 
   // Cutoff verdict
   const cutoffVerdict: CutoffVerdict = useMemo(() => {
+    // 1. Explicit cutoff configured on paper or attempt (highest priority)
+    const configuredCutoffValue =
+      matchedPaper?.cutoffValue ?? attempt.cutoffValue;
+    const configuredCutoffType =
+      matchedPaper?.cutoffType || attempt.cutoffType || "percentage";
+    const cutoffExplicitlyConfigured =
+      Boolean(matchedPaper?.cutoffEnabled || attempt.cutoffEnabled) &&
+      configuredCutoffValue !== undefined &&
+      Number.isFinite(configuredCutoffValue);
+    const hasConfiguredValue =
+      configuredCutoffValue !== undefined &&
+      Number.isFinite(configuredCutoffValue) &&
+      configuredCutoffValue > 0;
+
+    if (cutoffExplicitlyConfigured || hasConfiguredValue) {
+      const val = configuredCutoffValue!;
+      const isPercentage = configuredCutoffType === "percentage";
+      const target = isPercentage
+        ? Number(((effectiveMaxScore || 200) * (val / 100)).toFixed(1))
+        : Number(val.toFixed(1));
+      const diff = Number((attempt.score - target).toFixed(1));
+      const isQualified = attempt.score >= target;
+      const targetLabel = isPercentage ? `${val}% (Qualifying)` : `${val} pts (Qualifying)`;
+
+      return {
+        isCsat,
+        targetScore: target,
+        targetLabel,
+        diff,
+        status: isQualified ? "Qualified" : "Not Qualified",
+        statusColor: isQualified
+          ? "bg-emerald-50 text-emerald-800 border-emerald-200"
+          : "bg-rose-50 text-rose-800 border-rose-200",
+        barColor: isQualified ? "bg-emerald-500" : "bg-rose-500",
+        message: isQualified
+          ? `Cleared qualifying mark by +${diff} pts. Your score safely exceeds the ${val}${isPercentage ? "%" : " pts"} threshold.`
+          : `Fell short of qualifying mark by ${Math.abs(diff)} pts (requires min ${val}${isPercentage ? "%" : " pts"} threshold).`,
+      };
+    }
+
+    // 2. Default UPSC CSAT qualifying threshold (33.3%) when no explicit cutoff is set
     if (isCsat) {
       const target = Number(((effectiveMaxScore || 200) * (1 / 3)).toFixed(1));
       const diff = Number((attempt.score - target).toFixed(1));
@@ -305,36 +346,54 @@ export function useReviewData(attempt: Attempt, papers: QuestionPaper[]) {
           : `Fell short of qualifying mark by ${Math.abs(diff)} pts (requires min 33.3% threshold).`,
       };
     }
+
+    // 3. General Studies estimated benchmark
     const target = Number(((effectiveMaxScore || 200) * 0.44).toFixed(1));
     const diff = Number((attempt.score - target).toFixed(1));
     const isClear = diff >= 0;
     const isComfortable = diff >= 10;
     const isBorderline = diff >= -6 && diff < 10;
 
-    let status = "BELOW BENCHMARK";
+    let status = isClear ? "Qualified" : "Not Qualified";
     let statusColor = "bg-rose-50 text-rose-800 border-rose-200";
     let barColor = "bg-rose-500";
-    let message = `Short by ${Math.abs(diff)} pts of the ~${target} pts estimated UPSC prelims benchmark. Target 75%+ accuracy on 75+ attempts.`;
+    let message = `Short by ${Math.abs(diff)} pts of the ~${target} pts estimated prelims benchmark.`;
 
     if (isComfortable) {
-      status = "SAFE CUTOFF CLEARANCE";
       statusColor = "bg-emerald-50 text-emerald-800 border-emerald-200";
       barColor = "bg-emerald-500";
-      message = `Outstanding clearance! You are +${diff} pts above the estimated UPSC Prelims benchmark (~${target} pts).`;
+      message = `Outstanding score! You are +${diff} pts above the estimated benchmark (~${target} pts).`;
     } else if (isClear) {
-      status = "BORDERLINE CLEAR";
       statusColor = "bg-teal-50 text-teal-800 border-teal-200";
       barColor = "bg-teal-500";
-      message = `Cleared by +${diff} pts over the ~${target} pts benchmark. Safe zone requires a +10 to +15 cushion.`;
+      message = `Cleared by +${diff} pts over the ~${target} pts benchmark.`;
     } else if (isBorderline) {
-      status = "STRIKING DISTANCE";
       statusColor = "bg-amber-50 text-amber-800 border-amber-200";
       barColor = "bg-amber-500";
       message = `Within striking distance: only ${Math.abs(diff)} pts below the ~${target} pts benchmark.`;
     }
 
-    return { isCsat: false, targetScore: target, targetLabel: `~${target} pts (Est. Cutoff)`, diff, status, statusColor, barColor, message };
-  }, [isCsat, effectiveMaxScore, attempt.score]);
+    return {
+      isCsat: false,
+      targetScore: target,
+      targetLabel: `~${target} pts (Est. Cutoff)`,
+      diff,
+      status,
+      statusColor,
+      barColor,
+      message,
+    };
+  }, [
+    isCsat,
+    effectiveMaxScore,
+    attempt.score,
+    attempt.cutoffValue,
+    attempt.cutoffType,
+    attempt.cutoffEnabled,
+    matchedPaper?.cutoffValue,
+    matchedPaper?.cutoffType,
+    matchedPaper?.cutoffEnabled,
+  ]);
 
   // Top 3 takeaways
   const topTakeaways: TakeawayItem[] = useMemo(() => {
