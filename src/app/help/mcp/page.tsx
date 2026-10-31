@@ -67,6 +67,11 @@ const faqItems = [
       'Yes. Leave out all options and write a one- or two-line prompt. The student gets a free-text answer box. In the answer key, use only the question number and a quoted explanation, such as 1. """Reference explanation""".',
   },
   {
+    question: "Can explanations in the answer key contain HTML formatting?",
+    answer:
+      'Yes. Explanations wrapped in """ triple quotes (e.g. 1. A """<b>Key concept:</b> ...""") support rich HTML formatting including bold (<b>, <strong>), italics (<i>, <em>), lists (<ul>, <ol>, <li>), tables (<table>, <tr>, <td>), blockquotes, code, and paragraphs. They are automatically sanitized and converted to styled components across mock exams, interactive practice, and review screens.',
+  },
+  {
     question: "How do mixed revision quizzes and subject tagging work?",
     answer:
       "When a paper has a single dedicated subject (e.g. SUBJECT: Polity), all questions belong to that subject and mixing is disallowed. For mixed tests or daily revision quizzes, each question can include a bracket tag like [Subject: Economy | Topic: Monetary Policy] or [Subject: Polity]. The dashboard aggregates your accuracy and question counts under each individual subject.",

@@ -11,6 +11,7 @@ import {
   ChevronRight,
   Lightbulb,
 } from "lucide-react";
+import { HtmlExplanation } from "../HtmlExplanation";
 
 interface QuestionListSidebarProps {
   questions: QuestionAnswer[];
@@ -224,9 +225,10 @@ export function QuestionListSidebar({
                               <Lightbulb className="h-3.5 w-3.5 text-indigo-600 shrink-0" />
                               <span>Official Solution</span>
                             </div>
-                            <p className="text-xs text-slate-800 leading-relaxed whitespace-pre-wrap font-normal select-text">
-                              {explanationText}
-                            </p>
+                            <HtmlExplanation
+                              text={explanationText}
+                              className="text-xs text-slate-800"
+                            />
                           </div>
                         ) : (
                           <div className="text-[11px] text-slate-400 italic">

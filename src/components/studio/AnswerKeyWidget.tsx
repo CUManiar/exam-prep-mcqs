@@ -66,7 +66,7 @@ export function AnswerKeyWidget({
             </span>
           )}
           <code className="font-mono text-[10px] text-slate-400 bg-slate-100 px-1.5 py-0.5 rounded">
-            1. a &quot;&quot;&quot; explanation &quot;&quot;&quot;
+            1. a &quot;&quot;&quot; explanation / HTML &quot;&quot;&quot;
           </code>
         </div>
       </div>
@@ -88,7 +88,7 @@ export function AnswerKeyWidget({
         <textarea
           value={textValue}
           onChange={(e) => onTextChange(e.target.value)}
-          placeholder={`1. a,\n2. c """ Explanations can be enclosed in triple quotes """,\n3. d,\n4. b`}
+          placeholder={`1. a,\n2. c """ Explanations can be enclosed in triple quotes (HTML tags like <b>, <ul> supported) """,\n3. d,\n4. b`}
           rows={4}
           className="w-full rounded-xl border border-slate-200 bg-white p-3 font-mono text-xs text-slate-800 placeholder-slate-400 focus:outline-none focus:border-emerald-500 shadow-2xs leading-relaxed transition-colors"
         />

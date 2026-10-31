@@ -177,9 +177,9 @@ export function MarkdownFormatGuideModal({
                   <li>
                     <strong>Answer Key Syntax:</strong> Paste answers like{" "}
                     <code className="font-mono bg-white px-1 py-0.5 rounded text-[11px]">
-                      1. b &quot;&quot;&quot; explanation &quot;&quot;&quot;
+                      1. b &quot;&quot;&quot; explanation / HTML &quot;&quot;&quot;
                     </code>{" "}
-                    for auto-evaluation and rich reviews.
+                    for auto-evaluation and rich reviews. Rich HTML formatting (e.g. &lt;b&gt;, &lt;ul&gt;, &lt;table&gt;) inside triple quotes is fully supported and converted automatically.
                   </li>
                 </ul>
               </div>

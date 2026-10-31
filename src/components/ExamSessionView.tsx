@@ -42,6 +42,7 @@ import { DetailedSolutionModal } from "./DetailedSolutionModal";
 import { ConfirmationModal } from "./ConfirmationModal";
 import { PdfViewer } from "./PdfViewer";
 import { InteractiveQuestionCard } from "./InteractiveQuestionCard";
+import { HtmlExplanation } from "./HtmlExplanation";
 import { KeyboardShortcutsModal } from "./KeyboardShortcutsModal";
 import {
   Clock,
@@ -376,6 +377,8 @@ export function ExamSessionView({
     } catch {}
   };
 
+  const isBlurringTextareaViaEscapeRef = useRef<boolean>(false);
+
   // Auto-request fullscreen for Mock Exam mode
   useEffect(() => {
     if (mode === "mock" && typeof document !== "undefined") {
@@ -387,6 +390,13 @@ export function ExamSessionView({
           ) {
             await document.documentElement.requestFullscreen();
             setIsFullscreen(true);
+            if (
+              typeof navigator !== "undefined" &&
+              "keyboard" in navigator &&
+              typeof (navigator as any).keyboard?.lock === "function"
+            ) {
+              await (navigator as any).keyboard.lock(["Escape"]).catch(() => {});
+            }
           }
         } catch {
           // Browser security policy might require explicit user gesture
@@ -396,7 +406,38 @@ export function ExamSessionView({
     }
 
     const handleFullscreenChange = () => {
-      setIsFullscreen(!!document.fullscreenElement);
+      const isFs = !!document.fullscreenElement;
+      setIsFullscreen(isFs);
+      if (isFs) {
+        if (
+          typeof navigator !== "undefined" &&
+          "keyboard" in navigator &&
+          typeof (navigator as any).keyboard?.lock === "function"
+        ) {
+          (navigator as any).keyboard.lock(["Escape"]).catch(() => {});
+        }
+      } else if (isBlurringTextareaViaEscapeRef.current) {
+        // If Escape was pressed only to blur a textarea, retain fullscreen
+        isBlurringTextareaViaEscapeRef.current = false;
+        if (
+          typeof document !== "undefined" &&
+          document.documentElement?.requestFullscreen
+        ) {
+          document.documentElement
+            .requestFullscreen()
+            .then(() => {
+              setIsFullscreen(true);
+              if (
+                typeof navigator !== "undefined" &&
+                "keyboard" in navigator &&
+                typeof (navigator as any).keyboard?.lock === "function"
+              ) {
+                (navigator as any).keyboard.lock(["Escape"]).catch(() => {});
+              }
+            })
+            .catch(() => {});
+        }
+      }
     };
     document.addEventListener("fullscreenchange", handleFullscreenChange);
     return () =>
@@ -408,7 +449,21 @@ export function ExamSessionView({
       if (!document.fullscreenElement) {
         await document.documentElement.requestFullscreen();
         setIsFullscreen(true);
+        if (
+          typeof navigator !== "undefined" &&
+          "keyboard" in navigator &&
+          typeof (navigator as any).keyboard?.lock === "function"
+        ) {
+          await (navigator as any).keyboard.lock(["Escape"]).catch(() => {});
+        }
       } else {
+        if (
+          typeof navigator !== "undefined" &&
+          "keyboard" in navigator &&
+          typeof (navigator as any).keyboard?.unlock === "function"
+        ) {
+          (navigator as any).keyboard.unlock();
+        }
         await document.exitFullscreen();
         setIsFullscreen(false);
       }
@@ -851,7 +906,12 @@ export function ExamSessionView({
       ) {
         if (e.key === "Escape") {
           e.preventDefault();
+          e.stopPropagation();
+          isBlurringTextareaViaEscapeRef.current = true;
           target.blur();
+          setTimeout(() => {
+            isBlurringTextareaViaEscapeRef.current = false;
+          }, 400);
           return;
         }
         if (
@@ -859,6 +919,7 @@ export function ExamSessionView({
           (e.altKey || e.ctrlKey || e.metaKey)
         ) {
           e.preventDefault();
+          e.stopPropagation();
           target.blur();
           return;
         }
@@ -1167,6 +1228,30 @@ export function ExamSessionView({
     isQuestionAnswered(a),
   ).length;
   const flaggedCount = allAnswerValues.filter((a) => a.flagged).length;
+  const sureCount = allAnswerValues.filter(
+    (a) => a.confidence === "sure",
+  ).length;
+  const fiftyFiftyCount = allAnswerValues.filter(
+    (a) => a.confidence === "50-50",
+  ).length;
+  const eliminationCount = allAnswerValues.filter(
+    (a) => a.confidence === "elimination",
+  ).length;
+  const guessCount = allAnswerValues.filter(
+    (a) => a.confidence === "guess",
+  ).length;
+
+  const confidenceCounts = useMemo(
+    () => ({
+      sure: sureCount,
+      fiftyFifty: fiftyFiftyCount,
+      elimination: eliminationCount,
+      guess: guessCount,
+      flagged: flaggedCount,
+    }),
+    [sureCount, fiftyFiftyCount, eliminationCount, guessCount, flaggedCount],
+  );
+
   const unattemptedCount = paper.totalQuestions - attemptedCount;
   const alteredCount = allAnswerValues.filter(
     (a) => (a.changesCount || 0) > 0,
@@ -1668,6 +1753,13 @@ export function ExamSessionView({
                   mode={mode}
                   idleTimeSeconds={idleTimeSeconds}
                   fontScale={fontScale}
+                  confidenceCounts={confidenceCounts}
+                  onEscapeBlur={() => {
+                    isBlurringTextareaViaEscapeRef.current = true;
+                    setTimeout(() => {
+                      isBlurringTextareaViaEscapeRef.current = false;
+                    }, 400);
+                  }}
                   onSelectOption={handleSelectOption}
                   onUpdateAnswer={handleUpdateAnswer}
                   onClearOption={handleClearSelection}
@@ -1915,6 +2007,46 @@ export function ExamSessionView({
                         </span>
                       </span>
                     )}
+
+                    {/* Counts of Sure, 50:50, Eliminated, Guess and Flagged beside options selected */}
+                    <div className="flex items-center gap-1 sm:gap-1.5 flex-wrap">
+                      <span
+                        className="inline-flex items-center gap-1 rounded-md bg-emerald-50 border border-emerald-200/80 px-1.5 py-0.5 text-[10px] sm:text-[11px] font-semibold text-emerald-800"
+                        title={`${sureCount} questions marked Sure`}
+                      >
+                        <span>🎯 Sure</span>
+                        <span className="font-bold font-mono">({sureCount})</span>
+                      </span>
+                      <span
+                        className="inline-flex items-center gap-1 rounded-md bg-amber-50 border border-amber-200/80 px-1.5 py-0.5 text-[10px] sm:text-[11px] font-semibold text-amber-800"
+                        title={`${fiftyFiftyCount} questions marked 50:50`}
+                      >
+                        <span>⚖️ 50:50</span>
+                        <span className="font-bold font-mono">({fiftyFiftyCount})</span>
+                      </span>
+                      <span
+                        className="inline-flex items-center gap-1 rounded-md bg-sky-50 border border-sky-200/80 px-1.5 py-0.5 text-[10px] sm:text-[11px] font-semibold text-sky-800"
+                        title={`${eliminationCount} questions marked Eliminated`}
+                      >
+                        <span>✂️ Elim</span>
+                        <span className="font-bold font-mono">({eliminationCount})</span>
+                      </span>
+                      <span
+                        className="inline-flex items-center gap-1 rounded-md bg-purple-50 border border-purple-200/80 px-1.5 py-0.5 text-[10px] sm:text-[11px] font-semibold text-purple-800"
+                        title={`${guessCount} questions marked Guess`}
+                      >
+                        <span>🎲 Guess</span>
+                        <span className="font-bold font-mono">({guessCount})</span>
+                      </span>
+                      <span
+                        className="inline-flex items-center gap-1 rounded-md bg-amber-100/70 border border-amber-300 px-1.5 py-0.5 text-[10px] sm:text-[11px] font-semibold text-amber-900"
+                        title={`${flaggedCount} questions Flagged`}
+                      >
+                        <Bookmark className="h-3 w-3 fill-amber-600 text-amber-600" />
+                        <span>Flagged</span>
+                        <span className="font-bold font-mono">({flaggedCount})</span>
+                      </span>
+                    </div>
                     <span className="text-xs text-slate-500 font-medium">
                       of {paper.totalQuestions}
                     </span>
@@ -2010,8 +2142,8 @@ export function ExamSessionView({
                       onClick={() => handleToggleFlag(currentQuestion)}
                       title={
                         currentQObj.flagged
-                          ? "Question is flagged for review"
-                          : "Flag question for later review"
+                          ? `Question is flagged for review (${flaggedCount} flagged)`
+                          : `Flag question for later review (${flaggedCount} flagged)`
                       }
                       className={`flex items-center gap-1.5 rounded-xl px-3 py-1.5 text-xs font-bold transition-all border shadow-2xs cursor-pointer active:scale-95 ${
                         currentQObj.flagged
@@ -2027,6 +2159,17 @@ export function ExamSessionView({
                         }`}
                       />
                       <span>{currentQObj.flagged ? "Flagged" : "Flag"}</span>
+                      {flaggedCount > 0 && (
+                        <span
+                          className={`inline-flex items-center justify-center rounded-full px-1.5 py-0.2 text-[10px] font-mono font-bold ${
+                            currentQObj.flagged
+                              ? "bg-amber-600 text-white"
+                              : "bg-amber-100 text-amber-800"
+                          }`}
+                        >
+                          {flaggedCount}
+                        </span>
+                      )}
                     </button>
 
                     {/* Scratchpad Toggle Button */}
@@ -2108,6 +2251,7 @@ export function ExamSessionView({
                               {
                                 id: "sure",
                                 label: "Sure",
+                                count: sureCount,
                                 icon: "🎯",
                                 activeClass:
                                   "bg-emerald-600 text-white shadow-xs font-bold ring-2 ring-emerald-500/25",
@@ -2117,6 +2261,7 @@ export function ExamSessionView({
                               {
                                 id: "50-50",
                                 label: "50:50",
+                                count: fiftyFiftyCount,
                                 icon: "⚖️",
                                 activeClass:
                                   "bg-amber-500 text-white shadow-xs font-bold ring-2 ring-amber-500/25",
@@ -2126,6 +2271,7 @@ export function ExamSessionView({
                               {
                                 id: "elimination",
                                 label: "Elimination",
+                                count: eliminationCount,
                                 icon: "✂️",
                                 activeClass:
                                   "bg-sky-600 text-white shadow-xs font-bold ring-2 ring-sky-500/25",
@@ -2135,6 +2281,7 @@ export function ExamSessionView({
                               {
                                 id: "guess",
                                 label: "Guess",
+                                count: guessCount,
                                 icon: "🎲",
                                 activeClass:
                                   "bg-purple-600 text-white shadow-xs font-bold ring-2 ring-purple-500/25",
@@ -2154,8 +2301,8 @@ export function ExamSessionView({
                                 }
                                 title={
                                   isConfSelected
-                                    ? `Certainty: ${conf.label} (Click to remove)`
-                                    : `Mark certainty: ${conf.label}`
+                                    ? `Certainty: ${conf.label} (${conf.count}) (Click to remove)`
+                                    : `Mark certainty: ${conf.label} (${conf.count})`
                                 }
                                 className={`flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-lg text-xs font-semibold transition-all active:scale-95 cursor-pointer ${
                                   isConfSelected
@@ -2165,6 +2312,15 @@ export function ExamSessionView({
                               >
                                 <span className="text-xs">{conf.icon}</span>
                                 <span>{conf.label}</span>
+                                <span
+                                  className={`text-[10px] font-mono font-bold ${
+                                    isConfSelected
+                                      ? "opacity-90"
+                                      : "text-slate-400"
+                                  }`}
+                                >
+                                  ({conf.count})
+                                </span>
                               </button>
                             );
                           })}
@@ -2301,9 +2457,9 @@ export function ExamSessionView({
                             <summary className="cursor-pointer text-[11px] font-semibold text-indigo-800">
                               View reference explanation
                             </summary>
-                            <p className="mt-2 max-h-40 overflow-y-auto whitespace-pre-wrap border-t border-indigo-100 pt-2 text-xs leading-relaxed text-slate-700">
-                              {currentQuestionExplanation}
-                            </p>
+                            <div className="mt-2 max-h-40 overflow-y-auto border-t border-indigo-100 pt-2 text-xs leading-relaxed text-slate-700">
+                              <HtmlExplanation text={currentQuestionExplanation} />
+                            </div>
                           </details>
 
                           <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
@@ -2569,9 +2725,10 @@ export function ExamSessionView({
                                 </span>
                                 <span>Explanation & Key Concepts:</span>
                               </div>
-                              <p className="text-slate-700 pl-0.5 leading-relaxed text-xs">
-                                {expl}
-                              </p>
+                              <HtmlExplanation
+                                text={expl}
+                                className="text-slate-700 pl-0.5 leading-relaxed text-xs"
+                              />
                             </div>
                           );
                         })()}
@@ -2603,6 +2760,17 @@ export function ExamSessionView({
                         const val = e.target.value;
                         setNoteDraft(val);
                         noteDraftRef.current = val;
+                      }}
+                      onKeyDown={(e) => {
+                        if (e.key === "Escape") {
+                          e.preventDefault();
+                          e.stopPropagation();
+                          isBlurringTextareaViaEscapeRef.current = true;
+                          (e.target as HTMLElement).blur();
+                          setTimeout(() => {
+                            isBlurringTextareaViaEscapeRef.current = false;
+                          }, 400);
+                        }
                       }}
                       onBlur={() => flushNoteDraftForQ(currentQuestion)}
                       placeholder="Jot down keywords, elimination notes, rough outline or formulas while solving..."
@@ -2797,23 +2965,23 @@ export function ExamSessionView({
               <div className="flex items-center gap-2.5 flex-wrap text-[10px] font-medium text-slate-500 mb-2.5 px-0.5">
                 <span className="flex items-center gap-1">
                   <span className="h-2.5 w-2.5 rounded-sm bg-emerald-600 inline-block shadow-2xs" />{" "}
-                  Sure
+                  Sure ({sureCount})
                 </span>
                 <span className="flex items-center gap-1">
                   <span className="h-2.5 w-2.5 rounded-sm bg-amber-500 inline-block shadow-2xs" />{" "}
-                  50:50
+                  50:50 ({fiftyFiftyCount})
                 </span>
                 <span className="flex items-center gap-1">
                   <span className="h-2.5 w-2.5 rounded-sm bg-sky-600 inline-block shadow-2xs" />{" "}
-                  Elimination
+                  Elimination ({eliminationCount})
                 </span>
                 <span className="flex items-center gap-1">
                   <span className="h-2.5 w-2.5 rounded-sm bg-purple-600 inline-block shadow-2xs" />{" "}
-                  Guess
+                  Guess ({guessCount})
                 </span>
                 <span className="flex items-center gap-1">
                   <span className="h-2.5 w-2.5 rounded-sm bg-amber-100 border border-amber-300 inline-block" />{" "}
-                  Flagged
+                  Flagged ({flaggedCount})
                 </span>
               </div>
             )}
@@ -2829,7 +2997,7 @@ export function ExamSessionView({
                 </span>
                 <span className="flex items-center gap-1">
                   <span className="h-2.5 w-2.5 rounded-sm bg-amber-100 border border-amber-300 inline-block" />{" "}
-                  Flagged
+                  Flagged ({flaggedCount})
                 </span>
               </div>
             )}

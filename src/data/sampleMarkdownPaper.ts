@@ -48,7 +48,7 @@ function parseAnswerKeyDetailed(text: string): {
  * MCQ options are labeled (a), (b), (c), (d); cloze questions may omit them.
  *
  * Answer Key (separate text block, not in questionnaire):
- *   1. b """ explanation text """
+ *   1. b """ explanation text (supports rich HTML formatting) """
  *   2. c """ another explanation """
  *   3. """ reference explanation for a cloze question """
  */

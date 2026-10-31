@@ -253,6 +253,7 @@ export function useReviewData(attempt: Attempt, papers: QuestionPaper[]) {
   const slowQuestions = useMemo(() => questionList.filter((q) => (q.timeSpentSeconds || 0) >= 90), [questionList]);
   const flaggedQuestions = useMemo(() => questionList.filter((q) => q.flagged), [questionList]);
   const incorrectQuestionsList = useMemo(() => questionList.filter((q) => (isAssessmentQuestion(q.questionNo) ? q.subjectiveAssessment === "needs-work" : q.selected && q.isCorrect === false)), [questionList]);
+  const skippedQuestionsList = useMemo(() => questionList.filter((q) => !isQuestionAnswered(q) && !q.subjectiveAssessment), [questionList]);
 
   const sureQuestions = useMemo(() => questionList.filter((q) => q.confidence === "sure"), [questionList]);
   const sureCorrect = useMemo(() => sureQuestions.filter((q) => q.selected && q.isCorrect === true).length, [sureQuestions]);
@@ -472,7 +473,7 @@ export function useReviewData(attempt: Attempt, papers: QuestionPaper[]) {
     isCsat, isSubjectiveAttempt, correctMarksPerQ, incorrectMarksPerQ, subjectiveMarksPerQ,
     subjectivePartialCount,
     // Questions
-    questionList, alteredQuestions, slowQuestions, flaggedQuestions, incorrectQuestionsList,
+    questionList, alteredQuestions, slowQuestions, flaggedQuestions, incorrectQuestionsList, skippedQuestionsList,
     sureQuestions, sureCorrect, sureAccuracy,
     fiftyFiftyQuestions, fiftyFiftyCorrect, fiftyFiftyAccuracy,
     eliminationQuestions, eliminationCorrect, eliminationAccuracy,

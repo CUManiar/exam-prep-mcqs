@@ -100,8 +100,9 @@ INSTRUCTIONS:
 
 3. ANSWER KEY & DETAILED EXPLANATIONS (At the very bottom, in a clearly separated section):
 Provide the answer key in one of these exact syntaxes:
-<question_number>. <lowercase_option_letter> """ <detailed explanation text> """
-<cloze_question_number>. """ <reference explanation text> """
+<question_number>. <lowercase_option_letter> """ <detailed explanation text or HTML> """
+<cloze_question_number>. """ <reference explanation text or HTML> """
+(Rich HTML formatting like <b>, <i>, <ul>, <ol>, <li>, <table>, <code>, <blockquote> is fully supported inside the triple quotes and rendered in reviews.)
 
 4. SUBJECT TAGGING & MIXED PAPERS:
 - Single-Subject Paper: If the paper focuses strictly on one subject (e.g. SUBJECT: Indian Polity), all questions inherit that subject and mix-up is disallowed.

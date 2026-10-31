@@ -3,6 +3,7 @@
 import React, { useState, useEffect, useRef, useCallback } from "react";
 import { QuestionPaper, ParsedQuestion, QuestionAnswer } from "../lib/types";
 import { MatchingItemsTable } from "./MatchingItemsTable";
+import { HtmlExplanation } from "./HtmlExplanation";
 import {
   CheckCircle2,
   XCircle,
@@ -10,6 +11,7 @@ import {
   ChevronLeft,
   ChevronRight,
   BookOpen,
+  Bookmark,
   ArrowRight,
   Lightbulb,
   Info,
@@ -25,6 +27,14 @@ interface InteractiveQuestionCardProps {
   mode: "practice" | "mock";
   idleTimeSeconds: number;
   fontScale?: "normal" | "large" | "xlarge";
+  confidenceCounts?: {
+    sure: number;
+    fiftyFifty: number;
+    elimination: number;
+    guess: number;
+    flagged: number;
+  };
+  onEscapeBlur?: () => void;
   onSelectOption: (qNo: number, option: string) => void;
   onUpdateAnswer: (qNo: number, answer: string) => void;
   onClearOption: (qNo: number) => void;
@@ -36,12 +46,14 @@ interface ClozeAnswerInputProps {
   questionNo: number;
   initialValue: string;
   onSave: (qNo: number, value: string) => void;
+  onEscapeBlur?: () => void;
 }
 
 function ClozeAnswerInput({
   questionNo,
   initialValue,
   onSave,
+  onEscapeBlur,
 }: ClozeAnswerInputProps) {
   const [draft, setDraft] = useState<string>(initialValue);
   const draftRef = useRef<string>(initialValue);
@@ -95,6 +107,14 @@ function ClozeAnswerInput({
           setDraft(event.target.value);
           draftRef.current = event.target.value;
         }}
+        onKeyDown={(e) => {
+          if (e.key === "Escape") {
+            e.preventDefault();
+            e.stopPropagation();
+            onEscapeBlur?.();
+            (e.target as HTMLElement).blur();
+          }
+        }}
         onBlur={handleFlush}
         rows={2}
         placeholder="Type a one- or two-line answer..."
@@ -114,6 +134,8 @@ export function InteractiveQuestionCard({
   mode,
   idleTimeSeconds,
   fontScale = "normal",
+  confidenceCounts,
+  onEscapeBlur,
   onSelectOption,
   onUpdateAnswer,
   onClearOption,
@@ -339,6 +361,47 @@ export function InteractiveQuestionCard({
               </span>
             )}
 
+            {/* Counts of Sure, 50:50, Eliminated, Guess, Flagged beside selected option */}
+            {confidenceCounts && (
+              <div className="flex flex-wrap items-center gap-1">
+                <span
+                  className="inline-flex items-center gap-1 rounded-md bg-emerald-50 border border-emerald-200/80 px-1.5 py-0.5 text-[10px] font-semibold text-emerald-800"
+                  title={`${confidenceCounts.sure} questions marked Sure`}
+                >
+                  <span>🎯</span>
+                  <span className="font-bold font-mono">{confidenceCounts.sure}</span>
+                </span>
+                <span
+                  className="inline-flex items-center gap-1 rounded-md bg-amber-50 border border-amber-200/80 px-1.5 py-0.5 text-[10px] font-semibold text-amber-800"
+                  title={`${confidenceCounts.fiftyFifty} questions marked 50:50`}
+                >
+                  <span>⚖️</span>
+                  <span className="font-bold font-mono">{confidenceCounts.fiftyFifty}</span>
+                </span>
+                <span
+                  className="inline-flex items-center gap-1 rounded-md bg-sky-50 border border-sky-200/80 px-1.5 py-0.5 text-[10px] font-semibold text-sky-800"
+                  title={`${confidenceCounts.elimination} questions marked Eliminated`}
+                >
+                  <span>✂️</span>
+                  <span className="font-bold font-mono">{confidenceCounts.elimination}</span>
+                </span>
+                <span
+                  className="inline-flex items-center gap-1 rounded-md bg-purple-50 border border-purple-200/80 px-1.5 py-0.5 text-[10px] font-semibold text-purple-800"
+                  title={`${confidenceCounts.guess} questions marked Guess`}
+                >
+                  <span>🎲</span>
+                  <span className="font-bold font-mono">{confidenceCounts.guess}</span>
+                </span>
+                <span
+                  className="inline-flex items-center gap-1 rounded-md bg-amber-100/70 border border-amber-300 px-1.5 py-0.5 text-[10px] font-semibold text-amber-900"
+                  title={`${confidenceCounts.flagged} questions Flagged`}
+                >
+                  <Bookmark className="h-3 w-3 fill-amber-600 text-amber-600" />
+                  <span className="font-bold font-mono">{confidenceCounts.flagged}</span>
+                </span>
+              </div>
+            )}
+
             {mode === "practice" && explanation && !hasAnswered && (
               <button
                 type="button"
@@ -448,6 +511,7 @@ export function InteractiveQuestionCard({
             questionNo={currentQuestion}
             initialValue={selectedText}
             onSave={onUpdateAnswer}
+            onEscapeBlur={onEscapeBlur}
           />
         )}
 
@@ -479,9 +543,7 @@ export function InteractiveQuestionCard({
               </div>
             </div>
 
-            <div className="text-xs sm:text-sm text-slate-700 leading-relaxed whitespace-pre-wrap select-text">
-              {explanation}
-            </div>
+            <HtmlExplanation text={explanation} className="text-slate-700" />
           </div>
         )}
       </div>

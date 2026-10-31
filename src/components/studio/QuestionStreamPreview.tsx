@@ -5,6 +5,7 @@ import { ParsedQuestion } from "../../lib/types";
 import { stripMarkdownFormatting } from "../../lib/markdownPaperParser";
 import { MatchingItemsTable } from "../MatchingItemsTable";
 import { Check, Lightbulb, BookOpen } from "lucide-react";
+import { HtmlExplanation } from "../HtmlExplanation";
 
 interface QuestionStreamPreviewProps {
   questions: ParsedQuestion[];
@@ -120,9 +121,12 @@ export function QuestionStreamPreview({
                   <Lightbulb className="h-3 w-3 text-amber-600" />
                   <span>Explanation:</span>
                 </div>
-                <p className="text-[11px] leading-relaxed whitespace-pre-wrap pl-4 text-amber-900">
-                  {stripMarkdownFormatting(explanation)}
-                </p>
+                <div className="pl-4">
+                  <HtmlExplanation
+                    text={explanation}
+                    className="text-[11px] text-amber-900 leading-relaxed"
+                  />
+                </div>
               </div>
             )}
           </div>
