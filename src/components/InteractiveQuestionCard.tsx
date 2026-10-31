@@ -77,12 +77,17 @@ function ClozeAnswerInput({
 
   return (
     <div className="space-y-2.5 pt-1">
-      <label
-        htmlFor={`cloze-answer-${questionNo}`}
-        className="text-[11px] font-bold uppercase tracking-wider text-slate-400 block px-1"
-      >
-        Your Answer
-      </label>
+      <div className="flex items-center justify-between px-1">
+        <label
+          htmlFor={`cloze-answer-${questionNo}`}
+          className="text-[11px] font-bold uppercase tracking-wider text-slate-400 block"
+        >
+          Your Answer
+        </label>
+        <span className="text-[10px] font-mono font-semibold text-indigo-600 bg-indigo-50 border border-indigo-200 px-1.5 py-0.5 rounded">
+          T to focus • Esc to exit
+        </span>
+      </div>
       <textarea
         id={`cloze-answer-${questionNo}`}
         value={draft}

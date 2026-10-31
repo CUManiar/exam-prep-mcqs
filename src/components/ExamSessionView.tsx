@@ -849,6 +849,19 @@ export function ExamSessionView({
           target.tagName === "TEXTAREA" ||
           target.isContentEditable)
       ) {
+        if (e.key === "Escape") {
+          e.preventDefault();
+          target.blur();
+          return;
+        }
+        if (
+          (e.key.toUpperCase() === "S" || e.key.toUpperCase() === "T") &&
+          (e.altKey || e.ctrlKey || e.metaKey)
+        ) {
+          e.preventDefault();
+          target.blur();
+          return;
+        }
         return;
       }
 
@@ -867,6 +880,37 @@ export function ExamSessionView({
       }
 
       if (currentQuestion === null) return;
+
+      // Toggle focus on Scratchpad: S
+      if (key === "S" && !e.altKey) {
+        e.preventDefault();
+        setShowNoteBox(true);
+        setTimeout(() => {
+          const scratchpadEl = document.getElementById(
+            `scratchpad-textarea-${currentQuestion}`,
+          ) as HTMLTextAreaElement | null;
+          if (scratchpadEl) {
+            scratchpadEl.focus();
+            scratchpadEl.scrollIntoView({ behavior: "smooth", block: "center" });
+          }
+        }, 30);
+        return;
+      }
+
+      // Focus on Cloze answer area (only for cloze questions): T
+      if (key === "T" && !e.altKey) {
+        if (isClozeQuestion(currentQuestion)) {
+          e.preventDefault();
+          const clozeEl = document.getElementById(
+            `cloze-answer-${currentQuestion}`,
+          ) as HTMLTextAreaElement | null;
+          if (clozeEl) {
+            clozeEl.focus();
+            clozeEl.scrollIntoView({ behavior: "smooth", block: "center" });
+          }
+          return;
+        }
+      }
 
       // Options selection (A, B, C, D)
       if (["A", "B", "C", "D"].includes(key) && !e.altKey) {
@@ -930,6 +974,12 @@ export function ExamSessionView({
     showShortcutsModal,
     showFinishConfirm,
     solutionModalOpen,
+    isClozeQuestion,
+    handleSelectOption,
+    navigateToQuestion,
+    handleClearSelection,
+    handleToggleFlag,
+    handleSetConfidence,
   ]);
 
   // Real-time automatic persistence to localStorage, Supabase & server
@@ -2533,10 +2583,13 @@ export function ExamSessionView({
                 {showNoteBox && (
                   <div className="mt-3.5 rounded-2xl border border-slate-200 bg-slate-50/90 p-3 sm:p-4 space-y-2 shadow-2xs">
                     <div className="flex items-center justify-between text-xs">
-                      <div className="flex items-center gap-1.5">
+                      <div className="flex items-center gap-1.5 flex-wrap">
                         <Edit3 className="h-3.5 w-3.5 text-indigo-600 shrink-0" />
                         <span className="font-bold text-slate-900 text-xs sm:text-sm">
                           Rough Scratchpad for Question {currentQuestion}
+                        </span>
+                        <span className="hidden sm:inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-mono font-semibold bg-slate-200/80 text-slate-600">
+                          S to focus • Esc to exit
                         </span>
                       </div>
                       <span className="text-[11px] font-medium text-slate-500">
@@ -2544,6 +2597,7 @@ export function ExamSessionView({
                       </span>
                     </div>
                     <textarea
+                      id={`scratchpad-textarea-${currentQuestion}`}
                       value={noteDraft}
                       onChange={(e) => {
                         const val = e.target.value;

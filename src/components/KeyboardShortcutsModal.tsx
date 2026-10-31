@@ -32,14 +32,23 @@ export function KeyboardShortcutsModal({
           keys: ["A", "B", "C", "D"],
           description: "Select Option A, B, C, or D",
         },
+        {
+          keys: ["T"],
+          description:
+            "Focus Cloze answer field (Cloze questions only • Esc to exit)",
+        },
         { keys: ["Backspace"], description: "Clear selected answer" },
       ],
     },
     {
-      title: "Navigation",
+      title: "Navigation & Scratchpad",
       items: [
         { keys: ["←", "J"], description: "Previous question (backward)" },
         { keys: ["→", "K"], description: "Next question (forward)" },
+        {
+          keys: ["S"],
+          description: "Toggle focus on rough Scratchpad (Esc to exit)",
+        },
       ],
     },
     {
