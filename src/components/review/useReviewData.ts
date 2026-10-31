@@ -291,13 +291,18 @@ export function useReviewData(attempt: Attempt, papers: QuestionPaper[]) {
       const diff = Number((attempt.score - target).toFixed(1));
       const isQualified = attempt.score >= target;
       return {
-        isCsat: true, targetScore: target, targetLabel: "33.3% (Qualifying)", diff,
-        status: isQualified ? "QUALIFIED" : "NOT QUALIFIED",
-        statusColor: isQualified ? "bg-emerald-50 text-emerald-800 border-emerald-200" : "bg-rose-50 text-rose-800 border-rose-200",
+        isCsat: true,
+        targetScore: target,
+        targetLabel: "33.3% (Qualifying)",
+        diff,
+        status: isQualified ? "Qualified" : "Not Qualified",
+        statusColor: isQualified
+          ? "bg-emerald-50 text-emerald-800 border-emerald-200"
+          : "bg-rose-50 text-rose-800 border-rose-200",
         barColor: isQualified ? "bg-emerald-500" : "bg-rose-500",
         message: isQualified
-          ? `Cleared CSAT qualifying mark by +${diff} pts. Your score safely exceeds the 33.3% threshold.`
-          : `Fell short of CSAT qualifying mark by ${Math.abs(diff)} pts. CSAT requires min 33.3% to have GS Paper 1 evaluated.`,
+          ? `Cleared qualifying mark by +${diff} pts. Your score safely exceeds the 33.3% threshold.`
+          : `Fell short of qualifying mark by ${Math.abs(diff)} pts (requires min 33.3% threshold).`,
       };
     }
     const target = Number(((effectiveMaxScore || 200) * 0.44).toFixed(1));

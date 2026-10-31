@@ -70,13 +70,13 @@ export function ReviewScoreHero({
             <span
               className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold border ${cutoffVerdict.statusColor}`}
             >
-              {cutoffVerdict.status.includes("QUALIFIED") ||
-              cutoffVerdict.status.includes("CLEAR") ? (
+              {cutoffVerdict.status.toLowerCase().includes("qualified") ||
+              cutoffVerdict.status.toLowerCase().includes("clear") ? (
                 <ShieldCheck className="h-3 w-3" />
               ) : (
                 <ShieldAlert className="h-3 w-3" />
               )}
-              <span>{cutoffVerdict.isCsat ? "CSAT " : ""}{cutoffVerdict.status}</span>
+              <span>{cutoffVerdict.status}</span>
             </span>
 
             <button
