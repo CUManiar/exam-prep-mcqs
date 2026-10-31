@@ -187,9 +187,10 @@ function ExamSessionContent() {
   }
 
   const resolvedDraft =
-    activeDraft?.paperId === paper.id
+    activeDraft?.paperId === paper.id && activeDraft.mode === modeParam
       ? activeDraft
-      : effectiveActiveDraft?.paperId === paper.id
+      : effectiveActiveDraft?.paperId === paper.id &&
+          effectiveActiveDraft.mode === modeParam
         ? effectiveActiveDraft
         : null;
 

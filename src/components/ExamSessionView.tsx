@@ -99,15 +99,19 @@ export function ExamSessionView({
   const { currentUser } = useApp();
 
   const effectiveDraft = useMemo(() => {
-    if (initialDraft && initialDraft.paperId === paper.id) {
+    if (
+      initialDraft &&
+      initialDraft.paperId === paper.id &&
+      initialDraft.mode === mode
+    ) {
       return initialDraft;
     }
     const local = typeof window !== "undefined" ? getActiveDraft() : null;
-    if (local && local.paperId === paper.id) {
+    if (local && local.paperId === paper.id && local.mode === mode) {
       return local;
     }
     return null;
-  }, [initialDraft, paper.id]);
+  }, [initialDraft, paper.id, mode]);
 
   const effectivePaper = useMemo<QuestionPaper>(() => {
     let p = { ...paper };
@@ -450,12 +454,17 @@ export function ExamSessionView({
     (totalTimeSeconds > 0 && remainingSeconds <= totalTimeSeconds * 0.1);
 
   // Helper to reliably retrieve correct answer for any question
-  const getCorrectAnswerForQ = (qNo: number): string | undefined => {
-    const k = paper.answerKey;
-    let val = k ? k[qNo] || k[String(qNo)] : undefined;
-    if (!val && answers[qNo]?.correctAnswer) val = answers[qNo].correctAnswer;
-    return val ? String(val).toUpperCase().trim() : undefined;
-  };
+  const getCorrectAnswerForQ = useCallback(
+    (qNo: number): string | undefined => {
+      const k = paper.answerKey;
+      let val = k ? k[qNo] || k[String(qNo)] : undefined;
+      if (!val && answersRef.current[qNo]?.correctAnswer) {
+        val = answersRef.current[qNo].correctAnswer;
+      }
+      return val ? String(val).toUpperCase().trim() : undefined;
+    },
+    [paper.answerKey],
+  );
 
   // Initialize questions unless resuming from draft
   useEffect(() => {
@@ -628,72 +637,6 @@ export function ExamSessionView({
     isSubjectiveScanPaper,
   ]);
 
-  // Answer selection handler (Objective)
-  const handleSelectOption = (qNo: number, option: string) => {
-    markUserInteraction();
-    const isDeselecting = answers[qNo]?.selected === option;
-    setAnswers((prev) => {
-      const current = prev[qNo] || {
-        questionNo: qNo,
-        selected: null,
-        confidence: undefined,
-        changesCount: 0,
-        answerHistory: [],
-      };
-
-      const prevSelected = current.selected;
-      const isUnselecting = isDeselecting;
-      const newSelected = isUnselecting ? null : option;
-
-      const rawCorrect = getCorrectAnswerForQ(qNo);
-      const correct = rawCorrect ? rawCorrect.toUpperCase().trim() : undefined;
-
-      let isCorrect: boolean | null = null;
-      if (newSelected && correct) {
-        isCorrect = newSelected.toUpperCase().trim() === correct;
-      }
-
-      // Track response alteration ONLY in Mock mode
-      let changesCount = current.changesCount || 0;
-      let answerHistory = current.answerHistory
-        ? [...current.answerHistory]
-        : [];
-
-      if (mode === "mock") {
-        if (prevSelected && newSelected && prevSelected !== newSelected) {
-          changesCount += 1;
-          answerHistory.push(newSelected);
-        } else if (!prevSelected && newSelected) {
-          answerHistory.push(newSelected);
-        }
-      }
-
-      return {
-        ...prev,
-        [qNo]: {
-          ...current,
-          selected: newSelected,
-          correctAnswer: correct,
-          isCorrect,
-          confidence: current.confidence,
-          changesCount,
-          answerHistory,
-        },
-      };
-    });
-
-    // Auto-advance remains available for Mock mode, and is also available for
-    // Markdown papers during Practice mode.
-    if (
-      (mode === "mock" || (mode === "practice" && isMarkdownPaper)) &&
-      autoAdvance &&
-      !isDeselecting &&
-      qNo < paper.totalQuestions
-    ) {
-      setCurrentQuestion(qNo + 1);
-    }
-  };
-
   const isClozeQuestion = useCallback(
     (questionNo: number | null) => {
       if (questionNo === null) return false;
@@ -707,57 +650,127 @@ export function ExamSessionView({
     [effectivePaper.parsedQuestions],
   );
 
-  // Answer handler for Markdown cloze/free-text questions.
-  const handleUpdateAnswer = (qNo: number, answer: string) => {
-    markUserInteraction();
-    setAnswers((prev) => {
-      const current = prev[qNo] || {
-        questionNo: qNo,
-        selected: null,
-        confidence: undefined,
-        changesCount: 0,
-        answerHistory: [],
-      };
-      const prevSelected = current.selected;
-      const newSelected = answer.trim() ? answer : null;
+  // Answer selection handler (Objective)
+  const handleSelectOption = useCallback(
+    (qNo: number, option: string) => {
+      markUserInteraction();
+      let wasDeselecting = false;
 
-      // If unchanged, do not mutate state
-      if (prevSelected === newSelected) {
-        return prev;
-      }
+      setAnswers((prev) => {
+        const current = prev[qNo] || {
+          questionNo: qNo,
+          selected: null,
+          confidence: undefined,
+          changesCount: 0,
+          answerHistory: [],
+        };
 
-      const rawCorrect = getCorrectAnswerForQ(qNo);
-      const correct = rawCorrect ? rawCorrect.toUpperCase().trim() : undefined;
-      const isCorrect =
-        newSelected && correct
-          ? newSelected.toUpperCase().trim() === correct
-          : null;
-      let changesCount = current.changesCount || 0;
-      let answerHistory = current.answerHistory
-        ? [...current.answerHistory]
-        : [];
+        const prevSelected = current.selected;
+        const isUnselecting = prevSelected === option;
+        wasDeselecting = isUnselecting;
+        const newSelected = isUnselecting ? null : option;
 
-      // Only track alteration metrics for MCQs (never for cloze free-text)
-      if (!isClozeQuestion(qNo)) {
-        if (mode === "mock" && newSelected && newSelected !== prevSelected) {
-          if (prevSelected) changesCount += 1;
-          answerHistory.push(newSelected);
+        const rawCorrect = getCorrectAnswerForQ(qNo);
+        const correct = rawCorrect ? rawCorrect.toUpperCase().trim() : undefined;
+
+        let isCorrect: boolean | null = null;
+        if (newSelected && correct) {
+          isCorrect = newSelected.toUpperCase().trim() === correct;
         }
-      }
 
-      return {
-        ...prev,
-        [qNo]: {
-          ...current,
-          selected: newSelected,
-          correctAnswer: correct,
-          isCorrect,
-          changesCount,
-          answerHistory,
-        },
-      };
-    });
-  };
+        // Track response alteration ONLY in Mock mode
+        let changesCount = current.changesCount || 0;
+        let answerHistory = current.answerHistory
+          ? [...current.answerHistory]
+          : [];
+
+        if (mode === "mock") {
+          if (prevSelected && newSelected && prevSelected !== newSelected) {
+            changesCount += 1;
+            answerHistory.push(newSelected);
+          } else if (!prevSelected && newSelected) {
+            answerHistory.push(newSelected);
+          }
+        }
+
+        return {
+          ...prev,
+          [qNo]: {
+            ...current,
+            selected: newSelected,
+            correctAnswer: correct,
+            isCorrect,
+            confidence: current.confidence,
+            changesCount,
+            answerHistory,
+          },
+        };
+      });
+
+      // Auto-advance remains available for Mock mode, and is also available for
+      // Markdown papers during Practice mode.
+      if (
+        (mode === "mock" || (mode === "practice" && isMarkdownPaper)) &&
+        autoAdvance &&
+        !wasDeselecting &&
+        qNo < paper.totalQuestions
+      ) {
+        setCurrentQuestion(qNo + 1);
+      }
+    },
+    [
+      mode,
+      isMarkdownPaper,
+      autoAdvance,
+      paper.totalQuestions,
+      getCorrectAnswerForQ,
+    ],
+  );
+
+  // Answer handler for Markdown cloze/free-text questions ONLY.
+  const handleUpdateAnswer = useCallback(
+    (qNo: number, answer: string) => {
+      // Guard: Cloze answers only apply to cloze (free-text) questions.
+      // MCQs must only be answered through handleSelectOption.
+      if (!isClozeQuestion(qNo)) return;
+
+      markUserInteraction();
+      setAnswers((prev) => {
+        const current = prev[qNo] || {
+          questionNo: qNo,
+          selected: null,
+          confidence: undefined,
+          changesCount: 0,
+          answerHistory: [],
+        };
+        const prevSelected = current.selected;
+        const newSelected = answer.trim() ? answer : null;
+
+        // If unchanged, do not mutate state
+        if (prevSelected === newSelected) {
+          return prev;
+        }
+
+        const rawCorrect = getCorrectAnswerForQ(qNo);
+        const correct = rawCorrect ? rawCorrect.toUpperCase().trim() : undefined;
+        const isCorrect =
+          newSelected && correct
+            ? newSelected.toUpperCase().trim() === correct
+            : null;
+
+        return {
+          ...prev,
+          [qNo]: {
+            ...current,
+            selected: newSelected,
+            correctAnswer: correct,
+            isCorrect,
+          },
+        };
+      });
+    },
+    [isClozeQuestion, getCorrectAnswerForQ],
+  );
 
   const handleSetConfidence = (qNo: number, confidence: ConfidenceLevel) => {
     markUserInteraction();
