@@ -282,6 +282,7 @@ export function MarkdownPaperReviewViewer({
             const isAnswered = Boolean(ans?.selected?.trim());
             const isCorrect = isAnswered && ans?.isCorrect === true;
             const isWrong = isAnswered && ans?.isCorrect === false;
+            const isPartial = isAnswered && ans?.subjectiveAssessment === "partial";
             const isSelectedActive = activeQuestionNo === q.questionNo;
 
             const explanationText =
@@ -323,6 +324,12 @@ export function MarkdownPaperReviewViewer({
                         <span>
                           Incorrect · -{incorrectMarksValue} · Picked{" "}
                           {userSelected}
+                        </span>
+                      </span>
+                    ) : isPartial ? (
+                      <span className="inline-flex items-center gap-1 text-[11px] font-bold text-amber-800 bg-amber-50 border border-amber-200 px-2 py-0.5 rounded-full shadow-2xs">
+                        <span>
+                          Partial · +{(ans?.subjectiveMarks ?? (correctMarksValue * 0.5)).toFixed(1)} pts
                         </span>
                       </span>
                     ) : isCloze && isAnswered ? (

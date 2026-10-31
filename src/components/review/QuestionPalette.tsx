@@ -1,18 +1,22 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import { QuestionAnswer, ParsedQuestion } from "../../lib/types";
+import { QuestionAnswer, ParsedQuestion, SubjectiveAssessment } from "../../lib/types";
 import {
   CheckCircle2,
   XCircle,
   FileText,
   Clock,
   ChevronUp,
+  ChevronLeft,
+  ChevronRight,
   Lightbulb,
   ArrowRight,
+  Sparkles,
   Check,
   X,
 } from "lucide-react";
+import { SubjectiveAssessmentWidget } from "./SubjectiveAssessmentWidget";
 
 interface QuestionPaletteProps {
   questions: QuestionAnswer[];
@@ -22,8 +26,19 @@ interface QuestionPaletteProps {
   isClozeQuestion?: (qNo: number) => boolean;
   markdownQuestions?: ParsedQuestion[];
   onSaveQuestionNote?: (qNo: number, note: string) => void;
+  onSetSubjectiveAssessment?: (
+    qNo: number,
+    assessment: SubjectiveAssessment,
+    marks?: number,
+  ) => void;
+  onNavigatePrev?: () => void;
+  onNavigateNext?: () => void;
   onJumpToNextMistake?: () => void;
+  onJumpToNextSkipped?: () => void;
   hasNextMistake?: boolean;
+  hasNextSkipped?: boolean;
+  canNavigatePrev?: boolean;
+  canNavigateNext?: boolean;
   incorrectMarksPerQ?: number;
   getFullMarks?: (qNo: number) => number;
   filteredQuestionNos?: Set<number>;
@@ -39,8 +54,15 @@ export function QuestionPalette({
   isClozeQuestion,
   markdownQuestions = [],
   onSaveQuestionNote,
+  onSetSubjectiveAssessment,
+  onNavigatePrev,
+  onNavigateNext,
   onJumpToNextMistake,
+  onJumpToNextSkipped,
   hasNextMistake,
+  hasNextSkipped,
+  canNavigatePrev,
+  canNavigateNext,
   incorrectMarksPerQ = 0.667,
   getFullMarks,
   filteredQuestionNos,
@@ -74,6 +96,12 @@ export function QuestionPalette({
   const isEvaluable = expandedQuestion ? isAssessmentQuestion(expandedQuestion.questionNo) : false;
   const isCloze = expandedQuestion && isClozeQuestion ? isClozeQuestion(expandedQuestion.questionNo) : false;
 
+  const expandedIsAnswered = isCloze
+    ? Boolean(expandedQuestion?.selected?.trim() && expandedQuestion?.selected !== "attempted")
+    : isEvaluable
+      ? expandedQuestion?.selected === "attempted" || Boolean(expandedQuestion?.selected?.trim())
+      : expandedQuestion?.selected !== null && expandedQuestion?.selected !== undefined;
+
   const expandedIsCorrect = expandedQuestion
     ? isEvaluable
       ? expandedQuestion.subjectiveAssessment === "strong"
@@ -86,7 +114,17 @@ export function QuestionPalette({
       : expandedQuestion.selected && expandedQuestion.isCorrect === false
     : false;
 
-  const expandedIsPartial = expandedQuestion && isEvaluable && expandedQuestion.subjectiveAssessment === "partial";
+  const expandedIsPartial = Boolean(
+    expandedQuestion && isEvaluable && expandedQuestion.subjectiveAssessment === "partial",
+  );
+
+  const expandedIsPending = Boolean(
+    expandedQuestion && isEvaluable && expandedIsAnswered && !expandedQuestion.subjectiveAssessment,
+  );
+
+  const expandedIsSkipped = Boolean(
+    expandedQuestion && !expandedIsAnswered && !expandedQuestion.subjectiveAssessment,
+  );
 
   const parsedQ = expandedQuestion
     ? markdownQuestions.find((mq) => mq.questionNo === expandedQuestion.questionNo)
@@ -120,7 +158,7 @@ export function QuestionPalette({
             </span>
           )}
         </div>
-        <div className="flex items-center gap-2 text-[10px] text-slate-500 font-medium shrink-0">
+        <div className="flex items-center gap-2 text-[10px] text-slate-500 font-medium shrink-0 flex-wrap">
           <span className="inline-flex items-center gap-1">
             <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
             Correct
@@ -128,6 +166,14 @@ export function QuestionPalette({
           <span className="inline-flex items-center gap-1">
             <span className="h-1.5 w-1.5 rounded-full bg-rose-500" />
             Wrong
+          </span>
+          <span className="inline-flex items-center gap-1">
+            <span className="h-1.5 w-1.5 rounded-full bg-amber-500" />
+            Partial
+          </span>
+          <span className="inline-flex items-center gap-1">
+            <span className="h-1.5 w-1.5 rounded-full bg-indigo-500" />
+            Pending
           </span>
           <span className="inline-flex items-center gap-1">
             <span className="h-1.5 w-1.5 rounded-full bg-slate-300" />
@@ -146,6 +192,13 @@ export function QuestionPalette({
             filteredQuestionNos &&
             !filteredQuestionNos.has(q.questionNo);
           const qIsEvaluable = isAssessmentQuestion(q.questionNo);
+          const qIsCloze = isClozeQuestion ? isClozeQuestion(q.questionNo) : false;
+          const qIsAnswered = qIsCloze
+            ? Boolean(q.selected?.trim() && q.selected !== "attempted")
+            : qIsEvaluable
+              ? q.selected === "attempted" || Boolean(q.selected?.trim())
+              : q.selected !== null && q.selected !== undefined;
+
           const isCorrect = qIsEvaluable
             ? q.subjectiveAssessment === "strong"
             : q.selected && q.isCorrect === true;
@@ -153,7 +206,8 @@ export function QuestionPalette({
             ? q.subjectiveAssessment === "needs-work"
             : q.selected && q.isCorrect === false;
           const isPartial = qIsEvaluable && q.subjectiveAssessment === "partial";
-          const isSkipped = !q.selected && !q.subjectiveAssessment;
+          const isPending = qIsEvaluable && qIsAnswered && !q.subjectiveAssessment;
+          const isSkipped = !qIsAnswered && !q.subjectiveAssessment;
 
           let badgeColor = "bg-slate-100 text-slate-600 border-slate-200 hover:bg-slate-200";
           if (isCorrect) {
@@ -162,6 +216,8 @@ export function QuestionPalette({
             badgeColor = "bg-rose-50 text-rose-800 border-rose-300 hover:bg-rose-100";
           } else if (isPartial) {
             badgeColor = "bg-amber-50 text-amber-800 border-amber-300 hover:bg-amber-100";
+          } else if (isPending) {
+            badgeColor = "bg-indigo-50 text-indigo-700 border-indigo-300 hover:bg-indigo-100";
           } else if (isSkipped) {
             badgeColor = "bg-slate-50 text-slate-400 border-slate-200 hover:bg-slate-100";
           }
@@ -214,7 +270,12 @@ export function QuestionPalette({
                 </span>
               ) : expandedIsPartial ? (
                 <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-50 text-amber-800 border border-amber-200">
-                  Partial
+                  Partial (+{(expandedQuestion.subjectiveMarks ?? (fullMarks * 0.5)).toFixed(2)} pts)
+                </span>
+              ) : expandedIsPending ? (
+                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-indigo-50 text-indigo-700 border border-indigo-200 animate-pulse">
+                  <Sparkles className="h-3 w-3 text-indigo-600 shrink-0" />
+                  <span>Pending Evaluation</span>
                 </span>
               ) : (
                 <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-medium bg-slate-100 text-slate-500 border border-slate-200">
@@ -253,19 +314,28 @@ export function QuestionPalette({
                   ? "bg-emerald-50/70 border-emerald-200 text-emerald-950"
                   : expandedIsWrong
                     ? "bg-rose-50/70 border-rose-200 text-rose-950"
-                    : "bg-slate-50 border-slate-200 text-slate-700"
+                    : expandedIsPartial
+                      ? "bg-amber-50/70 border-amber-200 text-amber-950"
+                      : expandedIsPending
+                        ? "bg-indigo-50/70 border-indigo-200 text-indigo-950"
+                        : "bg-slate-50 border-slate-200 text-slate-700"
               }`}
             >
               <div className="flex flex-col min-w-0 overflow-hidden flex-1">
                 <span className="text-[9px] uppercase font-bold text-slate-500 tracking-wider">
-                  Your Answer {isEvaluable && expandedQuestion.subjectiveAssessment ? `(${expandedQuestion.subjectiveAssessment})` : ""}
+                  Your Answer{" "}
+                  {isEvaluable && expandedQuestion.subjectiveAssessment
+                    ? `(${expandedQuestion.subjectiveAssessment})`
+                    : isEvaluable && expandedIsAnswered
+                      ? "(Awaiting Grade)"
+                      : ""}
                 </span>
                 {isCandidateSingleLetter ? (
                   <span className="font-mono text-xs font-black truncate mt-0.5">
                     Option {candidateLetterMatch}
                   </span>
                 ) : rawCandidate ? (
-                  <p className="text-xs font-medium text-slate-900 mt-0.5 break-words line-clamp-2 leading-tight">
+                  <p className="text-xs font-medium text-slate-900 mt-0.5 break-words line-clamp-3 leading-tight select-text">
                     {rawCandidate}
                   </p>
                 ) : (
@@ -281,7 +351,11 @@ export function QuestionPalette({
                     ? "bg-emerald-600 text-white border-emerald-700"
                     : expandedIsWrong
                       ? "bg-rose-600 text-white border-rose-700"
-                      : "bg-slate-200 text-slate-500 border-slate-300"
+                      : expandedIsPartial
+                        ? "bg-amber-500 text-white border-amber-600"
+                        : expandedIsPending
+                          ? "bg-indigo-600 text-white border-indigo-700"
+                          : "bg-slate-200 text-slate-500 border-slate-300"
                 }`}
               >
                 {isCandidateSingleLetter ? (
@@ -290,6 +364,10 @@ export function QuestionPalette({
                   <Check className="h-3.5 w-3.5 text-white" />
                 ) : expandedIsWrong ? (
                   <X className="h-3.5 w-3.5 text-white" />
+                ) : expandedIsPartial ? (
+                  "½"
+                ) : expandedIsPending ? (
+                  <Sparkles className="h-3.5 w-3.5 text-white" />
                 ) : (
                   "—"
                 )}
@@ -307,7 +385,7 @@ export function QuestionPalette({
                     Option {keyLetterMatch}
                   </span>
                 ) : rawKey ? (
-                  <p className="text-xs font-medium text-emerald-900 mt-0.5 break-words line-clamp-2 leading-tight">
+                  <p className="text-xs font-medium text-emerald-900 mt-0.5 break-words line-clamp-3 leading-tight select-text">
                     {rawKey}
                   </p>
                 ) : (
@@ -325,6 +403,23 @@ export function QuestionPalette({
               </span>
             </div>
           </div>
+
+          {/* Cloze / Subjective Response Self-Evaluation Marking System */}
+          {isEvaluable && onSetSubjectiveAssessment && (
+            <SubjectiveAssessmentWidget
+              value={expandedQuestion.subjectiveAssessment}
+              isAnswered={expandedIsAnswered}
+              partialMarks={expandedQuestion.subjectiveMarks}
+              maxPartialMarks={fullMarks}
+              penaltyMarks={isCloze ? incorrectMarksPerQ : 0}
+              onChange={(assessment) =>
+                onSetSubjectiveAssessment(expandedQuestion.questionNo, assessment)
+              }
+              onPartialMarksChange={(marks) =>
+                onSetSubjectiveAssessment(expandedQuestion.questionNo, "partial", marks)
+              }
+            />
+          )}
 
           {/* Official Solution & Explanation */}
           {explanationText ? (
@@ -443,21 +538,57 @@ export function QuestionPalette({
             )
           ) : null}
 
-          {/* Quick Jump: Next Mistake Navigation */}
-          {hasNextMistake && onJumpToNextMistake && (
-            <div className="pt-1 flex items-center justify-end">
-              <button
-                type="button"
-                onClick={() => {
-                  onJumpToNextMistake();
-                }}
-                className="inline-flex items-center gap-1 px-3 py-1 rounded-lg border border-rose-200 bg-rose-50 hover:bg-rose-100 text-rose-800 text-xs font-bold transition-all shadow-2xs cursor-pointer"
-              >
-                <span>Next Mistake</span>
-                <ArrowRight className="h-3.5 w-3.5 text-rose-600" />
-              </button>
+          {/* Card Navigation Footer */}
+          <div className="pt-2 border-t border-slate-200 flex items-center justify-between gap-2 flex-wrap">
+            {/* Prev Button */}
+            <button
+              type="button"
+              disabled={!canNavigatePrev}
+              onClick={onNavigatePrev}
+              className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 text-xs font-semibold disabled:opacity-30 disabled:pointer-events-none transition-all shadow-2xs cursor-pointer"
+            >
+              <ChevronLeft className="h-3.5 w-3.5" />
+              <span>Previous</span>
+            </button>
+
+            {/* Quick Jump Buttons: Next Mistake & Next Skipped */}
+            <div className="flex items-center gap-1.5 flex-wrap">
+              {hasNextMistake && onJumpToNextMistake && (
+                <button
+                  type="button"
+                  onClick={onJumpToNextMistake}
+                  className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg border border-rose-200 bg-rose-50 hover:bg-rose-100 text-rose-800 text-xs font-bold transition-all shadow-2xs cursor-pointer"
+                  title="Fast forward to next incorrect question"
+                >
+                  <span>Next Mistake</span>
+                  <ArrowRight className="h-3.5 w-3.5 text-rose-600" />
+                </button>
+              )}
+
+              {hasNextSkipped && onJumpToNextSkipped && (
+                <button
+                  type="button"
+                  onClick={onJumpToNextSkipped}
+                  className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg border border-slate-200 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold transition-all shadow-2xs cursor-pointer"
+                  title="Fast forward to next unattempted / skipped question"
+                >
+                  <span>Next Skipped</span>
+                  <ArrowRight className="h-3.5 w-3.5 text-slate-500" />
+                </button>
+              )}
             </div>
-          )}
+
+            {/* Next Button */}
+            <button
+              type="button"
+              disabled={!canNavigateNext}
+              onClick={onNavigateNext}
+              className="inline-flex items-center gap-1 px-3 py-1 rounded-lg bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold disabled:opacity-30 disabled:pointer-events-none transition-all shadow-2xs cursor-pointer"
+            >
+              <span>Next</span>
+              <ChevronRight className="h-3.5 w-3.5" />
+            </button>
+          </div>
         </div>
       )}
     </div>

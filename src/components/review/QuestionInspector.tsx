@@ -41,7 +41,9 @@ interface QuestionInspectorProps {
   onNavigatePrev: () => void;
   onNavigateNext: () => void;
   onJumpToNextMistake?: () => void;
+  onJumpToNextSkipped?: () => void;
   hasNextMistake?: boolean;
+  hasNextSkipped?: boolean;
   canPreviewPaper?: boolean;
   showPaperSplit?: boolean;
   onTogglePaperSplit?: () => void;
@@ -60,7 +62,9 @@ export function QuestionInspector({
   onNavigatePrev,
   onNavigateNext,
   onJumpToNextMistake,
+  onJumpToNextSkipped,
   hasNextMistake,
+  hasNextSkipped,
   canPreviewPaper,
   showPaperSplit,
   onTogglePaperSplit,
@@ -539,18 +543,32 @@ export function QuestionInspector({
           <span>Previous</span>
         </button>
 
-        {/* Next Mistake Quick Jump */}
-        {hasNextMistake && onJumpToNextMistake && (
-          <button
-            type="button"
-            onClick={onJumpToNextMistake}
-            className="inline-flex items-center gap-1 px-3 py-1.5 rounded-xl border border-rose-200 bg-rose-50 hover:bg-rose-100 text-rose-800 text-xs font-bold transition-all shadow-2xs cursor-pointer"
-            title="Fast forward to next incorrect question"
-          >
-            <span>Next Mistake</span>
-            <ArrowRight className="h-3.5 w-3.5 text-rose-600" />
-          </button>
-        )}
+        {/* Quick Jump Buttons */}
+        <div className="flex items-center gap-1.5 flex-wrap">
+          {hasNextMistake && onJumpToNextMistake && (
+            <button
+              type="button"
+              onClick={onJumpToNextMistake}
+              className="inline-flex items-center gap-1 px-3 py-1.5 rounded-xl border border-rose-200 bg-rose-50 hover:bg-rose-100 text-rose-800 text-xs font-bold transition-all shadow-2xs cursor-pointer"
+              title="Fast forward to next incorrect question"
+            >
+              <span>Next Mistake</span>
+              <ArrowRight className="h-3.5 w-3.5 text-rose-600" />
+            </button>
+          )}
+
+          {hasNextSkipped && onJumpToNextSkipped && (
+            <button
+              type="button"
+              onClick={onJumpToNextSkipped}
+              className="inline-flex items-center gap-1 px-3 py-1.5 rounded-xl border border-slate-200 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold transition-all shadow-2xs cursor-pointer"
+              title="Fast forward to next unattempted / skipped question"
+            >
+              <span>Next Skipped</span>
+              <ArrowRight className="h-3.5 w-3.5 text-slate-500" />
+            </button>
+          )}
+        </div>
 
         <button
           type="button"

@@ -65,6 +65,7 @@ export function AttemptReviewView({
     slowQuestions,
     flaggedQuestions,
     incorrectQuestionsList,
+    skippedQuestionsList,
     sureQuestions,
     fiftyFiftyQuestions,
     eliminationQuestions,
@@ -213,6 +214,47 @@ export function AttemptReviewView({
     } else {
       // Loop back to first mistake
       jumpToQuestion(incorrectQuestionsList[0].questionNo);
+    }
+  };
+
+  // Next skipped question navigation
+  const handleJumpToNextSkipped = () => {
+    if (skippedQuestionsList.length === 0) return;
+    const currentIndex = skippedQuestionsList.findIndex(
+      (q) => q.questionNo > activeQuestionNo,
+    );
+    if (currentIndex !== -1) {
+      jumpToQuestion(skippedQuestionsList[currentIndex].questionNo);
+    } else {
+      jumpToQuestion(skippedQuestionsList[0].questionNo);
+    }
+  };
+
+  const currentNavigationList = hasActiveFilters ? filteredQuestions : questionList;
+  const currentNavIndex = currentNavigationList.findIndex(
+    (q) => q.questionNo === activeQuestionNo,
+  );
+  const canNavigatePrev = currentNavIndex > 0;
+  const canNavigateNext =
+    currentNavIndex !== -1 && currentNavIndex < currentNavigationList.length - 1;
+
+  const handleNavigateNext = () => {
+    if (currentNavIndex !== -1 && currentNavIndex < currentNavigationList.length - 1) {
+      jumpToQuestion(currentNavigationList[currentNavIndex + 1].questionNo);
+    } else if (currentNavIndex === -1 && currentNavigationList.length > 0) {
+      const nextQ = currentNavigationList.find((q) => q.questionNo > activeQuestionNo);
+      if (nextQ) jumpToQuestion(nextQ.questionNo);
+    }
+  };
+
+  const handleNavigatePrev = () => {
+    if (currentNavIndex > 0) {
+      jumpToQuestion(currentNavigationList[currentNavIndex - 1].questionNo);
+    } else if (currentNavIndex === -1 && currentNavigationList.length > 0) {
+      const prevQ = [...currentNavigationList]
+        .reverse()
+        .find((q) => q.questionNo < activeQuestionNo);
+      if (prevQ) jumpToQuestion(prevQ.questionNo);
     }
   };
 
@@ -501,12 +543,12 @@ export function AttemptReviewView({
                   incorrectMarksPerQ={attempt.incorrectMarks || 0.667}
                   onSaveQuestionNote={handleSaveQuestionNote}
                   onSetSubjectiveAssessment={handleSetSubjectiveAssessment}
-                  onNavigatePrev={() => jumpToQuestion(Math.max(1, activeQuestionNo - 1))}
-                  onNavigateNext={() =>
-                    jumpToQuestion(Math.min(questionList.length, activeQuestionNo + 1))
-                  }
+                  onNavigatePrev={handleNavigatePrev}
+                  onNavigateNext={handleNavigateNext}
                   onJumpToNextMistake={handleJumpToNextMistake}
+                  onJumpToNextSkipped={handleJumpToNextSkipped}
                   hasNextMistake={incorrectQuestionsList.length > 0}
+                  hasNextSkipped={skippedQuestionsList.length > 0}
                   canPreviewPaper={canPreviewPaper}
                   showPaperSplit={showPaperSplit}
                   onTogglePaperSplit={() => setShowPaperSplit(!showPaperSplit)}
@@ -556,8 +598,15 @@ export function AttemptReviewView({
                 isClozeQuestion={isClozeQuestion}
                 markdownQuestions={markdownQuestions}
                 onSaveQuestionNote={handleSaveQuestionNote}
+                onSetSubjectiveAssessment={handleSetSubjectiveAssessment}
+                onNavigatePrev={handleNavigatePrev}
+                onNavigateNext={handleNavigateNext}
                 onJumpToNextMistake={handleJumpToNextMistake}
+                onJumpToNextSkipped={handleJumpToNextSkipped}
                 hasNextMistake={incorrectQuestionsList.length > 0}
+                hasNextSkipped={skippedQuestionsList.length > 0}
+                canNavigatePrev={canNavigatePrev}
+                canNavigateNext={canNavigateNext}
                 incorrectMarksPerQ={attempt.incorrectMarks || 0.667}
                 getFullMarks={getFullMarks}
                 filteredQuestionNos={filteredQuestionNosSet}
