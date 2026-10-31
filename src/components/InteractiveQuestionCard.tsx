@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, useCallback } from "react";
 import { QuestionPaper, ParsedQuestion, QuestionAnswer } from "../lib/types";
 import { MatchingItemsTable } from "./MatchingItemsTable";
 import {
@@ -32,6 +32,81 @@ interface InteractiveQuestionCardProps {
   onStartExam: () => void;
 }
 
+interface ClozeAnswerInputProps {
+  questionNo: number;
+  initialValue: string;
+  onSave: (qNo: number, value: string) => void;
+}
+
+function ClozeAnswerInput({
+  questionNo,
+  initialValue,
+  onSave,
+}: ClozeAnswerInputProps) {
+  const [draft, setDraft] = useState<string>(initialValue);
+  const draftRef = useRef<string>(initialValue);
+  const savedRef = useRef<string>(initialValue);
+  const onSaveRef = useRef(onSave);
+  useEffect(() => {
+    onSaveRef.current = onSave;
+  });
+
+  useEffect(() => {
+    setDraft(initialValue);
+    draftRef.current = initialValue;
+    savedRef.current = initialValue;
+  }, [initialValue, questionNo]);
+
+  const handleFlush = useCallback(() => {
+    const current = draftRef.current.trim();
+    if (current !== savedRef.current.trim()) {
+      savedRef.current = draftRef.current;
+      onSaveRef.current(questionNo, draftRef.current);
+    }
+  }, [questionNo]);
+
+  useEffect(() => {
+    return () => {
+      const current = draftRef.current.trim();
+      if (current !== savedRef.current.trim()) {
+        savedRef.current = draftRef.current;
+        onSaveRef.current(questionNo, draftRef.current);
+      }
+    };
+  }, [questionNo]);
+
+  return (
+    <div className="space-y-2.5 pt-1">
+      <div className="flex items-center justify-between px-1">
+        <label
+          htmlFor={`cloze-answer-${questionNo}`}
+          className="text-[11px] font-bold uppercase tracking-wider text-slate-400 block"
+        >
+          Your Answer
+        </label>
+        <span className="text-[10px] font-mono font-semibold text-indigo-600 bg-indigo-50 border border-indigo-200 px-1.5 py-0.5 rounded">
+          T to focus • Esc to exit
+        </span>
+      </div>
+      <textarea
+        id={`cloze-answer-${questionNo}`}
+        value={draft}
+        onChange={(event) => {
+          setDraft(event.target.value);
+          draftRef.current = event.target.value;
+        }}
+        onBlur={handleFlush}
+        rows={2}
+        placeholder="Type a one- or two-line answer..."
+        className="w-full resize-y rounded-2xl border border-slate-200 bg-white p-4 text-sm leading-relaxed text-slate-800 shadow-2xs outline-none transition focus:border-indigo-400 focus:ring-4 focus:ring-indigo-100"
+      />
+      <p className="px-1 text-[11px] text-slate-400">
+        This is a free-text cloze question. No options are provided. Answer is saved when switching questions.
+      </p>
+    </div>
+  );
+}
+
 export function InteractiveQuestionCard({
   paper,
   currentQuestion,
@@ -49,57 +124,7 @@ export function InteractiveQuestionCard({
     useState<boolean>(false);
   const questions = paper.parsedQuestions || [];
 
-  // Local state for Cloze answers so keystrokes do NOT fire server API calls
-  const [clozeDraft, setClozeDraft] = useState<string>(
-    currentAnswer?.selected || "",
-  );
-  const prevQuestionRef = useRef<number | null>(currentQuestion);
-  const clozeDraftRef = useRef<string>(clozeDraft);
-  const savedAnswerRef = useRef<string>(currentAnswer?.selected || "");
 
-  useEffect(() => {
-    clozeDraftRef.current = clozeDraft;
-  }, [clozeDraft]);
-
-  // Save cloze answer only when changing question or when answer externally updates
-  useEffect(() => {
-    const prevQ = prevQuestionRef.current;
-    const draft = clozeDraftRef.current;
-    const lastSaved = savedAnswerRef.current;
-
-    if (prevQ !== null && prevQ !== currentQuestion) {
-      if (draft.trim() !== lastSaved.trim()) {
-        onUpdateAnswer(prevQ, draft);
-      }
-    }
-
-    prevQuestionRef.current = currentQuestion;
-    const nextSaved = currentAnswer?.selected || "";
-    setClozeDraft(nextSaved);
-    savedAnswerRef.current = nextSaved;
-  }, [currentQuestion, currentAnswer?.selected, onUpdateAnswer]);
-
-  // Flush unsaved draft on unmount
-  useEffect(() => {
-    return () => {
-      const q = prevQuestionRef.current;
-      const draft = clozeDraftRef.current;
-      const lastSaved = savedAnswerRef.current;
-      if (q !== null && draft.trim() !== lastSaved.trim()) {
-        onUpdateAnswer(q, draft);
-      }
-    };
-  }, [onUpdateAnswer]);
-
-  const handleClozeBlur = () => {
-    if (
-      currentQuestion !== null &&
-      clozeDraft.trim() !== savedAnswerRef.current.trim()
-    ) {
-      savedAnswerRef.current = clozeDraft;
-      onUpdateAnswer(currentQuestion, clozeDraft);
-    }
-  };
 
   // 1. INSTRUCTIONS / BUFFER SCREEN (When currentQuestion is null)
   if (currentQuestion === null) {
@@ -418,27 +443,12 @@ export function InteractiveQuestionCard({
             </div>
           </div>
         ) : (
-          <div className="space-y-2.5 pt-1">
-            <label
-              htmlFor={`cloze-answer-${currentQuestion}`}
-              className="text-[11px] font-bold uppercase tracking-wider text-slate-400 block px-1"
-            >
-              Your Answer
-            </label>
-            <textarea
-              id={`cloze-answer-${currentQuestion}`}
-              value={clozeDraft}
-              onChange={(event) => setClozeDraft(event.target.value)}
-              onBlur={handleClozeBlur}
-              rows={2}
-              placeholder="Type a one- or two-line answer..."
-              className="w-full resize-y rounded-2xl border border-slate-200 bg-white p-4 text-sm leading-relaxed text-slate-800 shadow-2xs outline-none transition focus:border-indigo-400 focus:ring-4 focus:ring-indigo-100"
-            />
-            <p className="px-1 text-[11px] text-slate-400">
-              This is a free-text cloze question. No options are provided.
-              Answer is saved when switching questions.
-            </p>
-          </div>
+          <ClozeAnswerInput
+            key={currentQuestion}
+            questionNo={currentQuestion}
+            initialValue={selectedText}
+            onSave={onUpdateAnswer}
+          />
         )}
 
         {/* Practice Mode Detailed Explanation Card */}

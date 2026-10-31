@@ -99,15 +99,19 @@ export function ExamSessionView({
   const { currentUser } = useApp();
 
   const effectiveDraft = useMemo(() => {
-    if (initialDraft && initialDraft.paperId === paper.id) {
+    if (
+      initialDraft &&
+      initialDraft.paperId === paper.id &&
+      initialDraft.mode === mode
+    ) {
       return initialDraft;
     }
     const local = typeof window !== "undefined" ? getActiveDraft() : null;
-    if (local && local.paperId === paper.id) {
+    if (local && local.paperId === paper.id && local.mode === mode) {
       return local;
     }
     return null;
-  }, [initialDraft, paper.id]);
+  }, [initialDraft, paper.id, mode]);
 
   const effectivePaper = useMemo<QuestionPaper>(() => {
     let p = { ...paper };
@@ -450,12 +454,17 @@ export function ExamSessionView({
     (totalTimeSeconds > 0 && remainingSeconds <= totalTimeSeconds * 0.1);
 
   // Helper to reliably retrieve correct answer for any question
-  const getCorrectAnswerForQ = (qNo: number): string | undefined => {
-    const k = paper.answerKey;
-    let val = k ? k[qNo] || k[String(qNo)] : undefined;
-    if (!val && answers[qNo]?.correctAnswer) val = answers[qNo].correctAnswer;
-    return val ? String(val).toUpperCase().trim() : undefined;
-  };
+  const getCorrectAnswerForQ = useCallback(
+    (qNo: number): string | undefined => {
+      const k = paper.answerKey;
+      let val = k ? k[qNo] || k[String(qNo)] : undefined;
+      if (!val && answersRef.current[qNo]?.correctAnswer) {
+        val = answersRef.current[qNo].correctAnswer;
+      }
+      return val ? String(val).toUpperCase().trim() : undefined;
+    },
+    [paper.answerKey],
+  );
 
   // Initialize questions unless resuming from draft
   useEffect(() => {
@@ -628,72 +637,6 @@ export function ExamSessionView({
     isSubjectiveScanPaper,
   ]);
 
-  // Answer selection handler (Objective)
-  const handleSelectOption = (qNo: number, option: string) => {
-    markUserInteraction();
-    const isDeselecting = answers[qNo]?.selected === option;
-    setAnswers((prev) => {
-      const current = prev[qNo] || {
-        questionNo: qNo,
-        selected: null,
-        confidence: undefined,
-        changesCount: 0,
-        answerHistory: [],
-      };
-
-      const prevSelected = current.selected;
-      const isUnselecting = isDeselecting;
-      const newSelected = isUnselecting ? null : option;
-
-      const rawCorrect = getCorrectAnswerForQ(qNo);
-      const correct = rawCorrect ? rawCorrect.toUpperCase().trim() : undefined;
-
-      let isCorrect: boolean | null = null;
-      if (newSelected && correct) {
-        isCorrect = newSelected.toUpperCase().trim() === correct;
-      }
-
-      // Track response alteration ONLY in Mock mode
-      let changesCount = current.changesCount || 0;
-      let answerHistory = current.answerHistory
-        ? [...current.answerHistory]
-        : [];
-
-      if (mode === "mock") {
-        if (prevSelected && newSelected && prevSelected !== newSelected) {
-          changesCount += 1;
-          answerHistory.push(newSelected);
-        } else if (!prevSelected && newSelected) {
-          answerHistory.push(newSelected);
-        }
-      }
-
-      return {
-        ...prev,
-        [qNo]: {
-          ...current,
-          selected: newSelected,
-          correctAnswer: correct,
-          isCorrect,
-          confidence: current.confidence,
-          changesCount,
-          answerHistory,
-        },
-      };
-    });
-
-    // Auto-advance remains available for Mock mode, and is also available for
-    // Markdown papers during Practice mode.
-    if (
-      (mode === "mock" || (mode === "practice" && isMarkdownPaper)) &&
-      autoAdvance &&
-      !isDeselecting &&
-      qNo < paper.totalQuestions
-    ) {
-      setCurrentQuestion(qNo + 1);
-    }
-  };
-
   const isClozeQuestion = useCallback(
     (questionNo: number | null) => {
       if (questionNo === null) return false;
@@ -707,57 +650,127 @@ export function ExamSessionView({
     [effectivePaper.parsedQuestions],
   );
 
-  // Answer handler for Markdown cloze/free-text questions.
-  const handleUpdateAnswer = (qNo: number, answer: string) => {
-    markUserInteraction();
-    setAnswers((prev) => {
-      const current = prev[qNo] || {
-        questionNo: qNo,
-        selected: null,
-        confidence: undefined,
-        changesCount: 0,
-        answerHistory: [],
-      };
-      const prevSelected = current.selected;
-      const newSelected = answer.trim() ? answer : null;
+  // Answer selection handler (Objective)
+  const handleSelectOption = useCallback(
+    (qNo: number, option: string) => {
+      markUserInteraction();
+      let wasDeselecting = false;
 
-      // If unchanged, do not mutate state
-      if (prevSelected === newSelected) {
-        return prev;
-      }
+      setAnswers((prev) => {
+        const current = prev[qNo] || {
+          questionNo: qNo,
+          selected: null,
+          confidence: undefined,
+          changesCount: 0,
+          answerHistory: [],
+        };
 
-      const rawCorrect = getCorrectAnswerForQ(qNo);
-      const correct = rawCorrect ? rawCorrect.toUpperCase().trim() : undefined;
-      const isCorrect =
-        newSelected && correct
-          ? newSelected.toUpperCase().trim() === correct
-          : null;
-      let changesCount = current.changesCount || 0;
-      let answerHistory = current.answerHistory
-        ? [...current.answerHistory]
-        : [];
+        const prevSelected = current.selected;
+        const isUnselecting = prevSelected === option;
+        wasDeselecting = isUnselecting;
+        const newSelected = isUnselecting ? null : option;
 
-      // Only track alteration metrics for MCQs (never for cloze free-text)
-      if (!isClozeQuestion(qNo)) {
-        if (mode === "mock" && newSelected && newSelected !== prevSelected) {
-          if (prevSelected) changesCount += 1;
-          answerHistory.push(newSelected);
+        const rawCorrect = getCorrectAnswerForQ(qNo);
+        const correct = rawCorrect ? rawCorrect.toUpperCase().trim() : undefined;
+
+        let isCorrect: boolean | null = null;
+        if (newSelected && correct) {
+          isCorrect = newSelected.toUpperCase().trim() === correct;
         }
-      }
 
-      return {
-        ...prev,
-        [qNo]: {
-          ...current,
-          selected: newSelected,
-          correctAnswer: correct,
-          isCorrect,
-          changesCount,
-          answerHistory,
-        },
-      };
-    });
-  };
+        // Track response alteration ONLY in Mock mode
+        let changesCount = current.changesCount || 0;
+        let answerHistory = current.answerHistory
+          ? [...current.answerHistory]
+          : [];
+
+        if (mode === "mock") {
+          if (prevSelected && newSelected && prevSelected !== newSelected) {
+            changesCount += 1;
+            answerHistory.push(newSelected);
+          } else if (!prevSelected && newSelected) {
+            answerHistory.push(newSelected);
+          }
+        }
+
+        return {
+          ...prev,
+          [qNo]: {
+            ...current,
+            selected: newSelected,
+            correctAnswer: correct,
+            isCorrect,
+            confidence: current.confidence,
+            changesCount,
+            answerHistory,
+          },
+        };
+      });
+
+      // Auto-advance remains available for Mock mode, and is also available for
+      // Markdown papers during Practice mode.
+      if (
+        (mode === "mock" || (mode === "practice" && isMarkdownPaper)) &&
+        autoAdvance &&
+        !wasDeselecting &&
+        qNo < paper.totalQuestions
+      ) {
+        setCurrentQuestion(qNo + 1);
+      }
+    },
+    [
+      mode,
+      isMarkdownPaper,
+      autoAdvance,
+      paper.totalQuestions,
+      getCorrectAnswerForQ,
+    ],
+  );
+
+  // Answer handler for Markdown cloze/free-text questions ONLY.
+  const handleUpdateAnswer = useCallback(
+    (qNo: number, answer: string) => {
+      // Guard: Cloze answers only apply to cloze (free-text) questions.
+      // MCQs must only be answered through handleSelectOption.
+      if (!isClozeQuestion(qNo)) return;
+
+      markUserInteraction();
+      setAnswers((prev) => {
+        const current = prev[qNo] || {
+          questionNo: qNo,
+          selected: null,
+          confidence: undefined,
+          changesCount: 0,
+          answerHistory: [],
+        };
+        const prevSelected = current.selected;
+        const newSelected = answer.trim() ? answer : null;
+
+        // If unchanged, do not mutate state
+        if (prevSelected === newSelected) {
+          return prev;
+        }
+
+        const rawCorrect = getCorrectAnswerForQ(qNo);
+        const correct = rawCorrect ? rawCorrect.toUpperCase().trim() : undefined;
+        const isCorrect =
+          newSelected && correct
+            ? newSelected.toUpperCase().trim() === correct
+            : null;
+
+        return {
+          ...prev,
+          [qNo]: {
+            ...current,
+            selected: newSelected,
+            correctAnswer: correct,
+            isCorrect,
+          },
+        };
+      });
+    },
+    [isClozeQuestion, getCorrectAnswerForQ],
+  );
 
   const handleSetConfidence = (qNo: number, confidence: ConfidenceLevel) => {
     markUserInteraction();
@@ -836,6 +849,19 @@ export function ExamSessionView({
           target.tagName === "TEXTAREA" ||
           target.isContentEditable)
       ) {
+        if (e.key === "Escape") {
+          e.preventDefault();
+          target.blur();
+          return;
+        }
+        if (
+          (e.key.toUpperCase() === "S" || e.key.toUpperCase() === "T") &&
+          (e.altKey || e.ctrlKey || e.metaKey)
+        ) {
+          e.preventDefault();
+          target.blur();
+          return;
+        }
         return;
       }
 
@@ -854,6 +880,37 @@ export function ExamSessionView({
       }
 
       if (currentQuestion === null) return;
+
+      // Toggle focus on Scratchpad: S
+      if (key === "S" && !e.altKey) {
+        e.preventDefault();
+        setShowNoteBox(true);
+        setTimeout(() => {
+          const scratchpadEl = document.getElementById(
+            `scratchpad-textarea-${currentQuestion}`,
+          ) as HTMLTextAreaElement | null;
+          if (scratchpadEl) {
+            scratchpadEl.focus();
+            scratchpadEl.scrollIntoView({ behavior: "smooth", block: "center" });
+          }
+        }, 30);
+        return;
+      }
+
+      // Focus on Cloze answer area (only for cloze questions): T
+      if (key === "T" && !e.altKey) {
+        if (isClozeQuestion(currentQuestion)) {
+          e.preventDefault();
+          const clozeEl = document.getElementById(
+            `cloze-answer-${currentQuestion}`,
+          ) as HTMLTextAreaElement | null;
+          if (clozeEl) {
+            clozeEl.focus();
+            clozeEl.scrollIntoView({ behavior: "smooth", block: "center" });
+          }
+          return;
+        }
+      }
 
       // Options selection (A, B, C, D)
       if (["A", "B", "C", "D"].includes(key) && !e.altKey) {
@@ -917,6 +974,12 @@ export function ExamSessionView({
     showShortcutsModal,
     showFinishConfirm,
     solutionModalOpen,
+    isClozeQuestion,
+    handleSelectOption,
+    navigateToQuestion,
+    handleClearSelection,
+    handleToggleFlag,
+    handleSetConfidence,
   ]);
 
   // Real-time automatic persistence to localStorage, Supabase & server
@@ -2520,10 +2583,13 @@ export function ExamSessionView({
                 {showNoteBox && (
                   <div className="mt-3.5 rounded-2xl border border-slate-200 bg-slate-50/90 p-3 sm:p-4 space-y-2 shadow-2xs">
                     <div className="flex items-center justify-between text-xs">
-                      <div className="flex items-center gap-1.5">
+                      <div className="flex items-center gap-1.5 flex-wrap">
                         <Edit3 className="h-3.5 w-3.5 text-indigo-600 shrink-0" />
                         <span className="font-bold text-slate-900 text-xs sm:text-sm">
                           Rough Scratchpad for Question {currentQuestion}
+                        </span>
+                        <span className="hidden sm:inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-mono font-semibold bg-slate-200/80 text-slate-600">
+                          S to focus • Esc to exit
                         </span>
                       </div>
                       <span className="text-[11px] font-medium text-slate-500">
@@ -2531,6 +2597,7 @@ export function ExamSessionView({
                       </span>
                     </div>
                     <textarea
+                      id={`scratchpad-textarea-${currentQuestion}`}
                       value={noteDraft}
                       onChange={(e) => {
                         const val = e.target.value;
