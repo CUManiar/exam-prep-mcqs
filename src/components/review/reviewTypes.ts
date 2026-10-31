@@ -33,18 +33,14 @@ export const EMPTY_FILTER_STATE: ReviewFilterState = {
 export function isFilterActive(filters: ReviewFilterState): boolean {
   return Boolean(
     filters.outcome ||
-      filters.confidence ||
-      filters.flagged ||
-      filters.slow ||
-      filters.altered,
+    filters.confidence ||
+    filters.flagged ||
+    filters.slow ||
+    filters.altered,
   );
 }
 
-export type SortOptionType =
-  | "qno_asc"
-  | "qno_desc"
-  | "time_asc"
-  | "time_desc";
+export type SortOptionType = "qno_asc" | "qno_desc" | "time_asc" | "time_desc";
 
 export interface CutoffVerdict {
   isCsat: boolean;
@@ -82,8 +78,15 @@ export interface ReviewContext {
   /** Stable flag helpers */
   isClozeQuestion: (qNo: number) => boolean;
   isAssessmentQuestion: (qNo: number) => boolean;
-  isQuestionAnswered: (q: { selected: string | null; subjectiveAssessment?: SubjectiveAssessment }) => boolean;
+  isQuestionAnswered: (q: {
+    selected: string | null;
+    subjectiveAssessment?: SubjectiveAssessment;
+  }) => boolean;
   getFullMarks: (qNo: number) => number;
-  getAssessmentMarks: (qNo: number, assessment?: SubjectiveAssessment, subjectiveMarks?: number) => number;
+  getAssessmentMarks: (
+    qNo: number,
+    assessment?: SubjectiveAssessment,
+    subjectiveMarks?: number,
+  ) => number;
   formatReviewNumber: (value: number) => string;
 }

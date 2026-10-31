@@ -48,7 +48,8 @@ export function PaperPreviewPanel({
   const effectivePaper: QuestionPaper = matchedPaper || {
     id: attemptFallbackData.paperId,
     label: attemptFallbackData.paperLabel,
-    category: (attemptFallbackData.category as "prelims" | "mains") || "prelims",
+    category:
+      (attemptFallbackData.category as "prelims" | "mains") || "prelims",
     examType: "objective",
     year: "Custom",
     subject: attemptFallbackData.paperLabel,
@@ -89,7 +90,9 @@ export function PaperPreviewPanel({
           <div className="flex items-center justify-between px-3.5 py-2.5 bg-white border-b border-slate-200 shrink-0 gap-2">
             <div className="flex items-center gap-2 text-xs font-semibold text-slate-800 min-w-0">
               <FileText className="h-4 w-4 text-indigo-600 shrink-0" />
-              <span className="truncate max-w-[180px] sm:max-w-[260px]">{title}</span>
+              <span className="truncate max-w-[180px] sm:max-w-[260px]">
+                {title}
+              </span>
               <span className="text-[10px] text-slate-400 font-normal uppercase hidden sm:inline">
                 PDF Booklet
               </span>
@@ -98,26 +101,35 @@ export function PaperPreviewPanel({
             <div className="flex items-center gap-1.5 shrink-0">
               <button
                 type="button"
-                onClick={() => setPdfMode((prev) => (prev === "canvas" ? "native" : "canvas"))}
+                onClick={() =>
+                  setPdfMode((prev) =>
+                    prev === "canvas" ? "native" : "canvas",
+                  )
+                }
                 className="flex items-center gap-1 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 px-2.5 py-1 text-[11px] font-medium text-slate-700 transition-colors shadow-2xs cursor-pointer"
-                title={pdfMode === "canvas" ? "Switch to Native viewer" : "Switch to Canvas viewer"}
+                title={
+                  pdfMode === "canvas"
+                    ? "Switch to Native viewer"
+                    : "Switch to Canvas viewer"
+                }
               >
                 <Monitor className="h-3 w-3 text-indigo-600" />
                 <span>{pdfMode === "canvas" ? "Native" : "Canvas"}</span>
               </button>
 
-              {matchedPaper?.qpUrl && !matchedPaper.qpUrl.startsWith("local://") && (
-                <a
-                  href={matchedPaper.qpUrl}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="flex items-center gap-1 text-[11px] font-medium text-slate-600 hover:text-slate-900 px-2.5 py-1 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 transition-colors shadow-2xs"
-                  title="Open PDF in external browser tab"
-                >
-                  <ExternalLink className="h-3 w-3 text-indigo-600" />
-                  <span className="hidden sm:inline">Popout</span>
-                </a>
-              )}
+              {matchedPaper?.qpUrl &&
+                !matchedPaper.qpUrl.startsWith("local://") && (
+                  <a
+                    href={matchedPaper.qpUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex items-center gap-1 text-[11px] font-medium text-slate-600 hover:text-slate-900 px-2.5 py-1 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 transition-colors shadow-2xs"
+                    title="Open PDF in external browser tab"
+                  >
+                    <ExternalLink className="h-3 w-3 text-indigo-600" />
+                    <span className="hidden sm:inline">Popout</span>
+                  </a>
+                )}
 
               <button
                 type="button"
@@ -145,4 +157,3 @@ export function PaperPreviewPanel({
     </aside>
   );
 }
-

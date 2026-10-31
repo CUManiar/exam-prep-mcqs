@@ -33,7 +33,9 @@ export function QuestionListSidebar({
   onSaveQuestionNote,
 }: QuestionListSidebarProps) {
   // Track which questions are expanded
-  const [expandedQNos, setExpandedQNos] = useState<Set<number>>(() => new Set([activeQuestionNo]));
+  const [expandedQNos, setExpandedQNos] = useState<Set<number>>(
+    () => new Set([activeQuestionNo]),
+  );
   const [editingQNo, setEditingQNo] = useState<number | null>(null);
   const [noteDraft, setNoteDraft] = useState<string>("");
 
@@ -101,12 +103,19 @@ export function QuestionListSidebar({
               const isWrong = isEvaluable
                 ? q.subjectiveAssessment === "needs-work"
                 : q.selected && q.isCorrect === false;
-              const isPartial = isEvaluable && q.subjectiveAssessment === "partial";
+              const isPartial =
+                isEvaluable && q.subjectiveAssessment === "partial";
               const isSkipped = !q.selected && !q.subjectiveAssessment;
 
-              const parsedQ = markdownQuestions.find((mq) => mq.questionNo === q.questionNo);
-              const expectedAns = (parsedQ?.answer || q.correctAnswer || "").replace(/[\(\)\[\]\.\s]/g, "").toUpperCase();
-              const candidateAns = (q.selected || "").replace(/[\(\)\[\]\.\s]/g, "").toUpperCase();
+              const parsedQ = markdownQuestions.find(
+                (mq) => mq.questionNo === q.questionNo,
+              );
+              const expectedAns = (parsedQ?.answer || q.correctAnswer || "")
+                .replace(/[\(\)\[\]\.\s]/g, "")
+                .toUpperCase();
+              const candidateAns = (q.selected || "")
+                .replace(/[\(\)\[\]\.\s]/g, "")
+                .toUpperCase();
               const explanationText = parsedQ?.explanation || q.explanation;
 
               return (
@@ -184,7 +193,9 @@ export function QuestionListSidebar({
                           {candidateAns}
                         </span>
                       ) : (
-                        <span className="text-slate-300 font-mono text-xs">—</span>
+                        <span className="text-slate-300 font-mono text-xs">
+                          —
+                        </span>
                       )}
                     </td>
 
@@ -195,7 +206,9 @@ export function QuestionListSidebar({
                           {expectedAns}
                         </span>
                       ) : (
-                        <span className="text-slate-300 font-mono text-xs">—</span>
+                        <span className="text-slate-300 font-mono text-xs">
+                          —
+                        </span>
                       )}
                     </td>
 
@@ -280,7 +293,10 @@ export function QuestionListSidebar({
                                   <button
                                     type="button"
                                     onClick={() => {
-                                      onSaveQuestionNote?.(q.questionNo, noteDraft);
+                                      onSaveQuestionNote?.(
+                                        q.questionNo,
+                                        noteDraft,
+                                      );
                                       setEditingQNo(null);
                                     }}
                                     className="px-2.5 py-0.5 text-xs font-bold text-white bg-amber-600 hover:bg-amber-700 rounded shadow-2xs cursor-pointer"
@@ -319,7 +335,10 @@ export function QuestionListSidebar({
                                 <button
                                   type="button"
                                   onClick={() => {
-                                    onSaveQuestionNote?.(q.questionNo, noteDraft);
+                                    onSaveQuestionNote?.(
+                                      q.questionNo,
+                                      noteDraft,
+                                    );
                                     setEditingQNo(null);
                                   }}
                                   className="px-2.5 py-0.5 text-xs font-bold text-white bg-amber-600 hover:bg-amber-700 rounded shadow-2xs cursor-pointer"

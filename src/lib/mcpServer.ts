@@ -658,6 +658,78 @@ export function createPortalMcpServer(
   );
 
   server.registerTool(
+    "attach_attempt_reflection",
+    {
+      title: "Attach strategy notes & reflections",
+      description:
+        "Attach or update strategy notes and reflections in the 'Attempt Strategy Notes & Reflections' section of an attempt. Defaults to the student's latest attempt if attemptId or paperId is omitted.",
+      annotations: { readOnlyHint: false, destructiveHint: false },
+      inputSchema: {
+        notes: z
+          .string()
+          .min(1)
+          .describe("The strategy reflections or notes to attach."),
+        attemptId: z
+          .string()
+          .optional()
+          .describe("Specific attempt ID. Defaults to latest attempt."),
+        paperId: z
+          .string()
+          .optional()
+          .describe("Paper ID to match the latest attempt of that paper."),
+        append: z
+          .boolean()
+          .optional()
+          .describe(
+            "Append to existing notes instead of overwriting. Defaults to false.",
+          ),
+      },
+    },
+    async ({ notes, attemptId, paperId, append }) => {
+      const authError = scopeError(scope, MCP_WRITE_SCOPE);
+      if (authError) return authError;
+      const attempts = await getUserAttempts(userId);
+      if (!attempts.length) {
+        return errorResult("No exam attempts found for this student.");
+      }
+      const targetAttempt = attemptId
+        ? attempts.find((a) => a.id === attemptId)
+        : paperId
+          ? attempts.find((a) => a.paperId === paperId)
+          : attempts[0];
+
+      if (!targetAttempt) {
+        return errorResult(
+          attemptId
+            ? `Attempt ${attemptId} not found.`
+            : `No attempt found for paper ${paperId}.`,
+        );
+      }
+
+      const trimmed = notes.trim();
+      const updatedNotes =
+        append && targetAttempt.generalNotes?.trim()
+          ? `${targetAttempt.generalNotes.trim()}\n\n${trimmed}`
+          : trimmed;
+
+      const updatedAttempt: Attempt = {
+        ...targetAttempt,
+        generalNotes: updatedNotes,
+      };
+
+      await saveMcpAttempt(userId, updatedAttempt);
+
+      return textResult({
+        saved: true,
+        attemptId: updatedAttempt.id,
+        paperLabel: updatedAttempt.paperLabel,
+        generalNotes: updatedNotes,
+        message: "Strategy notes & reflections attached successfully.",
+      });
+    },
+  );
+
+  server.registerTool(
     "replace_syllabus_markdown",
     {
       title: "Replace Markdown syllabus",

@@ -483,14 +483,20 @@ export function PapersView({
             const practiceAtts = paperAtts.filter((a) => a.mode === "practice");
             const hasMock = mockAtts.length > 0;
             const hasPractice = practiceAtts.length > 0;
-            const finishedAttempts = paperAtts.filter((attempt) => Boolean(attempt.finishedAt));
-            const latestAttempt = (finishedAttempts.length > 0 ? finishedAttempts : paperAtts)
-              .sort(
-                (a, b) =>
-                  new Date(b.finishedAt || b.startedAt).getTime() -
-                  new Date(a.finishedAt || a.startedAt).getTime(),
-              )[0];
-            const cutoffStatus = hasAttempt && latestAttempt ? getPaperCutoffStatus(paper, latestAttempt) : null;
+            const finishedAttempts = paperAtts.filter((attempt) =>
+              Boolean(attempt.finishedAt),
+            );
+            const latestAttempt = (
+              finishedAttempts.length > 0 ? finishedAttempts : paperAtts
+            ).sort(
+              (a, b) =>
+                new Date(b.finishedAt || b.startedAt).getTime() -
+                new Date(a.finishedAt || a.startedAt).getTime(),
+            )[0];
+            const cutoffStatus =
+              hasAttempt && latestAttempt
+                ? getPaperCutoffStatus(paper, latestAttempt)
+                : null;
 
             return (
               <div
@@ -548,7 +554,8 @@ export function PapersView({
                       {cutoffStatus?.hasCutoff && (
                         <span
                           title={
-                            cutoffStatus.isCsat
+                            cutoffStatus.isCsat &&
+                            cutoffStatus.cutoffValue === 33.33
                               ? `UPSC CSAT Qualifying benchmark: 33.3% (${cutoffStatus.cutoffCleared ? "Cleared" : "Below"})`
                               : `Cutoff benchmark: ${cutoffStatus.cutoffValue}${cutoffStatus.cutoffType === "percentage" ? "%" : " marks"} (${cutoffStatus.cutoffCleared ? "Cleared" : "Below"})`
                           }

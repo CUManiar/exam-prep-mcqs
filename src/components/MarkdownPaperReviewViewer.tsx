@@ -59,8 +59,12 @@ export function MarkdownPaperReviewViewer({
     if (container && targetEl) {
       const containerRect = container.getBoundingClientRect();
       const targetRect = targetEl.getBoundingClientRect();
-      const targetTop = targetRect.top - containerRect.top + container.scrollTop;
-      container.scrollTo({ top: Math.max(0, targetTop - 12), behavior: "smooth" });
+      const targetTop =
+        targetRect.top - containerRect.top + container.scrollTop;
+      container.scrollTo({
+        top: Math.max(0, targetTop - 12),
+        behavior: "smooth",
+      });
     }
   }, [activeQuestionNo]);
 
@@ -243,7 +247,8 @@ export function MarkdownPaperReviewViewer({
                   No matching questions
                 </h4>
                 <p className="text-xs text-slate-500 max-w-sm mx-auto">
-                  No questions in this paper match the selected filter combination.
+                  No questions in this paper match the selected filter
+                  combination.
                 </p>
               </div>
               {onResetFilters && (
@@ -283,7 +288,8 @@ export function MarkdownPaperReviewViewer({
             const isAnswered = Boolean(ans?.selected?.trim());
             const isCorrect = isAnswered && ans?.isCorrect === true;
             const isWrong = isAnswered && ans?.isCorrect === false;
-            const isPartial = isAnswered && ans?.subjectiveAssessment === "partial";
+            const isPartial =
+              isAnswered && ans?.subjectiveAssessment === "partial";
             const isSelectedActive = activeQuestionNo === q.questionNo;
 
             const explanationText =
@@ -330,7 +336,11 @@ export function MarkdownPaperReviewViewer({
                     ) : isPartial ? (
                       <span className="inline-flex items-center gap-1 text-[11px] font-bold text-amber-800 bg-amber-50 border border-amber-200 px-2 py-0.5 rounded-full shadow-2xs">
                         <span>
-                          Partial · +{(ans?.subjectiveMarks ?? (correctMarksValue * 0.5)).toFixed(1)} pts
+                          Partial · +
+                          {(
+                            ans?.subjectiveMarks ?? correctMarksValue * 0.5
+                          ).toFixed(1)}{" "}
+                          pts
                         </span>
                       </span>
                     ) : isCloze && isAnswered ? (

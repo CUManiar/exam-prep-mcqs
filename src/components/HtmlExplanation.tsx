@@ -13,11 +13,17 @@ interface HtmlExplanationProps {
  * If rich HTML is provided inside """ triple quotes, it sanitizes and converts it to formatted HTML.
  * Otherwise, it displays clean plain text with whitespace preserved.
  */
-export function HtmlExplanation({ text, className = "" }: HtmlExplanationProps) {
+export function HtmlExplanation({
+  text,
+  className = "",
+}: HtmlExplanationProps) {
   if (!text) return null;
 
   const hasHtml = useMemo(() => isHtmlContent(text), [text]);
-  const sanitized = useMemo(() => (hasHtml ? sanitizeExplanationHtml(text) : ""), [hasHtml, text]);
+  const sanitized = useMemo(
+    () => (hasHtml ? sanitizeExplanationHtml(text) : ""),
+    [hasHtml, text],
+  );
 
   if (hasHtml) {
     return (
