@@ -23,6 +23,7 @@ import {
   ArrowRight,
   Eye,
 } from "lucide-react";
+import { HtmlExplanation } from "../HtmlExplanation";
 
 interface QuestionInspectorProps {
   question: QuestionAnswer;
@@ -524,9 +525,10 @@ export function QuestionInspector({
               <Lightbulb className="h-4 w-4 text-indigo-600" />
               <span>Official Explanation & Solution</span>
             </div>
-            <p className="text-xs sm:text-sm text-slate-800 leading-relaxed whitespace-pre-wrap font-normal select-text">
-              {officialExplanation}
-            </p>
+            <HtmlExplanation
+              text={officialExplanation}
+              className="text-xs sm:text-sm text-slate-800"
+            />
           </div>
         )}
       </div>

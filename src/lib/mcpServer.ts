@@ -514,7 +514,7 @@ export function createPortalMcpServer(
     {
       title: "Preview paper import",
       description:
-        'Validate a paper before saving it to the student\'s library. Markdown questions may be MCQs with options (a)-(d) or cloze/free-text questions with no options. In the answer key, MCQs use \'<number>. <letter> \\"\\"\\" explanation \\"\\"\\"\' and cloze questions use \'<number>. \\"\\"\\" reference explanation \\"\\"\\"\'.',
+        'Validate a paper before saving it to the student\'s library. Markdown questions may be MCQs with options (a)-(d) or cloze/free-text questions with no options. In the answer key, MCQs use \'<number>. <letter> \\"\\"\\" explanation \\"\\"\\"\' and cloze questions use \'<number>. \\"\\"\\" reference explanation \\"\\"\\"\'. Explanations inside \\"\\"\\" support rich HTML formatting (e.g. <b>, <i>, <ul>, <ol>, <li>, <table>, <code>, <blockquote>, <p>).',
       annotations: { readOnlyHint: true },
       inputSchema: { paper: looseObject },
     },

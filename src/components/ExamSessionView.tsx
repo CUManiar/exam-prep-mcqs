@@ -42,6 +42,7 @@ import { DetailedSolutionModal } from "./DetailedSolutionModal";
 import { ConfirmationModal } from "./ConfirmationModal";
 import { PdfViewer } from "./PdfViewer";
 import { InteractiveQuestionCard } from "./InteractiveQuestionCard";
+import { HtmlExplanation } from "./HtmlExplanation";
 import { KeyboardShortcutsModal } from "./KeyboardShortcutsModal";
 import {
   Clock,
@@ -2456,9 +2457,9 @@ export function ExamSessionView({
                             <summary className="cursor-pointer text-[11px] font-semibold text-indigo-800">
                               View reference explanation
                             </summary>
-                            <p className="mt-2 max-h-40 overflow-y-auto whitespace-pre-wrap border-t border-indigo-100 pt-2 text-xs leading-relaxed text-slate-700">
-                              {currentQuestionExplanation}
-                            </p>
+                            <div className="mt-2 max-h-40 overflow-y-auto border-t border-indigo-100 pt-2 text-xs leading-relaxed text-slate-700">
+                              <HtmlExplanation text={currentQuestionExplanation} />
+                            </div>
                           </details>
 
                           <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
@@ -2724,9 +2725,10 @@ export function ExamSessionView({
                                 </span>
                                 <span>Explanation & Key Concepts:</span>
                               </div>
-                              <p className="text-slate-700 pl-0.5 leading-relaxed text-xs">
-                                {expl}
-                              </p>
+                              <HtmlExplanation
+                                text={expl}
+                                className="text-slate-700 pl-0.5 leading-relaxed text-xs"
+                              />
                             </div>
                           );
                         })()}

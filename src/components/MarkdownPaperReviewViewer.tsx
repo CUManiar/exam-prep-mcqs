@@ -18,6 +18,7 @@ import {
   FileText,
   RotateCcw,
 } from "lucide-react";
+import { HtmlExplanation } from "./HtmlExplanation";
 
 interface MarkdownPaperReviewViewerProps {
   paper: QuestionPaper;
@@ -479,9 +480,10 @@ export function MarkdownPaperReviewViewer({
                       <Lightbulb className="h-4 w-4 text-indigo-600" />
                       <span>Solution & Explanation</span>
                     </div>
-                    <p className="text-sm sm:text-[15px] text-slate-900 leading-relaxed whitespace-pre-wrap font-normal">
-                      {explanationText}
-                    </p>
+                    <HtmlExplanation
+                      text={explanationText}
+                      className="text-sm sm:text-[15px] text-slate-900"
+                    />
                   </div>
                 )}
               </div>

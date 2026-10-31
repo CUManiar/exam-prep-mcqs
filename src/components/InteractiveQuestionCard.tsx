@@ -3,6 +3,7 @@
 import React, { useState, useEffect, useRef, useCallback } from "react";
 import { QuestionPaper, ParsedQuestion, QuestionAnswer } from "../lib/types";
 import { MatchingItemsTable } from "./MatchingItemsTable";
+import { HtmlExplanation } from "./HtmlExplanation";
 import {
   CheckCircle2,
   XCircle,
@@ -542,9 +543,7 @@ export function InteractiveQuestionCard({
               </div>
             </div>
 
-            <div className="text-xs sm:text-sm text-slate-700 leading-relaxed whitespace-pre-wrap select-text">
-              {explanation}
-            </div>
+            <HtmlExplanation text={explanation} className="text-slate-700" />
           </div>
         )}
       </div>
