@@ -106,62 +106,71 @@ export function sanitizeExplanationHtml(rawHtml: string): string {
     .replace(/<embed\b[^<]*(?:(?!<\/embed>)<[^<]*)*<\/embed>/gi, "");
 
   // 2. Filter tags and attributes against whitelist
-  html = html.replace(/<\/?([a-z0-9_-]+)([^>]*)>/gi, (match, tagName, attrs) => {
-    const lowerTag = tagName.toLowerCase();
-    if (!ALLOWED_TAGS.has(lowerTag)) {
-      return "";
-    }
+  html = html.replace(
+    /<\/?([a-z0-9_-]+)([^>]*)>/gi,
+    (match, tagName, attrs) => {
+      const lowerTag = tagName.toLowerCase();
+      if (!ALLOWED_TAGS.has(lowerTag)) {
+        return "";
+      }
 
-    const isClosing = match.startsWith("</");
-    if (isClosing) {
-      return `</${lowerTag}>`;
-    }
+      const isClosing = match.startsWith("</");
+      if (isClosing) {
+        return `</${lowerTag}>`;
+      }
 
-    // Clean attributes
-    const cleanAttrs: string[] = [];
-    const attrRegex =
-      /([a-z0-9_-]+)(?:\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s>]+)))?/gi;
-    let attrMatch: RegExpExecArray | null;
+      // Clean attributes
+      const cleanAttrs: string[] = [];
+      const attrRegex =
+        /([a-z0-9_-]+)(?:\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s>]+)))?/gi;
+      let attrMatch: RegExpExecArray | null;
 
-    while ((attrMatch = attrRegex.exec(attrs)) !== null) {
-      const attrName = attrMatch[1].toLowerCase();
-      const attrVal = (attrMatch[2] ?? attrMatch[3] ?? attrMatch[4] ?? "").trim();
+      while ((attrMatch = attrRegex.exec(attrs)) !== null) {
+        const attrName = attrMatch[1].toLowerCase();
+        const attrVal = (
+          attrMatch[2] ??
+          attrMatch[3] ??
+          attrMatch[4] ??
+          ""
+        ).trim();
 
-      // Disallow all event handlers (onclick, onerror, onload, etc.)
-      if (attrName.startsWith("on")) continue;
+        // Disallow all event handlers (onclick, onerror, onload, etc.)
+        if (attrName.startsWith("on")) continue;
 
-      // URL safety checks: block javascript:, data:, vbscript:
-      if (attrName === "href" || attrName === "src") {
-        const cleanVal = attrVal.replace(/\s+/g, "").toLowerCase();
-        if (
-          cleanVal.startsWith("javascript:") ||
-          cleanVal.startsWith("data:") ||
-          cleanVal.startsWith("vbscript:")
-        ) {
-          continue;
+        // URL safety checks: block javascript:, data:, vbscript:
+        if (attrName === "href" || attrName === "src") {
+          const cleanVal = attrVal.replace(/\s+/g, "").toLowerCase();
+          if (
+            cleanVal.startsWith("javascript:") ||
+            cleanVal.startsWith("data:") ||
+            cleanVal.startsWith("vbscript:")
+          ) {
+            continue;
+          }
+        }
+
+        if (ALLOWED_ATTRIBUTES.has(attrName)) {
+          if (attrName === "href" && lowerTag === "a") {
+            cleanAttrs.push(`href="${attrVal.replace(/"/g, "&quot;")}"`);
+            cleanAttrs.push('target="_blank"');
+            cleanAttrs.push('rel="noopener noreferrer"');
+          } else if (attrName !== "target" && attrName !== "rel") {
+            cleanAttrs.push(`${attrName}="${attrVal.replace(/"/g, "&quot;")}"`);
+          }
         }
       }
 
-      if (ALLOWED_ATTRIBUTES.has(attrName)) {
-        if (attrName === "href" && lowerTag === "a") {
-          cleanAttrs.push(`href="${attrVal.replace(/"/g, "&quot;")}"`);
-          cleanAttrs.push('target="_blank"');
-          cleanAttrs.push('rel="noopener noreferrer"');
-        } else if (attrName !== "target" && attrName !== "rel") {
-          cleanAttrs.push(`${attrName}="${attrVal.replace(/"/g, "&quot;")}"`);
-        }
-      }
-    }
+      const attrString =
+        cleanAttrs.length > 0 ? " " + cleanAttrs.join(" ") : "";
+      const isSelfClosing =
+        match.endsWith("/>") ||
+        lowerTag === "br" ||
+        lowerTag === "hr" ||
+        lowerTag === "img";
 
-    const attrString = cleanAttrs.length > 0 ? " " + cleanAttrs.join(" ") : "";
-    const isSelfClosing =
-      match.endsWith("/>") ||
-      lowerTag === "br" ||
-      lowerTag === "hr" ||
-      lowerTag === "img";
-
-    return `<${lowerTag}${attrString}${isSelfClosing ? " /" : ""}>`;
-  });
+      return `<${lowerTag}${attrString}${isSelfClosing ? " /" : ""}>`;
+    },
+  );
 
   return html;
 }

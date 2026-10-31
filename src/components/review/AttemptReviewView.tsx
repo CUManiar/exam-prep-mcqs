@@ -85,9 +85,9 @@ export function AttemptReviewView({
   const [sortOption, setSortOption] = useState<SortOptionType>("qno_asc");
   const [activeQuestionNo, setActiveQuestionNo] = useState<number>(1);
   const [showPaperSplit, setShowPaperSplit] = useState<boolean>(true);
-  const [activeMobileView, setActiveMobileView] = useState<
-    "review" | "score"
-  >("review");
+  const [activeMobileView, setActiveMobileView] = useState<"review" | "score">(
+    "review",
+  );
 
   // Modals
   const [solutionModalOpen, setSolutionModalOpen] = useState(false);
@@ -141,7 +141,11 @@ export function AttemptReviewView({
       }
     });
 
-    if (result.length === 0 && !hasActiveFilters && markdownQuestions.length > 0) {
+    if (
+      result.length === 0 &&
+      !hasActiveFilters &&
+      markdownQuestions.length > 0
+    ) {
       return [...markdownQuestions].sort((a, b) => {
         const timeA = attempt.answers?.[a.questionNo]?.timeSpentSeconds || 0;
         const timeB = attempt.answers?.[b.questionNo]?.timeSpentSeconds || 0;
@@ -159,7 +163,13 @@ export function AttemptReviewView({
     }
 
     return result;
-  }, [markdownQuestions, filteredQuestions, hasActiveFilters, attempt.answers, sortOption]);
+  }, [
+    markdownQuestions,
+    filteredQuestions,
+    hasActiveFilters,
+    attempt.answers,
+    sortOption,
+  ]);
 
   const syncActiveQuestionToMatches = (matches: QuestionAnswer[]) => {
     if (matches.length > 0) {
@@ -170,9 +180,14 @@ export function AttemptReviewView({
     }
   };
 
-  const handleToggleOutcome = (outcome: "incorrect" | "correct" | "skipped") => {
+  const handleToggleOutcome = (
+    outcome: "incorrect" | "correct" | "skipped",
+  ) => {
     setFilters((prev) => {
-      const next = { ...prev, outcome: prev.outcome === outcome ? null : outcome };
+      const next = {
+        ...prev,
+        outcome: prev.outcome === outcome ? null : outcome,
+      };
       syncActiveQuestionToMatches(getFilteredQuestions(next, sortOption));
       return next;
     });
@@ -180,7 +195,10 @@ export function AttemptReviewView({
 
   const handleToggleConfidence = (confidence: "sure" | "50-50" | "guess") => {
     setFilters((prev) => {
-      const next = { ...prev, confidence: prev.confidence === confidence ? null : confidence };
+      const next = {
+        ...prev,
+        confidence: prev.confidence === confidence ? null : confidence,
+      };
       syncActiveQuestionToMatches(getFilteredQuestions(next, sortOption));
       return next;
     });
@@ -226,10 +244,15 @@ export function AttemptReviewView({
     }
   };
 
-  const handleApplyTakeawayFilter = (tab: FilterTabType, filterState?: ReviewFilterState) => {
+  const handleApplyTakeawayFilter = (
+    tab: FilterTabType,
+    filterState?: ReviewFilterState,
+  ) => {
     if (filterState) {
       setFilters(filterState);
-      syncActiveQuestionToMatches(getFilteredQuestions(filterState, sortOption));
+      syncActiveQuestionToMatches(
+        getFilteredQuestions(filterState, sortOption),
+      );
     } else {
       if (tab === "all") handleResetFilters();
       else if (tab === "incorrect") handleToggleOutcome("incorrect");
@@ -277,13 +300,19 @@ export function AttemptReviewView({
   );
   const canNavigatePrev = currentNavIndex > 0;
   const canNavigateNext =
-    currentNavIndex !== -1 && currentNavIndex < currentNavigationList.length - 1;
+    currentNavIndex !== -1 &&
+    currentNavIndex < currentNavigationList.length - 1;
 
   const handleNavigateNext = () => {
-    if (currentNavIndex !== -1 && currentNavIndex < currentNavigationList.length - 1) {
+    if (
+      currentNavIndex !== -1 &&
+      currentNavIndex < currentNavigationList.length - 1
+    ) {
       jumpToQuestion(currentNavigationList[currentNavIndex + 1].questionNo);
     } else if (currentNavIndex === -1 && currentNavigationList.length > 0) {
-      const nextQ = currentNavigationList.find((q) => q.questionNo > activeQuestionNo);
+      const nextQ = currentNavigationList.find(
+        (q) => q.questionNo > activeQuestionNo,
+      );
       if (nextQ) jumpToQuestion(nextQ.questionNo);
     }
   };
@@ -395,7 +424,8 @@ export function AttemptReviewView({
       answered,
       correct: allAnswers.filter((answer) =>
         isAssessmentQuestion(answer.questionNo)
-          ? isQuestionAnswered(answer) && answer.subjectiveAssessment === "strong"
+          ? isQuestionAnswered(answer) &&
+            answer.subjectiveAssessment === "strong"
           : answer.isCorrect === true,
       ).length,
       partial: allAnswers.filter(
@@ -406,7 +436,8 @@ export function AttemptReviewView({
       ).length,
       incorrect: allAnswers.filter((answer) =>
         isAssessmentQuestion(answer.questionNo)
-          ? isQuestionAnswered(answer) && answer.subjectiveAssessment === "needs-work"
+          ? isQuestionAnswered(answer) &&
+            answer.subjectiveAssessment === "needs-work"
           : answer.isCorrect === false,
       ).length,
       unattempted: Math.max(0, attempt.totalQuestions - answered),
@@ -415,7 +446,9 @@ export function AttemptReviewView({
       percentagePct:
         maxScore > 0 ? Math.round((score / maxScore) * 100 * 10) / 10 : 0,
       accuracyPct:
-        answered > 0 ? Math.round((subjectivePoints / answered) * 100 * 10) / 10 : 0,
+        answered > 0
+          ? Math.round((subjectivePoints / answered) * 100 * 10) / 10
+          : 0,
     });
   };
 
@@ -479,7 +512,10 @@ export function AttemptReviewView({
             }`}
           >
             <BarChart3 className="h-3.5 w-3.5" />
-            <span>Scorecard ({formatReviewNumber(attempt.score)}/{effectiveMaxScore})</span>
+            <span>
+              Scorecard ({formatReviewNumber(attempt.score)}/{effectiveMaxScore}
+              )
+            </span>
           </button>
         </div>
       </div>
@@ -557,7 +593,9 @@ export function AttemptReviewView({
                   <RotateCcw className="h-5 w-5 text-slate-500" />
                 </div>
                 <div className="space-y-1">
-                  <h4 className="text-sm font-bold text-slate-800">No matching questions</h4>
+                  <h4 className="text-sm font-bold text-slate-800">
+                    No matching questions
+                  </h4>
                   <p className="text-xs text-slate-500 max-w-sm mx-auto">
                     No questions match the active filter combination.
                   </p>

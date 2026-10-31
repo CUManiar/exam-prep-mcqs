@@ -665,10 +665,24 @@ export function createPortalMcpServer(
         "Attach or update strategy notes and reflections in the 'Attempt Strategy Notes & Reflections' section of an attempt. Defaults to the student's latest attempt if attemptId or paperId is omitted.",
       annotations: { readOnlyHint: false, destructiveHint: false },
       inputSchema: {
-        notes: z.string().min(1).describe("The strategy reflections or notes to attach."),
-        attemptId: z.string().optional().describe("Specific attempt ID. Defaults to latest attempt."),
-        paperId: z.string().optional().describe("Paper ID to match the latest attempt of that paper."),
-        append: z.boolean().optional().describe("Append to existing notes instead of overwriting. Defaults to false."),
+        notes: z
+          .string()
+          .min(1)
+          .describe("The strategy reflections or notes to attach."),
+        attemptId: z
+          .string()
+          .optional()
+          .describe("Specific attempt ID. Defaults to latest attempt."),
+        paperId: z
+          .string()
+          .optional()
+          .describe("Paper ID to match the latest attempt of that paper."),
+        append: z
+          .boolean()
+          .optional()
+          .describe(
+            "Append to existing notes instead of overwriting. Defaults to false.",
+          ),
       },
     },
     async ({ notes, attemptId, paperId, append }) => {

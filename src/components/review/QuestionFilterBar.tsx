@@ -1,7 +1,11 @@
 "use client";
 
 import React from "react";
-import { SortOptionType, ReviewFilterState, isFilterActive } from "./reviewTypes";
+import {
+  SortOptionType,
+  ReviewFilterState,
+  isFilterActive,
+} from "./reviewTypes";
 import {
   Filter,
   CheckCircle2,
@@ -78,8 +82,10 @@ export function QuestionFilterBar({
       icon: <XCircle className="h-3.5 w-3.5 text-rose-600" />,
       isActive: filters.outcome === "incorrect",
       onClick: () => onToggleOutcome("incorrect"),
-      colorClass: "border-rose-200 bg-rose-50/50 text-rose-800 hover:bg-rose-100/60",
-      activeClass: "bg-rose-600 border-rose-600 text-white shadow-xs font-bold ring-2 ring-rose-300 ring-offset-1",
+      colorClass:
+        "border-rose-200 bg-rose-50/50 text-rose-800 hover:bg-rose-100/60",
+      activeClass:
+        "bg-rose-600 border-rose-600 text-white shadow-xs font-bold ring-2 ring-rose-300 ring-offset-1",
     },
     {
       id: "correct",
@@ -88,8 +94,10 @@ export function QuestionFilterBar({
       icon: <CheckCircle2 className="h-3.5 w-3.5 text-emerald-600" />,
       isActive: filters.outcome === "correct",
       onClick: () => onToggleOutcome("correct"),
-      colorClass: "border-emerald-200 bg-emerald-50/50 text-emerald-800 hover:bg-emerald-100/60",
-      activeClass: "bg-emerald-600 border-emerald-600 text-white shadow-xs font-bold ring-2 ring-emerald-300 ring-offset-1",
+      colorClass:
+        "border-emerald-200 bg-emerald-50/50 text-emerald-800 hover:bg-emerald-100/60",
+      activeClass:
+        "bg-emerald-600 border-emerald-600 text-white shadow-xs font-bold ring-2 ring-emerald-300 ring-offset-1",
     },
     {
       id: "skipped",
@@ -99,7 +107,8 @@ export function QuestionFilterBar({
       isActive: filters.outcome === "skipped",
       onClick: () => onToggleOutcome("skipped"),
       colorClass: "border-slate-200 text-slate-600 hover:bg-slate-50",
-      activeClass: "bg-slate-700 border-slate-700 text-white shadow-xs font-bold ring-2 ring-slate-300 ring-offset-1",
+      activeClass:
+        "bg-slate-700 border-slate-700 text-white shadow-xs font-bold ring-2 ring-slate-300 ring-offset-1",
     },
     {
       id: "flagged",
@@ -108,8 +117,10 @@ export function QuestionFilterBar({
       icon: <Bookmark className="h-3.5 w-3.5 text-amber-500 fill-amber-500" />,
       isActive: Boolean(filters.flagged),
       onClick: onToggleFlagged,
-      colorClass: "border-amber-200 bg-amber-50/50 text-amber-900 hover:bg-amber-100/60",
-      activeClass: "bg-amber-600 border-amber-600 text-white shadow-xs font-bold ring-2 ring-amber-300 ring-offset-1",
+      colorClass:
+        "border-amber-200 bg-amber-50/50 text-amber-900 hover:bg-amber-100/60",
+      activeClass:
+        "bg-amber-600 border-amber-600 text-white shadow-xs font-bold ring-2 ring-amber-300 ring-offset-1",
     },
   ];
 
@@ -178,7 +189,9 @@ export function QuestionFilterBar({
                 <span>{tab.label}</span>
                 <span
                   className={`text-[10px] font-mono px-1.5 py-0.2 rounded-full ${
-                    tab.isActive ? "bg-white/20 text-white" : "bg-black/5 text-current"
+                    tab.isActive
+                      ? "bg-white/20 text-white"
+                      : "bg-black/5 text-current"
                   }`}
                 >
                   {tab.count}
@@ -209,7 +222,9 @@ export function QuestionFilterBar({
 
         {/* Sort Selector */}
         <div className="flex items-center gap-1.5 text-xs">
-          <span className="text-slate-400 text-[11px] hidden sm:inline">Sort:</span>
+          <span className="text-slate-400 text-[11px] hidden sm:inline">
+            Sort:
+          </span>
           <select
             value={sortOption}
             onChange={(e) => onChangeSort(e.target.value as SortOptionType)}

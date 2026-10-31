@@ -3,7 +3,13 @@
 import React, { useState } from "react";
 import { Attempt } from "../../lib/types";
 import { formatTimeSeconds } from "../../lib/defaults";
-import { CutoffVerdict, TakeawayItem, FilterTabType, ReviewFilterState, EMPTY_FILTER_STATE } from "./reviewTypes";
+import {
+  CutoffVerdict,
+  TakeawayItem,
+  FilterTabType,
+  ReviewFilterState,
+  EMPTY_FILTER_STATE,
+} from "./reviewTypes";
 import {
   Award,
   ChevronDown,
@@ -47,9 +53,12 @@ export function ReviewScoreHero({
   const [analyticsExpanded, setAnalyticsExpanded] = useState(false);
 
   const totalQ = attempt.totalQuestions;
-  const correctPct = totalQ > 0 ? Math.round((attempt.correct / totalQ) * 100) : 0;
-  const incorrectPct = totalQ > 0 ? Math.round((attempt.incorrect / totalQ) * 100) : 0;
-  const skippedPct = totalQ > 0 ? Math.max(0, 100 - correctPct - incorrectPct) : 0;
+  const correctPct =
+    totalQ > 0 ? Math.round((attempt.correct / totalQ) * 100) : 0;
+  const incorrectPct =
+    totalQ > 0 ? Math.round((attempt.incorrect / totalQ) * 100) : 0;
+  const skippedPct =
+    totalQ > 0 ? Math.max(0, 100 - correctPct - incorrectPct) : 0;
 
   return (
     <section className="space-y-3.5">
@@ -120,7 +129,9 @@ export function ReviewScoreHero({
 
               <button
                 type="button"
-                onClick={() => onSelectFilter("correct", { outcome: "correct" })}
+                onClick={() =>
+                  onSelectFilter("correct", { outcome: "correct" })
+                }
                 className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg border border-emerald-200 bg-emerald-50 text-emerald-900 hover:bg-emerald-100 text-xs font-semibold cursor-pointer shadow-2xs"
               >
                 <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
@@ -130,7 +141,9 @@ export function ReviewScoreHero({
 
               <button
                 type="button"
-                onClick={() => onSelectFilter("incorrect", { outcome: "incorrect" })}
+                onClick={() =>
+                  onSelectFilter("incorrect", { outcome: "incorrect" })
+                }
                 className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg border border-rose-200 bg-rose-50 text-rose-900 hover:bg-rose-100 text-xs font-semibold cursor-pointer shadow-2xs"
               >
                 <span className="h-1.5 w-1.5 rounded-full bg-rose-500" />
@@ -140,7 +153,9 @@ export function ReviewScoreHero({
 
               <button
                 type="button"
-                onClick={() => onSelectFilter("skipped", { outcome: "skipped" })}
+                onClick={() =>
+                  onSelectFilter("skipped", { outcome: "skipped" })
+                }
                 className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg border border-slate-200 bg-slate-50 text-slate-700 hover:bg-slate-100 text-xs font-medium cursor-pointer shadow-2xs"
               >
                 <span className="h-1.5 w-1.5 rounded-full bg-slate-300" />
@@ -161,7 +176,10 @@ export function ReviewScoreHero({
                   Target: <strong>{cutoffVerdict.targetLabel}</strong>
                 </span>
                 <span className="text-slate-700 font-mono font-bold text-[11px]">
-                  {cutoffVerdict.diff >= 0 ? `+${cutoffVerdict.diff}` : cutoffVerdict.diff} pts margin
+                  {cutoffVerdict.diff >= 0
+                    ? `+${cutoffVerdict.diff}`
+                    : cutoffVerdict.diff}{" "}
+                  pts margin
                 </span>
               </div>
 
@@ -195,7 +213,9 @@ export function ReviewScoreHero({
               >
                 <BarChart3 className="h-3.5 w-3.5 text-indigo-600" />
                 <span>
-                  {analyticsExpanded ? "Hide Detailed Analytics" : "View Detailed Analytics & Diagnostics"}
+                  {analyticsExpanded
+                    ? "Hide Detailed Analytics"
+                    : "View Detailed Analytics & Diagnostics"}
                 </span>
                 {analyticsExpanded ? (
                   <ChevronUp className="h-3.5 w-3.5" />
@@ -212,7 +232,9 @@ export function ReviewScoreHero({
                 <div className="space-y-1">
                   <div className="flex justify-between text-[11px] text-slate-500 font-medium">
                     <span>Outcome Distribution</span>
-                    <span>Total: {formatTimeSeconds(attempt.durationSeconds)}</span>
+                    <span>
+                      Total: {formatTimeSeconds(attempt.durationSeconds)}
+                    </span>
                   </div>
                   <div className="h-2.5 w-full rounded-full bg-slate-100 overflow-hidden flex border border-slate-200">
                     {correctPct > 0 && (
@@ -242,12 +264,20 @@ export function ReviewScoreHero({
                 {/* 2. Marks Breakdown */}
                 <div className="grid grid-cols-2 gap-2 text-xs">
                   <div className="p-2.5 rounded-xl bg-emerald-50/80 border border-emerald-200">
-                    <span className="text-[10px] text-emerald-800 font-medium block">Gross Marks</span>
-                    <strong className="font-mono text-emerald-950 text-sm">+{grossCorrectMarks} pts</strong>
+                    <span className="text-[10px] text-emerald-800 font-medium block">
+                      Gross Marks
+                    </span>
+                    <strong className="font-mono text-emerald-950 text-sm">
+                      +{grossCorrectMarks} pts
+                    </strong>
                   </div>
                   <div className="p-2.5 rounded-xl bg-rose-50/80 border border-rose-200">
-                    <span className="text-[10px] text-rose-800 font-medium block">Penalties</span>
-                    <strong className="font-mono text-rose-950 text-sm">-{negativePenaltyMarks} pts</strong>
+                    <span className="text-[10px] text-rose-800 font-medium block">
+                      Penalties
+                    </span>
+                    <strong className="font-mono text-rose-950 text-sm">
+                      -{negativePenaltyMarks} pts
+                    </strong>
                   </div>
                 </div>
 

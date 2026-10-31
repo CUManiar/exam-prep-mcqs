@@ -141,7 +141,9 @@ export function getPaperCutoffStatus(
   const cutoffEnabled = Boolean(
     paper?.cutoffEnabled ||
     attempt?.cutoffEnabled ||
-    (cutoffValue !== undefined && Number.isFinite(cutoffValue) && cutoffValue > 0),
+    (cutoffValue !== undefined &&
+      Number.isFinite(cutoffValue) &&
+      cutoffValue > 0),
   );
 
   if (

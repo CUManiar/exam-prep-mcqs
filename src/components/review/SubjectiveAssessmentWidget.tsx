@@ -175,4 +175,3 @@ export function SubjectiveAssessmentWidget({
     </div>
   );
 }
-

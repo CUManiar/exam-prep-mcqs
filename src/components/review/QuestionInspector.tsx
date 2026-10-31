@@ -1,7 +1,11 @@
 "use client";
 
 import React, { useState } from "react";
-import { QuestionAnswer, ParsedQuestion, SubjectiveAssessment } from "../../lib/types";
+import {
+  QuestionAnswer,
+  ParsedQuestion,
+  SubjectiveAssessment,
+} from "../../lib/types";
 import { formatTimeSeconds } from "../../lib/defaults";
 import { MatchingItemsTable } from "../MatchingItemsTable";
 import { SubjectiveAssessmentWidget } from "./SubjectiveAssessmentWidget";
@@ -92,11 +96,20 @@ export function QuestionInspector({
   const isSlow = (question.timeSpentSeconds || 0) >= 90;
 
   const fullMarks = getFullMarks(qNo);
-  const rawExpected = (parsedQuestion?.answer || question.correctAnswer || "").trim();
-  const expectedAnswer = rawExpected.replace(/[\(\)\[\]\.\s]/g, "").toUpperCase();
+  const rawExpected = (
+    parsedQuestion?.answer ||
+    question.correctAnswer ||
+    ""
+  ).trim();
+  const expectedAnswer = rawExpected
+    .replace(/[\(\)\[\]\.\s]/g, "")
+    .toUpperCase();
   const rawCandidate = (question.selected || "").trim();
-  const candidateAnswer = rawCandidate.replace(/[\(\)\[\]\.\s]/g, "").toUpperCase();
-  const officialExplanation = parsedQuestion?.explanation || question.explanation;
+  const candidateAnswer = rawCandidate
+    .replace(/[\(\)\[\]\.\s]/g, "")
+    .toUpperCase();
+  const officialExplanation =
+    parsedQuestion?.explanation || question.explanation;
 
   const handleSaveNote = () => {
     onSaveQuestionNote(qNo, noteText);
@@ -140,7 +153,8 @@ export function QuestionInspector({
           )}
           {isPartial && (
             <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-bold bg-amber-100 text-amber-800 border border-amber-300 shadow-2xs">
-              Partial (+{(question.subjectiveMarks ?? fullMarks * 0.5).toFixed(1)} pts)
+              Partial (+
+              {(question.subjectiveMarks ?? fullMarks * 0.5).toFixed(1)} pts)
             </span>
           )}
           {isSkipped && (
@@ -194,30 +208,35 @@ export function QuestionInspector({
       {/* 2. Main Question Statement & Options Area */}
       <div className="p-4 sm:p-6 space-y-5 overflow-y-auto max-h-[calc(100vh-22rem)]">
         {/* Altered Response Nuance Alert Banner (Mock Mode) - Fixed Boolean guard against 0 */}
-        {!isCloze && Boolean(question.changesCount && question.changesCount > 0) && (
-          <div className="rounded-xl border border-indigo-200 bg-indigo-50/60 p-3 text-xs text-indigo-950 flex items-center justify-between gap-2 shadow-2xs">
-            <div className="flex items-center gap-2">
-              <RotateCcw className="h-4 w-4 text-indigo-600 shrink-0" />
-              <span>
-                <strong>Response altered during test:</strong> Candidate changed their selection {question.changesCount} time(s).
-                {Boolean(question.answerHistory && question.answerHistory.length > 0) && (
-                  <span className="ml-1 font-mono">
-                    ({question.answerHistory.join(" → ")} → {question.selected})
-                  </span>
-                )}
+        {!isCloze &&
+          Boolean(question.changesCount && question.changesCount > 0) && (
+            <div className="rounded-xl border border-indigo-200 bg-indigo-50/60 p-3 text-xs text-indigo-950 flex items-center justify-between gap-2 shadow-2xs">
+              <div className="flex items-center gap-2">
+                <RotateCcw className="h-4 w-4 text-indigo-600 shrink-0" />
+                <span>
+                  <strong>Response altered during test:</strong> Candidate
+                  changed their selection {question.changesCount} time(s).
+                  {Boolean(
+                    question.answerHistory && question.answerHistory.length > 0,
+                  ) && (
+                    <span className="ml-1 font-mono">
+                      ({question.answerHistory.join(" → ")} →{" "}
+                      {question.selected})
+                    </span>
+                  )}
+                </span>
+              </div>
+              <span
+                className={`font-mono font-bold px-2 py-0.5 rounded text-[10px] ${
+                  isCorrect
+                    ? "bg-emerald-100 text-emerald-800"
+                    : "bg-rose-100 text-rose-800"
+                }`}
+              >
+                {isCorrect ? "Beneficial revision" : "Harmful revision"}
               </span>
             </div>
-            <span
-              className={`font-mono font-bold px-2 py-0.5 rounded text-[10px] ${
-                isCorrect
-                  ? "bg-emerald-100 text-emerald-800"
-                  : "bg-rose-100 text-rose-800"
-              }`}
-            >
-              {isCorrect ? "Beneficial revision" : "Harmful revision"}
-            </span>
-          </div>
-        )}
+          )}
 
         {/* Question Text */}
         <div className="space-y-3">
@@ -227,7 +246,10 @@ export function QuestionInspector({
             </div>
           ) : !showPaperSplit ? (
             <div className="rounded-xl border border-indigo-100 bg-indigo-50/40 p-3 text-xs text-slate-600 flex items-center justify-between gap-2.5">
-              <span>Question {qNo} statement text is in the original Question Paper PDF.</span>
+              <span>
+                Question {qNo} statement text is in the original Question Paper
+                PDF.
+              </span>
               {canPreviewPaper && onTogglePaperSplit && (
                 <button
                   type="button"
@@ -242,7 +264,10 @@ export function QuestionInspector({
           ) : null}
 
           {/* Matching Items Table (if present) */}
-          {Boolean(parsedQuestion?.matchingItems && parsedQuestion.matchingItems.length > 0) && (
+          {Boolean(
+            parsedQuestion?.matchingItems &&
+            parsedQuestion.matchingItems.length > 0,
+          ) && (
             <MatchingItemsTable
               items={parsedQuestion!.matchingItems!}
               headers={parsedQuestion?.matchingHeaders}
@@ -379,13 +404,13 @@ export function QuestionInspector({
               <div className="text-xs font-semibold">
                 {isCorrect ? (
                   <span className="inline-flex items-center gap-1 text-emerald-700 bg-emerald-50 border border-emerald-200 px-2.5 py-0.5 rounded-full text-xs font-bold">
-                    <CheckCircle2 className="h-3.5 w-3.5 text-emerald-600" />
-                    +{fullMarks.toFixed(2)} pts awarded
+                    <CheckCircle2 className="h-3.5 w-3.5 text-emerald-600" />+
+                    {fullMarks.toFixed(2)} pts awarded
                   </span>
                 ) : isWrong ? (
                   <span className="inline-flex items-center gap-1 text-rose-700 bg-rose-50 border border-rose-200 px-2.5 py-0.5 rounded-full text-xs font-bold">
-                    <XCircle className="h-3.5 w-3.5 text-rose-600" />
-                    -{incorrectMarksPerQ.toFixed(2)} penalty
+                    <XCircle className="h-3.5 w-3.5 text-rose-600" />-
+                    {incorrectMarksPerQ.toFixed(2)} penalty
                   </span>
                 ) : (
                   <span className="text-slate-500 bg-slate-100 px-2.5 py-0.5 rounded-full text-xs font-medium">
@@ -412,7 +437,9 @@ export function QuestionInspector({
                     Your Answer
                   </span>
                   <span className="font-mono text-sm sm:text-base font-black truncate mt-0.5">
-                    {candidateAnswer ? `Option ${candidateAnswer}` : "Unattempted"}
+                    {candidateAnswer
+                      ? `Option ${candidateAnswer}`
+                      : "Unattempted"}
                   </span>
                 </div>
                 <span
@@ -435,7 +462,9 @@ export function QuestionInspector({
                     Official Key
                   </span>
                   <span className="font-mono text-sm sm:text-base font-black truncate mt-0.5 text-emerald-900">
-                    {expectedAnswer ? `Option ${expectedAnswer}` : "Refer below"}
+                    {expectedAnswer
+                      ? `Option ${expectedAnswer}`
+                      : "Refer below"}
                   </span>
                 </div>
                 <span className="h-7 w-7 rounded-lg flex items-center justify-center font-mono font-black text-sm shrink-0 bg-emerald-600 text-white border border-emerald-700">
@@ -585,5 +614,3 @@ export function QuestionInspector({
     </div>
   );
 }
-
-

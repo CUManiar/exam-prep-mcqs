@@ -1,7 +1,11 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import { QuestionAnswer, ParsedQuestion, SubjectiveAssessment } from "../../lib/types";
+import {
+  QuestionAnswer,
+  ParsedQuestion,
+  SubjectiveAssessment,
+} from "../../lib/types";
 import {
   CheckCircle2,
   XCircle,
@@ -93,15 +97,28 @@ export function QuestionPalette({
     }
   };
 
-  const expandedQuestion = expandedQNo !== null ? questions.find((q) => q.questionNo === expandedQNo) : null;
-  const isEvaluable = expandedQuestion ? isAssessmentQuestion(expandedQuestion.questionNo) : false;
-  const isCloze = expandedQuestion && isClozeQuestion ? isClozeQuestion(expandedQuestion.questionNo) : false;
+  const expandedQuestion =
+    expandedQNo !== null
+      ? questions.find((q) => q.questionNo === expandedQNo)
+      : null;
+  const isEvaluable = expandedQuestion
+    ? isAssessmentQuestion(expandedQuestion.questionNo)
+    : false;
+  const isCloze =
+    expandedQuestion && isClozeQuestion
+      ? isClozeQuestion(expandedQuestion.questionNo)
+      : false;
 
   const expandedIsAnswered = isCloze
-    ? Boolean(expandedQuestion?.selected?.trim() && expandedQuestion?.selected !== "attempted")
+    ? Boolean(
+        expandedQuestion?.selected?.trim() &&
+        expandedQuestion?.selected !== "attempted",
+      )
     : isEvaluable
-      ? expandedQuestion?.selected === "attempted" || Boolean(expandedQuestion?.selected?.trim())
-      : expandedQuestion?.selected !== null && expandedQuestion?.selected !== undefined;
+      ? expandedQuestion?.selected === "attempted" ||
+        Boolean(expandedQuestion?.selected?.trim())
+      : expandedQuestion?.selected !== null &&
+        expandedQuestion?.selected !== undefined;
 
   const expandedIsCorrect = expandedQuestion
     ? isEvaluable
@@ -116,26 +133,41 @@ export function QuestionPalette({
     : false;
 
   const expandedIsPartial = Boolean(
-    expandedQuestion && isEvaluable && expandedQuestion.subjectiveAssessment === "partial",
+    expandedQuestion &&
+    isEvaluable &&
+    expandedQuestion.subjectiveAssessment === "partial",
   );
 
   const expandedIsPending = Boolean(
-    expandedQuestion && isEvaluable && expandedIsAnswered && !expandedQuestion.subjectiveAssessment,
+    expandedQuestion &&
+    isEvaluable &&
+    expandedIsAnswered &&
+    !expandedQuestion.subjectiveAssessment,
   );
 
   const expandedIsSkipped = Boolean(
-    expandedQuestion && !expandedIsAnswered && !expandedQuestion.subjectiveAssessment,
+    expandedQuestion &&
+    !expandedIsAnswered &&
+    !expandedQuestion.subjectiveAssessment,
   );
 
   const parsedQ = expandedQuestion
-    ? markdownQuestions.find((mq) => mq.questionNo === expandedQuestion.questionNo)
+    ? markdownQuestions.find(
+        (mq) => mq.questionNo === expandedQuestion.questionNo,
+      )
     : null;
 
   const rawCandidate = (expandedQuestion?.selected || "").trim();
-  const rawKey = (parsedQ?.answer || expandedQuestion?.correctAnswer || "").trim();
+  const rawKey = (
+    parsedQ?.answer ||
+    expandedQuestion?.correctAnswer ||
+    ""
+  ).trim();
 
   // Test if candidate/key is a standard single letter MCQ (A, B, C, D)
-  const candidateLetterMatch = rawCandidate.replace(/[\(\)\[\]\.\s]/g, "").toUpperCase();
+  const candidateLetterMatch = rawCandidate
+    .replace(/[\(\)\[\]\.\s]/g, "")
+    .toUpperCase();
   const isCandidateSingleLetter = /^[A-D]$/.test(candidateLetterMatch);
 
   const keyLetterMatch = rawKey.replace(/[\(\)\[\]\.\s]/g, "").toUpperCase();
@@ -143,7 +175,10 @@ export function QuestionPalette({
 
   const explanationText = parsedQ?.explanation || expandedQuestion?.explanation;
 
-  const fullMarks = expandedQuestion && getFullMarks ? getFullMarks(expandedQuestion.questionNo) : 2.0;
+  const fullMarks =
+    expandedQuestion && getFullMarks
+      ? getFullMarks(expandedQuestion.questionNo)
+      : 2.0;
 
   return (
     <div className="rounded-2xl border border-slate-200/90 bg-white p-3 sm:p-3.5 shadow-2xs space-y-2.5">
@@ -153,11 +188,12 @@ export function QuestionPalette({
           <span className="font-bold text-slate-700 uppercase tracking-wider text-[11px]">
             Question Palette ({questions.length})
           </span>
-          {(hasActiveFilters || (filterTab && filterTab !== "all")) && filteredQuestionNos && (
-            <span className="text-[10px] font-semibold text-indigo-700 bg-indigo-50 border border-indigo-200 px-1.5 py-0.5 rounded-md">
-              {filteredQuestionNos.size} match
-            </span>
-          )}
+          {(hasActiveFilters || (filterTab && filterTab !== "all")) &&
+            filteredQuestionNos && (
+              <span className="text-[10px] font-semibold text-indigo-700 bg-indigo-50 border border-indigo-200 px-1.5 py-0.5 rounded-md">
+                {filteredQuestionNos.size} match
+              </span>
+            )}
         </div>
         <div className="flex items-center gap-2 text-[10px] text-slate-500 font-medium shrink-0 flex-wrap">
           <span className="inline-flex items-center gap-1">
@@ -193,7 +229,9 @@ export function QuestionPalette({
             filteredQuestionNos &&
             !filteredQuestionNos.has(q.questionNo);
           const qIsEvaluable = isAssessmentQuestion(q.questionNo);
-          const qIsCloze = isClozeQuestion ? isClozeQuestion(q.questionNo) : false;
+          const qIsCloze = isClozeQuestion
+            ? isClozeQuestion(q.questionNo)
+            : false;
           const qIsAnswered = qIsCloze
             ? Boolean(q.selected?.trim() && q.selected !== "attempted")
             : qIsEvaluable
@@ -206,21 +244,29 @@ export function QuestionPalette({
           const isWrong = qIsEvaluable
             ? q.subjectiveAssessment === "needs-work"
             : q.selected && q.isCorrect === false;
-          const isPartial = qIsEvaluable && q.subjectiveAssessment === "partial";
-          const isPending = qIsEvaluable && qIsAnswered && !q.subjectiveAssessment;
+          const isPartial =
+            qIsEvaluable && q.subjectiveAssessment === "partial";
+          const isPending =
+            qIsEvaluable && qIsAnswered && !q.subjectiveAssessment;
           const isSkipped = !qIsAnswered && !q.subjectiveAssessment;
 
-          let badgeColor = "bg-slate-100 text-slate-600 border-slate-200 hover:bg-slate-200";
+          let badgeColor =
+            "bg-slate-100 text-slate-600 border-slate-200 hover:bg-slate-200";
           if (isCorrect) {
-            badgeColor = "bg-emerald-50 text-emerald-800 border-emerald-300 hover:bg-emerald-100";
+            badgeColor =
+              "bg-emerald-50 text-emerald-800 border-emerald-300 hover:bg-emerald-100";
           } else if (isWrong) {
-            badgeColor = "bg-rose-50 text-rose-800 border-rose-300 hover:bg-rose-100";
+            badgeColor =
+              "bg-rose-50 text-rose-800 border-rose-300 hover:bg-rose-100";
           } else if (isPartial) {
-            badgeColor = "bg-amber-50 text-amber-800 border-amber-300 hover:bg-amber-100";
+            badgeColor =
+              "bg-amber-50 text-amber-800 border-amber-300 hover:bg-amber-100";
           } else if (isPending) {
-            badgeColor = "bg-indigo-50 text-indigo-700 border-indigo-300 hover:bg-indigo-100";
+            badgeColor =
+              "bg-indigo-50 text-indigo-700 border-indigo-300 hover:bg-indigo-100";
           } else if (isSkipped) {
-            badgeColor = "bg-slate-50 text-slate-400 border-slate-200 hover:bg-slate-100";
+            badgeColor =
+              "bg-slate-50 text-slate-400 border-slate-200 hover:bg-slate-100";
           }
 
           return (
@@ -229,7 +275,9 @@ export function QuestionPalette({
               type="button"
               onClick={() => handleChipClick(q.questionNo)}
               className={`relative h-7 w-7 rounded-lg border text-xs font-mono font-bold transition-all flex items-center justify-center cursor-pointer ${badgeColor} ${
-                isFilteredOut ? "opacity-30 hover:opacity-90 grayscale hover:grayscale-0" : ""
+                isFilteredOut
+                  ? "opacity-30 hover:opacity-90 grayscale hover:grayscale-0"
+                  : ""
               } ${
                 isCurrentExpanded
                   ? "ring-2 ring-indigo-600 ring-offset-1 font-black shadow-xs z-10 scale-105"
@@ -271,7 +319,11 @@ export function QuestionPalette({
                 </span>
               ) : expandedIsPartial ? (
                 <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-50 text-amber-800 border border-amber-200">
-                  Partial (+{(expandedQuestion.subjectiveMarks ?? (fullMarks * 0.5)).toFixed(2)} pts)
+                  Partial (+
+                  {(
+                    expandedQuestion.subjectiveMarks ?? fullMarks * 0.5
+                  ).toFixed(2)}{" "}
+                  pts)
                 </span>
               ) : expandedIsPending ? (
                 <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-indigo-50 text-indigo-700 border border-indigo-200 animate-pulse">
@@ -415,10 +467,17 @@ export function QuestionPalette({
               penaltyMarks={isCloze ? incorrectMarksPerQ : 0}
               compact={true}
               onChange={(assessment) =>
-                onSetSubjectiveAssessment(expandedQuestion.questionNo, assessment)
+                onSetSubjectiveAssessment(
+                  expandedQuestion.questionNo,
+                  assessment,
+                )
               }
               onPartialMarksChange={(marks) =>
-                onSetSubjectiveAssessment(expandedQuestion.questionNo, "partial", marks)
+                onSetSubjectiveAssessment(
+                  expandedQuestion.questionNo,
+                  "partial",
+                  marks,
+                )
               }
             />
           )}
@@ -481,7 +540,10 @@ export function QuestionPalette({
                     <button
                       type="button"
                       onClick={() => {
-                        onSaveQuestionNote?.(expandedQuestion.questionNo, noteDraft);
+                        onSaveQuestionNote?.(
+                          expandedQuestion.questionNo,
+                          noteDraft,
+                        );
                         setEditingQNo(null);
                       }}
                       className="px-2.5 py-0.5 text-xs font-bold text-white bg-amber-600 hover:bg-amber-700 rounded shadow-2xs cursor-pointer"
@@ -517,7 +579,10 @@ export function QuestionPalette({
                   <button
                     type="button"
                     onClick={() => {
-                      onSaveQuestionNote?.(expandedQuestion.questionNo, noteDraft);
+                      onSaveQuestionNote?.(
+                        expandedQuestion.questionNo,
+                        noteDraft,
+                      );
                       setEditingQNo(null);
                     }}
                     className="px-2.5 py-0.5 text-xs font-bold text-white bg-amber-600 hover:bg-amber-700 rounded shadow-2xs cursor-pointer"
@@ -597,4 +662,3 @@ export function QuestionPalette({
     </div>
   );
 }
-

@@ -395,7 +395,9 @@ export function ExamSessionView({
               "keyboard" in navigator &&
               typeof (navigator as any).keyboard?.lock === "function"
             ) {
-              await (navigator as any).keyboard.lock(["Escape"]).catch(() => {});
+              await (navigator as any).keyboard
+                .lock(["Escape"])
+                .catch(() => {});
             }
           }
         } catch {
@@ -726,7 +728,9 @@ export function ExamSessionView({
         const newSelected = isUnselecting ? null : option;
 
         const rawCorrect = getCorrectAnswerForQ(qNo);
-        const correct = rawCorrect ? rawCorrect.toUpperCase().trim() : undefined;
+        const correct = rawCorrect
+          ? rawCorrect.toUpperCase().trim()
+          : undefined;
 
         let isCorrect: boolean | null = null;
         if (newSelected && correct) {
@@ -807,7 +811,9 @@ export function ExamSessionView({
         }
 
         const rawCorrect = getCorrectAnswerForQ(qNo);
-        const correct = rawCorrect ? rawCorrect.toUpperCase().trim() : undefined;
+        const correct = rawCorrect
+          ? rawCorrect.toUpperCase().trim()
+          : undefined;
         const isCorrect =
           newSelected && correct
             ? newSelected.toUpperCase().trim() === correct
@@ -952,7 +958,10 @@ export function ExamSessionView({
           ) as HTMLTextAreaElement | null;
           if (scratchpadEl) {
             scratchpadEl.focus();
-            scratchpadEl.scrollIntoView({ behavior: "smooth", block: "center" });
+            scratchpadEl.scrollIntoView({
+              behavior: "smooth",
+              block: "center",
+            });
           }
         }, 30);
         return;
@@ -2015,28 +2024,36 @@ export function ExamSessionView({
                         title={`${sureCount} questions marked Sure`}
                       >
                         <span>🎯 Sure</span>
-                        <span className="font-bold font-mono">({sureCount})</span>
+                        <span className="font-bold font-mono">
+                          ({sureCount})
+                        </span>
                       </span>
                       <span
                         className="inline-flex items-center gap-1 rounded-md bg-amber-50 border border-amber-200/80 px-1.5 py-0.5 text-[10px] sm:text-[11px] font-semibold text-amber-800"
                         title={`${fiftyFiftyCount} questions marked 50:50`}
                       >
                         <span>⚖️ 50:50</span>
-                        <span className="font-bold font-mono">({fiftyFiftyCount})</span>
+                        <span className="font-bold font-mono">
+                          ({fiftyFiftyCount})
+                        </span>
                       </span>
                       <span
                         className="inline-flex items-center gap-1 rounded-md bg-sky-50 border border-sky-200/80 px-1.5 py-0.5 text-[10px] sm:text-[11px] font-semibold text-sky-800"
                         title={`${eliminationCount} questions marked Eliminated`}
                       >
                         <span>✂️ Elim</span>
-                        <span className="font-bold font-mono">({eliminationCount})</span>
+                        <span className="font-bold font-mono">
+                          ({eliminationCount})
+                        </span>
                       </span>
                       <span
                         className="inline-flex items-center gap-1 rounded-md bg-purple-50 border border-purple-200/80 px-1.5 py-0.5 text-[10px] sm:text-[11px] font-semibold text-purple-800"
                         title={`${guessCount} questions marked Guess`}
                       >
                         <span>🎲 Guess</span>
-                        <span className="font-bold font-mono">({guessCount})</span>
+                        <span className="font-bold font-mono">
+                          ({guessCount})
+                        </span>
                       </span>
                       <span
                         className="inline-flex items-center gap-1 rounded-md bg-amber-100/70 border border-amber-300 px-1.5 py-0.5 text-[10px] sm:text-[11px] font-semibold text-amber-900"
@@ -2044,7 +2061,9 @@ export function ExamSessionView({
                       >
                         <Bookmark className="h-3 w-3 fill-amber-600 text-amber-600" />
                         <span>Flagged</span>
-                        <span className="font-bold font-mono">({flaggedCount})</span>
+                        <span className="font-bold font-mono">
+                          ({flaggedCount})
+                        </span>
                       </span>
                     </div>
                     <span className="text-xs text-slate-500 font-medium">
@@ -2458,7 +2477,9 @@ export function ExamSessionView({
                               View reference explanation
                             </summary>
                             <div className="mt-2 max-h-40 overflow-y-auto border-t border-indigo-100 pt-2 text-xs leading-relaxed text-slate-700">
-                              <HtmlExplanation text={currentQuestionExplanation} />
+                              <HtmlExplanation
+                                text={currentQuestionExplanation}
+                              />
                             </div>
                           </details>
 
