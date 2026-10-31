@@ -12,6 +12,7 @@ interface SubjectiveAssessmentWidgetProps {
   penaltyMarks?: number;
   onChange: (assessment: SubjectiveAssessment) => void;
   onPartialMarksChange: (marks: number) => void;
+  compact?: boolean;
 }
 
 export function SubjectiveAssessmentWidget({
@@ -22,7 +23,11 @@ export function SubjectiveAssessmentWidget({
   penaltyMarks,
   onChange,
   onPartialMarksChange,
+  compact = false,
 }: SubjectiveAssessmentWidgetProps) {
+  const currentPartialMarks =
+    partialMarks !== undefined ? partialMarks : maxPartialMarks * 0.5;
+
   const options = [
     {
       value: "strong" as const,
@@ -35,7 +40,7 @@ export function SubjectiveAssessmentWidget({
     {
       value: "partial" as const,
       label: "Partial",
-      points: `+${(partialMarks !== undefined ? partialMarks : maxPartialMarks * 0.5).toFixed(2)} pts`,
+      points: `+${currentPartialMarks.toFixed(2)} pts`,
       description: "Half marks / Custom",
       active: "border-amber-500 bg-amber-500 text-white shadow-xs",
       idle: "border-amber-200 text-amber-800 hover:bg-amber-50",
@@ -84,7 +89,11 @@ export function SubjectiveAssessmentWidget({
         )}
       </div>
 
-      <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+      <div
+        className={`grid gap-2 ${
+          compact ? "grid-cols-2" : "grid-cols-2 sm:grid-cols-4"
+        }`}
+      >
         {options.map((option) => {
           const isSelected = value === option.value;
           const disabled = !isAnswered && option.value !== "no-attempt";
@@ -102,49 +111,19 @@ export function SubjectiveAssessmentWidget({
               }`}
             >
               <div className="flex items-center justify-between gap-1">
-                <span className="text-xs font-bold">{option.label}</span>
-                {option.value === "partial" && isSelected ? (
-                  <span
-                    onClick={(e) => e.stopPropagation()}
-                    className="inline-flex items-center gap-0.5 bg-amber-600 text-white px-1.5 py-0.5 rounded text-[11px] font-mono font-bold shadow-2xs"
-                    title="Click to adjust partial score"
-                  >
-                    <span>+</span>
-                    <input
-                      type="number"
-                      min={0}
-                      max={maxPartialMarks}
-                      step="0.1"
-                      value={
-                        partialMarks !== undefined
-                          ? partialMarks
-                          : maxPartialMarks * 0.5
-                      }
-                      onChange={(event) => {
-                        event.stopPropagation();
-                        onPartialMarksChange(
-                          Math.min(
-                            maxPartialMarks,
-                            Math.max(0, Number(event.target.value) || 0),
-                          ),
-                        );
-                      }}
-                      className="w-11 bg-white text-center font-mono font-bold text-amber-950 rounded px-1 py-0 text-xs focus:outline-none focus:ring-1 focus:ring-amber-300 border-none"
-                    />
-                    <span>pts</span>
-                  </span>
-                ) : (
-                  <span
-                    className={`text-[10px] font-mono font-bold ${
-                      isSelected ? "text-white" : "text-slate-600"
-                    }`}
-                  >
-                    {option.points}
-                  </span>
-                )}
+                <span className="text-xs font-bold leading-tight">
+                  {option.label}
+                </span>
+                <span
+                  className={`text-[10px] font-mono font-bold shrink-0 ${
+                    isSelected ? "text-white" : "text-slate-600"
+                  }`}
+                >
+                  {option.points}
+                </span>
               </div>
               <span
-                className={`mt-0.5 block text-[10px] ${
+                className={`mt-0.5 block text-[10px] leading-tight ${
                   isSelected ? "text-white/85" : "text-slate-500"
                 }`}
               >
@@ -154,6 +133,45 @@ export function SubjectiveAssessmentWidget({
           );
         })}
       </div>
+
+      {/* Partial Score Customizer (When Partial is Selected) */}
+      {value === "partial" && (
+        <div
+          onClick={(e) => e.stopPropagation()}
+          className="rounded-lg border border-amber-300 bg-amber-50/90 p-2 sm:p-2.5 flex items-center justify-between gap-2 shadow-2xs animate-in fade-in slide-in-from-top-1"
+        >
+          <div className="flex items-center gap-1.5 min-w-0">
+            <span className="h-2 w-2 rounded-full bg-amber-500 shrink-0" />
+            <span className="text-xs font-semibold text-amber-950 truncate">
+              Adjust Partial Score:
+            </span>
+          </div>
+
+          <div className="flex items-center gap-1.5 shrink-0">
+            <span className="font-bold text-amber-900 text-xs">+</span>
+            <input
+              type="number"
+              min={0}
+              max={maxPartialMarks}
+              step="0.1"
+              value={currentPartialMarks}
+              onChange={(event) => {
+                event.stopPropagation();
+                onPartialMarksChange(
+                  Math.min(
+                    maxPartialMarks,
+                    Math.max(0, Number(event.target.value) || 0),
+                  ),
+                );
+              }}
+              className="w-14 rounded-md border border-amber-300 bg-white px-1.5 py-0.5 text-center font-mono text-xs font-bold text-amber-950 shadow-2xs focus:border-amber-500 focus:outline-none focus:ring-1 focus:ring-amber-500"
+            />
+            <span className="text-[11px] font-mono font-semibold text-amber-900">
+              / {maxPartialMarks.toFixed(2)} pts
+            </span>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

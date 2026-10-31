@@ -413,6 +413,7 @@ export function QuestionPalette({
               partialMarks={expandedQuestion.subjectiveMarks}
               maxPartialMarks={fullMarks}
               penaltyMarks={isCloze ? incorrectMarksPerQ : 0}
+              compact={true}
               onChange={(assessment) =>
                 onSetSubjectiveAssessment(expandedQuestion.questionNo, assessment)
               }
