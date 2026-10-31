@@ -56,25 +56,33 @@ export function ReviewScoreHero({
       {/* 1. Score & Benchmark Card (Collapsible) */}
       <div className="rounded-2xl border border-slate-200/90 bg-white shadow-2xs overflow-hidden transition-all">
         {/* Header Bar */}
-        <div className="p-3.5 sm:p-4 bg-gradient-to-r from-white via-slate-50/50 to-indigo-50/20 flex items-center justify-between gap-2.5 sm:gap-3 border-b border-slate-100 flex-wrap">
-          <div className="flex items-center gap-2.5 min-w-0">
-            <span className="text-xs font-bold uppercase tracking-wider text-slate-500">
+        <div className="p-3.5 sm:p-4 bg-gradient-to-br from-indigo-50/40 via-white to-slate-50 flex items-center justify-between gap-3 border-b border-slate-200/80">
+          <div className="space-y-1 min-w-0">
+            <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500 block">
               Score & Cutoff
             </span>
-            <span className="font-mono font-bold text-sm text-slate-900 truncate">
-              {formatReviewNumber(attempt.score)} / {effectiveMaxScore} ({scorePct}%)
-            </span>
+            <div className="flex items-baseline gap-2 flex-wrap">
+              <span className="text-2xl sm:text-3xl font-black font-mono tracking-tight text-slate-900">
+                {formatReviewNumber(attempt.score)}
+              </span>
+              <span className="text-xs sm:text-sm font-semibold font-mono text-slate-500">
+                / {effectiveMaxScore}
+              </span>
+              <span className="inline-flex items-center px-2 py-0.5 rounded-md text-xs font-bold font-mono bg-indigo-50 text-indigo-700 border border-indigo-200/80 shadow-2xs">
+                {scorePct}%
+              </span>
+            </div>
           </div>
 
           <div className="flex items-center gap-2 shrink-0">
             <span
-              className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold border ${cutoffVerdict.statusColor}`}
+              className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold border shadow-2xs ${cutoffVerdict.statusColor}`}
             >
               {cutoffVerdict.status.toLowerCase().includes("qualified") ||
               cutoffVerdict.status.toLowerCase().includes("clear") ? (
-                <ShieldCheck className="h-3 w-3" />
+                <ShieldCheck className="h-3.5 w-3.5" />
               ) : (
-                <ShieldAlert className="h-3 w-3" />
+                <ShieldAlert className="h-3.5 w-3.5" />
               )}
               <span>{cutoffVerdict.status}</span>
             </span>
@@ -82,7 +90,7 @@ export function ReviewScoreHero({
             <button
               type="button"
               onClick={() => setScoreCollapsed(!scoreCollapsed)}
-              className="flex items-center justify-center h-7 w-7 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors cursor-pointer"
+              className="flex items-center justify-center h-8 w-8 rounded-xl border border-slate-200 bg-white text-slate-400 hover:text-slate-700 hover:bg-slate-50 transition-colors cursor-pointer shadow-2xs"
               title={scoreCollapsed ? "Expand Scorecard" : "Collapse Scorecard"}
             >
               {scoreCollapsed ? (
