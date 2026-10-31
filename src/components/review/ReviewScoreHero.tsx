@@ -261,11 +261,9 @@ export function ReviewScoreHero({
 
                     <div className="space-y-2">
                       {topTakeaways.map((item) => (
-                        <button
+                        <div
                           key={item.id}
-                          type="button"
-                          onClick={() => onSelectFilter(item.actionTab, item.actionFilter)}
-                          className="w-full text-left rounded-xl border border-slate-200/90 bg-slate-50/70 p-3 hover:bg-white hover:border-indigo-300 hover:shadow-xs transition-all cursor-pointer space-y-1.5 group"
+                          className="w-full text-left rounded-xl border border-slate-200/90 bg-slate-50/70 p-3 space-y-1.5"
                         >
                           <div className="flex items-center justify-between gap-1.5">
                             <span className="text-[10px] font-bold text-slate-700 uppercase tracking-wide">
@@ -283,11 +281,7 @@ export function ReviewScoreHero({
                           <p className="text-[11px] text-slate-600 leading-relaxed font-normal">
                             {item.desc}
                           </p>
-                          <div className="flex items-center gap-1 text-[11px] font-semibold text-indigo-600 group-hover:text-indigo-800 transition-colors pt-0.5">
-                            <span>{item.actionText}</span>
-                            <ArrowRight className="h-3 w-3 group-hover:translate-x-0.5 transition-transform" />
-                          </div>
-                        </button>
+                        </div>
                       ))}
                     </div>
                   </div>
