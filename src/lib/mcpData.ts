@@ -282,6 +282,74 @@ export async function saveMcpPaper(
   await writeJsonStore("papers.json", stored);
 }
 
+export async function deleteMcpPaper(
+  userId: string,
+  paperId: string,
+): Promise<boolean> {
+  const supabase = getAdminClient();
+  if (supabase) {
+    const { error } = await supabase
+      .from("custom_papers")
+      .delete()
+      .eq("id", paperId)
+      .eq("user_id", userId);
+    if (error) throw new Error("The paper could not be deleted.");
+  } else {
+    const stored = await readJsonStore<Record<string, QuestionPaper>>(
+      "papers.json",
+      {},
+    );
+    if (stored[paperId] && stored[paperId].userId === userId) {
+      delete stored[paperId];
+      await writeJsonStore("papers.json", stored);
+    }
+  }
+
+  // Also remove from hidden_paper_ids if it was archived
+  const { hiddenPaperIds } = await getUserProfileData(userId);
+  if (hiddenPaperIds.includes(paperId)) {
+    const nextHidden = hiddenPaperIds.filter((id) => id !== paperId);
+    if (supabase) {
+      await supabase
+        .from("profiles")
+        .update({
+          hidden_paper_ids: nextHidden,
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", userId);
+    } else {
+      memoryHiddenPaperIds.set(userId, nextHidden);
+    }
+  }
+
+  return true;
+}
+
+export async function setPaperArchived(
+  userId: string,
+  paperId: string,
+  archived: boolean,
+): Promise<string[]> {
+  const { hiddenPaperIds: current } = await getUserProfileData(userId);
+  const next = archived
+    ? [...new Set([...current, paperId])]
+    : current.filter((id) => id !== paperId);
+  const supabase = getAdminClient();
+  if (supabase) {
+    const { error } = await supabase
+      .from("profiles")
+      .update({
+        hidden_paper_ids: next,
+        updated_at: new Date().toISOString(),
+      })
+      .eq("id", userId);
+    if (error) throw new Error("Paper archiving could not be updated.");
+  } else {
+    memoryHiddenPaperIds.set(userId, next);
+  }
+  return next;
+}
+
 export async function saveMcpAttempt(
   userId: string,
   attempt: Attempt,
