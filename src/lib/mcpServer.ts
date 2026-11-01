@@ -244,6 +244,82 @@ function attemptSummary(attempt: Attempt, paper?: QuestionPaper | null) {
   };
 }
 
+function buildAttemptDetails(attempt: Attempt, paper?: QuestionPaper | null) {
+  const paperQuestions = paper?.parsedQuestions || [];
+  const questionByNo = new Map(paperQuestions.map((q) => [q.questionNo, q]));
+  const answerEntries = Object.entries(attempt.answers || {}).map(
+    ([key, val]) => [Number(key), val] as const,
+  );
+
+  const allQNos = new Set<number>();
+  paperQuestions.forEach((q) => allQNos.add(q.questionNo));
+  answerEntries.forEach(([qNo]) => allQNos.add(qNo));
+
+  if (allQNos.size === 0 && attempt.totalQuestions > 0) {
+    for (let i = 1; i <= attempt.totalQuestions; i++) allQNos.add(i);
+  }
+
+  const sortedQNos = Array.from(allQNos).sort((a, b) => a - b);
+
+  const questions = sortedQNos.map((qNo) => {
+    const pq = questionByNo.get(qNo);
+    const ans = attempt.answers?.[qNo];
+    const isCloze =
+      (pq && Object.keys(pq.options || {}).length === 0) ||
+      Boolean(
+        ans?.selected &&
+          ans.selected.length > 1 &&
+          !["A", "B", "C", "D"].includes(ans.selected.trim().toUpperCase()) &&
+          ans.selected !== "attempted",
+      );
+
+    const correctAnswer =
+      ans?.correctAnswer ||
+      pq?.answer ||
+      (paper?.answerKey ? paper.answerKey[qNo] : undefined) ||
+      null;
+
+    const explanation =
+      ans?.explanation ||
+      pq?.explanation ||
+      (paper?.explanations ? paper.explanations[qNo] : undefined) ||
+      null;
+
+    return {
+      questionNo: qNo,
+      text: pq?.text || `Question ${qNo}`,
+      options: pq?.options || {},
+      isCloze,
+      selectedAnswer: ans?.selected ?? null,
+      correctAnswer,
+      isCorrect: ans?.isCorrect ?? null,
+      confidence: ans?.confidence ?? null,
+      timeSpentSeconds: ans?.timeSpentSeconds ?? 0,
+      note: ans?.note ?? null,
+      subjectiveAssessment: ans?.subjectiveAssessment ?? null,
+      subjectiveMarks: ans?.subjectiveMarks ?? null,
+      explanation,
+      subject: ans?.subject || pq?.subject || paper?.subject || null,
+      topic: ans?.topic || pq?.topic || null,
+    };
+  });
+
+  return {
+    ...attemptSummary(attempt, paper),
+    startedAt: attempt.startedAt,
+    finishedAt: attempt.finishedAt || attempt.startedAt,
+    totalQuestions: attempt.totalQuestions,
+    answered: attempt.answered,
+    correct: attempt.correct,
+    incorrect: attempt.incorrect,
+    partial: attempt.partial ?? 0,
+    unattempted: attempt.unattempted,
+    durationSeconds: attempt.durationSeconds,
+    generalNotes: attempt.generalNotes ?? null,
+    questions,
+  };
+}
+
 export function createPortalMcpServer(
   userId: string,
   scope: string,
@@ -450,6 +526,57 @@ export function createPortalMcpServer(
           attemptSummary(attempt, paperById.get(attempt.paperId)),
         ),
       });
+    },
+  );
+
+  server.registerTool(
+    "get_attempt_detail",
+    {
+      title: "Get attempt details",
+      description:
+        "Read one completed attempt's full per-question details including question prompt, options, student's selected choice or written cloze/one-liner answer, answer key, correctness, confidence tag, time spent, notes, and explanations. Defaults to the latest attempt if attemptId or paperId is omitted.",
+      annotations: { readOnlyHint: true },
+      inputSchema: {
+        attemptId: z
+          .string()
+          .optional()
+          .describe("Specific attempt ID. Defaults to latest attempt."),
+        paperId: z
+          .string()
+          .optional()
+          .describe("Match latest attempt for this paper ID."),
+      },
+    },
+    async ({ attemptId, paperId }) => {
+      const authError = scopeError(scope, MCP_READ_SCOPE);
+      if (authError) return authError;
+
+      const [papers, rawAttempts] = await Promise.all([
+        getUserPapers(userId),
+        getUserAttempts(userId),
+      ]);
+
+      if (!rawAttempts.length) {
+        return errorResult("No exam attempts found for this student.");
+      }
+
+      const attempts = sortAttemptsLatestFirst(rawAttempts);
+      const target = attemptId
+        ? attempts.find((a) => a.id === attemptId)
+        : paperId
+          ? attempts.find((a) => a.paperId === paperId)
+          : attempts[0];
+
+      if (!target) {
+        return errorResult(
+          attemptId
+            ? `Attempt ${attemptId} not found.`
+            : `No attempt found for paper ${paperId}.`,
+        );
+      }
+
+      const paper = papers.find((p) => p.id === target.paperId);
+      return textResult({ attempt: buildAttemptDetails(target, paper) });
     },
   );
 
