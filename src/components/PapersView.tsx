@@ -53,6 +53,31 @@ interface PapersViewProps {
   onUpdatePaper?: (paper: QuestionPaper) => void;
 }
 
+const PAPERS_FILTER_STORAGE_KEY = "upsc_papers_filter_state";
+
+interface PapersFilterState {
+  searchQuery?: string;
+  selectedCategory?: "all" | "prelims" | "mains" | "custom";
+  selectedYear?: string;
+  selectedAttemptFilter?:
+    | "all"
+    | "attempted"
+    | "unattempted"
+    | "mock"
+    | "practice";
+  paperViewMode?: "grid" | "list";
+}
+
+function getStoredPapersFilter(): PapersFilterState {
+  if (typeof window === "undefined") return {};
+  try {
+    const raw = localStorage.getItem(PAPERS_FILTER_STORAGE_KEY);
+    return raw ? JSON.parse(raw) : {};
+  } catch {
+    return {};
+  }
+}
+
 export function PapersView({
   papers,
   onStartExam,
@@ -75,13 +100,62 @@ export function PapersView({
   const [viewingSolutionPaper, setViewingSolutionPaper] =
     useState<QuestionPaper | null>(null);
 
+  // Restore filter state from localStorage on mount (hydration-safe)
   useEffect(() => {
     setMounted(true);
+    const saved = getStoredPapersFilter();
+    if (typeof saved.searchQuery === "string" && saved.searchQuery) {
+      setSearchQuery(saved.searchQuery);
+    }
     const tab = searchParams?.get("tab");
     if (tab === "custom") {
       setSelectedCategory("custom");
+    } else if (
+      saved.selectedCategory &&
+      ["all", "prelims", "mains", "custom"].includes(saved.selectedCategory)
+    ) {
+      setSelectedCategory(saved.selectedCategory);
+    }
+    if (typeof saved.selectedYear === "string" && saved.selectedYear !== "all") {
+      setSelectedYear(saved.selectedYear);
+    }
+    if (
+      saved.selectedAttemptFilter &&
+      ["all", "attempted", "unattempted", "mock", "practice"].includes(
+        saved.selectedAttemptFilter,
+      ) &&
+      saved.selectedAttemptFilter !== "all"
+    ) {
+      setSelectedAttemptFilter(saved.selectedAttemptFilter);
+    }
+    if (saved.paperViewMode === "list" || saved.paperViewMode === "grid") {
+      setPaperViewMode(saved.paperViewMode);
     }
   }, [searchParams]);
+
+  // Persist filter state across page reloads / app switches
+  useEffect(() => {
+    if (!mounted) return;
+    try {
+      localStorage.setItem(
+        PAPERS_FILTER_STORAGE_KEY,
+        JSON.stringify({
+          searchQuery,
+          selectedCategory,
+          selectedYear,
+          selectedAttemptFilter,
+          paperViewMode,
+        }),
+      );
+    } catch {}
+  }, [
+    mounted,
+    searchQuery,
+    selectedCategory,
+    selectedYear,
+    selectedAttemptFilter,
+    paperViewMode,
+  ]);
 
   // Edit paper rules modal
   const [editingPaper, setEditingPaper] = useState<QuestionPaper | null>(null);
@@ -273,6 +347,19 @@ export function PapersView({
     return matchesCat && matchesYear && matchesSearch && matchesAttempt;
   });
 
+  const hasActiveFilters =
+    Boolean(searchQuery.trim()) ||
+    selectedCategory !== "all" ||
+    selectedYear !== "all" ||
+    selectedAttemptFilter !== "all";
+
+  const handleResetFilters = () => {
+    setSearchQuery("");
+    setSelectedCategory("all");
+    setSelectedYear("all");
+    setSelectedAttemptFilter("all");
+  };
+
   return (
     <div className="page-container space-y-6">
       <PageHeader
@@ -295,14 +382,24 @@ export function PapersView({
       <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 bg-white border border-slate-200/80 rounded-2xl p-3 shadow-xs">
         {/* Search */}
         <div className="relative flex-1 min-w-[220px]">
-          <Search className="absolute left-3.5 top-2.5 h-4 w-4 text-slate-400" />
+          <Search className="absolute left-3.5 top-2.5 h-4 w-4 text-slate-400 pointer-events-none" />
           <input
             type="text"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             placeholder="Search papers by year, subject, keyword..."
-            className="w-full rounded-xl border border-slate-200 bg-slate-50 pl-9 pr-4 py-2 text-xs text-slate-800 placeholder-slate-400 focus:bg-white focus:border-indigo-500 focus:outline-none transition-colors"
+            className="w-full rounded-xl border border-slate-200 bg-slate-50 pl-9 pr-8 py-2 text-xs text-slate-800 placeholder-slate-400 focus:bg-white focus:border-indigo-500 focus:outline-none transition-colors"
           />
+          {searchQuery && (
+            <button
+              type="button"
+              onClick={() => setSearchQuery("")}
+              className="absolute right-2.5 top-2.5 p-0.5 text-slate-400 hover:text-slate-600 rounded cursor-pointer transition-colors"
+              title="Clear search"
+            >
+              <X className="h-3.5 w-3.5" />
+            </button>
+          )}
         </div>
 
         {/* Category Segmented Control */}
@@ -457,6 +554,17 @@ export function PapersView({
               <p className="text-xs text-slate-500 mt-1">
                 Try resetting search keyword or selecting &quot;All Years&quot;.
               </p>
+              {hasActiveFilters && (
+                <div className="mt-3">
+                  <button
+                    type="button"
+                    onClick={handleResetFilters}
+                    className="cursor-pointer inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-slate-100 hover:bg-slate-200 text-slate-700 transition-colors"
+                  >
+                    Reset all filters
+                  </button>
+                </div>
+              )}
             </>
           )}
         </div>

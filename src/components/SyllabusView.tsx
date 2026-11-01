@@ -20,7 +20,9 @@ import {
   Pencil,
   Printer,
   RotateCcw,
+  Search,
   Trash2,
+  X,
 } from "lucide-react";
 import { SyllabusItem } from "../lib/types";
 import { useApp } from "../context/AppContext";
@@ -83,6 +85,28 @@ function formatDate(value: string): string {
   }).format(new Date(`${value}T00:00:00`));
 }
 
+function highlightMatch(title: string, query: string): ReactNode {
+  if (!query.trim()) return title;
+  const q = query.trim().toLowerCase();
+  const lower = title.toLowerCase();
+  const idx = lower.indexOf(q);
+  if (idx === -1) return title;
+
+  const before = title.slice(0, idx);
+  const match = title.slice(idx, idx + q.length);
+  const after = title.slice(idx + q.length);
+
+  return (
+    <>
+      {before}
+      <mark className="rounded bg-amber-100 text-amber-950 font-semibold px-0.5 not-italic">
+        {match}
+      </mark>
+      {highlightMatch(after, query)}
+    </>
+  );
+}
+
 export function SyllabusView() {
   const {
     syllabusItems,
@@ -107,9 +131,40 @@ export function SyllabusView() {
   const [message, setMessage] = useState("");
   const [showExportMenu, setShowExportMenu] = useState(false);
   const [isExporting, setIsExporting] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
   const progress = getSyllabusProgress(activeItems);
   const pace = getSyllabusPace(activeItems);
   const remainingTopics = Math.max(progress.total - progress.completed, 0);
+
+  const normalizedQuery = searchQuery.trim().toLowerCase();
+
+  const itemBreadcrumbMap = useMemo(() => {
+    const itemMap = new Map<string, SyllabusItem>();
+    activeItems.forEach((it) => itemMap.set(it.id, it));
+
+    const trailMap = new Map<string, string[]>();
+    activeItems.forEach((it) => {
+      const parts: string[] = [];
+      let curr = it.parentId ? itemMap.get(it.parentId) : undefined;
+      while (curr) {
+        parts.unshift(curr.title);
+        curr = curr.parentId ? itemMap.get(curr.parentId) : undefined;
+      }
+      trailMap.set(it.id, parts);
+    });
+    return trailMap;
+  }, [activeItems]);
+
+  const directMatchIds = useMemo(() => {
+    if (!normalizedQuery) return new Set<string>();
+    const matches = new Set<string>();
+    activeItems.forEach((item) => {
+      if (item.title.toLowerCase().includes(normalizedQuery)) {
+        matches.add(item.id);
+      }
+    });
+    return matches;
+  }, [activeItems, normalizedQuery]);
 
   useEffect(() => {
     setDraft(syllabusMarkdown);
@@ -140,6 +195,55 @@ export function SyllabusView() {
   useEffect(() => {
     setCollapsedIds(new Set(parentIds));
   }, [parentIdsKey, syllabusMarkdown]);
+
+  // Set of item IDs to show in tree (item itself matches, or any descendant matches)
+  const visibleItemIds = useMemo(() => {
+    if (!normalizedQuery) return null; // null means show all
+    const visible = new Set<string>();
+
+    const checkItem = (item: SyllabusItem): boolean => {
+      const children = childrenByParent.get(item.id) || [];
+      const hasChildMatch = children.some((child) => checkItem(child));
+      const isDirectMatch = directMatchIds.has(item.id);
+      if (isDirectMatch || hasChildMatch) {
+        visible.add(item.id);
+        return true;
+      }
+      return false;
+    };
+
+    activeItems.forEach((item) => {
+      if (!item.parentId) {
+        checkItem(item);
+      }
+    });
+
+    return visible;
+  }, [activeItems, childrenByParent, directMatchIds, normalizedQuery]);
+
+  // When search query changes, automatically expand all parent nodes of matching items
+  useEffect(() => {
+    if (!normalizedQuery) return;
+    const parentMap = new Map<string, string>();
+    activeItems.forEach((it) => {
+      if (it.parentId) parentMap.set(it.id, it.parentId);
+    });
+
+    const toExpand = new Set<string>();
+    directMatchIds.forEach((id) => {
+      let curr = parentMap.get(id);
+      while (curr) {
+        toExpand.add(curr);
+        curr = parentMap.get(curr);
+      }
+    });
+
+    setCollapsedIds((prev) => {
+      const next = new Set(prev);
+      toExpand.forEach((pId) => next.delete(pId));
+      return next;
+    });
+  }, [normalizedQuery, directMatchIds, activeItems]);
 
   const showMessage = (nextMessage: string) => {
     setMessage(nextMessage);
@@ -202,8 +306,34 @@ export function SyllabusView() {
     );
   };
 
-  const renderTree = (items: SyllabusItem[], depth = 0): ReactNode =>
-    items.map((item) => {
+  const renderTree = (items: SyllabusItem[], depth = 0): ReactNode => {
+    const filteredItems = visibleItemIds
+      ? items.filter((item) => visibleItemIds.has(item.id))
+      : items;
+
+    if (items.length > 0 && filteredItems.length === 0 && depth === 0) {
+      return (
+        <div className="rounded-xl border border-dashed border-slate-200 bg-slate-50/60 px-5 py-10 text-center space-y-2">
+          <Search className="mx-auto h-7 w-7 text-slate-300" />
+          <p className="text-sm font-semibold text-slate-800">
+            No topics match &quot;{searchQuery}&quot;
+          </p>
+          <p className="text-xs text-slate-500 max-w-sm mx-auto">
+            Try a different term or clear the search to view all sections.
+          </p>
+          <button
+            type="button"
+            onClick={() => setSearchQuery("")}
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-blue-50 text-blue-700 hover:bg-blue-100 transition-colors cursor-pointer"
+          >
+            <RotateCcw className="h-3 w-3" />
+            <span>Clear search</span>
+          </button>
+        </div>
+      );
+    }
+
+    return filteredItems.map((item) => {
       const children = childrenByParent.get(item.id) || [];
       const completed = getSyllabusCompletion(item, activeItems);
       const dateStatus = getSyllabusItemDateStatus(item, activeItems);
@@ -212,6 +342,7 @@ export function SyllabusView() {
       const partiallyCompleted =
         isParent && !completed && hasCompletedDescendant(item);
       const isCollapsed = collapsedIds.has(item.id);
+      const breadcrumbs = itemBreadcrumbMap.get(item.id) || [];
       return (
         <div
           key={item.id}
@@ -270,11 +401,16 @@ export function SyllabusView() {
                 <span className="h-6 w-6 shrink-0" aria-hidden="true" />
               )}
               <div className="min-w-0 flex-1">
+                {normalizedQuery && breadcrumbs.length > 0 && (
+                  <p className="text-[10px] text-slate-400 truncate mb-0.5">
+                    {breadcrumbs.join(" › ")}
+                  </p>
+                )}
                 <div className="flex flex-wrap items-center gap-2">
                   <p
                     className={`text-sm font-medium ${completed ? "text-slate-400 line-through" : "text-slate-800"}`}
                   >
-                    {item.title}
+                    {highlightMatch(item.title, searchQuery)}
                   </p>
                   {isParent && (
                     <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-slate-500">
@@ -321,6 +457,7 @@ export function SyllabusView() {
         </div>
       );
     });
+  };
 
   const hasSavedSyllabus = Boolean(syllabusMarkdown.trim());
   const rootItems = childrenByParent.get(null) || [];
@@ -329,44 +466,15 @@ export function SyllabusView() {
     : "Add dates in square brackets to compare your pace.";
 
   return (
-    <div className="page-container space-y-6">
-      <PageHeader title="Syllabus tracker" />
-
-      <section className="relative overflow-hidden rounded-2xl border border-blue-900/70 bg-gradient-to-br from-slate-950 via-blue-950 to-indigo-900 p-5 text-white shadow-[0_12px_30px_rgba(30,64,175,0.14)] sm:p-6">
-        <div className="pointer-events-none absolute -right-16 -top-20 h-48 w-48 rounded-full bg-blue-400/15 blur-2xl" />
-        <div className="pointer-events-none absolute -bottom-24 left-1/3 h-44 w-44 rounded-full bg-indigo-300/10 blur-3xl" />
-        <div className="relative flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
-          <div className="max-w-xl">
-            <div className="flex items-center gap-2 text-blue-200">
-              <BookOpenCheck className="h-4 w-4" />
-              <span className="text-xs font-semibold uppercase tracking-[0.16em]">
-                Your study plan
-              </span>
-            </div>
-            <h2 className="mt-2 text-xl font-semibold tracking-tight sm:text-2xl">
-              Build momentum, one topic at a time.
-            </h2>
-            <p className="mt-2 max-w-lg text-sm leading-6 text-blue-100/75">
-              Keep your syllabus visible, mark progress as you study, and use
-              due dates to spot what needs attention next.
-            </p>
-          </div>
-          <div className="grid grid-cols-3 gap-2 sm:gap-3 lg:min-w-[25rem]">
-            <div className="rounded-xl border border-white/10 bg-white/10 p-3 backdrop-blur-sm">
-              <p className="text-2xl font-semibold">{progress.percentage}%</p>
-              <p className="mt-1 text-[11px] text-blue-100/70">Complete</p>
-            </div>
-            <div className="rounded-xl border border-white/10 bg-white/10 p-3 backdrop-blur-sm">
-              <p className="text-2xl font-semibold">{remainingTopics}</p>
-              <p className="mt-1 text-[11px] text-blue-100/70">Topics left</p>
-            </div>
-            <div className="rounded-xl border border-white/10 bg-white/10 p-3 backdrop-blur-sm">
-              <p className="text-2xl font-semibold">{pace.overdueTopics}</p>
-              <p className="mt-1 text-[11px] text-blue-100/70">Overdue</p>
-            </div>
-          </div>
-        </div>
-      </section>
+    <div className="page-container space-y-5">
+      <PageHeader
+        title="Syllabus tracker"
+        description={
+          activeItems.length > 0
+            ? `${progress.percentage}% complete · ${progress.completed} of ${progress.total} topics done · ${remainingTopics} topics left`
+            : "Track UPSC syllabus completion topic by topic."
+        }
+      />
 
       <div className="grid gap-4 md:grid-cols-[minmax(0,1fr)_minmax(16rem,20rem)] md:items-start">
         <section className="surface-card order-1 overflow-hidden p-4 sm:p-5">
@@ -513,6 +621,41 @@ export function SyllabusView() {
               )}
             </div>
           </div>
+
+          {/* Real-time Syllabus Search & Filter Bar */}
+          {activeItems.length > 0 && (
+            <div className="pt-3">
+              <div className="relative flex items-center">
+                <Search className="absolute left-3.5 h-4 w-4 text-slate-400 pointer-events-none" />
+                <input
+                  type="text"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  placeholder="Search topics to mark tick or review (e.g. Fundamental Rights, Indus Valley, Monsoon)..."
+                  className="w-full rounded-xl border border-slate-200 bg-slate-50/70 pl-10 pr-24 py-2 text-xs sm:text-sm text-slate-900 placeholder:text-slate-400 focus:border-blue-500 focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-100 transition-all shadow-2xs"
+                />
+                <div className="absolute right-2.5 flex items-center gap-1.5">
+                  {searchQuery && (
+                    <>
+                      <span className="text-[11px] font-semibold text-blue-700 bg-blue-50 border border-blue-200 px-2 py-0.5 rounded-full">
+                        {directMatchIds.size}{" "}
+                        {directMatchIds.size === 1 ? "match" : "matches"}
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => setSearchQuery("")}
+                        className="p-1 text-slate-400 hover:text-slate-700 rounded-md hover:bg-slate-200/60 transition-colors cursor-pointer"
+                        title="Clear search"
+                      >
+                        <X className="h-3.5 w-3.5" />
+                      </button>
+                    </>
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
+
           <div className="mt-4 space-y-2">
             {activeItems.length > 0 ? (
               renderTree(rootItems)
