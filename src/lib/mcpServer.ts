@@ -14,6 +14,7 @@ import {
 } from "./defaults";
 import { isSpecificSingleSubject } from "./markdownPaperParser";
 import {
+  deleteMcpPaper,
   getUserAttempts,
   getUserPaper,
   getUserPapers,
@@ -25,6 +26,7 @@ import {
   saveMcpSyllabus,
   saveMcpSyllabusMarkdown,
   setOnlyCustomPapers,
+  setPaperArchived,
   searchMcpPapers,
   setPreloadedPapersHidden,
   sortAttemptsLatestFirst,
@@ -1477,6 +1479,79 @@ export function createPortalMcpServer(
       if (authError) return authError;
       await setOnlyCustomPapers(userId, enabled);
       return textResult({ updated: true, onlyUploadedPapers: enabled });
+    },
+  );
+
+  server.registerTool(
+    "delete_paper",
+    {
+      title: "Delete paper",
+      description:
+        "Permanently delete an imported or custom paper from the student's library. Pre-loaded default papers cannot be deleted; use archive_paper to hide them instead. Ask the student for confirmation first.",
+      annotations: { readOnlyHint: false, destructiveHint: true },
+      inputSchema: {
+        paperId: z.string().min(1).describe("The ID of the paper to delete."),
+      },
+    },
+    async ({ paperId }) => {
+      const authError = scopeError(scope, MCP_WRITE_SCOPE);
+      if (authError) return authError;
+
+      const paper = await getUserPaper(userId, paperId);
+      if (!paper) {
+        return errorResult("Paper not found in this student's library.");
+      }
+
+      if (!isCustomMcpPaper(paper)) {
+        return errorResult(
+          "Pre-loaded platform papers cannot be permanently deleted. Use archive_paper to hide them from your library instead.",
+        );
+      }
+
+      await deleteMcpPaper(userId, paperId);
+      return textResult({
+        deleted: true,
+        paperId,
+        title: paper.label || paper.title || paper.subject,
+        message: "Paper deleted successfully.",
+      });
+    },
+  );
+
+  server.registerTool(
+    "archive_paper",
+    {
+      title: "Archive or restore paper",
+      description:
+        "Archive (hide) or restore (unhide) any paper in the student's library without deleting historical attempts. Works for both pre-loaded and student-created papers.",
+      annotations: { readOnlyHint: false, destructiveHint: false },
+      inputSchema: {
+        paperId: z
+          .string()
+          .min(1)
+          .describe("The ID of the paper to archive or restore."),
+        archived: z
+          .boolean()
+          .default(true)
+          .describe(
+            "True to archive/hide from library, false to unarchive/restore. Defaults to true.",
+          ),
+      },
+    },
+    async ({ paperId, archived }) => {
+      const authError = scopeError(scope, MCP_WRITE_SCOPE);
+      if (authError) return authError;
+
+      const hiddenPaperIds = await setPaperArchived(userId, paperId, archived);
+      return textResult({
+        updated: true,
+        paperId,
+        archived,
+        hiddenPaperCount: hiddenPaperIds.length,
+        message: archived
+          ? "Paper archived and hidden from library."
+          : "Paper restored and visible in library.",
+      });
     },
   );
 
