@@ -18,7 +18,7 @@ import {
   TrendingUp,
   Zap,
 } from "lucide-react";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useApp } from "../context/AppContext";
 import {
   formatDateTime,
@@ -34,6 +34,8 @@ interface HistoryViewProps {
   onDeleteAttempt: (attemptId: string) => void;
 }
 
+const HISTORY_FILTER_STORAGE_KEY = "upsc_history_filter_state";
+
 export function HistoryView({
   attempts,
   onViewAttempt,
@@ -48,6 +50,43 @@ export function HistoryView({
   const [selectedAttemptByPaper, setSelectedAttemptByPaper] = useState<
     Record<string, string>
   >({});
+  const [mounted, setMounted] = useState(false);
+
+  // Restore history view filters on mount
+  useEffect(() => {
+    setMounted(true);
+    try {
+      const raw = localStorage.getItem(HISTORY_FILTER_STORAGE_KEY);
+      if (raw) {
+        const saved = JSON.parse(raw);
+        if (typeof saved.search === "string") setSearch(saved.search);
+        if (saved.viewMode === "all" || saved.viewMode === "cumulative") {
+          setViewMode(saved.viewMode);
+        }
+        if (
+          saved.performanceViewMode === "grid" ||
+          saved.performanceViewMode === "list"
+        ) {
+          setPerformanceViewMode(saved.performanceViewMode);
+        }
+      }
+    } catch {}
+  }, []);
+
+  // Persist history filters
+  useEffect(() => {
+    if (!mounted) return;
+    try {
+      localStorage.setItem(
+        HISTORY_FILTER_STORAGE_KEY,
+        JSON.stringify({
+          search,
+          viewMode,
+          performanceViewMode,
+        }),
+      );
+    } catch {}
+  }, [mounted, search, viewMode, performanceViewMode]);
 
   // Only mock mode attempts are counted in official history
   const mockAttempts = attempts.filter(
