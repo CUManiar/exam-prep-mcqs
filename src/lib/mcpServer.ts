@@ -1235,6 +1235,108 @@ export function createPortalMcpServer(
   );
 
   server.registerTool(
+    "update_question_notes",
+    {
+      title: "Attach evaluation notes per question",
+      description:
+        "Attach or update mentor feedback and evaluation notes to specific questions inside an attempt. Notes are visible directly under each question in the student's review screen. Defaults to the latest attempt if attemptId or paperId is omitted.",
+      annotations: { readOnlyHint: false, destructiveHint: false },
+      inputSchema: {
+        attemptId: z
+          .string()
+          .optional()
+          .describe("Specific attempt ID. Defaults to latest attempt."),
+        paperId: z
+          .string()
+          .optional()
+          .describe("Match latest attempt for this paper ID."),
+        notes: z
+          .array(
+            z.object({
+              questionNo: z.number().int().min(1),
+              note: z.string().min(1).describe("The evaluation or mentor feedback note."),
+              append: z
+                .boolean()
+                .optional()
+                .describe(
+                  "Append to existing question note instead of replacing. Defaults to false.",
+                ),
+            }),
+          )
+          .min(1)
+          .describe("List of questions and their evaluation notes."),
+      },
+    },
+    async ({ attemptId, paperId, notes }) => {
+      const authError = scopeError(scope, MCP_WRITE_SCOPE);
+      if (authError) return authError;
+
+      const attempts = sortAttemptsLatestFirst(await getUserAttempts(userId));
+      if (!attempts.length) {
+        return errorResult("No exam attempts found for this student.");
+      }
+
+      const targetAttempt = attemptId
+        ? attempts.find((a) => a.id === attemptId)
+        : paperId
+          ? attempts.find((a) => a.paperId === paperId)
+          : attempts[0];
+
+      if (!targetAttempt) {
+        return errorResult(
+          attemptId
+            ? `Attempt ${attemptId} not found.`
+            : `No attempt found for paper ${paperId}.`,
+        );
+      }
+
+      const updatedAnswers = { ...targetAttempt.answers };
+      const updatedList: Array<{ questionNo: number; note: string }> = [];
+
+      for (const item of notes) {
+        const qNo = item.questionNo;
+        const currentAnswer = updatedAnswers[qNo];
+        const trimmed = item.note.trim();
+
+        const updatedNote =
+          item.append && currentAnswer?.note?.trim()
+            ? `${currentAnswer.note.trim()}\n\n${trimmed}`
+            : trimmed;
+
+        if (currentAnswer) {
+          updatedAnswers[qNo] = {
+            ...currentAnswer,
+            note: updatedNote,
+          };
+        } else {
+          updatedAnswers[qNo] = {
+            questionNo: qNo,
+            selected: null,
+            note: updatedNote,
+          };
+        }
+
+        updatedList.push({ questionNo: qNo, note: updatedNote });
+      }
+
+      const updatedAttempt: Attempt = {
+        ...targetAttempt,
+        answers: updatedAnswers,
+      };
+
+      await saveMcpAttempt(userId, updatedAttempt);
+
+      return textResult({
+        saved: true,
+        attemptId: updatedAttempt.id,
+        paperLabel: updatedAttempt.paperLabel,
+        notesUpdatedCount: updatedList.length,
+        notes: updatedList,
+      });
+    },
+  );
+
+  server.registerTool(
     "replace_syllabus_markdown",
     {
       title: "Replace Markdown syllabus",
