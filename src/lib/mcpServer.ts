@@ -1,8 +1,17 @@
 import { randomUUID } from "node:crypto";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
-import { Attempt, ParsedQuestion, QuestionPaper } from "./types";
-import { parseAnswerKeyDetailed } from "./defaults";
+import {
+  Attempt,
+  ParsedQuestion,
+  QuestionAnswer,
+  QuestionPaper,
+  SubjectiveAssessment,
+} from "./types";
+import {
+  parseAnswerKeyDetailed,
+  SUBJECTIVE_ASSESSMENT_META,
+} from "./defaults";
 import { isSpecificSingleSubject } from "./markdownPaperParser";
 import {
   getUserAttempts,
@@ -317,6 +326,222 @@ function buildAttemptDetails(attempt: Attempt, paper?: QuestionPaper | null) {
     durationSeconds: attempt.durationSeconds,
     generalNotes: attempt.generalNotes ?? null,
     questions,
+  };
+}
+
+function isClozeQuestion(
+  qNo: number,
+  paper?: QuestionPaper | null,
+  ans?: QuestionAnswer,
+): boolean {
+  const question = paper?.parsedQuestions?.find((pq) => pq.questionNo === qNo);
+  if (question && Object.keys(question.options || {}).length === 0) return true;
+  if (
+    ans?.selected &&
+    ans.selected.length > 1 &&
+    !["A", "B", "C", "D"].includes(ans.selected.trim().toUpperCase()) &&
+    ans.selected !== "attempted"
+  ) {
+    return true;
+  }
+  return false;
+}
+
+function isAssessmentQuestion(
+  qNo: number,
+  paper?: QuestionPaper | null,
+  ans?: QuestionAnswer,
+  isSubjective?: boolean,
+): boolean {
+  return Boolean(isSubjective || isClozeQuestion(qNo, paper, ans));
+}
+
+function isQuestionAnswered(
+  ans?: QuestionAnswer,
+  isAssessment?: boolean,
+  isSubjective?: boolean,
+): boolean {
+  if (!ans) return false;
+  if (isAssessment) {
+    if (isSubjective) {
+      return (
+        ans.selected === "attempted" ||
+        (ans.subjectiveAssessment !== undefined &&
+          ans.subjectiveAssessment !== "no-attempt")
+      );
+    }
+    return Boolean(ans.selected?.trim() && ans.selected !== "no-attempt");
+  }
+  return isSubjective
+    ? ans.selected === "attempted"
+    : ans.selected !== null && ans.selected !== undefined;
+}
+
+function getFullMarks(
+  qNo: number,
+  paper?: QuestionPaper | null,
+  ans?: QuestionAnswer,
+  correctMarksPerQ = 2.0,
+  subjectiveMarksPerQ = 0,
+): number {
+  return isClozeQuestion(qNo, paper, ans)
+    ? correctMarksPerQ
+    : subjectiveMarksPerQ;
+}
+
+function getAssessmentMarks(
+  qNo: number,
+  assessment?: SubjectiveAssessment,
+  subjectiveMarks?: number,
+  paper?: QuestionPaper | null,
+  ans?: QuestionAnswer,
+  correctMarksPerQ = 2.0,
+  incorrectMarksPerQ = 0.667,
+  subjectiveMarksPerQ = 0,
+): number {
+  if (!assessment) return 0;
+  const full = getFullMarks(
+    qNo,
+    paper,
+    ans,
+    correctMarksPerQ,
+    subjectiveMarksPerQ,
+  );
+  const penalty = isClozeQuestion(qNo, paper, ans) ? incorrectMarksPerQ : 0;
+  if (assessment === "strong") return full;
+  if (assessment === "partial") {
+    return Math.min(full, Math.max(0, subjectiveMarks ?? full * 0.5));
+  }
+  if (assessment === "needs-work") return -penalty;
+  return 0;
+}
+
+function recalculateAttemptGrades(
+  attempt: Attempt,
+  paper?: QuestionPaper | null,
+): Attempt {
+  const isSubjective = attempt.examType === "subjective";
+  const correctMarksPerQ = attempt.correctMarks || 2.0;
+  const incorrectMarksPerQ = attempt.incorrectMarks || 0.667;
+  const subjectiveMarksPerQ =
+    attempt.totalQuestions > 0
+      ? (attempt.totalMarks || attempt.maxScore || 0) /
+        attempt.totalQuestions
+      : 0;
+
+  const allAnswers = Object.values(attempt.answers || {});
+  const attemptedAnswers = allAnswers.filter((a) =>
+    isQuestionAnswered(
+      a,
+      isAssessmentQuestion(a.questionNo, paper, a, isSubjective),
+      isSubjective,
+    ),
+  );
+
+  const score =
+    Math.round(
+      allAnswers.reduce((total, answer) => {
+        const isAssess = isAssessmentQuestion(
+          answer.questionNo,
+          paper,
+          answer,
+          isSubjective,
+        );
+        if (isAssess) {
+          return isQuestionAnswered(answer, true, isSubjective)
+            ? total +
+                getAssessmentMarks(
+                  answer.questionNo,
+                  answer.subjectiveAssessment,
+                  answer.subjectiveMarks,
+                  paper,
+                  answer,
+                  correctMarksPerQ,
+                  incorrectMarksPerQ,
+                  subjectiveMarksPerQ,
+                )
+            : total;
+        }
+        if (answer.isCorrect === true) return total + correctMarksPerQ;
+        if (answer.isCorrect === false) return total - incorrectMarksPerQ;
+        return total;
+      }, 0) * 100,
+    ) / 100;
+
+  const maxScore = attempt.maxScore || attempt.totalMarks || 0;
+  const answered = attemptedAnswers.length;
+
+  const subjectivePoints = attemptedAnswers.reduce((total, answer) => {
+    const isAssess = isAssessmentQuestion(
+      answer.questionNo,
+      paper,
+      answer,
+      isSubjective,
+    );
+    if (isAssess && answer.subjectiveAssessment) {
+      return (
+        total +
+        (SUBJECTIVE_ASSESSMENT_META[answer.subjectiveAssessment]?.fraction ?? 0)
+      );
+    }
+    return total + (answer.isCorrect === true ? 1 : 0);
+  }, 0);
+
+  const correct = allAnswers.filter((answer) => {
+    const isAssess = isAssessmentQuestion(
+      answer.questionNo,
+      paper,
+      answer,
+      isSubjective,
+    );
+    return isAssess
+      ? isQuestionAnswered(answer, true, isSubjective) &&
+          answer.subjectiveAssessment === "strong"
+      : answer.isCorrect === true;
+  }).length;
+
+  const partial = allAnswers.filter((answer) => {
+    const isAssess = isAssessmentQuestion(
+      answer.questionNo,
+      paper,
+      answer,
+      isSubjective,
+    );
+    return (
+      isAssess &&
+      isQuestionAnswered(answer, true, isSubjective) &&
+      answer.subjectiveAssessment === "partial"
+    );
+  }).length;
+
+  const incorrect = allAnswers.filter((answer) => {
+    const isAssess = isAssessmentQuestion(
+      answer.questionNo,
+      paper,
+      answer,
+      isSubjective,
+    );
+    return isAssess
+      ? isQuestionAnswered(answer, true, isSubjective) &&
+          answer.subjectiveAssessment === "needs-work"
+      : answer.isCorrect === false;
+  }).length;
+
+  return {
+    ...attempt,
+    answered,
+    correct,
+    partial,
+    incorrect,
+    unattempted: Math.max(0, attempt.totalQuestions - answered),
+    score: Number(score.toFixed(2)),
+    maxScore: Number(maxScore.toFixed(2)),
+    percentagePct:
+      maxScore > 0 ? Math.round((score / maxScore) * 100 * 10) / 10 : 0,
+    accuracyPct:
+      answered > 0
+        ? Math.round((subjectivePoints / answered) * 100 * 10) / 10
+        : 0,
   };
 }
 
@@ -852,6 +1077,159 @@ export function createPortalMcpServer(
         paperLabel: updatedAttempt.paperLabel,
         generalNotes: updatedNotes,
         message: "Strategy notes & reflections attached successfully.",
+      });
+    },
+  );
+
+  server.registerTool(
+    "grade_attempt_questions",
+    {
+      title: "Grade attempt questions",
+      description:
+        "Post marks or subjective assessments for free-text, cloze, or subjective answers in an attempt. Automatically recalculates the attempt's score, percentage, and accuracy so the app UI matches the adjusted marks. Ask for student confirmation before applying grade changes.",
+      annotations: { readOnlyHint: false, destructiveHint: false },
+      inputSchema: {
+        attemptId: z
+          .string()
+          .optional()
+          .describe("Specific attempt ID. Defaults to latest attempt."),
+        paperId: z
+          .string()
+          .optional()
+          .describe("Match latest attempt for this paper ID."),
+        grades: z
+          .array(
+            z.object({
+              questionNo: z.number().int().min(1),
+              marks: z.number().describe("Marks awarded for this question."),
+              assessment: z
+                .enum(["strong", "partial", "needs-work", "no-attempt"])
+                .optional()
+                .describe(
+                  "Optional qualitative assessment. If omitted, inferred from marks vs full marks.",
+                ),
+              isCorrect: z
+                .boolean()
+                .optional()
+                .describe(
+                  "Optional correctness flag. Inferred from assessment/marks if omitted.",
+                ),
+              note: z
+                .string()
+                .optional()
+                .describe(
+                  "Optional feedback or explanation note for this question.",
+                ),
+            }),
+          )
+          .min(1)
+          .describe("List of question grades to apply."),
+      },
+    },
+    async ({ attemptId, paperId, grades }) => {
+      const authError = scopeError(scope, MCP_WRITE_SCOPE);
+      if (authError) return authError;
+
+      const [papers, rawAttempts] = await Promise.all([
+        getUserPapers(userId),
+        getUserAttempts(userId),
+      ]);
+
+      if (!rawAttempts.length) {
+        return errorResult("No exam attempts found for this student.");
+      }
+
+      const attempts = sortAttemptsLatestFirst(rawAttempts);
+      const targetAttempt = attemptId
+        ? attempts.find((a) => a.id === attemptId)
+        : paperId
+          ? attempts.find((a) => a.paperId === paperId)
+          : attempts[0];
+
+      if (!targetAttempt) {
+        return errorResult(
+          attemptId
+            ? `Attempt ${attemptId} not found.`
+            : `No attempt found for paper ${paperId}.`,
+        );
+      }
+
+      const paper = papers.find((p) => p.id === targetAttempt.paperId);
+      const isSubjective = targetAttempt.examType === "subjective";
+      const correctMarksPerQ = targetAttempt.correctMarks || 2.0;
+      const subjectiveMarksPerQ =
+        targetAttempt.totalQuestions > 0
+          ? (targetAttempt.totalMarks || targetAttempt.maxScore || 0) /
+            targetAttempt.totalQuestions
+          : 0;
+
+      const updatedAnswers = { ...targetAttempt.answers };
+
+      for (const grade of grades) {
+        const qNo = grade.questionNo;
+        const currentAnswer = updatedAnswers[qNo] || {
+          questionNo: qNo,
+          selected: isSubjective ? "attempted" : "attempted",
+        };
+
+        const isCloze = isClozeQuestion(qNo, paper, currentAnswer);
+        const fullMarks = isCloze ? correctMarksPerQ : subjectiveMarksPerQ;
+
+        const assessment: SubjectiveAssessment =
+          grade.assessment ||
+          (grade.marks >= fullMarks
+            ? "strong"
+            : grade.marks > 0
+              ? "partial"
+              : grade.marks === 0 && currentAnswer.selected === null
+                ? "no-attempt"
+                : "needs-work");
+
+        const isCorrect: boolean | null =
+          grade.isCorrect !== undefined
+            ? grade.isCorrect
+            : assessment === "strong"
+              ? true
+              : assessment === "needs-work"
+                ? false
+                : null;
+
+        updatedAnswers[qNo] = {
+          ...currentAnswer,
+          selected: isCloze
+            ? currentAnswer.selected
+            : assessment === "no-attempt"
+              ? null
+              : currentAnswer.selected || "attempted",
+          subjectiveAssessment: assessment,
+          subjectiveMarks: grade.marks,
+          isCorrect,
+          note: grade.note !== undefined ? grade.note : currentAnswer.note,
+        };
+      }
+
+      const updatedAttempt = recalculateAttemptGrades(
+        {
+          ...targetAttempt,
+          answers: updatedAnswers,
+        },
+        paper,
+      );
+
+      await saveMcpAttempt(userId, updatedAttempt);
+
+      return textResult({
+        saved: true,
+        attemptId: updatedAttempt.id,
+        paperLabel: updatedAttempt.paperLabel,
+        adjustedScore: updatedAttempt.score,
+        maxScore: updatedAttempt.maxScore,
+        percentagePct: updatedAttempt.percentagePct,
+        accuracyPct: updatedAttempt.accuracyPct,
+        correct: updatedAttempt.correct,
+        partial: updatedAttempt.partial,
+        incorrect: updatedAttempt.incorrect,
+        gradedQuestionsCount: grades.length,
       });
     },
   );
