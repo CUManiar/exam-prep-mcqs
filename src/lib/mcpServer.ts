@@ -582,17 +582,37 @@ export function createPortalMcpServer(
     "list_papers",
     {
       title: "List papers",
-      description: "List the papers visible in the student's paper library.",
+      description:
+        "List the papers visible in the student's paper library. Supports filtering by attempt status ('unattempted' to find pending tests, 'attempted', or 'all').",
       annotations: { readOnlyHint: true },
       inputSchema: {
         search: z.string().optional(),
         source: z.enum(["all", "student", "preloaded"]).optional(),
+        status: z
+          .enum(["all", "attempted", "unattempted"])
+          .optional()
+          .describe(
+            "Filter by attempt status: 'unattempted' to list pending tests in one call, 'attempted' for completed papers, or 'all'. Defaults to 'all'.",
+          ),
       },
     },
-    async ({ search, source }) => {
+    async ({ search, source, status }) => {
       const authError = scopeError(scope, MCP_READ_SCOPE);
       if (authError) return authError;
-      const papers = await getUserPapers(userId);
+
+      const [papers, attempts] = await Promise.all([
+        getUserPapers(userId),
+        getUserAttempts(userId),
+      ]);
+
+      const attemptCountByPaper = attempts.reduce(
+        (acc, att) => {
+          acc[att.paperId] = (acc[att.paperId] || 0) + 1;
+          return acc;
+        },
+        {} as Record<string, number>,
+      );
+
       const query = search?.trim().toLowerCase();
       const filtered = papers.filter((paper) => {
         const summary = paperSummary(paper);
@@ -602,13 +622,29 @@ export function createPortalMcpServer(
             : source === "preloaded"
               ? summary.source === "preloaded"
               : true;
+
+        const attemptCount = attemptCountByPaper[paper.id] || 0;
+        const matchesStatus =
+          status === "unattempted"
+            ? attemptCount === 0
+            : status === "attempted"
+              ? attemptCount > 0
+              : true;
+
         const haystack =
           `${summary.title} ${summary.subject} ${summary.year}`.toLowerCase();
-        return matchesSource && (!query || haystack.includes(query));
+        return (
+          matchesSource && matchesStatus && (!query || haystack.includes(query))
+        );
       });
+
       return textResult({
-        papers: filtered.map(paperSummary),
+        papers: filtered.map((paper) => ({
+          ...paperSummary(paper),
+          attempts: attemptCountByPaper[paper.id] || 0,
+        })),
         count: filtered.length,
+        statusFilter: status || "all",
       });
     },
   );
