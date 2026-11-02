@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useMemo, useEffect } from "react";
+import { useRouter } from "next/navigation";
 import {
   Attempt,
   QuestionPaper,
@@ -34,6 +35,7 @@ interface AttemptReviewViewProps {
   onBack: () => void;
   onUpdate: (updated: Attempt) => void;
   onDelete: (attemptId: string) => void;
+  onSwitchAttempt?: (attempt: Attempt) => void;
 }
 
 export function AttemptReviewView({
@@ -42,8 +44,34 @@ export function AttemptReviewView({
   onBack,
   onUpdate,
   onDelete,
+  onSwitchAttempt,
 }: AttemptReviewViewProps) {
-  const { handleStartExam } = useApp();
+  const router = useRouter();
+  const { handleStartExam, attempts: allAttempts = [] } = useApp();
+
+  // Find all attempts for this same paper
+  const relatedAttempts = useMemo(() => {
+    const matching = allAttempts.filter((a) => a.paperId === attempt.paperId);
+    const sameMode = matching.filter((a) => a.mode === attempt.mode);
+    const pool = sameMode.length > 1 ? sameMode : matching;
+    return [...pool].sort(
+      (a, b) =>
+        new Date(a.startedAt).getTime() - new Date(b.startedAt).getTime(),
+    );
+  }, [allAttempts, attempt.paperId, attempt.mode]);
+
+  const currentAttemptIndex = relatedAttempts.findIndex(
+    (a) => a.id === attempt.id,
+  );
+  const totalRelatedAttempts = relatedAttempts.length;
+
+  const handleSwitchAttempt = (target: Attempt) => {
+    if (onSwitchAttempt) {
+      onSwitchAttempt(target);
+    } else {
+      router.push(`/history/${encodeURIComponent(target.id)}`);
+    }
+  };
 
   // 1. Core data computation hook
   const {
@@ -485,6 +513,53 @@ export function AttemptReviewView({
         }
         effectiveMaxScore={effectiveMaxScore}
       />
+
+      {/* Multi-Attempt History Switcher Strip */}
+      {totalRelatedAttempts > 1 && (
+        <div className="screen-only border-b border-indigo-100 bg-indigo-50/70 px-4 sm:px-6 py-2 flex items-center justify-between gap-3 shrink-0 text-xs shadow-2xs z-20">
+          <div className="flex items-center gap-2 min-w-0">
+            <span className="flex h-5 w-5 items-center justify-center rounded-md bg-indigo-600 text-white text-[10px] font-bold shrink-0">
+              {currentAttemptIndex >= 0 ? currentAttemptIndex + 1 : "?"}
+            </span>
+            <span className="text-xs font-semibold text-slate-800 truncate">
+              Attempt #{currentAttemptIndex >= 0 ? currentAttemptIndex + 1 : 1} of{" "}
+              {totalRelatedAttempts} on this paper
+            </span>
+          </div>
+
+          {/* Quick Switch Attempt Pills */}
+          <div className="flex items-center gap-1.5 shrink-0 overflow-x-auto py-0.5">
+            {relatedAttempts.map((rel, idx) => {
+              const isCurrent = rel.id === attempt.id;
+              return (
+                <button
+                  key={rel.id}
+                  onClick={() => {
+                    if (!isCurrent) {
+                      handleSwitchAttempt(rel);
+                    }
+                  }}
+                  className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-bold transition-all cursor-pointer shrink-0 ${
+                    isCurrent
+                      ? "bg-indigo-600 text-white shadow-xs"
+                      : "bg-white border border-slate-200 text-slate-700 hover:border-indigo-300 hover:text-indigo-600 shadow-2xs"
+                  }`}
+                  title={`Switch to Attempt #${idx + 1}`}
+                >
+                  <span>#{idx + 1}</span>
+                  <span
+                    className={`text-[10px] font-mono ${
+                      isCurrent ? "text-indigo-100" : "text-slate-500"
+                    }`}
+                  >
+                    ({formatReviewNumber(rel.score)} pts)
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      )}
 
       {/* 2. Mobile Responsive Tab Switcher */}
       <div className="lg:hidden px-3 pt-2 shrink-0">
