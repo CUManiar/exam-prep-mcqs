@@ -79,7 +79,7 @@ interface ExamSessionViewProps {
   paper: QuestionPaper;
   mode: "practice" | "mock";
   initialDraft?: ActiveSessionDraft | null;
-  onFinish: (attempt: Attempt) => void;
+  onFinish: (attempt: Attempt) => void | Promise<void>;
   onExit: () => void;
 }
 
@@ -167,6 +167,7 @@ export function ExamSessionView({
   >("all");
   const [showNoteBox, setShowNoteBox] = useState<boolean>(true);
   const [showFinishConfirm, setShowFinishConfirm] = useState<boolean>(false);
+  const [isSubmittingExam, setIsSubmittingExam] = useState<boolean>(false);
   const [solutionModalOpen, setSolutionModalOpen] = useState<boolean>(false);
   const [showShortcutsModal, setShowShortcutsModal] = useState<boolean>(false);
   const [paletteViewMode, setPaletteViewMode] = useState<"grid" | "omr">(
@@ -1279,8 +1280,12 @@ export function ExamSessionView({
   });
 
   // Finish exam calculations
-  const handleFinishExam = (submissionPdfBlobUrl?: string) => {
-    clearActiveDraft();
+  const handleFinishExam = async (submissionPdfBlobUrl?: string) => {
+    if (isSubmittingExam) return;
+    setIsSubmittingExam(true);
+
+    try {
+      clearActiveDraft();
 
     let correctCount = 0;
     let incorrectCount = 0;
@@ -1439,7 +1444,11 @@ export function ExamSessionView({
       userSubmissionPdfUrl: submissionPdfBlobUrl || fullBookletUrl,
     };
 
-    onFinish(attempt);
+      await Promise.resolve(onFinish(attempt));
+    } catch (err) {
+      console.error("Failed to finish exam session:", err);
+      setIsSubmittingExam(false);
+    }
   };
 
   const currentQObj = (currentQuestion !== null
@@ -1619,7 +1628,9 @@ export function ExamSessionView({
             </div>
 
             <button
+              disabled={isSubmittingExam}
               onClick={() => {
+                if (isSubmittingExam) return;
                 if (isSubjectiveScanPaper) {
                   if (mode === "mock") {
                     setIsScanUploadPhase(true);
@@ -1632,9 +1643,14 @@ export function ExamSessionView({
                   setShowFinishConfirm(true);
                 }
               }}
-              className="rounded-lg bg-indigo-600 px-3 sm:px-4 py-1 sm:py-1.5 text-xs font-bold text-white shadow-xs hover:bg-indigo-700 transition-all shrink-0"
+              className={`rounded-lg bg-indigo-600 px-3 sm:px-4 py-1 sm:py-1.5 text-xs font-bold text-white shadow-xs hover:bg-indigo-700 transition-all shrink-0 flex items-center gap-1.5 ${
+                isSubmittingExam ? "opacity-60 cursor-not-allowed pointer-events-none" : ""
+              }`}
             >
-              {isSubjective ? "Submit" : "Finish"}
+              {isSubmittingExam && (
+                <Loader2 className="h-3.5 w-3.5 animate-spin" />
+              )}
+              <span>{isSubjective ? "Submit" : "Finish"}</span>
             </button>
           </div>
         </div>
@@ -3199,8 +3215,13 @@ export function ExamSessionView({
             <div className="max-w-7xl mx-auto flex items-center justify-between gap-3">
               <div className="flex items-center gap-3 min-w-0">
                 <button
+                  disabled={isSubmittingExam}
                   onClick={() => setShowFinishConfirm(false)}
-                  className="flex items-center gap-1.5 rounded-xl border border-slate-200 bg-slate-50 px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-100 transition-colors shadow-2xs shrink-0"
+                  className={`flex items-center gap-1.5 rounded-xl border border-slate-200 bg-slate-50 px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-100 transition-colors shadow-2xs shrink-0 ${
+                    isSubmittingExam
+                      ? "opacity-50 cursor-not-allowed pointer-events-none"
+                      : "cursor-pointer"
+                  }`}
                 >
                   <ArrowLeft className="h-4 w-4" /> Return to Exam
                 </button>
@@ -3221,14 +3242,27 @@ export function ExamSessionView({
                   <span>Time: {formatTimeSeconds(elapsedSeconds)}</span>
                 </div>
                 <button
+                  disabled={isSubmittingExam}
                   onClick={() => {
-                    setShowFinishConfirm(false);
                     handleFinishExam();
                   }}
-                  className="rounded-xl bg-indigo-600 px-4 sm:px-6 py-2 text-xs sm:text-sm font-bold text-white shadow-xs hover:bg-indigo-700 transition-all flex items-center gap-2"
+                  className={`rounded-xl bg-indigo-600 px-4 sm:px-6 py-2 text-xs sm:text-sm font-bold text-white shadow-xs hover:bg-indigo-700 transition-all flex items-center gap-2 ${
+                    isSubmittingExam
+                      ? "opacity-75 cursor-not-allowed pointer-events-none"
+                      : "cursor-pointer"
+                  }`}
                 >
-                  <span>Finalize & Submit Exam</span>
-                  <ArrowRight className="h-4 w-4" />
+                  {isSubmittingExam ? (
+                    <>
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                      <span>Evaluating & Finalizing...</span>
+                    </>
+                  ) : (
+                    <>
+                      <span>Finalize & Submit Exam</span>
+                      <ArrowRight className="h-4 w-4" />
+                    </>
+                  )}
                 </button>
               </div>
             </div>
@@ -3237,6 +3271,15 @@ export function ExamSessionView({
           {/* Assessment Body */}
           <div className="flex-1 bg-slate-50/60 p-4 sm:p-6 lg:p-8">
             <div className="max-w-7xl mx-auto space-y-6">
+              {isSubmittingExam && (
+                <div className="rounded-2xl border border-indigo-300 bg-indigo-50/95 p-4 shadow-sm flex items-center justify-center gap-3 text-indigo-900 animate-pulse">
+                  <Loader2 className="h-5 w-5 animate-spin text-indigo-600 shrink-0" />
+                  <div className="text-xs sm:text-sm font-semibold text-center">
+                    Evaluation in progress — scoring your answers and preparing scorecard... Please wait.
+                  </div>
+                </div>
+              )}
+
               {/* KPI Overview Cards */}
               <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 sm:gap-4">
                 <div className="rounded-2xl border border-emerald-200 bg-emerald-50/60 p-4 shadow-2xs">
@@ -3369,11 +3412,17 @@ export function ExamSessionView({
                     return (
                       <button
                         key={qNo}
+                        disabled={isSubmittingExam}
                         onClick={() => {
+                          if (isSubmittingExam) return;
                           setShowFinishConfirm(false);
                           navigateToQuestion(qNo);
                         }}
                         className={`flex flex-col items-center justify-center rounded-xl p-2 border transition-all text-center shadow-2xs ${
+                          isSubmittingExam
+                            ? "opacity-50 cursor-not-allowed pointer-events-none"
+                            : ""
+                        } ${
                           isFlag
                             ? "border-amber-300 bg-amber-50/70 text-amber-900 hover:border-amber-400"
                             : isAtt
@@ -3419,19 +3468,35 @@ export function ExamSessionView({
 
                 <div className="flex items-center gap-3 shrink-0">
                   <button
+                    disabled={isSubmittingExam}
                     onClick={() => setShowFinishConfirm(false)}
-                    className="rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-xs font-semibold text-slate-700 hover:bg-slate-50 transition-colors shadow-2xs"
+                    className={`rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-xs font-semibold text-slate-700 hover:bg-slate-50 transition-colors shadow-2xs ${
+                      isSubmittingExam
+                        ? "opacity-50 cursor-not-allowed pointer-events-none"
+                        : "cursor-pointer"
+                    }`}
                   >
                     Return to Exam
                   </button>
                   <button
+                    disabled={isSubmittingExam}
                     onClick={() => {
-                      setShowFinishConfirm(false);
                       handleFinishExam();
                     }}
-                    className="rounded-xl bg-indigo-600 px-6 py-2.5 text-xs font-bold text-white shadow-xs hover:bg-indigo-700 transition-all"
+                    className={`rounded-xl bg-indigo-600 px-6 py-2.5 text-xs font-bold text-white shadow-xs hover:bg-indigo-700 transition-all flex items-center gap-2 ${
+                      isSubmittingExam
+                        ? "opacity-75 cursor-not-allowed pointer-events-none"
+                        : "cursor-pointer"
+                    }`}
                   >
-                    Confirm & Finalize
+                    {isSubmittingExam ? (
+                      <>
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                        <span>Evaluating & Finalizing...</span>
+                      </>
+                    ) : (
+                      <span>Confirm & Finalize</span>
+                    )}
                   </button>
                 </div>
               </div>
@@ -3509,23 +3574,41 @@ export function ExamSessionView({
 
                 <div className="flex items-center justify-between pt-2">
                   <button
+                    disabled={isSubmittingExam}
                     onClick={() => setIsScanUploadPhase(false)}
-                    className="rounded-xl px-4 py-2 text-xs font-semibold text-slate-600 hover:bg-slate-100"
+                    className={`rounded-xl px-4 py-2 text-xs font-semibold text-slate-600 hover:bg-slate-100 ${
+                      isSubmittingExam
+                        ? "opacity-50 cursor-not-allowed pointer-events-none"
+                        : "cursor-pointer"
+                    }`}
                   >
                     Back to Session
                   </button>
                   <button
+                    disabled={isSubmittingExam}
                     onClick={() => {
+                      if (isSubmittingExam) return;
                       const blobUrl = userSubmissionFile
                         ? URL.createObjectURL(userSubmissionFile)
                         : undefined;
                       handleFinishExam(blobUrl);
                     }}
-                    className="rounded-xl bg-indigo-600 px-6 py-2.5 text-xs font-bold text-white hover:bg-indigo-700 shadow-xs"
+                    className={`rounded-xl bg-indigo-600 px-6 py-2.5 text-xs font-bold text-white hover:bg-indigo-700 shadow-xs flex items-center gap-2 ${
+                      isSubmittingExam
+                        ? "opacity-75 cursor-not-allowed pointer-events-none"
+                        : "cursor-pointer"
+                    }`}
                   >
-                    {userSubmissionFile
-                      ? "Save Copy & Finish"
-                      : "Skip & Finish"}
+                    {isSubmittingExam ? (
+                      <>
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                        <span>Submitting...</span>
+                      </>
+                    ) : userSubmissionFile ? (
+                      "Save Copy & Finish"
+                    ) : (
+                      "Skip & Finish"
+                    )}
                   </button>
                 </div>
               </div>

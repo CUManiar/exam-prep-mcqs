@@ -74,6 +74,10 @@ export default function AttemptDetailPage({
       attempt={attempt}
       papers={papers}
       onBack={() => router.push(currentUser ? "/history" : "/")}
+      onSwitchAttempt={(target) => {
+        setActiveAttempt(target);
+        router.push(`/history/${encodeURIComponent(target.id)}`);
+      }}
       onUpdate={(updated) => {
         setActiveAttempt(updated);
         handleUpdateAttempt(updated);

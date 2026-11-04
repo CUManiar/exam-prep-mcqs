@@ -104,7 +104,7 @@ interface AppContextType {
   handleStartExam: (paper: QuestionPaper, mode: "practice" | "mock") => void;
   handleResumeDraft: (draft: ActiveSessionDraft) => void;
   handleDiscardDraft: () => void;
-  handleFinishExamSession: (attempt: Attempt) => void;
+  handleFinishExamSession: (attempt: Attempt) => Promise<void> | void;
   notifyExamReady: () => void;
   handleViewAttemptDetail: (attempt: Attempt) => void;
   handleUpdateAttempt: (updated: Attempt) => void;
@@ -644,7 +644,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   };
 
   // Finishing exam session
-  const handleFinishExamSession = (attempt: Attempt) => {
+  const handleFinishExamSession = async (attempt: Attempt) => {
     if (!currentUser) {
       saveGuestReviewAttempt(attempt);
     }
@@ -656,12 +656,12 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       ...previous.filter((existing) => existing.id !== attempt.id),
     ]);
     if (currentUser) {
-      saveUserAttemptToSupabase(attempt, currentUser.id);
+      await saveUserAttemptToSupabase(attempt, currentUser.id);
     }
     clearActiveDraft();
     setActiveDraft(null);
     if (currentUser) {
-      clearUserDraftFromSupabase(currentUser.id);
+      await clearUserDraftFromSupabase(currentUser.id);
     }
 
     addNotification({
