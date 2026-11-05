@@ -137,23 +137,63 @@ export function SyllabusView() {
   const remainingTopics = Math.max(progress.total - progress.completed, 0);
 
   const normalizedQuery = searchQuery.trim().toLowerCase();
+  const [highlightedId, setHighlightedId] = useState<string | null>(null);
 
   const itemBreadcrumbMap = useMemo(() => {
     const itemMap = new Map<string, SyllabusItem>();
     activeItems.forEach((it) => itemMap.set(it.id, it));
 
-    const trailMap = new Map<string, string[]>();
+    const trailMap = new Map<string, { id: string; title: string }[]>();
     activeItems.forEach((it) => {
-      const parts: string[] = [];
+      const parts: { id: string; title: string }[] = [];
       let curr = it.parentId ? itemMap.get(it.parentId) : undefined;
       while (curr) {
-        parts.unshift(curr.title);
+        parts.unshift({ id: curr.id, title: curr.title });
         curr = curr.parentId ? itemMap.get(curr.parentId) : undefined;
       }
       trailMap.set(it.id, parts);
     });
     return trailMap;
   }, [activeItems]);
+
+  const expandAndScrollToItem = (itemId: string, clearSearch = true) => {
+    if (clearSearch) {
+      setSearchQuery("");
+    }
+
+    const parentMap = new Map<string, string>();
+    activeItems.forEach((it) => {
+      if (it.parentId) parentMap.set(it.id, it.parentId);
+    });
+
+    const toExpand = new Set<string>();
+    toExpand.add(itemId);
+
+    let curr = parentMap.get(itemId);
+    while (curr) {
+      toExpand.add(curr);
+      curr = parentMap.get(curr);
+    }
+
+    setCollapsedIds((prev) => {
+      const next = new Set(prev);
+      toExpand.forEach((id) => next.delete(id));
+      return next;
+    });
+
+    setHighlightedId(itemId);
+
+    setTimeout(() => {
+      const el = document.getElementById(`syllabus-item-${itemId}`);
+      if (el) {
+        el.scrollIntoView({ behavior: "smooth", block: "nearest" });
+      }
+    }, 60);
+
+    setTimeout(() => {
+      setHighlightedId((curr) => (curr === itemId ? null : curr));
+    }, 2400);
+  };
 
   const directMatchIds = useMemo(() => {
     if (!normalizedQuery) return new Set<string>();
@@ -196,7 +236,15 @@ export function SyllabusView() {
     setCollapsedIds(new Set(parentIds));
   }, [parentIdsKey, syllabusMarkdown]);
 
-  // Set of item IDs to show in tree (item itself matches, or any descendant matches)
+  const [forceVisibleIds, setForceVisibleIds] = useState<Set<string>>(
+    new Set(),
+  );
+
+  useEffect(() => {
+    setForceVisibleIds(new Set());
+  }, [normalizedQuery]);
+
+  // Set of item IDs to show in tree (item itself matches, or any descendant matches, or unhidden via click)
   const visibleItemIds = useMemo(() => {
     if (!normalizedQuery) return null; // null means show all
     const visible = new Set<string>();
@@ -205,7 +253,8 @@ export function SyllabusView() {
       const children = childrenByParent.get(item.id) || [];
       const hasChildMatch = children.some((child) => checkItem(child));
       const isDirectMatch = directMatchIds.has(item.id);
-      if (isDirectMatch || hasChildMatch) {
+      const isForced = forceVisibleIds.has(item.id);
+      if (isDirectMatch || hasChildMatch || isForced) {
         visible.add(item.id);
         return true;
       }
@@ -218,8 +267,26 @@ export function SyllabusView() {
       }
     });
 
+    const addDescendants = (pId: string) => {
+      const ch = childrenByParent.get(pId) || [];
+      ch.forEach((c) => {
+        visible.add(c.id);
+        addDescendants(c.id);
+      });
+    };
+    forceVisibleIds.forEach((id) => {
+      visible.add(id);
+      addDescendants(id);
+    });
+
     return visible;
-  }, [activeItems, childrenByParent, directMatchIds, normalizedQuery]);
+  }, [
+    activeItems,
+    childrenByParent,
+    directMatchIds,
+    forceVisibleIds,
+    normalizedQuery,
+  ]);
 
   // When search query changes, automatically expand all parent nodes of matching items
   useEffect(() => {
@@ -244,6 +311,37 @@ export function SyllabusView() {
       return next;
     });
   }, [normalizedQuery, directMatchIds, activeItems]);
+
+  // Deep-link navigation via URL query params (?section=... or ?topic=...) or hash (#...)
+  useEffect(() => {
+    if (typeof window === "undefined" || !activeItems.length) return;
+    const url = new URL(window.location.href);
+    const targetSection =
+      url.searchParams.get("section") ||
+      url.searchParams.get("topic") ||
+      url.searchParams.get("item");
+    const targetQuery =
+      url.searchParams.get("q") || url.searchParams.get("search");
+    const hash = window.location.hash.replace("#", "");
+
+    if (targetQuery && !searchQuery) {
+      setSearchQuery(targetQuery);
+    }
+
+    const targetId = targetSection || hash;
+    if (targetId) {
+      const decoded = decodeURIComponent(targetId).toLowerCase();
+      const matched = activeItems.find(
+        (it) =>
+          it.id === targetId ||
+          it.id === targetId.replace(/^syllabus-item-/, "") ||
+          it.title.toLowerCase() === decoded,
+      );
+      if (matched) {
+        expandAndScrollToItem(matched.id, false);
+      }
+    }
+  }, [activeItems]);
 
   const showMessage = (nextMessage: string) => {
     setMessage(nextMessage);
@@ -306,6 +404,74 @@ export function SyllabusView() {
     );
   };
 
+  const handleRowClick = (item: SyllabusItem) => {
+    const isParent = (childrenByParent.get(item.id) || []).length > 0;
+    const parentId = item.parentId;
+
+    // Sibling items that share the same parentId (if inside a parent section)
+    const siblings = parentId
+      ? activeItems.filter((candidate) => candidate.parentId === parentId)
+      : [];
+
+    // Direct children of this item
+    const itemChildren = childrenByParent.get(item.id) || [];
+
+    // If search is active, unhide the clicked item, its parent, its siblings, and their children
+    if (normalizedQuery) {
+      setForceVisibleIds((prev) => {
+        const next = new Set(prev);
+        next.add(item.id);
+        if (parentId) next.add(parentId);
+        siblings.forEach((s) => {
+          next.add(s.id);
+          const sCh = childrenByParent.get(s.id) || [];
+          sCh.forEach((c) => next.add(c.id));
+        });
+        itemChildren.forEach((c) => next.add(c.id));
+        return next;
+      });
+    }
+
+    setCollapsedIds((prev) => {
+      const next = new Set(prev);
+      const isCurrentlyCollapsed = next.has(item.id);
+
+      if (isCurrentlyCollapsed || !isParent) {
+        // Expand the clicked item itself
+        if (isParent) next.delete(item.id);
+
+        // Ensure parent is expanded
+        if (parentId) next.delete(parentId);
+
+        // Expand all siblings under the same parent
+        siblings.forEach((s) => {
+          const sHasChildren = (childrenByParent.get(s.id) || []).length > 0;
+          if (sHasChildren) {
+            next.delete(s.id);
+          }
+        });
+
+        // Also expand any child sections
+        itemChildren.forEach((c) => {
+          const cHasChildren = (childrenByParent.get(c.id) || []).length > 0;
+          if (cHasChildren) {
+            next.delete(c.id);
+          }
+        });
+      } else {
+        // If clicking an already expanded parent row, collapse it
+        next.add(item.id);
+      }
+
+      return next;
+    });
+
+    setHighlightedId(item.id);
+    setTimeout(() => {
+      setHighlightedId((curr) => (curr === item.id ? null : curr));
+    }, 2000);
+  };
+
   const renderTree = (items: SyllabusItem[], depth = 0): ReactNode => {
     const filteredItems = visibleItemIds
       ? items.filter((item) => visibleItemIds.has(item.id))
@@ -335,6 +501,9 @@ export function SyllabusView() {
 
     return filteredItems.map((item) => {
       const children = childrenByParent.get(item.id) || [];
+      const visibleChildren = visibleItemIds
+        ? children.filter((child) => visibleItemIds.has(child.id))
+        : children;
       const completed = getSyllabusCompletion(item, activeItems);
       const dateStatus = getSyllabusItemDateStatus(item, activeItems);
       const effectiveDueDate = getEffectiveSyllabusDueDate(item, activeItems);
@@ -343,20 +512,44 @@ export function SyllabusView() {
         isParent && !completed && hasCompletedDescendant(item);
       const isCollapsed = collapsedIds.has(item.id);
       const breadcrumbs = itemBreadcrumbMap.get(item.id) || [];
+
       return (
         <div
           key={item.id}
-          className={depth ? "ml-3 border-l-2 border-blue-100 pl-3" : ""}
+          id={`syllabus-item-${item.id}`}
+          className={`transition-all duration-200 ${
+            depth ? "ml-3 border-l-2 border-blue-100 pl-3" : ""
+          }`}
         >
           <div
-            className={`group cursor-pointer rounded-xl border p-3 transition-all duration-150 ${
-              completed
-                ? "border-emerald-200 bg-emerald-50/45"
-                : "border-slate-200/90 bg-white hover:border-blue-200 hover:shadow-sm"
+            role="button"
+            tabIndex={0}
+            onClick={(e) => {
+              const target = e.target as HTMLElement;
+              if (target.closest("label, input, button, a")) return;
+              handleRowClick(item);
+            }}
+            onKeyDown={(e) => {
+              if (e.key === "Enter" || e.key === " ") {
+                const target = e.target as HTMLElement;
+                if (target.closest("label, input, button, a")) return;
+                e.preventDefault();
+                handleRowClick(item);
+              }
+            }}
+            className={`group rounded-xl border p-3 transition-all duration-150 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 ${
+              highlightedId === item.id
+                ? "ring-2 ring-blue-500 border-blue-400 bg-blue-50/60 shadow-sm"
+                : completed
+                  ? "border-emerald-200 bg-emerald-50/45 hover:border-emerald-300"
+                  : "border-slate-200/90 bg-white hover:border-blue-300 hover:shadow-sm"
             }`}
           >
             <div className="flex items-start gap-2.5">
-              <label className="mt-1 grid h-4 w-4 shrink-0 cursor-pointer place-items-center">
+              <label
+                onClick={(e) => e.stopPropagation()}
+                className="mt-1 grid h-4 w-4 shrink-0 cursor-pointer place-items-center"
+              >
                 <input
                   type="checkbox"
                   checked={completed}
@@ -383,14 +576,17 @@ export function SyllabusView() {
               {isParent && (
                 <button
                   type="button"
-                  onClick={() => toggleCollapsed(item.id)}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    toggleCollapsed(item.id);
+                  }}
                   aria-label={
                     isCollapsed
                       ? `Expand ${item.title}`
                       : `Collapse ${item.title}`
                   }
                   aria-expanded={!isCollapsed}
-                  className="-ml-1 mt-0.5 grid h-6 w-6 shrink-0 place-items-center rounded-lg text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-700"
+                  className="-ml-1 mt-0.5 grid h-6 w-6 shrink-0 place-items-center rounded-lg text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-700 cursor-pointer"
                 >
                   <ChevronRight
                     className={`h-4 w-4 transition-transform ${isCollapsed ? "" : "rotate-90"}`}
@@ -402,13 +598,45 @@ export function SyllabusView() {
               )}
               <div className="min-w-0 flex-1">
                 {normalizedQuery && breadcrumbs.length > 0 && (
-                  <p className="text-[10px] text-slate-400 truncate mb-0.5">
-                    {breadcrumbs.join(" › ")}
-                  </p>
+                  <nav
+                    aria-label="Topic hierarchy"
+                    className="mb-1 flex flex-wrap items-center gap-1 text-[10px] text-slate-400"
+                  >
+                    {breadcrumbs.map((crumb, idx) => (
+                      <span
+                        key={crumb.id}
+                        className="inline-flex items-center gap-1"
+                      >
+                        {idx > 0 && (
+                          <span className="text-slate-300">›</span>
+                        )}
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            const crumbItem = activeItems.find(
+                              (it) => it.id === crumb.id,
+                            );
+                            if (crumbItem) {
+                              handleRowClick(crumbItem);
+                            }
+                          }}
+                          className="font-medium text-slate-500 transition-colors hover:text-blue-600 hover:underline cursor-pointer"
+                          title={`Click to expand ${crumb.title}`}
+                        >
+                          {crumb.title}
+                        </button>
+                      </span>
+                    ))}
+                  </nav>
                 )}
                 <div className="flex flex-wrap items-center gap-2">
                   <p
-                    className={`text-sm font-medium ${completed ? "text-slate-400 line-through" : "text-slate-800"}`}
+                    className={`text-sm font-medium ${
+                      completed
+                        ? "text-slate-400 line-through"
+                        : "text-slate-800 group-hover:text-blue-900"
+                    }`}
                   >
                     {highlightMatch(item.title, searchQuery)}
                   </p>
