@@ -404,6 +404,74 @@ export function SyllabusView() {
     );
   };
 
+  const handleRowClick = (item: SyllabusItem) => {
+    const isParent = (childrenByParent.get(item.id) || []).length > 0;
+    const parentId = item.parentId;
+
+    // Sibling items that share the same parentId (if inside a parent section)
+    const siblings = parentId
+      ? activeItems.filter((candidate) => candidate.parentId === parentId)
+      : [];
+
+    // Direct children of this item
+    const itemChildren = childrenByParent.get(item.id) || [];
+
+    // If search is active, unhide the clicked item, its parent, its siblings, and their children
+    if (normalizedQuery) {
+      setForceVisibleIds((prev) => {
+        const next = new Set(prev);
+        next.add(item.id);
+        if (parentId) next.add(parentId);
+        siblings.forEach((s) => {
+          next.add(s.id);
+          const sCh = childrenByParent.get(s.id) || [];
+          sCh.forEach((c) => next.add(c.id));
+        });
+        itemChildren.forEach((c) => next.add(c.id));
+        return next;
+      });
+    }
+
+    setCollapsedIds((prev) => {
+      const next = new Set(prev);
+      const isCurrentlyCollapsed = next.has(item.id);
+
+      if (isCurrentlyCollapsed || !isParent) {
+        // Expand the clicked item itself
+        if (isParent) next.delete(item.id);
+
+        // Ensure parent is expanded
+        if (parentId) next.delete(parentId);
+
+        // Expand all siblings under the same parent
+        siblings.forEach((s) => {
+          const sHasChildren = (childrenByParent.get(s.id) || []).length > 0;
+          if (sHasChildren) {
+            next.delete(s.id);
+          }
+        });
+
+        // Also expand any child sections
+        itemChildren.forEach((c) => {
+          const cHasChildren = (childrenByParent.get(c.id) || []).length > 0;
+          if (cHasChildren) {
+            next.delete(c.id);
+          }
+        });
+      } else {
+        // If clicking an already expanded parent row, collapse it
+        next.add(item.id);
+      }
+
+      return next;
+    });
+
+    setHighlightedId(item.id);
+    setTimeout(() => {
+      setHighlightedId((curr) => (curr === item.id ? null : curr));
+    }, 2000);
+  };
+
   const renderTree = (items: SyllabusItem[], depth = 0): ReactNode => {
     const filteredItems = visibleItemIds
       ? items.filter((item) => visibleItemIds.has(item.id))
@@ -454,30 +522,22 @@ export function SyllabusView() {
           }`}
         >
           <div
-            role={isParent ? "button" : undefined}
-            tabIndex={isParent ? 0 : undefined}
+            role="button"
+            tabIndex={0}
             onClick={(e) => {
               const target = e.target as HTMLElement;
               if (target.closest("label, input, button, a")) return;
-              if (isParent) {
-                toggleCollapsed(item.id);
-              }
+              handleRowClick(item);
             }}
             onKeyDown={(e) => {
               if (e.key === "Enter" || e.key === " ") {
                 const target = e.target as HTMLElement;
                 if (target.closest("label, input, button, a")) return;
-                if (isParent) {
-                  e.preventDefault();
-                  toggleCollapsed(item.id);
-                }
+                e.preventDefault();
+                handleRowClick(item);
               }
             }}
-            className={`group rounded-xl border p-3 transition-all duration-150 ${
-              isParent
-                ? "cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400"
-                : ""
-            } ${
+            className={`group rounded-xl border p-3 transition-all duration-150 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 ${
               highlightedId === item.id
                 ? "ring-2 ring-blue-500 border-blue-400 bg-blue-50/60 shadow-sm"
                 : completed
@@ -554,29 +614,12 @@ export function SyllabusView() {
                           type="button"
                           onClick={(e) => {
                             e.stopPropagation();
-                            // Expand only this particular selected section
-                            setCollapsedIds((prev) => {
-                              const next = new Set(prev);
-                              next.delete(crumb.id);
-                              return next;
-                            });
-                            setHighlightedId(crumb.id);
-                            setTimeout(() => {
-                              const el = document.getElementById(
-                                `syllabus-item-${crumb.id}`,
-                              );
-                              if (el) {
-                                el.scrollIntoView({
-                                  behavior: "smooth",
-                                  block: "nearest",
-                                });
-                              }
-                            }, 60);
-                            setTimeout(() => {
-                              setHighlightedId((curr) =>
-                                curr === crumb.id ? null : curr,
-                              );
-                            }, 2400);
+                            const crumbItem = activeItems.find(
+                              (it) => it.id === crumb.id,
+                            );
+                            if (crumbItem) {
+                              handleRowClick(crumbItem);
+                            }
                           }}
                           className="font-medium text-slate-500 transition-colors hover:text-blue-600 hover:underline cursor-pointer"
                           title={`Click to expand ${crumb.title}`}
