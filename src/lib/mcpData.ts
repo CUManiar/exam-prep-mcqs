@@ -1,5 +1,5 @@
 import { createClient, SupabaseClient } from "@supabase/supabase-js";
-import { Attempt, QuestionPaper, SyllabusItem } from "./types";
+import { Attempt, ParsedQuestion, QuestionPaper, SyllabusItem } from "./types";
 import {
   INITIAL_PAPERS,
   getStandardTimeMinutes,
@@ -705,3 +705,222 @@ export async function getTopicAnalytics(
     hierarchy,
   };
 }
+
+export interface RevisionContextResult {
+  topic?: string;
+  subject?: string;
+  syllabusMatch?: {
+    id: string;
+    title: string;
+    completed: boolean;
+    dueDate?: string;
+    notes?: string;
+  };
+  studentTopicPerformance?: TopicMetric;
+  relatedPaperQuestions: Array<{
+    paperId: string;
+    paperTitle: string;
+    questionNo: number;
+    text: string;
+    options: Record<string, string>;
+    answer?: string;
+    explanation?: string;
+  }>;
+  targetQuestion?: {
+    paperId: string;
+    paperTitle: string;
+    question: ParsedQuestion;
+    latestAttempt?: {
+      selected: string | null;
+      isCorrect: boolean | null;
+      confidence?: string;
+      note?: string;
+      timeSpentSeconds?: number;
+    };
+  };
+}
+
+export async function getRevisionContextData(
+  userId: string,
+  options: {
+    topic?: string;
+    subject?: string;
+    paperId?: string;
+    questionNo?: number;
+    maxRelatedQuestions?: number;
+  },
+): Promise<RevisionContextResult> {
+  const [papers, attempts, syllabus, analytics] = await Promise.all([
+    getUserPapers(userId),
+    getUserAttempts(userId),
+    getUserSyllabus(userId),
+    getTopicAnalytics(userId),
+  ]);
+
+  const topicQuery = options.topic?.trim().toLowerCase();
+  const subjectQuery = options.subject?.trim().toLowerCase();
+  const maxRelated = options.maxRelatedQuestions ?? 5;
+
+  let syllabusMatch: RevisionContextResult["syllabusMatch"];
+  if (topicQuery) {
+    const matchedItem = syllabus.find(
+      (item) =>
+        item.title.toLowerCase().includes(topicQuery) ||
+        topicQuery.includes(item.title.toLowerCase()),
+    );
+    if (matchedItem) {
+      syllabusMatch = {
+        id: matchedItem.id,
+        title: matchedItem.title,
+        completed: matchedItem.completed,
+        dueDate: matchedItem.dueDate,
+        notes: matchedItem.notes,
+      };
+    }
+  }
+
+  let studentTopicPerformance: TopicMetric | undefined;
+  if (topicQuery) {
+    studentTopicPerformance = analytics.allTopics.find(
+      (t) =>
+        t.topic.toLowerCase().includes(topicQuery) ||
+        topicQuery.includes(t.topic.toLowerCase()),
+    );
+  }
+
+  // Find related questions across papers
+  const relatedPaperQuestions: RevisionContextResult["relatedPaperQuestions"] =
+    [];
+  if (topicQuery) {
+    for (const paper of papers) {
+      if (relatedPaperQuestions.length >= maxRelated) break;
+      const questions = paper.parsedQuestions || [];
+      for (const q of questions) {
+        if (relatedPaperQuestions.length >= maxRelated) break;
+        const matchesTopic =
+          (q.topic && q.topic.toLowerCase().includes(topicQuery)) ||
+          (q.chapter && q.chapter.toLowerCase().includes(topicQuery)) ||
+          q.text.toLowerCase().includes(topicQuery);
+        if (matchesTopic) {
+          relatedPaperQuestions.push({
+            paperId: paper.id,
+            paperTitle: paper.label || paper.title || paper.subject,
+            questionNo: q.questionNo,
+            text: q.text,
+            options: q.options || {},
+            answer: q.answer,
+            explanation: q.explanation,
+          });
+        }
+      }
+    }
+  }
+
+  // Target specific question if provided
+  let targetQuestion: RevisionContextResult["targetQuestion"];
+  if (options.paperId && options.questionNo) {
+    const targetPaper = papers.find((p) => p.id === options.paperId);
+    if (targetPaper) {
+      const q = (targetPaper.parsedQuestions || []).find(
+        (item) => item.questionNo === options.questionNo,
+      );
+      if (q) {
+        // Find latest attempt on this paper
+        const paperAttempts = sortAttemptsLatestFirst(
+          attempts.filter((a) => a.paperId === options.paperId),
+        );
+        const latestAttempt = paperAttempts[0];
+        const studentAns = latestAttempt?.answers?.[options.questionNo];
+
+        targetQuestion = {
+          paperId: targetPaper.id,
+          paperTitle:
+            targetPaper.label || targetPaper.title || targetPaper.subject,
+          question: q,
+          latestAttempt: studentAns
+            ? {
+                selected: studentAns.selected,
+                isCorrect: studentAns.isCorrect ?? null,
+                confidence: studentAns.confidence,
+                note: studentAns.note,
+                timeSpentSeconds: studentAns.timeSpentSeconds,
+              }
+            : undefined,
+        };
+      }
+    }
+  }
+
+  return {
+    topic: options.topic,
+    subject: options.subject,
+    syllabusMatch,
+    studentTopicPerformance,
+    relatedPaperQuestions,
+    targetQuestion,
+  };
+}
+
+export async function saveTopicRevisionNote(
+  userId: string,
+  options: {
+    topic?: string;
+    paperId?: string;
+    questionNo?: number;
+    note: string;
+  },
+): Promise<{ saved: boolean; destination: string }> {
+  const note = options.note.trim();
+  if (!note) {
+    throw new Error("Note content cannot be empty.");
+  }
+
+  // If paperId and questionNo specified, save to question attempt notes
+  if (options.paperId && options.questionNo) {
+    const attempts = sortAttemptsLatestFirst(await getUserAttempts(userId));
+    const targetAttempt = attempts.find((a) => a.paperId === options.paperId);
+    if (targetAttempt) {
+      const answers = { ...(targetAttempt.answers || {}) };
+      const currentAns = answers[options.questionNo] || {
+        questionNo: options.questionNo,
+        selected: null,
+      };
+      const existing = currentAns.note?.trim();
+      currentAns.note = existing ? `${existing}\n\n${note}` : note;
+      answers[options.questionNo] = currentAns;
+      targetAttempt.answers = answers;
+      await saveMcpAttempt(userId, targetAttempt);
+      return {
+        saved: true,
+        destination: `Question #${options.questionNo} notes in attempt ${targetAttempt.id}`,
+      };
+    }
+  }
+
+  // Otherwise, attach to syllabus item if topic matches
+  if (options.topic) {
+    const syllabus = await getUserSyllabus(userId);
+    const topicLower = options.topic.toLowerCase();
+    const item = syllabus.find(
+      (s) =>
+        s.title.toLowerCase().includes(topicLower) ||
+        topicLower.includes(s.title.toLowerCase()),
+    );
+    if (item) {
+      const existing = item.notes?.trim();
+      item.notes = existing ? `${existing}\n\n${note}` : note;
+      item.updatedAt = new Date().toISOString();
+      await saveMcpSyllabus(userId, syllabus);
+      return {
+        saved: true,
+        destination: `Syllabus topic "${item.title}" notes`,
+      };
+    }
+  }
+
+  return {
+    saved: false,
+    destination: "No matching question or syllabus item found to attach note.",
+  };
+}
+
