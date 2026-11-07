@@ -32,10 +32,19 @@ input[type="submit"],
 input[type="reset"],
 input[type="file"],
 select,
+summary,
 label,
 [role="button"],
 .cursor-pointer {
   cursor: pointer !important;
+}
+
+button:disabled,
+input:disabled,
+select:disabled,
+[aria-disabled="true"],
+.disabled {
+  cursor: not-allowed !important;
 }
 
 /* Light BI Card & Elevation Utilities */

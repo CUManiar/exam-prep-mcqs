@@ -358,6 +358,45 @@ export function QuestionPalette({
             </div>
           </div>
 
+          {/* 3-Tier Topic Hierarchy & Word Limit Badge */}
+          {(parsedQ?.subject ||
+            expandedQuestion.subject ||
+            parsedQ?.chapter ||
+            expandedQuestion.chapter ||
+            parsedQ?.topic ||
+            expandedQuestion.topic ||
+            parsedQ?.wordLimit) && (
+            <div className="flex flex-wrap items-center gap-1 text-[10px] text-slate-500">
+              {(parsedQ?.subject || expandedQuestion.subject) && (
+                <span className="inline-flex items-center rounded bg-indigo-50 border border-indigo-200/80 px-1.5 py-0.5 font-semibold text-indigo-700">
+                  {parsedQ?.subject || expandedQuestion.subject}
+                </span>
+              )}
+              {(parsedQ?.chapter || expandedQuestion.chapter) && (
+                <>
+                  <span className="text-slate-400">›</span>
+                  <span className="inline-flex items-center rounded bg-slate-100 border border-slate-200 px-1.5 py-0.5 text-slate-700 font-medium">
+                    {parsedQ?.chapter || expandedQuestion.chapter}
+                  </span>
+                </>
+              )}
+              {(parsedQ?.topic || expandedQuestion.topic) && (
+                <>
+                  <span className="text-slate-400">›</span>
+                  <span className="inline-flex items-center rounded bg-slate-50 border border-slate-200 px-1.5 py-0.5 text-slate-600">
+                    {parsedQ?.topic || expandedQuestion.topic}
+                  </span>
+                </>
+              )}
+              {parsedQ?.wordLimit && (
+                <span className="ml-auto inline-flex items-center gap-1 rounded bg-amber-50 border border-amber-200 px-1.5 py-0.5 font-mono font-semibold text-amber-800">
+                  <FileText className="h-2.5 w-2.5 text-amber-600" />
+                  {parsedQ.wordLimit} words
+                </span>
+              )}
+            </div>
+          )}
+
           {/* Answer Comparison Strip: responsive column on narrow, row on wider */}
           <div className="flex flex-col sm:flex-row gap-2 text-xs">
             {/* Candidate Pick */}

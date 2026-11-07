@@ -238,6 +238,45 @@ export function QuestionInspector({
             </div>
           )}
 
+        {/* 3-Tier Topic Hierarchy & Word Limit Badge */}
+        {(parsedQuestion?.subject ||
+          question.subject ||
+          parsedQuestion?.chapter ||
+          question.chapter ||
+          parsedQuestion?.topic ||
+          question.topic ||
+          parsedQuestion?.wordLimit) && (
+          <div className="flex flex-wrap items-center gap-1.5 text-xs text-slate-500 pb-1 border-b border-slate-100">
+            {(parsedQuestion?.subject || question.subject) && (
+              <span className="inline-flex items-center rounded-md bg-indigo-50 border border-indigo-200/80 px-2 py-0.5 font-semibold text-indigo-700">
+                {parsedQuestion?.subject || question.subject}
+              </span>
+            )}
+            {(parsedQuestion?.chapter || question.chapter) && (
+              <>
+                <span className="text-slate-400">›</span>
+                <span className="inline-flex items-center rounded-md bg-slate-100 border border-slate-200 px-2 py-0.5 text-slate-700 font-medium">
+                  {parsedQuestion?.chapter || question.chapter}
+                </span>
+              </>
+            )}
+            {(parsedQuestion?.topic || question.topic) && (
+              <>
+                <span className="text-slate-400">›</span>
+                <span className="inline-flex items-center rounded-md bg-slate-50 border border-slate-200 px-2 py-0.5 text-slate-600">
+                  {parsedQuestion?.topic || question.topic}
+                </span>
+              </>
+            )}
+            {parsedQuestion?.wordLimit && (
+              <span className="ml-auto inline-flex items-center gap-1 rounded-md bg-amber-50 border border-amber-200 px-2 py-0.5 font-mono font-semibold text-amber-800">
+                <FileText className="h-3 w-3 text-amber-600" />
+                {parsedQuestion.wordLimit} words
+              </span>
+            )}
+          </div>
+        )}
+
         {/* Question Text */}
         <div className="space-y-3">
           {parsedQuestion?.text ? (
