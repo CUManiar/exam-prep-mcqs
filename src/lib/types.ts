@@ -170,3 +170,45 @@ export interface SyllabusItem {
   createdAt: string;
   updatedAt: string;
 }
+
+export type RevisionProvider = "gemini" | "groq";
+
+export type RevisionContextMode = "topic" | "paper" | "open";
+
+export interface RevisionContext {
+  mode: RevisionContextMode;
+  topic?: string;
+  subject?: string;
+  chapter?: string;
+  paperId?: string;
+  paperTitle?: string;
+  questionNo?: number;
+  question?: ParsedQuestion;
+  userAnswer?: QuestionAnswer;
+  attemptId?: string;
+}
+
+export interface RevisionMessage {
+  id: string;
+  role: "user" | "assistant" | "system";
+  content: string;
+  timestamp: string;
+  contextSnapshot?: Partial<RevisionContext>;
+}
+
+export interface RevisionSession {
+  id: string;
+  title: string;
+  context: RevisionContext;
+  messages: RevisionMessage[];
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface RevisionProviderConfig {
+  provider: RevisionProvider;
+  apiKey: string;
+  model: string;
+  customEndpoint?: string;
+}
+
