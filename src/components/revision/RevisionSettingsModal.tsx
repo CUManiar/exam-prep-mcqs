@@ -14,7 +14,6 @@ import {
   ShieldCheck,
   Sparkles,
   Trash2,
-  X,
 } from "lucide-react";
 import { ModalShell } from "../ModalShell";
 import {
@@ -126,13 +125,6 @@ export function RevisionSettingsModal({
               </p>
             </div>
           </div>
-          <button
-            type="button"
-            onClick={onClose}
-            className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 p-1 rounded-lg"
-          >
-            <X className="h-5 w-5" />
-          </button>
         </div>
 
         {/* Free Tier Highlight Alert */}
