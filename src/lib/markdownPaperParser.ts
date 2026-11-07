@@ -98,6 +98,63 @@ export function cleanHeaderValue(value: string): string {
 }
 
 /**
+ * Parses a hierarchical topic string like "History > Modern India > 1857 Revolt"
+ * or "Modern India / 1857 Revolt".
+ */
+export function parseTopicHierarchy(rawTopic: string): {
+  subject?: string;
+  chapter?: string;
+  topic?: string;
+} {
+  const parts = rawTopic
+    .split(/\s*(?:>|\/)\s*/)
+    .map((p) => p.trim())
+    .filter(Boolean);
+  if (parts.length >= 3) {
+    return {
+      subject: parts[0],
+      chapter: parts[1],
+      topic: parts.slice(2).join(" > "),
+    };
+  } else if (parts.length === 2) {
+    return {
+      chapter: parts[0],
+      topic: parts[1],
+    };
+  } else if (parts.length === 1) {
+    return {
+      topic: parts[0],
+    };
+  }
+  return {};
+}
+
+/**
+ * Extracts a target word limit from a question prompt or instructions block.
+ * Recognizes explicit limits (e.g. "150 words", "word limit: 250") as well as
+ * standard UPSC Mains marks conventions (10 Marks -> 150 words, 15/20 Marks -> 250 words).
+ */
+export function extractWordLimit(prompt: string): number | undefined {
+  if (!prompt) return undefined;
+  const explicitWordMatch =
+    prompt.match(/\b(\d{2,4})\s*words?\b/i) ||
+    prompt.match(/\bword\s*limit\s*[:=]?\s*(\d{2,4})\b/i);
+  if (explicitWordMatch) {
+    const limit = parseInt(explicitWordMatch[1], 10);
+    if (limit >= 20 && limit <= 5000) return limit;
+  }
+
+  const marksMatch = prompt.match(/\b(10|15|20)\s*marks?\b/i);
+  if (marksMatch) {
+    const marks = parseInt(marksMatch[1], 10);
+    if (marks === 10) return 150;
+    if (marks === 15 || marks === 20) return 250;
+  }
+
+  return undefined;
+}
+
+/**
  * Determines whether a paper's subject designates a dedicated single subject
  * (e.g., "Polity", "Economy", "Geography", "History", "Environment & Ecology")
  * rather than a mixed test, revision quiz, or generic paper.
@@ -307,6 +364,7 @@ function parseQuestionBlock(
   let foundOption = false;
   let currentOptKey: string | null = null;
   let questionSubject: string | undefined;
+  let questionChapter: string | undefined;
   let questionTopic: string | undefined;
 
   for (const line of lines) {
@@ -359,6 +417,14 @@ function parseQuestionBlock(
         continue;
       }
 
+      const inlineChapterMatch = line.match(
+        /^\s*(?:\*\*|__)?Chapter(?:\*\*|__)?\s*:\s*([^\n]+)$/i,
+      );
+      if (inlineChapterMatch) {
+        questionChapter = cleanHeaderValue(inlineChapterMatch[1]);
+        continue;
+      }
+
       const inlineTopicMatch = line.match(
         /^\s*(?:\*\*|__)?Topic(?:\*\*|__)?\s*:\s*([^\n]+)$/i,
       );
@@ -368,20 +434,42 @@ function parseQuestionBlock(
       }
 
       let lineText = line;
-      const tagMatch = lineText.match(
+      // Multi-part bracket tags:
+      // [Subject: History | Chapter: Modern India | Topic: 1857 Revolt]
+      // or [Subject: History, Chapter: Modern India, Topic: 1857 Revolt]
+      const fullTagMatch = lineText.match(
+        /\[\s*([^\]]*(?:Subject|Chapter|Topic)\s*:[^\]]*)\]/i,
+      );
+      if (fullTagMatch) {
+        const inside = fullTagMatch[1];
+        const parts = inside.split(/[|,;]/);
+        for (const part of parts) {
+          const kv = part.match(/^\s*(Subject|Chapter|Topic)\s*:\s*(.+)$/i);
+          if (kv) {
+            const k = kv[1].toLowerCase();
+            const v = cleanHeaderValue(kv[2]);
+            if (k === "subject" && !questionSubject) questionSubject = v;
+            if (k === "chapter" && !questionChapter) questionChapter = v;
+            if (k === "topic" && !questionTopic) questionTopic = v;
+          }
+        }
+        lineText = lineText.replace(fullTagMatch[0], "").trim();
+      }
+
+      const legacyTagMatch = lineText.match(
         /\[\s*Subject\s*:\s*([^\]\|,]+)(?:[\|,]\s*Topic\s*:\s*([^\]]+))?\s*\]/i,
       );
-      if (tagMatch) {
-        questionSubject = cleanHeaderValue(tagMatch[1]);
-        if (tagMatch[2]) {
-          questionTopic = cleanHeaderValue(tagMatch[2]);
+      if (legacyTagMatch) {
+        if (!questionSubject) questionSubject = cleanHeaderValue(legacyTagMatch[1]);
+        if (legacyTagMatch[2] && !questionTopic) {
+          questionTopic = cleanHeaderValue(legacyTagMatch[2]);
         }
-        lineText = lineText.replace(tagMatch[0], "").trim();
+        lineText = lineText.replace(legacyTagMatch[0], "").trim();
       }
 
       const topicTagMatch = lineText.match(/\[\s*Topic\s*:\s*([^\]]+)\s*\]/i);
       if (topicTagMatch) {
-        questionTopic = cleanHeaderValue(topicTagMatch[1]);
+        if (!questionTopic) questionTopic = cleanHeaderValue(topicTagMatch[1]);
         lineText = lineText.replace(topicTagMatch[0], "").trim();
       }
 
@@ -399,6 +487,16 @@ function parseQuestionBlock(
   const fullPrompt = promptLines.join("\n").trim();
   if (!fullPrompt && matchingItems.length === 0) return null;
 
+  // If topic has hierarchy markers like "History > Modern India > 1857 Revolt"
+  if (questionTopic && (questionTopic.includes(">") || questionTopic.includes("/"))) {
+    const hierarchy = parseTopicHierarchy(questionTopic);
+    if (hierarchy.subject && !questionSubject) questionSubject = hierarchy.subject;
+    if (hierarchy.chapter && !questionChapter) questionChapter = hierarchy.chapter;
+    if (hierarchy.topic) questionTopic = hierarchy.topic;
+  }
+
+  const wordLimit = extractWordLimit(fullPrompt);
+
   return {
     questionNo,
     text: fullPrompt || `Question ${questionNo}`,
@@ -406,7 +504,9 @@ function parseQuestionBlock(
     ...(matchingItems.length > 0 ? { matchingItems } : {}),
     ...(matchingItems.length > 0 && matchingHeaders ? { matchingHeaders } : {}),
     ...(questionSubject ? { subject: questionSubject } : {}),
+    ...(questionChapter ? { chapter: questionChapter } : {}),
     ...(questionTopic ? { topic: questionTopic } : {}),
+    ...(wordLimit ? { wordLimit } : {}),
   };
 }
 

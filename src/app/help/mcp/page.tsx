@@ -24,6 +24,8 @@ import { DEFAULT_PROD_URL } from "../../../lib/config";
 
 const promptExamples = [
   "Show my overall progress and the papers I have not attempted yet.",
+  "What are my weakest topics in History across past tests?",
+  "Inspect question 5 on my latest Mains attempt and provide grading feedback.",
   "What was my average score across my last 3 CSAT exams?",
   "Replace my custom syllabus with this Markdown tree: [paste your .md outline]",
   "Search my papers for questions about federalism.",
@@ -34,7 +36,27 @@ const faqItems = [
   {
     question: "What does the AI connection let me do?",
     answer:
-      "It lets ChatGPT, Claude, or another compatible assistant read your papers, progress, syllabus, and attempts. With your approval, it can also import papers, update completion, record results, and hide pre-loaded papers.",
+      "It lets ChatGPT, Claude, or another compatible assistant read your papers, progress, syllabus, and attempts. With your approval, it can also diagnose weak areas across past attempts, grade answers, import papers, update completion, record results, and hide pre-loaded papers.",
+  },
+  {
+    question: "How does cross-attempt topic analytics work?",
+    answer:
+      "The get_topic_analytics tool aggregates your answers across all past attempts in a single pass. It maps your accuracy to a 3-tier hierarchy (Subject > Chapter > Topic) and highlights critical weak topics (<50% accuracy) as well as mastered topics (>=70%), helping your assistant tailor follow-up tests precisely where you need revision.",
+  },
+  {
+    question: "How do 3-tier topic hierarchy tags work in papers?",
+    answer:
+      "Questions can specify Subject, Chapter, and Topic using bracket tags like [Subject: History | Chapter: Modern India | Topic: 1857 Revolt] or chevrons like [Topic: History > Modern India > 1857 Revolt]. Dedicated single-subject papers apply their subject to all questions automatically.",
+  },
+  {
+    question: "Can an assistant inspect and grade Mains handwritten answers and word limits?",
+    answer:
+      "Yes. The get_attempt_detail tool surfaces question prompts, word limits (e.g. 150 words for 10 marks), options, candidate responses, and your uploaded full-booklet PDF URL (userSubmissionPdfUrl). The assistant can evaluate your answers and call grade_attempt_questions to post adjusted marks and feedback.",
+  },
+  {
+    question: "How can I see tests I haven't attempted yet?",
+    answer:
+      "Your assistant can call list_papers with status: 'unattempted' to find all fresh, unattempted papers in your library in one single call.",
   },
   {
     question: "Do students need to run a command or install anything?",
@@ -75,11 +97,6 @@ const faqItems = [
     question: "Can MCP attach strategy notes and reflections to test attempts?",
     answer:
       "Yes. The attach_attempt_reflection tool allows your AI assistant to attach or append post-exam reflections directly to the 'Attempt Strategy Notes & Reflections' section of your latest (or any specific) attempt.",
-  },
-  {
-    question: "How do mixed revision quizzes and subject tagging work?",
-    answer:
-      "When a paper has a single dedicated subject (e.g. SUBJECT: Polity), all questions belong to that subject and mixing is disallowed. For mixed tests or daily revision quizzes, each question can include a bracket tag like [Subject: Economy | Topic: Monetary Policy] or [Subject: Polity]. The dashboard aggregates your accuracy and question counts under each individual subject.",
   },
 ];
 

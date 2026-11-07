@@ -18,6 +18,7 @@ import {
   Clock,
   Sparkles,
   RotateCcw,
+  FileText,
 } from "lucide-react";
 
 interface InteractiveQuestionCardProps {
@@ -425,6 +426,39 @@ export function InteractiveQuestionCard({
             )}
           </div>
         </div>
+
+        {/* 3-Tier Hierarchy & Word Limit */}
+        {(qData.subject || qData.chapter || qData.topic || qData.wordLimit) && (
+          <div className="flex flex-wrap items-center gap-1.5 text-xs text-slate-500">
+            {qData.subject && (
+              <span className="inline-flex items-center rounded-md bg-indigo-50 border border-indigo-200/80 px-2 py-0.5 font-semibold text-indigo-700">
+                {qData.subject}
+              </span>
+            )}
+            {qData.chapter && (
+              <>
+                <span className="text-slate-400">›</span>
+                <span className="inline-flex items-center rounded-md bg-slate-100 border border-slate-200 px-2 py-0.5 text-slate-700 font-medium">
+                  {qData.chapter}
+                </span>
+              </>
+            )}
+            {qData.topic && (
+              <>
+                <span className="text-slate-400">›</span>
+                <span className="inline-flex items-center rounded-md bg-slate-50 border border-slate-200 px-2 py-0.5 text-slate-600">
+                  {qData.topic}
+                </span>
+              </>
+            )}
+            {qData.wordLimit && (
+              <span className="ml-auto inline-flex items-center gap-1 rounded-md bg-amber-50 border border-amber-200 px-2 py-0.5 font-mono font-semibold text-amber-800">
+                <FileText className="h-3 w-3 text-amber-600" />
+                {qData.wordLimit} words
+              </span>
+            )}
+          </div>
+        )}
 
         {/* Question Text Box */}
         <div className="bg-white rounded-2xl border border-slate-200/90 p-5 sm:p-6 shadow-2xs space-y-3">

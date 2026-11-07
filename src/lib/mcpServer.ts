@@ -12,6 +12,7 @@ import { parseAnswerKeyDetailed, SUBJECTIVE_ASSESSMENT_META } from "./defaults";
 import { isSpecificSingleSubject } from "./markdownPaperParser";
 import {
   deleteMcpPaper,
+  getTopicAnalytics,
   getUserAttempts,
   getUserPaper,
   getUserPapers,
@@ -93,7 +94,12 @@ function normalizeQuestions(input: Record<string, any>): ParsedQuestion[] {
       answer: question.answer,
       explanation: question.explanation,
       subject: question.subject ? String(question.subject).trim() : undefined,
+      chapter: question.chapter ? String(question.chapter).trim() : undefined,
       topic: question.topic ? String(question.topic).trim() : undefined,
+      wordLimit:
+        question.wordLimit !== undefined && question.wordLimit !== null
+          ? Number(question.wordLimit)
+          : undefined,
     }))
     .filter((question) => question.text);
 }
@@ -308,7 +314,9 @@ function buildAttemptDetails(attempt: Attempt, paper?: QuestionPaper | null) {
       subjectiveMarks: ans?.subjectiveMarks ?? null,
       explanation,
       subject: ans?.subject || pq?.subject || paper?.subject || null,
+      chapter: ans?.chapter || pq?.chapter || null,
       topic: ans?.topic || pq?.topic || null,
+      wordLimit: pq?.wordLimit ?? null,
     };
   });
 
@@ -324,6 +332,7 @@ function buildAttemptDetails(attempt: Attempt, paper?: QuestionPaper | null) {
     unattempted: attempt.unattempted,
     durationSeconds: attempt.durationSeconds,
     generalNotes: attempt.generalNotes ?? null,
+    userSubmissionPdfUrl: attempt.userSubmissionPdfUrl ?? null,
     questions,
   };
 }
@@ -561,18 +570,32 @@ export function createPortalMcpServer(
     {
       title: "Get portal overview",
       description:
-        "Return the student's paper library and assessment progress summary.",
+        "Return the student's paper library and overall preparation summary, including all tests, scores, marks, and optional cross-attempt topic performance.",
       annotations: { readOnlyHint: true },
-      inputSchema: {},
+      inputSchema: {
+        includeTopics: z
+          .boolean()
+          .optional()
+          .describe(
+            "Include cross-attempt topic performance, weak areas, and mastered topics.",
+          ),
+      },
     },
-    async () => {
+    async ({ includeTopics }) => {
       const authError = scopeError(scope, MCP_READ_SCOPE);
       if (authError) return authError;
       const [papers, attempts] = await Promise.all([
         getUserPapers(userId),
         getUserAttempts(userId),
       ]);
-      return textResult({ progress: summarizeProgress(papers, attempts) });
+      const progress = summarizeProgress(papers, attempts);
+      const topicAnalytics = includeTopics
+        ? await getTopicAnalytics(userId)
+        : undefined;
+      return textResult({
+        progress,
+        ...(topicAnalytics ? { topicAnalytics } : {}),
+      });
     },
   );
 
@@ -836,6 +859,41 @@ export function createPortalMcpServer(
 
       const paper = papers.find((p) => p.id === target.paperId);
       return textResult({ attempt: buildAttemptDetails(target, paper) });
+    },
+  );
+
+  server.registerTool(
+    "get_topic_analytics",
+    {
+      title: "Get topic analytics & weak areas",
+      description:
+        "Analyzes student performance across all past attempts aggregated by 3-tier hierarchy (Subject > Chapter > Topic). Identifies critical weak areas (<50% accuracy), mastered topics (>=70% accuracy), and overall preparation trends to tailor follow-up practice tests.",
+      annotations: { readOnlyHint: true },
+      inputSchema: {
+        subject: z
+          .string()
+          .optional()
+          .describe(
+            "Filter analytics to a specific subject (e.g. 'History', 'Polity', 'Economy').",
+          ),
+        minAttempts: z
+          .number()
+          .optional()
+          .describe(
+            "Minimum questions attempted per topic to be included (defaults to 1).",
+          ),
+      },
+    },
+    async ({ subject, minAttempts }) => {
+      const authError = scopeError(scope, MCP_READ_SCOPE);
+      if (authError) return authError;
+
+      const analytics = await getTopicAnalytics(userId, {
+        subject,
+        minAttempts,
+      });
+
+      return textResult(analytics);
     },
   );
 
