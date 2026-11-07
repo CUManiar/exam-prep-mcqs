@@ -51,14 +51,20 @@ import {
 } from "../../lib/types";
 import { RevisionMarkdownRenderer } from "./RevisionMarkdownRenderer";
 import { RevisionSettingsModal } from "./RevisionSettingsModal";
+import { PageHeader } from "../PageHeader";
 import { getPaperDisplayTitle } from "../../lib/defaults";
 import { saveCustomSyllabus } from "../../lib/storage";
 
 const POPULAR_UPSC_TOPICS = [
   {
-    topic: "Federal Structure",
-    subject: "Polity & Governance (GS-II)",
+    topic: "Federal Structure of India",
+    subject: "Polity (GS-II)",
     hint: "Articles 245-263, S.R. Bommai, 16th FC, Governor assent",
+  },
+  {
+    topic: "Economic Planning in India",
+    subject: "Indian Economy (GS-III)",
+    hint: "Five-Year Plans, Planning Commission to NITI Aayog, Indicative Planning",
   },
   {
     topic: "Basic Structure Doctrine",
@@ -66,14 +72,14 @@ const POPULAR_UPSC_TOPICS = [
     hint: "Kesavananda Bharati, Minerva Mills, Judicial Review",
   },
   {
-    topic: "16th Finance Commission & Fiscal Federalism",
+    topic: "Fiscal Federalism & 16th Finance Commission",
     subject: "Economy & Governance (GS-II/III)",
-    hint: "Article 280, vertical devolution, cess & surcharges",
+    hint: "Article 280, vertical & horizontal devolution, cess & surcharges",
   },
   {
-    topic: "Office of the Governor (Article 200)",
+    topic: "Fundamental Rights vs DPSPs",
     subject: "Polity (GS-II)",
-    hint: "Punjab & TN judgements, Sarkaria & Punchhi recommendations",
+    hint: "Articles 12-35, Minerva Mills harmony, reasonable restrictions",
   },
   {
     topic: "Monetary Policy & Inflation Targeting",
@@ -88,7 +94,6 @@ export function RevisionView() {
     papers,
     attempts,
     syllabusItems,
-    syllabusMarkdown,
     currentUser,
     handleUpdateAttempt,
     addNotification,
@@ -100,8 +105,8 @@ export function RevisionView() {
 
   // Active Context State
   const [mode, setMode] = useState<"topic" | "paper" | "open">("topic");
-  const [selectedTopic, setSelectedTopic] = useState<string>("Federal Structure");
-  const [selectedSubject, setSelectedSubject] = useState<string>("Polity (GS-II)");
+  const [selectedTopic, setSelectedTopic] = useState<string>("");
+  const [selectedSubject, setSelectedSubject] = useState<string>("");
   const [selectedPaperId, setSelectedPaperId] = useState<string>("");
   const [selectedQuestionNo, setSelectedQuestionNo] = useState<number | null>(null);
 
@@ -157,7 +162,6 @@ export function RevisionView() {
   // Construct unified context object
   const activeContext = useMemo<RevisionContext>(() => {
     if (mode === "paper") {
-      // Find latest attempt for this paper
       const paperAttempts = attempts.filter((a) => a.paperId === selectedPaperId);
       const latestAttempt = paperAttempts[paperAttempts.length - 1];
       const studentAns = selectedQuestionNo && latestAttempt
@@ -178,8 +182,8 @@ export function RevisionView() {
     if (mode === "topic") {
       return {
         mode: "topic",
-        topic: selectedTopic,
-        subject: selectedSubject,
+        topic: selectedTopic.trim() || undefined,
+        subject: selectedSubject.trim() || undefined,
       };
     }
 
@@ -255,7 +259,7 @@ export function RevisionView() {
       const errorMsg: RevisionMessage = {
         id: `msg_err_${Date.now()}`,
         role: "assistant",
-        content: `⚠️ **Unable to complete query**: ${err.message || "An unexpected error occurred."}\n\n*Please verify your API key in settings or try again.*`,
+        content: `⚠️ **Unable to complete query**: ${err.message || "An unexpected error occurred."}\n\n*Please verify your connection or try again.*`,
         timestamp: new Date().toISOString(),
       };
       setMessages([...nextMessages, errorMsg]);
@@ -281,7 +285,6 @@ export function RevisionView() {
   const handleSaveToNotes = async (content: string) => {
     try {
       if (mode === "paper" && activeContext.paperId && activeContext.questionNo) {
-        // Attach note to question in latest attempt
         const paperAttempts = attempts.filter((a) => a.paperId === activeContext.paperId);
         const latestAttempt = paperAttempts[paperAttempts.length - 1];
         if (latestAttempt) {
@@ -306,7 +309,6 @@ export function RevisionView() {
         }
       }
 
-      // Attach to syllabus item
       if (mode === "topic" && activeContext.topic) {
         const topicLower = activeContext.topic.toLowerCase();
         const item = syllabusItems.find(
@@ -330,7 +332,6 @@ export function RevisionView() {
         }
       }
 
-      // Fallback
       setSaveSuccessMsg("Revision note copied to clipboard.");
       navigator.clipboard.writeText(content);
       setTimeout(() => setSaveSuccessMsg(null), 3500);
@@ -346,27 +347,14 @@ export function RevisionView() {
   };
 
   return (
-    <div className="flex flex-col h-[calc(100vh-4rem)] max-w-7xl mx-auto px-3 sm:px-6 py-3 sm:py-4">
-      {/* 1. Header Toolbar & Context Selector */}
-      <div className="bi-card p-3 sm:p-4 mb-3 border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 rounded-xl shadow-xs">
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          {/* Left: Mode Tabs & Title */}
+    <div className="page-container space-y-4">
+      {/* 1. Standard Page Header */}
+      <PageHeader
+        title="Revision workspace"
+        description="Syllabus-focused study, landmark SC judgements, PIB updates, and question dissection."
+        actions={
           <div className="flex items-center gap-2 flex-wrap">
-            <div className="flex items-center gap-2 mr-2">
-              <span className="p-1.5 rounded-lg bg-indigo-50 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-400">
-                <GraduationCap className="h-5 w-5" />
-              </span>
-              <div>
-                <h1 className="text-sm sm:text-base font-bold text-slate-900 dark:text-white leading-tight">
-                  UPSC AI Revision
-                </h1>
-                <p className="text-[11px] text-slate-500 dark:text-slate-400 hidden sm:block">
-                  Syllabus-centred • Articles, Judgements, PIB & Infographics
-                </p>
-              </div>
-            </div>
-
-            {/* Mode Segmented Controls */}
+            {/* Mode Controls */}
             <div className="flex items-center rounded-lg bg-slate-100 dark:bg-slate-800 p-0.5 text-xs font-semibold">
               <button
                 type="button"
@@ -407,28 +395,21 @@ export function RevisionView() {
                 <span>Open Doubt</span>
               </button>
             </div>
-          </div>
 
-          {/* Right: API Model Pill & Settings */}
-          <div className="flex items-center gap-2">
+            {/* Model Status Pill */}
             <button
               type="button"
               onClick={() => setShowSettingsModal(true)}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/60 hover:bg-slate-100 text-xs text-slate-700 dark:text-slate-200 font-medium transition-all"
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700/60 text-xs text-slate-700 dark:text-slate-200 font-medium transition-all shadow-2xs"
             >
-              {config?.apiKey ? (
-                <>
-                  <span className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse" />
-                  <span className="font-semibold text-emerald-700 dark:text-emerald-400">
-                    {config.provider === "gemini" ? "Gemini Flash" : "Groq Llama 3.3"}
-                  </span>
-                </>
-              ) : (
-                <>
-                  <Sparkles className="h-3.5 w-3.5 text-indigo-500" />
-                  <span>Free Demo Mode (Set Key)</span>
-                </>
-              )}
+              <span className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse" />
+              <span className="font-semibold text-emerald-700 dark:text-emerald-400">
+                {config?.apiKey
+                  ? config.provider === "gemini"
+                    ? "Gemini Flash"
+                    : "Groq Llama 3.3"
+                  : "Free AI Active"}
+              </span>
               <Settings2 className="h-3.5 w-3.5 text-slate-400 ml-1" />
             </button>
 
@@ -437,101 +418,111 @@ export function RevisionView() {
                 type="button"
                 onClick={handleClearChat}
                 title="Clear conversation"
-                className="p-1.5 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/40 border border-slate-200 dark:border-slate-800 transition-colors"
+                className="p-1.5 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/40 border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 transition-colors"
               >
                 <Trash2 className="h-4 w-4" />
               </button>
             )}
           </div>
-        </div>
+        }
+      />
 
-        {/* Dynamic Context Selector Subbar */}
-        <div className="mt-3 pt-3 border-t border-slate-100 dark:border-slate-800/80 flex flex-wrap items-center gap-2 text-xs">
-          <span className="text-slate-500 font-medium flex items-center gap-1">
-            <Compass className="h-3.5 w-3.5 text-indigo-500" /> Focus Target:
-          </span>
+      {/* 2. Context Filter Subbar */}
+      <div className="surface-card p-3 border border-slate-200 dark:border-slate-800 rounded-xl flex flex-wrap items-center gap-2 text-xs">
+        <span className="text-slate-500 font-medium flex items-center gap-1">
+          <Compass className="h-3.5 w-3.5 text-indigo-500" /> Focus Target:
+        </span>
 
-          {mode === "topic" && (
-            <div className="flex items-center gap-2 flex-wrap">
-              <input
-                type="text"
-                value={selectedTopic}
-                onChange={(e) => setSelectedTopic(e.target.value)}
-                placeholder="Enter syllabus topic (e.g. Federal Structure)..."
-                className="px-2.5 py-1 text-xs rounded-md border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white font-medium focus:ring-1 focus:ring-indigo-500 min-w-[220px]"
-              />
+        {mode === "topic" && (
+          <div className="flex items-center gap-2 flex-wrap flex-1">
+            <input
+              type="text"
+              value={selectedTopic}
+              onChange={(e) => setSelectedTopic(e.target.value)}
+              placeholder="Enter topic (e.g. Economic Planning, Federal Structure, Inflation)..."
+              className="px-2.5 py-1.5 text-xs rounded-md border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white font-medium focus:ring-1 focus:ring-indigo-500 min-w-[240px] flex-1 sm:flex-none"
+            />
 
-              {/* Quick Pick Topic from Syllabus Outlines if available */}
-              {syllabusItems.length > 0 && (
-                <select
-                  onChange={(e) => {
-                    if (e.target.value) setSelectedTopic(e.target.value);
-                  }}
-                  className="px-2 py-1 text-xs rounded-md border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300"
-                  defaultValue=""
-                >
-                  <option value="" disabled>
-                    Pick from your Syllabus...
-                  </option>
-                  {syllabusItems.slice(0, 30).map((item) => (
-                    <option key={item.id} value={item.title}>
-                      {item.title}
-                    </option>
-                  ))}
-                </select>
-              )}
-            </div>
-          )}
-
-          {mode === "paper" && (
-            <div className="flex items-center gap-2 flex-wrap">
+            {syllabusItems.length > 0 && (
               <select
-                value={selectedPaperId}
                 onChange={(e) => {
-                  setSelectedPaperId(e.target.value);
-                  setSelectedQuestionNo(null);
+                  if (e.target.value) setSelectedTopic(e.target.value);
                 }}
-                className="px-2.5 py-1 text-xs rounded-md border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white font-medium min-w-[240px]"
+                className="px-2.5 py-1.5 text-xs rounded-md border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300"
+                value=""
               >
-                <option value="">Select Paper from Library...</option>
-                {papers.map((p) => (
-                  <option key={p.id} value={p.id}>
-                    {getPaperDisplayTitle(p)}
+                <option value="" disabled>
+                  Pick from your Syllabus...
+                </option>
+                {syllabusItems.map((item) => (
+                  <option key={item.id} value={item.title}>
+                    {item.title}
                   </option>
                 ))}
               </select>
+            )}
 
-              {activePaper && (activePaper.parsedQuestions?.length ?? 0) > 0 && (
-                <select
-                  value={selectedQuestionNo || ""}
-                  onChange={(e) =>
-                    setSelectedQuestionNo(
-                      e.target.value ? Number(e.target.value) : null,
-                    )
-                  }
-                  className="px-2 py-1 text-xs rounded-md border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white"
-                >
-                  <option value="">All Paper (General)</option>
-                  {activePaper.parsedQuestions?.map((q) => (
-                    <option key={q.questionNo} value={q.questionNo}>
-                      Q#{q.questionNo}: {q.text.slice(0, 45)}...
-                    </option>
-                  ))}
-                </select>
-              )}
-            </div>
-          )}
+            {selectedTopic && (
+              <button
+                type="button"
+                onClick={() => setSelectedTopic("")}
+                className="text-slate-400 hover:text-slate-600 p-1"
+                title="Clear topic filter"
+              >
+                <X className="h-3.5 w-3.5" />
+              </button>
+            )}
+          </div>
+        )}
 
-          {mode === "open" && (
-            <span className="text-slate-600 dark:text-slate-300 italic">
-              Open consultation with Senior UPSC Mentor. Ask any doubt across Prelims, Mains, or Optional.
-            </span>
-          )}
-        </div>
+        {mode === "paper" && (
+          <div className="flex items-center gap-2 flex-wrap flex-1">
+            <select
+              value={selectedPaperId}
+              onChange={(e) => {
+                setSelectedPaperId(e.target.value);
+                setSelectedQuestionNo(null);
+              }}
+              className="px-2.5 py-1.5 text-xs rounded-md border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white font-medium min-w-[240px]"
+            >
+              <option value="">Select Paper from Library...</option>
+              {papers.map((p) => (
+                <option key={p.id} value={p.id}>
+                  {getPaperDisplayTitle(p)}
+                </option>
+              ))}
+            </select>
+
+            {activePaper && (activePaper.parsedQuestions?.length ?? 0) > 0 && (
+              <select
+                value={selectedQuestionNo || ""}
+                onChange={(e) =>
+                  setSelectedQuestionNo(
+                    e.target.value ? Number(e.target.value) : null,
+                  )
+                }
+                className="px-2 py-1.5 text-xs rounded-md border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white"
+              >
+                <option value="">All Paper (General)</option>
+                {activePaper.parsedQuestions?.map((q) => (
+                  <option key={q.questionNo} value={q.questionNo}>
+                    Q#{q.questionNo}: {q.text.slice(0, 45)}...
+                  </option>
+                ))}
+              </select>
+            )}
+          </div>
+        )}
+
+        {mode === "open" && (
+          <span className="text-slate-600 dark:text-slate-300 italic">
+            General UPSC Doubt & Guidance. Ask any question across Prelims, Mains, or Optional.
+          </span>
+        )}
       </div>
 
-      {/* 2. UPSC High-Yield Action Chips */}
-      <div className="mb-3 overflow-x-auto pb-1 flex items-center gap-2 shrink-0 scrollbar-none">
+      {/* 3. Action Chips */}
+      <div className="overflow-x-auto pb-1 flex items-center gap-2 shrink-0 scrollbar-none">
         <span className="text-[11px] font-bold uppercase tracking-wider text-slate-400 shrink-0">
           Exam Actions:
         </span>
@@ -551,87 +542,56 @@ export function RevisionView() {
 
       {/* Save Notification Toast */}
       {saveSuccessMsg && (
-        <div className="mb-2 p-2.5 rounded-lg bg-emerald-50 dark:bg-emerald-950/60 border border-emerald-200 dark:border-emerald-800 text-xs text-emerald-800 dark:text-emerald-200 font-medium flex items-center gap-2 animate-in fade-in duration-200">
+        <div className="p-2.5 rounded-lg bg-emerald-50 dark:bg-emerald-950/60 border border-emerald-200 dark:border-emerald-800 text-xs text-emerald-800 dark:text-emerald-200 font-medium flex items-center gap-2 animate-in fade-in duration-200">
           <Check className="h-4 w-4 text-emerald-600" />
           <span>{saveSuccessMsg}</span>
         </div>
       )}
 
-      {/* 3. Messages Chat Feed */}
-      <div className="flex-1 overflow-y-auto rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50/60 dark:bg-slate-950/60 p-4 space-y-4 mb-3">
+      {/* 4. Chat Feed */}
+      <div className="min-h-[380px] max-h-[calc(100vh-22rem)] overflow-y-auto rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50/60 dark:bg-slate-950/60 p-4 space-y-4">
         {messages.length === 0 ? (
-          /* Empty State Hero with Federal Structure Demo */
-          <div className="max-w-2xl mx-auto my-6 text-center space-y-5">
+          /* Empty State */
+          <div className="max-w-2xl mx-auto my-6 text-center space-y-4">
             <div className="inline-flex p-3 rounded-2xl bg-indigo-100 dark:bg-indigo-950/80 text-indigo-600 dark:text-indigo-400 ring-8 ring-indigo-50 dark:ring-indigo-950/30">
-              <GraduationCap className="h-8 w-8" />
+              <GraduationCap className="h-7 w-7" />
             </div>
 
-            <div className="space-y-1.5">
-              <h2 className="text-lg sm:text-xl font-bold text-slate-900 dark:text-white">
-                Exam-Centric Revision Assistant
+            <div className="space-y-1">
+              <h2 className="text-base sm:text-lg font-bold text-slate-900 dark:text-white">
+                What would you like to revise today?
               </h2>
-              <p className="text-xs sm:text-sm text-slate-600 dark:text-slate-400 max-w-lg mx-auto">
-                Synthesize any UPSC syllabus topic with constitutional articles, recent Supreme Court rulings, PIB policy updates, and visual infographics.
+              <p className="text-xs text-slate-600 dark:text-slate-400 max-w-md mx-auto">
+                Type any topic below or click a high-yield suggestion to start real-time revision with articles, case laws, PIB updates, and infographics.
               </p>
-            </div>
-
-            {/* Quick Demo Launch Card */}
-            <div className="p-4 rounded-xl border border-indigo-200 dark:border-indigo-900/60 bg-gradient-to-br from-indigo-50/80 via-white to-indigo-50/30 dark:from-slate-900 dark:to-slate-950 text-left shadow-xs">
-              <div className="flex items-center justify-between mb-2">
-                <span className="text-xs font-bold text-indigo-700 dark:text-indigo-300 uppercase tracking-wider flex items-center gap-1.5">
-                  <Flame className="h-3.5 w-3.5 text-amber-500" /> High-Yield Demo
-                </span>
-                <span className="text-[11px] font-medium text-slate-400">GS-II Polity</span>
-              </div>
-              <h3 className="text-sm font-bold text-slate-900 dark:text-white mb-1">
-                Topic: Federal Structure of India
-              </h3>
-              <p className="text-xs text-slate-600 dark:text-slate-300 mb-3">
-                Covers Articles 245–263, S.R. Bommai case, 16th Finance Commission, Governor assent (Art. 200), and an interactive Mermaid flowchart.
-              </p>
-              <button
-                type="button"
-                onClick={() => {
-                  setSelectedTopic("Federal Structure");
-                  handleSend("Provide a comprehensive revision dossier for Federal Structure: important Polity articles, recent PIB updates, judgements and infographics.");
-                }}
-                className="w-full sm:w-auto px-4 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white font-semibold text-xs transition-colors flex items-center justify-center gap-2 shadow-xs"
-              >
-                <span>Run Federal Structure Revision</span>
-                <ArrowUpRight className="h-3.5 w-3.5" />
-              </button>
             </div>
 
             {/* Topic Badges Grid */}
-            <div className="space-y-2 pt-2">
-              <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">
-                Or pick a priority topic:
-              </span>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-left">
-                {POPULAR_UPSC_TOPICS.slice(1).map((item, idx) => (
-                  <button
-                    key={idx}
-                    type="button"
-                    onClick={() => {
-                      setSelectedTopic(item.topic);
-                      setSelectedSubject(item.subject);
-                      handleSend(`Comprehensive revision on "${item.topic}": constitutional basis, case laws, recent PIB, and mindmap.`);
-                    }}
-                    className="p-3 rounded-lg border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 hover:border-indigo-300 dark:hover:border-indigo-700 transition-all text-xs"
-                  >
-                    <div className="font-bold text-slate-900 dark:text-white mb-0.5">
-                      {item.topic}
-                    </div>
-                    <div className="text-[11px] text-slate-500 dark:text-slate-400 truncate">
-                      {item.hint}
-                    </div>
-                  </button>
-                ))}
-              </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-left pt-2">
+              {POPULAR_UPSC_TOPICS.map((item, idx) => (
+                <button
+                  key={idx}
+                  type="button"
+                  onClick={() => {
+                    setSelectedTopic(item.topic);
+                    setSelectedSubject(item.subject);
+                    handleSend(
+                      `Comprehensive UPSC revision for "${item.topic}": constitutional/statutory basis, landmark judgements, recent PIB updates, and mindmap.`,
+                    );
+                  }}
+                  className="p-3 rounded-lg border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 hover:border-indigo-300 dark:hover:border-indigo-700 hover:bg-indigo-50/30 transition-all text-xs"
+                >
+                  <div className="font-bold text-slate-900 dark:text-white mb-0.5">
+                    {item.topic}
+                  </div>
+                  <div className="text-[11px] text-slate-500 dark:text-slate-400 truncate">
+                    {item.hint}
+                  </div>
+                </button>
+              ))}
             </div>
           </div>
         ) : (
-          /* Message List */
           messages.map((msg) => (
             <div
               key={msg.id}
@@ -652,7 +612,6 @@ export function RevisionView() {
                     : "bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-slate-800 dark:text-slate-200 w-full"
                 }`}
               >
-                {/* User Message Header snapshot badge */}
                 {msg.role === "user" && msg.contextSnapshot?.topic && (
                   <div className="text-[10px] font-mono opacity-80 mb-1">
                     [Topic: {msg.contextSnapshot.topic}]
@@ -665,7 +624,7 @@ export function RevisionView() {
                   <div>
                     <RevisionMarkdownRenderer content={msg.content} />
 
-                    {/* Action Bar for Assistant Messages */}
+                    {/* Action Bar */}
                     <div className="mt-4 pt-3 border-t border-slate-100 dark:border-slate-800 flex flex-wrap items-center justify-between gap-2 text-xs">
                       <div className="flex items-center gap-1.5">
                         <button
@@ -695,7 +654,7 @@ export function RevisionView() {
                         </button>
                       </div>
 
-                      {/* Follow-up Quick Prompts */}
+                      {/* Follow-up Chips */}
                       <div className="flex items-center gap-1.5 flex-wrap">
                         <button
                           type="button"
@@ -741,13 +700,13 @@ export function RevisionView() {
             <div className="h-8 w-8 rounded-lg bg-indigo-600 text-white flex items-center justify-center shrink-0 shadow-xs">
               <Bot className="h-4 w-4 animate-bounce" />
             </div>
-            <div className="p-4 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-xs space-y-2 max-w-md">
+            <div className="p-4 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-xs space-y-1.5 max-w-md">
               <div className="flex items-center gap-2 text-xs font-semibold text-indigo-600 dark:text-indigo-400">
                 <span className="h-2 w-2 rounded-full bg-indigo-600 animate-ping" />
-                Senior UPSC Mentor is synthesizing...
+                Synthesizing UPSC dossier...
               </div>
               <p className="text-xs text-slate-500 dark:text-slate-400">
-                Cross-referencing Constitutional Articles, Landmark Judgements, PIB updates & Elimination Traps.
+                Grounding in Constitutional Articles, SC Judgements & PIB touchpoints.
               </p>
             </div>
           </div>
@@ -756,8 +715,8 @@ export function RevisionView() {
         <div ref={messagesEndRef} />
       </div>
 
-      {/* 4. Chat Input Box */}
-      <div className="bi-card p-3 border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 rounded-xl shadow-xs">
+      {/* 5. Chat Input Box */}
+      <div className="surface-card p-3 border border-slate-200 dark:border-slate-800 rounded-xl shadow-xs">
         <form
           onSubmit={(e) => {
             e.preventDefault();
@@ -780,13 +739,15 @@ export function RevisionView() {
               placeholder={
                 mode === "paper" && activeQuestion
                   ? `Ask about Question #${activeQuestion.questionNo} (e.g. Why is (C) correct? What was the elimination trap?)...`
-                  : `Ask anything on ${selectedTopic} (e.g. Important Polity articles, recent SC judgements, PIB updates)...`
+                  : selectedTopic
+                    ? `Ask anything on ${selectedTopic} (e.g. Articles, recent SC judgements, PIB updates)...`
+                    : "Ask any UPSC topic or question (e.g. Economic Planning in India, Basic Structure, Money Bill)..."
               }
               className="w-full resize-none px-3.5 py-2.5 text-xs sm:text-sm rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50/50 dark:bg-slate-800/50 text-slate-900 dark:text-white placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 font-normal leading-relaxed"
             />
           </div>
 
-          <div className="flex items-center justify-between gap-2">
+          <div className="flex items-center justify-between gap-2 flex-wrap">
             <div className="flex items-center gap-1.5 text-[11px] text-slate-500 dark:text-slate-400">
               <span className="font-semibold text-slate-700 dark:text-slate-300">
                 Target:
@@ -796,7 +757,7 @@ export function RevisionView() {
                   ? activeQuestion
                     ? `Q#${activeQuestion.questionNo} on ${activePaper?.label || "Paper"}`
                     : activePaper?.label || "Select Paper"
-                  : selectedTopic || "General Topic"}
+                  : selectedTopic || "Open Topic"}
               </span>
               <span className="hidden sm:inline text-slate-400">
                 (Press Enter to send, Shift+Enter for newline)

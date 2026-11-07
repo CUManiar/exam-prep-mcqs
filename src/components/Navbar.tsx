@@ -45,10 +45,9 @@ const navigation = [
   },
   {
     href: "/revision",
-    label: "Revise AI",
-    mobileLabel: "Revise",
+    label: "Revision",
+    mobileLabel: "Revision",
     icon: GraduationCap,
-    isAi: true,
   },
   {
     href: "/help/mcp",

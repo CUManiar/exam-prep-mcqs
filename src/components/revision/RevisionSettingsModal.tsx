@@ -119,10 +119,10 @@ export function RevisionSettingsModal({
                 id="revision-settings-title"
                 className="text-base sm:text-lg font-bold text-slate-900 dark:text-white"
               >
-                AI Revision Key Setup
+                AI Model & Dedicated Key
               </h2>
               <p className="text-xs text-slate-500 dark:text-slate-400">
-                100% Free • Direct from Google AI Studio or Groq
+                Free AI is active out-of-the-box. Add a key for dedicated quotas.
               </p>
             </div>
           </div>
@@ -139,7 +139,7 @@ export function RevisionSettingsModal({
         <div className="my-4 p-3 rounded-lg bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-800/60 text-xs leading-relaxed text-emerald-900 dark:text-emerald-200 flex items-start gap-2.5">
           <ShieldCheck className="h-4 w-4 text-emerald-600 dark:text-emerald-400 shrink-0 mt-0.5" />
           <div>
-            <span className="font-semibold">Zero Expenses Guaranteed:</span> Your API key is stored only in your browser&apos;s local storage and used directly for your study sessions. No credit card is required.
+            <span className="font-semibold">Optional Dedicated Key:</span> The revision mentor runs free out-of-the-box. Entering your free Google Gemini API Key unlocks private rate limits (15 RPM, 1,500 RPD) directly from your browser.
           </div>
         </div>
 
@@ -327,3 +327,4 @@ export function RevisionSettingsModal({
     </ModalShell>
   );
 }
+
