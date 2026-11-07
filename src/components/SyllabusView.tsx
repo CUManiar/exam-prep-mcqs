@@ -607,9 +607,7 @@ export function SyllabusView() {
                         key={crumb.id}
                         className="inline-flex items-center gap-1"
                       >
-                        {idx > 0 && (
-                          <span className="text-slate-300">›</span>
-                        )}
+                        {idx > 0 && <span className="text-slate-300">›</span>}
                         <button
                           type="button"
                           onClick={(e) => {

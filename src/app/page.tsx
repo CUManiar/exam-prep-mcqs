@@ -49,6 +49,7 @@ export default function RootPage() {
       onNavigateHistory={() => router.push("/history")}
       onViewAttempt={handleViewAttemptDetail}
       onDeleteAttempt={handleDeleteAttempt}
+      onStartExam={handleStartExam}
       activeDraft={activeDraft}
       onResumeDraft={handleResumeDraft}
       onDiscardDraft={handleDiscardDraft}

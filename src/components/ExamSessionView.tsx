@@ -1287,162 +1287,165 @@ export function ExamSessionView({
     try {
       clearActiveDraft();
 
-    let correctCount = 0;
-    let incorrectCount = 0;
-    let alteredCount = 0;
-    let alteredHarmCount = 0;
-    let alteredBenefitCount = 0;
-    let partialCount = 0;
-    let subjectiveScore = 0;
-    let subjectiveAssessmentPoints = 0;
-    const subjectiveMarksPerQuestion =
-      isSubjective && paper.totalQuestions > 0
-        ? paper.totalMarks / paper.totalQuestions
-        : 0;
+      let correctCount = 0;
+      let incorrectCount = 0;
+      let alteredCount = 0;
+      let alteredHarmCount = 0;
+      let alteredBenefitCount = 0;
+      let partialCount = 0;
+      let subjectiveScore = 0;
+      let subjectiveAssessmentPoints = 0;
+      const subjectiveMarksPerQuestion =
+        isSubjective && paper.totalQuestions > 0
+          ? paper.totalMarks / paper.totalQuestions
+          : 0;
 
-    let timeCorrectSum = 0;
-    let timeIncorrectSum = 0;
+      let timeCorrectSum = 0;
+      let timeIncorrectSum = 0;
 
-    const finalAnswers: Record<number, QuestionAnswer> = {};
+      const finalAnswers: Record<number, QuestionAnswer> = {};
 
-    for (let i = 1; i <= paper.totalQuestions; i++) {
-      const a = answers[i] || { questionNo: i, selected: null };
-      const rawCorrect = getCorrectAnswerForQ(i);
-      const correctAns = rawCorrect
-        ? rawCorrect.toUpperCase().trim()
-        : undefined;
-      const spentSecs = mode === "mock" ? qTimeSpent[i] || 0 : 0;
+      for (let i = 1; i <= paper.totalQuestions; i++) {
+        const a = answers[i] || { questionNo: i, selected: null };
+        const rawCorrect = getCorrectAnswerForQ(i);
+        const correctAns = rawCorrect
+          ? rawCorrect.toUpperCase().trim()
+          : undefined;
+        const spentSecs = mode === "mock" ? qTimeSpent[i] || 0 : 0;
 
-      let isCorrect: boolean | null = null;
-      if (isSubjective) {
-        if (a.selected === "attempted") {
-          const fraction = getSubjectiveAssessmentFraction(
-            a.subjectiveAssessment,
-          );
-          subjectiveScore += subjectiveMarksPerQuestion * fraction;
-          subjectiveAssessmentPoints += fraction;
-          if (a.subjectiveAssessment === "strong") {
+        let isCorrect: boolean | null = null;
+        if (isSubjective) {
+          if (a.selected === "attempted") {
+            const fraction = getSubjectiveAssessmentFraction(
+              a.subjectiveAssessment,
+            );
+            subjectiveScore += subjectiveMarksPerQuestion * fraction;
+            subjectiveAssessmentPoints += fraction;
+            if (a.subjectiveAssessment === "strong") {
+              correctCount++;
+              isCorrect = true;
+            } else if (a.subjectiveAssessment === "partial") {
+              partialCount++;
+            } else if (a.subjectiveAssessment === "needs-work") {
+              incorrectCount++;
+              isCorrect = false;
+            }
+          }
+        } else if (a.selected) {
+          if (correctAns && a.selected.toUpperCase().trim() === correctAns) {
             correctCount++;
             isCorrect = true;
-          } else if (a.subjectiveAssessment === "partial") {
-            partialCount++;
-          } else if (a.subjectiveAssessment === "needs-work") {
+            timeCorrectSum += spentSecs;
+          } else if (correctAns) {
             incorrectCount++;
             isCorrect = false;
+            timeIncorrectSum += spentSecs;
           }
         }
-      } else if (a.selected) {
-        if (correctAns && a.selected.toUpperCase().trim() === correctAns) {
-          correctCount++;
-          isCorrect = true;
-          timeCorrectSum += spentSecs;
-        } else if (correctAns) {
-          incorrectCount++;
-          isCorrect = false;
-          timeIncorrectSum += spentSecs;
+
+        // Check alteration nuance in Mock mode (exclude cloze free-text questions)
+        if (
+          mode === "mock" &&
+          !isClozeQuestion(i) &&
+          a.changesCount &&
+          a.changesCount > 0
+        ) {
+          alteredCount++;
+          const history = a.answerHistory || [];
+          if (history.length >= 2 && correctAns) {
+            const initialChoice = history[0]?.toUpperCase().trim();
+            const finalChoice = a.selected?.toUpperCase().trim();
+            if (initialChoice === correctAns && finalChoice !== correctAns) {
+              alteredHarmCount++;
+            }
+            if (initialChoice !== correctAns && finalChoice === correctAns) {
+              alteredBenefitCount++;
+            }
+          }
         }
+
+        const qMeta = effectivePaper.parsedQuestions?.find(
+          (pq) => pq.questionNo === i,
+        );
+        finalAnswers[i] = {
+          ...a,
+          confidence: a.selected ? a.confidence : undefined,
+          correctAnswer: correctAns,
+          explanation:
+            sessionExplanations[i] || paper.explanations?.[i] || undefined,
+          isCorrect,
+          timeSpentSeconds: spentSecs,
+          subject: a.subject || qMeta?.subject || undefined,
+          topic: a.topic || qMeta?.topic || undefined,
+        };
       }
 
-      // Check alteration nuance in Mock mode (exclude cloze free-text questions)
-      if (
-        mode === "mock" &&
-        !isClozeQuestion(i) &&
-        a.changesCount &&
-        a.changesCount > 0
-      ) {
-        alteredCount++;
-        const history = a.answerHistory || [];
-        if (history.length >= 2 && correctAns) {
-          const initialChoice = history[0]?.toUpperCase().trim();
-          const finalChoice = a.selected?.toUpperCase().trim();
-          if (initialChoice === correctAns && finalChoice !== correctAns) {
-            alteredHarmCount++;
-          }
-          if (initialChoice !== correctAns && finalChoice === correctAns) {
-            alteredBenefitCount++;
-          }
-        }
-      }
+      const calculatedScore = isSubjective
+        ? subjectiveScore
+        : correctCount * paper.correctMarks -
+          incorrectCount * paper.incorrectMarks;
+      const maxScore = paper.totalMarks;
+      const accuracyPct =
+        attemptedCount > 0
+          ? (isSubjective
+              ? subjectiveAssessmentPoints / attemptedCount
+              : correctCount / attemptedCount) * 100
+          : 0;
 
-      const qMeta = effectivePaper.parsedQuestions?.find(
-        (pq) => pq.questionNo === i,
+      const activeQuestionSeconds = Math.max(
+        0,
+        elapsedSeconds - idleTimeSeconds,
       );
-      finalAnswers[i] = {
-        ...a,
-        confidence: a.selected ? a.confidence : undefined,
-        correctAnswer: correctAns,
-        explanation:
-          sessionExplanations[i] || paper.explanations?.[i] || undefined,
-        isCorrect,
-        timeSpentSeconds: spentSecs,
-        subject: a.subject || qMeta?.subject || undefined,
-        topic: a.topic || qMeta?.topic || undefined,
+      const avgTimePerQuestion =
+        attemptedCount > 0
+          ? Math.round(activeQuestionSeconds / attemptedCount)
+          : 0;
+      const avgTimeCorrect =
+        correctCount > 0 ? Math.round(timeCorrectSum / correctCount) : 0;
+      const avgTimeIncorrect =
+        incorrectCount > 0 ? Math.round(timeIncorrectSum / incorrectCount) : 0;
+
+      const attempt: Attempt = {
+        id: `attempt_${Date.now()}`,
+        paperId: paper.id,
+        paperLabel: paper.label,
+        category: paper.category,
+        examType: paper.examType,
+        mode,
+        startedAt: new Date(Date.now() - elapsedSeconds * 1000).toISOString(),
+        finishedAt: new Date().toISOString(),
+        totalQuestions: paper.totalQuestions,
+        totalMarks: paper.totalMarks,
+        correctMarks: paper.correctMarks,
+        incorrectMarks: paper.incorrectMarks,
+        timeMinutes: timeLimitMinutes,
+        durationSeconds: elapsedSeconds,
+        idleTimeSeconds,
+        overtimeSeconds: isOvertime ? overtimeSeconds : 0,
+        answered: attemptedCount,
+        correct: correctCount,
+        partial: partialCount,
+        incorrect: incorrectCount,
+        unattempted: unattemptedCount,
+        score: Math.round(calculatedScore * 100) / 100,
+        maxScore: Math.round(maxScore * 100) / 100,
+        percentagePct: getAttemptPercentage({
+          score: calculatedScore,
+          maxScore,
+        }),
+        accuracyPct: Math.round(accuracyPct * 10) / 10,
+        cutoffEnabled: paper.cutoffEnabled,
+        cutoffType: paper.cutoffType,
+        cutoffValue: paper.cutoffValue,
+        avgTimePerQuestion,
+        avgTimeCorrect,
+        avgTimeIncorrect,
+        alteredCount,
+        alteredHarmCount,
+        alteredBenefitCount,
+        answers: finalAnswers,
+        userSubmissionPdfUrl: submissionPdfBlobUrl || fullBookletUrl,
       };
-    }
-
-    const calculatedScore = isSubjective
-      ? subjectiveScore
-      : correctCount * paper.correctMarks -
-        incorrectCount * paper.incorrectMarks;
-    const maxScore = paper.totalMarks;
-    const accuracyPct =
-      attemptedCount > 0
-        ? (isSubjective
-            ? subjectiveAssessmentPoints / attemptedCount
-            : correctCount / attemptedCount) * 100
-        : 0;
-
-    const activeQuestionSeconds = Math.max(0, elapsedSeconds - idleTimeSeconds);
-    const avgTimePerQuestion =
-      attemptedCount > 0
-        ? Math.round(activeQuestionSeconds / attemptedCount)
-        : 0;
-    const avgTimeCorrect =
-      correctCount > 0 ? Math.round(timeCorrectSum / correctCount) : 0;
-    const avgTimeIncorrect =
-      incorrectCount > 0 ? Math.round(timeIncorrectSum / incorrectCount) : 0;
-
-    const attempt: Attempt = {
-      id: `attempt_${Date.now()}`,
-      paperId: paper.id,
-      paperLabel: paper.label,
-      category: paper.category,
-      examType: paper.examType,
-      mode,
-      startedAt: new Date(Date.now() - elapsedSeconds * 1000).toISOString(),
-      finishedAt: new Date().toISOString(),
-      totalQuestions: paper.totalQuestions,
-      totalMarks: paper.totalMarks,
-      correctMarks: paper.correctMarks,
-      incorrectMarks: paper.incorrectMarks,
-      timeMinutes: timeLimitMinutes,
-      durationSeconds: elapsedSeconds,
-      idleTimeSeconds,
-      overtimeSeconds: isOvertime ? overtimeSeconds : 0,
-      answered: attemptedCount,
-      correct: correctCount,
-      partial: partialCount,
-      incorrect: incorrectCount,
-      unattempted: unattemptedCount,
-      score: Math.round(calculatedScore * 100) / 100,
-      maxScore: Math.round(maxScore * 100) / 100,
-      percentagePct: getAttemptPercentage({
-        score: calculatedScore,
-        maxScore,
-      }),
-      accuracyPct: Math.round(accuracyPct * 10) / 10,
-      cutoffEnabled: paper.cutoffEnabled,
-      cutoffType: paper.cutoffType,
-      cutoffValue: paper.cutoffValue,
-      avgTimePerQuestion,
-      avgTimeCorrect,
-      avgTimeIncorrect,
-      alteredCount,
-      alteredHarmCount,
-      alteredBenefitCount,
-      answers: finalAnswers,
-      userSubmissionPdfUrl: submissionPdfBlobUrl || fullBookletUrl,
-    };
 
       await Promise.resolve(onFinish(attempt));
     } catch (err) {
@@ -1644,7 +1647,9 @@ export function ExamSessionView({
                 }
               }}
               className={`rounded-lg bg-indigo-600 px-3 sm:px-4 py-1 sm:py-1.5 text-xs font-bold text-white shadow-xs hover:bg-indigo-700 transition-all shrink-0 flex items-center gap-1.5 ${
-                isSubmittingExam ? "opacity-60 cursor-not-allowed pointer-events-none" : ""
+                isSubmittingExam
+                  ? "opacity-60 cursor-not-allowed pointer-events-none"
+                  : ""
               }`}
             >
               {isSubmittingExam && (
@@ -3275,7 +3280,8 @@ export function ExamSessionView({
                 <div className="rounded-2xl border border-indigo-300 bg-indigo-50/95 p-4 shadow-sm flex items-center justify-center gap-3 text-indigo-900 animate-pulse">
                   <Loader2 className="h-5 w-5 animate-spin text-indigo-600 shrink-0" />
                   <div className="text-xs sm:text-sm font-semibold text-center">
-                    Evaluation in progress — scoring your answers and preparing scorecard... Please wait.
+                    Evaluation in progress — scoring your answers and preparing
+                    scorecard... Please wait.
                   </div>
                 </div>
               )}

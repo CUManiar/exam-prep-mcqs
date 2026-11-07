@@ -60,11 +60,7 @@ interface PapersFilterState {
   selectedCategory?: "all" | "prelims" | "mains" | "custom";
   selectedYear?: string;
   selectedAttemptFilter?:
-    | "all"
-    | "attempted"
-    | "unattempted"
-    | "mock"
-    | "practice";
+    "all" | "attempted" | "unattempted" | "mock" | "practice";
   paperViewMode?: "grid" | "list";
 }
 
@@ -116,7 +112,10 @@ export function PapersView({
     ) {
       setSelectedCategory(saved.selectedCategory);
     }
-    if (typeof saved.selectedYear === "string" && saved.selectedYear !== "all") {
+    if (
+      typeof saved.selectedYear === "string" &&
+      saved.selectedYear !== "all"
+    ) {
       setSelectedYear(saved.selectedYear);
     }
     if (

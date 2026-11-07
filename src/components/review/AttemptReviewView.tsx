@@ -522,8 +522,8 @@ export function AttemptReviewView({
               {currentAttemptIndex >= 0 ? currentAttemptIndex + 1 : "?"}
             </span>
             <span className="text-xs font-semibold text-slate-800 truncate">
-              Attempt #{currentAttemptIndex >= 0 ? currentAttemptIndex + 1 : 1} of{" "}
-              {totalRelatedAttempts} on this paper
+              Attempt #{currentAttemptIndex >= 0 ? currentAttemptIndex + 1 : 1}{" "}
+              of {totalRelatedAttempts} on this paper
             </span>
           </div>
 
