@@ -279,8 +279,9 @@ export function RevisionView() {
       const errorMsg: RevisionMessage = {
         id: `msg_err_${Date.now()}`,
         role: "assistant",
-        content: `⚠️ **Unable to complete query**: ${err.message || "An unexpected error occurred."}\n\n*Please verify your connection and try again.*`,
+        content: `⚠️ **Unable to complete query**: ${err.message || "An unexpected error occurred."}\n\n*Please verify your connection or check AI settings.*`,
         timestamp: new Date().toISOString(),
+        isError: true,
       };
       setMessages([...nextMessages, errorMsg]);
     } finally {
@@ -631,11 +632,46 @@ export function RevisionView() {
                 className={`max-w-3xl rounded-xl p-4 shadow-xs text-xs sm:text-sm ${
                   msg.role === "user"
                     ? "bg-indigo-600 text-white font-medium ml-12"
-                    : "bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-slate-800 dark:text-slate-200 w-full"
+                    : (msg.isError || msg.content.startsWith("⚠️"))
+                      ? "bg-rose-50/75 dark:bg-rose-950/30 border border-rose-200 dark:border-rose-900/60 text-slate-800 dark:text-slate-200 w-full"
+                      : "bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-slate-800 dark:text-slate-200 w-full"
                 }`}
               >
                 {msg.role === "user" ? (
                   <p className="whitespace-pre-wrap leading-relaxed">{msg.content}</p>
+                ) : (msg.isError || msg.content.startsWith("⚠️")) ? (
+                  <div className="space-y-3">
+                    <RevisionMarkdownRenderer content={msg.content} />
+                    <div className="pt-2 border-t border-rose-200/60 dark:border-rose-900/40 flex items-center justify-between gap-2 text-xs">
+                      <span className="text-rose-600 dark:text-rose-400 font-medium text-[11px]">
+                        Generation stopped
+                      </span>
+                      <div className="flex items-center gap-2">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const lastUser = [...messages].reverse().find((m) => m.role === "user");
+                            if (lastUser) {
+                              handleSend(lastUser.content);
+                            }
+                          }}
+                          disabled={isLoading}
+                          className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-rose-600 hover:bg-rose-700 text-white font-semibold transition-colors shadow-2xs cursor-pointer disabled:opacity-50"
+                        >
+                          <RotateCcw className="h-3.5 w-3.5" />
+                          <span>Retry</span>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setShowSettingsModal(true)}
+                          className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 hover:bg-slate-50 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-200 font-medium transition-colors cursor-pointer"
+                        >
+                          <Settings2 className="h-3.5 w-3.5" />
+                          <span>AI Settings</span>
+                        </button>
+                      </div>
+                    </div>
+                  </div>
                 ) : (
                   <div>
                     <RevisionMarkdownRenderer content={msg.content} />
@@ -655,20 +691,21 @@ export function RevisionView() {
                         <span>{copiedId === msg.id ? "Copied!" : "Copy Notes"}</span>
                       </button>
 
-                      {/* Follow-up Quick Prompts */}
+                      {/* Follow-up Quick Prompts: Grill with Mains question, Grill on prelims, Model answer practice */}
                       <div className="flex items-center gap-1.5 flex-wrap">
                         <button
                           type="button"
                           onClick={() => {
                             const topic = activeContext.topic || "this topic";
                             handleSend(
-                              `Provide 2 high-probability UPSC Mains questions on "${topic}" with model answer outlines and key evaluation points.`,
+                              `Grill me with a high-yield UPSC Mains question on "${topic}". Focus on conceptual depth, constitutional/statutory basis, and analytical judgements.`,
                             );
                           }}
                           disabled={isLoading}
-                          className="text-[11px] text-slate-500 hover:text-indigo-600 dark:hover:text-indigo-400 hover:underline cursor-pointer disabled:opacity-50"
+                          className="flex items-center gap-1 text-[11px] font-medium text-slate-600 dark:text-slate-300 hover:text-indigo-600 dark:hover:text-indigo-400 bg-slate-100 dark:bg-slate-800 hover:bg-indigo-50 dark:hover:bg-indigo-950/60 px-2.5 py-1 rounded-md transition-colors cursor-pointer disabled:opacity-50"
                         >
-                          + 2 Mains questions
+                          <span>🔥</span>
+                          <span>Grill with Mains question</span>
                         </button>
                         <span className="text-slate-300 dark:text-slate-700">•</span>
                         <button
@@ -676,13 +713,29 @@ export function RevisionView() {
                           onClick={() => {
                             const topic = activeContext.topic || "this topic";
                             handleSend(
-                              `Give me 3 tricky Prelims statement-based questions on "${topic}" to test my elimination skills with detailed explanations.`,
+                              `Grill on Prelims for "${topic}": generate tricky statement-based MCQs testing elimination traps, subtle wording, and high-yield facts with exhaustive explanations.`,
                             );
                           }}
                           disabled={isLoading}
-                          className="text-[11px] text-slate-500 hover:text-indigo-600 dark:hover:text-indigo-400 hover:underline cursor-pointer disabled:opacity-50"
+                          className="flex items-center gap-1 text-[11px] font-medium text-slate-600 dark:text-slate-300 hover:text-indigo-600 dark:hover:text-indigo-400 bg-slate-100 dark:bg-slate-800 hover:bg-indigo-50 dark:hover:bg-indigo-950/60 px-2.5 py-1 rounded-md transition-colors cursor-pointer disabled:opacity-50"
                         >
-                          + 3 Prelims drills
+                          <span>🎯</span>
+                          <span>Grill on Prelims</span>
+                        </button>
+                        <span className="text-slate-300 dark:text-slate-700">•</span>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const topic = activeContext.topic || "this topic";
+                            handleSend(
+                              `Model answer practice on "${topic}": provide an exam-calibrated model answer structure with punchy introduction, multi-dimensional body arguments, and forward-looking conclusion with committee references.`,
+                            );
+                          }}
+                          disabled={isLoading}
+                          className="flex items-center gap-1 text-[11px] font-medium text-slate-600 dark:text-slate-300 hover:text-indigo-600 dark:hover:text-indigo-400 bg-slate-100 dark:bg-slate-800 hover:bg-indigo-50 dark:hover:bg-indigo-950/60 px-2.5 py-1 rounded-md transition-colors cursor-pointer disabled:opacity-50"
+                        >
+                          <span>✍️</span>
+                          <span>Model answer practice</span>
                         </button>
                       </div>
                     </div>

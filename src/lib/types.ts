@@ -194,6 +194,7 @@ export interface RevisionMessage {
   content: string;
   timestamp: string;
   contextSnapshot?: Partial<RevisionContext>;
+  isError?: boolean;
 }
 
 export interface RevisionSession {
