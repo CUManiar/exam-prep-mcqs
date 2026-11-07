@@ -218,27 +218,39 @@ export async function validateApiKey(
     }
 
     if (provider === "gemini") {
-      let activeModel = model || DEFAULT_GEMINI_MODEL;
-      if (activeModel.includes("2.5")) {
-        activeModel = DEFAULT_GEMINI_MODEL;
-      }
-      const url = `https://generativelanguage.googleapis.com/v1beta/models/${activeModel}:generateContent?key=${apiKey.trim()}`;
-      const res = await fetch(url, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          contents: [{ parts: [{ text: "Ping. Respond with 'PONG'." }] }],
-        }),
-        signal: AbortSignal.timeout(15000),
-      });
+      const candidateModels = [
+        model || DEFAULT_GEMINI_MODEL,
+        "gemini-1.5-flash",
+        "gemini-2.0-flash",
+      ].filter((v, idx, arr) => arr.indexOf(v) === idx);
 
-      if (!res.ok) {
-        const errorData = await res.json().catch(() => ({}));
-        const msg =
-          errorData.error?.message || `HTTP ${res.status}: ${res.statusText}`;
-        return { valid: false, error: msg };
+      let lastMsg = "";
+      for (const m of candidateModels) {
+        try {
+          const url = `https://generativelanguage.googleapis.com/v1beta/models/${m}:generateContent?key=${apiKey.trim()}`;
+          const res = await fetch(url, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              contents: [{ parts: [{ text: "Ping. Respond with 'PONG'." }] }],
+            }),
+            signal: AbortSignal.timeout(15000),
+          });
+
+          if (res.ok) {
+            return { valid: true };
+          }
+          const errorData = await res.json().catch(() => ({}));
+          lastMsg = errorData.error?.message || `HTTP ${res.status}: ${res.statusText}`;
+          if (res.status === 404 || lastMsg.includes("not found") || lastMsg.includes("no longer available")) {
+            continue;
+          }
+          return { valid: false, error: lastMsg };
+        } catch (e: any) {
+          lastMsg = e.message;
+        }
       }
-      return { valid: true };
+      return { valid: false, error: lastMsg || "Validation failed for this Gemini key." };
     } else {
       const activeModel = model || DEFAULT_GROQ_MODEL;
       const url = "https://api.groq.com/openai/v1/chat/completions";

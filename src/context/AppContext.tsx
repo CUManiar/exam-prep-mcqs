@@ -562,6 +562,10 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange(async (_event, session) => {
+      // Ignore INITIAL_SESSION to avoid duplicate full reload on initial page load
+      if (_event === "INITIAL_SESSION") {
+        return;
+      }
       const user = session?.user || null;
       setCurrentUser(user);
       if (user) {

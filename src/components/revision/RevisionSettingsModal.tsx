@@ -118,10 +118,10 @@ export function RevisionSettingsModal({
                 id="revision-settings-title"
                 className="text-base sm:text-lg font-bold text-slate-900 dark:text-white"
               >
-                Connect Free AI Key
+                AI Model & Quota Settings
               </h2>
               <p className="text-xs text-slate-500 dark:text-slate-400">
-                Required for high-yield revision • 100% free • No credit card needed
+                Free AI is active out-of-the-box • Dedicated key is optional
               </p>
             </div>
           </div>
@@ -132,7 +132,7 @@ export function RevisionSettingsModal({
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
             <span className="font-bold text-indigo-950 dark:text-indigo-200 flex items-center gap-1.5">
               <Sparkles className="h-4 w-4 text-indigo-600 dark:text-indigo-400 shrink-0" />
-              How to get your free key in 30 seconds:
+              Optional: Dedicated free key in 30 seconds
             </span>
             <a
               href={

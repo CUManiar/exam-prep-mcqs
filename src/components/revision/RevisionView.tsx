@@ -50,6 +50,8 @@ import { RevisionSettingsModal } from "./RevisionSettingsModal";
 import { PageHeader } from "../PageHeader";
 import { getPaperDisplayTitle } from "../../lib/defaults";
 
+const REVISION_CHAT_STORAGE_KEY = "upsc_revision_active_chat";
+
 interface StarterTopic {
   topic: string;
   category: "GS-I" | "GS-II" | "GS-III";
@@ -119,6 +121,34 @@ export function RevisionView() {
     setConfig(saved);
   }, []);
 
+  // Restore chat messages from localStorage on mount
+  useEffect(() => {
+    try {
+      const savedChat = localStorage.getItem(REVISION_CHAT_STORAGE_KEY);
+      if (savedChat) {
+        const parsed = JSON.parse(savedChat);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          setMessages(parsed);
+        }
+      }
+    } catch (e) {
+      console.warn("Failed to load saved revision chat:", e);
+    }
+  }, []);
+
+  // Auto-persist chat messages to localStorage
+  useEffect(() => {
+    try {
+      if (messages.length > 0) {
+        localStorage.setItem(REVISION_CHAT_STORAGE_KEY, JSON.stringify(messages));
+      } else {
+        localStorage.removeItem(REVISION_CHAT_STORAGE_KEY);
+      }
+    } catch (e) {
+      console.warn("Failed to persist revision chat:", e);
+    }
+  }, [messages]);
+
   // Handle URL search params on mount
   useEffect(() => {
     const topicParam = searchParams.get("topic");
@@ -137,16 +167,16 @@ export function RevisionView() {
 
   // Resolve currently active paper & question
   const activePaper = useMemo<QuestionPaper | undefined>(() => {
-    if (!selectedPaperId) return undefined;
+    if (!selectedPaperId || mode !== "paper") return undefined;
     return papers.find((p) => p.id === selectedPaperId);
-  }, [papers, selectedPaperId]);
+  }, [papers, selectedPaperId, mode]);
 
   const activeQuestion = useMemo<ParsedQuestion | undefined>(() => {
-    if (!activePaper || !selectedQuestionNo) return undefined;
+    if (!activePaper || !selectedQuestionNo || mode !== "paper") return undefined;
     return (activePaper.parsedQuestions || []).find(
       (q) => q.questionNo === selectedQuestionNo,
     );
-  }, [activePaper, selectedQuestionNo]);
+  }, [activePaper, selectedQuestionNo, mode]);
 
   // Construct active context
   const activeContext = useMemo<RevisionContext>(() => {
@@ -215,12 +245,6 @@ export function RevisionView() {
     const textToSend = (customPrompt || inputPrompt).trim();
     if (!textToSend || isLoading) return;
 
-    // Guard: Require API key
-    if (!config?.apiKey?.trim()) {
-      setShowSettingsModal(true);
-      return;
-    }
-
     const userMessage: RevisionMessage = {
       id: `msg_u_${Date.now()}`,
       role: "user",
@@ -252,13 +276,10 @@ export function RevisionView() {
       };
       setMessages([...nextMessages, assistantMessage]);
     } catch (err: any) {
-      if (err.needsApiKey) {
-        setShowSettingsModal(true);
-      }
       const errorMsg: RevisionMessage = {
         id: `msg_err_${Date.now()}`,
         role: "assistant",
-        content: `⚠️ **Unable to complete query**: ${err.message || "An unexpected error occurred."}\n\n*Please verify your API key in settings or test your connection.*`,
+        content: `⚠️ **Unable to complete query**: ${err.message || "An unexpected error occurred."}\n\n*Please verify your connection and try again.*`,
         timestamp: new Date().toISOString(),
       };
       setMessages([...nextMessages, errorMsg]);
@@ -269,11 +290,6 @@ export function RevisionView() {
 
   // Preset trigger
   const handleTriggerPreset = (preset: PresetAction) => {
-    if (!config?.apiKey?.trim()) {
-      setShowSettingsModal(true);
-      return;
-    }
-
     const candidateTopic = inputPrompt.trim() || selectedTopic.trim() || activeContext.topic;
     if (!candidateTopic && messages.length === 0) {
       if (textareaRef.current) {
@@ -302,6 +318,11 @@ export function RevisionView() {
 
   const handleClearChat = () => {
     setMessages([]);
+    try {
+      localStorage.removeItem(REVISION_CHAT_STORAGE_KEY);
+    } catch {}
+    setToastMsg("Revision conversation cleared.");
+    setTimeout(() => setToastMsg(null), 2500);
   };
 
   return (
@@ -355,41 +376,37 @@ export function RevisionView() {
                 </button>
               </div>
 
-              {/* Model / Key Status Pill */}
+              {/* Model / Quota Status Pill */}
               <button
                 type="button"
                 onClick={() => setShowSettingsModal(true)}
-                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-xs font-medium transition-all shadow-2xs cursor-pointer ${
-                  config?.apiKey
-                    ? "border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700/60 text-slate-700 dark:text-slate-200"
-                    : "border-amber-300 dark:border-amber-700 bg-amber-50 dark:bg-amber-950/60 hover:bg-amber-100 text-amber-900 dark:text-amber-200 font-bold"
-                }`}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700/60 text-xs text-slate-700 dark:text-slate-200 font-medium transition-all shadow-2xs cursor-pointer"
               >
-                {config?.apiKey ? (
-                  <>
-                    <span className="h-2 w-2 rounded-full bg-emerald-500" />
-                    <span className="font-semibold text-emerald-700 dark:text-emerald-400">
-                      {config.provider === "gemini" ? "Gemini 2.0 Flash" : "Groq Llama 3.3"}
-                    </span>
-                    <Settings2 className="h-3.5 w-3.5 text-slate-400 ml-1" />
-                  </>
-                ) : (
-                  <>
-                    <KeyRound className="h-3.5 w-3.5 text-amber-600 dark:text-amber-400" />
-                    <span>Connect Free Key (30s)</span>
-                  </>
-                )}
+                <span className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse" />
+                <span className="font-semibold text-emerald-700 dark:text-emerald-400">
+                  {config?.apiKey
+                    ? config.provider === "gemini"
+                      ? "Gemini Flash"
+                      : "Groq Llama 3.3"
+                    : "Free AI Active"}
+                </span>
+                <Settings2 className="h-3.5 w-3.5 text-slate-400 ml-1" />
               </button>
 
               {messages.length > 0 && (
-                <button
-                  type="button"
-                  onClick={handleClearChat}
-                  title="Clear conversation"
-                  className="p-1.5 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/40 border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 transition-colors cursor-pointer"
-                >
-                  <Trash2 className="h-4 w-4" />
-                </button>
+                <div className="flex items-center gap-1.5">
+                  <span className="text-[11px] text-slate-400 hidden sm:inline">
+                    Saved locally
+                  </span>
+                  <button
+                    type="button"
+                    onClick={handleClearChat}
+                    title="Clear conversation"
+                    className="p-1.5 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/40 border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 transition-colors cursor-pointer"
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </button>
+                </div>
               )}
             </div>
           }
@@ -513,30 +530,6 @@ export function RevisionView() {
 
       {/* 2. Central Scrollable Chat Feed (flex-1 min-h-0 overflow-y-auto) */}
       <div className="flex-1 min-h-0 overflow-y-auto py-3 space-y-4 pr-1">
-        {/* If no API key configured, show an attention alert at top of the scroll feed */}
-        {!config?.apiKey && (
-          <div className="p-4 rounded-xl border border-amber-300 dark:border-amber-800 bg-amber-50/90 dark:bg-amber-950/50 text-amber-950 dark:text-amber-200 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 shadow-xs">
-            <div className="flex items-start sm:items-center gap-3">
-              <div className="p-2 rounded-lg bg-amber-500 text-white shrink-0 mt-0.5 sm:mt-0">
-                <KeyRound className="h-5 w-5" />
-              </div>
-              <div className="space-y-0.5">
-                <div className="font-bold text-sm">Free Google Gemini API Key Required</div>
-                <p className="text-xs text-amber-800 dark:text-amber-300">
-                  Google provides 100% free Gemini Flash access (15 requests/min, zero charges, no card). Connect in 30 seconds to begin revising.
-                </p>
-              </div>
-            </div>
-            <button
-              type="button"
-              onClick={() => setShowSettingsModal(true)}
-              className="px-4 py-2 rounded-lg bg-amber-600 hover:bg-amber-700 text-white font-bold text-xs shrink-0 transition-colors shadow-xs"
-            >
-              Connect Free Key (30s)
-            </button>
-          </div>
-        )}
-
         {messages.length === 0 ? (
           /* First-Time Landing Guidance Hub */
           <div className="max-w-3xl mx-auto my-2 space-y-6">
@@ -598,10 +591,6 @@ export function RevisionView() {
                     key={idx}
                     type="button"
                     onClick={() => {
-                      if (!config?.apiKey?.trim()) {
-                        setShowSettingsModal(true);
-                        return;
-                      }
                       handleSend(
                         `Comprehensive UPSC revision for "${item.topic}": constitutional/statutory provisions, landmark and recent judgements, contemporary PIB policy touchpoints, and an interactive Mermaid flowchart.`,
                       );
@@ -670,24 +659,28 @@ export function RevisionView() {
                       <div className="flex items-center gap-1.5 flex-wrap">
                         <button
                           type="button"
-                          onClick={() =>
+                          onClick={() => {
+                            const topic = activeContext.topic || "this topic";
                             handleSend(
-                              "Provide 2 high-probability UPSC Mains questions on this topic with model answer outlines.",
-                            )
-                          }
-                          className="text-[11px] text-slate-500 hover:text-indigo-600 dark:hover:text-indigo-400 hover:underline cursor-pointer"
+                              `Provide 2 high-probability UPSC Mains questions on "${topic}" with model answer outlines and key evaluation points.`,
+                            );
+                          }}
+                          disabled={isLoading}
+                          className="text-[11px] text-slate-500 hover:text-indigo-600 dark:hover:text-indigo-400 hover:underline cursor-pointer disabled:opacity-50"
                         >
                           + 2 Mains questions
                         </button>
                         <span className="text-slate-300 dark:text-slate-700">•</span>
                         <button
                           type="button"
-                          onClick={() =>
+                          onClick={() => {
+                            const topic = activeContext.topic || "this topic";
                             handleSend(
-                              "Give me 3 tricky Prelims statement-based questions to test my elimination skills.",
-                            )
-                          }
-                          className="text-[11px] text-slate-500 hover:text-indigo-600 dark:hover:text-indigo-400 hover:underline cursor-pointer"
+                              `Give me 3 tricky Prelims statement-based questions on "${topic}" to test my elimination skills with detailed explanations.`,
+                            );
+                          }}
+                          disabled={isLoading}
+                          className="text-[11px] text-slate-500 hover:text-indigo-600 dark:hover:text-indigo-400 hover:underline cursor-pointer disabled:opacity-50"
                         >
                           + 3 Prelims drills
                         </button>

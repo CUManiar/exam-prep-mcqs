@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { DEFAULT_GEMINI_MODEL, getUpscRevisionSystemPrompt } from "../../../../lib/revisionAi";
+import { cleanMarkdownContent } from "../../../../components/revision/RevisionMarkdownRenderer";
 import { RevisionContext, RevisionMessage, RevisionProviderConfig } from "../../../../lib/types";
 
 export const runtime = "nodejs";
@@ -26,110 +27,179 @@ export async function POST(req: NextRequest) {
 
     const systemPrompt = getUpscRevisionSystemPrompt(context);
 
-    // 1. Check for API Key (User-provided or Server Environment)
+    // 1. Check for User or Server API Key
     const userApiKey = providerConfig?.apiKey?.trim();
     const serverGeminiKey = process.env.GEMINI_API_KEY?.trim();
 
-    if (!userApiKey && !serverGeminiKey) {
-      return NextResponse.json(
-        {
-          error:
-            "A Google Gemini API Key is required for high-yield UPSC revision. Please connect your free key.",
-          needsApiKey: true,
+    // BRANCH 1: Custom Groq Key
+    if (userApiKey && providerConfig?.provider === "groq") {
+      const model = providerConfig.model || "llama-3.3-70b-versatile";
+      const groqRes = await fetch("https://api.groq.com/openai/v1/chat/completions", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${userApiKey}`,
         },
-        { status: 400 },
-      );
+        body: JSON.stringify({
+          model,
+          messages: [
+            { role: "system", content: systemPrompt },
+            ...messages.map((m) => ({
+              role: m.role === "assistant" ? "assistant" : "user",
+              content: m.content,
+            })),
+          ],
+          temperature: 0.35,
+          max_tokens: 3500,
+        }),
+        signal: AbortSignal.timeout(25000),
+      });
+
+      if (!groqRes.ok) {
+        const errData = await groqRes.json().catch(() => ({}));
+        const errMsg = errData.error?.message || `Groq error HTTP ${groqRes.status}`;
+        return NextResponse.json({ error: errMsg }, { status: groqRes.status });
+      }
+
+      const data = await groqRes.json();
+      const rawText = data.choices?.[0]?.message?.content || "";
+      return NextResponse.json({ text: cleanMarkdownContent(rawText) });
     }
 
-    const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 30000); // 30s hard limit to prevent hanging
+    // BRANCH 2: Google Gemini Key (User Key or Server Key)
+    const geminiKey = userApiKey || serverGeminiKey;
+    if (geminiKey) {
+      const candidateModels = [
+        providerConfig?.model || DEFAULT_GEMINI_MODEL,
+        "gemini-1.5-flash",
+        "gemini-2.0-flash",
+      ].filter((v, idx, arr) => arr.indexOf(v) === idx);
 
-    try {
-      // Branch A: Groq Provider
-      if (userApiKey && providerConfig?.provider === "groq") {
-        const model = providerConfig.model || "llama-3.3-70b-versatile";
-        const groqRes = await fetch("https://api.groq.com/openai/v1/chat/completions", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${userApiKey}`,
-          },
-          body: JSON.stringify({
-            model,
-            messages: [
-              { role: "system", content: systemPrompt },
-              ...messages.map((m) => ({
-                role: m.role === "assistant" ? "assistant" : "user",
-                content: m.content,
-              })),
-            ],
-            temperature: 0.35,
-            max_tokens: 3500,
-          }),
-          signal: controller.signal,
-        });
+      let lastError = "";
+      for (const model of candidateModels) {
+        try {
+          const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${geminiKey}`;
+          const contents = messages
+            .filter((m) => m.role !== "system")
+            .map((m) => ({
+              role: m.role === "assistant" ? "model" : "user",
+              parts: [{ text: m.content }],
+            }));
 
-        if (!groqRes.ok) {
-          const errData = await groqRes.json().catch(() => ({}));
-          const errMsg = errData.error?.message || `Groq error HTTP ${groqRes.status}`;
-          return NextResponse.json({ error: errMsg }, { status: groqRes.status });
+          const geminiRes = await fetch(url, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              contents,
+              systemInstruction: { parts: [{ text: systemPrompt }] },
+              generationConfig: {
+                temperature: 0.35,
+                maxOutputTokens: 3500,
+              },
+            }),
+            signal: AbortSignal.timeout(25000),
+          });
+
+          if (geminiRes.ok) {
+            const data = await geminiRes.json();
+            const text = data.candidates?.[0]?.content?.parts?.[0]?.text || "";
+            if (text.trim()) {
+              return NextResponse.json({ text: cleanMarkdownContent(text) });
+            }
+          } else {
+            const errData = await geminiRes.json().catch(() => ({}));
+            lastError = errData.error?.message || `Gemini HTTP ${geminiRes.status}`;
+            // If the model is not found, continue to next candidate model
+            if (geminiRes.status === 404 || lastError.includes("not found") || lastError.includes("no longer available")) {
+              continue;
+            }
+            return NextResponse.json({ error: lastError }, { status: geminiRes.status });
+          }
+        } catch (e: any) {
+          lastError = e.message;
         }
-
-        const data = await groqRes.json();
-        const text = data.choices?.[0]?.message?.content || "";
-        return NextResponse.json({ text });
       }
-
-      // Branch B: Google Gemini Provider (User key or Server fallback)
-      const activeKey = userApiKey || serverGeminiKey;
-      let model = providerConfig?.model || DEFAULT_GEMINI_MODEL;
-      if (model.includes("2.5")) {
-        model = "gemini-2.0-flash";
+      if (lastError) {
+        return NextResponse.json({ error: lastError }, { status: 500 });
       }
+    }
 
-      const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${activeKey}`;
-      const contents = messages
-        .filter((m) => m.role !== "system")
-        .map((m) => ({
-          role: m.role === "assistant" ? "model" : "user",
-          parts: [{ text: m.content }],
-        }));
+    // BRANCH 3: Built-in Free Live AI Service (Zero configuration for student)
+    const formattedMessages = [
+      { role: "system", content: systemPrompt },
+      ...messages.map((m) => ({
+        role: m.role === "assistant" ? "assistant" : "user",
+        content: m.content,
+      })),
+    ];
 
-      const geminiRes = await fetch(url, {
+    // Try primary free model (openai)
+    try {
+      const polRes = await fetch("https://text.pollinations.ai/", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          contents,
-          systemInstruction: { parts: [{ text: systemPrompt }] },
-          generationConfig: {
-            temperature: 0.35,
-            maxOutputTokens: 3500,
-          },
+          messages: formattedMessages,
+          model: "openai",
+          temperature: 0.3,
         }),
-        signal: controller.signal,
+        signal: AbortSignal.timeout(18000),
       });
 
-      if (!geminiRes.ok) {
-        const errData = await geminiRes.json().catch(() => ({}));
-        const errMsg =
-          errData.error?.message || `Gemini error HTTP ${geminiRes.status}`;
-        return NextResponse.json({ error: errMsg }, { status: geminiRes.status });
+      if (polRes.ok) {
+        const raw = await polRes.text();
+        if (raw && raw.trim() && !raw.startsWith("<!DOCTYPE")) {
+          return NextResponse.json({ text: cleanMarkdownContent(raw) });
+        }
       }
-
-      const data = await geminiRes.json();
-      const text = data.candidates?.[0]?.content?.parts?.[0]?.text || "";
-      if (!text.trim()) {
-        throw new Error("Empty response received from Gemini.");
-      }
-      return NextResponse.json({ text });
-    } finally {
-      clearTimeout(timeout);
+    } catch {
+      // Proceed to secondary fallback
     }
+
+    // Fallback free model (mistral)
+    try {
+      const polRes2 = await fetch("https://text.pollinations.ai/", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          messages: formattedMessages,
+          model: "mistral",
+          temperature: 0.3,
+        }),
+        signal: AbortSignal.timeout(18000),
+      });
+
+      if (polRes2.ok) {
+        const raw = await polRes2.text();
+        if (raw && raw.trim() && !raw.startsWith("<!DOCTYPE")) {
+          return NextResponse.json({ text: cleanMarkdownContent(raw) });
+        }
+      }
+    } catch {
+      // Proceed to tertiary
+    }
+
+    // Tertiary fallback: simple encoded query
+    const latestUserMsg = messages.filter((m) => m.role === "user").pop()?.content || "";
+    const promptSummary = `UPSC revision for ${context.topic || latestUserMsg.slice(0, 80)}. ${latestUserMsg}`;
+    const simpleUrl = `https://text.pollinations.ai/${encodeURIComponent(promptSummary)}?model=openai`;
+    const simpleRes = await fetch(simpleUrl, {
+      signal: AbortSignal.timeout(12000),
+    });
+
+    if (simpleRes.ok) {
+      const raw = await simpleRes.text();
+      if (raw && raw.trim()) {
+        return NextResponse.json({ text: cleanMarkdownContent(raw) });
+      }
+    }
+
+    throw new Error("Free AI network is temporarily busy. Please retry in a few seconds.");
   } catch (err: any) {
     console.error("Revision chat error:", err);
-    if (err.name === "AbortError") {
+    if (err.name === "AbortError" || err.name === "TimeoutError") {
       return NextResponse.json(
-        { error: "The AI request timed out after 30 seconds. Please try again." },
+        { error: "AI request timed out. Please retry." },
         { status: 504 },
       );
     }
@@ -137,7 +207,7 @@ export async function POST(req: NextRequest) {
       {
         error:
           err.message ||
-          "Unable to generate revision notes. Please verify your connection or API key.",
+          "Unable to complete revision query. Please try again.",
       },
       { status: 500 },
     );

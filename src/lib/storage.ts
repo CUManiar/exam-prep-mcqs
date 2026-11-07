@@ -438,161 +438,185 @@ export async function attachToPaperOnServer(
   return null;
 }
 
+let inMemoryPapersCache: QuestionPaper[] | null = null;
+let inFlightPapersPromise: Promise<QuestionPaper[]> | null = null;
+
+export function clearPapersCache(): void {
+  inMemoryPapersCache = null;
+  inFlightPapersPromise = null;
+}
+
 // Fetch all papers from server filesystem + metadata store and ensure answer keys are parsed
-export async function getAllPapers(): Promise<QuestionPaper[]> {
-  let papers: QuestionPaper[] = [];
+export async function getAllPapers(forceRefresh = false): Promise<QuestionPaper[]> {
+  if (!forceRefresh && inMemoryPapersCache && inMemoryPapersCache.length > 0) {
+    return inMemoryPapersCache;
+  }
+  if (!forceRefresh && inFlightPapersPromise) {
+    return inFlightPapersPromise;
+  }
+
+  inFlightPapersPromise = (async () => {
+    let papers: QuestionPaper[] = [];
+
+    try {
+      const res = await fetch("/api/papers", {
+        headers: await getAuthHeaders(),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        if (data.ok && Array.isArray(data.papers)) {
+          papers = data.papers;
+        }
+      }
+    } catch (err) {
+      console.warn(
+        "Network issue fetching /api/papers, falling back to local cache:",
+        err,
+      );
+    }
+
+    if (papers.length === 0) {
+      // Offline fallback
+      papers = [...INITIAL_PAPERS];
+    }
+
+    // Always merge local custom papers from localStorage (user uploaded / markdown mocks)
+    const localCustom = getCustomPapers();
+    for (const cp of localCustom) {
+      const existingIdx = papers.findIndex((p) => p.id === cp.id);
+      if (existingIdx >= 0) {
+        papers[existingIdx] = { ...papers[existingIdx], ...cp };
+      } else {
+        papers.unshift(cp);
+      }
+    }
+
+    // Dynamic resolution of timeMinutes and default paper metadata if missing
+    papers.forEach((p) => {
+      if (!p.timeMinutes || p.timeMinutes <= 0) {
+        p.timeMinutes = getStandardTimeMinutes(p.category, p.examType);
+      }
+      const matchingDefault = INITIAL_PAPERS.find((init) => init.id === p.id);
+      if (matchingDefault) {
+        if (!p.parsedQuestions && matchingDefault.parsedQuestions) {
+          p.parsedQuestions = matchingDefault.parsedQuestions;
+        }
+        if (!p.instructions && matchingDefault.instructions) {
+          p.instructions = matchingDefault.instructions;
+        }
+        if (!p.markdownContent && matchingDefault.markdownContent) {
+          p.markdownContent = matchingDefault.markdownContent;
+        }
+        if (!p.answerKey || Object.keys(p.answerKey).length === 0) {
+          p.answerKey = { ...matchingDefault.answerKey };
+        }
+        if (!p.explanations || Object.keys(p.explanations).length === 0) {
+          p.explanations = { ...(matchingDefault.explanations || {}) };
+        }
+      }
+
+      // Auto-enrich any markdown paper with parsed questions & instructions
+      if (p.markdownContent) {
+        if (!p.parsedQuestions || p.parsedQuestions.length === 0) {
+          p.parsedQuestions = parseQuestionnaireMarkdown(p.markdownContent);
+        }
+        if (!p.instructions || p.instructions.length === 0) {
+          p.instructions = parseMarkdownHeader(p.markdownContent).instructions;
+        }
+      }
+    });
+
+    // Ensure ALL papers have their answer keys populated
+    await Promise.all(
+      papers.map(async (p) => {
+        // If already populated, check if we need to parse explanations if missing
+        if (p.answerKey && Object.keys(p.answerKey).length > 0) {
+          if (!p.explanations || Object.keys(p.explanations).length === 0) {
+            if (p.answerKeyText) {
+              const detailed = parseAnswerKeyDetailed(p.answerKeyText);
+              if (Object.keys(detailed.explanations).length > 0) {
+                p.explanations = detailed.explanations;
+              }
+            } else if (p.akUrl) {
+              try {
+                const res = await fetch(p.akUrl);
+                if (res.ok) {
+                  const text = await res.text();
+                  p.answerKeyText = text;
+                  const detailed = parseAnswerKeyDetailed(text);
+                  if (Object.keys(detailed.explanations).length > 0) {
+                    p.explanations = detailed.explanations;
+                  }
+                }
+              } catch {}
+            }
+          }
+          return;
+        }
+
+        // Check built-in defaults match
+        const matchingDefault = INITIAL_PAPERS.find((init) => init.id === p.id);
+        if (
+          matchingDefault &&
+          Object.keys(matchingDefault.answerKey || {}).length > 0
+        ) {
+          p.answerKey = { ...matchingDefault.answerKey };
+          if (matchingDefault.explanations) {
+            p.explanations = { ...matchingDefault.explanations };
+          }
+          return;
+        }
+
+        // Parse from answerKeyText if available
+        if (p.answerKeyText) {
+          const detailed = parseAnswerKeyDetailed(p.answerKeyText);
+          p.answerKey = detailed.answers;
+          if (Object.keys(detailed.explanations).length > 0) {
+            p.explanations = {
+              ...(p.explanations || {}),
+              ...detailed.explanations,
+            };
+          }
+          return;
+        }
+
+        // Fetch from akUrl if available
+        if (p.akUrl) {
+          try {
+            const res = await fetch(p.akUrl);
+            if (res.ok) {
+              const text = await res.text();
+              p.answerKeyText = text;
+              const detailed = parseAnswerKeyDetailed(text);
+              p.answerKey = detailed.answers;
+              if (Object.keys(detailed.explanations).length > 0) {
+                p.explanations = {
+                  ...(p.explanations || {}),
+                  ...detailed.explanations,
+                };
+              }
+            }
+          } catch (fetchErr) {
+            console.warn(`Failed to fetch akUrl for paper ${p.id}:`, fetchErr);
+          }
+        }
+      }),
+    );
+
+    if (typeof window !== "undefined") {
+      const customs = papers.filter((p: QuestionPaper) => p.isCustom);
+      localStorage.setItem(STORAGE_KEYS.CUSTOM_PAPERS, JSON.stringify(customs));
+    }
+
+    inMemoryPapersCache = papers;
+    return papers;
+  })();
 
   try {
-    const res = await fetch("/api/papers", {
-      headers: await getAuthHeaders(),
-    });
-    if (res.ok) {
-      const data = await res.json();
-      if (data.ok && Array.isArray(data.papers)) {
-        papers = data.papers;
-      }
-    }
-  } catch (err) {
-    console.warn(
-      "Network issue fetching /api/papers, falling back to local cache:",
-      err,
-    );
+    return await inFlightPapersPromise;
+  } finally {
+    inFlightPapersPromise = null;
   }
-
-  if (papers.length === 0) {
-    // Offline fallback
-    papers = [...INITIAL_PAPERS];
-  }
-
-  // Always merge local custom papers from localStorage (user uploaded / markdown mocks)
-  const localCustom = getCustomPapers();
-  for (const cp of localCustom) {
-    const existingIdx = papers.findIndex((p) => p.id === cp.id);
-    if (existingIdx >= 0) {
-      papers[existingIdx] = { ...papers[existingIdx], ...cp };
-    } else {
-      papers.unshift(cp);
-    }
-  }
-
-  // Dynamic resolution of timeMinutes and default paper metadata if missing
-  papers.forEach((p) => {
-    if (!p.timeMinutes || p.timeMinutes <= 0) {
-      p.timeMinutes = getStandardTimeMinutes(p.category, p.examType);
-    }
-    const matchingDefault = INITIAL_PAPERS.find((init) => init.id === p.id);
-    if (matchingDefault) {
-      if (!p.parsedQuestions && matchingDefault.parsedQuestions) {
-        p.parsedQuestions = matchingDefault.parsedQuestions;
-      }
-      if (!p.instructions && matchingDefault.instructions) {
-        p.instructions = matchingDefault.instructions;
-      }
-      if (!p.markdownContent && matchingDefault.markdownContent) {
-        p.markdownContent = matchingDefault.markdownContent;
-      }
-      if (!p.answerKey || Object.keys(p.answerKey).length === 0) {
-        p.answerKey = { ...matchingDefault.answerKey };
-      }
-      if (!p.explanations || Object.keys(p.explanations).length === 0) {
-        p.explanations = { ...(matchingDefault.explanations || {}) };
-      }
-    }
-
-    // Auto-enrich any markdown paper with parsed questions & instructions
-    if (p.markdownContent) {
-      if (!p.parsedQuestions || p.parsedQuestions.length === 0) {
-        p.parsedQuestions = parseQuestionnaireMarkdown(p.markdownContent);
-      }
-      if (!p.instructions || p.instructions.length === 0) {
-        p.instructions = parseMarkdownHeader(p.markdownContent).instructions;
-      }
-    }
-  });
-
-  // Ensure ALL papers have their answer keys populated
-  await Promise.all(
-    papers.map(async (p) => {
-      // If already populated, check if we need to parse explanations if missing
-      if (p.answerKey && Object.keys(p.answerKey).length > 0) {
-        if (!p.explanations || Object.keys(p.explanations).length === 0) {
-          if (p.answerKeyText) {
-            const detailed = parseAnswerKeyDetailed(p.answerKeyText);
-            if (Object.keys(detailed.explanations).length > 0) {
-              p.explanations = detailed.explanations;
-            }
-          } else if (p.akUrl) {
-            try {
-              const res = await fetch(p.akUrl);
-              if (res.ok) {
-                const text = await res.text();
-                p.answerKeyText = text;
-                const detailed = parseAnswerKeyDetailed(text);
-                if (Object.keys(detailed.explanations).length > 0) {
-                  p.explanations = detailed.explanations;
-                }
-              }
-            } catch {}
-          }
-        }
-        return;
-      }
-
-      // Check built-in defaults match
-      const matchingDefault = INITIAL_PAPERS.find((init) => init.id === p.id);
-      if (
-        matchingDefault &&
-        Object.keys(matchingDefault.answerKey || {}).length > 0
-      ) {
-        p.answerKey = { ...matchingDefault.answerKey };
-        if (matchingDefault.explanations) {
-          p.explanations = { ...matchingDefault.explanations };
-        }
-        return;
-      }
-
-      // Parse from answerKeyText if available
-      if (p.answerKeyText) {
-        const detailed = parseAnswerKeyDetailed(p.answerKeyText);
-        p.answerKey = detailed.answers;
-        if (Object.keys(detailed.explanations).length > 0) {
-          p.explanations = {
-            ...(p.explanations || {}),
-            ...detailed.explanations,
-          };
-        }
-        return;
-      }
-
-      // Fetch from akUrl if available
-      if (p.akUrl) {
-        try {
-          const res = await fetch(p.akUrl);
-          if (res.ok) {
-            const text = await res.text();
-            p.answerKeyText = text;
-            const detailed = parseAnswerKeyDetailed(text);
-            p.answerKey = detailed.answers;
-            if (Object.keys(detailed.explanations).length > 0) {
-              p.explanations = {
-                ...(p.explanations || {}),
-                ...detailed.explanations,
-              };
-            }
-          }
-        } catch (fetchErr) {
-          console.warn(`Failed to fetch akUrl for paper ${p.id}:`, fetchErr);
-        }
-      }
-    }),
-  );
-
-  if (typeof window !== "undefined") {
-    const customs = papers.filter((p: QuestionPaper) => p.isCustom);
-    localStorage.setItem(STORAGE_KEYS.CUSTOM_PAPERS, JSON.stringify(customs));
-  }
-
-  return papers;
 }
 
 export function exportAllData(): string {

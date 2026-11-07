@@ -344,6 +344,28 @@ function MermaidDiagram({ code }: { code: string }) {
 }
 
 /**
+ * Unescapes literal backslash sequences often returned by LLM APIs
+ * (\n, \r\n, \", \t) into real whitespace and formatting.
+ */
+export function cleanMarkdownContent(raw: string): string {
+  if (!raw) return "";
+  let text = raw;
+  if (text.includes("\\n")) {
+    text = text.replace(/\\r\\n/g, "\n").replace(/\\n/g, "\n");
+  }
+  if (text.includes("\\r")) {
+    text = text.replace(/\\r/g, "\n");
+  }
+  if (text.includes("\\t")) {
+    text = text.replace(/\\t/g, "  ");
+  }
+  if (text.includes('\\"')) {
+    text = text.replace(/\\"/g, '"');
+  }
+  return text;
+}
+
+/**
  * Custom High-Performance Markdown Section Parser.
  * Handles headings, tables, block alerts (> [!TIP]), code blocks, and lists.
  */
@@ -353,9 +375,10 @@ export function RevisionMarkdownRenderer({
 }: RevisionMarkdownRendererProps) {
   const blocks = useMemo(() => {
     if (!content) return [];
-    const lines = content.split("\n");
+    const sanitized = cleanMarkdownContent(content);
+    const lines = sanitized.split("\n");
     const result: Array<{
-      type: "p" | "h1" | "h2" | "h3" | "ul" | "ol" | "table" | "mermaid" | "code" | "alert";
+      type: "p" | "h1" | "h2" | "h3" | "h4" | "hr" | "ul" | "ol" | "table" | "mermaid" | "code" | "alert";
       text?: string;
       items?: string[];
       tableData?: { headers: string[]; rows: string[][] };
@@ -367,6 +390,13 @@ export function RevisionMarkdownRenderer({
     while (index < lines.length) {
       const line = lines[index];
       const trimmed = line.trim();
+
+      // Horizontal Rules (---, ***, ___)
+      if (trimmed === "---" || trimmed === "***" || trimmed === "___") {
+        result.push({ type: "hr" });
+        index++;
+        continue;
+      }
 
       // 1. Mermaid Code Block
       if (trimmed.startsWith("```mermaid")) {
@@ -401,15 +431,17 @@ export function RevisionMarkdownRenderer({
         continue;
       }
 
-      // 3. GitHub Alerts (> [!NOTE], > [!TIP], etc.)
-      const alertMatch = trimmed.match(/^>\s*\[!(NOTE|TIP|WARNING|IMPORTANT|CAUTION)\]\s*(.*)$/i);
+      // 3. GitHub Alerts (> [!NOTE], > [!TIP], or standalone [!TIP])
+      const alertMatch = trimmed.match(/^>?\s*\[!(NOTE|TIP|WARNING|IMPORTANT|CAUTION)\]\s*(.*)$/i);
       if (alertMatch) {
         const alertType = alertMatch[1].toUpperCase() as any;
         const alertLines: string[] = [];
         if (alertMatch[2]) alertLines.push(alertMatch[2]);
         index++;
-        while (index < lines.length && lines[index].trim().startsWith(">")) {
+        while (index < lines.length && (lines[index].trim().startsWith(">") || (lines[index].trim() && !lines[index].trim().startsWith("#") && !lines[index].trim().startsWith("```")))) {
           const l = lines[index].trim().replace(/^>\s?/, "");
+          // stop if we hit another header or section
+          if (l.startsWith("###") || l.startsWith("##") || l.startsWith("#") || l.startsWith("---")) break;
           alertLines.push(l);
           index++;
         }
@@ -437,6 +469,11 @@ export function RevisionMarkdownRenderer({
         index++;
         continue;
       }
+      if (trimmed.startsWith("#### ")) {
+        result.push({ type: "h4", text: trimmed.slice(5).trim() });
+        index++;
+        continue;
+      }
 
       // 5. Tables (| Column 1 | Column 2 |)
       if (trimmed.startsWith("|") && trimmed.endsWith("|")) {
@@ -452,7 +489,6 @@ export function RevisionMarkdownRenderer({
               .split("|")
               .map((c) => c.trim());
           const headers = parseRow(tableLines[0]);
-          // line 1 is usually separator (| :--- | :--- |)
           const rows = tableLines.slice(2).map(parseRow);
           result.push({
             type: "table",
@@ -495,8 +531,9 @@ export function RevisionMarkdownRenderer({
   }, [content]);
 
   // Inline formatter helper (bold, italic, code)
-  const renderInline = (text: string) => {
-    // Basic regex replacer for bold, code, and emphasis
+  const renderInline = (rawText: string) => {
+    // Strip accidental leading # or ### in inline text
+    const text = rawText.replace(/^#{1,4}\s+/, "");
     const parts: React.ReactNode[] = [];
     const regex = /(\*\*[^*]+\*\*|`[^`]+`|\*[^*]+\*)/g;
     let lastIndex = 0;
@@ -542,6 +579,9 @@ export function RevisionMarkdownRenderer({
   return (
     <div className={`space-y-3 text-slate-800 dark:text-slate-200 text-sm leading-relaxed ${className}`}>
       {blocks.map((block, idx) => {
+        if (block.type === "hr") {
+          return <hr key={idx} className="my-4 border-slate-200 dark:border-slate-800" />;
+        }
         if (block.type === "h1") {
           return (
             <h1
@@ -570,6 +610,16 @@ export function RevisionMarkdownRenderer({
             >
               {renderInline(block.text || "")}
             </h3>
+          );
+        }
+        if (block.type === "h4") {
+          return (
+            <h4
+              key={idx}
+              className="text-xs sm:text-sm font-semibold text-slate-800 dark:text-slate-200 mt-2.5 pt-0.5"
+            >
+              {renderInline(block.text || "")}
+            </h4>
           );
         }
         if (block.type === "p") {
