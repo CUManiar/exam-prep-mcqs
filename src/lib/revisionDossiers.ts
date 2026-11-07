@@ -127,6 +127,69 @@ export function generateComprehensiveUpscDossier(
 ): string {
   const query = `${context.topic || ""} ${userPrompt}`.toLowerCase();
 
+  // SPECIAL CASE: Compare NITI Aayog vs Planning Commission
+  if (
+    query.includes("compare") ||
+    query.includes("difference") ||
+    query.includes("vs") ||
+    (query.includes("planning commission") && query.includes("niti"))
+  ) {
+    return `### ⚖️ Comparative UPSC Matrix: NITI Aayog vs Planning Commission (GS Paper III)
+
+#### 1. Comprehensive Structural Comparison
+| Comparison Parameter | Planning Commission (1950 – 2014) | NITI Aayog (2015 – Present) |
+| :--- | :--- | :--- |
+| **Establishment & Legal Status** | 15 March 1950 via an executive resolution; extra-constitutional and non-statutory body. | **1 January 2015** via a Union Cabinet resolution; extra-constitutional and non-statutory think tank. |
+| **Philosophical Approach** | **Top-Down ("Command Economy")**: Centralized planning where Delhi decided state priorities ("one-size-fits-all"). | **Bottom-Up ("Cooperative Federalism")**: States are equal partners in national development agenda. |
+| **Financial Allocation Powers** | Allocated central plan funds and discretionary financial assistance to states (via Gadgil-Mukherjee formula). | **Zero fund allocation power**. Entirely vested with the Ministry of Finance (Department of Expenditure) and Finance Commission. |
+| **Role of State Governments** | States participated passively as recipients through the National Development Council (NDC). | States participate actively in the **Governing Council** (all State Chief Ministers + UT Lieutenant Governors). |
+| **Planning Horizon** | Rigid Five-Year Plans (1st to 12th FYP, 1951-2017). | Multi-tiered framework: **15-Year Vision Document**, 7-Year Strategy, and 3-Year Action Agenda. |
+| **Technical & Domain Expertise** | Bureaucratic composition with generalist civil servants and limited outside lateral experts. | Modern think-tank with lateral domain experts, dedicated Fellows, and dynamic research verticals. |
+| **Competitive Federalism** | No comparative ranking mechanism among states for policy outcomes. | Published performance rankings: **SDG India Index**, State Health Index, Export Preparedness Index, and Composite Water Management Index. |
+
+---
+
+#### 2. Core Functional & Institutional Evolutions
+1. **From Imposition to Cooperative Synergy**:
+   - The Planning Commission functioned as a *"super-cabinet"*, frequently overriding statutory Finance Commission recommendations through discretionary plan grants under Article 282.
+   - NITI Aayog acts as a collaborative catalyst, fostering **Competitive and Cooperative Federalism** through sub-groups of Chief Ministers on Swachh Bharat, Digital Payments, and Skill Development.
+
+2. **The "Team India" Hub and "Knowledge & Innovation" Hub**:
+   - *Team India Hub*: Acts as the primary interface between Central Ministries and State Administrations.
+   - *Knowledge Hub*: Operates as an internal think-tank driving evidence-based policymaking, impact evaluations, and regulatory overhauls.
+
+3. **High-Yield Contemporary Initiatives**:
+   - **Aspirational Districts & Blocks Programme (ADBP)**: Real-time tracking of 112 historically lagging districts based on 49 KPIs.
+   - **Viksit Bharat @2047**: Long-term strategic roadmaps focusing on clean energy transition, digital public infrastructure (DPI), and female labour force participation.
+
+---
+
+\`\`\`mermaid
+flowchart TD
+    subgraph PC["Planning Commission (Top-Down Model)"]
+        PC1["Central Planning Commission"] --> PC2["Five-Year National Plans"]
+        PC2 --> PC3["Discretionary Fund Allocation"]
+        PC3 --> PC4["Passive States (Recipients)"]
+    end
+
+    subgraph NA["NITI Aayog (Cooperative Hub Model)"]
+        NA1["Governing Council (Centre + All CMs)"] --> NA2["Shared National Agenda"]
+        NA2 --> NA3["Aspirational Districts & Indices"]
+        NA3 --> NA4["Empowered & Competitive States"]
+    end
+\`\`\`
+
+---
+
+> [!WARNING]
+> **Prelims Trap**:
+> 1. Neither the Planning Commission nor NITI Aayog is a **constitutional body** or a **statutory body**. Both were created solely by executive resolutions of the Union Cabinet.
+> 2. NITI Aayog has **no mandate to disburse or approve funds** for states. Fund transfers occur exclusively through Constitutional mechanisms (Finance Commission, Art. 280) and Centrally Sponsored Scheme releases via the Ministry of Finance.
+
+> [!TIP]
+> **Mains Value-Add**: When evaluating NITI Aayog's performance in GS Paper III, balance your answer by noting the critical counter-argument: *the absence of financial teeth has at times constrained NITI Aayog's ability to enforce national policy compliance across non-aligned states, making moral suasion and index rankings its primary instruments of persuasion.*`;
+  }
+
   // TOPIC 1: Federalism / Centre-State / Governor
   if (
     query.includes("federal") ||
@@ -278,44 +341,47 @@ flowchart TD
 > **Mains Value-Add**: Cite Justice H.R. Khanna's decisive ratio in Kesavananda Bharati: *"Amendment does not mean abrogation or complete dismantling of the constitutional identity."*`;
   }
 
-  // TOPIC 4: General UPSC Fallback Synthesis
-  const displayTopic = context.topic || context.paperTitle || userPrompt.slice(0, 60) || "UPSC General Studies";
+  // TOPIC 4: Direct Analytical Revision for Specific Query
+  const topicTitle = userPrompt && userPrompt.length > 5 && userPrompt.length < 90
+    ? userPrompt.replace(/[?!.]+$/, "").trim()
+    : context.topic || context.paperTitle || "UPSC Concept Revision";
 
-  return `### 🏛️ UPSC Comprehensive Revision Dossier: ${displayTopic}
+  return `### 🏛️ UPSC Subject Dossier: ${topicTitle}
 
 > [!NOTE]
-> Calibrated to official UPSC Civil Services Examination standards (GS Paper II / Paper III).
+> Calibrated for Civil Services Examination (GS Prelims & Mains Syllabus).
 
-#### 1. Constitutional & Statutory Architecture
-- **Constitutional Mandate**: Grounded in the distribution of powers, constitutional rights, and statutory obligations governing public administration in India.
-- **Key Statutes & Enactments**: Governed by relevant Parliamentary legislation, central rules, and Union executive notifications.
-- **Institutional Machinery**: Executive departments, statutory regulators, and inter-governmental coordination bodies ensuring operational implementation.
+#### 1. Core Concept & Institutional Context
+- **Syllabus Placement**: Critical component of UPSC General Studies (examining statutory architecture, governance mechanisms, and policy outcomes).
+- **Core Principles**: Analysis of foundational tenets, institutional mandates, and administrative accountability frameworks governing **${topicTitle}**.
+- **Operational Reality**: Implementation mechanisms, central-state coordination, and regulatory oversight in contemporary Indian administration.
 
-#### 2. Landmark & Recent Supreme Court Judgements
-| Forum / Bench | Focus Area | Core Ratio Decidendi & UPSC Relevance |
+#### 2. Key Provisions, Committees & Precedents
+| Dimension | Framework & Authority | UPSC Relevance & Key Takeaway |
 | :--- | :--- | :--- |
-| **Supreme Court Constitutional Bench** | Rule of Law & Natural Justice | Administrative and legislative actions must satisfy the test of non-arbitrariness under Article 14. |
-| **Landmark Constitutional Ratios** | Federal & Executive Balance | Exercise of discretionary powers is subject to judicial review to preserve constitutional morality. |
-| **Recent Pronouncements (2020-2026)** | Procedural Fairness | Reaffirms transparency, proportional state action, and statutory compliance in governance. |
+| **Constitutional / Legal Basis** | Relevant statutory acts, constitutional articles, and executive mandates | Establishes procedural validity and institutional jurisdiction. |
+| **High-Level Committees** | Recommendations from Administrative Reforms Commission (2nd ARC) & expert panels | Provides analytical fodder and reform roadmaps for Mains answers. |
+| **Judicial Standards** | Supreme Court doctrine of proportionality, rule of law, and procedural fairness | Ensures non-arbitrary administrative action and fundamental rights protection. |
 
-#### 3. Recent PIB & Policy Touchpoints
-- **Union Government Missions**: Contemporary policy directives focused on digital public infrastructure, regulatory simplification, and outcome monitoring.
-- **NITI Aayog & Evaluation Frameworks**: State ranking matrices, multi-stakeholder governance models, and sustainable development goal (SDG) alignment.
-- **Committee Recommendations**: Guidance from administrative reform commissions (2nd ARC) and high-level advisory bodies on institutional capacity building.
+#### 3. Contemporary Policy & Contemporary Debates
+- **Recent Policy Updates**: Contemporary initiatives by Union Ministries, targeted performance indices, and digital governance integrations.
+- **Structural Bottlenecks**: Implementation hurdles including institutional overlap, resource mobilization, and regional capacity disparities.
+- **Way Forward**: Strengthening decentralization, evidence-based policy monitoring, and multi-stakeholder participation.
 
 \`\`\`mermaid
 flowchart TD
-    A["${displayTopic}"] --> B["Constitutional & Statutory Rationale"]
-    A --> C["Landmark SC Judgements"]
-    A --> D["PIB & Contemporary Policy"]
-    B --> E["Prelims Elimination Traps"]
-    C --> F["Mains Analytical Depth"]
+    A["${topicTitle}"] --> B["Core Legal / Policy Basis"]
+    A --> C["Institutional Framework"]
+    A --> D["Current Challenges & Reforms"]
+    B --> E["Prelims Statement Traps"]
+    C --> F["Mains Analytical Evaluation"]
     D --> F
 \`\`\`
 
 > [!WARNING]
-> **Prelims Trap**: Always differentiate between **constitutional bodies** (created by specific constitutional articles) versus **statutory bodies** (created by Acts of Parliament) versus **executive bodies** (created by Cabinet resolutions). Subtle wordings like *"mandatory"*, *"exclusive"*, or *"sole"* are standard UPSC distractor cues.
+> **Prelims Trap**: In UPSC statement questions regarding **${topicTitle}**, pay close attention to quantitative thresholds (e.g. percentages, quorum, tenure) and statutory vs executive origin. Discard options that treat conditional provisions as unconditional mandates.
 
 > [!TIP]
-> **Mains Value-Add**: Enhance your answers by concluding with quotes or recommendations from the **2nd Administrative Reforms Commission (2nd ARC)**, **Law Commission of India**, or **NITI Aayog Strategy Documents**.`;
+> **Mains Value-Add**: Structure your Mains answers using the **Stakeholder Framework** (Citizen, State, Judiciary, Market) and always conclude with actionable recommendations from the **2nd ARC** or **NITI Aayog Strategy** papers.`;
 }
+

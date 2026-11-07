@@ -226,7 +226,7 @@ export interface RevisionSession {
 export interface RevisionProviderConfig {
   provider: RevisionProvider;
   apiKey: string;
-  model: string;
+  model?: string;
   customEndpoint?: string;
 }
 

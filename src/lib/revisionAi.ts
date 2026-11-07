@@ -11,40 +11,32 @@ export type { RevisionProviderConfig };
 const REVISION_CONFIG_KEY = "upsc_revision_llm_config";
 const REVISION_HISTORY_KEY = "upsc_revision_history";
 
-export const DEFAULT_GEMINI_MODEL = "gemini-2.5-flash";
+export const DEFAULT_GEMINI_MODEL = "gemini-2.0-flash";
 export const DEFAULT_GROQ_MODEL = "llama-3.3-70b-versatile";
 
 export const AVAILABLE_MODELS = {
   gemini: [
     {
-      id: "gemini-2.5-flash",
-      name: "Gemini 2.5 Flash (Recommended - Fastest & Free)",
-    },
-    {
-      id: "gemini-3.8-flash",
-      name: "Gemini 3.8 Flash (Latest Production)",
-    },
-    {
       id: "gemini-2.0-flash",
-      name: "Gemini 2.0 Flash (Next-Gen)",
+      name: "Gemini 2.0 Flash (Recommended)",
     },
     {
       id: "gemini-1.5-flash",
-      name: "Gemini 1.5 Flash (Legacy Free Tier)",
+      name: "Gemini 1.5 Flash",
     },
     {
       id: "gemini-1.5-pro",
-      name: "Gemini 1.5 Pro (Deep Reasoning)",
+      name: "Gemini 1.5 Pro",
     },
   ],
   groq: [
     {
       id: "llama-3.3-70b-versatile",
-      name: "Llama 3.3 70B Versatile (Free & Ultra Fast)",
+      name: "Llama 3.3 70B (Fast)",
     },
     {
       id: "llama-3.1-8b-instant",
-      name: "Llama 3.1 8B Instant (Lightweight)",
+      name: "Llama 3.1 8B Instant",
     },
   ],
 } as const;
@@ -160,19 +152,17 @@ export function clearRevisionConfig(): void {
 }
 
 export function getUpscRevisionSystemPrompt(context?: RevisionContext): string {
-  let prompt = `You are a Senior UPSC Civil Services Examination (CSE) Mentor and Subject Specialist, helping an aspirant revise deeply and score high in Prelims and Mains.
+  let prompt = `You are an expert UPSC Civil Services Examination (CSE) Mentor and Senior Subject Evaluator.
 
-YOUR MANDATE & TONE:
-1. Ground every answer in official UPSC terminology, the Constitution of India, statutes, and authentic government sources.
-2. Structure responses cleanly with clear headings, bold key terms, and bullet points.
-3. When discussing Polity or Governance, ALWAYS cite exact Articles, Parts, Schedules, and Landmark/Recent Supreme Court Judgements.
-4. When discussing Economics or Environment, cite authentic metrics, reports, economic survey insights, and recent government schemes.
-5. Highlight "Prelims Traps" (words like 'only', 'solely', 'statutory vs constitutional', subtle misattributions) using the alert format:
-> [!WARNING] **Prelims Trap**: ...
-6. Highlight "Mains Value Additions" (quotes from Sarkaria/Punchhi Commissions, 2nd ARC, Law Commission, SDGs, NITI Aayog) using:
-> [!TIP] **Mains Value-Add**: ...
-7. When appropriate, provide visual conceptual diagrams using Mermaid syntax (\`\`\`mermaid ... \`\`\`), such as flowcharts or mindmaps, and clean Markdown tables.
-8. Maintain an encouraging, precise, and high-yield pedagogical tone. Do not write filler.`;
+YOUR MANDATE:
+1. Direct Relevance: Answer the student's specific question directly, thoroughly, and contextually. Do not produce rigid templates or off-topic boilerplate.
+2. If asked to COMPARE (e.g. NITI Aayog vs Planning Commission, Fundamental Rights vs DPSP, Parliamentary vs Presidential), provide a clear, structured Markdown comparison table followed by analytical depth (origins, legal basis, structural mechanics, operational impact).
+3. If asked about a Constitutional or Polity topic, cite exact Articles, Schedules, and Landmark Supreme Court cases where relevant.
+4. If asked about Economics, Governance, or Schemes, cite authentic data, committees (e.g. Kelkar, NK Singh, Finance Commission), and policy nuances.
+5. If revising an exam paper or question, dissect the options, identify the elimination trap, and reference the student's performance data.
+6. Formatting: Use clean Markdown with headers, bold key terms, comparison tables, and Mermaid flowcharts (\`\`\`mermaid ... \`\`\`) where conceptual visualization aids memory.
+7. Include high-yield Prelims Traps (> [!WARNING] **Prelims Trap**: ...) and Mains Value-Add points (> [!TIP] **Mains Value-Add**: ...) tailored specifically to the topic discussed.
+8. Maintain an encouraging, precise, and high-yield pedagogical tone. Do not write generic filler.`;
 
   if (context) {
     prompt += `\n\n--- ACTIVE REVISION CONTEXT ---`;
@@ -233,7 +223,7 @@ export async function validateApiKey(
   provider: "gemini" | "groq",
   apiKey: string,
   model?: string,
-): Promise<{ valid: boolean; error?: string; model?: string }> {
+): Promise<{ valid: boolean; error?: string }> {
   try {
     if (!apiKey || !apiKey.trim()) {
       return { valid: false, error: "API key cannot be empty." };
@@ -258,14 +248,11 @@ export async function validateApiKey(
           return { valid: false, error: "No models supporting text generation found on this key." };
         }
 
-        // Pick user model if present, or best flash model, or first available
-        const chosenModel = (model && validModels.includes(model))
-          ? model
-          : validModels.find((m: string) => m.includes("2.5-flash")) ||
-            validModels.find((m: string) => m.includes("3.8-flash")) ||
-            validModels.find((m: string) => m.includes("2.0-flash")) ||
-            validModels.find((m: string) => m.includes("flash")) ||
-            validModels[0];
+        const chosenModel =
+          validModels.find((m: string) => m.includes("2.0-flash")) ||
+          validModels.find((m: string) => m.includes("1.5-flash")) ||
+          validModels.find((m: string) => m.includes("flash")) ||
+          validModels[0];
 
         // Ping with chosen model
         const genUrl = `https://generativelanguage.googleapis.com/v1beta/models/${chosenModel}:generateContent?key=${apiKey.trim()}`;
@@ -279,7 +266,7 @@ export async function validateApiKey(
         });
 
         if (genRes.ok || genRes.status === 429) {
-          return { valid: true, model: chosenModel };
+          return { valid: true };
         }
         const genErr = await genRes.json().catch(() => ({}));
         return { valid: false, error: genErr.error?.message || `HTTP ${genRes.status}` };

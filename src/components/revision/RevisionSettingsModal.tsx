@@ -17,9 +17,6 @@ import {
 } from "lucide-react";
 import { ModalShell } from "../ModalShell";
 import {
-  AVAILABLE_MODELS,
-  DEFAULT_GEMINI_MODEL,
-  DEFAULT_GROQ_MODEL,
   RevisionProviderConfig,
   clearRevisionConfig,
   saveRevisionConfig,
@@ -45,10 +42,6 @@ export function RevisionSettingsModal({
     currentConfig?.provider || "gemini",
   );
   const [apiKey, setApiKey] = useState(currentConfig?.apiKey || "");
-  const [model, setModel] = useState(
-    currentConfig?.model ||
-      (provider === "gemini" ? DEFAULT_GEMINI_MODEL : DEFAULT_GROQ_MODEL),
-  );
   const [showKey, setShowKey] = useState(false);
   const [isTesting, setIsTesting] = useState(false);
   const [testResult, setTestResult] = useState<{
@@ -58,9 +51,6 @@ export function RevisionSettingsModal({
 
   const handleProviderChange = (newProvider: "gemini" | "groq") => {
     setProvider(newProvider);
-    setModel(
-      newProvider === "gemini" ? DEFAULT_GEMINI_MODEL : DEFAULT_GROQ_MODEL,
-    );
     setTestResult(null);
   };
 
@@ -71,12 +61,9 @@ export function RevisionSettingsModal({
     }
     setIsTesting(true);
     setTestResult(null);
-    const res = await validateApiKey(provider, apiKey, model);
+    const res = await validateApiKey(provider, apiKey);
     setIsTesting(false);
     setTestResult(res);
-    if (res.valid && res.model) {
-      setModel(res.model);
-    }
   };
 
   const handleSave = () => {
@@ -87,7 +74,6 @@ export function RevisionSettingsModal({
     const newCfg: RevisionProviderConfig = {
       provider,
       apiKey: apiKey.trim(),
-      model,
     };
     saveRevisionConfig(newCfg);
     onSave(newCfg);
@@ -121,10 +107,10 @@ export function RevisionSettingsModal({
                 id="revision-settings-title"
                 className="text-base sm:text-lg font-bold text-slate-900 dark:text-white"
               >
-                AI Model & Quota Settings
+                AI Provider Settings
               </h2>
               <p className="text-xs text-slate-500 dark:text-slate-400">
-                Free AI is active out-of-the-box • Dedicated key is optional
+                Free AI is active out-of-the-box • Custom API key is optional
               </p>
             </div>
           </div>
@@ -202,24 +188,6 @@ export function RevisionSettingsModal({
                 </div>
               </button>
             </div>
-          </div>
-
-          {/* Model Selector */}
-          <div>
-            <label className="block text-xs font-semibold uppercase tracking-wider text-slate-600 dark:text-slate-300 mb-1.5">
-              Model
-            </label>
-            <select
-              value={model}
-              onChange={(e) => setModel(e.target.value)}
-              className="w-full px-3 py-2 text-xs rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500 font-medium"
-            >
-              {AVAILABLE_MODELS[provider].map((m) => (
-                <option key={m.id} value={m.id}>
-                  {m.name}
-                </option>
-              ))}
-            </select>
           </div>
 
           {/* API Key Input */}

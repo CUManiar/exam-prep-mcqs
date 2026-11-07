@@ -442,8 +442,8 @@ export function RevisionView() {
                 <span className="font-semibold text-emerald-700 dark:text-emerald-400">
                   {config?.apiKey
                     ? config.provider === "gemini"
-                      ? "Gemini Flash"
-                      : "Groq Llama 3.3"
+                      ? "Google Gemini"
+                      : "Groq AI"
                     : "Free AI Active"}
                 </span>
                 <Settings2 className="h-3.5 w-3.5 text-slate-400 ml-1" />
