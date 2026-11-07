@@ -11,18 +11,26 @@ export type { RevisionProviderConfig };
 const REVISION_CONFIG_KEY = "upsc_revision_llm_config";
 const REVISION_HISTORY_KEY = "upsc_revision_history";
 
-export const DEFAULT_GEMINI_MODEL = "gemini-2.0-flash";
+export const DEFAULT_GEMINI_MODEL = "gemini-2.5-flash";
 export const DEFAULT_GROQ_MODEL = "llama-3.3-70b-versatile";
 
 export const AVAILABLE_MODELS = {
   gemini: [
     {
+      id: "gemini-2.5-flash",
+      name: "Gemini 2.5 Flash (Recommended - Fastest & Free)",
+    },
+    {
+      id: "gemini-3.8-flash",
+      name: "Gemini 3.8 Flash (Latest Production)",
+    },
+    {
       id: "gemini-2.0-flash",
-      name: "Gemini 2.0 Flash (Recommended - Fastest & Free)",
+      name: "Gemini 2.0 Flash (Next-Gen)",
     },
     {
       id: "gemini-1.5-flash",
-      name: "Gemini 1.5 Flash (Standard Free Tier)",
+      name: "Gemini 1.5 Flash (Legacy Free Tier)",
     },
     {
       id: "gemini-1.5-pro",
@@ -211,46 +219,59 @@ export async function validateApiKey(
   provider: "gemini" | "groq",
   apiKey: string,
   model?: string,
-): Promise<{ valid: boolean; error?: string }> {
+): Promise<{ valid: boolean; error?: string; model?: string }> {
   try {
     if (!apiKey || !apiKey.trim()) {
       return { valid: false, error: "API key cannot be empty." };
     }
 
     if (provider === "gemini") {
-      const candidateModels = [
-        model || DEFAULT_GEMINI_MODEL,
-        "gemini-1.5-flash",
-        "gemini-2.0-flash",
-      ].filter((v, idx, arr) => arr.indexOf(v) === idx);
-
-      let lastMsg = "";
-      for (const m of candidateModels) {
-        try {
-          const url = `https://generativelanguage.googleapis.com/v1beta/models/${m}:generateContent?key=${apiKey.trim()}`;
-          const res = await fetch(url, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              contents: [{ parts: [{ text: "Ping. Respond with 'PONG'." }] }],
-            }),
-            signal: AbortSignal.timeout(15000),
-          });
-
-          if (res.ok) {
-            return { valid: true };
-          }
-          const errorData = await res.json().catch(() => ({}));
-          lastMsg = errorData.error?.message || `HTTP ${res.status}: ${res.statusText}`;
-          if (res.status === 404 || lastMsg.includes("not found") || lastMsg.includes("no longer available")) {
-            continue;
-          }
-          return { valid: false, error: lastMsg };
-        } catch (e: any) {
-          lastMsg = e.message;
+      // 1. Query available models list from Google using this key
+      try {
+        const listUrl = `https://generativelanguage.googleapis.com/v1beta/models?key=${apiKey.trim()}`;
+        const listRes = await fetch(listUrl, { signal: AbortSignal.timeout(12000) });
+        if (!listRes.ok) {
+          const errData = await listRes.json().catch(() => ({}));
+          const errMsg = errData.error?.message || `HTTP ${listRes.status}: ${listRes.statusText}`;
+          return { valid: false, error: errMsg };
         }
+        const data = await listRes.json();
+        const validModels = (data.models || [])
+          .filter((m: any) => m.supportedGenerationMethods?.includes("generateContent"))
+          .map((m: any) => m.name.replace(/^models\//, ""));
+
+        if (validModels.length === 0) {
+          return { valid: false, error: "No models supporting text generation found on this key." };
+        }
+
+        // Pick user model if present, or best flash model, or first available
+        const chosenModel = (model && validModels.includes(model))
+          ? model
+          : validModels.find((m: string) => m.includes("2.5-flash")) ||
+            validModels.find((m: string) => m.includes("3.8-flash")) ||
+            validModels.find((m: string) => m.includes("2.0-flash")) ||
+            validModels.find((m: string) => m.includes("flash")) ||
+            validModels[0];
+
+        // Ping with chosen model
+        const genUrl = `https://generativelanguage.googleapis.com/v1beta/models/${chosenModel}:generateContent?key=${apiKey.trim()}`;
+        const genRes = await fetch(genUrl, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            contents: [{ parts: [{ text: "Ping. Respond with 'PONG'." }] }],
+          }),
+          signal: AbortSignal.timeout(12000),
+        });
+
+        if (genRes.ok || genRes.status === 429) {
+          return { valid: true, model: chosenModel };
+        }
+        const genErr = await genRes.json().catch(() => ({}));
+        return { valid: false, error: genErr.error?.message || `HTTP ${genRes.status}` };
+      } catch (e: any) {
+        return { valid: false, error: e.message || "Failed to reach Google Gemini API." };
       }
-      return { valid: false, error: lastMsg || "Validation failed for this Gemini key." };
     } else {
       const activeModel = model || DEFAULT_GROQ_MODEL;
       const url = "https://api.groq.com/openai/v1/chat/completions";

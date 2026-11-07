@@ -74,6 +74,9 @@ export function RevisionSettingsModal({
     const res = await validateApiKey(provider, apiKey, model);
     setIsTesting(false);
     setTestResult(res);
+    if (res.valid && res.model) {
+      setModel(res.model);
+    }
   };
 
   const handleSave = () => {
