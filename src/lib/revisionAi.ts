@@ -11,18 +11,14 @@ export type { RevisionProviderConfig };
 const REVISION_CONFIG_KEY = "upsc_revision_llm_config";
 const REVISION_HISTORY_KEY = "upsc_revision_history";
 
-export const DEFAULT_GEMINI_MODEL = "gemini-2.5-flash";
+export const DEFAULT_GEMINI_MODEL = "gemini-2.0-flash";
 export const DEFAULT_GROQ_MODEL = "llama-3.3-70b-versatile";
 
 export const AVAILABLE_MODELS = {
   gemini: [
     {
-      id: "gemini-2.5-flash",
-      name: "Gemini 2.5 Flash (Recommended - Fastest & Free)",
-    },
-    {
       id: "gemini-2.0-flash",
-      name: "Gemini 2.0 Flash (Next-Gen High Speed)",
+      name: "Gemini 2.0 Flash (Recommended - Fastest & Free)",
     },
     {
       id: "gemini-1.5-flash",
@@ -222,7 +218,10 @@ export async function validateApiKey(
     }
 
     if (provider === "gemini") {
-      const activeModel = model || DEFAULT_GEMINI_MODEL;
+      let activeModel = model || DEFAULT_GEMINI_MODEL;
+      if (activeModel.includes("2.5")) {
+        activeModel = DEFAULT_GEMINI_MODEL;
+      }
       const url = `https://generativelanguage.googleapis.com/v1beta/models/${activeModel}:generateContent?key=${apiKey.trim()}`;
       const res = await fetch(url, {
         method: "POST",
@@ -230,6 +229,7 @@ export async function validateApiKey(
         body: JSON.stringify({
           contents: [{ parts: [{ text: "Ping. Respond with 'PONG'." }] }],
         }),
+        signal: AbortSignal.timeout(15000),
       });
 
       if (!res.ok) {
@@ -253,6 +253,7 @@ export async function validateApiKey(
           messages: [{ role: "user", content: "Ping. Respond with 'PONG'." }],
           max_tokens: 10,
         }),
+        signal: AbortSignal.timeout(15000),
       });
 
       if (!res.ok) {
@@ -266,9 +267,13 @@ export async function validateApiKey(
   } catch (err: any) {
     return {
       valid: false,
-      error: err.message || "Failed to reach the API server.",
+      error: err.name === "TimeoutError" ? "Validation request timed out." : err.message || "Failed to reach the API server.",
     };
   }
+}
+
+export interface RevisionApiError extends Error {
+  needsApiKey?: boolean;
 }
 
 export async function sendRevisionQuery(
@@ -288,9 +293,11 @@ export async function sendRevisionQuery(
 
   if (!res.ok) {
     const errData = await res.json().catch(() => ({}));
-    throw new Error(
+    const err: RevisionApiError = new Error(
       errData.error || `Revision API returned error ${res.status}: ${res.statusText}`,
     );
+    err.needsApiKey = Boolean(errData.needsApiKey);
+    throw err;
   }
 
   const data = await res.json();

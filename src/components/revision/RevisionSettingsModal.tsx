@@ -108,7 +108,7 @@ export function RevisionSettingsModal({
     >
       <div className="p-5 sm:p-6 bg-white dark:bg-slate-900 rounded-xl shadow-xl border border-slate-200 dark:border-slate-800">
         {/* Header */}
-        <div className="flex items-center justify-between pb-4 border-b border-slate-100 dark:border-slate-800">
+        <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-800">
           <div className="flex items-center gap-2.5">
             <div className="p-2 rounded-lg bg-indigo-50 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-400">
               <KeyRound className="h-5 w-5" />
@@ -118,21 +118,42 @@ export function RevisionSettingsModal({
                 id="revision-settings-title"
                 className="text-base sm:text-lg font-bold text-slate-900 dark:text-white"
               >
-                AI Model & Dedicated Key
+                Connect Free AI Key
               </h2>
               <p className="text-xs text-slate-500 dark:text-slate-400">
-                Free AI is active out-of-the-box. Add a key for dedicated quotas.
+                Required for high-yield revision • 100% free • No credit card needed
               </p>
             </div>
           </div>
         </div>
 
-        {/* Free Tier Highlight Alert */}
-        <div className="my-4 p-3 rounded-lg bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-800/60 text-xs leading-relaxed text-emerald-900 dark:text-emerald-200 flex items-start gap-2.5">
-          <ShieldCheck className="h-4 w-4 text-emerald-600 dark:text-emerald-400 shrink-0 mt-0.5" />
-          <div>
-            <span className="font-semibold">Optional Dedicated Key:</span> The revision mentor runs free out-of-the-box. Entering your free Google Gemini API Key unlocks private rate limits (15 RPM, 1,500 RPD) directly from your browser.
+        {/* 30-Second Quick Setup Guide */}
+        <div className="my-4 p-3.5 rounded-xl bg-indigo-50/70 dark:bg-indigo-950/40 border border-indigo-200/80 dark:border-indigo-800/60 space-y-2.5 text-xs text-slate-700 dark:text-slate-200">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+            <span className="font-bold text-indigo-950 dark:text-indigo-200 flex items-center gap-1.5">
+              <Sparkles className="h-4 w-4 text-indigo-600 dark:text-indigo-400 shrink-0" />
+              How to get your free key in 30 seconds:
+            </span>
+            <a
+              href={
+                provider === "gemini"
+                  ? "https://aistudio.google.com/app/apikey"
+                  : "https://console.groq.com/keys"
+              }
+              target="_blank"
+              rel="noreferrer"
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white font-semibold text-xs transition-colors shadow-2xs shrink-0"
+            >
+              <span>Get Free Key from {provider === "gemini" ? "Google AI Studio" : "Groq"}</span>
+              <ExternalLink className="h-3.5 w-3.5" />
+            </a>
           </div>
+
+          <ol className="text-[11px] text-slate-600 dark:text-slate-300 space-y-1 list-decimal list-inside leading-relaxed">
+            <li>Click the button above and log in with your standard Google account.</li>
+            <li>Click <strong>&quot;Create API Key&quot;</strong> (zero billing setup, zero credit card).</li>
+            <li>Paste your key below and click <strong>&quot;Save & Activate&quot;</strong>.</li>
+          </ol>
         </div>
 
         {/* Provider Switcher */}
@@ -156,7 +177,7 @@ export function RevisionSettingsModal({
                   Google Gemini (Free)
                 </div>
                 <div className="text-[11px] text-slate-500 dark:text-slate-400">
-                  1M token context, best for UPSC syllabus & case laws.
+                  Recommended for UPSC syllabus, case laws & flowcharts.
                 </div>
               </button>
 
@@ -188,7 +209,7 @@ export function RevisionSettingsModal({
             <select
               value={model}
               onChange={(e) => setModel(e.target.value)}
-              className="w-full px-3 py-2 text-xs rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+              className="w-full px-3 py-2 text-xs rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500 font-medium"
             >
               {AVAILABLE_MODELS[provider].map((m) => (
                 <option key={m.id} value={m.id}>
@@ -204,18 +225,6 @@ export function RevisionSettingsModal({
               <label className="text-xs font-semibold uppercase tracking-wider text-slate-600 dark:text-slate-300">
                 {provider === "gemini" ? "Google AI Studio API Key" : "Groq API Key"}
               </label>
-              <a
-                href={
-                  provider === "gemini"
-                    ? "https://aistudio.google.com/app/apikey"
-                    : "https://console.groq.com/keys"
-                }
-                target="_blank"
-                rel="noreferrer"
-                className="text-[11px] text-indigo-600 dark:text-indigo-400 hover:underline flex items-center gap-1 font-medium"
-              >
-                Get free key <ExternalLink className="h-3 w-3" />
-              </a>
             </div>
 
             <div className="relative">
@@ -228,8 +237,8 @@ export function RevisionSettingsModal({
                 }}
                 placeholder={
                   provider === "gemini"
-                    ? "AIzaSy..."
-                    : "gsk_..."
+                    ? "Paste AIzaSy... here"
+                    : "Paste gsk_... here"
                 }
                 className="w-full px-3 py-2 text-xs rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-200 font-mono pr-16 focus:outline-none focus:ring-2 focus:ring-indigo-500"
               />
@@ -237,86 +246,84 @@ export function RevisionSettingsModal({
                 type="button"
                 onClick={() => setShowKey(!showKey)}
                 className="absolute right-2 top-2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 text-xs px-1.5"
+                title={showKey ? "Hide key" : "Show key"}
               >
-                {showKey ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                {showKey ? <EyeOff className="h-3.5 w-3.5" /> : <Eye className="h-3.5 w-3.5" />}
               </button>
             </div>
-            <p className="mt-1 text-[11px] text-slate-500 dark:text-slate-400">
-              {provider === "gemini"
-                ? "Visit Google AI Studio, click 'Create API Key', and paste it here."
-                : "Create a free key on Groq Cloud and paste it here."}
-            </p>
+
+            <div className="flex items-center gap-1.5 mt-1.5 text-[11px] text-slate-500 dark:text-slate-400">
+              <Lock className="h-3 w-3 text-emerald-600 dark:text-emerald-400 shrink-0" />
+              <span>Keys are saved strictly in your local browser storage and never sent elsewhere.</span>
+            </div>
           </div>
 
-          {/* Test Status Banner */}
+          {/* Validation Feedback */}
           {testResult && (
             <div
-              className={`p-3 rounded-lg text-xs leading-relaxed flex items-start gap-2 ${
+              className={`p-3 rounded-lg text-xs font-medium flex items-start gap-2 ${
                 testResult.valid
-                  ? "bg-emerald-50 dark:bg-emerald-950/40 text-emerald-900 dark:text-emerald-200 border border-emerald-200 dark:border-emerald-800"
-                  : "bg-rose-50 dark:bg-rose-950/40 text-rose-900 dark:text-rose-200 border border-rose-200 dark:border-rose-800"
+                  ? "bg-emerald-50 dark:bg-emerald-950/40 text-emerald-800 dark:text-emerald-200 border border-emerald-200 dark:border-emerald-800"
+                  : "bg-rose-50 dark:bg-rose-950/40 text-rose-800 dark:text-rose-200 border border-rose-200 dark:border-rose-800"
               }`}
             >
               {testResult.valid ? (
                 <>
                   <Check className="h-4 w-4 text-emerald-600 dark:text-emerald-400 shrink-0 mt-0.5" />
                   <div>
-                    <span className="font-bold">Connection Successful!</span> Your key is active and ready for revision tutoring.
+                    <span className="font-bold">Key validated successfully!</span> Model is responsive and ready for UPSC revision.
                   </div>
                 </>
               ) : (
                 <>
                   <AlertCircle className="h-4 w-4 text-rose-600 dark:text-rose-400 shrink-0 mt-0.5" />
                   <div>
-                    <span className="font-bold">Validation Error:</span> {testResult.error}
+                    <span className="font-bold">Validation failed:</span> {testResult.error}
                   </div>
                 </>
               )}
             </div>
           )}
-        </div>
 
-        {/* Action Buttons */}
-        <div className="flex items-center justify-between mt-6 pt-4 border-t border-slate-100 dark:border-slate-800 gap-2">
-          {currentConfig?.apiKey ? (
-            <button
-              type="button"
-              onClick={handleRemove}
-              className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-semibold text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/40 transition-colors"
-            >
-              <Trash2 className="h-3.5 w-3.5" /> Remove Key
-            </button>
-          ) : (
-            <div />
-          )}
-
-          <div className="flex items-center gap-2">
-            <button
-              type="button"
-              onClick={handleTest}
-              disabled={isTesting || !apiKey.trim()}
-              className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-semibold text-slate-700 dark:text-slate-200 border border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800 disabled:opacity-50 transition-colors"
-            >
-              {isTesting ? (
-                <Loader2 className="h-3.5 w-3.5 animate-spin text-indigo-600" />
-              ) : (
-                <Lock className="h-3.5 w-3.5" />
+          {/* Actions */}
+          <div className="flex items-center justify-between pt-3 border-t border-slate-100 dark:border-slate-800">
+            <div>
+              {currentConfig?.apiKey && (
+                <button
+                  type="button"
+                  onClick={handleRemove}
+                  className="flex items-center gap-1.5 text-xs text-rose-600 hover:text-rose-700 dark:hover:text-rose-400 font-semibold px-2 py-1.5 rounded-lg hover:bg-rose-50 dark:hover:bg-rose-950/40 transition-colors"
+                >
+                  <Trash2 className="h-3.5 w-3.5" />
+                  <span>Remove Key</span>
+                </button>
               )}
-              {isTesting ? "Testing..." : "Test Key"}
-            </button>
+            </div>
 
-            <button
-              type="button"
-              onClick={handleSave}
-              disabled={!apiKey.trim()}
-              className="flex items-center gap-1.5 px-4 py-2 rounded-lg text-xs font-semibold text-white bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 transition-colors shadow-xs"
-            >
-              <Save className="h-3.5 w-3.5" /> Save Configuration
-            </button>
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={handleTest}
+                disabled={isTesting || !apiKey.trim()}
+                className="flex items-center gap-1.5 px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700/60 text-xs font-semibold text-slate-700 dark:text-slate-200 disabled:opacity-50 transition-colors"
+              >
+                {isTesting && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
+                <span>{isTesting ? "Validating..." : "Test Connection"}</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={handleSave}
+                disabled={!apiKey.trim()}
+                className="flex items-center gap-1.5 px-4 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold disabled:opacity-50 transition-colors shadow-xs"
+              >
+                <Save className="h-3.5 w-3.5" />
+                <span>Save & Activate</span>
+              </button>
+            </div>
           </div>
         </div>
       </div>
     </ModalShell>
   );
 }
-
