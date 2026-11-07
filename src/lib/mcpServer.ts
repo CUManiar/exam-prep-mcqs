@@ -570,18 +570,32 @@ export function createPortalMcpServer(
     {
       title: "Get portal overview",
       description:
-        "Return the student's paper library and assessment progress summary.",
+        "Return the student's paper library and overall preparation summary, including all tests, scores, marks, and optional cross-attempt topic performance.",
       annotations: { readOnlyHint: true },
-      inputSchema: {},
+      inputSchema: {
+        includeTopics: z
+          .boolean()
+          .optional()
+          .describe(
+            "Include cross-attempt topic performance, weak areas, and mastered topics.",
+          ),
+      },
     },
-    async () => {
+    async ({ includeTopics }) => {
       const authError = scopeError(scope, MCP_READ_SCOPE);
       if (authError) return authError;
       const [papers, attempts] = await Promise.all([
         getUserPapers(userId),
         getUserAttempts(userId),
       ]);
-      return textResult({ progress: summarizeProgress(papers, attempts) });
+      const progress = summarizeProgress(papers, attempts);
+      const topicAnalytics = includeTopics
+        ? await getTopicAnalytics(userId)
+        : undefined;
+      return textResult({
+        progress,
+        ...(topicAnalytics ? { topicAnalytics } : {}),
+      });
     },
   );
 
