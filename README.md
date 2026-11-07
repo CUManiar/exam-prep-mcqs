@@ -35,6 +35,22 @@ An exam practice and performance monitoring platform built with **Next.js (App R
   - **Answer Key**: `.txt` (`ak_`)
   - **Explained Solution**: `.pdf` (`exs_`)
 
+### 5. 🎓 AI Revision Mentor & "Chat with Papers" (100% Free Tier)
+
+- **Syllabus-Centered Master Revision**:
+  - Grounded in constitutional articles (exact numbers, parts, and schedules).
+  - Landmark & recent Supreme Court judgements (ratios, bench decisions, and case names).
+  - Contemporary PIB updates, policy releases, and commission recommendations (Sarkaria, Punchhi, 2nd ARC, Finance Commission).
+  - Dynamic **Mermaid flowchart diagrams** and comparative tables for visual comprehension.
+  - Alert callouts for **Prelims Traps** (extreme qualifiers, authority swaps) and **Mains Value Additions** (committee quotes, SDG links).
+- **Chat with Papers & Elimination Tutor**:
+  - Ingests complete parsed question papers, student answers, and official explanations.
+  - Explains why the selected option was a trap and how to apply 50-50 elimination logic.
+  - 1-click **Save to Notes** saves takeaways directly into the student's question scratchpad or syllabus topic notes.
+- **$0 Expense Model**:
+  - Zero server or database billing: uses client-side Bring-Your-Own-Key (BYOK) with **Google Gemini Flash** (Google AI Studio Free Tier) or **Groq Llama 3.3 70B**.
+  - No credit card required. Works out-of-the-box with built-in high-yield demo dossiers.
+
 ---
 
 ## 🚀 Getting Started
@@ -80,6 +96,8 @@ history, diagnose weak areas, grade answers, save paper imports, or record attem
 - **`search_papers`**: Full-text search across parsed questions and markdown content.
 - **`create_paper`**, **`delete_paper`**, **`archive_paper`**: Complete paper lifecycle management.
 - **`replace_syllabus_markdown`** & **`set_syllabus_item_completion`**: Track custom syllabus outlines with automatic parent-child due dates.
+- **`get_revision_context`**: Pull unified revision context for any syllabus topic (articles, historical accuracy, matching test questions across the library) or target question with candidate attempt mistakes.
+- **`save_revision_note`**: Save high-yield revision takeaways, case laws, or formulas directly to a syllabus topic or to a question attempt note.
 
 ### 3-Tier Topic Hierarchy & Question Tagging
 
