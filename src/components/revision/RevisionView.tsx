@@ -338,6 +338,28 @@ export function RevisionView() {
     }
   };
 
+  // Helper to resolve currently discussed topic for dynamic follow-ups
+  const resolveActiveTopic = useCallback(() => {
+    if (activeContext.topic && activeContext.topic !== "this topic") return activeContext.topic;
+    if (activeContext.paperTitle) return activeContext.paperTitle;
+    if (activeContext.question?.topic) return activeContext.question.topic;
+
+    const recentUser = [...messages].reverse().find((m) => m.role === "user");
+    if (recentUser?.content) {
+      const quoted = recentUser.content.match(/["“]([^"”]+)["”]/);
+      if (quoted && quoted[1] && quoted[1].trim().length > 2 && quoted[1].trim().toLowerCase() !== "this topic") {
+        return quoted[1].trim();
+      }
+      const clean = recentUser.content
+        .replace(/^(comprehensive upsc revision for|compare|explain|discuss|tell me about|what is|how to|grill me on|grill on)\s+/i, "")
+        .replace(/\s+for me$/i, "")
+        .replace(/["“”]/g, "")
+        .trim();
+      if (clean.length > 2 && clean.length < 60) return clean;
+    }
+    return "the topic under discussion";
+  }, [activeContext, messages]);
+
   // Preset trigger
   const handleTriggerPreset = (preset: PresetAction) => {
     const candidateTopic =
@@ -770,7 +792,7 @@ export function RevisionView() {
                         <button
                           type="button"
                           onClick={() => {
-                            const topic = activeContext.topic || "this topic";
+                            const topic = resolveActiveTopic();
                             handleSend(
                               `Grill me with a high-yield UPSC Mains question on "${topic}". Focus on conceptual depth, constitutional/statutory basis, and analytical judgements.`,
                             );
@@ -785,7 +807,7 @@ export function RevisionView() {
                         <button
                           type="button"
                           onClick={() => {
-                            const topic = activeContext.topic || "this topic";
+                            const topic = resolveActiveTopic();
                             handleSend(
                               `Grill on Prelims for "${topic}": generate tricky statement-based MCQs testing elimination traps, subtle wording, and high-yield facts with exhaustive explanations.`,
                             );
@@ -800,7 +822,7 @@ export function RevisionView() {
                         <button
                           type="button"
                           onClick={() => {
-                            const topic = activeContext.topic || "this topic";
+                            const topic = resolveActiveTopic();
                             handleSend(
                               `Model answer practice on "${topic}": provide an exam-calibrated model answer structure with punchy introduction, multi-dimensional body arguments, and forward-looking conclusion with committee references.`,
                             );

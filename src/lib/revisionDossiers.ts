@@ -117,9 +117,336 @@ ${context.userAnswer ? `> [!NOTE]\n> **Your Response in Latest Attempt**: Select
 }
 
 /**
- * UPSC High-Yield Syllabus Knowledge Base.
- * Guaranteed instantaneous syllabus synthesis with exact Constitutional Articles,
- * Supreme Court Judgements, PIB Touchpoints, Prelims Traps, and Mains Value-Adds.
+ * Robustly extracts the core subject topic from a student prompt or revision action.
+ */
+function extractTopicFromPrompt(prompt: string, contextTopic?: string): string {
+  if (contextTopic && contextTopic !== "this topic" && contextTopic !== "the topic under discussion") {
+    return contextTopic.trim();
+  }
+  // 1. Quoted string e.g. "Federal Structure of India"
+  const quoted = prompt.match(/["“]([^"”]+)["”]/);
+  if (quoted && quoted[1] && quoted[1].trim().length > 2 && quoted[1].trim().toLowerCase() !== "this topic") {
+    return quoted[1].trim();
+  }
+  // 2. Specific phrase match: "Grill on Prelims for <topic>:" or "Mains question on <topic>:"
+  const actionMatch = prompt.match(/(?:question on|prelims for|practice on|revision for|doubt on)\s+([^:.]+?)(?::|$|\.)/i);
+  if (actionMatch && actionMatch[1] && actionMatch[1].trim().length > 2 && actionMatch[1].trim().toLowerCase() !== "this topic") {
+    return actionMatch[1].trim();
+  }
+  // 3. Preposition match avoiding reserved terms
+  const generalMatch = prompt.match(/\b(?:for|about|on)\s+((?!prelims\b|mains\b)[a-zA-Z0-9\s,&/-]+?)(?::|$|\.)/i);
+  if (generalMatch && generalMatch[1] && generalMatch[1].trim().length > 2 && generalMatch[1].trim().toLowerCase() !== "this topic") {
+    return generalMatch[1].trim();
+  }
+  return prompt.slice(0, 50).trim();
+}
+
+/**
+ * Generates actual UPSC Prelims Statement-based MCQs with elimination traps.
+ */
+function generatePrelimsDrill(topic: string): string {
+  const t = topic.toLowerCase();
+
+  if (t.includes("niti") || t.includes("planning")) {
+    return `### 🎯 UPSC Prelims Grill: NITI Aayog vs Planning Commission
+
+#### Question 1
+**With reference to the institutional machinery of economic planning in India, consider the following statements:**
+1. Unlike the erstwhile Planning Commission, NITI Aayog has no mandate to disburse or allocate plan funds to State Governments.
+2. The Governing Council of NITI Aayog includes all Chief Ministers of States and Lieutenant Governors of Union Territories.
+3. The National Development Council (NDC) was formally abolished and statutory powers were transferred to NITI Aayog by an Act of Parliament.
+
+**Which of the statements given above is/are correct?**
+- (a) 1 only
+- (b) 1 and 2 only
+- (c) 2 and 3 only
+- (d) 1, 2 and 3
+
+> **Correct Answer**: **(b) 1 and 2 only**
+> 
+> **Elimination & Trap Analysis**:
+> - **Statement 1 is CORRECT**: The power to allocate funds to states is entirely vested with the Ministry of Finance (Department of Expenditure) and Finance Commission (Art. 280). NITI Aayog is strictly an advisory think tank.
+> - **Statement 2 is CORRECT**: The Governing Council institutionalizes cooperative federalism by including all Chief Ministers and Lt. Governors as equal stakeholders.
+> - **Statement 3 is INCORRECT (Trap)**: Neither NITI Aayog nor NDC was created by an Act of Parliament. Both were established by executive resolutions of the Union Cabinet. The NDC was not abolished by statute; it simply became dormant after NITI Aayog's creation.
+
+---
+
+#### Question 2
+**Consider the following indices published in India:**
+1. SDG India Index
+2. Composite Water Management Index
+3. Multidimensional Poverty Index (MPI) - National Baseline
+4. Ease of Doing Business Report
+
+**How many of the above are published by NITI Aayog?**
+- (a) Only one
+- (b) Only two
+- (c) Only three
+- (d) All four
+
+> **Correct Answer**: **(c) Only three (1, 2, and 3)**
+> 
+> **Elimination & Trap Analysis**:
+> - Statements 1, 2, and 3 are published by NITI Aayog to foster competitive federalism among Indian states.
+> - Item 4 (Ease of Doing Business) was historically published by the **World Bank** (discontinued in 2021). Within India, DPIIT publishes the Business Reforms Action Plan (BRAP), not NITI Aayog.
+
+> [!WARNING]
+> **Prelims Elimination Rule**: Watch out for questions attributing indices to NITI Aayog that are actually published by Central Ministries (e.g. Swachh Survekshan is by MoHUA, Good Governance Index is by DARPG).`;
+  }
+
+  if (t.includes("federal") || t.includes("centre") || t.includes("governor")) {
+    return `### 🎯 UPSC Prelims Grill: Federal Structure & Centre-State Relations
+
+#### Question 1
+**With reference to the legislative and financial relations between the Union and States, consider the following statements:**
+1. Residuary powers of legislation in India are vested exclusively in the Union Parliament under Article 248.
+2. While the Centre can levy taxes on state commercial activities, state property is exempt from central taxation under Article 289.
+3. The GST Council, established under Article 279A, is a constitutional body created to harmonize indirect taxation.
+
+**Which of the statements given above is/are correct?**
+- (a) 1 only
+- (b) 1 and 3 only
+- (c) 2 and 3 only
+- (d) 1, 2 and 3
+
+> **Correct Answer**: **(b) 1 and 3 only**
+> 
+> **Elimination & Trap Analysis**:
+> - **Statement 1 is CORRECT**: Article 248 vests residuary legislative powers in Parliament (contrast with USA where states have residuary powers).
+> - **Statement 2 is INCORRECT (Trap)**: Under Article 285, property of the Union is exempt from state taxation, but under Article 289(2), Parliament may by law impose tax in respect of a trade or business carried on by the Government of a State.
+> - **Statement 3 is CORRECT**: The GST Council is a **Constitutional body** inserted via the 101st Constitutional Amendment Act, 2016 under Article 279A.
+
+---
+
+#### Question 2
+**Regarding the Governor's discretionary powers under Article 163, consider the following statements:**
+1. If any question arises whether a matter falls within the Governor's discretion, the decision of the Governor is final and cannot be questioned in court.
+2. The Governor of a state has constitutional discretion to reserve any bill for the consideration of the President under Article 200.
+
+**Which of the statements given above is/are correct?**
+- (a) 1 only
+- (b) 2 only
+- (c) Both 1 and 2
+- (d) Neither 1 nor 2
+
+> **Correct Answer**: **(c) Both 1 and 2**
+> 
+> **Elimination & Trap Analysis**:
+> - **Statement 1 is CORRECT**: Article 163(2) explicitly states that the decision of the Governor in his discretion shall be final and the validity of anything done shall not be called into question (though post-Bommai & Nabam Rebia, judicial review checks mala fide discretion).
+> - **Statement 2 is CORRECT**: Article 200 gives the Governor discretion to reserve bills for the President's assent (mandatory if it endangers High Court powers).`;
+  }
+
+  if (
+    t.includes("basic structure") ||
+    t.includes("kesavananda") ||
+    t.includes("amendment") ||
+    t.includes("368")
+  ) {
+    return `### 🎯 UPSC Prelims Grill: Basic Structure Doctrine & Constitutional Amendments
+
+#### Question 1
+**With reference to the amending power of the Parliament under Article 368, consider the following statements:**
+1. A constitutional amendment bill can be initiated in either House of Parliament or in the State Legislatures.
+2. The President must give his assent to a constitutional amendment bill; he can neither withhold assent nor return the bill for reconsideration.
+3. In case of disagreement between the two Houses on a constitutional amendment bill, there is a provision for holding a joint sitting under Article 108.
+
+**Which of the statements given above is/are correct?**
+- (a) 1 only
+- (b) 2 only
+- (c) 1 and 2 only
+- (d) 2 and 3 only
+
+> **Correct Answer**: **(b) 2 only**
+> 
+> **Elimination & Trap Analysis**:
+> - **Statement 1 is INCORRECT (Trap)**: A constitutional amendment bill can be introduced **only** in either House of Parliament, never in State Legislatures.
+> - **Statement 2 is CORRECT**: The 24th Constitutional Amendment Act, 1971 made it obligatory for the President to give assent to a constitutional amendment bill.
+> - **Statement 3 is INCORRECT (Trap)**: There is **no provision for a joint sitting** under Article 108 for constitutional amendment bills (or for Money Bills). Both Houses must pass the bill independently with a special majority.
+
+---
+
+#### Question 2
+**Consider the following landmark judgements of the Supreme Court:**
+1. Shankari Prasad case (1951)
+2. Golaknath case (1967)
+3. Kesavananda Bharati case (1973)
+4. Minerva Mills case (1980)
+
+**Which of the above cases established that the power of judicial review over constitutional amendments is itself an inviolable part of the Basic Structure?**
+- (a) 1 and 2 only
+- (b) 2 and 3 only
+- (c) 3 and 4 only
+- (d) 1, 2, 3 and 4
+
+> **Correct Answer**: **(c) 3 and 4 only**
+> 
+> **Elimination & Trap Analysis**:
+> - In *Shankari Prasad (1951)*, the Supreme Court held Parliament's amending power was unlimited.
+> - In *Golaknath (1967)*, the Court ruled Parliament could not abridge Fundamental Rights, but did not formulate the Basic Structure doctrine.
+> - *Kesavananda Bharati (1973)* formulated the Basic Structure doctrine, and *Minerva Mills (1980)* struck down clauses (4) and (5) of Article 368, firmly enshrining judicial review and limited amending power as basic features.`;
+  }
+
+  // Dynamic Prelims Drill for any topic
+  return `### 🎯 UPSC Prelims Elimination Grill: ${topic}
+
+#### Question 1
+**With reference to "${topic}", consider the following statements:**
+1. The statutory architecture and regulatory directives governing this domain are enacted by the Union Parliament under Seventh Schedule powers.
+2. Executive actions and administrative policies implemented herein are subject to judicial review under Articles 32 and 226 of the Constitution.
+3. State Governments possess unconstrained discretionary authority to override Central statutory standards without presidential assent.
+
+**Which of the statements given above is/are correct?**
+- (a) 1 only
+- (b) 1 and 2 only
+- (c) 2 and 3 only
+- (d) 1, 2 and 3
+
+> **Correct Answer**: **(b) 1 and 2 only**
+> 
+> **Elimination Strategy**:
+> - **Statement 3 is clearly FALSE (Trap)**: Discard any statement using absolute qualifiers like *"unconstrained discretionary authority"* or *"override central statutory standards"*. Under Article 254, Parliamentary enactments supersede state laws on concurrent subjects unless the state legislation has received Presidential assent.
+> - Eliminating Statement 3 immediately knocks out options (c) and (d).
+> - **Statement 2 is TRUE**: Judicial review is part of the Basic Structure (Minerva Mills case) and applies to all executive actions.
+
+---
+
+#### Question 2
+**Which of the following bodies / commissions is most authoritative for structural reform recommendations regarding "${topic}"?**
+- (a) Sarkaria Commission
+- (b) Second Administrative Reforms Commission (2nd ARC)
+- (c) Law Commission of India
+- (d) Dinesh Goswami Committee
+
+> **Correct Answer**: **(b) Second Administrative Reforms Commission (2nd ARC)**
+> 
+> **Explanation**: The 2nd ARC provided exhaustive institutional blueprints on administrative streamlining, operational accountability, and civil service delivery.
+
+> [!WARNING]
+> **Prelims Trap**: In multi-statement questions, eliminate extreme qualifiers (*"solely"*, *"all"*, *"none"*, *"absolute"*) first to narrow down options from 4 to 2 quickly.`;
+}
+
+/**
+ * Generates an analytical Mains 15M Question & Model Framework.
+ */
+function generateMainsGrill(topic: string): string {
+  const t = topic.toLowerCase();
+
+  if (t.includes("niti") || t.includes("planning")) {
+    return `### 🔥 UPSC Mains Question & Evaluator Blueprint: NITI Aayog vs Planning Commission
+
+**Question (GS Paper III - 15 Marks / 250 Words)**:
+> *"The replacement of the Planning Commission with NITI Aayog was envisioned as a paradigm shift from centralized command planning to cooperative and competitive federalism. In light of this, critically evaluate NITI Aayog's performance in addressing regional disparities and fostering cooperative development."*
+
+---
+
+#### 📐 Model Evaluator Blueprint
+
+##### 1. Introduction (30–40 Words)
+- Cite constitutional context: Transition on **1 January 2015** from the 1950 Planning Commission to NITI Aayog as an extra-constitutional, non-statutory think tank.
+- Define the philosophical divergence: Transition from *"one-size-fits-all"* command allocation to *"Team India"* cooperative federalism.
+
+##### 2. Core Body Arguments (150 Words)
+- **Positive Strides towards Cooperative & Competitive Federalism**:
+  - *Governing Council*: Replaced the passive National Development Council by granting Chief Ministers equal structural voice.
+  - *Aspirational Districts Programme (ADBP)*: Ground-level convergence in 112 lagging districts using real-time KPI delta rankings.
+  - *Evidence-Based Competitive Benchmarking*: SDG India Index, Export Preparedness Index, and State Health Index creating healthy competitive dynamics.
+- **Structural Challenges & Criticisms**:
+  - *Lack of Financial Allocation Leverage*: Without fund allocation powers (transferred to the Ministry of Finance), NITI Aayog relies purely on moral suasion and technical advisory.
+  - *Persistence of Regional Asymmetries*: Peninsular/Western industrialized states leverage competitive indices far better than resource-strained Eastern states.
+
+##### 3. Conclusion & Mains Value-Add (40 Words)
+- Cite **Vijay Kelkar** or the **16th Finance Commission** on synchronizing NITI Aayog's policy evaluations with statutory fiscal transfers.
+- Conclude with a vision of empowering state-level planning boards (*State Institution for Transformation - SITA*) for **Viksit Bharat @2047**.`;
+  }
+
+  if (
+    t.includes("basic structure") ||
+    t.includes("kesavananda") ||
+    t.includes("amendment")
+  ) {
+    return `### 🔥 UPSC Mains Question & Evaluator Blueprint: Basic Structure Doctrine
+
+**Question (GS Paper II - 15 Marks / 250 Words)**:
+> *"The Basic Structure Doctrine has struck a delicate balance between Parliamentary sovereignty and Constitutional supremacy. Critically evaluate whether judicial invocations of the doctrine have bordered on judicial overreach or served as an indispensable bulwark for Indian democracy."*
+
+---
+
+#### 📐 Model Evaluator Blueprint
+
+##### 1. Introduction (30–40 Words)
+- Formulated on **24 April 1973** by a 13-judge bench (7:6 majority) in *Kesavananda Bharati v. State of Kerala*.
+- Core Ratio: Parliament possesses wide amending power under Article 368, but lacks the constituent power to destroy the foundational identity (*"basic structure"*) of the Constitution.
+
+##### 2. Core Body Dimensions (150 Words)
+- **Indispensable Bulwark for Constitutional Democracy**:
+  - *Preventing Authoritarian Creep*: Thwarted executive subversion during the Emergency (*Indira Nehru Gandhi v. Raj Narain, 1975* - striking down the 39th Amendment).
+  - *Safeguarding Federalism and Secularism*: Upheld in *S.R. Bommai (1994)*, checking arbitrary dissolution of state governments under Article 356.
+  - *Shielding Fundamental Rights & Judicial Review*: Affirmed in *Minerva Mills (1980)* and *I.R. Coelho (2007)* (subjecting 9th Schedule to judicial review post-1973).
+- **Criticisms & Challenges (Bordering on Judicial Overreach)**:
+  - *Lack of Textual Grounding*: The term "Basic Structure" is not defined anywhere in the Constitution of India; critics argue it confers unelected judges a "super-legislative" veto.
+  - *Striking Down Democratic Enactments*: E.g., The 99th Constitutional Amendment (NJAC Act, 2015) was invalidated on basic structure grounds to preserve judicial primacy in appointments.
+
+##### 3. Conclusion & Way Forward (40 Words)
+- Cite constitutional jurist **Granville Austin**: The Indian Constitution is a seamless web of national unity, democracy, and social revolution.
+- Conclude with the principle of **institutional comity and constitutional morality**: The Basic Structure is not a barrier to progressive legislation, but the ultimate anchor against majoritarian constitutional erosion.`;
+  }
+
+  return `### 🔥 UPSC Mains Analytical Framework: ${topic}
+
+**Question (GS Paper II / Paper III - 15 Marks / 250 Words)**:
+> *"Critically examine the institutional and administrative challenges surrounding '${topic}'. Suggest policy measures to enhance governance accountability and outcomes."*
+
+---
+
+#### 📐 Model Answer Architecture
+
+##### 1. Introduction (Direct Context)
+- Define the core dimensions of **${topic}** within the Indian governance framework.
+- State relevant Constitutional articles, statutory mandates, or recent policy context.
+
+##### 2. Body Dimensions (Multi-Dimensional Analysis)
+- **Structural & Institutional Strengths**:
+  - Legal validity, constitutional guarantees, and regulatory architecture.
+  - Democratic decentralization and citizen-centric service delivery.
+- **Operational Bottlenecks & Critical Concerns**:
+  - Inter-departmental coordination gaps and administrative delays.
+  - Resource mobilization constraints and monitoring deficits.
+
+##### 3. Way Forward & Recommendations
+- Cite recommendations from the **Second Administrative Reforms Commission (2nd ARC)** and **NITI Aayog Strategy** papers.
+- Focus on transparency, digital governance integration, and capacity building.`;
+}
+
+/**
+ * Generates an exam-calibrated model answer for student practice.
+ */
+function generateModelAnswer(topic: string): string {
+  return `### ✍️ Model Answer: ${topic} (UPSC GS Standard)
+
+**Question**: *"Examine the constitutional and administrative significance of ${topic} in contemporary governance."*
+
+---
+
+#### Model Answer Structure
+
+##### 1. Introduction (30 Words)
+Define **${topic}** as a fundamental pillar of Indian governance, establishing the constitutional architecture, statutory mandate, and procedural fairness required for public administration.
+
+##### 2. Key Dimensions & Core Analysis (140 Words)
+- **Constitutional Foundations**: Rooted in constitutional morality, rule of law (Article 14), and institutional checks and balances.
+- **Operational Mechanism**: Executive departments and regulatory bodies function through statutory rules, ensuring non-arbitrary implementation.
+- **Contemporary Imperatives**: Digital public infrastructure, outcome-based budgeting, and cooperative federalism require adaptive administrative frameworks.
+
+##### 3. Challenges & Roadblocks (40 Words)
+- Capacity deficits at local administrative levels.
+- Structural overlap between Union directives and state executive autonomy.
+
+##### 4. Conclusion (40 Words)
+Conclude by quoting the **2nd ARC 4th Report on Ethics in Governance** or **Punchhi Commission**, affirming that effective execution of ${topic} is indispensable for achieving inclusive growth and administrative efficiency.`;
+}
+
+/**
+ * UPSC High-Yield Syllabus Knowledge Base & Dynamic Responder.
  */
 export function generateComprehensiveUpscDossier(
   context: RevisionContext,
@@ -127,7 +454,35 @@ export function generateComprehensiveUpscDossier(
 ): string {
   const query = `${context.topic || ""} ${userPrompt}`.toLowerCase();
 
-  // SPECIAL CASE: Compare NITI Aayog vs Planning Commission
+  // ROUTE 1: Prelims Drill / MCQs
+  if (
+    query.includes("grill on prelims") ||
+    query.includes("prelims drill") ||
+    query.includes("mcq") ||
+    query.includes("tricky statement")
+  ) {
+    const topic = extractTopicFromPrompt(userPrompt, context.topic);
+    return generatePrelimsDrill(topic);
+  }
+
+  // ROUTE 2: Mains Grill Question
+  if (
+    query.includes("grill with mains") ||
+    query.includes("mains question") ||
+    query.includes("10m") ||
+    query.includes("15m")
+  ) {
+    const topic = extractTopicFromPrompt(userPrompt, context.topic);
+    return generateMainsGrill(topic);
+  }
+
+  // ROUTE 3: Model Answer Practice
+  if (query.includes("model answer")) {
+    const topic = extractTopicFromPrompt(userPrompt, context.topic);
+    return generateModelAnswer(topic);
+  }
+
+  // ROUTE 4: Compare NITI Aayog vs Planning Commission
   if (
     query.includes("compare") ||
     query.includes("difference") ||
@@ -190,7 +545,7 @@ flowchart TD
 > **Mains Value-Add**: When evaluating NITI Aayog's performance in GS Paper III, balance your answer by noting the critical counter-argument: *the absence of financial teeth has at times constrained NITI Aayog's ability to enforce national policy compliance across non-aligned states, making moral suasion and index rankings its primary instruments of persuasion.*`;
   }
 
-  // TOPIC 1: Federalism / Centre-State / Governor
+  // ROUTE 5: Federalism / Centre-State / Governor
   if (
     query.includes("federal") ||
     query.includes("centre-state") ||
@@ -243,60 +598,7 @@ flowchart TD
 > **Mains Value-Add**: Cite the **Sarkaria Commission (1988)** recommendation that Article 356 must be used only as a *"measure of the last resort"*, and the **Punchhi Commission (2010)** suggestion that the Governor should be given a fixed 5-year tenure to prevent arbitrary removals.`;
   }
 
-  // TOPIC 2: Economic Planning / NITI Aayog / Fiscal Policy
-  if (
-    query.includes("economic planning") ||
-    query.includes("planning") ||
-    query.includes("niti aayog") ||
-    query.includes("fiscal") ||
-    query.includes("budget") ||
-    query.includes("deficit")
-  ) {
-    const topicTitle = context.topic || "Economic Planning in India";
-    return `### 🏛️ UPSC Dossier: ${topicTitle} (GS Paper III)
-
-#### 1. Institutional Foundations & Evolution
-- **Historical Trajectory**: Planning Commission established on 15 March 1950 via an executive resolution (extra-constitutional, non-statutory body).
-- **Transition to NITI Aayog**: Established on **1 January 2015** via a Union Cabinet resolution as the premier policy think tank of the Government of India.
-- **Core Paradigm Shift**:
-  - *Planning Commission*: Centralized, top-down allocation of plan funds with a "one-size-fits-all" approach.
-  - *NITI Aayog*: Bottom-up approach anchored in **Cooperative Federalism** and **Competitive Federalism**; does NOT allocate financial resources to states (vested with Ministry of Finance).
-- **FRBM Act 2003 & Amendments**: Enacted to institutionalize financial discipline, reduce fiscal deficit, and enhance macroeconomic stability.
-
-#### 2. Key Committees & Landmark Frameworks
-| Body / Committee | Year | Key Policy Recommendation & Relevance |
-| :--- | :--- | :--- |
-| **N.K. Singh Committee** | 2017 | Recommended replacing annual fiscal targets with a debt-to-GDP ceiling: **60% combined** (40% Centre, 20% States), with escape clause of 0.5% during crises. |
-| **16th Finance Commission** | 2024-26 | Chaired by Dr. Arvind Panagariya; evaluating state debt sustainability, quality of capital expenditure, and disaster financing. |
-| **Kelkar Committee** | 2015 | Revitalization of Public-Private Partnerships (PPPs), contract renegotiation mechanisms, and risk-allocation frameworks. |
-
-#### 3. Recent PIB & Policy Touchpoints
-- **Aspirational Districts & Blocks Programme (ADBP)**: Convergence of government schemes, real-time data monitoring on 49 Key Performance Indicators (KPIs), and delta rankings.
-- **National Multidimensional Poverty Index (MPI)**: NITI Aayog's MPI baseline report reveals significant decline in multidimensional poverty across Indian states.
-- **Viksit Bharat @2047 Roadmap**: Structural reforms focusing on digital public infrastructure (DPI), manufacturing scale (PLI schemes), and green transition financing.
-
-\`\`\`mermaid
-flowchart TD
-    A["Economic Planning Framework in India"]
-    A --> B["Cooperative Federalism"]
-    A --> C["Competitive Federalism"]
-    A --> D["Macroeconomic Discipline"]
-    B --> E["Governing Council (All CMs + LGs)"]
-    B --> F["Sub-Groups on Central Schemes"]
-    C --> G["SDG India Index"]
-    C --> H["Export Preparedness Index"]
-    D --> I["FRBM Act & NK Singh Debt Rule"]
-    D --> J["Capital Expenditure Multiplier (SASCI)"]
-\`\`\`
-
-> [!WARNING]
-> **Prelims Trap**: NITI Aayog is **neither a constitutional body nor a statutory body**; it was created by a resolution of the Union Cabinet. Furthermore, NITI Aayog does **NOT** disburse or allocate central funds to states; that mandate belongs entirely to the Ministry of Finance (Department of Expenditure).
-
-> [!TIP]
-> **Mains Value-Add**: When discussing fiscal planning, emphasize the **Capital Expenditure Multiplier** (Reserve Bank of India estimates every ₹1 of capital capex yields ~₹2.45 in GDP multiplier effect versus ~₹0.99 for revenue expenditure).`;
-  }
-
-  // TOPIC 3: Basic Structure Doctrine & Constitutionalism
+  // ROUTE 6: Basic Structure Doctrine
   if (
     query.includes("basic structure") ||
     query.includes("kesavananda") ||
@@ -341,47 +643,26 @@ flowchart TD
 > **Mains Value-Add**: Cite Justice H.R. Khanna's decisive ratio in Kesavananda Bharati: *"Amendment does not mean abrogation or complete dismantling of the constitutional identity."*`;
   }
 
-  // TOPIC 4: Direct Analytical Revision for Specific Query
-  const topicTitle = userPrompt && userPrompt.length > 5 && userPrompt.length < 90
+  // DEFAULT: Clear, pedagogical answer without template boilerplate
+  const topicTitle = userPrompt && userPrompt.length > 5 && userPrompt.length < 80
     ? userPrompt.replace(/[?!.]+$/, "").trim()
-    : context.topic || context.paperTitle || "UPSC Concept Revision";
+    : context.topic || context.paperTitle || "UPSC Concept";
 
-  return `### 🏛️ UPSC Subject Dossier: ${topicTitle}
+  return `### 🏛️ UPSC Revision: ${topicTitle}
 
-> [!NOTE]
-> Calibrated for Civil Services Examination (GS Prelims & Mains Syllabus).
+#### 1. Core Examination Foundations
+- **Syllabus Connection**: Grounded in the official UPSC General Studies framework.
+- **Foundational Concepts**: Explores the statutory architecture, administrative mandates, and implementation standards of **${topicTitle}**.
+- **Practical Implications**: Centers on institutional accountability, executive guidelines, and inter-governmental coordination.
 
-#### 1. Core Concept & Institutional Context
-- **Syllabus Placement**: Critical component of UPSC General Studies (examining statutory architecture, governance mechanisms, and policy outcomes).
-- **Core Principles**: Analysis of foundational tenets, institutional mandates, and administrative accountability frameworks governing **${topicTitle}**.
-- **Operational Reality**: Implementation mechanisms, central-state coordination, and regulatory oversight in contemporary Indian administration.
-
-#### 2. Key Provisions, Committees & Precedents
-| Dimension | Framework & Authority | UPSC Relevance & Key Takeaway |
-| :--- | :--- | :--- |
-| **Constitutional / Legal Basis** | Relevant statutory acts, constitutional articles, and executive mandates | Establishes procedural validity and institutional jurisdiction. |
-| **High-Level Committees** | Recommendations from Administrative Reforms Commission (2nd ARC) & expert panels | Provides analytical fodder and reform roadmaps for Mains answers. |
-| **Judicial Standards** | Supreme Court doctrine of proportionality, rule of law, and procedural fairness | Ensures non-arbitrary administrative action and fundamental rights protection. |
-
-#### 3. Contemporary Policy & Contemporary Debates
-- **Recent Policy Updates**: Contemporary initiatives by Union Ministries, targeted performance indices, and digital governance integrations.
-- **Structural Bottlenecks**: Implementation hurdles including institutional overlap, resource mobilization, and regional capacity disparities.
-- **Way Forward**: Strengthening decentralization, evidence-based policy monitoring, and multi-stakeholder participation.
-
-\`\`\`mermaid
-flowchart TD
-    A["${topicTitle}"] --> B["Core Legal / Policy Basis"]
-    A --> C["Institutional Framework"]
-    A --> D["Current Challenges & Reforms"]
-    B --> E["Prelims Statement Traps"]
-    C --> F["Mains Analytical Evaluation"]
-    D --> F
-\`\`\`
+#### 2. Key Dimensions & Perspectives
+- **Legal & Constitutional Base**: Examines relevant Parliamentary statutes and constitutional provisions ensuring procedural validity.
+- **Policy Implementations**: Incorporates contemporary guidelines from Union Ministries and evaluation mechanisms.
+- **Judicial Standards**: Reflects the Supreme Court's principles of natural justice and non-arbitrariness under Article 14.
 
 > [!WARNING]
-> **Prelims Trap**: In UPSC statement questions regarding **${topicTitle}**, pay close attention to quantitative thresholds (e.g. percentages, quorum, tenure) and statutory vs executive origin. Discard options that treat conditional provisions as unconditional mandates.
+> **Prelims Trap**: In questions regarding **${topicTitle}**, beware of statements that confuse discretionary powers with mandatory obligations.
 
 > [!TIP]
-> **Mains Value-Add**: Structure your Mains answers using the **Stakeholder Framework** (Citizen, State, Judiciary, Market) and always conclude with actionable recommendations from the **2nd ARC** or **NITI Aayog Strategy** papers.`;
+> **Mains Value-Add**: Conclude your answer by referencing recommendations from relevant administrative commissions (such as the **2nd ARC**) to strengthen your conclusion.`;
 }
-
