@@ -31,6 +31,7 @@ import {
 } from "lucide-react";
 import { useApp } from "../../context/AppContext";
 import {
+  clearRevisionConfig,
   PRESET_ACTIONS,
   PresetAction,
   RevisionProviderConfig,
@@ -41,6 +42,7 @@ import {
 import {
   ParsedQuestion,
   QuestionPaper,
+  RevisionAttemptSummary,
   RevisionContext,
   RevisionMessage,
   SyllabusItem,
@@ -187,6 +189,44 @@ export function RevisionView() {
         ? latestAttempt.answers?.[selectedQuestionNo]
         : undefined;
 
+      let attemptSummary: RevisionAttemptSummary | undefined = undefined;
+      if (latestAttempt) {
+        const wrongQuestions: Array<{
+          questionNo: number;
+          text: string;
+          studentSelected?: string;
+          correctAnswer?: string;
+        }> = [];
+
+        if (activePaper?.parsedQuestions) {
+          for (const q of activePaper.parsedQuestions) {
+            const ans = latestAttempt.answers?.[q.questionNo];
+            if (ans && !ans.isCorrect && ans.selected) {
+              wrongQuestions.push({
+                questionNo: q.questionNo,
+                text: q.text,
+                studentSelected: ans.selected,
+                correctAnswer: q.answer,
+              });
+            }
+          }
+        }
+
+        attemptSummary = {
+          score: latestAttempt.score,
+          totalMarks: latestAttempt.maxScore || latestAttempt.totalMarks,
+          correctCount: latestAttempt.correct,
+          incorrectCount: latestAttempt.incorrect,
+          unansweredCount: latestAttempt.unattempted,
+          accuracy: Math.round(
+            latestAttempt.accuracyPct ||
+              (latestAttempt.correct / (latestAttempt.answered || 1)) * 100,
+          ),
+          completedAt: latestAttempt.finishedAt,
+          wrongQuestions: wrongQuestions.slice(0, 10),
+        };
+      }
+
       return {
         mode: "paper",
         paperId: selectedPaperId,
@@ -195,6 +235,7 @@ export function RevisionView() {
         question: activeQuestion,
         userAnswer: studentAns,
         attemptId: latestAttempt?.id,
+        attemptSummary,
       };
     }
 
@@ -267,7 +308,15 @@ export function RevisionView() {
     setIsLoading(true);
 
     try {
-      const reply = await sendRevisionQuery(nextMessages, activeContext, config);
+      const res = await sendRevisionQuery(nextMessages, activeContext, config);
+      const reply = typeof res === "string" ? res : res.text;
+
+      if (typeof res !== "string" && res.clearInvalidKey) {
+        clearRevisionConfig();
+        setConfig(null);
+        setToastMsg(res.keyNotice || "Stored API key was invalid. Automatically switched to Free AI.");
+      }
+
       const assistantMessage: RevisionMessage = {
         id: `msg_a_${Date.now()}`,
         role: "assistant",
@@ -291,7 +340,13 @@ export function RevisionView() {
 
   // Preset trigger
   const handleTriggerPreset = (preset: PresetAction) => {
-    const candidateTopic = inputPrompt.trim() || selectedTopic.trim() || activeContext.topic;
+    const candidateTopic =
+      inputPrompt.trim() ||
+      selectedTopic.trim() ||
+      activeContext.topic ||
+      activeContext.question?.topic ||
+      (mode === "paper" ? activeContext.paperTitle : undefined);
+
     if (!candidateTopic && messages.length === 0) {
       if (textareaRef.current) {
         textareaRef.current.placeholder = `Type a topic first (e.g. Federalism, Inflation), then click "${preset.label}"...`;
@@ -647,6 +702,25 @@ export function RevisionView() {
                         Generation stopped
                       </span>
                       <div className="flex items-center gap-2">
+                        {config?.apiKey && (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              clearRevisionConfig();
+                              setConfig(null);
+                              setToastMsg("Switched to Free AI. Retrying...");
+                              const lastUser = [...messages].reverse().find((m) => m.role === "user");
+                              if (lastUser) {
+                                handleSend(lastUser.content);
+                              }
+                            }}
+                            disabled={isLoading}
+                            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white font-semibold transition-colors shadow-2xs cursor-pointer disabled:opacity-50"
+                          >
+                            <Sparkles className="h-3.5 w-3.5" />
+                            <span>Switch to Free AI</span>
+                          </button>
+                        )}
                         <button
                           type="button"
                           onClick={() => {

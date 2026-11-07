@@ -343,27 +343,8 @@ function MermaidDiagram({ code }: { code: string }) {
   );
 }
 
-/**
- * Unescapes literal backslash sequences often returned by LLM APIs
- * (\n, \r\n, \", \t) into real whitespace and formatting.
- */
-export function cleanMarkdownContent(raw: string): string {
-  if (!raw) return "";
-  let text = raw;
-  if (text.includes("\\n")) {
-    text = text.replace(/\\r\\n/g, "\n").replace(/\\n/g, "\n");
-  }
-  if (text.includes("\\r")) {
-    text = text.replace(/\\r/g, "\n");
-  }
-  if (text.includes("\\t")) {
-    text = text.replace(/\\t/g, "  ");
-  }
-  if (text.includes('\\"')) {
-    text = text.replace(/\\"/g, '"');
-  }
-  return text;
-}
+import { cleanMarkdownContent } from "../../lib/revisionAi";
+export { cleanMarkdownContent };
 
 /**
  * Custom High-Performance Markdown Section Parser.

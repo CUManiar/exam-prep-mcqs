@@ -175,6 +175,22 @@ export type RevisionProvider = "gemini" | "groq";
 
 export type RevisionContextMode = "topic" | "paper" | "open";
 
+export interface RevisionAttemptSummary {
+  score: number;
+  totalMarks: number;
+  correctCount: number;
+  incorrectCount: number;
+  unansweredCount: number;
+  accuracy: number;
+  completedAt?: string;
+  wrongQuestions?: Array<{
+    questionNo: number;
+    text: string;
+    studentSelected?: string;
+    correctAnswer?: string;
+  }>;
+}
+
 export interface RevisionContext {
   mode: RevisionContextMode;
   topic?: string;
@@ -186,6 +202,7 @@ export interface RevisionContext {
   question?: ParsedQuestion;
   userAnswer?: QuestionAnswer;
   attemptId?: string;
+  attemptSummary?: RevisionAttemptSummary;
 }
 
 export interface RevisionMessage {

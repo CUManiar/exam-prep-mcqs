@@ -208,6 +208,20 @@ YOUR MANDATE & TONE:
           }
         }
       }
+      if (context.attemptSummary) {
+        prompt += `\nStudent Performance in this Paper Attempt:`;
+        prompt += `\n- Score: ${context.attemptSummary.score} / ${context.attemptSummary.totalMarks} marks`;
+        prompt += `\n- Accuracy: ${context.attemptSummary.accuracy}%`;
+        prompt += `\n- Correct Answers: ${context.attemptSummary.correctCount}`;
+        prompt += `\n- Incorrect Answers: ${context.attemptSummary.incorrectCount}`;
+        prompt += `\n- Unanswered: ${context.attemptSummary.unansweredCount}`;
+        if (context.attemptSummary.wrongQuestions && context.attemptSummary.wrongQuestions.length > 0) {
+          prompt += `\n- Questions Answered Incorrectly:`;
+          context.attemptSummary.wrongQuestions.forEach((w) => {
+            prompt += `\n  * Q#${w.questionNo}: ${w.text.slice(0, 100)}... (Student selected: ${w.studentSelected || "None"}, Correct: ${w.correctAnswer || "Key"})`;
+          });
+        }
+      }
     }
     prompt += `\nTailor your insights directly around this context.`;
   }
@@ -309,11 +323,48 @@ export interface RevisionApiError extends Error {
   needsApiKey?: boolean;
 }
 
+export interface RevisionQueryResponse {
+  text: string;
+  clearInvalidKey?: boolean;
+  keyNotice?: string;
+}
+
+/**
+ * Unescapes literal backslash sequences often returned by LLM APIs
+ * (\n, \r\n, \", \t) into real whitespace and formatting.
+ */
+export function cleanMarkdownContent(raw: string): string {
+  if (!raw) return "";
+  let text = raw;
+
+  // Unescape backslash sequences often returned by LLM APIs
+  if (text.includes("\\n")) {
+    text = text.replace(/\\\\n/g, "\n").replace(/\\r\\n/g, "\n").replace(/\\n/g, "\n");
+  }
+  if (text.includes("\\r")) {
+    text = text.replace(/\\r/g, "\n");
+  }
+  if (text.includes("\\t")) {
+    text = text.replace(/\\t/g, "  ");
+  }
+  if (text.includes('\\"')) {
+    text = text.replace(/\\"/g, '"');
+  }
+
+  // Fix escaped markdown hashes like \# into #
+  text = text.replace(/\\#/g, "#");
+
+  // Ensure markdown headings have a space after '#' (e.g. "###Heading" -> "### Heading")
+  text = text.replace(/^(#{1,4})([^\s#])/gm, "$1 $2");
+
+  return text;
+}
+
 export async function sendRevisionQuery(
   messages: RevisionMessage[],
   context: RevisionContext,
   config?: RevisionProviderConfig | null,
-): Promise<string> {
+): Promise<RevisionQueryResponse> {
   const res = await fetch("/api/revision/chat", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -342,5 +393,9 @@ export async function sendRevisionQuery(
     throw new Error("No response generated. Please retry.");
   }
 
-  return data.text;
+  return {
+    text: data.text,
+    clearInvalidKey: Boolean(data.clearInvalidKey),
+    keyNotice: data.keyNotice,
+  };
 }
