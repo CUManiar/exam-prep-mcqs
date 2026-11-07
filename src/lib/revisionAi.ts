@@ -6,6 +6,8 @@ import {
   RevisionProviderConfig,
 } from "./types";
 
+export type { RevisionProviderConfig };
+
 const REVISION_CONFIG_KEY = "upsc_revision_llm_config";
 const REVISION_HISTORY_KEY = "upsc_revision_history";
 
