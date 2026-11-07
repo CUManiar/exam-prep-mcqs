@@ -15,7 +15,9 @@ export interface ParsedQuestion {
   answer?: string;
   explanation?: string;
   subject?: string;
+  chapter?: string;
   topic?: string;
+  wordLimit?: number;
 }
 
 export interface MatchingItem {
@@ -75,6 +77,7 @@ export interface QuestionAnswer {
   submissionFileUrl?: string;
   submissionFileName?: string;
   subject?: string;
+  chapter?: string;
   topic?: string;
 }
 
