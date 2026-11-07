@@ -471,3 +471,237 @@ export async function saveMcpSyllabusMarkdown(
 export function isCustomMcpPaper(paper: QuestionPaper): boolean {
   return isUserUploadedPaper(paper) || Boolean(paper.userId);
 }
+
+export interface TopicMetric {
+  subject: string;
+  chapter: string;
+  topic: string;
+  totalQuestions: number;
+  attempted: number;
+  correct: number;
+  partial: number;
+  incorrect: number;
+  unattempted: number;
+  accuracyPct: number;
+  status: "critical" | "practicing" | "mastered";
+}
+
+export interface TopicAnalyticsResult {
+  summary: {
+    totalAttemptsEvaluated: number;
+    totalQuestionsAnalyzed: number;
+    totalAttempted: number;
+    totalCorrect: number;
+    overallAccuracyPct: number;
+    weakTopicsCount: number;
+    masteredTopicsCount: number;
+  };
+  weakTopics: TopicMetric[];
+  strongTopics: TopicMetric[];
+  allTopics: TopicMetric[];
+  hierarchy: Record<string, Record<string, TopicMetric[]>>;
+}
+
+/**
+ * Aggregates cross-attempt topic performance across all completed student attempts.
+ * Operates in-memory in a single pass O(N) to guarantee minimal server load.
+ */
+export async function getTopicAnalytics(
+  userId: string,
+  options?: {
+    subject?: string;
+    minAttempts?: number;
+  },
+): Promise<TopicAnalyticsResult> {
+  const attempts = await getUserAttempts(userId);
+  const papers = await getUserPapers(userId);
+  const paperMap = new Map<string, QuestionPaper>(
+    papers.map((p) => [p.id, p]),
+  );
+
+  const subjectFilter = options?.subject?.trim().toLowerCase();
+  const minAttempts = Math.max(0, Number(options?.minAttempts ?? 1));
+
+  interface TopicAccumulator {
+    subject: string;
+    chapter: string;
+    topic: string;
+    totalQuestions: number;
+    attempted: number;
+    correct: number;
+    partial: number;
+    incorrect: number;
+    unattempted: number;
+  }
+
+  const topicMap = new Map<string, TopicAccumulator>();
+
+  let evaluatedAttemptsCount = 0;
+
+  for (const attempt of attempts) {
+    const paper = paperMap.get(attempt.paperId);
+    const parsedQuestionsMap = new Map(
+      (paper?.parsedQuestions || []).map((q) => [q.questionNo, q]),
+    );
+
+    const answersList = Object.entries(attempt.answers || {});
+    if (answersList.length === 0) continue;
+
+    evaluatedAttemptsCount += 1;
+    const isSubjective = attempt.examType === "subjective";
+
+    for (const [qNoStr, ans] of answersList) {
+      const qNo = Number(qNoStr);
+      const pq = parsedQuestionsMap.get(qNo);
+
+      const subject = (
+        ans.subject ||
+        pq?.subject ||
+        paper?.subject ||
+        attempt.paperLabel ||
+        "General Studies"
+      ).trim();
+
+      if (subjectFilter && !subject.toLowerCase().includes(subjectFilter)) {
+        continue;
+      }
+
+      const chapter = (ans.chapter || pq?.chapter || "General").trim();
+      const topic = (ans.topic || pq?.topic || "General").trim();
+
+      const key = `${subject.toLowerCase()}:::${chapter.toLowerCase()}:::${topic.toLowerCase()}`;
+      let entry = topicMap.get(key);
+      if (!entry) {
+        entry = {
+          subject,
+          chapter,
+          topic,
+          totalQuestions: 0,
+          attempted: 0,
+          correct: 0,
+          partial: 0,
+          incorrect: 0,
+          unattempted: 0,
+        };
+        topicMap.set(key, entry);
+      }
+
+      entry.totalQuestions += 1;
+
+      const isAttempted =
+        (ans.selected &&
+          ans.selected.trim() !== "" &&
+          ans.selected !== "no-attempt") ||
+        Boolean(
+          ans.subjectiveAssessment && ans.subjectiveAssessment !== "no-attempt",
+        );
+
+      if (!isAttempted) {
+        entry.unattempted += 1;
+        continue;
+      }
+
+      entry.attempted += 1;
+
+      if (ans.subjectiveAssessment) {
+        if (ans.subjectiveAssessment === "strong") {
+          entry.correct += 1;
+        } else if (ans.subjectiveAssessment === "partial") {
+          entry.partial += 1;
+        } else if (ans.subjectiveAssessment === "needs-work") {
+          entry.incorrect += 1;
+        } else {
+          entry.partial += 1;
+        }
+      } else if (ans.isCorrect === true) {
+        entry.correct += 1;
+      } else if (ans.isCorrect === false) {
+        entry.incorrect += 1;
+      } else if (isSubjective && ans.selected === "attempted") {
+        entry.partial += 1;
+      }
+    }
+  }
+
+  const allTopics: TopicMetric[] = [];
+  const hierarchy: Record<string, Record<string, TopicMetric[]>> = {};
+
+  for (const acc of topicMap.values()) {
+    if (acc.attempted < minAttempts && minAttempts > 0) {
+      continue;
+    }
+
+    const accuracyPct =
+      acc.attempted > 0
+        ? Math.round((acc.correct / acc.attempted) * 100)
+        : 0;
+
+    const status: "critical" | "practicing" | "mastered" =
+      accuracyPct >= 70
+        ? "mastered"
+        : accuracyPct >= 50
+          ? "practicing"
+          : "critical";
+
+    const metric: TopicMetric = {
+      subject: acc.subject,
+      chapter: acc.chapter,
+      topic: acc.topic,
+      totalQuestions: acc.totalQuestions,
+      attempted: acc.attempted,
+      correct: acc.correct,
+      partial: acc.partial,
+      incorrect: acc.incorrect,
+      unattempted: acc.unattempted,
+      accuracyPct,
+      status,
+    };
+
+    allTopics.push(metric);
+
+    if (!hierarchy[metric.subject]) {
+      hierarchy[metric.subject] = {};
+    }
+    if (!hierarchy[metric.subject][metric.chapter]) {
+      hierarchy[metric.subject][metric.chapter] = [];
+    }
+    hierarchy[metric.subject][metric.chapter].push(metric);
+  }
+
+  // Sort weak topics: lowest accuracy first, highest attempted count first
+  const weakTopics = allTopics
+    .filter((t) => t.status === "critical" || t.accuracyPct < 50)
+    .sort((a, b) => a.accuracyPct - b.accuracyPct || b.attempted - a.attempted);
+
+  // Sort strong topics: highest accuracy first, highest attempted count first
+  const strongTopics = allTopics
+    .filter((t) => t.status === "mastered" && t.accuracyPct >= 70)
+    .sort((a, b) => b.accuracyPct - a.accuracyPct || b.attempted - a.attempted);
+
+  const totalQuestionsAnalyzed = allTopics.reduce(
+    (sum, t) => sum + t.totalQuestions,
+    0,
+  );
+  const totalAttempted = allTopics.reduce((sum, t) => sum + t.attempted, 0);
+  const totalCorrect = allTopics.reduce((sum, t) => sum + t.correct, 0);
+  const overallAccuracyPct =
+    totalAttempted > 0
+      ? Math.round((totalCorrect / totalAttempted) * 100)
+      : 0;
+
+  return {
+    summary: {
+      totalAttemptsEvaluated: evaluatedAttemptsCount,
+      totalQuestionsAnalyzed,
+      totalAttempted,
+      totalCorrect,
+      overallAccuracyPct,
+      weakTopicsCount: weakTopics.length,
+      masteredTopicsCount: strongTopics.length,
+    },
+    weakTopics,
+    strongTopics,
+    allTopics,
+    hierarchy,
+  };
+}
