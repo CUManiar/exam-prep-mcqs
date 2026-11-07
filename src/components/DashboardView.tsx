@@ -3,7 +3,6 @@
 import React, { useState, useMemo } from "react";
 import { ActiveSessionDraft, Attempt, QuestionPaper } from "../lib/types";
 import { getAttemptPercentage } from "../lib/defaults";
-import { isSpecificSingleSubject } from "../lib/markdownPaperParser";
 import {
   ArrowRight,
   AlertTriangle,
@@ -13,7 +12,6 @@ import {
   Clock3,
   FileCheck2,
   Flame,
-  Percent,
   RotateCcw,
   Sparkles,
   Target,
@@ -21,6 +19,12 @@ import {
   TrendingUp,
 } from "lucide-react";
 import { PageHeader } from "./PageHeader";
+import { DailyMotivationQuote } from "./dashboard/DailyMotivationQuote";
+import { StrikeCalendar } from "./dashboard/StrikeCalendar";
+import { McqAndMockTrendsChart } from "./dashboard/McqAndMockTrendsChart";
+import { LastThreePapersSummary } from "./dashboard/LastThreePapersSummary";
+import { GoalsAndRemindersBoard } from "./dashboard/GoalsAndRemindersBoard";
+import { RecentTestInsights } from "./dashboard/RecentTestInsights";
 
 interface DashboardViewProps {
   papers: QuestionPaper[];
@@ -29,6 +33,7 @@ interface DashboardViewProps {
   onNavigateHistory: () => void;
   onViewAttempt: (attempt: Attempt) => void;
   onDeleteAttempt?: (attemptId: string) => void;
+  onStartExam?: (paper: QuestionPaper, mode?: "practice" | "mock") => void;
   activeDraft?: ActiveSessionDraft | null;
   onResumeDraft?: (draft: ActiveSessionDraft) => void;
   onDiscardDraft?: () => void;
@@ -83,30 +88,6 @@ function calculatePracticeStreak(attempts: Attempt[]) {
   return { currentStreak: streak, isActiveToday };
 }
 
-function normalizeSubjectName(subj: string): string {
-  const s = (subj || "").trim();
-  const lower = s.toLowerCase();
-  if (lower === "gs" || lower === "general" || lower === "general studies") {
-    return "General Studies";
-  }
-  if (
-    lower === "csat" ||
-    lower === "gs ii csat" ||
-    lower === "gs 2" ||
-    lower === "gs ii"
-  ) {
-    return "CSAT";
-  }
-  if (lower.includes("polity")) return "Polity";
-  if (lower.includes("economy")) return "Economy";
-  if (lower.includes("geography")) return "Geography";
-  if (lower.includes("history")) return "History";
-  if (lower.includes("environment")) return "Environment";
-  if (lower.includes("science")) return "Science & Tech";
-  if (lower.includes("ethics")) return "Ethics";
-  return s || "General Studies";
-}
-
 export function DashboardView({
   papers,
   attempts,
@@ -114,29 +95,32 @@ export function DashboardView({
   onNavigateHistory,
   onViewAttempt,
   onDeleteAttempt,
+  onStartExam,
   activeDraft,
   onResumeDraft,
   onDiscardDraft,
 }: DashboardViewProps) {
-  const [dailyTarget] = useState<number>(() => {
-    if (typeof window === "undefined") return 25;
-    const saved = localStorage.getItem("exam_prep_daily_target");
-    return saved ? parseInt(saved, 10) || 25 : 25;
-  });
-
-  const completed = [...attempts]
-    .filter((attempt) => Boolean(attempt.finishedAt))
-    .sort(
-      (a, b) =>
-        new Date(b.finishedAt || b.startedAt).getTime() -
-        new Date(a.finishedAt || a.startedAt).getTime(),
-    );
-  const questionsAnswered = completed.reduce(
-    (sum, attempt) => sum + (attempt.answered || 0),
-    0,
+  const completed = useMemo(
+    () =>
+      [...attempts]
+        .filter((attempt) => Boolean(attempt.finishedAt))
+        .sort(
+          (a, b) =>
+            new Date(b.finishedAt || b.startedAt).getTime() -
+            new Date(a.finishedAt || a.startedAt).getTime(),
+        ),
+    [attempts],
   );
-  const averageAccuracy = completed.length
-    ? Math.round(
+
+  const questionsAnswered = useMemo(
+    () => completed.reduce((sum, attempt) => sum + (attempt.answered || 0), 0),
+    [completed],
+  );
+
+  const averageAccuracy = useMemo(() => {
+    if (!completed.length) return null;
+    return (
+      Math.round(
         (completed.reduce(
           (sum, attempt) => sum + (attempt.accuracyPct || 0),
           0,
@@ -144,24 +128,15 @@ export function DashboardView({
           completed.length) *
           10,
       ) / 10
-    : null;
-  const averagePercentage = completed.length
-    ? Math.round(
-        (completed.reduce(
-          (sum, attempt) => sum + getAttemptPercentage(attempt),
-          0,
-        ) /
-          completed.length) *
-          10,
-      ) / 10
-    : null;
-  const latestAttempt = completed[0];
+    );
+  }, [completed]);
 
   const streakData = useMemo(
     () => calculatePracticeStreak(completed),
     [completed],
   );
 
+  // Today answered count for goal progress
   const todayAnsweredCount = useMemo(() => {
     const today = new Date();
     const todayStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}-${String(today.getDate()).padStart(2, "0")}`;
@@ -175,138 +150,26 @@ export function DashboardView({
       .reduce((sum, a) => sum + (a.answered || 0), 0);
   }, [completed]);
 
-  const subjectBreakdown = useMemo(() => {
-    const map: Record<
-      string,
-      {
-        subject: string;
-        attemptsCount: number;
-        totalQuestions: number;
-        totalAnswered: number;
-        totalCorrect: number;
-        totalIncorrect: number;
-      }
-    > = {};
+  // This week mocks count for weekly mock goal
+  const weekMocksCount = useMemo(() => {
+    const today = new Date();
+    const dayOfWeek = today.getDay() === 0 ? 6 : today.getDay() - 1;
+    const monday = new Date(today);
+    monday.setDate(today.getDate() - dayOfWeek);
+    monday.setHours(0, 0, 0, 0);
 
-    completed.forEach((att) => {
-      const matched = papers.find((p) => p.id === att.paperId);
-      const paperSubject =
-        matched?.subject || att.paperLabel || att.category || "General Studies";
-      const isSingleSubject = isSpecificSingleSubject(paperSubject);
-
-      if (isSingleSubject) {
-        // Top-level subject explicitly specified: mix-up not allowed, all questions belong to paper subject
-        const subj = normalizeSubjectName(paperSubject);
-        if (!map[subj]) {
-          map[subj] = {
-            subject: subj,
-            attemptsCount: 0,
-            totalQuestions: 0,
-            totalAnswered: 0,
-            totalCorrect: 0,
-            totalIncorrect: 0,
-          };
-        }
-        map[subj].attemptsCount += 1;
-        map[subj].totalQuestions += att.totalQuestions || 0;
-        map[subj].totalAnswered += att.answered || 0;
-        map[subj].totalCorrect += att.correct || 0;
-        map[subj].totalIncorrect += att.incorrect || 0;
-      } else {
-        // Mixed paper, revision quiz, or daily quiz: attribute each question to its individual subject
-        const answerEntries = Object.values(att.answers || {});
-        if (answerEntries.length > 0) {
-          const subjectsInThisAttempt = new Set<string>();
-
-          answerEntries.forEach((ans) => {
-            const rawSubj =
-              ans.subject ||
-              matched?.parsedQuestions?.find(
-                (pq) => pq.questionNo === ans.questionNo,
-              )?.subject ||
-              paperSubject;
-            const normSubj = normalizeSubjectName(rawSubj);
-            subjectsInThisAttempt.add(normSubj);
-
-            if (!map[normSubj]) {
-              map[normSubj] = {
-                subject: normSubj,
-                attemptsCount: 0,
-                totalQuestions: 0,
-                totalAnswered: 0,
-                totalCorrect: 0,
-                totalIncorrect: 0,
-              };
-            }
-            map[normSubj].totalQuestions += 1;
-            if (ans.selected) {
-              map[normSubj].totalAnswered += 1;
-              if (ans.isCorrect) {
-                map[normSubj].totalCorrect += 1;
-              } else if (ans.isCorrect === false) {
-                map[normSubj].totalIncorrect += 1;
-              }
-            }
-          });
-
-          subjectsInThisAttempt.forEach((s) => {
-            if (map[s]) map[s].attemptsCount += 1;
-          });
-        } else {
-          // Fallback if no individual answers object exists
-          const subj = normalizeSubjectName(paperSubject);
-          if (!map[subj]) {
-            map[subj] = {
-              subject: subj,
-              attemptsCount: 0,
-              totalQuestions: 0,
-              totalAnswered: 0,
-              totalCorrect: 0,
-              totalIncorrect: 0,
-            };
-          }
-          map[subj].attemptsCount += 1;
-          map[subj].totalQuestions += att.totalQuestions || 0;
-          map[subj].totalAnswered += att.answered || 0;
-          map[subj].totalCorrect += att.correct || 0;
-          map[subj].totalIncorrect += att.incorrect || 0;
-        }
-      }
-    });
-
-    return Object.values(map)
-      .map((item) => {
-        const accuracy =
-          item.totalAnswered > 0
-            ? Math.round((item.totalCorrect / item.totalAnswered) * 100)
-            : 0;
-        let status = "Needs Focus";
-        let statusColor = "text-rose-700 bg-rose-50 border-rose-200";
-        let barColor = "bg-rose-500";
-        if (accuracy >= 75) {
-          status = "Strong";
-          statusColor = "text-emerald-700 bg-emerald-50 border-emerald-200";
-          barColor = "bg-emerald-500";
-        } else if (accuracy >= 60) {
-          status = "Moderate";
-          statusColor = "text-amber-700 bg-amber-50 border-amber-200";
-          barColor = "bg-amber-500";
-        }
-        return {
-          ...item,
-          accuracy,
-          status,
-          statusColor,
-          barColor,
-        };
-      })
-      .sort((a, b) => b.totalAnswered - a.totalAnswered);
-  }, [completed, papers]);
+    return completed.filter((a) => {
+      if (a.mode !== "mock") return false;
+      const d = new Date(a.finishedAt || a.startedAt);
+      return !Number.isNaN(d.getTime()) && d.getTime() >= monday.getTime();
+    }).length;
+  }, [completed]);
 
   const metrics = [
     {
       label: "Assessments completed",
       value: completed.length,
+      sublabel: `${completed.filter((c) => c.mode === "mock").length} mocks · ${completed.filter((c) => c.mode === "practice").length} practice`,
       icon: FileCheck2,
       iconClass: "text-indigo-600",
       iconBgClass: "bg-indigo-50 ring-indigo-100",
@@ -314,6 +177,9 @@ export function DashboardView({
     {
       label: "Practice streak",
       value: `${streakData.currentStreak} ${streakData.currentStreak === 1 ? "day" : "days"}`,
+      sublabel: streakData.isActiveToday
+        ? "Streak active today 🔥"
+        : "Practice today to extend",
       icon: Flame,
       iconClass: "text-amber-500",
       iconBgClass: "bg-amber-50 ring-amber-100",
@@ -321,6 +187,7 @@ export function DashboardView({
     {
       label: "Questions answered",
       value: questionsAnswered,
+      sublabel: `${todayAnsweredCount} answered today`,
       icon: Target,
       iconClass: "text-sky-600",
       iconBgClass: "bg-sky-50 ring-sky-100",
@@ -328,6 +195,7 @@ export function DashboardView({
     {
       label: "Average accuracy",
       value: averageAccuracy === null ? "—" : `${averageAccuracy}%`,
+      sublabel: "Across all completed tests",
       icon: BarChart3,
       iconClass: "text-emerald-600",
       iconBgClass: "bg-emerald-50 ring-emerald-100",
@@ -335,40 +203,46 @@ export function DashboardView({
   ];
 
   return (
-    <div className="page-container">
+    <div className="page-container space-y-6">
+      {/* Page Header */}
       <PageHeader
-        eyebrow="Your study workspace"
-        title="Assessment overview"
-        description="Choose a paper, complete an assessment, and review your progress."
+        eyebrow="Your UPSC Study Workspace"
+        title="Assessment Overview &amp; Analytics"
+        description="Comprehensive insights into your MCQ consistency, mock performance, and learning goals."
         actions={
           <button
             type="button"
             onClick={onNavigatePapers}
-            className="button-primary"
+            className="button-primary cursor-pointer shadow-sm"
           >
             <BookOpen className="h-4 w-4" /> Browse papers
           </button>
         }
       />
 
+      {/* Daily Motivation Quote Banner */}
+      <DailyMotivationQuote />
+
+      {/* Active Assessment Draft Alert Banner */}
       {activeDraft && (
         <section
-          className="mb-6 flex flex-col gap-4 rounded-lg border border-blue-200 bg-blue-50/70 p-4 sm:flex-row sm:items-center sm:justify-between sm:p-5"
+          className="flex flex-col gap-4 rounded-2xl border border-blue-200 bg-blue-50/80 p-4 sm:flex-row sm:items-center sm:justify-between sm:p-5 shadow-2xs"
           aria-label="Assessment in progress"
         >
           <div className="flex min-w-0 items-start gap-3">
-            <span className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-md bg-white text-blue-700 ring-1 ring-blue-200">
+            <span className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-white text-blue-700 ring-1 ring-blue-200 shadow-2xs">
               <Clock3 className="h-4 w-4" />
             </span>
             <div className="min-w-0">
-              <p className="text-xs font-semibold uppercase tracking-wide text-blue-800">
+              <p className="text-xs font-bold uppercase tracking-wider text-blue-800">
                 Assessment in progress
               </p>
-              <h2 className="mt-1 truncate text-base font-semibold text-slate-900">
+              <h2 className="mt-0.5 truncate text-base font-bold text-slate-900">
                 {activeDraft.paperLabel}
               </h2>
-              <p className="mt-1 text-sm text-slate-600">
-                Your answers and timer were saved. Continue when you’re ready.
+              <p className="mt-0.5 text-xs text-slate-600">
+                Your answers and timer are saved in real-time. Resume whenever
+                you are ready.
               </p>
             </div>
           </div>
@@ -376,14 +250,14 @@ export function DashboardView({
             <button
               type="button"
               onClick={() => onResumeDraft?.(activeDraft)}
-              className="button-primary"
+              className="button-primary text-xs py-1.5 cursor-pointer"
             >
-              <RotateCcw className="h-4 w-4" /> Resume assessment
+              <RotateCcw className="h-3.5 w-3.5" /> Resume assessment
             </button>
             <button
               type="button"
               onClick={onDiscardDraft}
-              className="button-secondary"
+              className="button-secondary text-xs py-1.5 cursor-pointer"
             >
               Discard
             </button>
@@ -391,245 +265,105 @@ export function DashboardView({
         </section>
       )}
 
+      {/* Top 4 Key Performance Metrics */}
       <section className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-        {metrics.map(({ label, value, icon: Icon, iconClass, iconBgClass }) => (
-          <div
-            key={label}
-            className="surface-card flex items-center gap-3 p-4 sm:p-5"
-          >
-            <span
-              className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl ring-1 ${iconBgClass}`}
+        {metrics.map(
+          ({ label, value, sublabel, icon: Icon, iconClass, iconBgClass }) => (
+            <div
+              key={label}
+              className="surface-card flex items-start gap-3 p-4 sm:p-5 rounded-2xl border border-slate-200/90 hover:border-slate-300 transition-colors"
             >
-              <Icon className={`h-5 w-5 ${iconClass}`} />
-            </span>
-            <span className="min-w-0">
-              <span className="block truncate text-xs font-medium text-slate-500">
-                {label}
-              </span>
-              <span className="mt-1 block text-xl font-semibold tracking-tight text-slate-900 tabular-nums">
-                {value}
-              </span>
-            </span>
-          </div>
-        ))}
-      </section>
-
-      <section className="mt-6 grid grid-cols-1 lg:grid-cols-3 gap-4">
-        {/* Card 1: Habit & Streak Momentum Widget */}
-        <div className="surface-card flex flex-col justify-between p-5 sm:p-6 space-y-4">
-          <div>
-            <div className="flex items-center justify-between">
-              <span className="page-eyebrow">Daily Momentum</span>
               <span
-                className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-bold border ${streakData.isActiveToday ? "bg-amber-50 text-amber-800 border-amber-200" : "bg-slate-50 text-slate-600 border-slate-200"}`}
+                className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl ring-1 ${iconBgClass}`}
               >
-                <Flame
-                  className={`h-3.5 w-3.5 ${streakData.isActiveToday ? "text-amber-500 fill-amber-500" : "text-slate-400"}`}
-                />
-                {streakData.currentStreak} Day
-                {streakData.currentStreak === 1 ? "" : "s"} Streak
+                <Icon className={`h-5 w-5 ${iconClass}`} />
               </span>
-            </div>
-            <h2 className="mt-1 text-base sm:text-lg font-semibold text-slate-900">
-              Today&apos;s Target
-            </h2>
-
-            {/* Target progress */}
-            <div className="mt-4 space-y-2">
-              <div className="flex items-baseline justify-between text-xs font-medium">
-                <span className="text-slate-500">
-                  {todayAnsweredCount} of {dailyTarget} MCQs completed today
+              <div className="min-w-0 flex-1">
+                <span className="block truncate text-xs font-semibold uppercase tracking-wider text-slate-400">
+                  {label}
                 </span>
-                <span className="font-mono font-bold text-slate-800">
-                  {Math.min(
-                    100,
-                    Math.round((todayAnsweredCount / dailyTarget) * 100),
-                  )}
-                  %
+                <span className="mt-0.5 block text-xl sm:text-2xl font-black tracking-tight text-slate-900 tabular-nums">
+                  {value}
+                </span>
+                <span className="mt-0.5 block truncate text-[11px] font-medium text-slate-500">
+                  {sublabel}
                 </span>
               </div>
-              <div className="h-2.5 w-full rounded-full bg-slate-100 overflow-hidden border border-slate-200/70">
-                <div
-                  className={`h-full rounded-full transition-all duration-500 ${todayAnsweredCount >= dailyTarget ? "bg-emerald-500" : "bg-amber-500"}`}
-                  style={{
-                    width: `${Math.min(100, Math.round((todayAnsweredCount / dailyTarget) * 100))}%`,
-                  }}
-                />
-              </div>
             </div>
+          ),
+        )}
+      </section>
 
-            <p className="mt-3 text-xs text-slate-600 leading-relaxed">
-              {todayAnsweredCount >= dailyTarget
-                ? "🎉 Target reached! You've met your daily MCQ practice quota."
-                : `${dailyTarget - todayAnsweredCount} more MCQs to achieve today's goal and solidify your streak.`}
-            </p>
-          </div>
-
-          <button
-            type="button"
-            onClick={onNavigatePapers}
-            className="inline-flex items-center gap-1.5 text-xs font-bold text-amber-700 hover:text-amber-800 self-start pt-1 cursor-pointer"
-          >
-            Practice MCQs now <ArrowRight className="h-3.5 w-3.5" />
-          </button>
+      {/* Row 1: Solved MCQ Count & Mock Trends (2/3) + Goals & Reminders Board (1/3) */}
+      <section className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <div className="lg:col-span-2">
+          <McqAndMockTrendsChart attempts={attempts} dailyTarget={50} />
         </div>
-
-        {/* Card 2: Latest Signal (Progress Snapshot) */}
-        <div className="surface-card flex flex-col justify-between p-5 sm:p-6">
-          <div className="flex items-start justify-between gap-4">
-            <div>
-              <p className="page-eyebrow">Progress snapshot</p>
-              <h2 className="mt-1 text-base sm:text-lg font-semibold text-slate-900">
-                Latest Signal
-              </h2>
-            </div>
-            <TrendingUp className="h-5 w-5 text-emerald-600" />
-          </div>
-
-          {latestAttempt ? (
-            <div className="mt-4 flex flex-1 flex-col justify-between">
-              <div>
-                <p className="truncate text-sm font-semibold text-slate-800">
-                  {latestAttempt.paperLabel}
-                </p>
-                <p className="mt-1 text-xs text-slate-500">
-                  {latestAttempt.mode === "mock" ? "Mock" : "Practice"} ·{" "}
-                  {formatAttemptDate(
-                    latestAttempt.finishedAt || latestAttempt.startedAt,
-                  )}
-                </p>
-                <div className="mt-4 flex items-end gap-4">
-                  <div>
-                    <p className="text-xs font-medium text-slate-500">Score</p>
-                    <p className="mt-1 text-2xl font-bold tracking-tight text-slate-900 tabular-nums">
-                      {latestAttempt.score}
-                      <span className="ml-1 text-xs font-medium text-slate-400">
-                        / {latestAttempt.maxScore}
-                      </span>
-                    </p>
-                  </div>
-                  <div className="border-l border-slate-200 pl-4">
-                    <p className="text-xs font-medium text-slate-500">
-                      Accuracy
-                    </p>
-                    <p className="mt-1 text-xl font-bold text-emerald-700 tabular-nums">
-                      {Math.round(latestAttempt.accuracyPct || 0)}%
-                    </p>
-                  </div>
-                </div>
-              </div>
-              <button
-                type="button"
-                onClick={() => onViewAttempt(latestAttempt)}
-                className="mt-4 inline-flex items-center gap-1.5 text-xs font-bold text-blue-700 hover:text-blue-800 self-start cursor-pointer"
-              >
-                Review assessment <ArrowRight className="h-3.5 w-3.5" />
-              </button>
-            </div>
-          ) : (
-            <div className="mt-4 flex flex-1 flex-col justify-center rounded-xl bg-slate-50 p-4">
-              <CheckCircle2 className="h-5 w-5 text-slate-400" />
-              <p className="mt-2 text-xs font-semibold text-slate-800">
-                No completed assessment yet
-              </p>
-              <p className="mt-1 text-[11px] text-slate-500">
-                Your first score and review will appear here.
-              </p>
-            </div>
-          )}
-        </div>
-
-        {/* Card 3: Subject-Wise Mastery Breakdown */}
-        <div className="surface-card flex flex-col justify-between p-5 sm:p-6">
-          <div className="flex items-start justify-between gap-4">
-            <div>
-              <p className="page-eyebrow">Domain Mastery</p>
-              <h2 className="mt-1 text-base sm:text-lg font-semibold text-slate-900">
-                Subject Accuracy
-              </h2>
-            </div>
-            <BarChart3 className="h-5 w-5 text-indigo-600" />
-          </div>
-
-          <div className="mt-4 flex-1 space-y-3 overflow-y-auto max-h-[14rem]">
-            {subjectBreakdown.length === 0 ? (
-              <div className="flex flex-col justify-center h-full rounded-xl bg-slate-50 p-4 text-center">
-                <p className="text-xs font-semibold text-slate-700">
-                  No subject data yet
-                </p>
-                <p className="text-[11px] text-slate-500 mt-1">
-                  Complete questions from different subjects to reveal your
-                  domain strengths.
-                </p>
-              </div>
-            ) : (
-              subjectBreakdown.slice(0, 5).map((subj) => (
-                <div key={subj.subject} className="space-y-1">
-                  <div className="flex items-center justify-between text-xs">
-                    <span className="font-semibold text-slate-800 truncate max-w-[140px]">
-                      {subj.subject}
-                    </span>
-                    <div className="flex items-center gap-1.5 shrink-0">
-                      <span className="font-mono font-bold text-slate-700">
-                        {subj.accuracy}%
-                      </span>
-                      <span
-                        className={`text-[10px] font-bold px-1.5 py-0.5 rounded border ${subj.statusColor}`}
-                      >
-                        {subj.status}
-                      </span>
-                    </div>
-                  </div>
-                  <div className="h-1.5 w-full rounded-full bg-slate-100 overflow-hidden">
-                    <div
-                      className={`h-full rounded-full ${subj.barColor}`}
-                      style={{ width: `${subj.accuracy}%` }}
-                    />
-                  </div>
-                </div>
-              ))
-            )}
-          </div>
-
-          <button
-            type="button"
-            onClick={onNavigateHistory}
-            className="mt-4 inline-flex items-center gap-1.5 text-xs font-bold text-indigo-700 hover:text-indigo-800 self-start cursor-pointer"
-          >
-            View full analytics <ArrowRight className="h-3.5 w-3.5" />
-          </button>
+        <div className="lg:col-span-1">
+          <GoalsAndRemindersBoard
+            todayAnsweredCount={todayAnsweredCount}
+            weekMocksCount={weekMocksCount}
+            onNavigatePapers={onNavigatePapers}
+          />
         </div>
       </section>
 
-      <section className="mt-8">
-        <div className="mb-3 flex items-end justify-between gap-4">
+      {/* Row 2: Strike Calendar (2/3) + Recent Test Insights & Pacing (1/3) */}
+      <section className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <div className="lg:col-span-2">
+          <StrikeCalendar attempts={attempts} />
+        </div>
+        <div className="lg:col-span-1">
+          <RecentTestInsights
+            attempts={attempts}
+            papers={papers}
+            onNavigateHistory={onNavigateHistory}
+            onViewAttempt={onViewAttempt}
+          />
+        </div>
+      </section>
+
+      {/* Row 3: Last 3 Papers Summary */}
+      <LastThreePapersSummary
+        attempts={attempts}
+        papers={papers}
+        onViewAttempt={onViewAttempt}
+        onNavigatePapers={onNavigatePapers}
+        onStartExam={onStartExam}
+      />
+
+      {/* Row 4: Recent Activity List */}
+      <section className="space-y-3 pt-2">
+        <div className="flex items-end justify-between gap-4">
           <div>
-            <p className="page-eyebrow">Recent activity</p>
-            <h2 className="mt-1 text-lg font-semibold text-slate-900">
-              Latest assessments
+            <p className="page-eyebrow">Recent Activity History</p>
+            <h2 className="mt-1 text-base sm:text-lg font-semibold text-slate-900">
+              All Completed Assessments
             </h2>
           </div>
           <button
             type="button"
             onClick={onNavigateHistory}
-            className="text-sm font-medium text-blue-700 hover:text-blue-800"
+            className="text-xs font-semibold text-blue-700 hover:text-blue-800 cursor-pointer inline-flex items-center gap-1"
           >
-            View all
+            View full history ({completed.length}){" "}
+            <ArrowRight className="h-3.5 w-3.5" />
           </button>
         </div>
-        <div className="surface-card overflow-hidden">
+
+        <div className="surface-card overflow-hidden rounded-2xl border border-slate-200/90 shadow-2xs">
           {completed.length === 0 ? (
             <div className="px-5 py-10 text-center">
               <p className="text-sm font-medium text-slate-800">
                 No completed assessments yet
               </p>
-              <p className="mt-1 text-sm text-slate-500">
+              <p className="mt-1 text-xs text-slate-500">
                 Your scores and review history will appear here.
               </p>
             </div>
           ) : (
             <ul className="divide-y divide-slate-100">
-              {completed.slice(0, 4).map((attempt) => {
+              {completed.slice(0, 5).map((attempt) => {
                 const paperExists = papers.some(
                   (paper) => paper.id === attempt.paperId,
                 );
@@ -645,7 +379,7 @@ export function DashboardView({
                           onViewAttempt(attempt);
                         }
                       }}
-                      className="flex w-full cursor-pointer flex-col gap-3 px-4 py-4 text-left transition hover:bg-slate-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 sm:flex-row sm:items-center sm:justify-between sm:px-5"
+                      className="flex w-full cursor-pointer flex-col gap-3 px-4 py-3.5 text-left transition hover:bg-slate-50/80 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 sm:flex-row sm:items-center sm:justify-between sm:px-5"
                     >
                       <span className="min-w-0">
                         <span className="flex items-center gap-1.5 truncate text-sm font-semibold text-slate-900">
@@ -663,26 +397,29 @@ export function DashboardView({
                             </span>
                           )}
                         </span>
-                        <span className="mt-1 block text-xs text-slate-500">
+                        <span className="mt-0.5 block text-xs text-slate-500">
                           {formatAttemptDate(
                             attempt.finishedAt || attempt.startedAt,
                           )}{" "}
-                          <span className="mx-1.5">·</span>{" "}
-                          {attempt.mode === "mock" ? "Mock" : "Practice"}
+                          <span className="mx-1 text-slate-300">·</span>{" "}
+                          <span className="font-medium text-slate-600 capitalize">
+                            {attempt.mode === "mock" ? "Mock Exam" : "Practice"}
+                          </span>
                         </span>
                       </span>
+
                       <span className="flex items-center gap-4 text-xs sm:justify-end">
-                        <span className="text-slate-600">
+                        <span className="text-slate-600 font-medium">
                           {attempt.answered}/{attempt.totalQuestions} answered
                         </span>
-                        <span className="font-semibold tabular-nums text-slate-900">
+                        <span className="font-bold tabular-nums text-slate-900">
                           {attempt.score}/{attempt.maxScore}
                         </span>
-                        <span className="font-medium tabular-nums text-indigo-700">
+                        <span className="font-bold tabular-nums text-indigo-700 bg-indigo-50 border border-indigo-100 px-2 py-0.5 rounded-md">
                           {getAttemptPercentage(attempt)}%
                         </span>
-                        <span className="font-medium tabular-nums text-slate-700">
-                          {Math.round(attempt.accuracyPct || 0)}%
+                        <span className="font-bold tabular-nums text-emerald-700">
+                          {Math.round(attempt.accuracyPct || 0)}% acc
                         </span>
                         {!paperExists && onDeleteAttempt && (
                           <button
@@ -691,7 +428,7 @@ export function DashboardView({
                               event.stopPropagation();
                               onDeleteAttempt(attempt.id);
                             }}
-                            className="rounded-md p-1 text-slate-400 transition hover:bg-rose-50 hover:text-rose-600"
+                            className="rounded-md p-1 text-slate-400 transition hover:bg-rose-50 hover:text-rose-600 cursor-pointer"
                             aria-label="Delete assessment"
                             title="Delete this assessment"
                           >

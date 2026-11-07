@@ -8,10 +8,7 @@ import {
   QuestionPaper,
   SubjectiveAssessment,
 } from "./types";
-import {
-  parseAnswerKeyDetailed,
-  SUBJECTIVE_ASSESSMENT_META,
-} from "./defaults";
+import { parseAnswerKeyDetailed, SUBJECTIVE_ASSESSMENT_META } from "./defaults";
 import { isSpecificSingleSubject } from "./markdownPaperParser";
 import {
   deleteMcpPaper,
@@ -279,9 +276,9 @@ function buildAttemptDetails(attempt: Attempt, paper?: QuestionPaper | null) {
       (pq && Object.keys(pq.options || {}).length === 0) ||
       Boolean(
         ans?.selected &&
-          ans.selected.length > 1 &&
-          !["A", "B", "C", "D"].includes(ans.selected.trim().toUpperCase()) &&
-          ans.selected !== "attempted",
+        ans.selected.length > 1 &&
+        !["A", "B", "C", "D"].includes(ans.selected.trim().toUpperCase()) &&
+        ans.selected !== "attempted",
       );
 
     const correctAnswer =
@@ -427,8 +424,7 @@ function recalculateAttemptGrades(
   const incorrectMarksPerQ = attempt.incorrectMarks || 0.667;
   const subjectiveMarksPerQ =
     attempt.totalQuestions > 0
-      ? (attempt.totalMarks || attempt.maxScore || 0) /
-        attempt.totalQuestions
+      ? (attempt.totalMarks || attempt.maxScore || 0) / attempt.totalQuestions
       : 0;
 
   const allAnswers = Object.values(attempt.answers || {});
@@ -1292,7 +1288,10 @@ export function createPortalMcpServer(
           .array(
             z.object({
               questionNo: z.number().int().min(1),
-              note: z.string().min(1).describe("The evaluation or mentor feedback note."),
+              note: z
+                .string()
+                .min(1)
+                .describe("The evaluation or mentor feedback note."),
               append: z
                 .boolean()
                 .optional()
