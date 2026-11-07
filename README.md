@@ -66,7 +66,29 @@ npm run start
 The portal exposes a remote MCP server at `/mcp`. Students can connect an
 MCP-compatible chatbot, sign in through the portal's OAuth screen, and then
 ask the chatbot to read progress, search imported papers, inspect attempt
-history, save paper imports, record attempts, or hide pre-loaded papers.
+history, diagnose weak areas, grade answers, save paper imports, or record attempts.
+
+### Available MCP Tools & Capabilities
+
+- **`get_portal_overview`**: Student progress summary, accuracy metrics, and paper library counts.
+- **`list_papers`**: Filter library papers by attempt status (`unattempted`, `attempted`, or `all`).
+- **`get_topic_analytics`**: Cross-attempt weak-area diagnostic engine. Analyzes student accuracy across all past tests aggregated by 3-tier hierarchy (`Subject > Chapter > Topic`), highlighting critical weak topics (<50% accuracy) and mastered topics (>=70%).
+- **`get_attempt_detail`**: Full per-question attempt inspector returning question prompt, word limits, options, candidate answer, answer key, notes, and handwritten booklet PDF URL (`userSubmissionPdfUrl`).
+- **`grade_attempt_questions`**: Interactive grading for cloze/free-text and Mains subjective answers. Automatically recalculates score, percentage, and accuracy.
+- **`update_question_notes`**: Attach or update scratchpad notes per question.
+- **`attach_attempt_reflection`**: Post-exam strategy reflections attached directly to the attempt.
+- **`search_papers`**: Full-text search across parsed questions and markdown content.
+- **`create_paper`**, **`delete_paper`**, **`archive_paper`**: Complete paper lifecycle management.
+- **`replace_syllabus_markdown`** & **`set_syllabus_item_completion`**: Track custom syllabus outlines with automatic parent-child due dates.
+
+### 3-Tier Topic Hierarchy & Question Tagging
+
+Markdown papers support rich 3-tier tagging (`Subject > Chapter > Topic`):
+- Multi-part bracket tags: `[Subject: History | Chapter: Modern India | Topic: 1857 Revolt]`
+- Chevron/slash hierarchy: `[Topic: History > Modern India > 1857 Revolt]`
+- Inline lines: `Subject: History`, `Chapter: Modern India`, `Topic: 1857 Revolt`
+
+Mains subjective papers automatically extract word limits from prompt markings (e.g., `150 words`, `word limit: 250`, or UPSC marks conventions `10 Marks` → 150 words, `15 Marks` → 250 words) and expose booklet PDFs for evaluation.
 
 Attempt history is returned newest-first. Queries such as “what was my average
 score across my last 3 CSAT exams?” use the latest attempt from three distinct
