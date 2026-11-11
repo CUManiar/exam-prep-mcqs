@@ -176,8 +176,9 @@ async function callOpenAICompatible(
         body: JSON.stringify({
           model,
           messages: formattedMessages,
-          temperature: 0.35,
+          temperature: 0.6,
           max_tokens: 3500,
+          frequency_penalty: 0.3,
         }),
         signal: AbortSignal.timeout(35000),
       });
@@ -231,7 +232,7 @@ async function callAnthropic(
           system: systemPrompt,
           messages: formattedMessages,
           max_tokens: 3500,
-          temperature: 0.35,
+          temperature: 0.6,
         }),
         signal: AbortSignal.timeout(35000),
       });
@@ -286,7 +287,7 @@ async function callGemini(
           contents,
           systemInstruction: { parts: [{ text: systemPrompt }] },
           generationConfig: {
-            temperature: 0.35,
+            temperature: 0.6,
             maxOutputTokens: 3500,
           },
         }),
@@ -319,7 +320,7 @@ async function callGemini(
             body: JSON.stringify({
               contents: contentsWithSystem,
               generationConfig: {
-                temperature: 0.35,
+                temperature: 0.6,
                 maxOutputTokens: 3500,
               },
             }),
@@ -478,7 +479,7 @@ export async function POST(req: NextRequest) {
         body: JSON.stringify({
           messages: formattedMessages,
           model: "openai-fast",
-          temperature: 0.35,
+          temperature: 0.6,
         }),
         signal: AbortSignal.timeout(75000),
       });

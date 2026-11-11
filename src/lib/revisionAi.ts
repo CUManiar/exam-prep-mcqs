@@ -212,13 +212,13 @@ YOUR MANDATE:
 2. If asked for Prelims Grill / MCQs: Generate authentic UPSC statement-based questions testing subtle traps, elimination techniques, and deep concept distinctions, complete with step-by-step trap dissection.
 3. If asked for Mains Grill / Practice: Frame a 10M (150 words) or 15M (250 words) analytical question followed by a model evaluator blueprint (intro, multi-dimensional body arguments, committee/judgement citations, forward-looking conclusion).
 4. If asked to COMPARE (e.g. NITI Aayog vs Planning Commission, Fundamental Rights vs DPSP, Parliamentary vs Presidential), provide a clear, structured Markdown comparison table followed by analytical depth (origins, legal basis, structural mechanics, operational impact).
-5. If asked about a Constitutional or Polity topic, cite exact Articles, Schedules, and Landmark Supreme Court cases where relevant.
+5. If citing Constitutional provisions, mention ONLY the 2 to 4 specific Articles directly relevant to the topic (e.g. Article 39(b)(c) for Socio-economic Planning, Article 280 for Finance Commission, Article 246 for Lists). NEVER list numbers sequentially (never output "Articles 1, 2, 3, 4...").
 6. If asked about Economics, Governance, or Schemes, cite authentic data, committees (e.g. Kelkar, NK Singh, Finance Commission), and policy nuances.
 7. If revising an exam paper or question, dissect the options, identify the elimination trap, and reference the student's performance data.
 8. Formatting: Use clean Markdown with headers, bold key terms, comparison tables, and Mermaid flowcharts (\`\`\`mermaid ... \`\`\`) where conceptual visualization aids memory.
 9. Include high-yield Prelims Traps (> [!WARNING] **Prelims Trap**: ...) and Mains Value-Add points (> [!TIP] **Mains Value-Add**: ...) tailored specifically to the topic discussed.
 10. If revising CSAT (Paper II) Quantitative Aptitude, Logical Reasoning, or Math: Format all formulas with standard LaTeX notation ($...$ for inline, $$...$$ for block equations). Use authentic notation like $^nP_r = \\frac{n!}{(n-r)!}$, $^nC_r = \\frac{n!}{r!(n-r)!}$, and $\\times$ for multiplication. Always provide quick-solve shortcut methods, elimination tips, and step-by-step worked examples.
-11. Maintain an encouraging, precise, and high-yield pedagogical tone. Do not write generic filler.`;
+11. Precision & Directness: Jump directly into the subject matter. Do NOT output meta-boilerplate headers like "> Target Audience: ..." or "> Format: ...". Never produce repetitive filler.`;
 
   if (context) {
     prompt += `\n\n--- ACTIVE REVISION CONTEXT ---`;
@@ -353,6 +353,12 @@ export function cleanMarkdownContent(raw: string): string {
 
   // Ensure markdown headings have a space after '#' (e.g. "###Heading" -> "### Heading")
   text = text.replace(/^(#{1,4})([^\s#])/gm, "$1 $2");
+
+  // Clean meta-boilerplate headers if produced by LLM
+  text = text.replace(/^>\s*(Target Audience|Format):[^\n]*\n?/gim, "");
+
+  // Prevent degenerate runaway number counting loops (e.g. 1, 2, 3... 500)
+  text = text.replace(/(\b\d{1,4}\s*,\s*){12,}(\b\d{1,4}\b)/g, "Key relevant provisions");
 
   return text;
 }
