@@ -19,6 +19,7 @@ import {
   PanelLeftClose,
   PanelLeftOpen,
   Paperclip,
+  Pencil,
   Plus,
   RotateCcw,
   Send,
@@ -120,6 +121,8 @@ export function RevisionView() {
   // Multi-Session State (Up to 5 chats saved in local storage)
   const [sessions, setSessions] = useState<StoredSession[]>([]);
   const [currentSessionId, setCurrentSessionId] = useState<string>(() => `sess_${Date.now()}`);
+  const [editingSessionId, setEditingSessionId] = useState<string | null>(null);
+  const [editingTitle, setEditingTitle] = useState("");
 
   // Chat State
   const [messages, setMessages] = useState<RevisionMessage[]>([]);
@@ -168,8 +171,9 @@ export function RevisionView() {
 
     try {
       setSessions((prevSessions) => {
+        const existing = prevSessions.find((s) => s.id === currentSessionId);
         const firstUser = messages.find((m) => m.role === "user")?.content || "Revision Chat";
-        const cleanTitle =
+        const autoTitle =
           selectedTopic ||
           firstUser
             .replace(/^(help me revise|revise|explain|what is|tell me about)\s+/i, "")
@@ -179,7 +183,7 @@ export function RevisionView() {
 
         const activeSession: StoredSession = {
           id: currentSessionId,
-          title: cleanTitle.length > 0 ? cleanTitle : "Revision Topic",
+          title: existing?.title || (autoTitle.length > 0 ? autoTitle : "Revision Topic"),
           messages,
           updatedAt: new Date().toISOString(),
           mode,
@@ -255,6 +259,40 @@ export function RevisionView() {
         handleCreateNewChat();
       }
     }
+  };
+
+  // Start renaming a session inline
+  const handleStartRename = (session: StoredSession, e: React.MouseEvent) => {
+    e.stopPropagation();
+    setEditingSessionId(session.id);
+    setEditingTitle(session.title);
+  };
+
+  // Save renamed session title
+  const handleSaveRename = (sessionId: string, e?: React.SyntheticEvent) => {
+    if (e) {
+      e.stopPropagation();
+      e.preventDefault();
+    }
+    const trimmed = editingTitle.trim();
+    if (trimmed.length > 0) {
+      setSessions((prev) => {
+        const updated = prev.map((s) => (s.id === sessionId ? { ...s, title: trimmed } : s));
+        try {
+          localStorage.setItem(SESSIONS_STORAGE_KEY, JSON.stringify(updated));
+        } catch {}
+        return updated;
+      });
+    }
+    setEditingSessionId(null);
+    setEditingTitle("");
+  };
+
+  // Cancel renaming
+  const handleCancelRename = (e?: React.MouseEvent) => {
+    if (e) e.stopPropagation();
+    setEditingSessionId(null);
+    setEditingTitle("");
   };
 
   // Resolve currently active paper & question
@@ -484,49 +522,96 @@ export function RevisionView() {
           ) : (
             sessions.map((s) => {
               const isActive = s.id === currentSessionId;
+              const isEditing = s.id === editingSessionId;
               return (
                 <div
                   key={s.id}
-                  onClick={() => handleSwitchSession(s)}
-                  className={`group relative p-2.5 rounded-xl border text-left cursor-pointer transition-all flex items-start justify-between gap-2 ${
+                  onClick={() => !isEditing && handleSwitchSession(s)}
+                  className={`group relative p-2.5 rounded-xl border text-left transition-all flex items-start justify-between gap-1.5 ${
                     isActive
                       ? "border-indigo-300 dark:border-indigo-700 bg-indigo-50/70 dark:bg-indigo-950/40 text-indigo-950 dark:text-indigo-100 shadow-2xs font-medium"
                       : "border-transparent hover:border-slate-200 dark:hover:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-800/60 text-slate-700 dark:text-slate-300"
-                  }`}
+                  } ${isEditing ? "cursor-default" : "cursor-pointer"}`}
                 >
-                  <div className="flex items-start gap-2 min-w-0 flex-1">
-                    <MessageSquare
-                      className={`h-4 w-4 shrink-0 mt-0.5 ${
-                        isActive
-                          ? "text-indigo-600 dark:text-indigo-400"
-                          : "text-slate-400 group-hover:text-slate-600"
-                      }`}
-                    />
-                    <div className="truncate flex-1">
-                      <div className="text-xs truncate font-semibold leading-snug">
-                        {s.title}
+                  {isEditing ? (
+                    <form
+                      onSubmit={(e) => handleSaveRename(s.id, e)}
+                      onClick={(e) => e.stopPropagation()}
+                      className="flex items-center gap-1.5 w-full py-0.5"
+                    >
+                      <input
+                        type="text"
+                        value={editingTitle}
+                        onChange={(e) => setEditingTitle(e.target.value)}
+                        autoFocus
+                        onKeyDown={(e) => {
+                          if (e.key === "Escape") handleCancelRename();
+                        }}
+                        className="flex-1 text-xs px-2 py-1 rounded-md border border-indigo-400 bg-white dark:bg-slate-900 text-slate-900 dark:text-white focus:outline-none focus:ring-1 focus:ring-indigo-500 min-w-0"
+                      />
+                      <button
+                        type="submit"
+                        className="p-1 text-emerald-600 hover:text-emerald-700 hover:bg-emerald-50 dark:hover:bg-emerald-950/50 rounded cursor-pointer shrink-0"
+                        title="Save name"
+                      >
+                        <Check className="h-3.5 w-3.5" />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={handleCancelRename}
+                        className="p-1 text-slate-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/50 rounded cursor-pointer shrink-0"
+                        title="Cancel"
+                      >
+                        <X className="h-3.5 w-3.5" />
+                      </button>
+                    </form>
+                  ) : (
+                    <>
+                      <div className="flex items-start gap-2 min-w-0 flex-1">
+                        <MessageSquare
+                          className={`h-4 w-4 shrink-0 mt-0.5 ${
+                            isActive
+                              ? "text-indigo-600 dark:text-indigo-400"
+                              : "text-slate-400 group-hover:text-slate-600"
+                          }`}
+                        />
+                        <div className="truncate flex-1">
+                          <div className="text-xs truncate font-semibold leading-snug">
+                            {s.title}
+                          </div>
+                          <div className="text-[10px] text-slate-400 mt-0.5 flex items-center gap-1.5">
+                            <span>{s.messages.length} msgs</span>
+                            <span>•</span>
+                            <span>
+                              {new Date(s.updatedAt).toLocaleDateString("en-IN", {
+                                day: "numeric",
+                                month: "short",
+                              })}
+                            </span>
+                          </div>
+                        </div>
                       </div>
-                      <div className="text-[10px] text-slate-400 mt-0.5 flex items-center gap-1.5">
-                        <span>{s.messages.length} msgs</span>
-                        <span>•</span>
-                        <span>
-                          {new Date(s.updatedAt).toLocaleDateString("en-IN", {
-                            day: "numeric",
-                            month: "short",
-                          })}
-                        </span>
-                      </div>
-                    </div>
-                  </div>
 
-                  <button
-                    type="button"
-                    onClick={(e) => handleDeleteSession(s.id, e)}
-                    className="opacity-0 group-hover:opacity-100 p-1 text-slate-400 hover:text-rose-600 rounded transition-all shrink-0"
-                    title="Delete chat"
-                  >
-                    <Trash2 className="h-3.5 w-3.5" />
-                  </button>
+                      <div className="flex items-center gap-0.5 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">
+                        <button
+                          type="button"
+                          onClick={(e) => handleStartRename(s, e)}
+                          className="p-1 text-slate-400 hover:text-indigo-600 rounded transition-all cursor-pointer"
+                          title="Rename chat"
+                        >
+                          <Pencil className="h-3.5 w-3.5" />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={(e) => handleDeleteSession(s.id, e)}
+                          className="p-1 text-slate-400 hover:text-rose-600 rounded transition-all cursor-pointer"
+                          title="Delete chat"
+                        >
+                          <Trash2 className="h-3.5 w-3.5" />
+                        </button>
+                      </div>
+                    </>
+                  )}
                 </div>
               );
             })
