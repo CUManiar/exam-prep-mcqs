@@ -237,117 +237,40 @@ YOUR MANDATE:
 export async function validateApiKey(
   provider: "gemini" | "openai" | "anthropic" | "groq",
   apiKey: string,
-): Promise<{ valid: boolean; error?: string }> {
+): Promise<{ valid: boolean; error?: string; model?: string }> {
   try {
     if (!apiKey || !apiKey.trim()) {
       return { valid: false, error: "API key cannot be empty." };
     }
 
-    if (provider === "gemini") {
-      // Ping with a known-good model directly — skip model listing to avoid deprecated model issues
-      const testModels = ["gemini-2.0-flash", "gemini-1.5-flash"];
-      for (const model of testModels) {
-        try {
-          const genUrl = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey.trim()}`;
-          const genRes = await fetch(genUrl, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              contents: [{ parts: [{ text: "Ping. Respond with 'PONG'." }] }],
-            }),
-            signal: AbortSignal.timeout(12000),
-          });
-
-          if (genRes.ok || genRes.status === 429) {
-            return { valid: true };
-          }
-          const errData = await genRes.json().catch(() => ({}));
-          const errMsg = errData.error?.message || "";
-          // If key itself is invalid, return immediately
-          if (genRes.status === 400 && (errMsg.toLowerCase().includes("api key not valid") || errMsg.toLowerCase().includes("api_key_invalid"))) {
-            return { valid: false, error: errMsg };
-          }
-          if (genRes.status === 401 || genRes.status === 403) {
-            return { valid: false, error: errMsg || `HTTP ${genRes.status}: Invalid API key.` };
-          }
-          // Model-specific issue — try next model
-        } catch {
-          // Timeout or network — try next model
-        }
-      }
-      return { valid: false, error: "Could not validate key against any Gemini model. Check your key and try again." };
-    }
-
-    if (provider === "openai") {
-      const res = await fetch("https://api.openai.com/v1/chat/completions", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${apiKey.trim()}`,
-        },
-        body: JSON.stringify({
-          model: "gpt-4o-mini",
-          messages: [{ role: "user", content: "Ping" }],
-          max_tokens: 5,
-        }),
-        signal: AbortSignal.timeout(15000),
-      });
-
-      if (res.ok || res.status === 429) {
-        return { valid: true };
-      }
-      const errorData = await res.json().catch(() => ({}));
-      return { valid: false, error: errorData.error?.message || `HTTP ${res.status}: ${res.statusText}` };
-    }
-
-    if (provider === "anthropic") {
-      const res = await fetch("https://api.anthropic.com/v1/messages", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "x-api-key": apiKey.trim(),
-          "anthropic-version": "2023-06-01",
-          "anthropic-dangerous-direct-browser-access": "true",
-        },
-        body: JSON.stringify({
-          model: "claude-3-haiku-20240307",
-          max_tokens: 5,
-          messages: [{ role: "user", content: "Ping" }],
-        }),
-        signal: AbortSignal.timeout(15000),
-      });
-
-      if (res.ok || res.status === 429) {
-        return { valid: true };
-      }
-      const errorData = await res.json().catch(() => ({}));
-      return { valid: false, error: errorData.error?.message || `HTTP ${res.status}: ${res.statusText}` };
-    }
-
-    // Groq (OpenAI-compatible)
-    const res = await fetch("https://api.groq.com/openai/v1/chat/completions", {
+    const res = await fetch("/api/revision/validate", {
       method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${apiKey.trim()}`,
-      },
+      headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        model: "llama-3.3-70b-versatile",
-        messages: [{ role: "user", content: "Ping" }],
-        max_tokens: 5,
+        provider,
+        apiKey: apiKey.trim(),
       }),
-      signal: AbortSignal.timeout(15000),
     });
 
-    if (res.ok || res.status === 429) {
-      return { valid: true };
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok || !data.valid) {
+      return {
+        valid: false,
+        error: data.error || `Validation failed with status ${res.status}.`,
+      };
     }
-    const errorData = await res.json().catch(() => ({}));
-    return { valid: false, error: errorData.error?.message || `HTTP ${res.status}: ${res.statusText}` };
+
+    return {
+      valid: true,
+      model: data.model,
+    };
   } catch (err: any) {
     return {
       valid: false,
-      error: err.name === "TimeoutError" ? "Validation request timed out." : err.message || "Failed to reach the API server.",
+      error:
+        err.name === "TimeoutError"
+          ? "Validation request timed out."
+          : err.message || "Failed to reach the validation server.",
     };
   }
 }

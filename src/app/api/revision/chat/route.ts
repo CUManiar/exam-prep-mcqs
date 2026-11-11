@@ -8,14 +8,14 @@ import { generatePaperPerformanceReport } from "../../../../lib/revisionDossiers
 
 export const runtime = "nodejs";
 
-/** OpenAI-compatible chat call (works for OpenAI, Groq, and similar APIs) */
+/** OpenAI-compatible chat completions (OpenAI, Groq) */
 async function callOpenAICompatible(
   baseUrl: string,
   apiKey: string,
   models: string[],
   systemPrompt: string,
   messages: RevisionMessage[],
-): Promise<{ text: string } | null> {
+): Promise<{ text?: string; error?: string }> {
   const formattedMessages = [
     { role: "system" as const, content: systemPrompt },
     ...messages.map((m) => ({
@@ -23,6 +23,8 @@ async function callOpenAICompatible(
       content: m.content,
     })),
   ];
+
+  let lastError = "";
 
   for (const model of models) {
     try {
@@ -38,7 +40,7 @@ async function callOpenAICompatible(
           temperature: 0.35,
           max_tokens: 3500,
         }),
-        signal: AbortSignal.timeout(30000),
+        signal: AbortSignal.timeout(35000),
       });
 
       if (res.ok) {
@@ -47,15 +49,19 @@ async function callOpenAICompatible(
         if (rawText.trim()) {
           return { text: cleanMarkdownContent(rawText) };
         }
-      } else if (res.status === 401 || res.status === 403) {
-        return null; // Key invalid — break out
+      } else {
+        const errData = await res.json().catch(() => ({}));
+        lastError = errData.error?.message || `HTTP ${res.status}: ${res.statusText}`;
+        if (res.status === 401 || res.status === 403) {
+          return { error: `Authentication failed: ${lastError}` };
+        }
       }
-      // Model-specific error — try next model
     } catch (e: any) {
-      console.warn(`OpenAI-compatible call failed (${baseUrl}, ${model}):`, e?.message);
+      lastError = e?.message || "Connection timed out.";
     }
   }
-  return null;
+
+  return { error: lastError || "Failed to reach AI service." };
 }
 
 /** Anthropic Messages API call */
@@ -64,11 +70,13 @@ async function callAnthropic(
   models: string[],
   systemPrompt: string,
   messages: RevisionMessage[],
-): Promise<{ text: string } | null> {
+): Promise<{ text?: string; error?: string }> {
   const formattedMessages = messages.map((m) => ({
     role: (m.role === "assistant" ? "assistant" : "user") as "assistant" | "user",
     content: m.content,
   }));
+
+  let lastError = "";
 
   for (const model of models) {
     try {
@@ -86,7 +94,7 @@ async function callAnthropic(
           max_tokens: 3500,
           temperature: 0.35,
         }),
-        signal: AbortSignal.timeout(30000),
+        signal: AbortSignal.timeout(35000),
       });
 
       if (res.ok) {
@@ -95,23 +103,64 @@ async function callAnthropic(
         if (rawText.trim()) {
           return { text: cleanMarkdownContent(rawText) };
         }
-      } else if (res.status === 401 || res.status === 403) {
-        return null; // Key invalid
+      } else {
+        const errData = await res.json().catch(() => ({}));
+        lastError = errData.error?.message || `HTTP ${res.status}: ${res.statusText}`;
+        if (res.status === 401 || res.status === 403) {
+          return { error: `Anthropic authentication failed: ${lastError}` };
+        }
       }
     } catch (e: any) {
-      console.warn(`Anthropic call failed (${model}):`, e?.message);
+      lastError = e?.message || "Connection timed out.";
     }
   }
-  return null;
+
+  return { error: lastError || "Failed to reach Anthropic Claude API." };
 }
 
-/** Gemini REST API call */
+/** Gemini REST API call with dynamic model discovery */
 async function callGemini(
   apiKey: string,
-  models: string[],
   systemPrompt: string,
   messages: RevisionMessage[],
-): Promise<{ text: string } | null> {
+): Promise<{ text?: string; error?: string }> {
+  // 1. Fetch available models for this specific API key to avoid hardcoding obsolete models
+  let availableModels: string[] = [];
+  try {
+    const listRes = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models?key=${apiKey}`,
+      { signal: AbortSignal.timeout(10000) },
+    );
+    if (listRes.ok) {
+      const data = await listRes.json();
+      availableModels = (data.models || [])
+        .filter((m: any) => m.supportedGenerationMethods?.includes("generateContent"))
+        .map((m: any) => m.name.replace(/^models\//, ""));
+    } else {
+      const errData = await listRes.json().catch(() => ({}));
+      const errMsg = errData.error?.message;
+      if (listRes.status === 400 && errMsg?.toLowerCase().includes("api key not valid")) {
+        return { error: "Google Gemini API key is not valid. Please verify your key in Google AI Studio." };
+      }
+    }
+  } catch (e) {
+    // If model listing fails, fall through to default candidates
+  }
+
+  // Prioritize active flash models from Google's list
+  const candidateModels: string[] = [];
+  if (availableModels.length > 0) {
+    const flash20 = availableModels.find((m) => m === "gemini-2.0-flash" || m.includes("2.0-flash"));
+    if (flash20) candidateModels.push(flash20);
+    const flash15 = availableModels.find((m) => m.includes("1.5-flash") && !m.includes("8b"));
+    if (flash15 && !candidateModels.includes(flash15)) candidateModels.push(flash15);
+    for (const m of availableModels) {
+      if (!candidateModels.includes(m)) candidateModels.push(m);
+    }
+  } else {
+    candidateModels.push("gemini-2.0-flash", "gemini-1.5-flash", "gemini-1.5-pro");
+  }
+
   const contents = messages
     .filter((m) => m.role !== "system")
     .map((m) => ({
@@ -119,10 +168,15 @@ async function callGemini(
       parts: [{ text: m.content }],
     }));
 
-  for (const model of models) {
+  let lastError = "";
+
+  for (const model of candidateModels.slice(0, 4)) {
     try {
-      const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
-      const res = await fetch(url, {
+      const cleanModel = model.replace(/^models\//, "");
+      const url = `https://generativelanguage.googleapis.com/v1beta/models/${cleanModel}:generateContent?key=${apiKey}`;
+
+      // Attempt with systemInstruction
+      let res = await fetch(url, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -136,6 +190,47 @@ async function callGemini(
         signal: AbortSignal.timeout(30000),
       });
 
+      // If systemInstruction is rejected, retry without it (compatible with all versions)
+      if (res.status === 400) {
+        const errJson = await res.json().catch(() => ({}));
+        const errMsg = errJson.error?.message || "";
+        if (
+          errMsg.toLowerCase().includes("systeminstruction") ||
+          errMsg.toLowerCase().includes("system_instruction")
+        ) {
+          const contentsWithSystem = [
+            {
+              role: "user",
+              parts: [
+                {
+                  text: `[SYSTEM INSTRUCTIONS]:\n${systemPrompt}\n\n[USER QUERY]:\n${
+                    messages[0]?.content || ""
+                  }`,
+                },
+              ],
+            },
+            ...contents.slice(1),
+          ];
+          res = await fetch(url, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              contents: contentsWithSystem,
+              generationConfig: {
+                temperature: 0.35,
+                maxOutputTokens: 3500,
+              },
+            }),
+            signal: AbortSignal.timeout(30000),
+          });
+        } else {
+          lastError = errMsg;
+          if (errMsg.toLowerCase().includes("api key not valid")) {
+            return { error: errMsg };
+          }
+        }
+      }
+
       if (res.ok) {
         const data = await res.json();
         const text = data.candidates?.[0]?.content?.parts?.[0]?.text || "";
@@ -144,23 +239,14 @@ async function callGemini(
         }
       } else {
         const errData = await res.json().catch(() => ({}));
-        const errMsg = errData.error?.message || "";
-        if (
-          (res.status === 400 &&
-            (errMsg.toLowerCase().includes("api key not valid") ||
-              errMsg.toLowerCase().includes("api_key_invalid"))) ||
-          res.status === 401 ||
-          res.status === 403
-        ) {
-          return null; // Key invalid
-        }
-        // Model-specific issue — try next model
+        lastError = errData.error?.message || `HTTP ${res.status}: ${res.statusText}`;
       }
     } catch (e: any) {
-      console.warn(`Gemini call failed (${model}):`, e?.message);
+      lastError = e?.message || "Gemini connection timed out.";
     }
   }
-  return null;
+
+  return { error: lastError || "Failed to generate content from Google Gemini." };
 }
 
 export async function POST(req: NextRequest) {
@@ -184,10 +270,8 @@ export async function POST(req: NextRequest) {
     }
 
     const latestUserMsg = messages.filter((m) => m.role === "user").pop()?.content || "";
-    let clearInvalidKey = false;
-    let keyNotice: string | undefined = undefined;
 
-    // SPECIALIZED ROUTING: Factual Attempt / Score Calculation in Paper Mode
+    // ── SPECIALIZED ROUTING: Factual Attempt / Score Calculation in Paper Mode ──
     const isScoreInquiry =
       context.mode === "paper" &&
       /\b(score|marks|result|how did i do|how much score|my performance|wrong questions|mistakes|accuracy|how many correct)\b/i.test(
@@ -198,8 +282,6 @@ export async function POST(req: NextRequest) {
       const performanceText = generatePaperPerformanceReport(context);
       return NextResponse.json({
         text: cleanMarkdownContent(performanceText),
-        clearInvalidKey,
-        keyNotice,
       });
     }
 
@@ -207,18 +289,13 @@ export async function POST(req: NextRequest) {
     const userApiKey = providerConfig?.apiKey?.trim();
     const provider = providerConfig?.provider;
 
-    // ── PROVIDER DISPATCH ──
+    // ── BRANCH 1: User Provided Dedicated API Key ──
     if (userApiKey && provider) {
-      let result: { text: string } | null = null;
+      let result: { text?: string; error?: string } = {};
 
       switch (provider) {
         case "gemini":
-          result = await callGemini(
-            userApiKey,
-            ["gemini-2.0-flash", "gemini-1.5-flash", "gemini-1.5-pro"],
-            systemPrompt,
-            messages,
-          );
+          result = await callGemini(userApiKey, systemPrompt, messages);
           break;
 
         case "openai":
@@ -251,38 +328,34 @@ export async function POST(req: NextRequest) {
           break;
       }
 
-      if (result) {
+      if (result.text) {
         return NextResponse.json({
           text: result.text,
-          clearInvalidKey: false,
         });
       }
 
-      // If we get here, provider key failed — fall through to free AI
-      clearInvalidKey = true;
-      const providerLabel = provider === "gemini" ? "Google Gemini" : provider === "openai" ? "OpenAI" : provider === "anthropic" ? "Anthropic Claude" : "Groq";
-      keyNotice = `Saved ${providerLabel} API key was invalid or all models failed. Automatically switched to Free AI.`;
-      console.warn(`Provider ${provider} failed, falling through to Free AI.`);
+      // If user provided a key and it returned an error, report it directly so the student knows what happened
+      return NextResponse.json(
+        {
+          error: `${provider.toUpperCase()} API Error: ${result.error || "Request failed. Please verify your API key or quota."}`,
+          needsApiKey: true,
+        },
+        { status: 400 },
+      );
     }
 
-    // ── Also try server-side Gemini key if no user key ──
+    // ── BRANCH 2: Server-side Gemini Key ──
     const serverGeminiKey = process.env.GEMINI_API_KEY?.trim();
     if (!userApiKey && serverGeminiKey) {
-      const serverResult = await callGemini(
-        serverGeminiKey,
-        ["gemini-2.0-flash", "gemini-1.5-flash"],
-        systemPrompt,
-        messages,
-      );
-      if (serverResult) {
+      const serverResult = await callGemini(serverGeminiKey, systemPrompt, messages);
+      if (serverResult.text) {
         return NextResponse.json({
           text: serverResult.text,
-          clearInvalidKey: false,
         });
       }
     }
 
-    // ── FREE AI FALLBACK (Pollinations) ──
+    // ── BRANCH 3: Built-in Free Live AI Service (Pollinations) ──
     const formattedMessages = [
       { role: "system", content: systemPrompt },
       ...messages.map((m) => ({
@@ -300,7 +373,7 @@ export async function POST(req: NextRequest) {
           model: "openai-fast",
           temperature: 0.35,
         }),
-        signal: AbortSignal.timeout(45000),
+        signal: AbortSignal.timeout(75000), // Extended to 75s for reasoning models
       });
 
       const raw = await polRes.text();
@@ -315,16 +388,12 @@ export async function POST(req: NextRequest) {
           text: cleanMarkdownContent(
             `> ⏳ **Free AI Cooldown Active**\n>\n> The shared free AI tier allows **1 reply every 45 seconds per IP** to prevent server overload.\n>\n> **How to continue**:\n> - Please wait ~30 seconds and click **Retry** below.\n> - Or connect a free API key (Google Gemini, OpenAI, Groq, or Claude) in **AI Settings** for instantaneous, zero-delay responses.`,
           ),
-          clearInvalidKey,
-          keyNotice,
         });
       }
 
       if (polRes.ok && raw && raw.trim() && !raw.startsWith("<!DOCTYPE") && raw.length > 20) {
         return NextResponse.json({
           text: cleanMarkdownContent(raw),
-          clearInvalidKey,
-          keyNotice,
         });
       }
     } catch (pollinationErr: any) {
@@ -335,7 +404,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json(
       {
         error:
-          "The AI revision service timed out or is temporarily overloaded. Please wait a few seconds and click Retry, or add a free API key (Gemini, OpenAI, Groq, or Claude) in AI Settings for instant replies.",
+          "The free AI revision service timed out or is temporarily overloaded. Please wait a few seconds and click Retry, or add an API key (Google Gemini, OpenAI, Claude, or Groq) in AI Settings for instantaneous replies.",
       },
       { status: 503 },
     );

@@ -50,6 +50,7 @@ export function RevisionSettingsModal({
   const [testResult, setTestResult] = useState<{
     valid: boolean;
     error?: string;
+    model?: string;
   } | null>(null);
 
   const info = PROVIDER_INFO[provider];
@@ -227,7 +228,7 @@ export function RevisionSettingsModal({
                 <>
                   <Check className="h-4 w-4 text-emerald-600 dark:text-emerald-400 shrink-0 mt-0.5" />
                   <div>
-                    <span className="font-bold">Key validated successfully!</span> {info?.label} is responsive and ready for UPSC revision.
+                    <span className="font-bold">Key validated successfully!</span> Connected to {info?.label} {testResult.model ? `(${testResult.model})` : ""} and ready for UPSC revision.
                   </div>
                 </>
               ) : (
