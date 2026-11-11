@@ -11,17 +11,18 @@ import {
   Loader2,
   Lock,
   Save,
-  ShieldCheck,
   Sparkles,
   Trash2,
 } from "lucide-react";
 import { ModalShell } from "../ModalShell";
 import {
   RevisionProviderConfig,
+  PROVIDER_INFO,
   clearRevisionConfig,
   saveRevisionConfig,
   validateApiKey,
 } from "../../lib/revisionAi";
+import { RevisionProvider } from "../../lib/types";
 
 interface RevisionSettingsModalProps {
   isOpen: boolean;
@@ -31,6 +32,8 @@ interface RevisionSettingsModalProps {
   onClear: () => void;
 }
 
+const ALL_PROVIDERS: RevisionProvider[] = ["gemini", "openai", "anthropic", "groq"];
+
 export function RevisionSettingsModal({
   isOpen,
   onClose,
@@ -38,7 +41,7 @@ export function RevisionSettingsModal({
   onSave,
   onClear,
 }: RevisionSettingsModalProps) {
-  const [provider, setProvider] = useState<"gemini" | "groq">(
+  const [provider, setProvider] = useState<RevisionProvider>(
     currentConfig?.provider || "gemini",
   );
   const [apiKey, setApiKey] = useState(currentConfig?.apiKey || "");
@@ -49,7 +52,9 @@ export function RevisionSettingsModal({
     error?: string;
   } | null>(null);
 
-  const handleProviderChange = (newProvider: "gemini" | "groq") => {
+  const info = PROVIDER_INFO[provider];
+
+  const handleProviderChange = (newProvider: RevisionProvider) => {
     setProvider(newProvider);
     setTestResult(null);
   };
@@ -124,69 +129,53 @@ export function RevisionSettingsModal({
               Optional: Dedicated free key in 30 seconds
             </span>
             <a
-              href={
-                provider === "gemini"
-                  ? "https://aistudio.google.com/app/apikey"
-                  : "https://console.groq.com/keys"
-              }
+              href={info?.keyGetUrl || "https://aistudio.google.com/app/apikey"}
               target="_blank"
               rel="noreferrer"
               className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white font-semibold text-xs transition-colors shadow-2xs shrink-0"
             >
-              <span>Get Free Key from {provider === "gemini" ? "Google AI Studio" : "Groq"}</span>
+              <span>Get Free Key from {info?.keyGetLabel || "Provider"}</span>
               <ExternalLink className="h-3.5 w-3.5" />
             </a>
           </div>
 
           <ol className="text-[11px] text-slate-600 dark:text-slate-300 space-y-1 list-decimal list-inside leading-relaxed">
-            <li>Click the button above and log in with your standard Google account.</li>
-            <li>Click <strong>&quot;Create API Key&quot;</strong> (zero billing setup, zero credit card).</li>
-            <li>Paste your key below and click <strong>&quot;Save & Activate&quot;</strong>.</li>
+            <li>Click the button above and log in with your account.</li>
+            <li>Click <strong>&quot;Create API Key&quot;</strong> (most providers offer free tiers).</li>
+            <li>Paste your key below and click <strong>&quot;Save &amp; Activate&quot;</strong>.</li>
           </ol>
         </div>
 
-        {/* Provider Switcher */}
+        {/* Provider Switcher — 4 Providers */}
         <div className="space-y-4">
           <div>
             <label className="block text-xs font-semibold uppercase tracking-wider text-slate-600 dark:text-slate-300 mb-1.5">
               Choose Provider
             </label>
             <div className="grid grid-cols-2 gap-2">
-              <button
-                type="button"
-                onClick={() => handleProviderChange("gemini")}
-                className={`p-3 rounded-lg border text-left transition-all ${
-                  provider === "gemini"
-                    ? "border-indigo-600 bg-indigo-50/60 dark:bg-indigo-950/40 text-indigo-950 dark:text-indigo-200 ring-2 ring-indigo-500/20"
-                    : "border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-300 hover:border-slate-300"
-                }`}
-              >
-                <div className="flex items-center gap-1.5 font-bold text-xs mb-0.5">
-                  <Sparkles className="h-3.5 w-3.5 text-indigo-600 dark:text-indigo-400" />
-                  Google Gemini (Free)
-                </div>
-                <div className="text-[11px] text-slate-500 dark:text-slate-400">
-                  Recommended for UPSC syllabus, case laws & flowcharts.
-                </div>
-              </button>
-
-              <button
-                type="button"
-                onClick={() => handleProviderChange("groq")}
-                className={`p-3 rounded-lg border text-left transition-all ${
-                  provider === "groq"
-                    ? "border-indigo-600 bg-indigo-50/60 dark:bg-indigo-950/40 text-indigo-950 dark:text-indigo-200 ring-2 ring-indigo-500/20"
-                    : "border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-300 hover:border-slate-300"
-                }`}
-              >
-                <div className="flex items-center gap-1.5 font-bold text-xs mb-0.5">
-                  <span className="text-amber-600 font-black">⚡</span>
-                  Groq (Free)
-                </div>
-                <div className="text-[11px] text-slate-500 dark:text-slate-400">
-                  Llama 3.3 70B, blazing fast responses (300+ tok/s).
-                </div>
-              </button>
+              {ALL_PROVIDERS.map((p) => {
+                const pInfo = PROVIDER_INFO[p];
+                return (
+                  <button
+                    key={p}
+                    type="button"
+                    onClick={() => handleProviderChange(p)}
+                    className={`p-3 rounded-lg border text-left transition-all ${
+                      provider === p
+                        ? "border-indigo-600 bg-indigo-50/60 dark:bg-indigo-950/40 text-indigo-950 dark:text-indigo-200 ring-2 ring-indigo-500/20"
+                        : "border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-300 hover:border-slate-300"
+                    }`}
+                  >
+                    <div className="flex items-center gap-1.5 font-bold text-xs mb-0.5">
+                      <span className="text-indigo-600 dark:text-indigo-400">{pInfo?.icon}</span>
+                      {pInfo?.label}
+                    </div>
+                    <div className="text-[11px] text-slate-500 dark:text-slate-400 line-clamp-2">
+                      {pInfo?.description}
+                    </div>
+                  </button>
+                );
+              })}
             </div>
           </div>
 
@@ -194,7 +183,7 @@ export function RevisionSettingsModal({
           <div>
             <div className="flex items-center justify-between mb-1.5">
               <label className="text-xs font-semibold uppercase tracking-wider text-slate-600 dark:text-slate-300">
-                {provider === "gemini" ? "Google AI Studio API Key" : "Groq API Key"}
+                {info?.label || "Provider"} API Key
               </label>
             </div>
 
@@ -206,11 +195,7 @@ export function RevisionSettingsModal({
                   setApiKey(e.target.value);
                   setTestResult(null);
                 }}
-                placeholder={
-                  provider === "gemini"
-                    ? "Paste AIzaSy... here"
-                    : "Paste gsk_... here"
-                }
+                placeholder={info?.keyPlaceholder || "Paste your API key here"}
                 className="w-full px-3 py-2 text-xs rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-200 font-mono pr-16 focus:outline-none focus:ring-2 focus:ring-indigo-500"
               />
               <button
@@ -242,7 +227,7 @@ export function RevisionSettingsModal({
                 <>
                   <Check className="h-4 w-4 text-emerald-600 dark:text-emerald-400 shrink-0 mt-0.5" />
                   <div>
-                    <span className="font-bold">Key validated successfully!</span> Model is responsive and ready for UPSC revision.
+                    <span className="font-bold">Key validated successfully!</span> {info?.label} is responsive and ready for UPSC revision.
                   </div>
                 </>
               ) : (
@@ -289,7 +274,7 @@ export function RevisionSettingsModal({
                 className="flex items-center gap-1.5 px-4 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold disabled:opacity-50 transition-colors shadow-xs"
               >
                 <Save className="h-3.5 w-3.5" />
-                <span>Save & Activate</span>
+                <span>Save &amp; Activate</span>
               </button>
             </div>
           </div>

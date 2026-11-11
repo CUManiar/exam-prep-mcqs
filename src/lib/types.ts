@@ -171,7 +171,7 @@ export interface SyllabusItem {
   updatedAt: string;
 }
 
-export type RevisionProvider = "gemini" | "groq";
+export type RevisionProvider = "gemini" | "openai" | "anthropic" | "groq";
 
 export type RevisionContextMode = "topic" | "paper" | "open";
 

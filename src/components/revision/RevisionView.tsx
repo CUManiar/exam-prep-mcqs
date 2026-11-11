@@ -465,7 +465,13 @@ export function RevisionView() {
                   {config?.apiKey
                     ? config.provider === "gemini"
                       ? "Google Gemini"
-                      : "Groq AI"
+                      : config.provider === "openai"
+                        ? "OpenAI"
+                        : config.provider === "anthropic"
+                          ? "Claude"
+                          : config.provider === "groq"
+                            ? "Groq"
+                            : "Custom AI"
                     : "Free AI Active"}
                 </span>
                 <Settings2 className="h-3.5 w-3.5 text-slate-400 ml-1" />

@@ -11,35 +11,48 @@ export type { RevisionProviderConfig };
 const REVISION_CONFIG_KEY = "upsc_revision_llm_config";
 const REVISION_HISTORY_KEY = "upsc_revision_history";
 
-export const DEFAULT_GEMINI_MODEL = "gemini-2.0-flash";
-export const DEFAULT_GROQ_MODEL = "llama-3.3-70b-versatile";
-
-export const AVAILABLE_MODELS = {
-  gemini: [
-    {
-      id: "gemini-2.0-flash",
-      name: "Gemini 2.0 Flash (Recommended)",
-    },
-    {
-      id: "gemini-1.5-flash",
-      name: "Gemini 1.5 Flash",
-    },
-    {
-      id: "gemini-1.5-pro",
-      name: "Gemini 1.5 Pro",
-    },
-  ],
-  groq: [
-    {
-      id: "llama-3.3-70b-versatile",
-      name: "Llama 3.3 70B (Fast)",
-    },
-    {
-      id: "llama-3.1-8b-instant",
-      name: "Llama 3.1 8B Instant",
-    },
-  ],
-} as const;
+/** Provider display metadata for the settings UI */
+export const PROVIDER_INFO: Record<string, {
+  label: string;
+  description: string;
+  icon: string;
+  keyPlaceholder: string;
+  keyGetUrl: string;
+  keyGetLabel: string;
+}> = {
+  gemini: {
+    label: "Google Gemini",
+    description: "Free tier, excellent for UPSC syllabus, case laws & flowcharts.",
+    icon: "✦",
+    keyPlaceholder: "Paste AIzaSy... here",
+    keyGetUrl: "https://aistudio.google.com/app/apikey",
+    keyGetLabel: "Google AI Studio",
+  },
+  openai: {
+    label: "OpenAI (ChatGPT)",
+    description: "GPT-4o-mini, strong reasoning & analysis.",
+    icon: "◎",
+    keyPlaceholder: "Paste sk-... here",
+    keyGetUrl: "https://platform.openai.com/api-keys",
+    keyGetLabel: "OpenAI Platform",
+  },
+  anthropic: {
+    label: "Anthropic (Claude)",
+    description: "Claude 3 Haiku, nuanced long-form answers.",
+    icon: "◈",
+    keyPlaceholder: "Paste sk-ant-... here",
+    keyGetUrl: "https://console.anthropic.com/settings/keys",
+    keyGetLabel: "Anthropic Console",
+  },
+  groq: {
+    label: "Groq",
+    description: "Llama 3.3 70B, blazing fast (300+ tok/s). Free tier available.",
+    icon: "⚡",
+    keyPlaceholder: "Paste gsk_... here",
+    keyGetUrl: "https://console.groq.com/keys",
+    keyGetLabel: "Groq Console",
+  },
+};
 
 export interface PresetAction {
   id: string;
@@ -222,9 +235,8 @@ YOUR MANDATE:
 }
 
 export async function validateApiKey(
-  provider: "gemini" | "groq",
+  provider: "gemini" | "openai" | "anthropic" | "groq",
   apiKey: string,
-  model?: string,
 ): Promise<{ valid: boolean; error?: string }> {
   try {
     if (!apiKey || !apiKey.trim()) {
@@ -232,74 +244,106 @@ export async function validateApiKey(
     }
 
     if (provider === "gemini") {
-      // 1. Query available models list from Google using this key
-      try {
-        const listUrl = `https://generativelanguage.googleapis.com/v1beta/models?key=${apiKey.trim()}`;
-        const listRes = await fetch(listUrl, { signal: AbortSignal.timeout(12000) });
-        if (!listRes.ok) {
-          const errData = await listRes.json().catch(() => ({}));
-          const errMsg = errData.error?.message || `HTTP ${listRes.status}: ${listRes.statusText}`;
-          return { valid: false, error: errMsg };
+      // Ping with a known-good model directly — skip model listing to avoid deprecated model issues
+      const testModels = ["gemini-2.0-flash", "gemini-1.5-flash"];
+      for (const model of testModels) {
+        try {
+          const genUrl = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey.trim()}`;
+          const genRes = await fetch(genUrl, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              contents: [{ parts: [{ text: "Ping. Respond with 'PONG'." }] }],
+            }),
+            signal: AbortSignal.timeout(12000),
+          });
+
+          if (genRes.ok || genRes.status === 429) {
+            return { valid: true };
+          }
+          const errData = await genRes.json().catch(() => ({}));
+          const errMsg = errData.error?.message || "";
+          // If key itself is invalid, return immediately
+          if (genRes.status === 400 && (errMsg.toLowerCase().includes("api key not valid") || errMsg.toLowerCase().includes("api_key_invalid"))) {
+            return { valid: false, error: errMsg };
+          }
+          if (genRes.status === 401 || genRes.status === 403) {
+            return { valid: false, error: errMsg || `HTTP ${genRes.status}: Invalid API key.` };
+          }
+          // Model-specific issue — try next model
+        } catch {
+          // Timeout or network — try next model
         }
-        const data = await listRes.json();
-        const validModels = (data.models || [])
-          .filter((m: any) => m.supportedGenerationMethods?.includes("generateContent"))
-          .map((m: any) => m.name.replace(/^models\//, ""));
-
-        if (validModels.length === 0) {
-          return { valid: false, error: "No models supporting text generation found on this key." };
-        }
-
-        const chosenModel =
-          validModels.find((m: string) => m.includes("2.0-flash")) ||
-          validModels.find((m: string) => m.includes("1.5-flash")) ||
-          validModels.find((m: string) => m.includes("flash")) ||
-          validModels[0];
-
-        // Ping with chosen model
-        const genUrl = `https://generativelanguage.googleapis.com/v1beta/models/${chosenModel}:generateContent?key=${apiKey.trim()}`;
-        const genRes = await fetch(genUrl, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            contents: [{ parts: [{ text: "Ping. Respond with 'PONG'." }] }],
-          }),
-          signal: AbortSignal.timeout(12000),
-        });
-
-        if (genRes.ok || genRes.status === 429) {
-          return { valid: true };
-        }
-        const genErr = await genRes.json().catch(() => ({}));
-        return { valid: false, error: genErr.error?.message || `HTTP ${genRes.status}` };
-      } catch (e: any) {
-        return { valid: false, error: e.message || "Failed to reach Google Gemini API." };
       }
-    } else {
-      const activeModel = model || DEFAULT_GROQ_MODEL;
-      const url = "https://api.groq.com/openai/v1/chat/completions";
-      const res = await fetch(url, {
+      return { valid: false, error: "Could not validate key against any Gemini model. Check your key and try again." };
+    }
+
+    if (provider === "openai") {
+      const res = await fetch("https://api.openai.com/v1/chat/completions", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
           Authorization: `Bearer ${apiKey.trim()}`,
         },
         body: JSON.stringify({
-          model: activeModel,
-          messages: [{ role: "user", content: "Ping. Respond with 'PONG'." }],
-          max_tokens: 10,
+          model: "gpt-4o-mini",
+          messages: [{ role: "user", content: "Ping" }],
+          max_tokens: 5,
         }),
         signal: AbortSignal.timeout(15000),
       });
 
-      if (!res.ok) {
-        const errorData = await res.json().catch(() => ({}));
-        const msg =
-          errorData.error?.message || `HTTP ${res.status}: ${res.statusText}`;
-        return { valid: false, error: msg };
+      if (res.ok || res.status === 429) {
+        return { valid: true };
       }
+      const errorData = await res.json().catch(() => ({}));
+      return { valid: false, error: errorData.error?.message || `HTTP ${res.status}: ${res.statusText}` };
+    }
+
+    if (provider === "anthropic") {
+      const res = await fetch("https://api.anthropic.com/v1/messages", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "x-api-key": apiKey.trim(),
+          "anthropic-version": "2023-06-01",
+          "anthropic-dangerous-direct-browser-access": "true",
+        },
+        body: JSON.stringify({
+          model: "claude-3-haiku-20240307",
+          max_tokens: 5,
+          messages: [{ role: "user", content: "Ping" }],
+        }),
+        signal: AbortSignal.timeout(15000),
+      });
+
+      if (res.ok || res.status === 429) {
+        return { valid: true };
+      }
+      const errorData = await res.json().catch(() => ({}));
+      return { valid: false, error: errorData.error?.message || `HTTP ${res.status}: ${res.statusText}` };
+    }
+
+    // Groq (OpenAI-compatible)
+    const res = await fetch("https://api.groq.com/openai/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${apiKey.trim()}`,
+      },
+      body: JSON.stringify({
+        model: "llama-3.3-70b-versatile",
+        messages: [{ role: "user", content: "Ping" }],
+        max_tokens: 5,
+      }),
+      signal: AbortSignal.timeout(15000),
+    });
+
+    if (res.ok || res.status === 429) {
       return { valid: true };
     }
+    const errorData = await res.json().catch(() => ({}));
+    return { valid: false, error: errorData.error?.message || `HTTP ${res.status}: ${res.statusText}` };
   } catch (err: any) {
     return {
       valid: false,
