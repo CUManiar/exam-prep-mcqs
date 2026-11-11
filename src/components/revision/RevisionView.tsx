@@ -14,6 +14,10 @@ import {
   History,
   Layers,
   MessageSquare,
+  MessageSquarePlus,
+  PanelLeft,
+  PanelLeftClose,
+  PanelLeftOpen,
   Paperclip,
   Plus,
   RotateCcw,
@@ -41,7 +45,6 @@ import {
 } from "../../lib/types";
 import { RevisionMarkdownRenderer } from "./RevisionMarkdownRenderer";
 import { RevisionSettingsModal } from "./RevisionSettingsModal";
-import { PageHeader } from "../PageHeader";
 import { getPaperDisplayTitle } from "../../lib/defaults";
 
 interface StoredSession {
@@ -105,6 +108,9 @@ export function RevisionView() {
   const [config, setConfig] = useState<RevisionProviderConfig | null>(null);
   const [showSettingsModal, setShowSettingsModal] = useState(false);
 
+  // Sidebar visibility (left column)
+  const [isSidebarOpen, setIsSidebarOpen] = useState(true);
+
   // Active Mode: 'general' (default free chat), 'paper' (chat with test paper), 'syllabus' (anchored to syllabus item)
   const [mode, setMode] = useState<"general" | "paper" | "syllabus">("general");
   const [selectedTopic, setSelectedTopic] = useState<string>("");
@@ -114,7 +120,6 @@ export function RevisionView() {
   // Multi-Session State (Up to 5 chats saved in local storage)
   const [sessions, setSessions] = useState<StoredSession[]>([]);
   const [currentSessionId, setCurrentSessionId] = useState<string>(() => `sess_${Date.now()}`);
-  const [showSessionMenu, setShowSessionMenu] = useState(false);
 
   // Chat State
   const [messages, setMessages] = useState<RevisionMessage[]>([]);
@@ -163,13 +168,13 @@ export function RevisionView() {
 
     try {
       setSessions((prevSessions) => {
-        // Derive clean title from first user message or active topic
         const firstUser = messages.find((m) => m.role === "user")?.content || "Revision Chat";
         const cleanTitle =
           selectedTopic ||
           firstUser
             .replace(/^(help me revise|revise|explain|what is|tell me about)\s+/i, "")
-            .slice(0, 38)
+            .replace(/[`"'“]/g, "")
+            .slice(0, 36)
             .trim();
 
         const activeSession: StoredSession = {
@@ -219,7 +224,6 @@ export function RevisionView() {
     setCurrentSessionId(newId);
     setMessages([]);
     setInputPrompt("");
-    setShowSessionMenu(false);
     if (textareaRef.current) {
       textareaRef.current.focus();
     }
@@ -233,7 +237,6 @@ export function RevisionView() {
     if (session.selectedTopic) setSelectedTopic(session.selectedTopic);
     if (session.selectedPaperId) setSelectedPaperId(session.selectedPaperId);
     setSelectedQuestionNo(session.selectedQuestionNo || null);
-    setShowSessionMenu(false);
   };
 
   // Delete a saved session
@@ -438,176 +441,215 @@ export function RevisionView() {
   };
 
   return (
-    <div className="flex-1 min-h-0 flex flex-col h-full w-full max-w-6xl mx-auto px-3 sm:px-6 pt-3 pb-2 overflow-hidden">
-      {/* 1. Header & Controls */}
-      <div className="shrink-0 space-y-2 pb-2 border-b border-slate-200 dark:border-slate-800">
-        <PageHeader
-          title="Revision workspace"
-          description="Syllabus-focused study, landmark SC judgements, PIB updates, and question dissection."
-          actions={
-            <div className="flex items-center gap-2 flex-wrap">
-              {/* Mode Controls */}
-              <div className="flex items-center rounded-lg bg-slate-100 dark:bg-slate-800 p-0.5 text-xs font-semibold">
-                <button
-                  type="button"
-                  onClick={() => setMode("general")}
-                  className={`px-3 py-1.5 rounded-md transition-all flex items-center gap-1.5 ${
-                    mode === "general"
-                      ? "bg-white dark:bg-slate-900 text-indigo-600 dark:text-indigo-400 shadow-2xs"
-                      : "text-slate-600 dark:text-slate-400 hover:text-slate-900"
-                  }`}
-                >
-                  <MessageSquare className="h-3.5 w-3.5" />
-                  <span>General Revision</span>
-                </button>
+    <div className="flex-1 min-h-0 flex h-full w-full overflow-hidden bg-slate-100/60 dark:bg-slate-950">
+      {/* ── LEFT SIDEBAR: SAVED CHATS COLUMN (Store up to 5) ── */}
+      <aside
+        className={`${
+          isSidebarOpen ? "flex" : "hidden sm:hidden"
+        } w-64 sm:w-72 shrink-0 border-r border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 flex-col h-full z-20 transition-all`}
+      >
+        {/* Sidebar Header: New Chat */}
+        <div className="p-3.5 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between gap-2">
+          <button
+            type="button"
+            onClick={handleCreateNewChat}
+            className="flex-1 flex items-center justify-center gap-2 px-3.5 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-semibold text-xs transition-colors shadow-2xs cursor-pointer"
+          >
+            <Plus className="h-4 w-4" />
+            <span>New Revision Chat</span>
+          </button>
 
-                <button
-                  type="button"
-                  onClick={() => setMode("paper")}
-                  className={`px-3 py-1.5 rounded-md transition-all flex items-center gap-1.5 ${
-                    mode === "paper"
-                      ? "bg-white dark:bg-slate-900 text-indigo-600 dark:text-indigo-400 shadow-2xs"
-                      : "text-slate-600 dark:text-slate-400 hover:text-slate-900"
-                  }`}
-                >
-                  <Paperclip className="h-3.5 w-3.5" />
-                  <span>Chat with Paper</span>
-                </button>
+          <button
+            type="button"
+            onClick={() => setIsSidebarOpen(false)}
+            className="p-1.5 rounded-lg text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
+            title="Collapse sidebar"
+          >
+            <PanelLeftClose className="h-4 w-4" />
+          </button>
+        </div>
 
-                <button
-                  type="button"
-                  onClick={() => setMode("syllabus")}
-                  className={`px-3 py-1.5 rounded-md transition-all flex items-center gap-1.5 ${
-                    mode === "syllabus"
-                      ? "bg-white dark:bg-slate-900 text-indigo-600 dark:text-indigo-400 shadow-2xs"
-                      : "text-slate-600 dark:text-slate-400 hover:text-slate-900"
-                  }`}
-                >
-                  <BookOpen className="h-3.5 w-3.5" />
-                  <span>Syllabus Track</span>
-                </button>
-              </div>
+        {/* Saved Sessions List */}
+        <div className="flex-1 min-h-0 overflow-y-auto p-2.5 space-y-1">
+          <div className="px-2 py-1 flex items-center justify-between text-[11px] font-bold text-slate-400 uppercase tracking-wider">
+            <span>Saved Chats ({sessions.length}/5)</span>
+          </div>
 
-              {/* Saved Chats Dropdown (Store up to 5 chats) */}
-              <div className="relative">
-                <button
-                  type="button"
-                  onClick={() => setShowSessionMenu(!showSessionMenu)}
-                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700/60 text-xs text-slate-700 dark:text-slate-200 font-medium transition-all shadow-2xs cursor-pointer"
-                  title="View your saved revision chats (up to 5 stored)"
-                >
-                  <History className="h-3.5 w-3.5 text-indigo-600 dark:text-indigo-400" />
-                  <span>Saved Chats ({sessions.length}/5)</span>
-                  <ChevronDown className="h-3 w-3 text-slate-400" />
-                </button>
-
-                {showSessionMenu && (
-                  <div className="absolute right-0 mt-1 w-64 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 shadow-xl py-1 z-30 animate-in fade-in zoom-in-95">
-                    <div className="px-3 py-1.5 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between text-[11px] font-bold text-slate-400 uppercase tracking-wider">
-                      <span>Saved Topics ({sessions.length}/5)</span>
-                      <button
-                        type="button"
-                        onClick={handleCreateNewChat}
-                        className="text-indigo-600 dark:text-indigo-400 hover:underline flex items-center gap-1 cursor-pointer font-semibold"
-                      >
-                        <Plus className="h-3 w-3" />
-                        <span>New</span>
-                      </button>
-                    </div>
-
-                    {sessions.length === 0 ? (
-                      <div className="p-3 text-xs text-slate-500 italic text-center">
-                        No saved chats yet. Start asking any UPSC query!
-                      </div>
-                    ) : (
-                      <div className="max-h-60 overflow-y-auto divide-y divide-slate-100 dark:divide-slate-800">
-                        {sessions.map((s) => (
-                          <div
-                            key={s.id}
-                            onClick={() => handleSwitchSession(s)}
-                            className={`p-2.5 hover:bg-slate-50 dark:hover:bg-slate-800/60 flex items-center justify-between gap-2 cursor-pointer transition-colors ${
-                              s.id === currentSessionId
-                                ? "bg-indigo-50/60 dark:bg-indigo-950/40 text-indigo-900 dark:text-indigo-200"
-                                : "text-slate-700 dark:text-slate-300"
-                            }`}
-                          >
-                            <div className="truncate flex-1">
-                              <div className="font-semibold text-xs truncate">{s.title}</div>
-                              <div className="text-[10px] text-slate-400">
-                                {s.messages.length} messages •{" "}
-                                {new Date(s.updatedAt).toLocaleDateString("en-IN", {
-                                  day: "numeric",
-                                  month: "short",
-                                })}
-                              </div>
-                            </div>
-                            <button
-                              type="button"
-                              onClick={(e) => handleDeleteSession(s.id, e)}
-                              className="text-slate-400 hover:text-rose-600 p-1 rounded transition-colors"
-                              title="Delete this chat"
-                            >
-                              <Trash2 className="h-3 w-3" />
-                            </button>
-                          </div>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                )}
-              </div>
-
-              {/* New Chat Button */}
-              <button
-                type="button"
-                onClick={handleCreateNewChat}
-                className="flex items-center gap-1 px-3 py-1.5 rounded-lg border border-indigo-200 dark:border-indigo-800 bg-indigo-50/70 dark:bg-indigo-950/40 hover:bg-indigo-100 text-xs font-semibold text-indigo-700 dark:text-indigo-300 shadow-2xs transition-colors cursor-pointer"
-                title="Start a fresh revision query"
-              >
-                <Plus className="h-3.5 w-3.5" />
-                <span>New Chat</span>
-              </button>
-
-              {/* Provider Status Pill */}
-              <button
-                type="button"
-                onClick={() => setShowSettingsModal(true)}
-                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700/60 text-xs text-slate-700 dark:text-slate-200 font-medium transition-all shadow-2xs cursor-pointer"
-              >
-                <span className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse" />
-                <span className="font-semibold text-emerald-700 dark:text-emerald-400">
-                  {config?.apiKey
-                    ? config.provider === "gemini"
-                      ? "Google Gemini"
-                      : config.provider === "openai"
-                        ? "OpenAI"
-                        : config.provider === "anthropic"
-                          ? "Claude"
-                          : config.provider === "groq"
-                            ? "Groq"
-                            : "Custom AI"
-                    : "Free AI Active"}
-                </span>
-                <Settings2 className="h-3.5 w-3.5 text-slate-400 ml-1" />
-              </button>
-
-              {messages.length > 0 && (
-                <button
-                  type="button"
-                  onClick={handleClearActiveChat}
-                  title="Clear active conversation"
-                  className="p-1.5 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/40 border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 transition-colors cursor-pointer"
-                >
-                  <Trash2 className="h-4 w-4" />
-                </button>
-              )}
+          {sessions.length === 0 ? (
+            <div className="p-4 text-center text-xs text-slate-400 italic space-y-1">
+              <MessageSquare className="h-5 w-5 mx-auto text-slate-300 dark:text-slate-700 mb-1" />
+              <p>No saved chats yet.</p>
+              <p className="text-[11px]">Ask any UPSC topic to automatically store up to 5 chats.</p>
             </div>
-          }
-        />
+          ) : (
+            sessions.map((s) => {
+              const isActive = s.id === currentSessionId;
+              return (
+                <div
+                  key={s.id}
+                  onClick={() => handleSwitchSession(s)}
+                  className={`group relative p-2.5 rounded-xl border text-left cursor-pointer transition-all flex items-start justify-between gap-2 ${
+                    isActive
+                      ? "border-indigo-300 dark:border-indigo-700 bg-indigo-50/70 dark:bg-indigo-950/40 text-indigo-950 dark:text-indigo-100 shadow-2xs font-medium"
+                      : "border-transparent hover:border-slate-200 dark:hover:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-800/60 text-slate-700 dark:text-slate-300"
+                  }`}
+                >
+                  <div className="flex items-start gap-2 min-w-0 flex-1">
+                    <MessageSquare
+                      className={`h-4 w-4 shrink-0 mt-0.5 ${
+                        isActive
+                          ? "text-indigo-600 dark:text-indigo-400"
+                          : "text-slate-400 group-hover:text-slate-600"
+                      }`}
+                    />
+                    <div className="truncate flex-1">
+                      <div className="text-xs truncate font-semibold leading-snug">
+                        {s.title}
+                      </div>
+                      <div className="text-[10px] text-slate-400 mt-0.5 flex items-center gap-1.5">
+                        <span>{s.messages.length} msgs</span>
+                        <span>•</span>
+                        <span>
+                          {new Date(s.updatedAt).toLocaleDateString("en-IN", {
+                            day: "numeric",
+                            month: "short",
+                          })}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
 
-        {/* Paper / Syllabus Context Bar */}
+                  <button
+                    type="button"
+                    onClick={(e) => handleDeleteSession(s.id, e)}
+                    className="opacity-0 group-hover:opacity-100 p-1 text-slate-400 hover:text-rose-600 rounded transition-all shrink-0"
+                    title="Delete chat"
+                  >
+                    <Trash2 className="h-3.5 w-3.5" />
+                  </button>
+                </div>
+              );
+            })
+          )}
+        </div>
+
+        {/* Sidebar Footer: Provider Status & Settings */}
+        <div className="p-3 border-t border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900/50">
+          <button
+            type="button"
+            onClick={() => setShowSettingsModal(true)}
+            className="w-full flex items-center justify-between p-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700/60 text-xs text-slate-700 dark:text-slate-200 font-medium transition-all shadow-2xs cursor-pointer"
+          >
+            <div className="flex items-center gap-2 truncate">
+              <span className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse shrink-0" />
+              <span className="font-semibold text-emerald-700 dark:text-emerald-400 truncate">
+                {config?.apiKey
+                  ? config.provider === "gemini"
+                    ? "Google Gemini"
+                    : config.provider === "openai"
+                      ? "OpenAI"
+                      : config.provider === "anthropic"
+                        ? "Claude"
+                        : config.provider === "groq"
+                          ? "Groq"
+                          : "Custom AI"
+                  : "Free AI Active"}
+              </span>
+            </div>
+            <Settings2 className="h-3.5 w-3.5 text-slate-400 shrink-0" />
+          </button>
+        </div>
+      </aside>
+
+      {/* ── RIGHT MAIN COLUMN: ACTIVE CHAT WORKSPACE ── */}
+      <main className="flex-1 min-h-0 flex flex-col h-full overflow-hidden bg-white dark:bg-slate-900">
+        {/* Main Workspace Header */}
+        <div className="shrink-0 px-3 sm:px-6 py-2.5 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between gap-3 flex-wrap">
+          <div className="flex items-center gap-2.5">
+            {!isSidebarOpen && (
+              <button
+                type="button"
+                onClick={() => setIsSidebarOpen(true)}
+                className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 hover:bg-slate-50 text-xs font-semibold text-slate-700 dark:text-slate-200 transition-colors shadow-2xs cursor-pointer"
+                title="Show saved chats column"
+              >
+                <PanelLeftOpen className="h-4 w-4 text-indigo-600" />
+                <span className="hidden sm:inline">Saved Chats</span>
+                <span className="text-[10px] bg-slate-100 dark:bg-slate-700 px-1.5 py-0.5 rounded font-mono">
+                  {sessions.length}/5
+                </span>
+              </button>
+            )}
+
+            <div>
+              <h1 className="text-sm sm:text-base font-bold text-slate-900 dark:text-white leading-tight">
+                Revision workspace
+              </h1>
+              <p className="text-[11px] text-slate-500 dark:text-slate-400 hidden sm:block">
+                Syllabus-focused study, landmark SC judgements, PIB updates, and question dissection.
+              </p>
+            </div>
+          </div>
+
+          {/* Mode Switcher */}
+          <div className="flex items-center gap-2">
+            <div className="flex items-center rounded-lg bg-slate-100 dark:bg-slate-800 p-0.5 text-xs font-semibold">
+              <button
+                type="button"
+                onClick={() => setMode("general")}
+                className={`px-3 py-1.5 rounded-md transition-all flex items-center gap-1.5 ${
+                  mode === "general"
+                    ? "bg-white dark:bg-slate-900 text-indigo-600 dark:text-indigo-400 shadow-2xs"
+                    : "text-slate-600 dark:text-slate-400 hover:text-slate-900"
+                }`}
+              >
+                <MessageSquare className="h-3.5 w-3.5" />
+                <span>General Revision</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setMode("paper")}
+                className={`px-3 py-1.5 rounded-md transition-all flex items-center gap-1.5 ${
+                  mode === "paper"
+                    ? "bg-white dark:bg-slate-900 text-indigo-600 dark:text-indigo-400 shadow-2xs"
+                    : "text-slate-600 dark:text-slate-400 hover:text-slate-900"
+                }`}
+              >
+                <Paperclip className="h-3.5 w-3.5" />
+                <span>Chat with Paper</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setMode("syllabus")}
+                className={`px-3 py-1.5 rounded-md transition-all flex items-center gap-1.5 ${
+                  mode === "syllabus"
+                    ? "bg-white dark:bg-slate-900 text-indigo-600 dark:text-indigo-400 shadow-2xs"
+                    : "text-slate-600 dark:text-slate-400 hover:text-slate-900"
+                }`}
+              >
+                <BookOpen className="h-3.5 w-3.5" />
+                <span>Syllabus Track</span>
+              </button>
+            </div>
+
+            {messages.length > 0 && (
+              <button
+                type="button"
+                onClick={handleClearActiveChat}
+                title="Clear current conversation"
+                className="p-1.5 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/40 border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 transition-colors cursor-pointer"
+              >
+                <Trash2 className="h-4 w-4" />
+              </button>
+            )}
+          </div>
+        </div>
+
+        {/* Paper / Syllabus Sub-Context Bar (When Selected) */}
         {mode === "paper" && (
-          <div className="surface-card p-2.5 border border-slate-200 dark:border-slate-800 rounded-xl flex flex-wrap items-center gap-2.5 text-xs">
+          <div className="shrink-0 px-3 sm:px-6 py-2 bg-slate-50 dark:bg-slate-950/60 border-b border-slate-200 dark:border-slate-800 flex flex-wrap items-center gap-2.5 text-xs">
             <span className="text-slate-600 dark:text-slate-300 font-semibold flex items-center gap-1.5">
               <Paperclip className="h-4 w-4 text-indigo-500" /> Select Paper & Question:
             </span>
@@ -656,7 +698,7 @@ export function RevisionView() {
         )}
 
         {mode === "syllabus" && (
-          <div className="surface-card p-2.5 border border-slate-200 dark:border-slate-800 rounded-xl flex flex-wrap items-center gap-2.5 text-xs">
+          <div className="shrink-0 px-3 sm:px-6 py-2 bg-slate-50 dark:bg-slate-950/60 border-b border-slate-200 dark:border-slate-800 flex flex-wrap items-center gap-2.5 text-xs">
             <span className="text-slate-600 dark:text-slate-300 font-semibold flex items-center gap-1.5">
               <BookOpen className="h-4 w-4 text-indigo-500" /> Syllabus Topic:
             </span>
@@ -692,294 +734,255 @@ export function RevisionView() {
             )}
           </div>
         )}
-      </div>
 
-      {/* Toast Notification */}
-      {toastMsg && (
-        <div className="p-2.5 rounded-lg bg-emerald-50 dark:bg-emerald-950/60 border border-emerald-200 dark:border-emerald-800 text-xs text-emerald-800 dark:text-emerald-200 font-medium flex items-center gap-2 animate-in fade-in duration-200 shrink-0 mt-2">
-          <Check className="h-4 w-4 text-emerald-600" />
-          <span>{toastMsg}</span>
-        </div>
-      )}
+        {/* Toast Notification */}
+        {toastMsg && (
+          <div className="mx-4 mt-2 p-2.5 rounded-lg bg-emerald-50 dark:bg-emerald-950/60 border border-emerald-200 dark:border-emerald-800 text-xs text-emerald-800 dark:text-emerald-200 font-medium flex items-center gap-2 animate-in fade-in duration-200 shrink-0">
+            <Check className="h-4 w-4 text-emerald-600" />
+            <span>{toastMsg}</span>
+          </div>
+        )}
 
-      {/* 2. Central Scrollable Chat Feed */}
-      <div className="flex-1 min-h-0 overflow-y-auto py-3 space-y-4 pr-1">
-        {messages.length === 0 ? (
-          /* First-Time / New Chat Landing View */
-          <div className="max-w-3xl mx-auto my-2 space-y-6">
-            {/* Guidance Banner */}
-            <div className="p-5 rounded-2xl bg-gradient-to-br from-indigo-50/80 via-white to-slate-50 dark:from-slate-900 dark:to-slate-950 border border-indigo-100 dark:border-indigo-950/80 shadow-xs text-center sm:text-left">
-              <div className="flex flex-col sm:flex-row items-center sm:items-start gap-4">
-                <div className="p-3 rounded-2xl bg-indigo-600 text-white shrink-0 shadow-md">
-                  <GraduationCap className="h-7 w-7" />
-                </div>
-                <div className="space-y-1">
-                  <h2 className="text-base sm:text-lg font-bold text-slate-900 dark:text-white">
-                    UPSC Civil Services AI Revision Mentor
-                  </h2>
-                  <p className="text-xs sm:text-sm text-slate-600 dark:text-slate-400 leading-relaxed">
-                    A syllabus-centered study companion designed for Prelims, Mains, and CSAT. Ask any topic or question to receive exact Constitutional Articles, landmark Supreme Court rulings, contemporary PIB updates, and mathematical formulas.
-                  </p>
+        {/* Central Scrollable Chat Feed */}
+        <div className="flex-1 min-h-0 overflow-y-auto px-4 sm:px-8 py-4 space-y-4">
+          {messages.length === 0 ? (
+            /* First-Time / Blank Chat State */
+            <div className="max-w-2xl mx-auto my-6 space-y-6">
+              <div className="p-6 rounded-2xl bg-gradient-to-br from-indigo-50/70 via-white to-slate-50 dark:from-slate-900 dark:to-slate-950 border border-indigo-100 dark:border-indigo-950/80 shadow-xs text-center sm:text-left">
+                <div className="flex flex-col sm:flex-row items-center sm:items-start gap-4">
+                  <div className="p-3 rounded-2xl bg-indigo-600 text-white shrink-0 shadow-md">
+                    <GraduationCap className="h-7 w-7" />
+                  </div>
+                  <div className="space-y-1">
+                    <h2 className="text-base sm:text-lg font-bold text-slate-900 dark:text-white">
+                      UPSC Civil Services AI Revision Mentor
+                    </h2>
+                    <p className="text-xs sm:text-sm text-slate-600 dark:text-slate-400 leading-relaxed">
+                      Syllabus-focused mentor for Prelims, Mains, and CSAT. Ask any topic or question to receive exact Constitutional Articles, landmark Supreme Court rulings, contemporary PIB updates, and KaTeX mathematical formulas.
+                    </p>
+                  </div>
                 </div>
               </div>
-            </div>
 
-            {/* Saved Chats Review Cards (Up to 5) */}
-            {sessions.length > 0 && (
+              {/* High-Yield Starter Suggestions */}
               <div className="space-y-2">
-                <div className="flex items-center justify-between">
-                  <span className="text-xs font-bold uppercase tracking-wider text-slate-500 flex items-center gap-1.5">
-                    <History className="h-3.5 w-3.5 text-indigo-500" />
-                    Review Your Saved Chats ({sessions.length}/5):
-                  </span>
-                </div>
+                <span className="text-xs font-bold uppercase tracking-wider text-slate-500">
+                  Click any topic to explore:
+                </span>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
-                  {sessions.map((s) => (
+                  {STARTER_TOPICS.map((item, idx) => (
                     <button
-                      key={s.id}
+                      key={idx}
                       type="button"
-                      onClick={() => handleSwitchSession(s)}
+                      onClick={() => {
+                        handleSend(
+                          `Comprehensive UPSC revision for "${item.topic}": constitutional/statutory provisions, landmark judgements, contemporary PIB policy touchpoints, and practical problem-solving rules.`,
+                        );
+                      }}
                       className="p-3.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 hover:border-indigo-300 dark:hover:border-indigo-700 hover:bg-indigo-50/20 text-left transition-all shadow-2xs group cursor-pointer"
                     >
                       <div className="flex items-center justify-between mb-1">
-                        <span className="font-bold text-xs sm:text-sm text-slate-900 dark:text-white group-hover:text-indigo-600 transition-colors truncate">
-                          {s.title}
+                        <span className="font-bold text-xs sm:text-sm text-slate-900 dark:text-white group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition-colors">
+                          {item.topic}
                         </span>
-                        <span className="text-[10px] font-semibold px-2 py-0.5 rounded bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 shrink-0">
-                          {s.messages.length} msgs
+                        <span className="text-[10px] font-semibold px-2 py-0.5 rounded bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400">
+                          {item.category}
                         </span>
                       </div>
-                      <div className="text-[11px] text-slate-500 dark:text-slate-400">
-                        Last reviewed on{" "}
-                        {new Date(s.updatedAt).toLocaleDateString("en-IN", {
-                          day: "numeric",
-                          month: "short",
-                        })}
+                      <div className="text-xs text-slate-500 dark:text-slate-400 truncate">
+                        {item.hint}
                       </div>
                     </button>
                   ))}
                 </div>
               </div>
-            )}
-
-            {/* High-Yield Starter Suggestions */}
-            <div className="space-y-2">
-              <span className="text-xs font-bold uppercase tracking-wider text-slate-500">
-                Or click a high-yield topic to explore:
-              </span>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
-                {STARTER_TOPICS.map((item, idx) => (
-                  <button
-                    key={idx}
-                    type="button"
-                    onClick={() => {
-                      handleSend(
-                        `Comprehensive UPSC revision for "${item.topic}": constitutional/statutory provisions, landmark judgements, contemporary PIB policy touchpoints, and practical problem-solving rules.`,
-                      );
-                    }}
-                    className="p-3.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 hover:border-indigo-300 dark:hover:border-indigo-700 hover:bg-indigo-50/20 text-left transition-all shadow-2xs group cursor-pointer"
-                  >
-                    <div className="flex items-center justify-between mb-1">
-                      <span className="font-bold text-xs sm:text-sm text-slate-900 dark:text-white group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition-colors">
-                        {item.topic}
-                      </span>
-                      <span className="text-[10px] font-semibold px-2 py-0.5 rounded bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400">
-                        {item.category}
-                      </span>
-                    </div>
-                    <div className="text-xs text-slate-500 dark:text-slate-400 truncate">
-                      {item.hint}
-                    </div>
-                  </button>
-                ))}
-              </div>
             </div>
-          </div>
-        ) : (
-          messages.map((msg) => (
-            <div
-              key={msg.id}
-              className={`flex gap-3 ${
-                msg.role === "user" ? "justify-end" : "justify-start"
-              }`}
-            >
-              {msg.role === "assistant" && (
-                <div className="h-8 w-8 rounded-lg bg-indigo-600 text-white flex items-center justify-center shrink-0 shadow-xs mt-1">
-                  <Bot className="h-4 w-4" />
-                </div>
-              )}
-
+          ) : (
+            messages.map((msg) => (
               <div
-                className={`max-w-3xl rounded-xl p-4 shadow-xs text-xs sm:text-sm ${
-                  msg.role === "user"
-                    ? "bg-indigo-600 text-white font-medium ml-12"
-                    : (msg.isError || msg.content.startsWith("⚠️"))
-                      ? "bg-rose-50/75 dark:bg-rose-950/30 border border-rose-200 dark:border-rose-900/60 text-slate-800 dark:text-slate-200 w-full"
-                      : "bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-slate-800 dark:text-slate-200 w-full"
+                key={msg.id}
+                className={`flex gap-3 ${
+                  msg.role === "user" ? "justify-end" : "justify-start"
                 }`}
               >
-                {msg.role === "user" ? (
-                  <p className="whitespace-pre-wrap leading-relaxed">{msg.content}</p>
-                ) : (msg.isError || msg.content.startsWith("⚠️")) ? (
-                  <div className="space-y-3">
-                    <RevisionMarkdownRenderer content={msg.content} />
-                    <div className="pt-2 border-t border-rose-200/60 dark:border-rose-900/40 flex items-center justify-between gap-2 text-xs">
-                      <span className="text-rose-600 dark:text-rose-400 font-medium text-[11px]">
-                        Generation stopped
-                      </span>
-                      <div className="flex items-center gap-2">
-                        {config?.apiKey && (
+                {msg.role === "assistant" && (
+                  <div className="h-8 w-8 rounded-lg bg-indigo-600 text-white flex items-center justify-center shrink-0 shadow-xs mt-1">
+                    <Bot className="h-4 w-4" />
+                  </div>
+                )}
+
+                <div
+                  className={`max-w-3xl rounded-xl p-4 shadow-xs text-xs sm:text-sm ${
+                    msg.role === "user"
+                      ? "bg-indigo-600 text-white font-medium ml-12"
+                      : (msg.isError || msg.content.startsWith("⚠️"))
+                        ? "bg-rose-50/75 dark:bg-rose-950/30 border border-rose-200 dark:border-rose-900/60 text-slate-800 dark:text-slate-200 w-full"
+                        : "bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-slate-800 dark:text-slate-200 w-full"
+                  }`}
+                >
+                  {msg.role === "user" ? (
+                    <p className="whitespace-pre-wrap leading-relaxed">{msg.content}</p>
+                  ) : (msg.isError || msg.content.startsWith("⚠️")) ? (
+                    <div className="space-y-3">
+                      <RevisionMarkdownRenderer content={msg.content} />
+                      <div className="pt-2 border-t border-rose-200/60 dark:border-rose-900/40 flex items-center justify-between gap-2 text-xs">
+                        <span className="text-rose-600 dark:text-rose-400 font-medium text-[11px]">
+                          Generation stopped
+                        </span>
+                        <div className="flex items-center gap-2">
+                          {config?.apiKey && (
+                            <button
+                              type="button"
+                              onClick={() => {
+                                clearRevisionConfig();
+                                setConfig(null);
+                                setToastMsg("Switched to Free AI. Retrying...");
+                                const lastUser = [...messages].reverse().find((m) => m.role === "user");
+                                if (lastUser) {
+                                  handleSend(lastUser.content);
+                                }
+                              }}
+                              disabled={isLoading}
+                              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white font-semibold transition-colors shadow-2xs cursor-pointer disabled:opacity-50"
+                            >
+                              <Sparkles className="h-3.5 w-3.5" />
+                              <span>Switch to Free AI</span>
+                            </button>
+                          )}
                           <button
                             type="button"
                             onClick={() => {
-                              clearRevisionConfig();
-                              setConfig(null);
-                              setToastMsg("Switched to Free AI. Retrying...");
                               const lastUser = [...messages].reverse().find((m) => m.role === "user");
                               if (lastUser) {
                                 handleSend(lastUser.content);
                               }
                             }}
                             disabled={isLoading}
-                            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white font-semibold transition-colors shadow-2xs cursor-pointer disabled:opacity-50"
+                            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-rose-600 hover:bg-rose-700 text-white font-semibold transition-colors shadow-2xs cursor-pointer disabled:opacity-50"
                           >
-                            <Sparkles className="h-3.5 w-3.5" />
-                            <span>Switch to Free AI</span>
+                            <RotateCcw className="h-3.5 w-3.5" />
+                            <span>Retry</span>
                           </button>
-                        )}
+                          <button
+                            type="button"
+                            onClick={() => setShowSettingsModal(true)}
+                            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 hover:bg-slate-50 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-200 font-medium transition-colors cursor-pointer"
+                          >
+                            <Settings2 className="h-3.5 w-3.5" />
+                            <span>AI Settings</span>
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  ) : (
+                    <div>
+                      <RevisionMarkdownRenderer content={msg.content} />
+
+                      {/* Clean Copy Action */}
+                      <div className="mt-4 pt-3 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between gap-2 text-xs">
                         <button
                           type="button"
-                          onClick={() => {
-                            const lastUser = [...messages].reverse().find((m) => m.role === "user");
-                            if (lastUser) {
-                              handleSend(lastUser.content);
-                            }
-                          }}
-                          disabled={isLoading}
-                          className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-rose-600 hover:bg-rose-700 text-white font-semibold transition-colors shadow-2xs cursor-pointer disabled:opacity-50"
+                          onClick={() => handleCopyMessage(msg.id, msg.content)}
+                          className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-slate-200 dark:border-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 font-medium transition-colors cursor-pointer"
                         >
-                          <RotateCcw className="h-3.5 w-3.5" />
-                          <span>Retry</span>
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => setShowSettingsModal(true)}
-                          className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 hover:bg-slate-50 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-200 font-medium transition-colors cursor-pointer"
-                        >
-                          <Settings2 className="h-3.5 w-3.5" />
-                          <span>AI Settings</span>
+                          {copiedId === msg.id ? (
+                            <Check className="h-3.5 w-3.5 text-emerald-600" />
+                          ) : (
+                            <Copy className="h-3.5 w-3.5" />
+                          )}
+                          <span>{copiedId === msg.id ? "Copied!" : "Copy Notes"}</span>
                         </button>
                       </div>
                     </div>
-                  </div>
-                ) : (
-                  <div>
-                    <RevisionMarkdownRenderer content={msg.content} />
+                  )}
+                </div>
 
-                    {/* Action Bar (Clean Copy Notes) */}
-                    <div className="mt-4 pt-3 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between gap-2 text-xs">
-                      <button
-                        type="button"
-                        onClick={() => handleCopyMessage(msg.id, msg.content)}
-                        className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-slate-200 dark:border-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 font-medium transition-colors cursor-pointer"
-                      >
-                        {copiedId === msg.id ? (
-                          <Check className="h-3.5 w-3.5 text-emerald-600" />
-                        ) : (
-                          <Copy className="h-3.5 w-3.5" />
-                        )}
-                        <span>{copiedId === msg.id ? "Copied!" : "Copy Notes"}</span>
-                      </button>
-                    </div>
+                {msg.role === "user" && (
+                  <div className="h-8 w-8 rounded-lg bg-slate-800 text-white flex items-center justify-center shrink-0 shadow-xs mt-1">
+                    <User className="h-4 w-4" />
                   </div>
                 )}
               </div>
+            ))
+          )}
 
-              {msg.role === "user" && (
-                <div className="h-8 w-8 rounded-lg bg-slate-800 text-white flex items-center justify-center shrink-0 shadow-xs mt-1">
-                  <User className="h-4 w-4" />
-                </div>
-              )}
-            </div>
-          ))
-        )}
-
-        {/* Loading Indicator */}
-        {isLoading && (
-          <div className="flex gap-3 items-start animate-in fade-in">
-            <div className="h-8 w-8 rounded-lg bg-indigo-600 text-white flex items-center justify-center shrink-0 shadow-xs">
-              <Bot className="h-4 w-4 animate-bounce" />
-            </div>
-            <div className="p-4 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-xs space-y-1.5 max-w-md">
-              <div className="flex items-center gap-2 text-xs font-semibold text-indigo-600 dark:text-indigo-400">
-                <span className="h-2 w-2 rounded-full bg-indigo-600 animate-ping" />
-                Synthesizing response...
+          {/* Loading Indicator */}
+          {isLoading && (
+            <div className="flex gap-3 items-start animate-in fade-in">
+              <div className="h-8 w-8 rounded-lg bg-indigo-600 text-white flex items-center justify-center shrink-0 shadow-xs">
+                <Bot className="h-4 w-4 animate-bounce" />
               </div>
-              <p className="text-xs text-slate-500 dark:text-slate-400">
-                Grounding in UPSC syllabus, judgements & formulas.
-              </p>
+              <div className="p-4 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-xs space-y-1.5 max-w-md">
+                <div className="flex items-center gap-2 text-xs font-semibold text-indigo-600 dark:text-indigo-400">
+                  <span className="h-2 w-2 rounded-full bg-indigo-600 animate-ping" />
+                  Synthesizing response...
+                </div>
+                <p className="text-xs text-slate-500 dark:text-slate-400">
+                  Grounding in UPSC syllabus, judgements & formulas.
+                </p>
+              </div>
             </div>
-          </div>
-        )}
+          )}
 
-        <div ref={messagesEndRef} />
-      </div>
+          <div ref={messagesEndRef} />
+        </div>
 
-      {/* 3. Bottom Chat Input Box */}
-      <div className="shrink-0 pt-2 pb-2 bg-slate-50 dark:bg-slate-950 border-t border-slate-200 dark:border-slate-800">
-        <form
-          onSubmit={(e) => {
-            e.preventDefault();
-            handleSend();
-          }}
-          className="flex flex-col gap-2"
-        >
-          <div className="relative">
-            <textarea
-              ref={textareaRef}
-              rows={2}
-              value={inputPrompt}
-              onChange={handleInputChange}
-              onKeyDown={(e) => {
-                if (e.key === "Enter" && !e.shiftKey) {
-                  e.preventDefault();
-                  handleSend();
+        {/* Bottom Message Input Box */}
+        <div className="shrink-0 p-3 sm:px-8 bg-slate-50 dark:bg-slate-950 border-t border-slate-200 dark:border-slate-800">
+          <form
+            onSubmit={(e) => {
+              e.preventDefault();
+              handleSend();
+            }}
+            className="flex flex-col gap-2 max-w-4xl mx-auto"
+          >
+            <div className="relative">
+              <textarea
+                ref={textareaRef}
+                rows={2}
+                value={inputPrompt}
+                onChange={handleInputChange}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" && !e.shiftKey) {
+                    e.preventDefault();
+                    handleSend();
+                  }
+                }}
+                placeholder={
+                  mode === "paper" && activeQuestion
+                    ? `Ask about Question #${activeQuestion.questionNo} (e.g. Why is (C) correct? What was the elimination trap?)...`
+                    : mode === "paper"
+                      ? "Ask anything about this question paper..."
+                      : selectedTopic
+                        ? `Ask anything on ${selectedTopic}...`
+                        : "Ask any UPSC topic or doubt (e.g. Permutations & Combinations, Fundamental Rights, Monetary Policy)..."
                 }
-              }}
-              placeholder={
-                mode === "paper" && activeQuestion
-                  ? `Ask about Question #${activeQuestion.questionNo} (e.g. Why is (C) correct? What was the elimination trap?)...`
-                  : mode === "paper"
-                    ? "Ask anything about this question paper..."
-                    : selectedTopic
-                      ? `Ask anything on ${selectedTopic}...`
-                      : "Ask any UPSC topic or doubt (e.g. Permutations & Combinations, Fundamental Rights, Monetary Policy)..."
-              }
-              className="w-full resize-none px-3.5 py-2.5 text-xs sm:text-sm rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-900 dark:text-white placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 font-normal leading-relaxed shadow-xs"
-            />
-          </div>
-
-          <div className="flex items-center justify-between gap-2 flex-wrap">
-            <div className="text-[11px] text-slate-500 dark:text-slate-400 flex items-center gap-1.5">
-              <span>Press Enter to send, Shift+Enter for newline</span>
-              {activeContext.topic && (
-                <span className="hidden sm:inline-block text-[11px] bg-slate-200/80 dark:bg-slate-800 px-2 py-0.5 rounded text-slate-700 dark:text-slate-300 font-medium">
-                  Topic: {activeContext.topic}
-                </span>
-              )}
+                className="w-full resize-none px-3.5 py-2.5 text-xs sm:text-sm rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-900 dark:text-white placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 font-normal leading-relaxed shadow-xs"
+              />
             </div>
 
-            <button
-              type="submit"
-              disabled={isLoading || !inputPrompt.trim()}
-              className="flex items-center gap-1.5 px-4 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 text-white font-semibold text-xs transition-colors shadow-xs cursor-pointer"
-            >
-              <Send className="h-3.5 w-3.5" />
-              <span>Ask Mentor</span>
-            </button>
-          </div>
-        </form>
-      </div>
+            <div className="flex items-center justify-between gap-2 flex-wrap">
+              <div className="text-[11px] text-slate-500 dark:text-slate-400 flex items-center gap-1.5">
+                <span>Press Enter to send, Shift+Enter for newline</span>
+                {activeContext.topic && (
+                  <span className="hidden sm:inline-block text-[11px] bg-slate-200/80 dark:bg-slate-800 px-2 py-0.5 rounded text-slate-700 dark:text-slate-300 font-medium">
+                    Topic: {activeContext.topic}
+                  </span>
+                )}
+              </div>
+
+              <button
+                type="submit"
+                disabled={isLoading || !inputPrompt.trim()}
+                className="flex items-center gap-1.5 px-4 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 text-white font-semibold text-xs transition-colors shadow-xs cursor-pointer"
+              >
+                <Send className="h-3.5 w-3.5" />
+                <span>Ask Mentor</span>
+              </button>
+            </div>
+          </form>
+        </div>
+      </main>
 
       {/* Settings Modal */}
       <RevisionSettingsModal
