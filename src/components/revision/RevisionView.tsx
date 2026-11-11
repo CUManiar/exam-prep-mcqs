@@ -5,21 +5,17 @@ import { useSearchParams } from "next/navigation";
 import {
   AlertCircle,
   ArrowRight,
-  ArrowUpRight,
   BookOpen,
   Bot,
   Check,
-  Compass,
+  ChevronDown,
   Copy,
-  ExternalLink,
-  Flame,
   GraduationCap,
-  HelpCircle,
-  KeyRound,
+  History,
   Layers,
-  Lightbulb,
   MessageSquare,
   Paperclip,
+  Plus,
   RotateCcw,
   Send,
   Settings2,
@@ -32,12 +28,9 @@ import {
 import { useApp } from "../../context/AppContext";
 import {
   clearRevisionConfig,
-  PRESET_ACTIONS,
-  PresetAction,
   RevisionProviderConfig,
   getRevisionConfig,
   sendRevisionQuery,
-  RevisionApiError,
 } from "../../lib/revisionAi";
 import {
   ParsedQuestion,
@@ -45,14 +38,25 @@ import {
   RevisionAttemptSummary,
   RevisionContext,
   RevisionMessage,
-  SyllabusItem,
 } from "../../lib/types";
 import { RevisionMarkdownRenderer } from "./RevisionMarkdownRenderer";
 import { RevisionSettingsModal } from "./RevisionSettingsModal";
 import { PageHeader } from "../PageHeader";
 import { getPaperDisplayTitle } from "../../lib/defaults";
 
-const REVISION_CHAT_STORAGE_KEY = "upsc_revision_active_chat";
+interface StoredSession {
+  id: string;
+  title: string;
+  messages: RevisionMessage[];
+  updatedAt: string;
+  mode: "general" | "paper" | "syllabus";
+  selectedTopic?: string;
+  selectedPaperId?: string;
+  selectedQuestionNo?: number | null;
+}
+
+const MAX_SAVED_SESSIONS = 5;
+const SESSIONS_STORAGE_KEY = "upsc_revision_sessions_v2";
 
 interface StarterTopic {
   topic: string;
@@ -82,9 +86,9 @@ const STARTER_TOPICS: StarterTopic[] = [
     hint: "Article 280, vertical/horizontal devolution, cess & surcharge issues",
   },
   {
-    topic: "1857 Revolt & Administrative Shifts",
-    category: "GS-I",
-    hint: "Government of India Act 1858, Queen's Proclamation, military changes",
+    topic: "Permutation & Combination (CSAT)",
+    category: "GS-III",
+    hint: "Formulas, circular seating, identical objects & elimination traps",
   },
   {
     topic: "Monetary Policy & Inflation Targeting",
@@ -107,6 +111,11 @@ export function RevisionView() {
   const [selectedPaperId, setSelectedPaperId] = useState<string>("");
   const [selectedQuestionNo, setSelectedQuestionNo] = useState<number | null>(null);
 
+  // Multi-Session State (Up to 5 chats saved in local storage)
+  const [sessions, setSessions] = useState<StoredSession[]>([]);
+  const [currentSessionId, setCurrentSessionId] = useState<string>(() => `sess_${Date.now()}`);
+  const [showSessionMenu, setShowSessionMenu] = useState(false);
+
   // Chat State
   const [messages, setMessages] = useState<RevisionMessage[]>([]);
   const [inputPrompt, setInputPrompt] = useState("");
@@ -117,39 +126,76 @@ export function RevisionView() {
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
-  // Load saved config on mount
+  // Load saved provider config on mount
   useEffect(() => {
     const saved = getRevisionConfig();
     setConfig(saved);
   }, []);
 
-  // Restore chat messages from localStorage on mount
+  // Restore saved sessions from localStorage on mount
   useEffect(() => {
     try {
-      const savedChat = localStorage.getItem(REVISION_CHAT_STORAGE_KEY);
-      if (savedChat) {
-        const parsed = JSON.parse(savedChat);
+      const raw = localStorage.getItem(SESSIONS_STORAGE_KEY);
+      if (raw) {
+        const parsed: StoredSession[] = JSON.parse(raw);
         if (Array.isArray(parsed) && parsed.length > 0) {
-          setMessages(parsed);
+          setSessions(parsed);
+          // Load the most recent session
+          const mostRecent = parsed[0];
+          setCurrentSessionId(mostRecent.id);
+          setMessages(mostRecent.messages || []);
+          if (mostRecent.mode) setMode(mostRecent.mode);
+          if (mostRecent.selectedTopic) setSelectedTopic(mostRecent.selectedTopic);
+          if (mostRecent.selectedPaperId) setSelectedPaperId(mostRecent.selectedPaperId);
+          if (mostRecent.selectedQuestionNo !== undefined) {
+            setSelectedQuestionNo(mostRecent.selectedQuestionNo);
+          }
         }
       }
     } catch (e) {
-      console.warn("Failed to load saved revision chat:", e);
+      console.warn("Failed to load saved revision sessions:", e);
     }
   }, []);
 
-  // Auto-persist chat messages to localStorage
+  // Auto-persist active session to localStorage (capped at 5 sessions)
   useEffect(() => {
+    if (messages.length === 0) return;
+
     try {
-      if (messages.length > 0) {
-        localStorage.setItem(REVISION_CHAT_STORAGE_KEY, JSON.stringify(messages));
-      } else {
-        localStorage.removeItem(REVISION_CHAT_STORAGE_KEY);
-      }
+      setSessions((prevSessions) => {
+        // Derive clean title from first user message or active topic
+        const firstUser = messages.find((m) => m.role === "user")?.content || "Revision Chat";
+        const cleanTitle =
+          selectedTopic ||
+          firstUser
+            .replace(/^(help me revise|revise|explain|what is|tell me about)\s+/i, "")
+            .slice(0, 38)
+            .trim();
+
+        const activeSession: StoredSession = {
+          id: currentSessionId,
+          title: cleanTitle.length > 0 ? cleanTitle : "Revision Topic",
+          messages,
+          updatedAt: new Date().toISOString(),
+          mode,
+          selectedTopic: selectedTopic || undefined,
+          selectedPaperId: selectedPaperId || undefined,
+          selectedQuestionNo: selectedQuestionNo || undefined,
+        };
+
+        const filtered = prevSessions.filter((s) => s.id !== currentSessionId);
+        const updated = [activeSession, ...filtered].slice(0, MAX_SAVED_SESSIONS);
+
+        try {
+          localStorage.setItem(SESSIONS_STORAGE_KEY, JSON.stringify(updated));
+        } catch {}
+
+        return updated;
+      });
     } catch (e) {
-      console.warn("Failed to persist revision chat:", e);
+      console.warn("Failed to persist revision session:", e);
     }
-  }, [messages]);
+  }, [messages, currentSessionId, mode, selectedTopic, selectedPaperId, selectedQuestionNo]);
 
   // Handle URL search params on mount
   useEffect(() => {
@@ -166,6 +212,47 @@ export function RevisionView() {
       setSelectedTopic(topicParam);
     }
   }, [searchParams]);
+
+  // Create New Chat (starts fresh session, preserving previous in history)
+  const handleCreateNewChat = () => {
+    const newId = `sess_${Date.now()}`;
+    setCurrentSessionId(newId);
+    setMessages([]);
+    setInputPrompt("");
+    setShowSessionMenu(false);
+    if (textareaRef.current) {
+      textareaRef.current.focus();
+    }
+  };
+
+  // Switch to a saved session
+  const handleSwitchSession = (session: StoredSession) => {
+    setCurrentSessionId(session.id);
+    setMessages(session.messages || []);
+    if (session.mode) setMode(session.mode);
+    if (session.selectedTopic) setSelectedTopic(session.selectedTopic);
+    if (session.selectedPaperId) setSelectedPaperId(session.selectedPaperId);
+    setSelectedQuestionNo(session.selectedQuestionNo || null);
+    setShowSessionMenu(false);
+  };
+
+  // Delete a saved session
+  const handleDeleteSession = (sessionId: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    const updated = sessions.filter((s) => s.id !== sessionId);
+    setSessions(updated);
+    try {
+      localStorage.setItem(SESSIONS_STORAGE_KEY, JSON.stringify(updated));
+    } catch {}
+
+    if (sessionId === currentSessionId) {
+      if (updated.length > 0) {
+        handleSwitchSession(updated[0]);
+      } else {
+        handleCreateNewChat();
+      }
+    }
+  };
 
   // Resolve currently active paper & question
   const activePaper = useMemo<QuestionPaper | undefined>(() => {
@@ -332,51 +419,6 @@ export function RevisionView() {
     }
   };
 
-  // Helper to resolve currently discussed topic for dynamic follow-ups
-  const resolveActiveTopic = useCallback(() => {
-    if (activeContext.topic && activeContext.topic !== "this topic") return activeContext.topic;
-    if (activeContext.paperTitle) return activeContext.paperTitle;
-    if (activeContext.question?.topic) return activeContext.question.topic;
-
-    const recentUser = [...messages].reverse().find((m) => m.role === "user");
-    if (recentUser?.content) {
-      const quoted = recentUser.content.match(/["“]([^"”]+)["”]/);
-      if (quoted && quoted[1] && quoted[1].trim().length > 2 && quoted[1].trim().toLowerCase() !== "this topic") {
-        return quoted[1].trim();
-      }
-      const clean = recentUser.content
-        .replace(/^(comprehensive upsc revision for|compare|explain|discuss|tell me about|what is|how to|grill me on|grill on)\s+/i, "")
-        .replace(/\s+for me$/i, "")
-        .replace(/["“”]/g, "")
-        .trim();
-      if (clean.length > 2 && clean.length < 60) return clean;
-    }
-    return "the topic under discussion";
-  }, [activeContext, messages]);
-
-  // Preset trigger
-  const handleTriggerPreset = (preset: PresetAction) => {
-    const candidateTopic =
-      inputPrompt.trim() ||
-      selectedTopic.trim() ||
-      activeContext.topic ||
-      activeContext.question?.topic ||
-      (mode === "paper" ? activeContext.paperTitle : undefined);
-
-    if (!candidateTopic && messages.length === 0) {
-      if (textareaRef.current) {
-        textareaRef.current.placeholder = `Type a topic first (e.g. Federalism, Inflation), then click "${preset.label}"...`;
-        textareaRef.current.focus();
-      }
-      return;
-    }
-    const effectiveCtx = candidateTopic
-      ? { ...activeContext, topic: candidateTopic }
-      : activeContext;
-    const prompt = preset.generatePrompt(effectiveCtx);
-    handleSend(prompt);
-  };
-
   // Copy text to clipboard
   const handleCopyMessage = (msgId: string, content: string) => {
     navigator.clipboard.writeText(content);
@@ -388,22 +430,20 @@ export function RevisionView() {
     }, 2500);
   };
 
-  const handleClearChat = () => {
+  const handleClearActiveChat = () => {
     setMessages([]);
-    try {
-      localStorage.removeItem(REVISION_CHAT_STORAGE_KEY);
-    } catch {}
-    setToastMsg("Revision conversation cleared.");
+    handleDeleteSession(currentSessionId, { stopPropagation: () => {} } as any);
+    setToastMsg("Chat cleared.");
     setTimeout(() => setToastMsg(null), 2500);
   };
 
   return (
     <div className="flex-1 min-h-0 flex flex-col h-full w-full max-w-6xl mx-auto px-3 sm:px-6 pt-3 pb-2 overflow-hidden">
-      {/* 1. Header & Controls (shrink-0) */}
+      {/* 1. Header & Controls */}
       <div className="shrink-0 space-y-2 pb-2 border-b border-slate-200 dark:border-slate-800">
         <PageHeader
           title="Revision workspace"
-          description="Exam-calibrated study assistant: Constitutional articles, landmark SC judgements, PIB policies, and question dissection."
+          description="Syllabus-focused study, landmark SC judgements, PIB updates, and question dissection."
           actions={
             <div className="flex items-center gap-2 flex-wrap">
               {/* Mode Controls */}
@@ -448,7 +488,87 @@ export function RevisionView() {
                 </button>
               </div>
 
-              {/* Model / Quota Status Pill */}
+              {/* Saved Chats Dropdown (Store up to 5 chats) */}
+              <div className="relative">
+                <button
+                  type="button"
+                  onClick={() => setShowSessionMenu(!showSessionMenu)}
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700/60 text-xs text-slate-700 dark:text-slate-200 font-medium transition-all shadow-2xs cursor-pointer"
+                  title="View your saved revision chats (up to 5 stored)"
+                >
+                  <History className="h-3.5 w-3.5 text-indigo-600 dark:text-indigo-400" />
+                  <span>Saved Chats ({sessions.length}/5)</span>
+                  <ChevronDown className="h-3 w-3 text-slate-400" />
+                </button>
+
+                {showSessionMenu && (
+                  <div className="absolute right-0 mt-1 w-64 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 shadow-xl py-1 z-30 animate-in fade-in zoom-in-95">
+                    <div className="px-3 py-1.5 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between text-[11px] font-bold text-slate-400 uppercase tracking-wider">
+                      <span>Saved Topics ({sessions.length}/5)</span>
+                      <button
+                        type="button"
+                        onClick={handleCreateNewChat}
+                        className="text-indigo-600 dark:text-indigo-400 hover:underline flex items-center gap-1 cursor-pointer font-semibold"
+                      >
+                        <Plus className="h-3 w-3" />
+                        <span>New</span>
+                      </button>
+                    </div>
+
+                    {sessions.length === 0 ? (
+                      <div className="p-3 text-xs text-slate-500 italic text-center">
+                        No saved chats yet. Start asking any UPSC query!
+                      </div>
+                    ) : (
+                      <div className="max-h-60 overflow-y-auto divide-y divide-slate-100 dark:divide-slate-800">
+                        {sessions.map((s) => (
+                          <div
+                            key={s.id}
+                            onClick={() => handleSwitchSession(s)}
+                            className={`p-2.5 hover:bg-slate-50 dark:hover:bg-slate-800/60 flex items-center justify-between gap-2 cursor-pointer transition-colors ${
+                              s.id === currentSessionId
+                                ? "bg-indigo-50/60 dark:bg-indigo-950/40 text-indigo-900 dark:text-indigo-200"
+                                : "text-slate-700 dark:text-slate-300"
+                            }`}
+                          >
+                            <div className="truncate flex-1">
+                              <div className="font-semibold text-xs truncate">{s.title}</div>
+                              <div className="text-[10px] text-slate-400">
+                                {s.messages.length} messages •{" "}
+                                {new Date(s.updatedAt).toLocaleDateString("en-IN", {
+                                  day: "numeric",
+                                  month: "short",
+                                })}
+                              </div>
+                            </div>
+                            <button
+                              type="button"
+                              onClick={(e) => handleDeleteSession(s.id, e)}
+                              className="text-slate-400 hover:text-rose-600 p-1 rounded transition-colors"
+                              title="Delete this chat"
+                            >
+                              <Trash2 className="h-3 w-3" />
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+
+              {/* New Chat Button */}
+              <button
+                type="button"
+                onClick={handleCreateNewChat}
+                className="flex items-center gap-1 px-3 py-1.5 rounded-lg border border-indigo-200 dark:border-indigo-800 bg-indigo-50/70 dark:bg-indigo-950/40 hover:bg-indigo-100 text-xs font-semibold text-indigo-700 dark:text-indigo-300 shadow-2xs transition-colors cursor-pointer"
+                title="Start a fresh revision query"
+              >
+                <Plus className="h-3.5 w-3.5" />
+                <span>New Chat</span>
+              </button>
+
+              {/* Provider Status Pill */}
               <button
                 type="button"
                 onClick={() => setShowSettingsModal(true)}
@@ -472,19 +592,14 @@ export function RevisionView() {
               </button>
 
               {messages.length > 0 && (
-                <div className="flex items-center gap-1.5">
-                  <span className="text-[11px] text-slate-400 hidden sm:inline">
-                    Saved locally
-                  </span>
-                  <button
-                    type="button"
-                    onClick={handleClearChat}
-                    title="Clear conversation"
-                    className="p-1.5 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/40 border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 transition-colors cursor-pointer"
-                  >
-                    <Trash2 className="h-4 w-4" />
-                  </button>
-                </div>
+                <button
+                  type="button"
+                  onClick={handleClearActiveChat}
+                  title="Clear active conversation"
+                  className="p-1.5 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/40 border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 transition-colors cursor-pointer"
+                >
+                  <Trash2 className="h-4 w-4" />
+                </button>
               )}
             </div>
           }
@@ -577,25 +692,6 @@ export function RevisionView() {
             )}
           </div>
         )}
-
-        {/* Action Chips */}
-        <div className="flex flex-wrap items-center gap-1.5 sm:gap-2">
-          <span className="text-[11px] font-bold uppercase tracking-wider text-slate-400 mr-1 shrink-0">
-            Exam Actions:
-          </span>
-          {PRESET_ACTIONS.map((preset) => (
-            <button
-              key={preset.id}
-              type="button"
-              onClick={() => handleTriggerPreset(preset)}
-              disabled={isLoading}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-full border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 hover:border-indigo-300 dark:hover:border-indigo-700 hover:bg-indigo-50/50 dark:hover:bg-indigo-950/30 text-xs font-semibold text-slate-700 dark:text-slate-200 shadow-2xs transition-all disabled:opacity-50 cursor-pointer"
-            >
-              <span>{preset.icon}</span>
-              <span>{preset.label}</span>
-            </button>
-          ))}
-        </div>
       </div>
 
       {/* Toast Notification */}
@@ -606,10 +702,10 @@ export function RevisionView() {
         </div>
       )}
 
-      {/* 2. Central Scrollable Chat Feed (flex-1 min-h-0 overflow-y-auto) */}
+      {/* 2. Central Scrollable Chat Feed */}
       <div className="flex-1 min-h-0 overflow-y-auto py-3 space-y-4 pr-1">
         {messages.length === 0 ? (
-          /* First-Time Landing Guidance Hub */
+          /* First-Time / New Chat Landing View */
           <div className="max-w-3xl mx-auto my-2 space-y-6">
             {/* Guidance Banner */}
             <div className="p-5 rounded-2xl bg-gradient-to-br from-indigo-50/80 via-white to-slate-50 dark:from-slate-900 dark:to-slate-950 border border-indigo-100 dark:border-indigo-950/80 shadow-xs text-center sm:text-left">
@@ -622,46 +718,54 @@ export function RevisionView() {
                     UPSC Civil Services AI Revision Mentor
                   </h2>
                   <p className="text-xs sm:text-sm text-slate-600 dark:text-slate-400 leading-relaxed">
-                    A syllabus-centered study companion designed for Prelims and Mains. Ask any topic or question to receive exact Constitutional Articles, landmark Supreme Court rulings, contemporary PIB updates, and interactive flowcharts.
-                  </p>
-                </div>
-              </div>
-
-              {/* 3 Step Guidance Cards */}
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mt-5 pt-4 border-t border-indigo-100 dark:border-slate-800">
-                <div className="p-3 rounded-xl bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800">
-                  <div className="text-[11px] font-bold text-indigo-600 dark:text-indigo-400 uppercase tracking-wider mb-1 flex items-center gap-1">
-                    <Target className="h-3.5 w-3.5" /> 1. Ask Any Topic
-                  </div>
-                  <p className="text-xs text-slate-600 dark:text-slate-300">
-                    Type any theme (e.g. <em>Economic Planning</em>, <em>Basic Structure</em>, <em>Inflation</em>) in the box below.
-                  </p>
-                </div>
-
-                <div className="p-3 rounded-xl bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800">
-                  <div className="text-[11px] font-bold text-indigo-600 dark:text-indigo-400 uppercase tracking-wider mb-1 flex items-center gap-1">
-                    <Paperclip className="h-3.5 w-3.5" /> 2. Chat with Papers
-                  </div>
-                  <p className="text-xs text-slate-600 dark:text-slate-300">
-                    Switch to <em>Chat with Paper</em> to dissect question traps and understand 50-50 elimination logic.
-                  </p>
-                </div>
-
-                <div className="p-3 rounded-xl bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800">
-                  <div className="text-[11px] font-bold text-indigo-600 dark:text-indigo-400 uppercase tracking-wider mb-1 flex items-center gap-1">
-                    <Layers className="h-3.5 w-3.5" /> 3. Exam Actions
-                  </div>
-                  <p className="text-xs text-slate-600 dark:text-slate-300">
-                    Click <em>Articles</em>, <em>Judgements</em>, <em>PIB</em>, or <em>Infographic</em> for rapid high-yield synthesis.
+                    A syllabus-centered study companion designed for Prelims, Mains, and CSAT. Ask any topic or question to receive exact Constitutional Articles, landmark Supreme Court rulings, contemporary PIB updates, and mathematical formulas.
                   </p>
                 </div>
               </div>
             </div>
 
+            {/* Saved Chats Review Cards (Up to 5) */}
+            {sessions.length > 0 && (
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-bold uppercase tracking-wider text-slate-500 flex items-center gap-1.5">
+                    <History className="h-3.5 w-3.5 text-indigo-500" />
+                    Review Your Saved Chats ({sessions.length}/5):
+                  </span>
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                  {sessions.map((s) => (
+                    <button
+                      key={s.id}
+                      type="button"
+                      onClick={() => handleSwitchSession(s)}
+                      className="p-3.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 hover:border-indigo-300 dark:hover:border-indigo-700 hover:bg-indigo-50/20 text-left transition-all shadow-2xs group cursor-pointer"
+                    >
+                      <div className="flex items-center justify-between mb-1">
+                        <span className="font-bold text-xs sm:text-sm text-slate-900 dark:text-white group-hover:text-indigo-600 transition-colors truncate">
+                          {s.title}
+                        </span>
+                        <span className="text-[10px] font-semibold px-2 py-0.5 rounded bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 shrink-0">
+                          {s.messages.length} msgs
+                        </span>
+                      </div>
+                      <div className="text-[11px] text-slate-500 dark:text-slate-400">
+                        Last reviewed on{" "}
+                        {new Date(s.updatedAt).toLocaleDateString("en-IN", {
+                          day: "numeric",
+                          month: "short",
+                        })}
+                      </div>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+
             {/* High-Yield Starter Suggestions */}
             <div className="space-y-2">
               <span className="text-xs font-bold uppercase tracking-wider text-slate-500">
-                Or click a high-yield topic to start:
+                Or click a high-yield topic to explore:
               </span>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
                 {STARTER_TOPICS.map((item, idx) => (
@@ -670,7 +774,7 @@ export function RevisionView() {
                     type="button"
                     onClick={() => {
                       handleSend(
-                        `Comprehensive UPSC revision for "${item.topic}": constitutional/statutory provisions, landmark and recent judgements, contemporary PIB policy touchpoints, and an interactive Mermaid flowchart.`,
+                        `Comprehensive UPSC revision for "${item.topic}": constitutional/statutory provisions, landmark judgements, contemporary PIB policy touchpoints, and practical problem-solving rules.`,
                       );
                     }}
                     className="p-3.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 hover:border-indigo-300 dark:hover:border-indigo-700 hover:bg-indigo-50/20 text-left transition-all shadow-2xs group cursor-pointer"
@@ -772,8 +876,8 @@ export function RevisionView() {
                   <div>
                     <RevisionMarkdownRenderer content={msg.content} />
 
-                    {/* Action Bar */}
-                    <div className="mt-4 pt-3 border-t border-slate-100 dark:border-slate-800 flex flex-wrap items-center justify-between gap-2 text-xs">
+                    {/* Action Bar (Clean Copy Notes) */}
+                    <div className="mt-4 pt-3 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between gap-2 text-xs">
                       <button
                         type="button"
                         onClick={() => handleCopyMessage(msg.id, msg.content)}
@@ -786,54 +890,6 @@ export function RevisionView() {
                         )}
                         <span>{copiedId === msg.id ? "Copied!" : "Copy Notes"}</span>
                       </button>
-
-                      {/* Follow-up Quick Prompts: Grill with Mains question, Grill on prelims, Model answer practice */}
-                      <div className="flex items-center gap-1.5 flex-wrap">
-                        <button
-                          type="button"
-                          onClick={() => {
-                            const topic = resolveActiveTopic();
-                            handleSend(
-                              `Grill me with a high-yield UPSC Mains question on "${topic}". Focus on conceptual depth, constitutional/statutory basis, and analytical judgements.`,
-                            );
-                          }}
-                          disabled={isLoading}
-                          className="flex items-center gap-1 text-[11px] font-medium text-slate-600 dark:text-slate-300 hover:text-indigo-600 dark:hover:text-indigo-400 bg-slate-100 dark:bg-slate-800 hover:bg-indigo-50 dark:hover:bg-indigo-950/60 px-2.5 py-1 rounded-md transition-colors cursor-pointer disabled:opacity-50"
-                        >
-                          <span>🔥</span>
-                          <span>Grill with Mains question</span>
-                        </button>
-                        <span className="text-slate-300 dark:text-slate-700">•</span>
-                        <button
-                          type="button"
-                          onClick={() => {
-                            const topic = resolveActiveTopic();
-                            handleSend(
-                              `Grill on Prelims for "${topic}": generate tricky statement-based MCQs testing elimination traps, subtle wording, and high-yield facts with exhaustive explanations.`,
-                            );
-                          }}
-                          disabled={isLoading}
-                          className="flex items-center gap-1 text-[11px] font-medium text-slate-600 dark:text-slate-300 hover:text-indigo-600 dark:hover:text-indigo-400 bg-slate-100 dark:bg-slate-800 hover:bg-indigo-50 dark:hover:bg-indigo-950/60 px-2.5 py-1 rounded-md transition-colors cursor-pointer disabled:opacity-50"
-                        >
-                          <span>🎯</span>
-                          <span>Grill on Prelims</span>
-                        </button>
-                        <span className="text-slate-300 dark:text-slate-700">•</span>
-                        <button
-                          type="button"
-                          onClick={() => {
-                            const topic = resolveActiveTopic();
-                            handleSend(
-                              `Model answer practice on "${topic}": provide an exam-calibrated model answer structure with punchy introduction, multi-dimensional body arguments, and forward-looking conclusion with committee references.`,
-                            );
-                          }}
-                          disabled={isLoading}
-                          className="flex items-center gap-1 text-[11px] font-medium text-slate-600 dark:text-slate-300 hover:text-indigo-600 dark:hover:text-indigo-400 bg-slate-100 dark:bg-slate-800 hover:bg-indigo-50 dark:hover:bg-indigo-950/60 px-2.5 py-1 rounded-md transition-colors cursor-pointer disabled:opacity-50"
-                        >
-                          <span>✍️</span>
-                          <span>Model answer practice</span>
-                        </button>
-                      </div>
                     </div>
                   </div>
                 )}
@@ -857,10 +913,10 @@ export function RevisionView() {
             <div className="p-4 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-xs space-y-1.5 max-w-md">
               <div className="flex items-center gap-2 text-xs font-semibold text-indigo-600 dark:text-indigo-400">
                 <span className="h-2 w-2 rounded-full bg-indigo-600 animate-ping" />
-                Synthesizing UPSC dossier...
+                Synthesizing response...
               </div>
               <p className="text-xs text-slate-500 dark:text-slate-400">
-                Grounding in Constitutional Articles, SC Judgements & PIB touchpoints.
+                Grounding in UPSC syllabus, judgements & formulas.
               </p>
             </div>
           </div>
@@ -869,7 +925,7 @@ export function RevisionView() {
         <div ref={messagesEndRef} />
       </div>
 
-      {/* 3. Bottom Chat Input Box (shrink-0) */}
+      {/* 3. Bottom Chat Input Box */}
       <div className="shrink-0 pt-2 pb-2 bg-slate-50 dark:bg-slate-950 border-t border-slate-200 dark:border-slate-800">
         <form
           onSubmit={(e) => {
@@ -896,8 +952,8 @@ export function RevisionView() {
                   : mode === "paper"
                     ? "Ask anything about this question paper..."
                     : selectedTopic
-                      ? `Ask anything on ${selectedTopic} (e.g. Articles, recent SC judgements, PIB updates)...`
-                      : "Ask any UPSC topic or doubt (e.g. Economic Planning in India, Basic Structure, Money Bill)..."
+                      ? `Ask anything on ${selectedTopic}...`
+                      : "Ask any UPSC topic or doubt (e.g. Permutations & Combinations, Fundamental Rights, Monetary Policy)..."
               }
               className="w-full resize-none px-3.5 py-2.5 text-xs sm:text-sm rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-900 dark:text-white placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 font-normal leading-relaxed shadow-xs"
             />
