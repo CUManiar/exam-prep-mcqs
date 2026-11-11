@@ -228,6 +228,13 @@ export function RevisionView() {
     setCurrentSessionId(newId);
     setMessages([]);
     setInputPrompt("");
+    setMode("general");
+    setSelectedTopic("");
+    setSelectedPaperId("");
+    setSelectedQuestionNo(null);
+    if (typeof window !== "undefined" && window.history?.replaceState) {
+      window.history.replaceState({}, "", window.location.pathname);
+    }
     if (textareaRef.current) {
       textareaRef.current.focus();
     }
@@ -237,9 +244,9 @@ export function RevisionView() {
   const handleSwitchSession = (session: StoredSession) => {
     setCurrentSessionId(session.id);
     setMessages(session.messages || []);
-    if (session.mode) setMode(session.mode);
-    if (session.selectedTopic) setSelectedTopic(session.selectedTopic);
-    if (session.selectedPaperId) setSelectedPaperId(session.selectedPaperId);
+    setMode(session.mode || "general");
+    setSelectedTopic(session.selectedTopic || "");
+    setSelectedPaperId(session.selectedPaperId || "");
     setSelectedQuestionNo(session.selectedQuestionNo || null);
   };
 
@@ -376,7 +383,7 @@ export function RevisionView() {
 
     return {
       mode: "open",
-      topic: selectedTopic.trim() || undefined,
+      topic: undefined,
     };
   }, [
     mode,
@@ -681,7 +688,10 @@ export function RevisionView() {
             <div className="flex items-center rounded-lg bg-slate-100 dark:bg-slate-800 p-0.5 text-xs font-semibold">
               <button
                 type="button"
-                onClick={() => setMode("general")}
+                onClick={() => {
+                  setMode("general");
+                  setSelectedTopic("");
+                }}
                 className={`px-3 py-1.5 rounded-md transition-all flex items-center gap-1.5 ${
                   mode === "general"
                     ? "bg-white dark:bg-slate-900 text-indigo-600 dark:text-indigo-400 shadow-2xs"
@@ -1038,7 +1048,7 @@ export function RevisionView() {
                     ? `Ask about Question #${activeQuestion.questionNo} (e.g. Why is (C) correct? What was the elimination trap?)...`
                     : mode === "paper"
                       ? "Ask anything about this question paper..."
-                      : selectedTopic
+                      : mode === "syllabus" && selectedTopic
                         ? `Ask anything on ${selectedTopic}...`
                         : "Ask any UPSC topic or doubt (e.g. Permutations & Combinations, Fundamental Rights, Monetary Policy)..."
                 }
@@ -1049,9 +1059,17 @@ export function RevisionView() {
             <div className="flex items-center justify-between gap-2 flex-wrap">
               <div className="text-[11px] text-slate-500 dark:text-slate-400 flex items-center gap-1.5">
                 <span>Press Enter to send, Shift+Enter for newline</span>
-                {activeContext.topic && (
-                  <span className="hidden sm:inline-block text-[11px] bg-slate-200/80 dark:bg-slate-800 px-2 py-0.5 rounded text-slate-700 dark:text-slate-300 font-medium">
-                    Topic: {activeContext.topic}
+                {mode === "syllabus" && selectedTopic && (
+                  <span className="hidden sm:inline-flex items-center gap-1.5 text-[11px] bg-indigo-50 dark:bg-indigo-950/60 border border-indigo-200 dark:border-indigo-800 px-2 py-0.5 rounded text-indigo-700 dark:text-indigo-300 font-medium">
+                    <span>Topic: {selectedTopic}</span>
+                    <button
+                      type="button"
+                      onClick={() => setSelectedTopic("")}
+                      className="p-0.5 hover:text-rose-600 rounded cursor-pointer"
+                      title="Clear syllabus topic"
+                    >
+                      <X className="h-3 w-3" />
+                    </button>
                   </span>
                 )}
               </div>
