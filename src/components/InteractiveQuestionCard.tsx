@@ -566,10 +566,22 @@ export function InteractiveQuestionCard({
                 <div className="rounded-lg bg-indigo-600 text-white p-1.5">
                   <Lightbulb className="h-4 w-4" />
                 </div>
-                <div>
-                  <h4 className="text-xs sm:text-sm font-bold text-slate-900">
-                    Official Solution & Conceptual Breakdown
-                  </h4>
+                <div className="flex-1">
+                  <div className="flex items-center justify-between gap-2 flex-wrap mb-1">
+                    <h4 className="text-xs sm:text-sm font-bold text-slate-900">
+                      Official Solution & Conceptual Breakdown
+                    </h4>
+                    <a
+                      href={`/revision?paperId=${encodeURIComponent(paper.id)}&q=${currentQuestion}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-indigo-50 border border-indigo-200 text-indigo-700 text-xs font-semibold hover:bg-indigo-100 transition-colors shadow-2xs"
+                      title="Discuss this question with AI Mentor"
+                    >
+                      <Sparkles className="h-3 w-3 text-indigo-600" />
+                      <span>Discuss with AI</span>
+                    </a>
+                  </div>
                   <span className="text-[11px] text-slate-500 font-mono">
                     {correctOpt ? (
                       <>

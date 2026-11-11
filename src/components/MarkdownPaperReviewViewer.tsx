@@ -17,6 +17,7 @@ import {
   HelpCircle,
   FileText,
   RotateCcw,
+  Sparkles,
 } from "lucide-react";
 import { HtmlExplanation } from "./HtmlExplanation";
 
@@ -486,9 +487,21 @@ export function MarkdownPaperReviewViewer({
                 {/* Explanation Box (Below Student Note, Improvised Typography) */}
                 {explanationText && (
                   <div className="mt-3 rounded-xl bg-slate-50 border border-slate-200/90 p-3.5 sm:p-4 space-y-2 shadow-2xs">
-                    <div className="flex items-center gap-2 text-xs font-bold text-slate-800 uppercase tracking-wider">
-                      <Lightbulb className="h-4 w-4 text-indigo-600" />
-                      <span>Solution & Explanation</span>
+                    <div className="flex items-center justify-between gap-2 text-xs font-bold text-slate-800 uppercase tracking-wider">
+                      <div className="flex items-center gap-2">
+                        <Lightbulb className="h-4 w-4 text-indigo-600" />
+                        <span>Solution & Explanation</span>
+                      </div>
+                      <a
+                        href={`/revision?paperId=${encodeURIComponent(paper.id)}&q=${q.questionNo}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md bg-white border border-indigo-200 text-indigo-700 hover:bg-indigo-50 text-[11px] font-semibold transition-colors shadow-2xs"
+                        title="Open question in AI Revision"
+                      >
+                        <Sparkles className="h-3 w-3 text-indigo-600" />
+                        <span>Discuss with AI</span>
+                      </a>
                     </div>
                     <HtmlExplanation
                       text={explanationText}

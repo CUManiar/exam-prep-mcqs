@@ -23,16 +23,27 @@ import {
 import { DEFAULT_PROD_URL } from "../../../lib/config";
 
 const promptExamples = [
+  "Provide a comprehensive revision dossier for Federal Structure including articles, case laws, and recent PIB news.",
   "Show my overall progress and the papers I have not attempted yet.",
   "What are my weakest topics in History across past tests?",
   "Inspect question 5 on my latest Mains attempt and provide grading feedback.",
   "What was my average score across my last 3 CSAT exams?",
   "Replace my custom syllabus with this Markdown tree: [paste your .md outline]",
   "Search my papers for questions about federalism.",
-  "Record 87 out of 200 for my Prelims GS1 mock.",
+  "Explain why option B was a trap on Question 14 of GS-1 2024 and save key takeaways to my notes.",
 ];
 
 const faqItems = [
+  {
+    question: "How does the AI Revision Tutor and 'Chat with Papers' work?",
+    answer:
+      "The portal includes a dedicated AI Revision screen (/revision) powered by your free Google Gemini Flash API key. You can also ask any connected MCP chatbot to call get_revision_context to retrieve constitutional articles, landmark Supreme Court rulings, recent PIB updates, and matching questions from your library. You can save revision notes directly using save_revision_note.",
+  },
+  {
+    question: "Is the AI revision assistant really 100% free with no hidden charges?",
+    answer:
+      "Yes. The built-in revision tutor uses a Bring-Your-Own-Key (BYOK) model directly in your browser. Google AI Studio provides a free tier for Gemini Flash with no credit card required. Your API key is stored locally in your browser and connects directly to Google, so neither you nor the platform incurs any server or API charges.",
+  },
   {
     question: "What does the AI connection let me do?",
     answer:

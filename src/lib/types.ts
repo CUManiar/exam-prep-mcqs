@@ -170,3 +170,63 @@ export interface SyllabusItem {
   createdAt: string;
   updatedAt: string;
 }
+
+export type RevisionProvider = "gemini" | "openai" | "anthropic" | "groq";
+
+export type RevisionContextMode = "topic" | "paper" | "open";
+
+export interface RevisionAttemptSummary {
+  score: number;
+  totalMarks: number;
+  correctCount: number;
+  incorrectCount: number;
+  unansweredCount: number;
+  accuracy: number;
+  completedAt?: string;
+  wrongQuestions?: Array<{
+    questionNo: number;
+    text: string;
+    studentSelected?: string;
+    correctAnswer?: string;
+  }>;
+}
+
+export interface RevisionContext {
+  mode: RevisionContextMode;
+  topic?: string;
+  subject?: string;
+  chapter?: string;
+  paperId?: string;
+  paperTitle?: string;
+  questionNo?: number;
+  question?: ParsedQuestion;
+  userAnswer?: QuestionAnswer;
+  attemptId?: string;
+  attemptSummary?: RevisionAttemptSummary;
+}
+
+export interface RevisionMessage {
+  id: string;
+  role: "user" | "assistant" | "system";
+  content: string;
+  timestamp: string;
+  contextSnapshot?: Partial<RevisionContext>;
+  isError?: boolean;
+}
+
+export interface RevisionSession {
+  id: string;
+  title: string;
+  context: RevisionContext;
+  messages: RevisionMessage[];
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface RevisionProviderConfig {
+  provider: RevisionProvider;
+  apiKey: string;
+  model?: string;
+  customEndpoint?: string;
+}
+

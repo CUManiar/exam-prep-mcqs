@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import type { ReactNode } from "react";
+import Link from "next/link";
 import {
   AlertTriangle,
   BookOpenCheck,
@@ -21,6 +22,7 @@ import {
   Printer,
   RotateCcw,
   Search,
+  Sparkles,
   Trash2,
   X,
 } from "lucide-react";
@@ -671,6 +673,14 @@ export function SyllabusView() {
                     )}
                     {dateStatusLabels[dateStatus]}
                   </span>
+                  <Link
+                    href={`/revision?topic=${encodeURIComponent(item.title)}`}
+                    className="inline-flex items-center gap-1 rounded-full border border-indigo-200 bg-indigo-50/70 dark:bg-indigo-950/40 dark:border-indigo-800 px-2.5 py-0.5 text-[10px] font-semibold text-indigo-700 dark:text-indigo-300 hover:bg-indigo-100 dark:hover:bg-indigo-900/60 hover:border-indigo-300 transition-colors shadow-2xs"
+                    title={`Revise ${item.title} with AI Mentor`}
+                  >
+                    <Sparkles className="h-2.5 w-2.5 text-indigo-600 dark:text-indigo-400" />
+                    <span>Revise AI</span>
+                  </Link>
                 </div>
               </div>
             </div>

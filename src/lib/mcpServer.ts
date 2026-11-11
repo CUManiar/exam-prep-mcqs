@@ -13,6 +13,8 @@ import { isSpecificSingleSubject } from "./markdownPaperParser";
 import {
   deleteMcpPaper,
   getTopicAnalytics,
+  getRevisionContextData,
+  saveTopicRevisionNote,
   getUserAttempts,
   getUserPaper,
   getUserPapers,
@@ -1609,6 +1611,105 @@ export function createPortalMcpServer(
           ? "Paper archived and hidden from library."
           : "Paper restored and visible in library.",
       });
+    },
+  );
+
+  server.registerTool(
+    "get_revision_context",
+    {
+      title: "Get UPSC revision context",
+      description:
+        "Retrieve unified exam revision context for a syllabus topic or specific question paper. Gathers syllabus status, student's historical accuracy on this topic, matching questions across papers, and target question dissection with student answers.",
+      annotations: { readOnlyHint: true },
+      inputSchema: {
+        topic: z
+          .string()
+          .optional()
+          .describe(
+            "UPSC syllabus topic or theme, e.g. 'Federal Structure', 'Fiscal Policy', '1857 Revolt'.",
+          ),
+        subject: z
+          .string()
+          .optional()
+          .describe("Optional subject, e.g. 'Polity', 'History', 'Economy'."),
+        paperId: z
+          .string()
+          .optional()
+          .describe("Specific paper ID to review or chat with."),
+        questionNo: z
+          .number()
+          .int()
+          .optional()
+          .describe("Specific question number inside the paper to dissect."),
+        maxRelatedQuestions: z
+          .number()
+          .int()
+          .optional()
+          .default(5)
+          .describe("Maximum related questions to fetch from library."),
+      },
+    },
+    async ({
+      topic,
+      subject,
+      paperId,
+      questionNo,
+      maxRelatedQuestions,
+    }) => {
+      const authError = scopeError(scope, MCP_READ_SCOPE);
+      if (authError) return authError;
+
+      const data = await getRevisionContextData(userId, {
+        topic,
+        subject,
+        paperId,
+        questionNo,
+        maxRelatedQuestions,
+      });
+
+      return textResult(data);
+    },
+  );
+
+  server.registerTool(
+    "save_revision_note",
+    {
+      title: "Save revision note or takeaway",
+      description:
+        "Save a high-yield revision takeaway, formula, or case law note directly to a syllabus topic or to a specific question attempt note.",
+      annotations: { readOnlyHint: false, destructiveHint: false },
+      inputSchema: {
+        note: z
+          .string()
+          .min(1)
+          .describe("The markdown revision note or takeaway to save."),
+        topic: z
+          .string()
+          .optional()
+          .describe("Syllabus topic to attach this revision note to."),
+        paperId: z
+          .string()
+          .optional()
+          .describe("Paper ID if attaching to an attempt question."),
+        questionNo: z
+          .number()
+          .int()
+          .optional()
+          .describe("Question number if attaching to an attempt question."),
+      },
+    },
+    async ({ note, topic, paperId, questionNo }) => {
+      const authError = scopeError(scope, MCP_WRITE_SCOPE);
+      if (authError) return authError;
+
+      const res = await saveTopicRevisionNote(userId, {
+        note,
+        topic,
+        paperId,
+        questionNo,
+      });
+
+      return textResult(res);
     },
   );
 

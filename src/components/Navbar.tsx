@@ -6,6 +6,7 @@ import { usePathname } from "next/navigation";
 import {
   BarChart3,
   BookOpen,
+  GraduationCap,
   LayoutDashboard,
   ListChecks,
   LogIn,
@@ -41,6 +42,12 @@ const navigation = [
     label: "Syllabus",
     mobileLabel: "Syllabus",
     icon: ListChecks,
+  },
+  {
+    href: "/revision",
+    label: "Revision",
+    mobileLabel: "Revision",
+    icon: GraduationCap,
   },
   {
     href: "/help/mcp",
@@ -85,7 +92,7 @@ export function Navbar() {
                 (href === "/"
                   ? pathname === "/"
                   : pathname === href || pathname.startsWith(`${href}/`));
-              if (!currentUser && href !== "/" && href !== "/help/mcp") {
+              if (!currentUser && href !== "/" && href !== "/help/mcp" && href !== "/revision") {
                 return (
                   <button
                     key={href}
@@ -181,7 +188,7 @@ export function Navbar() {
             (href === "/"
               ? pathname === "/"
               : pathname === href || pathname.startsWith(`${href}/`));
-          if (!currentUser && href !== "/" && href !== "/help/mcp") {
+          if (!currentUser && href !== "/" && href !== "/help/mcp" && href !== "/revision") {
             return (
               <button
                 type="button"
