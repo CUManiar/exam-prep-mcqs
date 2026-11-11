@@ -143,12 +143,47 @@ export const PRESET_ACTIONS: PresetAction[] = [
   },
 ];
 
+const STORAGE_VAULT_SALT = "upsc_candidate_priv_vault_v1";
+
+/** Obfuscates API key and provider configuration so it is not stored as plain text */
+function obfuscateConfig(config: RevisionProviderConfig): string {
+  try {
+    const raw = JSON.stringify(config);
+    let str = "";
+    for (let i = 0; i < raw.length; i++) {
+      str += String.fromCharCode(raw.charCodeAt(i) ^ STORAGE_VAULT_SALT.charCodeAt(i % STORAGE_VAULT_SALT.length));
+    }
+    return "sec_v1:" + btoa(encodeURIComponent(str));
+  } catch {
+    return btoa(JSON.stringify(config));
+  }
+}
+
+/** Decodes obfuscated configuration from local storage */
+function deobfuscateConfig(data: string): RevisionProviderConfig | null {
+  try {
+    if (data.startsWith("sec_v1:")) {
+      const b64 = data.slice(7);
+      const str = decodeURIComponent(atob(b64));
+      let raw = "";
+      for (let i = 0; i < str.length; i++) {
+        raw += String.fromCharCode(str.charCodeAt(i) ^ STORAGE_VAULT_SALT.charCodeAt(i % STORAGE_VAULT_SALT.length));
+      }
+      return JSON.parse(raw);
+    }
+    // Backward compatibility for previously saved unencoded JSON
+    return JSON.parse(data);
+  } catch {
+    return null;
+  }
+}
+
 export function getRevisionConfig(): RevisionProviderConfig | null {
   if (typeof window === "undefined") return null;
   try {
     const raw = localStorage.getItem(REVISION_CONFIG_KEY);
     if (!raw) return null;
-    return JSON.parse(raw);
+    return deobfuscateConfig(raw);
   } catch {
     return null;
   }
@@ -156,7 +191,12 @@ export function getRevisionConfig(): RevisionProviderConfig | null {
 
 export function saveRevisionConfig(config: RevisionProviderConfig): void {
   if (typeof window === "undefined") return;
-  localStorage.setItem(REVISION_CONFIG_KEY, JSON.stringify(config));
+  try {
+    const secured = obfuscateConfig(config);
+    localStorage.setItem(REVISION_CONFIG_KEY, secured);
+  } catch (e) {
+    console.warn("Failed to securely store revision config:", e);
+  }
 }
 
 export function clearRevisionConfig(): void {
@@ -177,7 +217,8 @@ YOUR MANDATE:
 7. If revising an exam paper or question, dissect the options, identify the elimination trap, and reference the student's performance data.
 8. Formatting: Use clean Markdown with headers, bold key terms, comparison tables, and Mermaid flowcharts (\`\`\`mermaid ... \`\`\`) where conceptual visualization aids memory.
 9. Include high-yield Prelims Traps (> [!WARNING] **Prelims Trap**: ...) and Mains Value-Add points (> [!TIP] **Mains Value-Add**: ...) tailored specifically to the topic discussed.
-10. Maintain an encouraging, precise, and high-yield pedagogical tone. Do not write generic filler.`;
+10. If revising CSAT (Paper II) Quantitative Aptitude, Logical Reasoning, or Math: Format all formulas with standard LaTeX notation ($...$ for inline, $$...$$ for block equations). Use authentic notation like $^nP_r = \\frac{n!}{(n-r)!}$, $^nC_r = \\frac{n!}{r!(n-r)!}$, and $\\times$ for multiplication. Always provide quick-solve shortcut methods, elimination tips, and step-by-step worked examples.
+11. Maintain an encouraging, precise, and high-yield pedagogical tone. Do not write generic filler.`;
 
   if (context) {
     prompt += `\n\n--- ACTIVE REVISION CONTEXT ---`;
@@ -300,15 +341,15 @@ export function cleanMarkdownContent(raw: string): string {
   if (text.includes("\\r")) {
     text = text.replace(/\\r/g, "\n");
   }
-  if (text.includes("\\t")) {
-    text = text.replace(/\\t/g, "  ");
-  }
+
+  // CRITICAL: DO NOT replace \t if followed by a letter (\times, \theta, \tau, \text, \to, \tan, etc.)
+  // Only replace \t followed by whitespace or at line ends
+  text = text.replace(/\\t(?=[\s\t,;.)\]}]|$)/g, "  ");
+
+  // Fix escaped quotes
   if (text.includes('\\"')) {
     text = text.replace(/\\"/g, '"');
   }
-
-  // Fix escaped markdown hashes like \# into #
-  text = text.replace(/\\#/g, "#");
 
   // Ensure markdown headings have a space after '#' (e.g. "###Heading" -> "### Heading")
   text = text.replace(/^(#{1,4})([^\s#])/gm, "$1 $2");

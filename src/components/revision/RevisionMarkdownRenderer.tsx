@@ -344,7 +344,20 @@ function MermaidDiagram({ code }: { code: string }) {
 }
 
 import { cleanMarkdownContent } from "../../lib/revisionAi";
+import katex from "katex";
+import "katex/dist/katex.min.css";
 export { cleanMarkdownContent };
+
+function renderKatexHtml(math: string, displayMode: boolean): string {
+  try {
+    return katex.renderToString(math.trim(), {
+      displayMode,
+      throwOnError: false,
+    });
+  } catch {
+    return math;
+  }
+}
 
 /**
  * Custom High-Performance Markdown Section Parser.
@@ -359,7 +372,7 @@ export function RevisionMarkdownRenderer({
     const sanitized = cleanMarkdownContent(content);
     const lines = sanitized.split("\n");
     const result: Array<{
-      type: "p" | "h1" | "h2" | "h3" | "h4" | "hr" | "ul" | "ol" | "table" | "mermaid" | "code" | "alert";
+      type: "p" | "h1" | "h2" | "h3" | "h4" | "hr" | "ul" | "ol" | "table" | "mermaid" | "code" | "alert" | "math";
       text?: string;
       items?: string[];
       tableData?: { headers: string[]; rows: string[][] };
@@ -376,6 +389,30 @@ export function RevisionMarkdownRenderer({
       if (trimmed === "---" || trimmed === "***" || trimmed === "___") {
         result.push({ type: "hr" });
         index++;
+        continue;
+      }
+
+      // 0. Standalone Math Block ($$ ... $$)
+      if (trimmed.startsWith("$$")) {
+        const mathLines: string[] = [];
+        if (trimmed.length > 2 && trimmed.endsWith("$$") && trimmed !== "$$") {
+          result.push({
+            type: "math",
+            text: trimmed.slice(2, -2).trim(),
+          });
+          index++;
+          continue;
+        }
+        index++;
+        while (index < lines.length && !lines[index].trim().startsWith("$$")) {
+          mathLines.push(lines[index]);
+          index++;
+        }
+        index++;
+        result.push({
+          type: "math",
+          text: mathLines.join("\n"),
+        });
         continue;
       }
 
@@ -511,12 +548,13 @@ export function RevisionMarkdownRenderer({
     return result;
   }, [content]);
 
-  // Inline formatter helper (bold, italic, code)
+  // Inline formatter helper (math, bold, italic, code, line breaks)
   const renderInline = (rawText: string) => {
     // Strip accidental leading # or ### in inline text
     const text = rawText.replace(/^#{1,4}\s+/, "");
     const parts: React.ReactNode[] = [];
-    const regex = /(\*\*[^*]+\*\*|`[^`]+`|\*[^*]+\*)/g;
+    // Tokenizer matching display math, inline math, bold, code, italic, and HTML linebreaks
+    const regex = /(\$\$[\s\S]+?\$\$|\\\[[\s\S]+?\\\]|\$[^\$\n]+?\$|\\\([\s\S]+?\\\)|\*\*[^*]+\*\*|`[^`]+`|\*[^*]+\*|<br\s*\/?>)/gi;
     let lastIndex = 0;
     let match;
 
@@ -525,13 +563,61 @@ export function RevisionMarkdownRenderer({
         parts.push(text.substring(lastIndex, match.index));
       }
       const token = match[0];
-      if (token.startsWith("**") && token.endsWith("**")) {
+
+      // 1. Display Math ($$ ... $$ or \[ ... \])
+      if (token.startsWith("$$") && token.endsWith("$$")) {
+        const math = token.slice(2, -2);
+        const html = renderKatexHtml(math, true);
+        parts.push(
+          <span
+            key={`dm_${match.index}`}
+            className="my-1.5 block text-center overflow-x-auto"
+            dangerouslySetInnerHTML={{ __html: html }}
+          />
+        );
+      } else if (token.startsWith("\\[") && token.endsWith("\\]")) {
+        const math = token.slice(2, -2);
+        const html = renderKatexHtml(math, true);
+        parts.push(
+          <span
+            key={`dm2_${match.index}`}
+            className="my-1.5 block text-center overflow-x-auto"
+            dangerouslySetInnerHTML={{ __html: html }}
+          />
+        );
+      }
+      // 2. Inline Math ($ ... $ or \( ... \))
+      else if (token.startsWith("$") && token.endsWith("$")) {
+        const math = token.slice(1, -1);
+        const html = renderKatexHtml(math, false);
+        parts.push(
+          <span
+            key={`im_${match.index}`}
+            className="inline-block px-0.5 align-baseline text-indigo-950 dark:text-indigo-200"
+            dangerouslySetInnerHTML={{ __html: html }}
+          />
+        );
+      } else if (token.startsWith("\\(") && token.endsWith("\\)")) {
+        const math = token.slice(2, -2);
+        const html = renderKatexHtml(math, false);
+        parts.push(
+          <span
+            key={`im2_${match.index}`}
+            className="inline-block px-0.5 align-baseline text-indigo-950 dark:text-indigo-200"
+            dangerouslySetInnerHTML={{ __html: html }}
+          />
+        );
+      }
+      // 3. Bold (** ... **)
+      else if (token.startsWith("**") && token.endsWith("**")) {
         parts.push(
           <strong key={match.index} className="font-semibold text-slate-900 dark:text-white">
             {token.slice(2, -2)}
           </strong>
         );
-      } else if (token.startsWith("`") && token.endsWith("`")) {
+      }
+      // 4. Code (` ... `)
+      else if (token.startsWith("`") && token.endsWith("`")) {
         parts.push(
           <code
             key={match.index}
@@ -540,13 +626,20 @@ export function RevisionMarkdownRenderer({
             {token.slice(1, -1)}
           </code>
         );
-      } else if (token.startsWith("*") && token.endsWith("*")) {
+      }
+      // 5. Italic (* ... *)
+      else if (token.startsWith("*") && token.endsWith("*")) {
         parts.push(
           <em key={match.index} className="italic">
             {token.slice(1, -1)}
           </em>
         );
       }
+      // 6. Linebreak (<br> / <br/>)
+      else if (token.toLowerCase().startsWith("<br")) {
+        parts.push(<br key={`br_${match.index}`} />);
+      }
+
       lastIndex = regex.lastIndex;
     }
 
@@ -615,6 +708,16 @@ export function RevisionMarkdownRenderer({
             <AlertBox key={idx} type={block.alertType || "NOTE"}>
               {renderInline(block.text || "")}
             </AlertBox>
+          );
+        }
+        if (block.type === "math" && block.text) {
+          const html = renderKatexHtml(block.text, true);
+          return (
+            <div
+              key={idx}
+              className="my-3 overflow-x-auto py-2 text-center"
+              dangerouslySetInnerHTML={{ __html: html }}
+            />
           );
         }
         if (block.type === "mermaid" && block.codeData) {

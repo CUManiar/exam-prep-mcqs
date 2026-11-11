@@ -311,12 +311,6 @@ export function RevisionView() {
       const res = await sendRevisionQuery(nextMessages, activeContext, config);
       const reply = typeof res === "string" ? res : res.text;
 
-      if (typeof res !== "string" && res.clearInvalidKey) {
-        clearRevisionConfig();
-        setConfig(null);
-        setToastMsg(res.keyNotice || "Stored API key was invalid. Automatically switched to Free AI.");
-      }
-
       const assistantMessage: RevisionMessage = {
         id: `msg_a_${Date.now()}`,
         role: "assistant",
