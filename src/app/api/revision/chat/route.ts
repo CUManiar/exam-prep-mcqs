@@ -1,15 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import {
-  DEFAULT_GEMINI_MODEL,
   getUpscRevisionSystemPrompt,
   cleanMarkdownContent,
 } from "../../../../lib/revisionAi";
 import { RevisionContext, RevisionMessage, RevisionProviderConfig } from "../../../../lib/types";
-import {
-  generateComprehensiveUpscDossier,
-  generatePaperPerformanceReport,
-  generateQuestionDissection,
-} from "../../../../lib/revisionDossiers";
+import { generatePaperPerformanceReport } from "../../../../lib/revisionDossiers";
 
 export const runtime = "nodejs";
 
@@ -37,7 +32,7 @@ export async function POST(req: NextRequest) {
     let clearInvalidKey = false;
     let keyNotice: string | undefined = undefined;
 
-    // SPECIALIZED ROUTING 1: Student Attempt / Score Query in Paper Mode
+    // SPECIALIZED ROUTING: Factual Attempt / Score Calculation in Paper Mode
     const isScoreInquiry =
       context.mode === "paper" &&
       /\b(score|marks|result|how did i do|how much score|my performance|wrong questions|mistakes|accuracy|how many correct)\b/i.test(
@@ -53,29 +48,13 @@ export async function POST(req: NextRequest) {
       });
     }
 
-    // SPECIALIZED ROUTING 2: Focused Question Dissection
-    const isQuestionDissectionInquiry =
-      Boolean(context.question) &&
-      (/\b(dissect|explain|options?|why|breakdown|statement|analysis)\b/i.test(latestUserMsg) ||
-        latestUserMsg.toLowerCase().includes(`q#${context.questionNo}`) ||
-        latestUserMsg.toLowerCase().includes(`question ${context.questionNo}`));
-
-    if (isQuestionDissectionInquiry && context.question) {
-      const questionText = generateQuestionDissection(context);
-      return NextResponse.json({
-        text: cleanMarkdownContent(questionText),
-        clearInvalidKey,
-        keyNotice,
-      });
-    }
-
     const systemPrompt = getUpscRevisionSystemPrompt(context);
 
     // 1. Check for User or Server API Key
     const userApiKey = providerConfig?.apiKey?.trim();
     const serverGeminiKey = process.env.GEMINI_API_KEY?.trim();
 
-    // BRANCH 1: Custom Groq Key
+    // BRANCH 1: Custom Groq Key (Ultra-fast, Llama 3.3 70B)
     if (userApiKey && providerConfig?.provider === "groq") {
       const groqModels = ["llama-3.3-70b-versatile", "llama-3.1-8b-instant"];
       for (const model of groqModels) {
@@ -98,7 +77,7 @@ export async function POST(req: NextRequest) {
               temperature: 0.35,
               max_tokens: 3500,
             }),
-            signal: AbortSignal.timeout(18000),
+            signal: AbortSignal.timeout(25000),
           });
 
           if (groqRes.ok) {
@@ -112,8 +91,8 @@ export async function POST(req: NextRequest) {
             keyNotice = "Saved Groq API key was invalid. Automatically switched to Free AI.";
             break;
           }
-        } catch (e) {
-          console.warn(`Groq query with model ${model} failed:`, e);
+        } catch (e: any) {
+          console.warn(`Groq query with model ${model} failed:`, e?.message);
         }
       }
     }
@@ -121,7 +100,13 @@ export async function POST(req: NextRequest) {
     // BRANCH 2: Google Gemini Key (User Key or Server Key)
     const geminiKey = userApiKey || serverGeminiKey;
     if (geminiKey) {
-      const candidateModels = ["gemini-2.0-flash", "gemini-1.5-flash", "gemini-1.5-pro"];
+      const candidateModels = [
+        "gemini-2.0-flash",
+        "gemini-2.0-flash-lite-preview",
+        "gemini-1.5-flash",
+        "gemini-1.5-flash-8b",
+        "gemini-1.5-pro",
+      ];
 
       const contents = messages
         .filter((m) => m.role !== "system")
@@ -144,7 +129,7 @@ export async function POST(req: NextRequest) {
                 maxOutputTokens: 3500,
               },
             }),
-            signal: AbortSignal.timeout(18000),
+            signal: AbortSignal.timeout(25000),
           });
 
           if (geminiRes.ok) {
@@ -159,7 +144,6 @@ export async function POST(req: NextRequest) {
           } else {
             const errData = await geminiRes.json().catch(() => ({}));
             const errMsg = errData.error?.message || "";
-            // Only flag key as invalid if genuinely an API key error
             if (
               (geminiRes.status === 400 &&
                 (errMsg.toLowerCase().includes("api key not valid") ||
@@ -170,7 +154,7 @@ export async function POST(req: NextRequest) {
               clearInvalidKey = true;
               keyNotice = "Saved Google AI Studio API key was invalid. Automatically switched to Free AI.";
               console.warn("Invalid Gemini key detected, purging key and falling to Free AI:", errMsg);
-              break; // Don't keep hammering Gemini with an invalid key
+              break;
             }
           }
         } catch (e: any) {
@@ -179,7 +163,7 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    // BRANCH 3: Built-in Free Live AI Service (Multi-Turn and Fast Endpoint)
+    // BRANCH 3: Built-in Free Live AI Service (Multi-Turn Conversational Memory)
     const formattedMessages = [
       { role: "system", content: systemPrompt },
       ...messages.map((m) => ({
@@ -188,74 +172,63 @@ export async function POST(req: NextRequest) {
       })),
     ];
 
-    // Try primary multi-turn endpoint
     try {
       const polRes = await fetch("https://text.pollinations.ai/", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           messages: formattedMessages,
-          model: "openai",
+          model: "openai-fast",
           temperature: 0.35,
         }),
-        signal: AbortSignal.timeout(14000),
+        signal: AbortSignal.timeout(45000),
       });
 
-      if (polRes.ok) {
-        const raw = await polRes.text();
-        if (raw && raw.trim() && !raw.startsWith("<!DOCTYPE") && raw.length > 50) {
-          return NextResponse.json({
-            text: cleanMarkdownContent(raw),
-            clearInvalidKey,
-            keyNotice,
-          });
-        }
+      const raw = await polRes.text();
+
+      // Check for free tier rate-limit (45 seconds per IP cooldown)
+      if (
+        polRes.status === 402 ||
+        raw.includes("Free limit reached") ||
+        raw.includes("1 reply every 45 seconds")
+      ) {
+        return NextResponse.json({
+          text: cleanMarkdownContent(
+            `> ⏳ **Free AI Cooldown Active**\n>\n> The shared free AI tier allows **1 reply every 45 seconds per IP** to prevent server overload.\n>\n> **How to continue**:\n> - Please wait ~30 seconds and click **Retry** below.\n> - Or connect a free **Google Gemini or Groq API key** in **AI Settings** for instantaneous, zero-delay responses (100% free with zero billing).`,
+          ),
+          clearInvalidKey,
+          keyNotice,
+        });
       }
-    } catch {}
 
-    // Try secondary direct query endpoint with student's exact prompt
-    try {
-      const directQuery = `UPSC Mentor guidance: "${latestUserMsg}". Provide a structured, accurate, and syllabus-calibrated answer.`;
-      const simpleUrl = `https://text.pollinations.ai/${encodeURIComponent(directQuery)}?model=openai`;
-      const simpleRes = await fetch(simpleUrl, {
-        signal: AbortSignal.timeout(12000),
-      });
-
-      if (simpleRes.ok) {
-        const raw = await simpleRes.text();
-        if (raw && raw.trim() && !raw.startsWith("<!DOCTYPE") && raw.length > 50) {
-          return NextResponse.json({
-            text: cleanMarkdownContent(raw),
-            clearInvalidKey,
-            keyNotice,
-          });
-        }
+      if (polRes.ok && raw && raw.trim() && !raw.startsWith("<!DOCTYPE") && raw.length > 20) {
+        return NextResponse.json({
+          text: cleanMarkdownContent(raw),
+          clearInvalidKey,
+          keyNotice,
+        });
       }
-    } catch {}
+    } catch (pollinationErr: any) {
+      console.warn("Free AI service request failed:", pollinationErr?.message);
+    }
 
-    // BRANCH 4: Instant Guaranteed UPSC Syllabus Knowledge Synthesis
-    // Ensures zero 2-minute delays, zero 400 errors, zero downtime for student
-    const failSafeText = generateComprehensiveUpscDossier(context, latestUserMsg);
-    return NextResponse.json({
-      text: cleanMarkdownContent(failSafeText),
-      clearInvalidKey,
-      keyNotice,
-    });
+    // If Free AI failed or timed out, inform the student honestly with a retry action
+    return NextResponse.json(
+      {
+        error:
+          "The AI revision service timed out or is temporarily overloaded. Please wait a few seconds and click Retry, or add a free Google Gemini / Groq key in AI Settings for instantaneous replies.",
+      },
+      { status: 503 },
+    );
   } catch (err: any) {
     console.error("Revision chat error:", err);
-    try {
-      const fallbackText = generateComprehensiveUpscDossier({ mode: "open" }, "UPSC Civil Services Revision");
-      return NextResponse.json({
-        text: cleanMarkdownContent(fallbackText),
-        clearInvalidKey: true,
-      });
-    } catch {
-      return NextResponse.json(
-        {
-          error: err.message || "Unable to complete revision query. Please try again.",
-        },
-        { status: 500 },
-      );
-    }
+    return NextResponse.json(
+      {
+        error:
+          err.message ||
+          "Unable to complete revision query. Please check your network connection or try again.",
+      },
+      { status: 500 },
+    );
   }
 }
