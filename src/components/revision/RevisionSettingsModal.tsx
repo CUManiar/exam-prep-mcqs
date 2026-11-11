@@ -32,7 +32,7 @@ interface RevisionSettingsModalProps {
   onClear: () => void;
 }
 
-const ALL_PROVIDERS: RevisionProvider[] = ["gemini", "openai", "anthropic", "groq"];
+const ALL_PROVIDERS: RevisionProvider[] = ["gemini", "groq", "openai", "anthropic"];
 
 export function RevisionSettingsModal({
   isOpen,

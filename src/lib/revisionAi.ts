@@ -22,15 +22,23 @@ export const PROVIDER_INFO: Record<string, {
 }> = {
   gemini: {
     label: "Google Gemini",
-    description: "Free tier, excellent for UPSC syllabus, case laws & flowcharts.",
+    description: "Free tier available. High-yield syllabus analysis & case laws.",
     icon: "✦",
     keyPlaceholder: "Paste AIzaSy... here",
     keyGetUrl: "https://aistudio.google.com/app/apikey",
     keyGetLabel: "Google AI Studio",
   },
+  groq: {
+    label: "Groq Cloud",
+    description: "Free tier available. Blazing fast inference (300+ tok/s).",
+    icon: "⚡",
+    keyPlaceholder: "Paste gsk_... here",
+    keyGetUrl: "https://console.groq.com/keys",
+    keyGetLabel: "Groq Console",
+  },
   openai: {
     label: "OpenAI (ChatGPT)",
-    description: "GPT-4o-mini, strong reasoning & analysis.",
+    description: "Deep reasoning & multi-dimensional conceptual analysis.",
     icon: "◎",
     keyPlaceholder: "Paste sk-... here",
     keyGetUrl: "https://platform.openai.com/api-keys",
@@ -38,19 +46,11 @@ export const PROVIDER_INFO: Record<string, {
   },
   anthropic: {
     label: "Anthropic (Claude)",
-    description: "Claude 3 Haiku, nuanced long-form answers.",
+    description: "Nuanced, articulate long-form UPSC answer frameworks.",
     icon: "◈",
     keyPlaceholder: "Paste sk-ant-... here",
     keyGetUrl: "https://console.anthropic.com/settings/keys",
     keyGetLabel: "Anthropic Console",
-  },
-  groq: {
-    label: "Groq",
-    description: "Llama 3.3 70B, blazing fast (300+ tok/s). Free tier available.",
-    icon: "⚡",
-    keyPlaceholder: "Paste gsk_... here",
-    keyGetUrl: "https://console.groq.com/keys",
-    keyGetLabel: "Groq Console",
   },
 };
 

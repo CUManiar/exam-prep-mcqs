@@ -8,7 +8,146 @@ import { generatePaperPerformanceReport } from "../../../../lib/revisionDossiers
 
 export const runtime = "nodejs";
 
-/** OpenAI-compatible chat completions (OpenAI, Groq) */
+/** Dynamically discover active models from a Groq key */
+async function discoverGroqModels(apiKey: string): Promise<string[]> {
+  try {
+    const res = await fetch("https://api.groq.com/openai/v1/models", {
+      headers: { Authorization: `Bearer ${apiKey}` },
+      signal: AbortSignal.timeout(10000),
+    });
+    if (res.ok) {
+      const data = await res.json();
+      const models: string[] = (data.data || [])
+        .filter((m: any) => m.active !== false)
+        .map((m: any) => m.id as string)
+        .filter(
+          (id: string) =>
+            !id.includes("whisper") &&
+            !id.includes("guard") &&
+            !id.includes("embed") &&
+            !id.includes("tool"),
+        );
+
+      models.sort((a, b) => {
+        const score = (id: string) => {
+          let s = 0;
+          if (id.includes("70b")) s += 10;
+          if (id.includes("versatile")) s += 5;
+          if (id.includes("llama")) s += 3;
+          if (id.includes("8b")) s += 1;
+          return s;
+        };
+        return score(b) - score(a);
+      });
+
+      if (models.length > 0) return models;
+    }
+  } catch (e: any) {
+    console.warn("Groq model discovery failed:", e?.message);
+  }
+  return ["llama-3.3-70b-versatile"];
+}
+
+/** Dynamically discover active models from an OpenAI key */
+async function discoverOpenAIModels(apiKey: string): Promise<string[]> {
+  try {
+    const res = await fetch("https://api.openai.com/v1/models", {
+      headers: { Authorization: `Bearer ${apiKey}` },
+      signal: AbortSignal.timeout(10000),
+    });
+    if (res.ok) {
+      const data = await res.json();
+      const models: string[] = (data.data || [])
+        .map((m: any) => m.id as string)
+        .filter(
+          (id: string) =>
+            (id.startsWith("gpt-") || id.startsWith("o1") || id.startsWith("o3")) &&
+            !id.includes("instruct") &&
+            !id.includes("realtime") &&
+            !id.includes("audio"),
+        );
+
+      models.sort((a, b) => {
+        const score = (id: string) => {
+          if (id === "gpt-4o-mini") return 100;
+          if (id === "gpt-4o") return 90;
+          if (id.includes("4o-mini")) return 80;
+          if (id.includes("4o")) return 70;
+          return 10;
+        };
+        return score(b) - score(a);
+      });
+
+      if (models.length > 0) return models;
+    }
+  } catch (e: any) {
+    console.warn("OpenAI model discovery failed:", e?.message);
+  }
+  return ["gpt-4o-mini", "gpt-4o"];
+}
+
+/** Dynamically discover active models from an Anthropic key */
+async function discoverAnthropicModels(apiKey: string): Promise<string[]> {
+  try {
+    const res = await fetch("https://api.anthropic.com/v1/models", {
+      headers: {
+        "x-api-key": apiKey,
+        "anthropic-version": "2023-06-01",
+      },
+      signal: AbortSignal.timeout(10000),
+    });
+    if (res.ok) {
+      const data = await res.json();
+      const models: string[] = (data.data || []).map((m: any) => m.id as string);
+      models.sort((a, b) => {
+        const score = (id: string) => {
+          if (id.includes("haiku")) return 20;
+          if (id.includes("sonnet")) return 10;
+          return 5;
+        };
+        return score(b) - score(a);
+      });
+      if (models.length > 0) return models;
+    }
+  } catch (e: any) {
+    console.warn("Anthropic model discovery failed:", e?.message);
+  }
+  return ["claude-3-5-haiku-latest", "claude-3-haiku-20240307", "claude-3-5-sonnet-latest"];
+}
+
+/** Dynamically discover active models from a Gemini key */
+async function discoverGeminiModels(apiKey: string): Promise<string[]> {
+  try {
+    const listRes = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models?key=${apiKey}`,
+      { signal: AbortSignal.timeout(10000) },
+    );
+    if (listRes.ok) {
+      const data = await listRes.json();
+      const models = (data.models || [])
+        .filter((m: any) => m.supportedGenerationMethods?.includes("generateContent"))
+        .map((m: any) => m.name.replace(/^models\//, "") as string);
+
+      models.sort((a, b) => {
+        const score = (id: string) => {
+          let s = 0;
+          if (id.includes("2.0-flash")) s += 20;
+          if (id.includes("1.5-flash")) s += 10;
+          if (id.includes("flash")) s += 5;
+          return s;
+        };
+        return score(b) - score(a);
+      });
+
+      if (models.length > 0) return models;
+    }
+  } catch (e: any) {
+    console.warn("Gemini model discovery failed:", e?.message);
+  }
+  return ["gemini-2.0-flash", "gemini-1.5-flash", "gemini-1.5-pro"];
+}
+
+/** Generic chat execution on OpenAI-compatible providers using discovered models */
 async function callOpenAICompatible(
   baseUrl: string,
   apiKey: string,
@@ -26,7 +165,7 @@ async function callOpenAICompatible(
 
   let lastError = "";
 
-  for (const model of models) {
+  for (const model of models.slice(0, 3)) {
     try {
       const res = await fetch(`${baseUrl}/chat/completions`, {
         method: "POST",
@@ -64,7 +203,7 @@ async function callOpenAICompatible(
   return { error: lastError || "Failed to reach AI service." };
 }
 
-/** Anthropic Messages API call */
+/** Anthropic chat execution using discovered models */
 async function callAnthropic(
   apiKey: string,
   models: string[],
@@ -78,7 +217,7 @@ async function callAnthropic(
 
   let lastError = "";
 
-  for (const model of models) {
+  for (const model of models.slice(0, 3)) {
     try {
       const res = await fetch("https://api.anthropic.com/v1/messages", {
         method: "POST",
@@ -118,48 +257,13 @@ async function callAnthropic(
   return { error: lastError || "Failed to reach Anthropic Claude API." };
 }
 
-/** Gemini REST API call with dynamic model discovery */
+/** Gemini chat execution using discovered models */
 async function callGemini(
   apiKey: string,
   systemPrompt: string,
   messages: RevisionMessage[],
 ): Promise<{ text?: string; error?: string }> {
-  // 1. Fetch available models for this specific API key to avoid hardcoding obsolete models
-  let availableModels: string[] = [];
-  try {
-    const listRes = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models?key=${apiKey}`,
-      { signal: AbortSignal.timeout(10000) },
-    );
-    if (listRes.ok) {
-      const data = await listRes.json();
-      availableModels = (data.models || [])
-        .filter((m: any) => m.supportedGenerationMethods?.includes("generateContent"))
-        .map((m: any) => m.name.replace(/^models\//, ""));
-    } else {
-      const errData = await listRes.json().catch(() => ({}));
-      const errMsg = errData.error?.message;
-      if (listRes.status === 400 && errMsg?.toLowerCase().includes("api key not valid")) {
-        return { error: "Google Gemini API key is not valid. Please verify your key in Google AI Studio." };
-      }
-    }
-  } catch (e) {
-    // If model listing fails, fall through to default candidates
-  }
-
-  // Prioritize active flash models from Google's list
-  const candidateModels: string[] = [];
-  if (availableModels.length > 0) {
-    const flash20 = availableModels.find((m) => m === "gemini-2.0-flash" || m.includes("2.0-flash"));
-    if (flash20) candidateModels.push(flash20);
-    const flash15 = availableModels.find((m) => m.includes("1.5-flash") && !m.includes("8b"));
-    if (flash15 && !candidateModels.includes(flash15)) candidateModels.push(flash15);
-    for (const m of availableModels) {
-      if (!candidateModels.includes(m)) candidateModels.push(m);
-    }
-  } else {
-    candidateModels.push("gemini-2.0-flash", "gemini-1.5-flash", "gemini-1.5-pro");
-  }
+  const candidateModels = await discoverGeminiModels(apiKey);
 
   const contents = messages
     .filter((m) => m.role !== "system")
@@ -170,12 +274,11 @@ async function callGemini(
 
   let lastError = "";
 
-  for (const model of candidateModels.slice(0, 4)) {
+  for (const model of candidateModels.slice(0, 3)) {
     try {
       const cleanModel = model.replace(/^models\//, "");
       const url = `https://generativelanguage.googleapis.com/v1beta/models/${cleanModel}:generateContent?key=${apiKey}`;
 
-      // Attempt with systemInstruction
       let res = await fetch(url, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -190,7 +293,6 @@ async function callGemini(
         signal: AbortSignal.timeout(30000),
       });
 
-      // If systemInstruction is rejected, retry without it (compatible with all versions)
       if (res.status === 400) {
         const errJson = await res.json().catch(() => ({}));
         const errMsg = errJson.error?.message || "";
@@ -298,34 +400,40 @@ export async function POST(req: NextRequest) {
           result = await callGemini(userApiKey, systemPrompt, messages);
           break;
 
-        case "openai":
-          result = await callOpenAICompatible(
-            "https://api.openai.com/v1",
-            userApiKey,
-            ["gpt-4o-mini", "gpt-4o"],
-            systemPrompt,
-            messages,
-          );
-          break;
-
-        case "anthropic":
-          result = await callAnthropic(
-            userApiKey,
-            ["claude-3-haiku-20240307", "claude-3-5-sonnet-20241022"],
-            systemPrompt,
-            messages,
-          );
-          break;
-
-        case "groq":
+        case "groq": {
+          const groqModels = await discoverGroqModels(userApiKey);
           result = await callOpenAICompatible(
             "https://api.groq.com/openai/v1",
             userApiKey,
-            ["llama-3.3-70b-versatile", "llama-3.1-8b-instant"],
+            groqModels,
             systemPrompt,
             messages,
           );
           break;
+        }
+
+        case "openai": {
+          const openaiModels = await discoverOpenAIModels(userApiKey);
+          result = await callOpenAICompatible(
+            "https://api.openai.com/v1",
+            userApiKey,
+            openaiModels,
+            systemPrompt,
+            messages,
+          );
+          break;
+        }
+
+        case "anthropic": {
+          const anthropicModels = await discoverAnthropicModels(userApiKey);
+          result = await callAnthropic(
+            userApiKey,
+            anthropicModels,
+            systemPrompt,
+            messages,
+          );
+          break;
+        }
       }
 
       if (result.text) {
@@ -334,7 +442,6 @@ export async function POST(req: NextRequest) {
         });
       }
 
-      // If user provided a key and it returned an error, report it directly so the student knows what happened
       return NextResponse.json(
         {
           error: `${provider.toUpperCase()} API Error: ${result.error || "Request failed. Please verify your API key or quota."}`,
@@ -373,12 +480,11 @@ export async function POST(req: NextRequest) {
           model: "openai-fast",
           temperature: 0.35,
         }),
-        signal: AbortSignal.timeout(75000), // Extended to 75s for reasoning models
+        signal: AbortSignal.timeout(75000),
       });
 
       const raw = await polRes.text();
 
-      // Check for free tier rate-limit (45 seconds per IP cooldown)
       if (
         polRes.status === 402 ||
         raw.includes("Free limit reached") ||
@@ -400,7 +506,6 @@ export async function POST(req: NextRequest) {
       console.warn("Free AI service request failed:", pollinationErr?.message);
     }
 
-    // If Free AI failed or timed out, inform the student honestly with a retry action
     return NextResponse.json(
       {
         error:
