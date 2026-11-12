@@ -92,7 +92,12 @@ export function Navbar() {
                 (href === "/"
                   ? pathname === "/"
                   : pathname === href || pathname.startsWith(`${href}/`));
-              if (!currentUser && href !== "/" && href !== "/help/mcp" && href !== "/revision") {
+              if (
+                !currentUser &&
+                href !== "/" &&
+                href !== "/help/mcp" &&
+                href !== "/revision"
+              ) {
                 return (
                   <button
                     key={href}
@@ -188,7 +193,12 @@ export function Navbar() {
             (href === "/"
               ? pathname === "/"
               : pathname === href || pathname.startsWith(`${href}/`));
-          if (!currentUser && href !== "/" && href !== "/help/mcp" && href !== "/revision") {
+          if (
+            !currentUser &&
+            href !== "/" &&
+            href !== "/help/mcp" &&
+            href !== "/revision"
+          ) {
             return (
               <button
                 type="button"

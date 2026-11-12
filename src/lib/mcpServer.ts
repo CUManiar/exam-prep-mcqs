@@ -1649,13 +1649,7 @@ export function createPortalMcpServer(
           .describe("Maximum related questions to fetch from library."),
       },
     },
-    async ({
-      topic,
-      subject,
-      paperId,
-      questionNo,
-      maxRelatedQuestions,
-    }) => {
+    async ({ topic, subject, paperId, questionNo, maxRelatedQuestions }) => {
       const authError = scopeError(scope, MCP_READ_SCOPE);
       if (authError) return authError;
 

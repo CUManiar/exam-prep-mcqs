@@ -40,7 +40,8 @@ const faqItems = [
       "The portal includes a dedicated AI Revision screen (/revision) powered by your free Google Gemini Flash API key. You can also ask any connected MCP chatbot to call get_revision_context to retrieve constitutional articles, landmark Supreme Court rulings, recent PIB updates, and matching questions from your library. You can save revision notes directly using save_revision_note.",
   },
   {
-    question: "Is the AI revision assistant really 100% free with no hidden charges?",
+    question:
+      "Is the AI revision assistant really 100% free with no hidden charges?",
     answer:
       "Yes. The built-in revision tutor uses a Bring-Your-Own-Key (BYOK) model directly in your browser. Google AI Studio provides a free tier for Gemini Flash with no credit card required. Your API key is stored locally in your browser and connects directly to Google, so neither you nor the platform incurs any server or API charges.",
   },
@@ -60,7 +61,8 @@ const faqItems = [
       "Questions can specify Subject, Chapter, and Topic using bracket tags like [Subject: History | Chapter: Modern India | Topic: 1857 Revolt] or chevrons like [Topic: History > Modern India > 1857 Revolt]. Dedicated single-subject papers apply their subject to all questions automatically.",
   },
   {
-    question: "Can an assistant inspect and grade Mains handwritten answers and word limits?",
+    question:
+      "Can an assistant inspect and grade Mains handwritten answers and word limits?",
     answer:
       "Yes. The get_attempt_detail tool surfaces question prompts, word limits (e.g. 150 words for 10 marks), options, candidate responses, and your uploaded full-booklet PDF URL (userSubmissionPdfUrl). The assistant can evaluate your answers and call grade_attempt_questions to post adjusted marks and feedback.",
   },

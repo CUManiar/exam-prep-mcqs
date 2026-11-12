@@ -32,7 +32,12 @@ interface RevisionSettingsModalProps {
   onClear: () => void;
 }
 
-const ALL_PROVIDERS: RevisionProvider[] = ["gemini", "groq", "openai", "anthropic"];
+const ALL_PROVIDERS: RevisionProvider[] = [
+  "gemini",
+  "groq",
+  "openai",
+  "anthropic",
+];
 
 export function RevisionSettingsModal({
   isOpen,
@@ -142,8 +147,14 @@ export function RevisionSettingsModal({
 
           <ol className="text-[11px] text-slate-600 dark:text-slate-300 space-y-1 list-decimal list-inside leading-relaxed">
             <li>Click the button above and log in with your account.</li>
-            <li>Click <strong>&quot;Create API Key&quot;</strong> (most providers offer free tiers).</li>
-            <li>Paste your key below and click <strong>&quot;Save &amp; Activate&quot;</strong>.</li>
+            <li>
+              Click <strong>&quot;Create API Key&quot;</strong> (most providers
+              offer free tiers).
+            </li>
+            <li>
+              Paste your key below and click{" "}
+              <strong>&quot;Save &amp; Activate&quot;</strong>.
+            </li>
           </ol>
         </div>
 
@@ -168,7 +179,9 @@ export function RevisionSettingsModal({
                     }`}
                   >
                     <div className="flex items-center gap-1.5 font-bold text-xs mb-0.5">
-                      <span className="text-indigo-600 dark:text-indigo-400">{pInfo?.icon}</span>
+                      <span className="text-indigo-600 dark:text-indigo-400">
+                        {pInfo?.icon}
+                      </span>
                       {pInfo?.label}
                     </div>
                     <div className="text-[11px] text-slate-500 dark:text-slate-400 line-clamp-2">
@@ -205,13 +218,20 @@ export function RevisionSettingsModal({
                 className="absolute right-2 top-2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 text-xs px-1.5"
                 title={showKey ? "Hide key" : "Show key"}
               >
-                {showKey ? <EyeOff className="h-3.5 w-3.5" /> : <Eye className="h-3.5 w-3.5" />}
+                {showKey ? (
+                  <EyeOff className="h-3.5 w-3.5" />
+                ) : (
+                  <Eye className="h-3.5 w-3.5" />
+                )}
               </button>
             </div>
 
             <div className="flex items-center gap-1.5 mt-1.5 text-[11px] text-slate-500 dark:text-slate-400">
               <Lock className="h-3 w-3 text-emerald-600 dark:text-emerald-400 shrink-0" />
-              <span>Keys are saved strictly in your local browser storage and never sent elsewhere.</span>
+              <span>
+                Keys are saved strictly in your local browser storage and never
+                sent elsewhere.
+              </span>
             </div>
           </div>
 
@@ -228,14 +248,20 @@ export function RevisionSettingsModal({
                 <>
                   <Check className="h-4 w-4 text-emerald-600 dark:text-emerald-400 shrink-0 mt-0.5" />
                   <div>
-                    <span className="font-bold">Key validated successfully!</span> Connected to {info?.label} {testResult.model ? `(${testResult.model})` : ""} and ready for UPSC revision.
+                    <span className="font-bold">
+                      Key validated successfully!
+                    </span>{" "}
+                    Connected to {info?.label}{" "}
+                    {testResult.model ? `(${testResult.model})` : ""} and ready
+                    for UPSC revision.
                   </div>
                 </>
               ) : (
                 <>
                   <AlertCircle className="h-4 w-4 text-rose-600 dark:text-rose-400 shrink-0 mt-0.5" />
                   <div>
-                    <span className="font-bold">Validation failed:</span> {testResult.error}
+                    <span className="font-bold">Validation failed:</span>{" "}
+                    {testResult.error}
                   </div>
                 </>
               )}

@@ -33,31 +33,36 @@ interface AlertBoxProps {
 function AlertBox({ type, children }: AlertBoxProps) {
   const meta = {
     NOTE: {
-      border: "border-blue-500 bg-blue-50/75 dark:bg-blue-950/30 text-blue-900 dark:text-blue-200",
+      border:
+        "border-blue-500 bg-blue-50/75 dark:bg-blue-950/30 text-blue-900 dark:text-blue-200",
       icon: Info,
       title: "Note",
       iconColor: "text-blue-600 dark:text-blue-400",
     },
     TIP: {
-      border: "border-emerald-500 bg-emerald-50/75 dark:bg-emerald-950/30 text-emerald-900 dark:text-emerald-200",
+      border:
+        "border-emerald-500 bg-emerald-50/75 dark:bg-emerald-950/30 text-emerald-900 dark:text-emerald-200",
       icon: Lightbulb,
       title: "Mains / Prelims Tip",
       iconColor: "text-emerald-600 dark:text-emerald-400",
     },
     WARNING: {
-      border: "border-amber-500 bg-amber-50/75 dark:bg-amber-950/30 text-amber-900 dark:text-amber-200",
+      border:
+        "border-amber-500 bg-amber-50/75 dark:bg-amber-950/30 text-amber-900 dark:text-amber-200",
       icon: AlertTriangle,
       title: "Prelims Trap Alert",
       iconColor: "text-amber-600 dark:text-amber-400",
     },
     IMPORTANT: {
-      border: "border-purple-500 bg-purple-50/75 dark:bg-purple-950/30 text-purple-900 dark:text-purple-200",
+      border:
+        "border-purple-500 bg-purple-50/75 dark:bg-purple-950/30 text-purple-900 dark:text-purple-200",
       icon: ShieldAlert,
       title: "Important Principle",
       iconColor: "text-purple-600 dark:text-purple-400",
     },
     CAUTION: {
-      border: "border-rose-500 bg-rose-50/75 dark:bg-rose-950/30 text-rose-900 dark:text-rose-200",
+      border:
+        "border-rose-500 bg-rose-50/75 dark:bg-rose-950/30 text-rose-900 dark:text-rose-200",
       icon: AlertTriangle,
       title: "Caution",
       iconColor: "text-rose-600 dark:text-rose-400",
@@ -105,18 +110,24 @@ function MermaidDiagram({ code }: { code: string }) {
         try {
           w.mermaid.initialize({
             startOnLoad: false,
-            theme: document.documentElement.getAttribute("data-theme") === "dark" ? "dark" : "default",
+            theme:
+              document.documentElement.getAttribute("data-theme") === "dark"
+                ? "dark"
+                : "default",
             flowchart: { useMaxWidth: true, htmlLabels: true, curve: "basis" },
           });
           const id = `mermaid_${Math.random().toString(36).slice(2, 9)}`;
-          w.mermaid.render(id, cleanCode).then((res: any) => {
-            if (isMounted && res?.svg) {
-              setSvgHtml(res.svg);
-              setHasError(false);
-            }
-          }).catch(() => {
-            if (isMounted) setHasError(true);
-          });
+          w.mermaid
+            .render(id, cleanCode)
+            .then((res: any) => {
+              if (isMounted && res?.svg) {
+                setSvgHtml(res.svg);
+                setHasError(false);
+              }
+            })
+            .catch(() => {
+              if (isMounted) setHasError(true);
+            });
         } catch {
           if (isMounted) setHasError(true);
         }
@@ -127,7 +138,8 @@ function MermaidDiagram({ code }: { code: string }) {
     if (!(window as any).mermaid && !existingScript) {
       const script = document.createElement("script");
       script.id = "mermaid-script";
-      script.src = "https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js";
+      script.src =
+        "https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js";
       script.onload = renderWithMermaid;
       script.onerror = () => {
         if (isMounted) setHasError(true);
@@ -156,9 +168,12 @@ function MermaidDiagram({ code }: { code: string }) {
 
     for (const rawLine of lines) {
       const line = rawLine.trim();
-      if (!line || line.startsWith("flowchart") || line.startsWith("graph")) continue;
+      if (!line || line.startsWith("flowchart") || line.startsWith("graph"))
+        continue;
 
-      const linkMatch = line.match(/([a-zA-Z0-9_-]+)(?:\["([^"]+)"\])?\s*-->\s*([a-zA-Z0-9_-]+)(?:\["([^"]+)"\])?/);
+      const linkMatch = line.match(
+        /([a-zA-Z0-9_-]+)(?:\["([^"]+)"\])?\s*-->\s*([a-zA-Z0-9_-]+)(?:\["([^"]+)"\])?/,
+      );
       if (linkMatch) {
         const fromId = linkMatch[1];
         const fromLabel = linkMatch[2] || fromId;
@@ -209,7 +224,11 @@ function MermaidDiagram({ code }: { code: string }) {
             onClick={handleCopy}
             className="flex items-center gap-1 text-[11px] font-medium text-slate-500 hover:text-slate-800 dark:hover:text-slate-200 px-2 py-0.5 rounded border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900"
           >
-            {copied ? <Check className="h-3 w-3 text-emerald-600" /> : <Copy className="h-3 w-3" />}
+            {copied ? (
+              <Check className="h-3 w-3 text-emerald-600" />
+            ) : (
+              <Copy className="h-3 w-3" />
+            )}
             <span>{copied ? "Copied" : "Copy"}</span>
           </button>
         </div>
@@ -233,19 +252,21 @@ function MermaidDiagram({ code }: { code: string }) {
         /* Native Fallback Node Visualizer */
         <div className="space-y-3 py-2">
           <div className="grid grid-cols-1 md:grid-cols-3 gap-2.5">
-            {Array.from(parsedFlowNodes.nodeLabels.entries()).map(([id, label]) => (
-              <div
-                key={id}
-                className="p-2.5 rounded-lg border border-indigo-200 dark:border-indigo-800 bg-white dark:bg-slate-900 shadow-2xs text-xs"
-              >
-                <div className="font-mono text-[10px] text-indigo-500 font-bold uppercase tracking-wider mb-0.5">
-                  Node [{id}]
+            {Array.from(parsedFlowNodes.nodeLabels.entries()).map(
+              ([id, label]) => (
+                <div
+                  key={id}
+                  className="p-2.5 rounded-lg border border-indigo-200 dark:border-indigo-800 bg-white dark:bg-slate-900 shadow-2xs text-xs"
+                >
+                  <div className="font-mono text-[10px] text-indigo-500 font-bold uppercase tracking-wider mb-0.5">
+                    Node [{id}]
+                  </div>
+                  <div className="font-medium text-slate-800 dark:text-slate-200 leading-snug">
+                    {label}
+                  </div>
                 </div>
-                <div className="font-medium text-slate-800 dark:text-slate-200 leading-snug">
-                  {label}
-                </div>
-              </div>
-            ))}
+              ),
+            )}
           </div>
           {parsedFlowNodes.connections.length > 0 && (
             <div className="text-[11px] text-slate-500 dark:text-slate-400 font-mono pt-1">
@@ -277,7 +298,11 @@ function MermaidDiagram({ code }: { code: string }) {
                 <div className="flex items-center bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg p-0.5 text-xs shadow-2xs">
                   <button
                     type="button"
-                    onClick={() => setZoom((z) => Math.max(0.4, Number((z - 0.2).toFixed(1))))}
+                    onClick={() =>
+                      setZoom((z) =>
+                        Math.max(0.4, Number((z - 0.2).toFixed(1))),
+                      )
+                    }
                     className="p-1.5 hover:bg-slate-100 dark:hover:bg-slate-700 rounded text-slate-600 dark:text-slate-300"
                     title="Zoom out"
                   >
@@ -288,7 +313,9 @@ function MermaidDiagram({ code }: { code: string }) {
                   </span>
                   <button
                     type="button"
-                    onClick={() => setZoom((z) => Math.min(3, Number((z + 0.2).toFixed(1))))}
+                    onClick={() =>
+                      setZoom((z) => Math.min(3, Number((z + 0.2).toFixed(1))))
+                    }
                     className="p-1.5 hover:bg-slate-100 dark:hover:bg-slate-700 rounded text-slate-600 dark:text-slate-300"
                     title="Zoom in"
                   >
@@ -309,7 +336,11 @@ function MermaidDiagram({ code }: { code: string }) {
                   onClick={handleCopy}
                   className="flex items-center gap-1 px-3 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-xs font-semibold text-slate-700 dark:text-slate-200 hover:bg-slate-50 transition-colors"
                 >
-                  {copied ? <Check className="h-3.5 w-3.5 text-emerald-600" /> : <Copy className="h-3.5 w-3.5" />}
+                  {copied ? (
+                    <Check className="h-3.5 w-3.5 text-emerald-600" />
+                  ) : (
+                    <Copy className="h-3.5 w-3.5" />
+                  )}
                   <span>{copied ? "Copied" : "Copy Source"}</span>
                 </button>
 
@@ -372,7 +403,20 @@ export function RevisionMarkdownRenderer({
     const sanitized = cleanMarkdownContent(content);
     const lines = sanitized.split("\n");
     const result: Array<{
-      type: "p" | "h1" | "h2" | "h3" | "h4" | "hr" | "ul" | "ol" | "table" | "mermaid" | "code" | "alert" | "math";
+      type:
+        | "p"
+        | "h1"
+        | "h2"
+        | "h3"
+        | "h4"
+        | "hr"
+        | "ul"
+        | "ol"
+        | "table"
+        | "mermaid"
+        | "code"
+        | "alert"
+        | "math";
       text?: string;
       items?: string[];
       tableData?: { headers: string[]; rows: string[][] };
@@ -450,16 +494,30 @@ export function RevisionMarkdownRenderer({
       }
 
       // 3. GitHub Alerts (> [!NOTE], > [!TIP], or standalone [!TIP])
-      const alertMatch = trimmed.match(/^>?\s*\[!(NOTE|TIP|WARNING|IMPORTANT|CAUTION)\]\s*(.*)$/i);
+      const alertMatch = trimmed.match(
+        /^>?\s*\[!(NOTE|TIP|WARNING|IMPORTANT|CAUTION)\]\s*(.*)$/i,
+      );
       if (alertMatch) {
         const alertType = alertMatch[1].toUpperCase() as any;
         const alertLines: string[] = [];
         if (alertMatch[2]) alertLines.push(alertMatch[2]);
         index++;
-        while (index < lines.length && (lines[index].trim().startsWith(">") || (lines[index].trim() && !lines[index].trim().startsWith("#") && !lines[index].trim().startsWith("```")))) {
+        while (
+          index < lines.length &&
+          (lines[index].trim().startsWith(">") ||
+            (lines[index].trim() &&
+              !lines[index].trim().startsWith("#") &&
+              !lines[index].trim().startsWith("```")))
+        ) {
           const l = lines[index].trim().replace(/^>\s?/, "");
           // stop if we hit another header or section
-          if (l.startsWith("###") || l.startsWith("##") || l.startsWith("#") || l.startsWith("---")) break;
+          if (
+            l.startsWith("###") ||
+            l.startsWith("##") ||
+            l.startsWith("#") ||
+            l.startsWith("---")
+          )
+            break;
           alertLines.push(l);
           index++;
         }
@@ -496,7 +554,11 @@ export function RevisionMarkdownRenderer({
       // 5. Tables (| Column 1 | Column 2 |)
       if (trimmed.startsWith("|") && trimmed.endsWith("|")) {
         const tableLines: string[] = [];
-        while (index < lines.length && lines[index].trim().startsWith("|") && lines[index].trim().endsWith("|")) {
+        while (
+          index < lines.length &&
+          lines[index].trim().startsWith("|") &&
+          lines[index].trim().endsWith("|")
+        ) {
           tableLines.push(lines[index].trim());
           index++;
         }
@@ -519,7 +581,11 @@ export function RevisionMarkdownRenderer({
       // 6. Bullet lists (- Item, * Item)
       if (trimmed.startsWith("- ") || trimmed.startsWith("* ")) {
         const items: string[] = [];
-        while (index < lines.length && (lines[index].trim().startsWith("- ") || lines[index].trim().startsWith("* "))) {
+        while (
+          index < lines.length &&
+          (lines[index].trim().startsWith("- ") ||
+            lines[index].trim().startsWith("* "))
+        ) {
           items.push(lines[index].trim().slice(2).trim());
           index++;
         }
@@ -554,7 +620,8 @@ export function RevisionMarkdownRenderer({
     const text = rawText.replace(/^#{1,4}\s+/, "");
     const parts: React.ReactNode[] = [];
     // Tokenizer matching display math, inline math, bold, code, italic, and HTML linebreaks
-    const regex = /(\$\$[\s\S]+?\$\$|\\\[[\s\S]+?\\\]|\$[^\$\n]+?\$|\\\([\s\S]+?\\\)|\*\*[^*]+\*\*|`[^`]+`|\*[^*]+\*|<br\s*\/?>)/gi;
+    const regex =
+      /(\$\$[\s\S]+?\$\$|\\\[[\s\S]+?\\\]|\$[^\$\n]+?\$|\\\([\s\S]+?\\\)|\*\*[^*]+\*\*|`[^`]+`|\*[^*]+\*|<br\s*\/?>)/gi;
     let lastIndex = 0;
     let match;
 
@@ -573,7 +640,7 @@ export function RevisionMarkdownRenderer({
             key={`dm_${match.index}`}
             className="my-1.5 block text-center overflow-x-auto"
             dangerouslySetInnerHTML={{ __html: html }}
-          />
+          />,
         );
       } else if (token.startsWith("\\[") && token.endsWith("\\]")) {
         const math = token.slice(2, -2);
@@ -583,7 +650,7 @@ export function RevisionMarkdownRenderer({
             key={`dm2_${match.index}`}
             className="my-1.5 block text-center overflow-x-auto"
             dangerouslySetInnerHTML={{ __html: html }}
-          />
+          />,
         );
       }
       // 2. Inline Math ($ ... $ or \( ... \))
@@ -595,7 +662,7 @@ export function RevisionMarkdownRenderer({
             key={`im_${match.index}`}
             className="inline-block px-0.5 align-baseline text-indigo-950 dark:text-indigo-200"
             dangerouslySetInnerHTML={{ __html: html }}
-          />
+          />,
         );
       } else if (token.startsWith("\\(") && token.endsWith("\\)")) {
         const math = token.slice(2, -2);
@@ -605,15 +672,18 @@ export function RevisionMarkdownRenderer({
             key={`im2_${match.index}`}
             className="inline-block px-0.5 align-baseline text-indigo-950 dark:text-indigo-200"
             dangerouslySetInnerHTML={{ __html: html }}
-          />
+          />,
         );
       }
       // 3. Bold (** ... **)
       else if (token.startsWith("**") && token.endsWith("**")) {
         parts.push(
-          <strong key={match.index} className="font-semibold text-slate-900 dark:text-white">
+          <strong
+            key={match.index}
+            className="font-semibold text-slate-900 dark:text-white"
+          >
             {token.slice(2, -2)}
-          </strong>
+          </strong>,
         );
       }
       // 4. Code (` ... `)
@@ -624,7 +694,7 @@ export function RevisionMarkdownRenderer({
             className="px-1.5 py-0.5 rounded bg-slate-100 dark:bg-slate-800 text-indigo-700 dark:text-indigo-300 font-mono text-[0.88em]"
           >
             {token.slice(1, -1)}
-          </code>
+          </code>,
         );
       }
       // 5. Italic (* ... *)
@@ -632,7 +702,7 @@ export function RevisionMarkdownRenderer({
         parts.push(
           <em key={match.index} className="italic">
             {token.slice(1, -1)}
-          </em>
+          </em>,
         );
       }
       // 6. Linebreak (<br> / <br/>)
@@ -651,10 +721,17 @@ export function RevisionMarkdownRenderer({
   };
 
   return (
-    <div className={`space-y-3 text-slate-800 dark:text-slate-200 text-sm leading-relaxed ${className}`}>
+    <div
+      className={`space-y-3 text-slate-800 dark:text-slate-200 text-sm leading-relaxed ${className}`}
+    >
       {blocks.map((block, idx) => {
         if (block.type === "hr") {
-          return <hr key={idx} className="my-4 border-slate-200 dark:border-slate-800" />;
+          return (
+            <hr
+              key={idx}
+              className="my-4 border-slate-200 dark:border-slate-800"
+            />
+          );
         }
         if (block.type === "h1") {
           return (
@@ -698,7 +775,10 @@ export function RevisionMarkdownRenderer({
         }
         if (block.type === "p") {
           return (
-            <p key={idx} className="my-1.5 text-slate-700 dark:text-slate-300 leading-relaxed font-normal">
+            <p
+              key={idx}
+              className="my-1.5 text-slate-700 dark:text-slate-300 leading-relaxed font-normal"
+            >
               {renderInline(block.text || "")}
             </p>
           );
@@ -725,19 +805,28 @@ export function RevisionMarkdownRenderer({
         }
         if (block.type === "code" && block.codeData) {
           return (
-            <div key={idx} className="my-2.5 rounded-lg bg-slate-900 text-slate-100 p-3 overflow-x-auto text-xs font-mono">
+            <div
+              key={idx}
+              className="my-2.5 rounded-lg bg-slate-900 text-slate-100 p-3 overflow-x-auto text-xs font-mono"
+            >
               <pre>{block.codeData.code}</pre>
             </div>
           );
         }
         if (block.type === "table" && block.tableData) {
           return (
-            <div key={idx} className="my-3.5 overflow-x-auto rounded-lg border border-slate-200 dark:border-slate-800 shadow-2xs">
+            <div
+              key={idx}
+              className="my-3.5 overflow-x-auto rounded-lg border border-slate-200 dark:border-slate-800 shadow-2xs"
+            >
               <table className="w-full text-left text-xs border-collapse">
                 <thead>
                   <tr className="bg-slate-100/80 dark:bg-slate-800/80 border-b border-slate-200 dark:border-slate-800">
                     {block.tableData.headers.map((h, hIdx) => (
-                      <th key={hIdx} className="p-2.5 font-bold text-slate-900 dark:text-white">
+                      <th
+                        key={hIdx}
+                        className="p-2.5 font-bold text-slate-900 dark:text-white"
+                      >
                         {renderInline(h)}
                       </th>
                     ))}
@@ -747,10 +836,17 @@ export function RevisionMarkdownRenderer({
                   {block.tableData.rows.map((row, rIdx) => (
                     <tr
                       key={rIdx}
-                      className={rIdx % 2 === 0 ? "bg-white dark:bg-slate-900" : "bg-slate-50/50 dark:bg-slate-900/50"}
+                      className={
+                        rIdx % 2 === 0
+                          ? "bg-white dark:bg-slate-900"
+                          : "bg-slate-50/50 dark:bg-slate-900/50"
+                      }
                     >
                       {row.map((cell, cIdx) => (
-                        <td key={cIdx} className="p-2.5 text-slate-700 dark:text-slate-300">
+                        <td
+                          key={cIdx}
+                          className="p-2.5 text-slate-700 dark:text-slate-300"
+                        >
                           {renderInline(cell)}
                         </td>
                       ))}
@@ -763,7 +859,10 @@ export function RevisionMarkdownRenderer({
         }
         if (block.type === "ul" && block.items) {
           return (
-            <ul key={idx} className="my-2 space-y-1 pl-5 list-disc text-slate-700 dark:text-slate-300">
+            <ul
+              key={idx}
+              className="my-2 space-y-1 pl-5 list-disc text-slate-700 dark:text-slate-300"
+            >
               {block.items.map((it, itIdx) => (
                 <li key={itIdx} className="leading-relaxed">
                   {renderInline(it)}
@@ -774,7 +873,10 @@ export function RevisionMarkdownRenderer({
         }
         if (block.type === "ol" && block.items) {
           return (
-            <ol key={idx} className="my-2 space-y-1 pl-5 list-decimal text-slate-700 dark:text-slate-300">
+            <ol
+              key={idx}
+              className="my-2 space-y-1 pl-5 list-decimal text-slate-700 dark:text-slate-300"
+            >
               {block.items.map((it, itIdx) => (
                 <li key={itIdx} className="leading-relaxed">
                   {renderInline(it)}

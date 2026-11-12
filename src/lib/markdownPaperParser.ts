@@ -460,7 +460,8 @@ function parseQuestionBlock(
         /\[\s*Subject\s*:\s*([^\]\|,]+)(?:[\|,]\s*Topic\s*:\s*([^\]]+))?\s*\]/i,
       );
       if (legacyTagMatch) {
-        if (!questionSubject) questionSubject = cleanHeaderValue(legacyTagMatch[1]);
+        if (!questionSubject)
+          questionSubject = cleanHeaderValue(legacyTagMatch[1]);
         if (legacyTagMatch[2] && !questionTopic) {
           questionTopic = cleanHeaderValue(legacyTagMatch[2]);
         }
@@ -488,10 +489,15 @@ function parseQuestionBlock(
   if (!fullPrompt && matchingItems.length === 0) return null;
 
   // If topic has hierarchy markers like "History > Modern India > 1857 Revolt"
-  if (questionTopic && (questionTopic.includes(">") || questionTopic.includes("/"))) {
+  if (
+    questionTopic &&
+    (questionTopic.includes(">") || questionTopic.includes("/"))
+  ) {
     const hierarchy = parseTopicHierarchy(questionTopic);
-    if (hierarchy.subject && !questionSubject) questionSubject = hierarchy.subject;
-    if (hierarchy.chapter && !questionChapter) questionChapter = hierarchy.chapter;
+    if (hierarchy.subject && !questionSubject)
+      questionSubject = hierarchy.subject;
+    if (hierarchy.chapter && !questionChapter)
+      questionChapter = hierarchy.chapter;
     if (hierarchy.topic) questionTopic = hierarchy.topic;
   }
 

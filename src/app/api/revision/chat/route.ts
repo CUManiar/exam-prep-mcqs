@@ -3,7 +3,11 @@ import {
   getUpscRevisionSystemPrompt,
   cleanMarkdownContent,
 } from "../../../../lib/revisionAi";
-import { RevisionContext, RevisionMessage, RevisionProviderConfig } from "../../../../lib/types";
+import {
+  RevisionContext,
+  RevisionMessage,
+  RevisionProviderConfig,
+} from "../../../../lib/types";
 import { generatePaperPerformanceReport } from "../../../../lib/revisionDossiers";
 
 export const runtime = "nodejs";
@@ -61,7 +65,9 @@ async function discoverOpenAIModels(apiKey: string): Promise<string[]> {
         .map((m: any) => m.id as string)
         .filter(
           (id: string) =>
-            (id.startsWith("gpt-") || id.startsWith("o1") || id.startsWith("o3")) &&
+            (id.startsWith("gpt-") ||
+              id.startsWith("o1") ||
+              id.startsWith("o3")) &&
             !id.includes("instruct") &&
             !id.includes("realtime") &&
             !id.includes("audio"),
@@ -98,7 +104,9 @@ async function discoverAnthropicModels(apiKey: string): Promise<string[]> {
     });
     if (res.ok) {
       const data = await res.json();
-      const models: string[] = (data.data || []).map((m: any) => m.id as string);
+      const models: string[] = (data.data || []).map(
+        (m: any) => m.id as string,
+      );
       models.sort((a, b) => {
         const score = (id: string) => {
           if (id.includes("haiku")) return 20;
@@ -112,7 +120,11 @@ async function discoverAnthropicModels(apiKey: string): Promise<string[]> {
   } catch (e: any) {
     console.warn("Anthropic model discovery failed:", e?.message);
   }
-  return ["claude-3-5-haiku-latest", "claude-3-haiku-20240307", "claude-3-5-sonnet-latest"];
+  return [
+    "claude-3-5-haiku-latest",
+    "claude-3-haiku-20240307",
+    "claude-3-5-sonnet-latest",
+  ];
 }
 
 /** Dynamically discover active models from a Gemini key */
@@ -125,7 +137,9 @@ async function discoverGeminiModels(apiKey: string): Promise<string[]> {
     if (listRes.ok) {
       const data = await listRes.json();
       const models = (data.models || [])
-        .filter((m: any) => m.supportedGenerationMethods?.includes("generateContent"))
+        .filter((m: any) =>
+          m.supportedGenerationMethods?.includes("generateContent"),
+        )
         .map((m: any) => m.name.replace(/^models\//, "") as string);
 
       models.sort((a, b) => {
@@ -158,7 +172,8 @@ async function callOpenAICompatible(
   const formattedMessages = [
     { role: "system" as const, content: systemPrompt },
     ...messages.map((m) => ({
-      role: (m.role === "assistant" ? "assistant" : "user") as "assistant" | "user",
+      role: (m.role === "assistant" ? "assistant" : "user") as
+        "assistant" | "user",
       content: m.content,
     })),
   ];
@@ -191,7 +206,8 @@ async function callOpenAICompatible(
         }
       } else {
         const errData = await res.json().catch(() => ({}));
-        lastError = errData.error?.message || `HTTP ${res.status}: ${res.statusText}`;
+        lastError =
+          errData.error?.message || `HTTP ${res.status}: ${res.statusText}`;
         if (res.status === 401 || res.status === 403) {
           return { error: `Authentication failed: ${lastError}` };
         }
@@ -212,7 +228,8 @@ async function callAnthropic(
   messages: RevisionMessage[],
 ): Promise<{ text?: string; error?: string }> {
   const formattedMessages = messages.map((m) => ({
-    role: (m.role === "assistant" ? "assistant" : "user") as "assistant" | "user",
+    role: (m.role === "assistant" ? "assistant" : "user") as
+      "assistant" | "user",
     content: m.content,
   }));
 
@@ -245,7 +262,8 @@ async function callAnthropic(
         }
       } else {
         const errData = await res.json().catch(() => ({}));
-        lastError = errData.error?.message || `HTTP ${res.status}: ${res.statusText}`;
+        lastError =
+          errData.error?.message || `HTTP ${res.status}: ${res.statusText}`;
         if (res.status === 401 || res.status === 403) {
           return { error: `Anthropic authentication failed: ${lastError}` };
         }
@@ -342,14 +360,17 @@ async function callGemini(
         }
       } else {
         const errData = await res.json().catch(() => ({}));
-        lastError = errData.error?.message || `HTTP ${res.status}: ${res.statusText}`;
+        lastError =
+          errData.error?.message || `HTTP ${res.status}: ${res.statusText}`;
       }
     } catch (e: any) {
       lastError = e?.message || "Gemini connection timed out.";
     }
   }
 
-  return { error: lastError || "Failed to generate content from Google Gemini." };
+  return {
+    error: lastError || "Failed to generate content from Google Gemini.",
+  };
 }
 
 export async function POST(req: NextRequest) {
@@ -372,7 +393,8 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const latestUserMsg = messages.filter((m) => m.role === "user").pop()?.content || "";
+    const latestUserMsg =
+      messages.filter((m) => m.role === "user").pop()?.content || "";
 
     // ── SPECIALIZED ROUTING: Factual Attempt / Score Calculation in Paper Mode ──
     const isScoreInquiry =
@@ -455,7 +477,11 @@ export async function POST(req: NextRequest) {
     // ── BRANCH 2: Server-side Gemini Key ──
     const serverGeminiKey = process.env.GEMINI_API_KEY?.trim();
     if (!userApiKey && serverGeminiKey) {
-      const serverResult = await callGemini(serverGeminiKey, systemPrompt, messages);
+      const serverResult = await callGemini(
+        serverGeminiKey,
+        systemPrompt,
+        messages,
+      );
       if (serverResult.text) {
         return NextResponse.json({
           text: serverResult.text,
@@ -498,7 +524,13 @@ export async function POST(req: NextRequest) {
         });
       }
 
-      if (polRes.ok && raw && raw.trim() && !raw.startsWith("<!DOCTYPE") && raw.length > 20) {
+      if (
+        polRes.ok &&
+        raw &&
+        raw.trim() &&
+        !raw.startsWith("<!DOCTYPE") &&
+        raw.length > 20
+      ) {
         return NextResponse.json({
           text: cleanMarkdownContent(raw),
         });
