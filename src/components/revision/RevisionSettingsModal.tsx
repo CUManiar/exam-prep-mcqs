@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import {
   AlertCircle,
   Check,
@@ -19,6 +19,8 @@ import {
   RevisionProviderConfig,
   PROVIDER_INFO,
   clearRevisionConfig,
+  getProviderVault,
+  removeProviderKey,
   saveRevisionConfig,
   validateApiKey,
 } from "../../lib/revisionAi";
@@ -52,6 +54,7 @@ export function RevisionSettingsModal({
   const [apiKey, setApiKey] = useState(currentConfig?.apiKey || "");
   const [showKey, setShowKey] = useState(false);
   const [isTesting, setIsTesting] = useState(false);
+  const [vault, setVault] = useState<Record<string, string>>({});
   const [testResult, setTestResult] = useState<{
     valid: boolean;
     error?: string;
@@ -60,9 +63,35 @@ export function RevisionSettingsModal({
 
   const info = PROVIDER_INFO[provider];
 
+  // Keep state in sync whenever modal opens or currentConfig changes
+  useEffect(() => {
+    if (isOpen) {
+      const storedVault = getProviderVault();
+      setVault(storedVault);
+
+      const activeProvider = currentConfig?.provider || "gemini";
+      setProvider(activeProvider);
+
+      const key = currentConfig?.apiKey || storedVault[activeProvider] || "";
+      setApiKey(key);
+      setShowKey(false);
+      setTestResult(null);
+    }
+  }, [isOpen, currentConfig]);
+
   const handleProviderChange = (newProvider: RevisionProvider) => {
     setProvider(newProvider);
     setTestResult(null);
+    setShowKey(false);
+
+    // Auto-fill from active config if matching, or from vault
+    if (currentConfig?.provider === newProvider && currentConfig?.apiKey) {
+      setApiKey(currentConfig.apiKey);
+    } else if (vault[newProvider]) {
+      setApiKey(vault[newProvider]);
+    } else {
+      setApiKey("");
+    }
   };
 
   const handleTest = async () => {
@@ -87,17 +116,29 @@ export function RevisionSettingsModal({
       apiKey: apiKey.trim(),
     };
     saveRevisionConfig(newCfg);
+    setVault((prev) => ({ ...prev, [provider]: apiKey.trim() }));
     onSave(newCfg);
     onClose();
   };
 
   const handleRemove = () => {
-    clearRevisionConfig();
+    clearRevisionConfig(provider);
+    removeProviderKey(provider);
+    setVault((prev) => {
+      const next = { ...prev };
+      delete next[provider];
+      return next;
+    });
     setApiKey("");
     setTestResult(null);
-    onClear();
-    onClose();
+    if (currentConfig?.provider === provider) {
+      onClear();
+    }
   };
+
+  const activeProviderInfo = currentConfig?.provider
+    ? PROVIDER_INFO[currentConfig.provider]
+    : null;
 
   return (
     <ModalShell
@@ -121,14 +162,40 @@ export function RevisionSettingsModal({
                 AI Provider Settings
               </h2>
               <p className="text-xs text-slate-500 dark:text-slate-400">
-                Free AI is active out-of-the-box • Custom API key is optional
+                {currentConfig?.apiKey
+                  ? `In Use: ${activeProviderInfo?.label || currentConfig.provider} • Custom API key active`
+                  : "Free AI is active out-of-the-box • Custom API key is optional"}
               </p>
             </div>
           </div>
         </div>
 
-        {/* 30-Second Quick Setup Guide */}
-        <div className="my-4 p-3.5 rounded-xl bg-indigo-50/70 dark:bg-indigo-950/40 border border-indigo-200/80 dark:border-indigo-800/60 space-y-2.5 text-xs text-slate-700 dark:text-slate-200">
+        {/* Current Active Provider Details Card */}
+        {currentConfig?.apiKey && (
+          <div className="mt-3.5 p-3 rounded-xl bg-emerald-50/80 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800 text-xs flex items-center justify-between gap-3 shadow-2xs">
+            <div className="flex items-center gap-2.5 min-w-0">
+              <span className="h-2.5 w-2.5 rounded-full bg-emerald-500 animate-pulse shrink-0" />
+              <div className="truncate">
+                <div className="font-semibold text-emerald-950 dark:text-emerald-200 flex items-center gap-1.5">
+                  <span>Currently Active:</span>
+                  <span className="font-bold underline decoration-emerald-400">
+                    {activeProviderInfo?.label || currentConfig.provider}
+                  </span>
+                </div>
+                <div className="text-[11px] text-emerald-700 dark:text-emerald-400 font-mono mt-0.5 truncate">
+                  Key: {currentConfig.apiKey.slice(0, 6)}••••••••
+                  {currentConfig.apiKey.slice(-4)}
+                </div>
+              </div>
+            </div>
+            <span className="text-[10px] uppercase font-bold text-emerald-800 dark:text-emerald-300 bg-emerald-100 dark:bg-emerald-900/60 px-2 py-0.5 rounded-full shrink-0">
+              Active in Chat
+            </span>
+          </div>
+        )}
+
+        {/* Quick Setup Guide */}
+        <div className="my-3.5 p-3.5 rounded-xl bg-indigo-50/70 dark:bg-indigo-950/40 border border-indigo-200/80 dark:border-indigo-800/60 space-y-2.5 text-xs text-slate-700 dark:text-slate-200">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
             <span className="font-bold text-indigo-950 dark:text-indigo-200 flex items-center gap-1.5">
               <Sparkles className="h-4 w-4 text-indigo-600 dark:text-indigo-400 shrink-0" />
@@ -167,22 +234,38 @@ export function RevisionSettingsModal({
             <div className="grid grid-cols-2 gap-2">
               {ALL_PROVIDERS.map((p) => {
                 const pInfo = PROVIDER_INFO[p];
+                const isActiveInUse =
+                  currentConfig?.provider === p && !!currentConfig?.apiKey;
+                const hasSavedKey = !!vault[p];
+
                 return (
                   <button
                     key={p}
                     type="button"
                     onClick={() => handleProviderChange(p)}
-                    className={`p-3 rounded-lg border text-left transition-all ${
+                    className={`relative p-3 rounded-lg border text-left transition-all ${
                       provider === p
                         ? "border-indigo-600 bg-indigo-50/60 dark:bg-indigo-950/40 text-indigo-950 dark:text-indigo-200 ring-2 ring-indigo-500/20"
                         : "border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-300 hover:border-slate-300"
                     }`}
                   >
-                    <div className="flex items-center gap-1.5 font-bold text-xs mb-0.5">
-                      <span className="text-indigo-600 dark:text-indigo-400">
-                        {pInfo?.icon}
-                      </span>
-                      {pInfo?.label}
+                    <div className="flex items-start justify-between gap-1 mb-1">
+                      <div className="flex items-center gap-1.5 font-bold text-xs">
+                        <span className="text-indigo-600 dark:text-indigo-400">
+                          {pInfo?.icon}
+                        </span>
+                        {pInfo?.label}
+                      </div>
+                      {isActiveInUse ? (
+                        <span className="flex items-center gap-1 text-[9px] font-bold text-emerald-700 dark:text-emerald-400 bg-emerald-100 dark:bg-emerald-950/80 px-1.5 py-0.5 rounded-full border border-emerald-300 dark:border-emerald-700">
+                          <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                          IN USE
+                        </span>
+                      ) : hasSavedKey ? (
+                        <span className="text-[9px] font-semibold text-indigo-700 dark:text-indigo-300 bg-indigo-100 dark:bg-indigo-950/60 px-1.5 py-0.5 rounded-full">
+                          SAVED
+                        </span>
+                      ) : null}
                     </div>
                     <div className="text-[11px] text-slate-500 dark:text-slate-400 line-clamp-2">
                       {pInfo?.description}
@@ -196,8 +279,19 @@ export function RevisionSettingsModal({
           {/* API Key Input */}
           <div>
             <div className="flex items-center justify-between mb-1.5">
-              <label className="text-xs font-semibold uppercase tracking-wider text-slate-600 dark:text-slate-300">
-                {info?.label || "Provider"} API Key
+              <label className="text-xs font-semibold uppercase tracking-wider text-slate-600 dark:text-slate-300 flex items-center gap-1.5">
+                <span>{info?.label || "Provider"} API Key</span>
+                {provider === currentConfig?.provider &&
+                  currentConfig?.apiKey && (
+                    <span className="text-[10px] font-bold text-emerald-600 dark:text-emerald-400 normal-case bg-emerald-50 dark:bg-emerald-950/60 px-1.5 py-0.5 rounded">
+                      (Currently Active)
+                    </span>
+                  )}
+                {provider !== currentConfig?.provider && vault[provider] && (
+                  <span className="text-[10px] font-medium text-indigo-600 dark:text-indigo-400 normal-case bg-indigo-50 dark:bg-indigo-950/60 px-1.5 py-0.5 rounded">
+                    (Saved for switch)
+                  </span>
+                )}
               </label>
             </div>
 
@@ -271,16 +365,19 @@ export function RevisionSettingsModal({
           {/* Actions */}
           <div className="flex items-center justify-between pt-3 border-t border-slate-100 dark:border-slate-800">
             <div>
-              {currentConfig?.apiKey && (
+              {(currentConfig?.provider === provider &&
+                currentConfig?.apiKey) ||
+              vault[provider] ? (
                 <button
                   type="button"
                   onClick={handleRemove}
                   className="flex items-center gap-1.5 text-xs text-rose-600 hover:text-rose-700 dark:hover:text-rose-400 font-semibold px-2 py-1.5 rounded-lg hover:bg-rose-50 dark:hover:bg-rose-950/40 transition-colors"
+                  title="Remove this key"
                 >
                   <Trash2 className="h-3.5 w-3.5" />
                   <span>Remove Key</span>
                 </button>
-              )}
+              ) : null}
             </div>
 
             <div className="flex items-center gap-2">
