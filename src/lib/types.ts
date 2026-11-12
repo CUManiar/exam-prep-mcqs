@@ -229,4 +229,3 @@ export interface RevisionProviderConfig {
   model?: string;
   customEndpoint?: string;
 }
-

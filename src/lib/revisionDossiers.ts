@@ -3,7 +3,9 @@ import { RevisionContext } from "./types";
 /**
  * Builds an authentic, high-yield diagnostic performance dossier from the student's paper attempt.
  */
-export function generatePaperPerformanceReport(context: RevisionContext): string {
+export function generatePaperPerformanceReport(
+  context: RevisionContext,
+): string {
   const summary = context.attemptSummary;
   const paperTitle = context.paperTitle || "Question Paper";
 

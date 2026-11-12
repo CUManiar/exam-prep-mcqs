@@ -48,11 +48,15 @@ export async function POST(req: NextRequest) {
         }
 
         const data = await listRes.json();
-        const models: Array<{ name: string; supportedGenerationMethods?: string[] }> =
-          data.models || [];
+        const models: Array<{
+          name: string;
+          supportedGenerationMethods?: string[];
+        }> = data.models || [];
 
         const usableModels = models
-          .filter((m) => m.supportedGenerationMethods?.includes("generateContent"))
+          .filter((m) =>
+            m.supportedGenerationMethods?.includes("generateContent"),
+          )
           .map((m) => m.name.replace(/^models\//, ""));
 
         if (usableModels.length === 0) {
@@ -125,7 +129,8 @@ export async function POST(req: NextRequest) {
         if (models.length === 0) {
           return NextResponse.json({
             valid: false,
-            error: "Key is valid but no active chat models were returned by Groq.",
+            error:
+              "Key is valid but no active chat models were returned by Groq.",
           });
         }
 
@@ -179,7 +184,9 @@ export async function POST(req: NextRequest) {
           .map((m: any) => m.id as string)
           .filter(
             (id: string) =>
-              (id.startsWith("gpt-") || id.startsWith("o1") || id.startsWith("o3")) &&
+              (id.startsWith("gpt-") ||
+                id.startsWith("o1") ||
+                id.startsWith("o3")) &&
               !id.includes("instruct") &&
               !id.includes("realtime") &&
               !id.includes("audio"),
@@ -247,7 +254,10 @@ export async function POST(req: NextRequest) {
         });
 
         if (pingRes.ok || pingRes.status === 429) {
-          return NextResponse.json({ valid: true, model: "claude-3-5-haiku-latest" });
+          return NextResponse.json({
+            valid: true,
+            model: "claude-3-5-haiku-latest",
+          });
         }
 
         const errData = await pingRes.json().catch(() => ({}));

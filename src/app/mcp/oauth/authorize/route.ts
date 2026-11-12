@@ -6,6 +6,7 @@ import {
 } from "../../../../lib/mcpAuth";
 import {
   getMcpIssuerUrl,
+  getMcpResourceUrl,
   htmlEscape,
   noStoreHeaders,
 } from "../../../../lib/mcpProtocol";
@@ -57,7 +58,11 @@ async function validateParams(params: AuthorizeParams, req: NextRequest) {
     return { error: "The chatbot did not provide a PKCE code challenge." };
   if (!client.redirectUris.includes(params.redirectUri))
     return { error: "The redirect URI does not match the registered client." };
-  if (params.resource && params.resource !== `${req.nextUrl.origin}/mcp`)
+  if (
+    params.resource &&
+    params.resource !== getMcpResourceUrl(req) &&
+    params.resource !== `${req.nextUrl.origin}/mcp`
+  )
     return { error: "The requested resource is not this portal." };
   return { client };
 }
@@ -99,7 +104,7 @@ function redirectError(
   url.searchParams.set("error", error);
   url.searchParams.set("error_description", description);
   if (params.state) url.searchParams.set("state", params.state);
-  return NextResponse.redirect(url);
+  return NextResponse.redirect(url, 302);
 }
 
 export async function GET(req: NextRequest): Promise<NextResponse> {
@@ -158,7 +163,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     redirect.searchParams.set("code", code);
     redirect.searchParams.set("iss", getMcpIssuerUrl(req));
     if (params.state) redirect.searchParams.set("state", params.state);
-    return NextResponse.redirect(redirect);
+    return NextResponse.redirect(redirect, 302);
   } catch {
     return errorPage(
       "The connection could not be completed. Please try again.",

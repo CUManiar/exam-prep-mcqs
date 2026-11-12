@@ -515,9 +515,7 @@ export async function getTopicAnalytics(
 ): Promise<TopicAnalyticsResult> {
   const attempts = await getUserAttempts(userId);
   const papers = await getUserPapers(userId);
-  const paperMap = new Map<string, QuestionPaper>(
-    papers.map((p) => [p.id, p]),
-  );
+  const paperMap = new Map<string, QuestionPaper>(papers.map((p) => [p.id, p]));
 
   const subjectFilter = options?.subject?.trim().toLowerCase();
   const minAttempts = Math.max(0, Number(options?.minAttempts ?? 1));
@@ -632,9 +630,7 @@ export async function getTopicAnalytics(
     }
 
     const accuracyPct =
-      acc.attempted > 0
-        ? Math.round((acc.correct / acc.attempted) * 100)
-        : 0;
+      acc.attempted > 0 ? Math.round((acc.correct / acc.attempted) * 100) : 0;
 
     const status: "critical" | "practicing" | "mastered" =
       accuracyPct >= 70
@@ -685,9 +681,7 @@ export async function getTopicAnalytics(
   const totalAttempted = allTopics.reduce((sum, t) => sum + t.attempted, 0);
   const totalCorrect = allTopics.reduce((sum, t) => sum + t.correct, 0);
   const overallAccuracyPct =
-    totalAttempted > 0
-      ? Math.round((totalCorrect / totalAttempted) * 100)
-      : 0;
+    totalAttempted > 0 ? Math.round((totalCorrect / totalAttempted) * 100) : 0;
 
   return {
     summary: {
@@ -923,4 +917,3 @@ export async function saveTopicRevisionNote(
     destination: "No matching question or syllabus item found to attach note.",
   };
 }
-

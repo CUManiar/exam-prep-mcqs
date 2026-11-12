@@ -12,17 +12,21 @@ const REVISION_CONFIG_KEY = "upsc_revision_llm_config";
 const REVISION_HISTORY_KEY = "upsc_revision_history";
 
 /** Provider display metadata for the settings UI */
-export const PROVIDER_INFO: Record<string, {
-  label: string;
-  description: string;
-  icon: string;
-  keyPlaceholder: string;
-  keyGetUrl: string;
-  keyGetLabel: string;
-}> = {
+export const PROVIDER_INFO: Record<
+  string,
+  {
+    label: string;
+    description: string;
+    icon: string;
+    keyPlaceholder: string;
+    keyGetUrl: string;
+    keyGetLabel: string;
+  }
+> = {
   gemini: {
     label: "Google Gemini",
-    description: "Free tier available. High-yield syllabus analysis & case laws.",
+    description:
+      "Free tier available. High-yield syllabus analysis & case laws.",
     icon: "✦",
     keyPlaceholder: "Paste AIzaSy... here",
     keyGetUrl: "https://aistudio.google.com/app/apikey",
@@ -93,7 +97,8 @@ export const PRESET_ACTIONS: PresetAction[] = [
     id: "pib_news",
     label: "Recent PIB & News",
     icon: "📰",
-    description: "Contemporary government policies, schemes & editorial debates",
+    description:
+      "Contemporary government policies, schemes & editorial debates",
     generatePrompt: (ctx) => {
       const topic = ctx.topic || ctx.question?.topic;
       if (topic) {
@@ -132,7 +137,8 @@ export const PRESET_ACTIONS: PresetAction[] = [
     id: "mains_framework",
     label: "Mains 10M/15M Framework",
     icon: "✍️",
-    description: "Structured model answer: Intro, multi-dimensional body, conclusion",
+    description:
+      "Structured model answer: Intro, multi-dimensional body, conclusion",
     generatePrompt: (ctx) => {
       const topic = ctx.topic || ctx.question?.topic;
       if (topic) {
@@ -151,7 +157,10 @@ function obfuscateConfig(config: RevisionProviderConfig): string {
     const raw = JSON.stringify(config);
     let str = "";
     for (let i = 0; i < raw.length; i++) {
-      str += String.fromCharCode(raw.charCodeAt(i) ^ STORAGE_VAULT_SALT.charCodeAt(i % STORAGE_VAULT_SALT.length));
+      str += String.fromCharCode(
+        raw.charCodeAt(i) ^
+          STORAGE_VAULT_SALT.charCodeAt(i % STORAGE_VAULT_SALT.length),
+      );
     }
     return "sec_v1:" + btoa(encodeURIComponent(str));
   } catch {
@@ -167,7 +176,10 @@ function deobfuscateConfig(data: string): RevisionProviderConfig | null {
       const str = decodeURIComponent(atob(b64));
       let raw = "";
       for (let i = 0; i < str.length; i++) {
-        raw += String.fromCharCode(str.charCodeAt(i) ^ STORAGE_VAULT_SALT.charCodeAt(i % STORAGE_VAULT_SALT.length));
+        raw += String.fromCharCode(
+          str.charCodeAt(i) ^
+            STORAGE_VAULT_SALT.charCodeAt(i % STORAGE_VAULT_SALT.length),
+        );
       }
       return JSON.parse(raw);
     }
@@ -261,7 +273,10 @@ YOUR MANDATE:
         prompt += `\n- Correct Answers: ${context.attemptSummary.correctCount}`;
         prompt += `\n- Incorrect Answers: ${context.attemptSummary.incorrectCount}`;
         prompt += `\n- Unanswered: ${context.attemptSummary.unansweredCount}`;
-        if (context.attemptSummary.wrongQuestions && context.attemptSummary.wrongQuestions.length > 0) {
+        if (
+          context.attemptSummary.wrongQuestions &&
+          context.attemptSummary.wrongQuestions.length > 0
+        ) {
           prompt += `\n- Questions Answered Incorrectly:`;
           context.attemptSummary.wrongQuestions.forEach((w) => {
             prompt += `\n  * Q#${w.questionNo}: ${w.text.slice(0, 100)}... (Student selected: ${w.studentSelected || "None"}, Correct: ${w.correctAnswer || "Key"})`;
@@ -336,7 +351,10 @@ export function cleanMarkdownContent(raw: string): string {
 
   // Unescape backslash sequences often returned by LLM APIs
   if (text.includes("\\n")) {
-    text = text.replace(/\\\\n/g, "\n").replace(/\\r\\n/g, "\n").replace(/\\n/g, "\n");
+    text = text
+      .replace(/\\\\n/g, "\n")
+      .replace(/\\r\\n/g, "\n")
+      .replace(/\\n/g, "\n");
   }
   if (text.includes("\\r")) {
     text = text.replace(/\\r/g, "\n");
@@ -358,7 +376,10 @@ export function cleanMarkdownContent(raw: string): string {
   text = text.replace(/^>\s*(Target Audience|Format):[^\n]*\n?/gim, "");
 
   // Prevent degenerate runaway number counting loops (e.g. 1, 2, 3... 500)
-  text = text.replace(/(\b\d{1,4}\s*,\s*){12,}(\b\d{1,4}\b)/g, "Key relevant provisions");
+  text = text.replace(
+    /(\b\d{1,4}\s*,\s*){12,}(\b\d{1,4}\b)/g,
+    "Key relevant provisions",
+  );
 
   return text;
 }
@@ -381,7 +402,8 @@ export async function sendRevisionQuery(
   if (!res.ok) {
     const errData = await res.json().catch(() => ({}));
     const err: RevisionApiError = new Error(
-      errData.error || `Revision API returned error ${res.status}: ${res.statusText}`,
+      errData.error ||
+        `Revision API returned error ${res.status}: ${res.statusText}`,
     );
     err.needsApiKey = Boolean(errData.needsApiKey);
     throw err;

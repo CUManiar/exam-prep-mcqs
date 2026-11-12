@@ -447,7 +447,9 @@ export function clearPapersCache(): void {
 }
 
 // Fetch all papers from server filesystem + metadata store and ensure answer keys are parsed
-export async function getAllPapers(forceRefresh = false): Promise<QuestionPaper[]> {
+export async function getAllPapers(
+  forceRefresh = false,
+): Promise<QuestionPaper[]> {
   if (!forceRefresh && inMemoryPapersCache && inMemoryPapersCache.length > 0) {
     return inMemoryPapersCache;
   }

@@ -1,6 +1,12 @@
 "use client";
 
-import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import React, {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import { useSearchParams } from "next/navigation";
 import {
   AlertCircle,
@@ -116,11 +122,15 @@ export function RevisionView() {
   const [mode, setMode] = useState<"general" | "paper" | "syllabus">("general");
   const [selectedTopic, setSelectedTopic] = useState<string>("");
   const [selectedPaperId, setSelectedPaperId] = useState<string>("");
-  const [selectedQuestionNo, setSelectedQuestionNo] = useState<number | null>(null);
+  const [selectedQuestionNo, setSelectedQuestionNo] = useState<number | null>(
+    null,
+  );
 
   // Multi-Session State (Up to 5 chats saved in local storage)
   const [sessions, setSessions] = useState<StoredSession[]>([]);
-  const [currentSessionId, setCurrentSessionId] = useState<string>(() => `sess_${Date.now()}`);
+  const [currentSessionId, setCurrentSessionId] = useState<string>(
+    () => `sess_${Date.now()}`,
+  );
   const [editingSessionId, setEditingSessionId] = useState<string | null>(null);
   const [editingTitle, setEditingTitle] = useState("");
 
@@ -153,8 +163,10 @@ export function RevisionView() {
           setCurrentSessionId(mostRecent.id);
           setMessages(mostRecent.messages || []);
           if (mostRecent.mode) setMode(mostRecent.mode);
-          if (mostRecent.selectedTopic) setSelectedTopic(mostRecent.selectedTopic);
-          if (mostRecent.selectedPaperId) setSelectedPaperId(mostRecent.selectedPaperId);
+          if (mostRecent.selectedTopic)
+            setSelectedTopic(mostRecent.selectedTopic);
+          if (mostRecent.selectedPaperId)
+            setSelectedPaperId(mostRecent.selectedPaperId);
           if (mostRecent.selectedQuestionNo !== undefined) {
             setSelectedQuestionNo(mostRecent.selectedQuestionNo);
           }
@@ -172,18 +184,24 @@ export function RevisionView() {
     try {
       setSessions((prevSessions) => {
         const existing = prevSessions.find((s) => s.id === currentSessionId);
-        const firstUser = messages.find((m) => m.role === "user")?.content || "Revision Chat";
+        const firstUser =
+          messages.find((m) => m.role === "user")?.content || "Revision Chat";
         const autoTitle =
           selectedTopic ||
           firstUser
-            .replace(/^(help me revise|revise|explain|what is|tell me about)\s+/i, "")
+            .replace(
+              /^(help me revise|revise|explain|what is|tell me about)\s+/i,
+              "",
+            )
             .replace(/[`"'“]/g, "")
             .slice(0, 36)
             .trim();
 
         const activeSession: StoredSession = {
           id: currentSessionId,
-          title: existing?.title || (autoTitle.length > 0 ? autoTitle : "Revision Topic"),
+          title:
+            existing?.title ||
+            (autoTitle.length > 0 ? autoTitle : "Revision Topic"),
           messages,
           updatedAt: new Date().toISOString(),
           mode,
@@ -193,7 +211,10 @@ export function RevisionView() {
         };
 
         const filtered = prevSessions.filter((s) => s.id !== currentSessionId);
-        const updated = [activeSession, ...filtered].slice(0, MAX_SAVED_SESSIONS);
+        const updated = [activeSession, ...filtered].slice(
+          0,
+          MAX_SAVED_SESSIONS,
+        );
 
         try {
           localStorage.setItem(SESSIONS_STORAGE_KEY, JSON.stringify(updated));
@@ -204,7 +225,14 @@ export function RevisionView() {
     } catch (e) {
       console.warn("Failed to persist revision session:", e);
     }
-  }, [messages, currentSessionId, mode, selectedTopic, selectedPaperId, selectedQuestionNo]);
+  }, [
+    messages,
+    currentSessionId,
+    mode,
+    selectedTopic,
+    selectedPaperId,
+    selectedQuestionNo,
+  ]);
 
   // Handle URL search params on mount
   useEffect(() => {
@@ -284,7 +312,9 @@ export function RevisionView() {
     const trimmed = editingTitle.trim();
     if (trimmed.length > 0) {
       setSessions((prev) => {
-        const updated = prev.map((s) => (s.id === sessionId ? { ...s, title: trimmed } : s));
+        const updated = prev.map((s) =>
+          s.id === sessionId ? { ...s, title: trimmed } : s,
+        );
         try {
           localStorage.setItem(SESSIONS_STORAGE_KEY, JSON.stringify(updated));
         } catch {}
@@ -309,7 +339,8 @@ export function RevisionView() {
   }, [papers, selectedPaperId, mode]);
 
   const activeQuestion = useMemo<ParsedQuestion | undefined>(() => {
-    if (!activePaper || !selectedQuestionNo || mode !== "paper") return undefined;
+    if (!activePaper || !selectedQuestionNo || mode !== "paper")
+      return undefined;
     return (activePaper.parsedQuestions || []).find(
       (q) => q.questionNo === selectedQuestionNo,
     );
@@ -318,11 +349,14 @@ export function RevisionView() {
   // Construct active context
   const activeContext = useMemo<RevisionContext>(() => {
     if (mode === "paper") {
-      const paperAttempts = attempts.filter((a) => a.paperId === selectedPaperId);
+      const paperAttempts = attempts.filter(
+        (a) => a.paperId === selectedPaperId,
+      );
       const latestAttempt = paperAttempts[paperAttempts.length - 1];
-      const studentAns = selectedQuestionNo && latestAttempt
-        ? latestAttempt.answers?.[selectedQuestionNo]
-        : undefined;
+      const studentAns =
+        selectedQuestionNo && latestAttempt
+          ? latestAttempt.answers?.[selectedQuestionNo]
+          : undefined;
 
       let attemptSummary: RevisionAttemptSummary | undefined = undefined;
       if (latestAttempt) {
@@ -524,7 +558,9 @@ export function RevisionView() {
             <div className="p-4 text-center text-xs text-slate-400 italic space-y-1">
               <MessageSquare className="h-5 w-5 mx-auto text-slate-300 dark:text-slate-700 mb-1" />
               <p>No saved chats yet.</p>
-              <p className="text-[11px]">Ask any UPSC topic to automatically store up to 5 chats.</p>
+              <p className="text-[11px]">
+                Ask any UPSC topic to automatically store up to 5 chats.
+              </p>
             </div>
           ) : (
             sessions.map((s) => {
@@ -590,10 +626,13 @@ export function RevisionView() {
                             <span>{s.messages.length} msgs</span>
                             <span>•</span>
                             <span>
-                              {new Date(s.updatedAt).toLocaleDateString("en-IN", {
-                                day: "numeric",
-                                month: "short",
-                              })}
+                              {new Date(s.updatedAt).toLocaleDateString(
+                                "en-IN",
+                                {
+                                  day: "numeric",
+                                  month: "short",
+                                },
+                              )}
                             </span>
                           </div>
                         </div>
@@ -678,7 +717,8 @@ export function RevisionView() {
                 Revision workspace
               </h1>
               <p className="text-[11px] text-slate-500 dark:text-slate-400 hidden sm:block">
-                Syllabus-focused study, landmark SC judgements, PIB updates, and question dissection.
+                Syllabus-focused study, landmark SC judgements, PIB updates, and
+                question dissection.
               </p>
             </div>
           </div>
@@ -746,7 +786,8 @@ export function RevisionView() {
         {mode === "paper" && (
           <div className="shrink-0 px-3 sm:px-6 py-2 bg-slate-50 dark:bg-slate-950/60 border-b border-slate-200 dark:border-slate-800 flex flex-wrap items-center gap-2.5 text-xs">
             <span className="text-slate-600 dark:text-slate-300 font-semibold flex items-center gap-1.5">
-              <Paperclip className="h-4 w-4 text-indigo-500" /> Select Paper & Question:
+              <Paperclip className="h-4 w-4 text-indigo-500" /> Select Paper &
+              Question:
             </span>
 
             <select
@@ -813,7 +854,8 @@ export function RevisionView() {
               </select>
             ) : (
               <span className="text-slate-500 italic">
-                No syllabus outline saved yet. Go to Syllabus tab to paste an outline, or use General Revision.
+                No syllabus outline saved yet. Go to Syllabus tab to paste an
+                outline, or use General Revision.
               </span>
             )}
 
@@ -853,7 +895,10 @@ export function RevisionView() {
                       UPSC Civil Services AI Revision Mentor
                     </h2>
                     <p className="text-xs sm:text-sm text-slate-600 dark:text-slate-400 leading-relaxed">
-                      Syllabus-focused mentor for Prelims, Mains, and CSAT. Ask any topic or question to receive exact Constitutional Articles, landmark Supreme Court rulings, contemporary PIB updates, and KaTeX mathematical formulas.
+                      Syllabus-focused mentor for Prelims, Mains, and CSAT. Ask
+                      any topic or question to receive exact Constitutional
+                      Articles, landmark Supreme Court rulings, contemporary PIB
+                      updates, and KaTeX mathematical formulas.
                     </p>
                   </div>
                 </div>
@@ -910,14 +955,16 @@ export function RevisionView() {
                   className={`max-w-3xl rounded-xl p-4 shadow-xs text-xs sm:text-sm ${
                     msg.role === "user"
                       ? "bg-indigo-600 text-white font-medium ml-12"
-                      : (msg.isError || msg.content.startsWith("⚠️"))
+                      : msg.isError || msg.content.startsWith("⚠️")
                         ? "bg-rose-50/75 dark:bg-rose-950/30 border border-rose-200 dark:border-rose-900/60 text-slate-800 dark:text-slate-200 w-full"
                         : "bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-slate-800 dark:text-slate-200 w-full"
                   }`}
                 >
                   {msg.role === "user" ? (
-                    <p className="whitespace-pre-wrap leading-relaxed">{msg.content}</p>
-                  ) : (msg.isError || msg.content.startsWith("⚠️")) ? (
+                    <p className="whitespace-pre-wrap leading-relaxed">
+                      {msg.content}
+                    </p>
+                  ) : msg.isError || msg.content.startsWith("⚠️") ? (
                     <div className="space-y-3">
                       <RevisionMarkdownRenderer content={msg.content} />
                       <div className="pt-2 border-t border-rose-200/60 dark:border-rose-900/40 flex items-center justify-between gap-2 text-xs">
@@ -932,7 +979,9 @@ export function RevisionView() {
                                 clearRevisionConfig();
                                 setConfig(null);
                                 setToastMsg("Switched to Free AI. Retrying...");
-                                const lastUser = [...messages].reverse().find((m) => m.role === "user");
+                                const lastUser = [...messages]
+                                  .reverse()
+                                  .find((m) => m.role === "user");
                                 if (lastUser) {
                                   handleSend(lastUser.content);
                                 }
@@ -947,7 +996,9 @@ export function RevisionView() {
                           <button
                             type="button"
                             onClick={() => {
-                              const lastUser = [...messages].reverse().find((m) => m.role === "user");
+                              const lastUser = [...messages]
+                                .reverse()
+                                .find((m) => m.role === "user");
                               if (lastUser) {
                                 handleSend(lastUser.content);
                               }
@@ -985,7 +1036,9 @@ export function RevisionView() {
                           ) : (
                             <Copy className="h-3.5 w-3.5" />
                           )}
-                          <span>{copiedId === msg.id ? "Copied!" : "Copy Notes"}</span>
+                          <span>
+                            {copiedId === msg.id ? "Copied!" : "Copy Notes"}
+                          </span>
                         </button>
                       </div>
                     </div>
