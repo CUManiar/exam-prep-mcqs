@@ -25,7 +25,11 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
   const grantType = String(form.get("grant_type") || "");
   const clientId = String(form.get("client_id") || "");
   const resource = String(form.get("resource") || "");
-  if (resource && resource !== getMcpResourceUrl(req)) {
+  if (
+    resource &&
+    resource !== getMcpResourceUrl(req) &&
+    resource !== `${req.nextUrl.origin}/mcp`
+  ) {
     return oauthError(
       "invalid_target",
       "The requested resource is not this portal.",
