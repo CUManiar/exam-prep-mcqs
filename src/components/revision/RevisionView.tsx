@@ -670,10 +670,23 @@ export function RevisionView() {
             type="button"
             onClick={() => setShowSettingsModal(true)}
             className="w-full flex items-center justify-between p-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700/60 text-xs text-slate-700 dark:text-slate-200 font-medium transition-all shadow-2xs cursor-pointer"
+            title="Configure AI Provider & API Key"
           >
             <div className="flex items-center gap-2 truncate">
-              <span className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse shrink-0" />
-              <span className="font-semibold text-emerald-700 dark:text-emerald-400 truncate">
+              <span
+                className={`h-2 w-2 rounded-full shrink-0 ${
+                  config?.apiKey
+                    ? "bg-emerald-500 animate-pulse"
+                    : "bg-amber-500"
+                }`}
+              />
+              <span
+                className={`font-semibold truncate ${
+                  config?.apiKey
+                    ? "text-emerald-700 dark:text-emerald-400"
+                    : "text-slate-700 dark:text-slate-200"
+                }`}
+              >
                 {config?.apiKey
                   ? config.provider === "gemini"
                     ? "Google Gemini"
@@ -684,7 +697,7 @@ export function RevisionView() {
                         : config.provider === "groq"
                           ? "Groq"
                           : "Custom AI"
-                  : "Free AI Active"}
+                  : "API Key / Provider"}
               </span>
             </div>
             <Settings2 className="h-3.5 w-3.5 text-slate-400 shrink-0" />
@@ -768,6 +781,42 @@ export function RevisionView() {
                 <span>Syllabus Track</span>
               </button>
             </div>
+
+            {/* AI Provider & API Key Button */}
+            <button
+              type="button"
+              onClick={() => setShowSettingsModal(true)}
+              className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700/60 text-xs text-slate-700 dark:text-slate-200 font-medium transition-all shadow-2xs cursor-pointer"
+              title="Configure AI Provider & API Key"
+            >
+              <span
+                className={`h-2 w-2 rounded-full shrink-0 ${
+                  config?.apiKey
+                    ? "bg-emerald-500 animate-pulse"
+                    : "bg-amber-500"
+                }`}
+              />
+              <span
+                className={`font-semibold ${
+                  config?.apiKey
+                    ? "text-emerald-700 dark:text-emerald-400"
+                    : "text-slate-700 dark:text-slate-200"
+                }`}
+              >
+                {config?.apiKey
+                  ? config.provider === "gemini"
+                    ? "Gemini"
+                    : config.provider === "openai"
+                      ? "OpenAI"
+                      : config.provider === "anthropic"
+                        ? "Claude"
+                        : config.provider === "groq"
+                          ? "Groq"
+                          : "Custom AI"
+                  : "API Key"}
+              </span>
+              <Settings2 className="h-3.5 w-3.5 text-slate-400 shrink-0" />
+            </button>
 
             {messages.length > 0 && (
               <button
@@ -900,6 +949,20 @@ export function RevisionView() {
                       Articles, landmark Supreme Court rulings, contemporary PIB
                       updates, and KaTeX mathematical formulas.
                     </p>
+                    <div className="pt-2 flex items-center gap-2 flex-wrap">
+                      <button
+                        type="button"
+                        onClick={() => setShowSettingsModal(true)}
+                        className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border border-indigo-200 dark:border-indigo-800 bg-white dark:bg-slate-900 hover:bg-indigo-50 dark:hover:bg-indigo-950/50 text-[11px] font-semibold text-indigo-700 dark:text-indigo-300 transition-colors shadow-2xs cursor-pointer"
+                      >
+                        <Settings2 className="h-3.5 w-3.5 text-indigo-500" />
+                        <span>
+                          {config?.apiKey
+                            ? `Connected: ${config.provider === "gemini" ? "Google Gemini" : config.provider === "openai" ? "OpenAI" : config.provider === "anthropic" ? "Claude" : "Groq"}`
+                            : "Configure API Key & Provider (Gemini, Groq, OpenAI, Claude)"}
+                        </span>
+                      </button>
+                    </div>
                   </div>
                 </div>
               </div>

@@ -9,6 +9,7 @@ import {
 export type { RevisionProviderConfig };
 
 const REVISION_CONFIG_KEY = "upsc_revision_llm_config";
+const REVISION_VAULT_KEY = "upsc_revision_keys_vault";
 const REVISION_HISTORY_KEY = "upsc_revision_history";
 
 /** Provider display metadata for the settings UI */
@@ -201,19 +202,68 @@ export function getRevisionConfig(): RevisionProviderConfig | null {
   }
 }
 
+export function getProviderVault(): Record<string, string> {
+  if (typeof window === "undefined") return {};
+  try {
+    const raw = localStorage.getItem(REVISION_VAULT_KEY);
+    const active = getRevisionConfig();
+    const vault: Record<string, string> = {};
+    if (raw) {
+      try {
+        const parsed = JSON.parse(atob(raw));
+        if (parsed && typeof parsed === "object") {
+          Object.assign(vault, parsed);
+        }
+      } catch {}
+    }
+    if (active?.provider && active?.apiKey) {
+      vault[active.provider] = active.apiKey;
+    }
+    return vault;
+  } catch {
+    return {};
+  }
+}
+
+export function saveProviderKey(provider: string, apiKey: string): void {
+  if (typeof window === "undefined") return;
+  try {
+    const vault = getProviderVault();
+    vault[provider] = apiKey;
+    localStorage.setItem(REVISION_VAULT_KEY, btoa(JSON.stringify(vault)));
+  } catch (e) {
+    console.warn("Failed to save provider key to vault:", e);
+  }
+}
+
+export function removeProviderKey(provider: string): void {
+  if (typeof window === "undefined") return;
+  try {
+    const vault = getProviderVault();
+    delete vault[provider];
+    localStorage.setItem(REVISION_VAULT_KEY, btoa(JSON.stringify(vault)));
+  } catch (e) {
+    console.warn("Failed to remove provider key from vault:", e);
+  }
+}
+
 export function saveRevisionConfig(config: RevisionProviderConfig): void {
   if (typeof window === "undefined") return;
   try {
     const secured = obfuscateConfig(config);
     localStorage.setItem(REVISION_CONFIG_KEY, secured);
+    saveProviderKey(config.provider, config.apiKey);
   } catch (e) {
     console.warn("Failed to securely store revision config:", e);
   }
 }
 
-export function clearRevisionConfig(): void {
+export function clearRevisionConfig(providerToClear?: string): void {
   if (typeof window === "undefined") return;
   localStorage.removeItem(REVISION_CONFIG_KEY);
+  if (providerToClear) {
+    removeProviderKey(providerToClear);
+  }
 }
 
 export function getUpscRevisionSystemPrompt(context?: RevisionContext): string {
