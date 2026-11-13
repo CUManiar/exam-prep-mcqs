@@ -11,6 +11,7 @@ import {
   LayoutDashboard,
   ListChecks,
   LogIn,
+  Menu,
   Moon,
   Sparkles,
   Sun,
@@ -62,6 +63,29 @@ const navigation = [
     mobileLabel: "AI Help",
     icon: Sparkles,
     isAi: true,
+  },
+];
+
+const mobilePrimaryNavigation = [
+  {
+    href: "/",
+    label: "Overview",
+    icon: LayoutDashboard,
+  },
+  {
+    href: "/papers",
+    label: "Papers",
+    icon: BookOpen,
+  },
+  {
+    href: "/revision",
+    label: "Revision",
+    icon: GraduationCap,
+  },
+  {
+    href: "/misc",
+    label: "Misc",
+    icon: Layers,
   },
 ];
 
@@ -195,7 +219,7 @@ export function Navbar() {
         className="app-mobile-nav print:hidden"
         aria-label="Mobile bottom navigation"
       >
-        {navigation.map(({ href, label, mobileLabel, icon: Icon, isAi }) => {
+        {mobilePrimaryNavigation.map(({ href, label, icon: Icon }) => {
           const active =
             Boolean(currentUser) &&
             (href === "/"
@@ -204,7 +228,6 @@ export function Navbar() {
           if (
             !currentUser &&
             href !== "/" &&
-            href !== "/help/mcp" &&
             href !== "/revision" &&
             href !== "/misc"
           ) {
@@ -213,10 +236,10 @@ export function Navbar() {
                 type="button"
                 key={href}
                 onClick={openAuthModal}
-                className={`app-mobile-nav-link ${isAi ? "ai-help-link" : ""}`}
+                className="app-mobile-nav-link"
               >
                 <Icon aria-hidden="true" />
-                <span>{mobileLabel || label}</span>
+                <span>{label}</span>
               </button>
             );
           }
@@ -225,13 +248,31 @@ export function Navbar() {
               key={href}
               href={href}
               aria-current={active ? "page" : undefined}
-              className={`app-mobile-nav-link ${isAi ? "ai-help-link" : ""} ${active ? "is-active" : ""}`}
+              className={`app-mobile-nav-link ${active ? "is-active" : ""}`}
             >
               <Icon aria-hidden="true" />
-              <span>{mobileLabel || label}</span>
+              <span>{label}</span>
             </Link>
           );
         })}
+
+        {/* 5th Action: More / Menu Side Panel */}
+        <button
+          type="button"
+          onClick={() => setShowProfile(true)}
+          aria-label="Open side menu and settings"
+          className={`app-mobile-nav-link ${
+            showProfile ||
+            pathname.startsWith("/history") ||
+            pathname.startsWith("/syllabus") ||
+            pathname.startsWith("/help/mcp")
+              ? "is-active"
+              : ""
+          }`}
+        >
+          <Menu aria-hidden="true" />
+          <span>More</span>
+        </button>
       </nav>
       <ProfileSettingsModal
         isOpen={showProfile}
