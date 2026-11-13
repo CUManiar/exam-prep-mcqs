@@ -25,6 +25,121 @@ function parseJsonFromText(rawText: string): any {
   }
 }
 
+/** Dynamically discover active models from a Groq key */
+async function discoverGroqModels(apiKey: string): Promise<string[]> {
+  try {
+    const res = await fetch("https://api.groq.com/openai/v1/models", {
+      headers: { Authorization: `Bearer ${apiKey}` },
+      signal: AbortSignal.timeout(8000),
+    });
+    if (res.ok) {
+      const data = await res.json();
+      const models: string[] = (data.data || [])
+        .filter((m: any) => m.active !== false)
+        .map((m: any) => m.id as string)
+        .filter(
+          (id: string) =>
+            !id.includes("whisper") &&
+            !id.includes("guard") &&
+            !id.includes("embed") &&
+            !id.includes("tool") &&
+            !id.includes("safeguard"),
+        );
+
+      models.sort((a, b) => {
+        const score = (id: string) => {
+          let s = 0;
+          if (id.includes("8b-instant")) s += 15;
+          if (id.includes("70b")) s += 10;
+          if (id.includes("versatile")) s += 5;
+          if (id.includes("llama")) s += 3;
+          return s;
+        };
+        return score(b) - score(a);
+      });
+
+      if (models.length > 0) return models;
+    }
+  } catch (e: any) {
+    console.warn("Groq model discovery failed:", e?.message);
+  }
+  return [
+    "llama-3.1-8b-instant",
+    "llama-3.3-70b-versatile",
+    "llama-3.1-70b-versatile",
+    "mixtral-8x7b-32768",
+  ];
+}
+
+/** Dynamically discover active models from an OpenAI key */
+async function discoverOpenAIModels(apiKey: string): Promise<string[]> {
+  try {
+    const res = await fetch("https://api.openai.com/v1/models", {
+      headers: { Authorization: `Bearer ${apiKey}` },
+      signal: AbortSignal.timeout(8000),
+    });
+    if (res.ok) {
+      const data = await res.json();
+      const models: string[] = (data.data || [])
+        .map((m: any) => m.id as string)
+        .filter(
+          (id: string) =>
+            (id.startsWith("gpt-") || id.startsWith("o1") || id.startsWith("o3")) &&
+            !id.includes("instruct") &&
+            !id.includes("realtime") &&
+            !id.includes("audio"),
+        );
+
+      models.sort((a, b) => {
+        const score = (id: string) => {
+          if (id === "gpt-4o-mini") return 100;
+          if (id === "gpt-4o") return 90;
+          return 10;
+        };
+        return score(b) - score(a);
+      });
+
+      if (models.length > 0) return models;
+    }
+  } catch (e: any) {
+    console.warn("OpenAI model discovery failed:", e?.message);
+  }
+  return ["gpt-4o-mini", "gpt-4o"];
+}
+
+/** Dynamically discover active models from an Anthropic key */
+async function discoverAnthropicModels(apiKey: string): Promise<string[]> {
+  try {
+    const res = await fetch("https://api.anthropic.com/v1/models", {
+      headers: {
+        "x-api-key": apiKey,
+        "anthropic-version": "2023-06-01",
+      },
+      signal: AbortSignal.timeout(8000),
+    });
+    if (res.ok) {
+      const data = await res.json();
+      const models: string[] = (data.data || []).map((m: any) => m.id as string);
+      models.sort((a, b) => {
+        const score = (id: string) => {
+          if (id.includes("haiku")) return 20;
+          if (id.includes("sonnet")) return 10;
+          return 5;
+        };
+        return score(b) - score(a);
+      });
+      if (models.length > 0) return models;
+    }
+  } catch (e: any) {
+    console.warn("Anthropic model discovery failed:", e?.message);
+  }
+  return [
+    "claude-3-5-haiku-latest",
+    "claude-3-haiku-20240307",
+    "claude-3-5-sonnet-latest",
+  ];
+}
+
 /** Low-level caller for Gemini */
 async function callGeminiRaw(apiKey: string, prompt: string): Promise<string> {
   const models = ["gemini-2.0-flash", "gemini-1.5-flash", "gemini-1.5-pro"];
@@ -62,38 +177,115 @@ async function callGeminiRaw(apiKey: string, prompt: string): Promise<string> {
   throw new Error(lastError || "Gemini failed to respond");
 }
 
-/** Low-level caller for OpenAI compatible (OpenAI, Groq) */
-async function callOpenAICompatibleRaw(
+/** Low-level caller for OpenAI-compatible providers (Groq, OpenAI) with candidate model fallback */
+async function callOpenAICompatibleWithFallback(
   baseUrl: string,
   apiKey: string,
-  model: string,
+  candidateModels: string[],
   prompt: string,
 ): Promise<string> {
-  const res = await fetch(`${baseUrl}/chat/completions`, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${apiKey}`,
-    },
-    body: JSON.stringify({
-      model,
-      messages: [{ role: "user", content: prompt }],
-      temperature: 0.4,
-      max_tokens: 1000,
-      response_format: { type: "json_object" },
-    }),
-    signal: AbortSignal.timeout(25000),
-  });
+  let lastError = "";
 
-  if (!res.ok) {
-    const errData = await res.json().catch(() => ({}));
-    throw new Error(errData.error?.message || `HTTP ${res.status}`);
+  for (const model of candidateModels) {
+    try {
+      // First try with JSON format
+      let res = await fetch(`${baseUrl}/chat/completions`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${apiKey}`,
+        },
+        body: JSON.stringify({
+          model,
+          messages: [{ role: "user", content: prompt }],
+          temperature: 0.4,
+          max_tokens: 1000,
+          response_format: { type: "json_object" },
+        }),
+        signal: AbortSignal.timeout(20000),
+      });
+
+      // If rejected due to response_format not supported, retry model without response_format
+      if (res.status === 400) {
+        const errJson = await res.clone().json().catch(() => ({}));
+        const errMsg = (errJson.error?.message || "").toLowerCase();
+        if (
+          errMsg.includes("response_format") ||
+          errMsg.includes("json_object") ||
+          errMsg.includes("json mode")
+        ) {
+          res = await fetch(`${baseUrl}/chat/completions`, {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${apiKey}`,
+            },
+            body: JSON.stringify({
+              model,
+              messages: [{ role: "user", content: prompt }],
+              temperature: 0.4,
+              max_tokens: 1000,
+            }),
+            signal: AbortSignal.timeout(20000),
+          });
+        }
+      }
+
+      if (res.ok) {
+        const data = await res.json();
+        const content = data.choices?.[0]?.message?.content || "";
+        if (content.trim()) return content;
+      } else {
+        const errData = await res.json().catch(() => ({}));
+        lastError = errData.error?.message || `HTTP ${res.status}`;
+        console.warn(`Model ${model} on ${baseUrl} failed: ${lastError}`);
+      }
+    } catch (e: any) {
+      lastError = e?.message || "Connection timed out";
+    }
   }
 
-  const data = await res.json();
-  const content = data.choices?.[0]?.message?.content || "";
-  if (!content.trim()) throw new Error("Empty response from AI provider");
-  return content;
+  throw new Error(lastError || "All candidate models failed");
+}
+
+/** Caller for Anthropic Claude */
+async function callAnthropicRaw(
+  apiKey: string,
+  candidateModels: string[],
+  prompt: string,
+): Promise<string> {
+  let lastError = "";
+  for (const model of candidateModels.slice(0, 3)) {
+    try {
+      const res = await fetch("https://api.anthropic.com/v1/messages", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "x-api-key": apiKey,
+          "anthropic-version": "2023-06-01",
+        },
+        body: JSON.stringify({
+          model,
+          messages: [{ role: "user", content: prompt }],
+          max_tokens: 1000,
+          temperature: 0.4,
+        }),
+        signal: AbortSignal.timeout(25000),
+      });
+
+      if (res.ok) {
+        const data = await res.json();
+        const rawText = data.content?.[0]?.text || "";
+        if (rawText.trim()) return rawText;
+      } else {
+        const errData = await res.json().catch(() => ({}));
+        lastError = errData.error?.message || `HTTP ${res.status}`;
+      }
+    } catch (e: any) {
+      lastError = e?.message || "Anthropic connection timed out";
+    }
+  }
+  throw new Error(lastError || "Anthropic failed to respond");
 }
 
 /** Free Pollinations fallback */
@@ -129,37 +321,82 @@ async function executePrompt(
   const userApiKey = providerConfig?.apiKey?.trim();
   const provider = providerConfig?.provider;
 
+  // 1. Try user-configured provider first
   if (userApiKey && provider) {
-    if (provider === "gemini") {
-      return await callGeminiRaw(userApiKey, prompt);
-    }
-    if (provider === "groq") {
-      return await callOpenAICompatibleRaw(
-        "https://api.groq.com/openai/v1",
-        userApiKey,
-        "llama-3.3-70b-versatile",
-        prompt,
-      );
-    }
-    if (provider === "openai") {
-      return await callOpenAICompatibleRaw(
-        "https://api.openai.com/v1",
-        userApiKey,
-        "gpt-4o-mini",
-        prompt,
+    try {
+      if (provider === "gemini") {
+        return await callGeminiRaw(userApiKey, prompt);
+      }
+      if (provider === "groq") {
+        const discovered = await discoverGroqModels(userApiKey);
+        const candidates = Array.from(
+          new Set(
+            [
+              providerConfig?.model,
+              ...discovered,
+              "llama-3.1-8b-instant",
+              "llama-3.3-70b-versatile",
+              "llama-3.1-70b-versatile",
+              "mixtral-8x7b-32768",
+              "gemma2-9b-it",
+            ].filter(Boolean) as string[],
+          ),
+        );
+        return await callOpenAICompatibleWithFallback(
+          "https://api.groq.com/openai/v1",
+          userApiKey,
+          candidates,
+          prompt,
+        );
+      }
+      if (provider === "openai") {
+        const discovered = await discoverOpenAIModels(userApiKey);
+        const candidates = Array.from(
+          new Set(
+            [providerConfig?.model, ...discovered, "gpt-4o-mini", "gpt-4o"].filter(
+              Boolean,
+            ) as string[],
+          ),
+        );
+        return await callOpenAICompatibleWithFallback(
+          "https://api.openai.com/v1",
+          userApiKey,
+          candidates,
+          prompt,
+        );
+      }
+      if (provider === "anthropic") {
+        const discovered = await discoverAnthropicModels(userApiKey);
+        const candidates = Array.from(
+          new Set(
+            [
+              providerConfig?.model,
+              ...discovered,
+              "claude-3-5-haiku-latest",
+              "claude-3-haiku-20240307",
+            ].filter(Boolean) as string[],
+          ),
+        );
+        return await callAnthropicRaw(userApiKey, candidates, prompt);
+      }
+    } catch (userErr: any) {
+      console.warn(
+        `User ${provider} provider failed (${userErr?.message}). Falling back to server/free AI...`,
       );
     }
   }
 
+  // 2. Fallback to Server Gemini Key
   const serverGeminiKey = process.env.GEMINI_API_KEY?.trim();
   if (serverGeminiKey) {
     try {
       return await callGeminiRaw(serverGeminiKey, prompt);
     } catch (e) {
-      console.warn("Server gemini key failed, trying fallback:", e);
+      console.warn("Server gemini key failed, falling back to free AI:", e);
     }
   }
 
+  // 3. Fallback to Free Live Service
   return await callFreePollinations(prompt);
 }
 
@@ -218,8 +455,10 @@ Respond ONLY with a JSON object in this exact format:
 
       const raw = await executePrompt(prompt, providerConfig);
       const parsed = parseJsonFromText(raw);
-      // Ensure target word is included in options
-      if (Array.isArray(parsed.options) && !parsed.options.some((o: string) => o.toLowerCase() === word.toLowerCase())) {
+      if (
+        Array.isArray(parsed.options) &&
+        !parsed.options.some((o: string) => o.toLowerCase() === word.toLowerCase())
+      ) {
         parsed.options[0] = word;
       }
       return NextResponse.json({ success: true, data: parsed });
@@ -261,4 +500,3 @@ Respond ONLY with a JSON object in this exact format:
     );
   }
 }
-
