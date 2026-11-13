@@ -12,6 +12,7 @@ import {
 import { VocabInputBar } from "../vocab/VocabInputBar";
 import { VocabFlashcard } from "../vocab/VocabFlashcard";
 import { WordPracticeView } from "../vocab/WordPracticeView";
+import { VocabGameMode } from "../vocab/VocabGameMode";
 import {
   Sparkles,
   BookOpen,
@@ -19,10 +20,12 @@ import {
   CheckCircle2,
   Calendar,
   Layers,
+  Timer,
+  Zap,
 } from "lucide-react";
 
 export function MiscHubView() {
-  const [activeTab, setActiveTab] = useState<"cards" | "practice">("cards");
+  const [activeTab, setActiveTab] = useState<"cards" | "practice" | "game">("cards");
   const [cards, setCards] = useState<VocabCard[]>([]);
   const [todayCount, setTodayCount] = useState(0);
   const [filter, setFilter] = useState<"all" | "today" | "learning" | "mastered">("all");
@@ -84,12 +87,12 @@ export function MiscHubView() {
             </h1>
           </div>
           <p className="text-xs sm:text-sm text-slate-500 dark:text-slate-400 mt-1">
-            Build high-retention vocabulary at 4–5 words a day. Feed only the word — AI creates memory hooks & 2-way practice.
+            Build high-retention vocabulary at 4–5 words a day. Feed only the word — AI creates memory hooks, flashcards & 2-min rapid recall games.
           </p>
         </div>
 
-        {/* Tab switchers - full width on mobile */}
-        <div className="grid grid-cols-2 sm:flex sm:items-center bg-slate-100 dark:bg-slate-800/80 p-1 rounded-xl border border-slate-200/60 dark:border-slate-700/60 shrink-0">
+        {/* Tab switchers */}
+        <div className="grid grid-cols-3 sm:flex sm:items-center bg-slate-100 dark:bg-slate-800/80 p-1 rounded-xl border border-slate-200/60 dark:border-slate-700/60 shrink-0 gap-1">
           <button
             type="button"
             onClick={() => setActiveTab("cards")}
@@ -100,7 +103,7 @@ export function MiscHubView() {
             }`}
           >
             <Sparkles className="w-3.5 h-3.5" />
-            <span>Flashcards ({cards.length})</span>
+            <span className="truncate">Cards ({cards.length})</span>
           </button>
 
           <button
@@ -113,7 +116,20 @@ export function MiscHubView() {
             }`}
           >
             <BookOpen className="w-3.5 h-3.5" />
-            <span>Word Practice</span>
+            <span className="truncate">Practice</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setActiveTab("game")}
+            className={`flex items-center justify-center gap-1.5 min-h-[38px] py-1.5 px-3 rounded-lg text-xs font-semibold transition-all touch-manipulation cursor-pointer ${
+              activeTab === "game"
+                ? "bg-amber-500 text-slate-950 font-extrabold shadow-sm"
+                : "text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200"
+            }`}
+          >
+            <Zap className="w-3.5 h-3.5" />
+            <span className="truncate">2-Min Game</span>
           </button>
         </div>
       </div>
@@ -123,6 +139,34 @@ export function MiscHubView() {
         <div className="space-y-5">
           {/* Quick Input Bar */}
           <VocabInputBar onWordAdded={handleWordAdded} todayCount={todayCount} />
+
+          {/* 2-Minute Game Quick Invitation Banner */}
+          {cards.length >= 2 && (
+            <div className="p-3.5 sm:p-4 rounded-2xl bg-gradient-to-r from-amber-500/15 via-indigo-500/10 to-purple-500/15 border border-amber-300/40 dark:border-amber-700/30 flex items-center justify-between gap-3 shadow-2xs">
+              <div className="flex items-center gap-2.5 min-w-0">
+                <div className="p-2 rounded-xl bg-amber-500 text-slate-950 shrink-0">
+                  <Zap className="w-4 h-4 fill-slate-950" />
+                </div>
+                <div>
+                  <h4 className="text-xs sm:text-sm font-bold text-slate-900 dark:text-white">
+                    2-Minute Blitz Recall Game
+                  </h4>
+                  <p className="text-[11px] sm:text-xs text-slate-600 dark:text-slate-400 line-clamp-1">
+                    Random cards thrown from your wordbook. Test your instant recall under a strict 120s timer!
+                  </p>
+                </div>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => setActiveTab("game")}
+                className="shrink-0 px-3.5 py-2 rounded-xl bg-amber-500 hover:bg-amber-600 active:scale-95 text-slate-950 text-xs font-extrabold shadow-sm transition-all cursor-pointer flex items-center gap-1"
+              >
+                <Timer className="w-3.5 h-3.5" />
+                <span>Play Game</span>
+              </button>
+            </div>
+          )}
 
           {/* Horizontally scrollable Filter Chips on Mobile */}
           {cards.length > 0 && (
@@ -178,14 +222,14 @@ export function MiscHubView() {
               </div>
 
               <span className="text-[11px] text-slate-400 hidden lg:inline shrink-0">
-                💡 Tap card to flip and reveal memory hook & sentence usage
+                💡 Click any card to flip front/back • Click ⤢ to expand infographic
               </span>
             </div>
           )}
 
-          {/* Cards Grid */}
+          {/* Cards Grid with improved dimensions & typography */}
           {filteredCards.length > 0 ? (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-5">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5 sm:gap-6">
               {filteredCards.map((card) => (
                 <VocabFlashcard
                   key={card.id}
@@ -220,6 +264,14 @@ export function MiscHubView() {
           cards={cards}
           initialWord={practiceWord}
           onClearInitialWord={() => setPracticeWord(null)}
+        />
+      )}
+
+      {/* TAB 3: 2-MINUTE BLITZ GAME MODE */}
+      {activeTab === "game" && (
+        <VocabGameMode
+          cards={cards}
+          onExitGame={() => setActiveTab("cards")}
         />
       )}
     </div>
