@@ -35,6 +35,7 @@ export function VocabInfographicModal({
       isOpen={isOpen}
       onClose={onClose}
       labelledBy="infographic-title"
+      showCloseButton={false}
       className="max-w-2xl w-full p-0 overflow-hidden rounded-2xl shadow-xl border border-slate-200 dark:border-slate-800"
     >
       <div className="bg-gradient-to-br from-indigo-950 via-slate-900 to-slate-950 text-white p-6 sm:p-7 relative">
