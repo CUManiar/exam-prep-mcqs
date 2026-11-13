@@ -69,3 +69,4 @@ export function getTodayVocabCount(): number {
   const today = getTodayString();
   return cards.filter((c) => c.dateAdded === today).length;
 }
+

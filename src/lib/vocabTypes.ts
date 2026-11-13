@@ -22,3 +22,4 @@ export interface SentenceEvaluationResponse {
   feedback: string;
   improvedSentence?: string;
 }
+
