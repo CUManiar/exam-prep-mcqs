@@ -498,3 +498,4 @@ export function VocabGameMode({ cards, onExitGame }: VocabGameModeProps) {
     </div>
   );
 }
+
