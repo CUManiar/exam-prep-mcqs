@@ -9,7 +9,11 @@ import {
   SubjectiveAssessment,
 } from "./types";
 import { parseAnswerKeyDetailed, SUBJECTIVE_ASSESSMENT_META } from "./defaults";
-import { isSpecificSingleSubject } from "./markdownPaperParser";
+import {
+  isSpecificSingleSubject,
+  parseMarkdownHeader,
+  parseQuestionnaireMarkdown,
+} from "./markdownPaperParser";
 import {
   deleteMcpPaper,
   getTopicAnalytics,
@@ -74,6 +78,9 @@ function paperSummary(paper: QuestionPaper) {
     examType: paper.examType,
     totalQuestions: paper.totalQuestions,
     totalMarks: paper.totalMarks,
+    timeMinutes: paper.timeMinutes,
+    correctMarks: paper.correctMarks,
+    incorrectMarks: paper.incorrectMarks,
     hasAnswerKey:
       Object.keys(paper.answerKey || {}).length > 0 ||
       Object.keys(paper.explanations || {}).length > 0 ||
@@ -81,6 +88,27 @@ function paperSummary(paper: QuestionPaper) {
     hasContent: Boolean(paper.markdownContent || paper.parsedQuestions?.length),
     source: isCustomMcpPaper(paper) ? "student" : "preloaded",
   };
+}
+
+function parseDurationToMinutes(raw: unknown): number | undefined {
+  if (!raw) return undefined;
+  if (typeof raw === "number" && !isNaN(raw) && raw > 0) return Math.round(raw);
+  const str = String(raw).trim().toLowerCase();
+  if (!str) return undefined;
+
+  const hrMatch = str.match(/(\d+(?:\.\d+)?)\s*(?:hours?|hrs?|h)\b/);
+  const minMatch = str.match(/(\d+)\s*(?:minutes?|mins?|m)\b/);
+  if (hrMatch || minMatch) {
+    const hours = hrMatch ? parseFloat(hrMatch[1]) : 0;
+    const mins = minMatch ? parseInt(minMatch[1], 10) : 0;
+    const total = Math.round(hours * 60 + mins);
+    if (total > 0) return total;
+  }
+
+  const plainNum = parseInt(str.replace(/[^\d]/g, ""), 10);
+  if (!isNaN(plainNum) && plainNum > 0) return plainNum;
+
+  return undefined;
 }
 
 function normalizeQuestions(input: Record<string, any>): ParsedQuestion[] {
@@ -110,44 +138,116 @@ function createImportedPaper(
   userId: string,
   input: Record<string, any>,
 ): QuestionPaper {
-  const year = String(input.year || new Date().getFullYear()).replace(
-    /[^0-9]/g,
-    "",
-  );
+  const markdownText = String(input.markdownContent || input.content || "");
+  const header = markdownText ? parseMarkdownHeader(markdownText) : {};
+
+  const year = String(
+    input.year || (header as any).year || new Date().getFullYear(),
+  ).replace(/[^0-9]/g, "");
+
   const title = String(
-    input.title || input.label || input.subject || "Imported paper",
+    input.title ||
+      input.label ||
+      header.exam ||
+      input.subject ||
+      header.subject ||
+      "Imported paper",
   ).trim();
+
   const slug =
     title
       .toLowerCase()
       .replace(/[^a-z0-9]+/g, "_")
       .replace(/^_|_$/g, "")
       .slice(0, 48) || "paper";
+
   const examType = input.examType === "subjective" ? "subjective" : "objective";
   const category = input.category === "mains" ? "mains" : "prelims";
-  const paperSubject = String(input.subject || title);
+  const paperSubject = String(input.subject || header.subject || title);
   const enforceSingleSubject = isSpecificSingleSubject(paperSubject);
-  const parsedQuestions = normalizeQuestions(input);
+
+  let parsedQuestions = normalizeQuestions(input);
+  if (parsedQuestions.length === 0 && markdownText.trim()) {
+    parsedQuestions = parseQuestionnaireMarkdown(markdownText, paperSubject);
+  }
+
   if (enforceSingleSubject) {
     parsedQuestions.forEach((q) => {
       q.subject = paperSubject;
     });
   }
+
   const parsedAnswerKey = input.answerKeyText
     ? parseAnswerKeyDetailed(String(input.answerKeyText))
     : { answers: {}, explanations: {} };
+
+  // Calculate total questions:
+  // 1. Explicit input.totalQuestions
+  // 2. Parsed markdown header totalQuestions
+  // 3. Count of parsed questions (if questions exist)
+  // 4. Default fallback: 100 for objective, 20 for subjective
   const totalQuestions = Number(
     input.totalQuestions ||
-      parsedQuestions.length ||
+      header.totalQuestions ||
+      (parsedQuestions.length > 0 ? parsedQuestions.length : undefined) ||
       (examType === "objective" ? 100 : 20),
   );
+
+  // Correct marks per question:
+  // 1. Explicit input.correctMarks
+  // 2. Parsed markdown header positiveMarks
+  // 3. Derived from header totalMarks / totalQuestions (if available)
+  // 4. Default: 2 for objective, 0 for subjective
   const correctMarks = Number(
-    input.correctMarks ?? (examType === "objective" ? 2 : 0),
+    input.correctMarks ??
+      header.positiveMarks ??
+      (header.totalMarks && totalQuestions > 0
+        ? Number((header.totalMarks / totalQuestions).toFixed(2))
+        : (examType === "objective" ? 2 : 0)),
   );
+
+  // Incorrect marks:
+  // 1. Explicit input.incorrectMarks
+  // 2. Parsed markdown header negativeMarking
+  // 3. Default: 0
+  const headerNegative = header.negativeMarking
+    ? parseFloat(header.negativeMarking.match(/[\d.]+/)?.[0] || "0")
+    : undefined;
+  const incorrectMarks = Number(
+    input.incorrectMarks ??
+      (headerNegative !== undefined && !isNaN(headerNegative)
+        ? headerNegative
+        : 0),
+  );
+
+  // Total marks:
+  // 1. Explicit input.totalMarks
+  // 2. Parsed markdown header totalMarks
+  // 3. totalQuestions * correctMarks (if objective)
+  // 4. Default: 250 for subjective
   const totalMarks = Number(
     input.totalMarks ||
+      header.totalMarks ||
       (examType === "objective" ? totalQuestions * correctMarks : 250),
   );
+
+  // Duration in minutes:
+  // 1. Explicit input.timeMinutes
+  // 2. Parsed markdown header time
+  // 3. Default: 120 for objective, 180 for subjective
+  const headerTimeMins = parseDurationToMinutes(header.time);
+  const timeMinutes = Number(
+    input.timeMinutes ||
+      headerTimeMins ||
+      (examType === "objective" ? 120 : 180),
+  );
+
+  const instructions =
+    Array.isArray(input.instructions) && input.instructions.length > 0
+      ? input.instructions
+      : header.instructions && header.instructions.length > 0
+        ? header.instructions
+        : undefined;
 
   return {
     id: `custom_${userId.slice(0, 8)}_${year}_${slug}`,
@@ -155,16 +255,14 @@ function createImportedPaper(
     year: year || String(new Date().getFullYear()),
     category,
     examType,
-    subject: String(input.subject || title),
+    subject: paperSubject,
     label: title,
     title,
     totalQuestions,
     totalMarks,
     correctMarks,
-    incorrectMarks: Number(input.incorrectMarks || 0),
-    timeMinutes: Number(
-      input.timeMinutes || (examType === "objective" ? 120 : 180),
-    ),
+    incorrectMarks,
+    timeMinutes,
     qpUrl: "local://interactive_markdown",
     answerKey: { ...parsedAnswerKey.answers, ...(input.answerKey || {}) },
     answerKeyText: input.answerKeyText,
@@ -172,11 +270,9 @@ function createImportedPaper(
       ...parsedAnswerKey.explanations,
       ...(input.explanations || {}),
     },
-    markdownContent: input.markdownContent || input.content,
+    markdownContent: markdownText || undefined,
     parsedQuestions: parsedQuestions.length > 0 ? parsedQuestions : undefined,
-    instructions: Array.isArray(input.instructions)
-      ? input.instructions
-      : undefined,
+    instructions,
     cutoffEnabled: Boolean(input.cutoffEnabled),
     cutoffType: input.cutoffType === "marks" ? "marks" : "percentage",
     cutoffValue:

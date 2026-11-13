@@ -405,6 +405,7 @@ export async function fetchUserCustomPapersFromSupabase(
             : undefined,
         isCustom: true,
         userId: row.user_id,
+        createdAt: row.created_at || undefined,
       };
     });
   } catch (err) {
