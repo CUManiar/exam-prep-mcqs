@@ -189,13 +189,13 @@ export function WordPracticeView({
   return (
     <div className="space-y-4 sm:space-y-6">
       {/* Thumb-friendly Mode Switcher */}
-      <div className="grid grid-cols-2 gap-1.5 bg-slate-100 dark:bg-slate-800/80 p-1.5 rounded-xl border border-slate-200/60 dark:border-slate-700/60">
+      <div className="grid grid-cols-2 gap-1.5 bg-slate-100 dark:bg-slate-800/80 p-1 rounded-xl border border-slate-200/60 dark:border-slate-700/60">
         <button
           type="button"
           onClick={() => setMode("identify")}
-          className={`flex items-center justify-center gap-1.5 min-h-[42px] py-2 px-2.5 rounded-lg text-xs font-semibold transition-all touch-manipulation cursor-pointer ${
+          className={`flex items-center justify-center gap-1.5 min-h-[38px] py-1.5 px-2.5 rounded-lg text-xs font-medium transition-all touch-manipulation cursor-pointer ${
             mode === "identify"
-              ? "bg-white dark:bg-slate-900 text-indigo-700 dark:text-indigo-300 shadow-sm"
+              ? "bg-white dark:bg-slate-900 text-indigo-700 dark:text-indigo-300 shadow-2xs font-semibold"
               : "text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200"
           }`}
         >
@@ -206,9 +206,9 @@ export function WordPracticeView({
         <button
           type="button"
           onClick={() => setMode("form")}
-          className={`flex items-center justify-center gap-1.5 min-h-[42px] py-2 px-2.5 rounded-lg text-xs font-semibold transition-all touch-manipulation cursor-pointer ${
+          className={`flex items-center justify-center gap-1.5 min-h-[38px] py-1.5 px-2.5 rounded-lg text-xs font-medium transition-all touch-manipulation cursor-pointer ${
             mode === "form"
-              ? "bg-white dark:bg-slate-900 text-indigo-700 dark:text-indigo-300 shadow-sm"
+              ? "bg-white dark:bg-slate-900 text-indigo-700 dark:text-indigo-300 shadow-2xs font-semibold"
               : "text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200"
           }`}
         >
@@ -219,15 +219,15 @@ export function WordPracticeView({
 
       {/* ── MODE 1: IDENTIFY WORD FROM STATEMENT ── */}
       {mode === "identify" && (
-        <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-4 sm:p-6 shadow-sm space-y-5">
-          <div className="flex items-center justify-between text-xs text-slate-500 border-b border-slate-100 dark:border-slate-800 pb-3">
-            <span className="font-semibold text-slate-700 dark:text-slate-300">
+        <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-4 sm:p-6 shadow-sm space-y-4">
+          <div className="flex items-center justify-between text-xs text-slate-500 border-b border-slate-100 dark:border-slate-800 pb-2.5">
+            <span className="font-medium text-slate-600 dark:text-slate-400">
               Word {currentCardIndex + 1} of {cards.length}
             </span>
             <button
               type="button"
               onClick={() => setShowHint(!showHint)}
-              className="min-h-[36px] px-2 text-amber-700 dark:text-amber-400 hover:underline flex items-center gap-1 font-medium touch-manipulation cursor-pointer"
+              className="min-h-[32px] px-2 text-amber-700 dark:text-amber-400 hover:underline flex items-center gap-1 font-medium touch-manipulation cursor-pointer text-xs"
             >
               <Lightbulb className="w-3.5 h-3.5" />
               <span>{showHint ? "Hide Hint" : "Hint"}</span>
@@ -235,18 +235,18 @@ export function WordPracticeView({
           </div>
 
           {loadingQuestion ? (
-            <div className="py-12 flex flex-col items-center justify-center text-slate-400">
-              <Loader2 className="w-7 h-7 animate-spin text-indigo-600 mb-2.5" />
-              <p className="text-xs font-medium">Generating context sentence...</p>
+            <div className="py-10 flex flex-col items-center justify-center text-slate-400">
+              <Loader2 className="w-6 h-6 animate-spin text-indigo-600 mb-2" />
+              <p className="text-xs font-normal">Generating context sentence...</p>
             </div>
           ) : practiceQuestion ? (
-            <div className="space-y-5">
+            <div className="space-y-4">
               <div className="p-4 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200/70 dark:border-slate-700/60">
-                <p className="text-sm sm:text-base text-slate-900 dark:text-slate-100 leading-relaxed font-serif">
+                <p className="text-sm sm:text-base text-slate-800 dark:text-slate-100 leading-relaxed font-serif">
                   {practiceQuestion.statementWithBlank}
                 </p>
                 {showHint && practiceQuestion.hint && (
-                  <p className="mt-3 text-xs text-amber-800 dark:text-amber-300 bg-amber-50 dark:bg-amber-950/40 p-2.5 rounded-lg border border-amber-200/60 dark:border-amber-800/40 leading-relaxed">
+                  <p className="mt-2.5 text-xs text-amber-800 dark:text-amber-300 bg-amber-50 dark:bg-amber-950/40 p-2.5 rounded-lg border border-amber-200/60 dark:border-amber-800/40 leading-relaxed font-normal">
                     💡 <strong>Hint:</strong> {practiceQuestion.hint}
                   </p>
                 )}
@@ -265,7 +265,7 @@ export function WordPracticeView({
                   if (isAnswerRevealed) {
                     if (isCorrect) {
                       btnStyle =
-                        "border-emerald-500 bg-emerald-50 dark:bg-emerald-950/50 text-emerald-800 dark:text-emerald-200 font-bold";
+                        "border-emerald-500 bg-emerald-50 dark:bg-emerald-950/50 text-emerald-800 dark:text-emerald-200 font-medium";
                     } else if (isSelected && !isCorrect) {
                       btnStyle =
                         "border-rose-400 bg-rose-50 dark:bg-rose-950/50 text-rose-800 dark:text-rose-200 line-through";
@@ -283,14 +283,14 @@ export function WordPracticeView({
                         setSelectedOption(option);
                         setIsAnswerRevealed(true);
                       }}
-                      className={`min-h-[48px] p-3.5 rounded-xl border text-sm font-semibold transition-all text-left flex items-center justify-between active:scale-[0.98] touch-manipulation cursor-pointer ${btnStyle}`}
+                      className={`min-h-[46px] p-3 rounded-xl border text-sm font-normal transition-all text-left flex items-center justify-between active:scale-[0.98] touch-manipulation cursor-pointer ${btnStyle}`}
                     >
-                      <span className="capitalize truncate pr-2">{option}</span>
+                      <span className="capitalize break-words hyphens-auto pr-2">{option}</span>
                       {isAnswerRevealed && isCorrect && (
-                        <CheckCircle2 className="w-5 h-5 text-emerald-600 shrink-0" />
+                        <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
                       )}
                       {isAnswerRevealed && isSelected && !isCorrect && (
-                        <XCircle className="w-5 h-5 text-rose-600 shrink-0" />
+                        <XCircle className="w-4 h-4 text-rose-600 shrink-0" />
                       )}
                     </button>
                   );
@@ -307,7 +307,7 @@ export function WordPracticeView({
                   <button
                     type="button"
                     onClick={handleNextIdentify}
-                    className="w-full sm:w-auto min-h-[44px] inline-flex items-center justify-center gap-1.5 px-5 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 active:scale-[0.98] text-white text-xs font-semibold transition-all shadow-sm touch-manipulation cursor-pointer"
+                    className="w-full sm:w-auto min-h-[38px] inline-flex items-center justify-center gap-1.5 px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 active:scale-[0.98] text-white text-xs font-medium transition-all shadow-2xs touch-manipulation cursor-pointer"
                   >
                     <span>Next Word</span>
                     <ArrowRight className="w-3.5 h-3.5" />
@@ -321,35 +321,35 @@ export function WordPracticeView({
 
       {/* ── MODE 2: FORM A STATEMENT FROM WORD ── */}
       {mode === "form" && formWordCard && (
-        <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-4 sm:p-6 shadow-sm space-y-5">
-          <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-3">
-            <div>
-              <span className="text-[11px] text-slate-400 uppercase tracking-wider block font-semibold">
+        <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-4 sm:p-6 shadow-sm space-y-4">
+          <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-2.5">
+            <div className="min-w-0 pr-2">
+              <span className="text-[11px] text-slate-400 uppercase tracking-wider block font-medium">
                 Target Word
               </span>
-              <h4 className="text-xl sm:text-2xl font-bold text-slate-900 dark:text-white capitalize">
+              <h4 className="text-xl sm:text-2xl font-semibold text-slate-800 dark:text-slate-100 capitalize break-words hyphens-auto">
                 {formWordCard.word}
               </h4>
             </div>
             <button
               type="button"
               onClick={handleNextFormWord}
-              className="min-h-[36px] px-2 text-xs font-semibold text-indigo-600 dark:text-indigo-400 hover:underline flex items-center gap-1 touch-manipulation cursor-pointer"
+              className="min-h-[32px] px-2 text-xs font-medium text-indigo-600 dark:text-indigo-400 hover:underline flex items-center gap-1 touch-manipulation cursor-pointer shrink-0"
             >
-              <RotateCcw className="w-3.5 h-3.5" />
+              <RotateCcw className="w-3 h-3" />
               <span>Next word</span>
             </button>
           </div>
 
-          <div className="p-3.5 rounded-xl bg-indigo-50/70 dark:bg-indigo-950/40 border border-indigo-100 dark:border-indigo-900/50">
-            <p className="text-xs text-indigo-900 dark:text-indigo-200 leading-relaxed">
+          <div className="p-3 rounded-xl bg-indigo-50/60 dark:bg-indigo-950/30 border border-indigo-100/80 dark:border-indigo-900/40">
+            <p className="text-xs text-indigo-900/90 dark:text-indigo-200 leading-relaxed font-normal">
               <strong>Meaning:</strong> {formWordCard.meaning}
             </p>
           </div>
 
-          <form onSubmit={handleEvaluateSentence} className="space-y-4">
+          <form onSubmit={handleEvaluateSentence} className="space-y-3">
             <div>
-              <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5">
+              <label className="block text-xs font-medium text-slate-700 dark:text-slate-300 mb-1">
                 Write a sentence using "{formWordCard.word}":
               </label>
               <textarea
@@ -357,28 +357,28 @@ export function WordPracticeView({
                 value={studentSentence}
                 onChange={(e) => setStudentSentence(e.target.value)}
                 placeholder={`Use "${formWordCard.word}" in a sentence suitable for an essay or answer...`}
-                className="w-full p-3.5 text-base sm:text-sm rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/70 text-slate-900 dark:text-white placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all leading-relaxed"
+                className="w-full p-3 text-base sm:text-sm rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/70 text-slate-900 dark:text-white placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all leading-relaxed font-normal"
               />
             </div>
 
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
               <span className="text-[11px] text-slate-400">
                 AI evaluates your grammar, nuance, and gives an editorial upgrade.
               </span>
               <button
                 type="submit"
                 disabled={!studentSentence.trim() || evaluatingSentence}
-                className="w-full sm:w-auto min-h-[46px] inline-flex items-center justify-center gap-2 px-6 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 active:scale-[0.98] text-white text-xs font-semibold transition-all shadow-sm disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer touch-manipulation"
+                className="w-full sm:w-auto min-h-[38px] inline-flex items-center justify-center gap-2 px-5 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 active:scale-[0.98] text-white text-xs font-medium transition-all shadow-2xs disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer touch-manipulation"
               >
                 {evaluatingSentence ? (
                   <>
-                    <Loader2 className="w-4 h-4 animate-spin" />
+                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
                     <span>Evaluating...</span>
                   </>
                 ) : (
                   <>
-                    <Sparkles className="w-4 h-4" />
-                    <span>Evaluate My Sentence</span>
+                    <Sparkles className="w-3.5 h-3.5" />
+                    <span>Evaluate Sentence</span>
                   </>
                 )}
               </button>
@@ -387,39 +387,39 @@ export function WordPracticeView({
 
           {/* AI Evaluation Card */}
           {sentenceEvalResult && (
-            <div className="mt-4 p-4 sm:p-5 rounded-xl border border-indigo-200 dark:border-indigo-900/60 bg-gradient-to-br from-indigo-50/60 to-purple-50/40 dark:from-indigo-950/40 dark:to-purple-950/20 space-y-3">
+            <div className="mt-3 p-4 rounded-xl border border-indigo-200/80 dark:border-indigo-900/50 bg-indigo-50/40 dark:bg-indigo-950/30 space-y-2.5">
               <div className="flex items-center gap-2">
                 {sentenceEvalResult.isNatural ? (
-                  <span className="inline-flex items-center gap-1 text-xs font-bold px-2.5 py-0.5 rounded-full bg-emerald-100 dark:bg-emerald-950 text-emerald-800 dark:text-emerald-300">
-                    <CheckCircle2 className="w-3.5 h-3.5" /> Well Used!
+                  <span className="inline-flex items-center gap-1 text-xs font-medium px-2 py-0.5 rounded-full bg-emerald-100 dark:bg-emerald-950 text-emerald-800 dark:text-emerald-300">
+                    <CheckCircle2 className="w-3.5 h-3.5" /> Well Used
                   </span>
                 ) : (
-                  <span className="inline-flex items-center gap-1 text-xs font-bold px-2.5 py-0.5 rounded-full bg-amber-100 dark:bg-amber-950 text-amber-800 dark:text-amber-300">
-                    <HelpCircle className="w-3.5 h-3.5" /> Good Attempt!
+                  <span className="inline-flex items-center gap-1 text-xs font-medium px-2 py-0.5 rounded-full bg-amber-100 dark:bg-amber-950 text-amber-800 dark:text-amber-300">
+                    <HelpCircle className="w-3.5 h-3.5" /> Good Attempt
                   </span>
                 )}
               </div>
 
-              <p className="text-xs sm:text-sm text-slate-800 dark:text-slate-200 leading-relaxed">
+              <p className="text-xs sm:text-sm text-slate-700 dark:text-slate-300 leading-relaxed font-normal">
                 {sentenceEvalResult.feedback}
               </p>
 
               {sentenceEvalResult.improvedSentence && (
                 <div className="pt-2 border-t border-indigo-100 dark:border-indigo-900/50">
-                  <span className="text-[11px] font-bold text-indigo-700 dark:text-indigo-300 uppercase tracking-wider block">
-                    ✨ Editorial-Grade Polish
+                  <span className="text-[11px] font-medium text-indigo-700 dark:text-indigo-300 uppercase tracking-wider block">
+                    ✨ Editorial Polish
                   </span>
-                  <p className="text-xs sm:text-sm italic text-slate-800 dark:text-slate-200 mt-1 leading-relaxed bg-white/60 dark:bg-slate-900/40 p-2.5 rounded-lg border border-indigo-100/80 dark:border-indigo-900/40">
+                  <p className="text-xs sm:text-sm italic text-slate-700 dark:text-slate-300 mt-1 leading-relaxed bg-white/70 dark:bg-slate-900/50 p-2.5 rounded-lg border border-indigo-100/70 dark:border-indigo-900/40 font-serif">
                     "{sentenceEvalResult.improvedSentence}"
                   </p>
                 </div>
               )}
 
-              <div className="pt-2 flex justify-end">
+              <div className="pt-1.5 flex justify-end">
                 <button
                   type="button"
                   onClick={handleNextFormWord}
-                  className="w-full sm:w-auto min-h-[42px] inline-flex items-center justify-center gap-1.5 px-4 py-2 rounded-xl bg-indigo-600 text-white text-xs font-semibold hover:bg-indigo-700 active:scale-[0.98] transition-all touch-manipulation cursor-pointer"
+                  className="w-full sm:w-auto min-h-[36px] inline-flex items-center justify-center gap-1.5 px-4 py-1.5 rounded-xl bg-indigo-600 text-white text-xs font-medium hover:bg-indigo-700 active:scale-[0.98] transition-all touch-manipulation cursor-pointer"
                 >
                   <span>Practice Next Word</span>
                   <ArrowRight className="w-3.5 h-3.5" />

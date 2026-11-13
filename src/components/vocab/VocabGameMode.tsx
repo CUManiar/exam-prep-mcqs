@@ -229,26 +229,26 @@ export function VocabGameMode({ cards, onExitGame }: VocabGameModeProps) {
             <span>Strict 2-Minute Time Limit</span>
           </div>
 
-          <h2 className="text-3xl sm:text-4xl font-extrabold tracking-tight text-white">
+          <h2 className="text-2xl sm:text-3xl font-semibold tracking-tight text-white">
             Rapid Vocab Blitz
           </h2>
 
-          <p className="text-xs sm:text-sm text-indigo-200/90 leading-relaxed">
+          <p className="text-xs sm:text-sm text-indigo-200/90 leading-relaxed font-normal">
             Test your memory recall under pressure! Random cards from your saved wordbook will be thrown at you. You have exactly <strong>120 seconds</strong> to score as many points as you can.
           </p>
 
           <div className="grid grid-cols-3 gap-3 py-2 text-center">
             <div className="p-3 rounded-xl bg-white/5 border border-white/10">
-              <span className="text-xl font-bold text-amber-400">120s</span>
-              <span className="text-[10px] text-slate-400 block uppercase font-semibold">Max Duration</span>
+              <span className="text-xl font-semibold text-amber-400">120s</span>
+              <span className="text-[10px] text-slate-400 block uppercase font-medium">Max Duration</span>
             </div>
             <div className="p-3 rounded-xl bg-white/5 border border-white/10">
-              <span className="text-xl font-bold text-emerald-400">+{cards.length}</span>
-              <span className="text-[10px] text-slate-400 block uppercase font-semibold">Saved Cards</span>
+              <span className="text-xl font-semibold text-emerald-400">+{cards.length}</span>
+              <span className="text-[10px] text-slate-400 block uppercase font-medium">Saved Cards</span>
             </div>
             <div className="p-3 rounded-xl bg-white/5 border border-white/10">
-              <span className="text-xl font-bold text-indigo-400">Combo</span>
-              <span className="text-[10px] text-slate-400 block uppercase font-semibold">Streak Bonus</span>
+              <span className="text-xl font-semibold text-indigo-400">Combo</span>
+              <span className="text-[10px] text-slate-400 block uppercase font-medium">Streak Bonus</span>
             </div>
           </div>
 
@@ -256,9 +256,9 @@ export function VocabGameMode({ cards, onExitGame }: VocabGameModeProps) {
             <button
               type="button"
               onClick={startGame}
-              className="w-full sm:w-auto px-8 py-3.5 rounded-2xl bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 text-slate-950 text-sm font-extrabold shadow-lg shadow-amber-500/30 transition-all active:scale-95 cursor-pointer flex items-center justify-center gap-2 mx-auto"
+              className="w-full sm:w-auto px-7 py-3 rounded-2xl bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 text-slate-950 text-xs font-semibold shadow-md shadow-amber-500/20 transition-all active:scale-95 cursor-pointer flex items-center justify-center gap-2 mx-auto"
             >
-              <Zap className="w-5 h-5 fill-slate-950" />
+              <Zap className="w-4 h-4 fill-slate-950" />
               <span>Start 2-Minute Blitz Now</span>
             </button>
           </div>
@@ -275,77 +275,77 @@ export function VocabGameMode({ cards, onExitGame }: VocabGameModeProps) {
         : 0;
 
     return (
-      <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-6 sm:p-10 shadow-lg text-center space-y-6 max-w-xl mx-auto">
+      <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-6 sm:p-8 shadow-sm text-center space-y-5 max-w-xl mx-auto">
         <div className="inline-flex p-3 rounded-2xl bg-amber-50 dark:bg-amber-950/60 text-amber-600 border border-amber-200 dark:border-amber-800">
-          <Trophy className="w-10 h-10" />
+          <Trophy className="w-8 h-8" />
         </div>
 
         <div>
-          <span className="text-xs font-bold text-slate-400 uppercase tracking-widest block">
-            Time's Up! (2 Minutes Finished)
+          <span className="text-[11px] font-medium text-slate-400 uppercase tracking-wider block">
+            Time's Up (2-Minute Round Finished)
           </span>
-          <h2 className="text-2xl sm:text-3xl font-extrabold text-slate-900 dark:text-white mt-1">
-            Blitz Round Complete!
+          <h2 className="text-xl sm:text-2xl font-semibold text-slate-900 dark:text-white mt-1">
+            Blitz Round Complete
           </h2>
-          <p className="text-xs sm:text-sm text-slate-500 dark:text-slate-400 mt-1">
+          <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
             Here is your rapid recall summary:
           </p>
         </div>
 
         {/* Score Grid */}
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-          <div className="p-3.5 rounded-2xl bg-indigo-50 dark:bg-indigo-950/40 border border-indigo-100 dark:border-indigo-900/50">
-            <span className="text-2xl sm:text-3xl font-extrabold text-indigo-700 dark:text-indigo-300">
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
+          <div className="p-3 rounded-2xl bg-indigo-50/70 dark:bg-indigo-950/40 border border-indigo-100/80 dark:border-indigo-900/50">
+            <span className="text-xl sm:text-2xl font-semibold text-indigo-700 dark:text-indigo-300">
               {score}
             </span>
-            <span className="text-[11px] font-bold text-indigo-900/70 dark:text-indigo-400 block mt-0.5">
-              Total Score
+            <span className="text-[10px] font-medium text-indigo-900/70 dark:text-indigo-400 block mt-0.5">
+              Score
             </span>
           </div>
 
-          <div className="p-3.5 rounded-2xl bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-100 dark:border-emerald-900/50">
-            <span className="text-2xl sm:text-3xl font-extrabold text-emerald-700 dark:text-emerald-300">
+          <div className="p-3 rounded-2xl bg-emerald-50/70 dark:bg-emerald-950/40 border border-emerald-100/80 dark:border-emerald-900/50">
+            <span className="text-xl sm:text-2xl font-semibold text-emerald-700 dark:text-emerald-300">
               {correctCount}/{questionsAnswered}
             </span>
-            <span className="text-[11px] font-bold text-emerald-900/70 dark:text-emerald-400 block mt-0.5">
+            <span className="text-[10px] font-medium text-emerald-900/70 dark:text-emerald-400 block mt-0.5">
               Correct
             </span>
           </div>
 
-          <div className="p-3.5 rounded-2xl bg-amber-50 dark:bg-amber-950/40 border border-amber-100 dark:border-amber-900/50">
-            <span className="text-2xl sm:text-3xl font-extrabold text-amber-700 dark:text-amber-300">
+          <div className="p-3 rounded-2xl bg-amber-50/70 dark:bg-amber-950/40 border border-amber-100/80 dark:border-amber-900/50">
+            <span className="text-xl sm:text-2xl font-semibold text-amber-700 dark:text-amber-300">
               {accuracy}%
             </span>
-            <span className="text-[11px] font-bold text-amber-900/70 dark:text-amber-400 block mt-0.5">
+            <span className="text-[10px] font-medium text-amber-900/70 dark:text-amber-400 block mt-0.5">
               Accuracy
             </span>
           </div>
 
-          <div className="p-3.5 rounded-2xl bg-purple-50 dark:bg-purple-950/40 border border-purple-100 dark:border-purple-900/50">
-            <span className="text-2xl sm:text-3xl font-extrabold text-purple-700 dark:text-purple-300">
+          <div className="p-3 rounded-2xl bg-purple-50/70 dark:bg-purple-950/40 border border-purple-100/80 dark:border-purple-900/50">
+            <span className="text-xl sm:text-2xl font-semibold text-purple-700 dark:text-purple-300">
               {maxStreak}🔥
             </span>
-            <span className="text-[11px] font-bold text-purple-900/70 dark:text-purple-400 block mt-0.5">
+            <span className="text-[10px] font-medium text-purple-900/70 dark:text-purple-400 block mt-0.5">
               Max Streak
             </span>
           </div>
         </div>
 
         {/* Buttons */}
-        <div className="pt-2 flex flex-col sm:flex-row gap-3 justify-center">
+        <div className="pt-2 flex flex-col sm:flex-row gap-2.5 justify-center">
           <button
             type="button"
             onClick={startGame}
-            className="px-6 py-3 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold shadow-md shadow-indigo-600/20 transition-all flex items-center justify-center gap-1.5 cursor-pointer"
+            className="px-5 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-medium shadow-xs transition-all flex items-center justify-center gap-1.5 cursor-pointer"
           >
-            <RotateCcw className="w-4 h-4" />
+            <RotateCcw className="w-3.5 h-3.5" />
             <span>Play Another 2-Min Round</span>
           </button>
 
           <button
             type="button"
             onClick={onExitGame}
-            className="px-6 py-3 rounded-xl border border-slate-200 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-200 text-xs font-semibold transition-colors cursor-pointer"
+            className="px-5 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-200 text-xs font-medium transition-colors cursor-pointer"
           >
             Back to Flashcards
           </button>
@@ -358,7 +358,7 @@ export function VocabGameMode({ cards, onExitGame }: VocabGameModeProps) {
   return (
     <div className="space-y-4 max-w-2xl mx-auto">
       {/* HUD Header */}
-      <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-4 shadow-sm flex items-center justify-between gap-4">
+      <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-3.5 sm:p-4 shadow-sm flex items-center justify-between gap-4">
         {/* Strict Countdown Timer */}
         <div className="flex items-center gap-2.5">
           <div
@@ -368,31 +368,31 @@ export function VocabGameMode({ cards, onExitGame }: VocabGameModeProps) {
                 : "bg-indigo-50 text-indigo-700 dark:bg-indigo-950/60 dark:text-indigo-400"
             }`}
           >
-            <Timer className="w-5 h-5" />
+            <Timer className="w-4 h-4" />
           </div>
           <div>
             <span
-              className={`text-lg sm:text-xl font-extrabold font-mono tracking-tight ${
-                timeLeft <= 20 ? "text-rose-600 dark:text-rose-400" : "text-slate-900 dark:text-white"
+              className={`text-base sm:text-lg font-semibold font-mono tracking-tight ${
+                timeLeft <= 20 ? "text-rose-600 dark:text-rose-400" : "text-slate-800 dark:text-white"
               }`}
             >
               {formatTimer(timeLeft)}
             </span>
-            <span className="text-[10px] text-slate-400 block uppercase font-bold">2-Min Blitz</span>
+            <span className="text-[10px] text-slate-400 block font-medium">2-Min Blitz</span>
           </div>
         </div>
 
         {/* Score & Streak */}
         <div className="flex items-center gap-3">
           {streak >= 2 && (
-            <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-amber-500/10 border border-amber-500/30 text-amber-600 dark:text-amber-400 text-xs font-bold animate-bounce">
+            <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-amber-500/10 border border-amber-500/30 text-amber-600 dark:text-amber-400 text-xs font-medium">
               <Flame className="w-3.5 h-3.5 fill-amber-500" />
               <span>{streak}x Combo</span>
             </span>
           )}
 
           <div className="text-right">
-            <span className="text-lg sm:text-xl font-black text-indigo-600 dark:text-indigo-400 font-mono">
+            <span className="text-base sm:text-lg font-semibold text-indigo-600 dark:text-indigo-400 font-mono">
               {score} pts
             </span>
             <span className="text-[10px] text-slate-400 block">Score</span>
@@ -401,7 +401,7 @@ export function VocabGameMode({ cards, onExitGame }: VocabGameModeProps) {
           <button
             type="button"
             onClick={() => setGameState("gameover")}
-            className="px-2.5 py-1.5 text-xs text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/50 rounded-lg transition-colors font-semibold"
+            className="px-2.5 py-1 text-xs text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/50 rounded-lg transition-colors font-medium"
           >
             End
           </button>
@@ -422,23 +422,23 @@ export function VocabGameMode({ cards, onExitGame }: VocabGameModeProps) {
         />
       </div>
 
-      {/* Current Question Card */}
+      {/* Current Question Card with break-words */}
       {currentQuestion && (
-        <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-6 sm:p-8 shadow-sm space-y-6">
-          <div className="text-center space-y-2">
-            <span className="text-xs font-bold text-indigo-600 dark:text-indigo-400 uppercase tracking-widest">
+        <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-5 sm:p-7 shadow-sm space-y-5">
+          <div className="text-center space-y-1.5 px-2">
+            <span className="text-xs font-medium text-indigo-600 dark:text-indigo-400 uppercase tracking-wider">
               {currentQuestion.type === "word-to-meaning"
-                ? "Select the Correct Meaning:"
+                ? "Select the Matching Meaning:"
                 : "Identify the Matching Word:"}
             </span>
 
-            <h3 className="text-2xl sm:text-3xl font-extrabold text-slate-900 dark:text-white capitalize">
+            <h3 className="text-xl sm:text-2xl font-semibold text-slate-800 dark:text-slate-100 capitalize break-words hyphens-auto leading-snug">
               {currentQuestion.prompt}
             </h3>
           </div>
 
           {/* Options Grid */}
-          <div className="space-y-3">
+          <div className="space-y-2.5">
             {currentQuestion.options.map((option, idx) => {
               const isSelected = selectedAnswer === option;
               const isCorrectAnswer =
@@ -446,15 +446,15 @@ export function VocabGameMode({ cards, onExitGame }: VocabGameModeProps) {
                 currentQuestion.correctAnswer.toLowerCase().trim();
 
               let btnStyle =
-                "border-slate-200 dark:border-slate-700 bg-slate-50/60 dark:bg-slate-800/70 hover:border-indigo-500 text-slate-800 dark:text-slate-100";
+                "border-slate-200 dark:border-slate-700 bg-slate-50/60 dark:bg-slate-800/70 hover:border-indigo-400 text-slate-800 dark:text-slate-100";
 
               if (selectedAnswer !== null) {
                 if (isCorrectAnswer) {
                   btnStyle =
-                    "border-emerald-500 bg-emerald-50 dark:bg-emerald-950/60 text-emerald-900 dark:text-emerald-100 font-bold ring-2 ring-emerald-500/30";
+                    "border-emerald-500 bg-emerald-50 dark:bg-emerald-950/60 text-emerald-900 dark:text-emerald-100 font-medium ring-1 ring-emerald-500/30";
                 } else if (isSelected && !isCorrectAnswer) {
                   btnStyle =
-                    "border-rose-500 bg-rose-50 dark:bg-rose-950/60 text-rose-900 dark:text-rose-100 line-through ring-2 ring-rose-500/30";
+                    "border-rose-500 bg-rose-50 dark:bg-rose-950/60 text-rose-900 dark:text-rose-100 line-through ring-1 ring-rose-500/30";
                 } else {
                   btnStyle = "opacity-40 border-slate-200 dark:border-slate-800";
                 }
@@ -466,14 +466,14 @@ export function VocabGameMode({ cards, onExitGame }: VocabGameModeProps) {
                   type="button"
                   disabled={selectedAnswer !== null}
                   onClick={() => handleSelectOption(option)}
-                  className={`w-full min-h-[52px] p-4 rounded-xl border text-left text-sm font-medium transition-all flex items-center justify-between active:scale-[0.98] cursor-pointer touch-manipulation ${btnStyle}`}
+                  className={`w-full min-h-[48px] p-3.5 rounded-xl border text-left text-sm font-normal transition-all flex items-center justify-between active:scale-[0.98] cursor-pointer touch-manipulation ${btnStyle}`}
                 >
-                  <span className="pr-3 leading-snug">{option}</span>
+                  <span className="pr-3 leading-snug break-words hyphens-auto">{option}</span>
                   {selectedAnswer !== null && isCorrectAnswer && (
-                    <CheckCircle2 className="w-5 h-5 text-emerald-600 shrink-0" />
+                    <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
                   )}
                   {selectedAnswer !== null && isSelected && !isCorrectAnswer && (
-                    <XCircle className="w-5 h-5 text-rose-600 shrink-0" />
+                    <XCircle className="w-4 h-4 text-rose-600 shrink-0" />
                   )}
                 </button>
               );
@@ -481,14 +481,14 @@ export function VocabGameMode({ cards, onExitGame }: VocabGameModeProps) {
           </div>
 
           {feedback && (
-            <div className="text-center font-bold text-xs pt-1">
+            <div className="text-center font-medium text-xs pt-1">
               {feedback === "correct" ? (
                 <span className="text-emerald-600 dark:text-emerald-400">
                   ⚡ Correct! +{streak >= 3 ? "15" : "10"} pts
                 </span>
               ) : (
                 <span className="text-rose-600 dark:text-rose-400">
-                  ✗ Missed! Correct: "{currentQuestion.correctAnswer}"
+                  ✗ Missed. Correct answer: "{currentQuestion.correctAnswer}"
                 </span>
               )}
             </div>

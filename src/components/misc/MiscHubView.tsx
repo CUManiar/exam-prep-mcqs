@@ -82,7 +82,7 @@ export function MiscHubView() {
             <span className="p-1.5 rounded-lg bg-indigo-50 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-400">
               <Layers className="w-5 h-5" />
             </span>
-            <h1 className="text-lg sm:text-2xl font-bold text-slate-900 dark:text-white">
+            <h1 className="text-lg sm:text-2xl font-semibold text-slate-900 dark:text-white">
               Study Aids & Misc.
             </h1>
           </div>
@@ -96,9 +96,9 @@ export function MiscHubView() {
           <button
             type="button"
             onClick={() => setActiveTab("cards")}
-            className={`flex items-center justify-center gap-1.5 min-h-[38px] py-1.5 px-3 rounded-lg text-xs font-semibold transition-all touch-manipulation cursor-pointer ${
+            className={`flex items-center justify-center gap-1.5 min-h-[36px] py-1.5 px-3 rounded-lg text-xs font-medium transition-all touch-manipulation cursor-pointer ${
               activeTab === "cards"
-                ? "bg-white dark:bg-slate-900 text-indigo-700 dark:text-indigo-300 shadow-sm"
+                ? "bg-white dark:bg-slate-900 text-indigo-700 dark:text-indigo-300 shadow-2xs font-semibold"
                 : "text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200"
             }`}
           >
@@ -109,9 +109,9 @@ export function MiscHubView() {
           <button
             type="button"
             onClick={() => setActiveTab("practice")}
-            className={`flex items-center justify-center gap-1.5 min-h-[38px] py-1.5 px-3 rounded-lg text-xs font-semibold transition-all touch-manipulation cursor-pointer ${
+            className={`flex items-center justify-center gap-1.5 min-h-[36px] py-1.5 px-3 rounded-lg text-xs font-medium transition-all touch-manipulation cursor-pointer ${
               activeTab === "practice"
-                ? "bg-white dark:bg-slate-900 text-indigo-700 dark:text-indigo-300 shadow-sm"
+                ? "bg-white dark:bg-slate-900 text-indigo-700 dark:text-indigo-300 shadow-2xs font-semibold"
                 : "text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200"
             }`}
           >
@@ -122,9 +122,9 @@ export function MiscHubView() {
           <button
             type="button"
             onClick={() => setActiveTab("game")}
-            className={`flex items-center justify-center gap-1.5 min-h-[38px] py-1.5 px-3 rounded-lg text-xs font-semibold transition-all touch-manipulation cursor-pointer ${
+            className={`flex items-center justify-center gap-1.5 min-h-[36px] py-1.5 px-3 rounded-lg text-xs font-medium transition-all touch-manipulation cursor-pointer ${
               activeTab === "game"
-                ? "bg-amber-500 text-slate-950 font-extrabold shadow-sm"
+                ? "bg-amber-500 text-slate-950 font-semibold shadow-2xs"
                 : "text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200"
             }`}
           >
@@ -136,7 +136,7 @@ export function MiscHubView() {
 
       {/* TAB 1: VOCAB BUILDER & FLASHCARDS */}
       {activeTab === "cards" && (
-        <div className="space-y-5">
+        <div className="space-y-4 sm:space-y-5">
           {/* Quick Input Bar */}
           <VocabInputBar onWordAdded={handleWordAdded} todayCount={todayCount} />
 
@@ -144,7 +144,7 @@ export function MiscHubView() {
           {cards.length > 0 && (
             <div className="flex items-center justify-between gap-3 pt-1">
               <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar py-1 flex-1">
-                <span className="text-[11px] font-semibold text-slate-400 flex items-center gap-1 shrink-0 mr-1">
+                <span className="text-[11px] font-medium text-slate-400 flex items-center gap-1 shrink-0 mr-1">
                   <Filter className="w-3 h-3" /> Filter:
                 </span>
                 <button
@@ -152,7 +152,7 @@ export function MiscHubView() {
                   onClick={() => setFilter("all")}
                   className={`text-xs px-3 py-1.5 rounded-lg whitespace-nowrap transition-colors touch-manipulation cursor-pointer ${
                     filter === "all"
-                      ? "bg-slate-900 text-white dark:bg-white dark:text-slate-900 font-semibold shadow-xs"
+                      ? "bg-slate-900 text-white dark:bg-white dark:text-slate-900 font-medium shadow-2xs"
                       : "bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 hover:bg-slate-200"
                   }`}
                 >
@@ -163,7 +163,7 @@ export function MiscHubView() {
                   onClick={() => setFilter("today")}
                   className={`text-xs px-3 py-1.5 rounded-lg whitespace-nowrap transition-colors flex items-center gap-1 touch-manipulation cursor-pointer ${
                     filter === "today"
-                      ? "bg-indigo-600 text-white font-semibold shadow-xs"
+                      ? "bg-indigo-600 text-white font-medium shadow-2xs"
                       : "bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 hover:bg-slate-200"
                   }`}
                 >
@@ -174,7 +174,7 @@ export function MiscHubView() {
                   onClick={() => setFilter("learning")}
                   className={`text-xs px-3 py-1.5 rounded-lg whitespace-nowrap transition-colors touch-manipulation cursor-pointer ${
                     filter === "learning"
-                      ? "bg-indigo-600 text-white font-semibold shadow-xs"
+                      ? "bg-indigo-600 text-white font-medium shadow-2xs"
                       : "bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 hover:bg-slate-200"
                   }`}
                 >
@@ -185,7 +185,7 @@ export function MiscHubView() {
                   onClick={() => setFilter("mastered")}
                   className={`text-xs px-3 py-1.5 rounded-lg whitespace-nowrap transition-colors flex items-center gap-1 touch-manipulation cursor-pointer ${
                     filter === "mastered"
-                      ? "bg-emerald-600 text-white font-semibold shadow-xs"
+                      ? "bg-emerald-600 text-white font-medium shadow-2xs"
                       : "bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 hover:bg-slate-200"
                   }`}
                 >
