@@ -31,7 +31,7 @@ function unauthorized(req: NextRequest): NextResponse {
   const headers = noStoreHeaders();
   headers.set(
     "WWW-Authenticate",
-    `Bearer resource_metadata="${resourceMetadata}", scope="portal:read"`,
+    `Bearer resource_metadata="${resourceMetadata}", scope="portal:read portal:write"`,
   );
   return NextResponse.json(
     {

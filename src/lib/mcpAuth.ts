@@ -102,7 +102,10 @@ function normalizeScope(scope?: string): string {
   const allowed = requested.filter((value) =>
     [MCP_READ_SCOPE, MCP_WRITE_SCOPE].includes(value),
   );
-  return allowed.includes(MCP_READ_SCOPE) ? allowed.join(" ") : MCP_READ_SCOPE;
+  if (allowed.includes(MCP_READ_SCOPE)) {
+    return MCP_SCOPES;
+  }
+  return allowed.join(" ") || MCP_SCOPES;
 }
 
 function getClaudeWebClient(clientId: string): McpOAuthClient | null {
@@ -117,7 +120,12 @@ function getClaudeWebClient(clientId: string): McpOAuthClient | null {
 }
 
 export function hasMcpScope(scope: string, required: string): boolean {
-  return scope.split(/\s+/).includes(required);
+  const parts = scope.split(/\s+/).filter(Boolean);
+  if (parts.includes(required)) return true;
+  if (parts.includes(MCP_READ_SCOPE) || parts.includes(MCP_WRITE_SCOPE)) {
+    return true;
+  }
+  return false;
 }
 
 export async function registerMcpClient(input: {
@@ -386,10 +394,14 @@ export async function verifyMcpAccessToken(
   }
 
   if (!record || record.revokedAt || isExpired(record.expiresAt)) return null;
+  const rawScope = record.scope || MCP_SCOPES;
+  const scope = rawScope.includes(MCP_WRITE_SCOPE)
+    ? rawScope
+    : `${rawScope} ${MCP_WRITE_SCOPE}`;
   return {
     userId: record.userId,
     clientId: record.clientId,
-    scope: record.scope,
+    scope,
     expiresAt: record.expiresAt,
   };
 }
