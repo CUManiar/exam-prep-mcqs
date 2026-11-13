@@ -58,6 +58,7 @@ const PAPERS_FILTER_STORAGE_KEY = "upsc_papers_filter_state";
 interface PapersFilterState {
   searchQuery?: string;
   selectedCategory?: "all" | "prelims" | "mains" | "custom";
+  selectedSource?: "all" | "custom" | "predefined";
   selectedYear?: string;
   selectedAttemptFilter?:
     "all" | "attempted" | "unattempted" | "mock" | "practice";
@@ -85,7 +86,10 @@ export function PapersView({
   const searchParams = useSearchParams();
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedCategory, setSelectedCategory] = useState<
-    "all" | "prelims" | "mains" | "custom"
+    "all" | "prelims" | "mains"
+  >("all");
+  const [selectedSource, setSelectedSource] = useState<
+    "all" | "custom" | "predefined"
   >("all");
   const [selectedYear, setSelectedYear] = useState<string>("all");
   const [selectedAttemptFilter, setSelectedAttemptFilter] = useState<
@@ -105,12 +109,18 @@ export function PapersView({
     }
     const tab = searchParams?.get("tab");
     if (tab === "custom") {
-      setSelectedCategory("custom");
+      setSelectedSource("custom");
     } else if (
       saved.selectedCategory &&
-      ["all", "prelims", "mains", "custom"].includes(saved.selectedCategory)
+      ["all", "prelims", "mains"].includes(saved.selectedCategory)
     ) {
-      setSelectedCategory(saved.selectedCategory);
+      setSelectedCategory(saved.selectedCategory as "all" | "prelims" | "mains");
+    }
+    if (
+      saved.selectedSource &&
+      ["all", "custom", "predefined"].includes(saved.selectedSource)
+    ) {
+      setSelectedSource(saved.selectedSource as "all" | "custom" | "predefined");
     }
     if (
       typeof saved.selectedYear === "string" &&
@@ -141,6 +151,7 @@ export function PapersView({
         JSON.stringify({
           searchQuery,
           selectedCategory,
+          selectedSource,
           selectedYear,
           selectedAttemptFilter,
           paperViewMode,
@@ -151,6 +162,7 @@ export function PapersView({
     mounted,
     searchQuery,
     selectedCategory,
+    selectedSource,
     selectedYear,
     selectedAttemptFilter,
     paperViewMode,
@@ -281,7 +293,31 @@ export function PapersView({
     }
   };
 
-  const customPapersCount = papers.filter(isUserUploadedPaper).length;
+  const customPapersCount = useMemo(
+    () => papers.filter(isUserUploadedPaper).length,
+    [papers],
+  );
+  const predefinedPapersCount = useMemo(
+    () => papers.length - customPapersCount,
+    [papers, customPapersCount],
+  );
+  const prelimsCount = useMemo(
+    () => papers.filter((p) => p.category === "prelims").length,
+    [papers],
+  );
+  const mainsCount = useMemo(
+    () => papers.filter((p) => p.category === "mains").length,
+    [papers],
+  );
+
+  const availableYears = useMemo(() => {
+    const set = new Set<string>();
+    SUPPORTED_YEARS.forEach((yr) => set.add(yr));
+    papers.forEach((p) => {
+      if (p.year && p.year !== "custom") set.add(p.year);
+    });
+    return Array.from(set).sort((a, b) => b.localeCompare(a));
+  }, [papers]);
 
   const attemptsByPaperId = useMemo(() => {
     const map = new Map<string, Attempt[]>();
@@ -317,237 +353,507 @@ export function PapersView({
   }, [papers, attemptsByPaperId]);
 
   const filteredPapers = papers.filter((p) => {
-    let matchesCat = true;
-    if (selectedCategory === "prelims") matchesCat = p.category === "prelims";
-    else if (selectedCategory === "mains") matchesCat = p.category === "mains";
-    else if (selectedCategory === "custom") matchesCat = isUserUploadedPaper(p);
+    // 1. Source filter: Uploaded vs Pre-defined
+    const isUploaded = isUserUploadedPaper(p);
+    if (selectedSource === "custom" && !isUploaded) return false;
+    if (selectedSource === "predefined" && isUploaded) return false;
 
-    const matchesYear =
-      selectedCategory === "custom" ||
-      isUserUploadedPaper(p) ||
-      selectedYear === "all" ||
-      p.year === selectedYear;
-    const matchesSearch =
-      p.label.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      p.subject.toLowerCase().includes(searchQuery.toLowerCase());
+    // 2. Category filter: Prelims vs Mains vs All
+    if (selectedCategory === "prelims" && p.category !== "prelims") return false;
+    if (selectedCategory === "mains" && p.category !== "mains") return false;
 
-    let matchesAttempt = true;
-    const paperAtts = attemptsByPaperId.get(p.id) || [];
-    if (selectedAttemptFilter === "attempted") {
-      matchesAttempt = paperAtts.length > 0;
-    } else if (selectedAttemptFilter === "unattempted") {
-      matchesAttempt = paperAtts.length === 0;
-    } else if (selectedAttemptFilter === "mock") {
-      matchesAttempt = paperAtts.some((a) => a.mode === "mock");
-    } else if (selectedAttemptFilter === "practice") {
-      matchesAttempt = paperAtts.some((a) => a.mode === "practice");
+    // 3. Year filter
+    if (selectedYear !== "all" && p.year !== selectedYear) return false;
+
+    // 4. Search query
+    if (searchQuery.trim()) {
+      const q = searchQuery.toLowerCase();
+      const matchSearch =
+        p.label.toLowerCase().includes(q) ||
+        p.subject.toLowerCase().includes(q) ||
+        p.year.includes(q);
+      if (!matchSearch) return false;
     }
 
-    return matchesCat && matchesYear && matchesSearch && matchesAttempt;
+    // 5. Attempt filter: Attempted vs Unattempted vs All
+    const paperAtts = attemptsByPaperId.get(p.id) || [];
+    if (selectedAttemptFilter === "attempted" && paperAtts.length === 0) return false;
+    if (selectedAttemptFilter === "unattempted" && paperAtts.length > 0) return false;
+    if (selectedAttemptFilter === "mock" && !paperAtts.some((a) => a.mode === "mock")) return false;
+    if (selectedAttemptFilter === "practice" && !paperAtts.some((a) => a.mode === "practice")) return false;
+
+    return true;
   });
 
   const hasActiveFilters =
     Boolean(searchQuery.trim()) ||
     selectedCategory !== "all" ||
+    selectedSource !== "all" ||
     selectedYear !== "all" ||
     selectedAttemptFilter !== "all";
 
   const handleResetFilters = () => {
     setSearchQuery("");
     setSelectedCategory("all");
+    setSelectedSource("all");
     setSelectedYear("all");
     setSelectedAttemptFilter("all");
   };
 
   return (
-    <div className="page-container space-y-6">
+    <div className="page-container space-y-5">
       <PageHeader
-        eyebrow={`Paper library · ${papers.length} available`}
-        title="Question papers"
-        description="Find an assessment, review its materials, or add a paper to your library."
+        eyebrow={`UPSC Assessment Repository · ${papers.length} Papers Total`}
+        title="Question Papers & Mock Tests"
+        description="Comprehensive collection of UPSC Civil Services past exams and imported mock sets. Practice with instant feedback or simulate timed exam conditions."
         actions={
           <button
             type="button"
             onClick={onNavigateUpload}
-            className="button-primary"
+            className="button-primary cursor-pointer"
           >
             <Plus className="h-4 w-4" />
-            <span>Add a paper</span>
+            <span>Upload Paper</span>
           </button>
         }
       />
 
-      {/* Filter / Search Bar */}
-      <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 bg-white border border-slate-200/80 rounded-2xl p-3 shadow-xs">
-        {/* Search */}
-        <div className="relative flex-1 min-w-[220px]">
-          <Search className="absolute left-3.5 top-2.5 h-4 w-4 text-slate-400 pointer-events-none" />
-          <input
-            type="text"
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder="Search papers by year, subject, keyword..."
-            className="w-full rounded-xl border border-slate-200 bg-slate-50 pl-9 pr-8 py-2 text-xs text-slate-800 placeholder-slate-400 focus:bg-white focus:border-indigo-500 focus:outline-none transition-colors"
-          />
-          {searchQuery && (
-            <button
-              type="button"
-              onClick={() => setSearchQuery("")}
-              className="absolute right-2.5 top-2.5 p-0.5 text-slate-400 hover:text-slate-600 rounded cursor-pointer transition-colors"
-              title="Clear search"
+      {/* Search & Multi-Criteria Filter Panel */}
+      <div className="bg-white border border-slate-200/90 rounded-2xl shadow-xs overflow-hidden">
+        {/* Top: Search Bar + View Toggle */}
+        <div className="p-3 border-b border-slate-100 bg-white">
+          <div className="flex items-center gap-2.5">
+            <div className="relative flex-1">
+              <Search className="absolute left-3.5 top-2.5 h-4 w-4 text-slate-400 pointer-events-none" />
+              <input
+                type="text"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="Search papers by subject, keyword, or year (e.g., GS I, CSAT, Polity)..."
+                className="w-full rounded-xl border border-slate-200 bg-slate-50/80 pl-9 pr-8 py-2 text-xs text-slate-800 placeholder-slate-400 focus:bg-white focus:border-indigo-500 focus:outline-none transition-colors"
+              />
+              {searchQuery && (
+                <button
+                  type="button"
+                  onClick={() => setSearchQuery("")}
+                  className="absolute right-2.5 top-2.5 p-0.5 text-slate-400 hover:text-slate-600 rounded cursor-pointer transition-colors"
+                  title="Clear search text"
+                >
+                  <X className="h-3.5 w-3.5" />
+                </button>
+              )}
+            </div>
+
+            {/* Layout Toggle */}
+            <div
+              className="inline-flex items-center gap-0.5 rounded-xl border border-slate-200 bg-slate-100 p-0.5 shrink-0"
+              aria-label="View layout mode"
             >
-              <X className="h-3.5 w-3.5" />
-            </button>
-          )}
+              <button
+                type="button"
+                onClick={() => setPaperViewMode("grid")}
+                aria-label="Show papers as grid"
+                aria-pressed={paperViewMode === "grid"}
+                title="Grid layout"
+                className={`cursor-pointer rounded-lg p-1.5 transition-colors ${
+                  paperViewMode === "grid"
+                    ? "bg-white text-indigo-700 shadow-xs"
+                    : "text-slate-500 hover:text-slate-900"
+                }`}
+              >
+                <Grid2X2 className="h-3.5 w-3.5" />
+              </button>
+              <button
+                type="button"
+                onClick={() => setPaperViewMode("list")}
+                aria-label="Show papers as list"
+                aria-pressed={paperViewMode === "list"}
+                title="List layout"
+                className={`cursor-pointer rounded-lg p-1.5 transition-colors ${
+                  paperViewMode === "list"
+                    ? "bg-white text-indigo-700 shadow-xs"
+                    : "text-slate-500 hover:text-slate-900"
+                }`}
+              >
+                <List className="h-3.5 w-3.5" />
+              </button>
+            </div>
+          </div>
+
+          {/* Current Filtered Criteria in Small Text Right Below Search Bar */}
+          <div className="flex flex-wrap items-center justify-between gap-1.5 pt-2 px-0.5 text-[11px]">
+            <div className="flex items-center gap-1.5 flex-wrap">
+              <span className="font-semibold text-slate-400">Current filters:</span>
+              {hasActiveFilters ? (
+                <>
+                  {selectedAttemptFilter !== "all" && (
+                    <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md font-semibold text-[11px] bg-emerald-50 text-emerald-800 border border-emerald-200">
+                      {selectedAttemptFilter === "attempted" ? "Attempted" : "Unattempted"}
+                    </span>
+                  )}
+                  {selectedSource !== "all" && (
+                    <>
+                      {selectedAttemptFilter !== "all" && (
+                        <span className="text-[10px] font-bold text-slate-400">AND</span>
+                      )}
+                      <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md font-semibold text-[11px] bg-purple-50 text-purple-800 border border-purple-200">
+                        {selectedSource === "custom" ? "Uploaded" : "Pre-Defined"}
+                      </span>
+                    </>
+                  )}
+                  {selectedCategory !== "all" && (
+                    <>
+                      {(selectedAttemptFilter !== "all" || selectedSource !== "all") && (
+                        <span className="text-[10px] font-bold text-slate-400">AND</span>
+                      )}
+                      <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md font-semibold text-[11px] bg-indigo-50 text-indigo-800 border border-indigo-200">
+                        {selectedCategory === "prelims" ? "Prelims" : "Mains"}
+                      </span>
+                    </>
+                  )}
+                  {selectedYear !== "all" && (
+                    <>
+                      {(selectedAttemptFilter !== "all" ||
+                        selectedSource !== "all" ||
+                        selectedCategory !== "all") && (
+                        <span className="text-[10px] font-bold text-slate-400">AND</span>
+                      )}
+                      <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md font-semibold text-[11px] bg-amber-50 text-amber-900 border border-amber-200">
+                        Year {selectedYear}
+                      </span>
+                    </>
+                  )}
+                  {searchQuery.trim() && (
+                    <>
+                      {(selectedAttemptFilter !== "all" ||
+                        selectedSource !== "all" ||
+                        selectedCategory !== "all" ||
+                        selectedYear !== "all") && (
+                        <span className="text-[10px] font-bold text-slate-400">AND</span>
+                      )}
+                      <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md font-medium text-[11px] bg-slate-100 text-slate-700 border border-slate-200">
+                        &ldquo;{searchQuery.trim()}&rdquo;
+                      </span>
+                    </>
+                  )}
+                  <span className="text-slate-400 font-normal">
+                    &bull; {filteredPapers.length} of {papers.length} {filteredPapers.length === 1 ? "paper" : "papers"} shown
+                  </span>
+                  <button
+                    type="button"
+                    onClick={handleResetFilters}
+                    className="cursor-pointer font-semibold text-indigo-600 hover:text-indigo-800 hover:underline transition-colors ml-1"
+                  >
+                    Reset all
+                  </button>
+                </>
+              ) : (
+                <span className="text-slate-400">
+                  Showing all {papers.length} papers &bull; No active restrictions
+                </span>
+              )}
+            </div>
+            <div className="text-[11px] text-slate-400 hidden sm:block">
+              Combine filters using AND logic
+            </div>
+          </div>
         </div>
 
-        {/* Category Segmented Control */}
-        <div className="flex items-center gap-1 bg-slate-100 p-1 rounded-xl border border-slate-200/80 text-xs font-medium flex-wrap">
-          <button
-            onClick={() => setSelectedCategory("all")}
-            className={`cursor-pointer rounded-lg px-3 py-1.5 transition-colors ${
-              selectedCategory === "all"
-                ? "bg-white text-slate-900 shadow-xs font-semibold"
-                : "text-slate-600 hover:text-slate-900"
-            }`}
-          >
-            All
-          </button>
-          <button
-            onClick={() => setSelectedCategory("prelims")}
-            className={`cursor-pointer rounded-lg px-3 py-1.5 transition-colors ${
-              selectedCategory === "prelims"
-                ? "bg-white text-slate-900 shadow-xs font-semibold"
-                : "text-slate-600 hover:text-slate-900"
-            }`}
-          >
-            Prelims
-          </button>
-          <button
-            onClick={() => setSelectedCategory("mains")}
-            className={`cursor-pointer rounded-lg px-3 py-1.5 transition-colors ${
-              selectedCategory === "mains"
-                ? "bg-white text-slate-900 shadow-xs font-semibold"
-                : "text-slate-600 hover:text-slate-900"
-            }`}
-          >
-            Mains
-          </button>
-          <button
-            onClick={() => setSelectedCategory("custom")}
-            className={`cursor-pointer flex items-center gap-1.5 rounded-lg px-3 py-1.5 transition-colors ${
-              selectedCategory === "custom"
-                ? "bg-white text-purple-700 shadow-xs font-semibold"
-                : "text-slate-600 hover:text-slate-900"
-            }`}
-          >
-            <FileUp className="h-3.5 w-3.5 text-purple-600" />
-            <span>Uploaded</span>
-            <span
-              className={`px-1.5 py-0.2 rounded-full text-[10px] font-mono ${
-                selectedCategory === "custom"
-                  ? "bg-purple-100 text-purple-800 font-semibold"
-                  : "bg-slate-200 text-slate-700"
-              }`}
-            >
-              {customPapersCount}
+        {/* Filter Rows with Small Gap and Distinct Highlighting */}
+        <div className="p-2.5 sm:p-3 bg-slate-50/50 space-y-2">
+          {/* Row 1: Attempted, Unattempted */}
+          <div className="flex items-center gap-2 flex-wrap">
+            <span className="text-[11px] font-semibold text-slate-500 w-24 shrink-0">
+              Attempt:
             </span>
-          </button>
-        </div>
+            <div className="inline-flex items-center gap-1.5 flex-wrap">
+              <button
+                type="button"
+                onClick={() => setSelectedAttemptFilter("all")}
+                className={`cursor-pointer inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1 text-xs font-medium transition-all ${
+                  selectedAttemptFilter === "all"
+                    ? "bg-slate-900 text-white shadow-2xs font-semibold"
+                    : "border border-slate-200 bg-white text-slate-600 hover:border-slate-300 hover:bg-slate-50"
+                }`}
+              >
+                All Papers
+                <span
+                  className={`text-[10px] font-mono rounded px-1 ${
+                    selectedAttemptFilter === "all"
+                      ? "bg-white/20 text-white"
+                      : "text-slate-400 bg-slate-100"
+                  }`}
+                >
+                  {papers.length}
+                </span>
+              </button>
 
-        {/* Dropdown Filters */}
-        <div className="flex items-center gap-2 flex-wrap">
-          {/* Attempted / Unattempted toggle chips */}
-          <button
-            type="button"
-            onClick={() =>
-              setSelectedAttemptFilter(
-                selectedAttemptFilter === "attempted" ? "all" : "attempted",
-              )
-            }
-            className={`cursor-pointer inline-flex items-center gap-1.5 rounded-xl border px-3 py-2 text-xs font-medium transition-colors shadow-2xs ${
-              selectedAttemptFilter === "attempted"
-                ? "border-emerald-400 bg-emerald-50 text-emerald-800 font-semibold"
-                : "border-slate-200 bg-white text-slate-600 hover:border-slate-300 hover:text-slate-900"
-            }`}
-          >
-            <span
-              className={`h-1.5 w-1.5 rounded-full ${selectedAttemptFilter === "attempted" ? "bg-emerald-500" : "bg-slate-300"}`}
-            />
-            Attempted
-            <span
-              className={`font-mono text-[10px] ${selectedAttemptFilter === "attempted" ? "text-emerald-700" : "text-slate-400"}`}
-            >
-              {attemptedCount}
+              <button
+                type="button"
+                onClick={() =>
+                  setSelectedAttemptFilter(
+                    selectedAttemptFilter === "attempted" ? "all" : "attempted",
+                  )
+                }
+                className={`cursor-pointer inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1 text-xs font-medium transition-all ${
+                  selectedAttemptFilter === "attempted"
+                    ? "border border-emerald-500 bg-emerald-500 text-white font-semibold shadow-xs ring-1 ring-emerald-500"
+                    : "border border-slate-200 bg-white text-slate-600 hover:border-emerald-300 hover:text-emerald-700"
+                }`}
+              >
+                <span
+                  className={`h-1.5 w-1.5 rounded-full ${
+                    selectedAttemptFilter === "attempted"
+                      ? "bg-white"
+                      : "bg-emerald-500"
+                  }`}
+                />
+                Attempted
+                <span
+                  className={`text-[10px] font-mono rounded px-1 ${
+                    selectedAttemptFilter === "attempted"
+                      ? "bg-emerald-600 text-white"
+                      : "text-emerald-700 bg-emerald-50"
+                  }`}
+                >
+                  {attemptedCount}
+                </span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() =>
+                  setSelectedAttemptFilter(
+                    selectedAttemptFilter === "unattempted"
+                      ? "all"
+                      : "unattempted",
+                  )
+                }
+                className={`cursor-pointer inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1 text-xs font-medium transition-all ${
+                  selectedAttemptFilter === "unattempted"
+                    ? "border border-slate-700 bg-slate-700 text-white font-semibold shadow-xs ring-1 ring-slate-700"
+                    : "border border-slate-200 bg-white text-slate-600 hover:border-slate-400 hover:text-slate-800"
+                }`}
+              >
+                <span
+                  className={`h-1.5 w-1.5 rounded-full ${
+                    selectedAttemptFilter === "unattempted"
+                      ? "bg-white"
+                      : "bg-slate-400"
+                  }`}
+                />
+                Unattempted
+                <span
+                  className={`text-[10px] font-mono rounded px-1 ${
+                    selectedAttemptFilter === "unattempted"
+                      ? "bg-slate-800 text-white"
+                      : "text-slate-600 bg-slate-100"
+                  }`}
+                >
+                  {unattemptedCount}
+                </span>
+              </button>
+            </div>
+          </div>
+
+          {/* Row Divider with AND badge */}
+          <div className="flex items-center gap-2 pl-4 sm:pl-6">
+            <span className="text-[9px] font-black uppercase tracking-wider text-slate-400 bg-slate-200/80 rounded px-1.5 py-0.5">
+              AND
             </span>
-          </button>
-          <button
-            type="button"
-            onClick={() =>
-              setSelectedAttemptFilter(
-                selectedAttemptFilter === "unattempted" ? "all" : "unattempted",
-              )
-            }
-            className={`cursor-pointer inline-flex items-center gap-1.5 rounded-xl border px-3 py-2 text-xs font-medium transition-colors shadow-2xs ${
-              selectedAttemptFilter === "unattempted"
-                ? "border-slate-500 bg-slate-100 text-slate-800 font-semibold"
-                : "border-slate-200 bg-white text-slate-600 hover:border-slate-300 hover:text-slate-900"
-            }`}
-          >
-            <span
-              className={`h-1.5 w-1.5 rounded-full ${selectedAttemptFilter === "unattempted" ? "bg-slate-500" : "bg-slate-300"}`}
-            />
-            Unattempted
-            <span
-              className={`font-mono text-[10px] ${selectedAttemptFilter === "unattempted" ? "text-slate-600" : "text-slate-400"}`}
-            >
-              {unattemptedCount}
+            <div className="h-px bg-slate-200/80 flex-1" />
+          </div>
+
+          {/* Row 2: Uploaded, Pre-Defined */}
+          <div className="flex items-center gap-2 flex-wrap">
+            <span className="text-[11px] font-semibold text-slate-500 w-24 shrink-0">
+              Source:
             </span>
-          </button>
+            <div className="inline-flex items-center gap-1.5 flex-wrap">
+              <button
+                type="button"
+                onClick={() => setSelectedSource("all")}
+                className={`cursor-pointer inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1 text-xs font-medium transition-all ${
+                  selectedSource === "all"
+                    ? "bg-slate-900 text-white shadow-2xs font-semibold"
+                    : "border border-slate-200 bg-white text-slate-600 hover:border-slate-300 hover:bg-slate-50"
+                }`}
+              >
+                All Sources
+                <span
+                  className={`text-[10px] font-mono rounded px-1 ${
+                    selectedSource === "all"
+                      ? "bg-white/20 text-white"
+                      : "text-slate-400 bg-slate-100"
+                  }`}
+                >
+                  {papers.length}
+                </span>
+              </button>
 
-          <select
-            value={selectedYear}
-            onChange={(e) => setSelectedYear(e.target.value)}
-            className="cursor-pointer rounded-xl border border-slate-200 bg-white px-3.5 py-2 text-xs font-medium text-slate-700 focus:outline-none focus:border-indigo-500 transition-colors shadow-2xs"
-          >
-            <option value="all">All Years</option>
-            {SUPPORTED_YEARS.map((yr) => (
-              <option key={yr} value={yr}>
-                {yr}
-              </option>
-            ))}
-          </select>
+              <button
+                type="button"
+                onClick={() =>
+                  setSelectedSource(
+                    selectedSource === "custom" ? "all" : "custom",
+                  )
+                }
+                className={`cursor-pointer inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1 text-xs font-medium transition-all ${
+                  selectedSource === "custom"
+                    ? "border border-purple-600 bg-purple-600 text-white font-semibold shadow-xs ring-1 ring-purple-600"
+                    : "border border-slate-200 bg-white text-slate-600 hover:border-purple-300 hover:text-purple-700"
+                }`}
+              >
+                <FileUp className="h-3 w-3" />
+                Uploaded
+                <span
+                  className={`text-[10px] font-mono rounded px-1 ${
+                    selectedSource === "custom"
+                      ? "bg-purple-700 text-white"
+                      : "text-purple-700 bg-purple-50"
+                  }`}
+                >
+                  {customPapersCount}
+                </span>
+              </button>
 
-          <div
-            className="inline-flex items-center gap-0.5 rounded-xl border border-slate-200 bg-slate-100 p-0.5"
-            aria-label="Paper layout"
-          >
-            <button
-              type="button"
-              onClick={() => setPaperViewMode("grid")}
-              aria-label="Show papers as grid"
-              aria-pressed={paperViewMode === "grid"}
-              className={`cursor-pointer rounded-lg p-1.5 transition-colors ${
-                paperViewMode === "grid"
-                  ? "bg-white text-indigo-700 shadow-xs"
-                  : "text-slate-500 hover:text-slate-900"
-              }`}
-            >
-              <Grid2X2 className="h-3.5 w-3.5" />
-            </button>
-            <button
-              type="button"
-              onClick={() => setPaperViewMode("list")}
-              aria-label="Show papers as list"
-              aria-pressed={paperViewMode === "list"}
-              className={`cursor-pointer rounded-lg p-1.5 transition-colors ${
-                paperViewMode === "list"
-                  ? "bg-white text-indigo-700 shadow-xs"
-                  : "text-slate-500 hover:text-slate-900"
-              }`}
-            >
-              <List className="h-3.5 w-3.5" />
-            </button>
+              <button
+                type="button"
+                onClick={() =>
+                  setSelectedSource(
+                    selectedSource === "predefined" ? "all" : "predefined",
+                  )
+                }
+                className={`cursor-pointer inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1 text-xs font-medium transition-all ${
+                  selectedSource === "predefined"
+                    ? "border border-blue-600 bg-blue-600 text-white font-semibold shadow-xs ring-1 ring-blue-600"
+                    : "border border-slate-200 bg-white text-slate-600 hover:border-blue-300 hover:text-blue-700"
+                }`}
+              >
+                <BookOpen className="h-3 w-3" />
+                Pre-Defined
+                <span
+                  className={`text-[10px] font-mono rounded px-1 ${
+                    selectedSource === "predefined"
+                      ? "bg-blue-700 text-white"
+                      : "text-blue-700 bg-blue-50"
+                  }`}
+                >
+                  {predefinedPapersCount}
+                </span>
+              </button>
+            </div>
+          </div>
+
+          {/* Row Divider with AND badge */}
+          <div className="flex items-center gap-2 pl-4 sm:pl-6">
+            <span className="text-[9px] font-black uppercase tracking-wider text-slate-400 bg-slate-200/80 rounded px-1.5 py-0.5">
+              AND
+            </span>
+            <div className="h-px bg-slate-200/80 flex-1" />
+          </div>
+
+          {/* Row 3: All, Prelims, Mains, Years */}
+          <div className="flex items-center gap-2 flex-wrap">
+            <span className="text-[11px] font-semibold text-slate-500 w-24 shrink-0">
+              Stage &amp; Year:
+            </span>
+            <div className="inline-flex items-center gap-1.5 flex-wrap flex-1">
+              <button
+                type="button"
+                onClick={() => setSelectedCategory("all")}
+                className={`cursor-pointer inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1 text-xs font-medium transition-all ${
+                  selectedCategory === "all"
+                    ? "bg-indigo-600 text-white shadow-2xs font-semibold"
+                    : "border border-slate-200 bg-white text-slate-600 hover:border-indigo-200 hover:text-indigo-700"
+                }`}
+              >
+                All Stages
+              </button>
+
+              <button
+                type="button"
+                onClick={() =>
+                  setSelectedCategory(
+                    selectedCategory === "prelims" ? "all" : "prelims",
+                  )
+                }
+                className={`cursor-pointer inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1 text-xs font-medium transition-all ${
+                  selectedCategory === "prelims"
+                    ? "border border-indigo-600 bg-indigo-600 text-white font-semibold shadow-xs ring-1 ring-indigo-600"
+                    : "border border-slate-200 bg-white text-slate-600 hover:border-indigo-300 hover:text-indigo-700"
+                }`}
+              >
+                Prelims
+                <span
+                  className={`text-[10px] font-mono rounded px-1 ${
+                    selectedCategory === "prelims"
+                      ? "bg-indigo-700 text-white"
+                      : "text-slate-400 bg-slate-100"
+                  }`}
+                >
+                  {prelimsCount}
+                </span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() =>
+                  setSelectedCategory(
+                    selectedCategory === "mains" ? "all" : "mains",
+                  )
+                }
+                className={`cursor-pointer inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1 text-xs font-medium transition-all ${
+                  selectedCategory === "mains"
+                    ? "border border-indigo-600 bg-indigo-600 text-white font-semibold shadow-xs ring-1 ring-indigo-600"
+                    : "border border-slate-200 bg-white text-slate-600 hover:border-indigo-300 hover:text-indigo-700"
+                }`}
+              >
+                Mains
+                <span
+                  className={`text-[10px] font-mono rounded px-1 ${
+                    selectedCategory === "mains"
+                      ? "bg-indigo-700 text-white"
+                      : "text-slate-400 bg-slate-100"
+                  }`}
+                >
+                  {mainsCount}
+                </span>
+              </button>
+
+              {/* Vertical Divider */}
+              <div className="h-4 w-px bg-slate-300 mx-1" />
+
+              {/* Year Chips */}
+              <button
+                type="button"
+                onClick={() => setSelectedYear("all")}
+                className={`cursor-pointer inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1 text-xs font-medium transition-all ${
+                  selectedYear === "all"
+                    ? "bg-amber-600 text-white shadow-2xs font-semibold"
+                    : "border border-slate-200 bg-white text-slate-600 hover:border-amber-200 hover:text-amber-800"
+                }`}
+              >
+                All Years
+              </button>
+
+              {availableYears.map((yr) => (
+                <button
+                  key={yr}
+                  type="button"
+                  onClick={() =>
+                    setSelectedYear(selectedYear === yr ? "all" : yr)
+                  }
+                  className={`cursor-pointer inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1 text-xs font-mono font-medium transition-all ${
+                    selectedYear === yr
+                      ? "border border-amber-500 bg-amber-500 text-white font-semibold shadow-xs ring-1 ring-amber-500"
+                      : "border border-slate-200 bg-white text-slate-600 hover:border-amber-300 hover:text-amber-800"
+                  }`}
+                >
+                  {yr}
+                </button>
+              ))}
+            </div>
           </div>
         </div>
       </div>
@@ -555,18 +861,27 @@ export function PapersView({
       {/* Papers Grid */}
       {filteredPapers.length === 0 ? (
         <div className="bi-card rounded-2xl p-12 text-center border-dashed border-slate-300">
-          {selectedCategory === "custom" ? (
+          {selectedSource === "custom" ? (
             <>
               <FileUp className="mx-auto h-12 w-12 text-purple-400 mb-3" />
               <h3 className="text-base font-bold text-slate-800">
-                No user uploaded papers found
+                No user-uploaded papers match your filter
               </h3>
               <p className="text-xs text-slate-500 mt-1 max-w-sm mx-auto">
-                You haven&apos;t uploaded any custom test papers yet. Upload
-                mock test papers with custom question counts and scoring rules
-                anytime.
+                {customPapersCount === 0
+                  ? "You haven't uploaded any custom test papers yet. Upload mock test papers with custom question counts and scoring rules anytime."
+                  : "No uploaded assessments matched the combined search, attempt, and year filters."}
               </p>
-              <div className="mt-4">
+              <div className="mt-4 flex items-center justify-center gap-2">
+                {hasActiveFilters && (
+                  <button
+                    type="button"
+                    onClick={handleResetFilters}
+                    className="cursor-pointer inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-xs font-semibold text-slate-700 transition-colors"
+                  >
+                    Reset filters
+                  </button>
+                )}
                 <button
                   onClick={onNavigateUpload}
                   className="cursor-pointer inline-flex items-center gap-1.5 px-4 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-xs font-bold text-white shadow-xs transition-colors"
@@ -580,17 +895,17 @@ export function PapersView({
             <>
               <BookOpen className="mx-auto h-12 w-12 text-slate-400 mb-3" />
               <h3 className="text-base font-bold text-slate-800">
-                No question papers match your filter
+                No question papers match your filters
               </h3>
-              <p className="text-xs text-slate-500 mt-1">
-                Try resetting search keyword or selecting &quot;All Years&quot;.
+              <p className="text-xs text-slate-500 mt-1 max-w-sm mx-auto">
+                No papers found matching the combined criteria. Try clearing the search term or resetting some filters.
               </p>
               {hasActiveFilters && (
-                <div className="mt-3">
+                <div className="mt-4">
                   <button
                     type="button"
                     onClick={handleResetFilters}
-                    className="cursor-pointer inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-slate-100 hover:bg-slate-200 text-slate-700 transition-colors"
+                    className="cursor-pointer inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-semibold bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200 transition-colors"
                   >
                     Reset all filters
                   </button>
