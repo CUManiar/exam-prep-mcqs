@@ -457,21 +457,53 @@ export function PapersView({
 
         {/* Dropdown Filters */}
         <div className="flex items-center gap-2 flex-wrap">
-          <select
-            value={selectedAttemptFilter}
-            onChange={(e) => setSelectedAttemptFilter(e.target.value as any)}
-            className="cursor-pointer rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-medium text-slate-700 focus:outline-none focus:border-indigo-500 transition-colors shadow-2xs"
+          {/* Attempted / Unattempted toggle chips */}
+          <button
+            type="button"
+            onClick={() =>
+              setSelectedAttemptFilter(
+                selectedAttemptFilter === "attempted" ? "all" : "attempted",
+              )
+            }
+            className={`cursor-pointer inline-flex items-center gap-1.5 rounded-xl border px-3 py-2 text-xs font-medium transition-colors shadow-2xs ${
+              selectedAttemptFilter === "attempted"
+                ? "border-emerald-400 bg-emerald-50 text-emerald-800 font-semibold"
+                : "border-slate-200 bg-white text-slate-600 hover:border-slate-300 hover:text-slate-900"
+            }`}
           >
-            <option value="all">All Attempts ({papers.length})</option>
-            <option value="attempted">Attempted ({attemptedCount})</option>
-            <option value="unattempted">
-              Unattempted ({unattemptedCount})
-            </option>
-            <option value="mock">Mock Only ({mockAttemptedCount})</option>
-            <option value="practice">
-              Practice Only ({practiceAttemptedCount})
-            </option>
-          </select>
+            <span
+              className={`h-1.5 w-1.5 rounded-full ${selectedAttemptFilter === "attempted" ? "bg-emerald-500" : "bg-slate-300"}`}
+            />
+            Attempted
+            <span
+              className={`font-mono text-[10px] ${selectedAttemptFilter === "attempted" ? "text-emerald-700" : "text-slate-400"}`}
+            >
+              {attemptedCount}
+            </span>
+          </button>
+          <button
+            type="button"
+            onClick={() =>
+              setSelectedAttemptFilter(
+                selectedAttemptFilter === "unattempted" ? "all" : "unattempted",
+              )
+            }
+            className={`cursor-pointer inline-flex items-center gap-1.5 rounded-xl border px-3 py-2 text-xs font-medium transition-colors shadow-2xs ${
+              selectedAttemptFilter === "unattempted"
+                ? "border-slate-500 bg-slate-100 text-slate-800 font-semibold"
+                : "border-slate-200 bg-white text-slate-600 hover:border-slate-300 hover:text-slate-900"
+            }`}
+          >
+            <span
+              className={`h-1.5 w-1.5 rounded-full ${selectedAttemptFilter === "unattempted" ? "bg-slate-500" : "bg-slate-300"}`}
+            />
+            Unattempted
+            <span
+              className={`font-mono text-[10px] ${selectedAttemptFilter === "unattempted" ? "text-slate-600" : "text-slate-400"}`}
+            >
+              {unattemptedCount}
+            </span>
+          </button>
 
           <select
             value={selectedYear}
@@ -608,7 +640,7 @@ export function PapersView({
             return (
               <div
                 key={paper.id}
-                className={`flex overflow-hidden bg-white rounded-2xl border border-slate-200/80 p-5 group hover:border-slate-300 hover:shadow-sm transition-all ${
+                className={`flex overflow-hidden bg-white rounded-2xl border border-slate-200/80 p-5 group hover:border-slate-300 hover:shadow-sm transition-all cursor-pointer ${
                   paperViewMode === "grid"
                     ? "flex-col h-full"
                     : "flex-col md:grid md:grid-cols-[minmax(0,1fr)_minmax(260px,340px)] md:gap-5"
@@ -700,6 +732,18 @@ export function PapersView({
                     <span>{paper.timeMinutes} mins</span>
                     <span>•</span>
                     <span>{paper.totalMarks} Marks</span>
+                    {paper.createdAt && isUserUploadedPaper(paper) && (
+                      <>
+                        <span>•</span>
+                        <span title={new Date(paper.createdAt).toLocaleString()}>
+                          {new Date(paper.createdAt).toLocaleDateString("en-IN", {
+                            day: "numeric",
+                            month: "short",
+                            year: "numeric",
+                          })}
+                        </span>
+                      </>
+                    )}
                   </div>
 
                   {/* Status Indicators row - strictly 28px (h-7) */}

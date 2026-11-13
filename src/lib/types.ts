@@ -54,6 +54,7 @@ export interface QuestionPaper {
   cutoffEnabled?: boolean;
   cutoffType?: CutoffType;
   cutoffValue?: number;
+  createdAt?: string; // ISO timestamp when the paper was uploaded/added
 }
 
 export type ConfidenceLevel = "sure" | "50-50" | "guess" | "elimination";
