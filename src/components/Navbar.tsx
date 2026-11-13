@@ -7,6 +7,7 @@ import {
   BarChart3,
   BookOpen,
   GraduationCap,
+  Layers,
   LayoutDashboard,
   ListChecks,
   LogIn,
@@ -48,6 +49,12 @@ const navigation = [
     label: "Revision",
     mobileLabel: "Revision",
     icon: GraduationCap,
+  },
+  {
+    href: "/misc",
+    label: "Misc",
+    mobileLabel: "Misc",
+    icon: Layers,
   },
   {
     href: "/help/mcp",
@@ -96,7 +103,8 @@ export function Navbar() {
                 !currentUser &&
                 href !== "/" &&
                 href !== "/help/mcp" &&
-                href !== "/revision"
+                href !== "/revision" &&
+                href !== "/misc"
               ) {
                 return (
                   <button
@@ -197,7 +205,8 @@ export function Navbar() {
             !currentUser &&
             href !== "/" &&
             href !== "/help/mcp" &&
-            href !== "/revision"
+            href !== "/revision" &&
+            href !== "/misc"
           ) {
             return (
               <button
