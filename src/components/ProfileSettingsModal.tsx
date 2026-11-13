@@ -4,7 +4,11 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import {
   AlertTriangle,
+  BarChart3,
   Check,
+  ChevronRight,
+  KeyRound,
+  ListChecks,
   Loader2,
   LogOut,
   RotateCcw,
@@ -19,6 +23,12 @@ import {
 import { useApp } from "../context/AppContext";
 import { ModalShell } from "./ModalShell";
 import { getAuthHeaders } from "../lib/supabase";
+import {
+  getRevisionConfig,
+  PROVIDER_INFO,
+  RevisionProviderConfig,
+} from "../lib/revisionAi";
+import { RevisionSettingsModal } from "./revision/RevisionSettingsModal";
 
 interface ProfileSettingsModalProps {
   isOpen: boolean;
@@ -47,12 +57,15 @@ export function ProfileSettingsModal({
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [error, setError] = useState("");
+  const [aiConfig, setAiConfig] = useState<RevisionProviderConfig | null>(null);
+  const [showAiModal, setShowAiModal] = useState(false);
 
   useEffect(() => {
     if (!isOpen || typeof window === "undefined") return;
     setAutoAdvance(localStorage.getItem("exam_prep_auto_advance") === "true");
     setShowDeleteConfirm(false);
     setError("");
+    setAiConfig(getRevisionConfig());
   }, [isOpen]);
   if (!isOpen) return null;
 
@@ -94,7 +107,8 @@ export function ProfileSettingsModal({
   };
 
   return (
-    <ModalShell
+    <>
+      <ModalShell
       isOpen={isOpen}
       onClose={onClose}
       labelledBy="account-panel-title"
@@ -141,6 +155,115 @@ export function ProfileSettingsModal({
               <p className="truncate text-sm text-slate-500">
                 {currentUser?.email || "Local guest session"}
               </p>
+            </div>
+          </div>
+
+          {/* More Sections Navigation (Mobile & Quick Access) */}
+          <div className="rounded-xl border border-slate-200 overflow-hidden bg-slate-50/70">
+            <div className="px-4 py-2 border-b border-slate-200 text-[11px] font-bold text-slate-500 uppercase tracking-wider">
+              More Sections
+            </div>
+            <div className="divide-y divide-slate-200/80">
+              <Link
+                href="/history"
+                onClick={(e) => {
+                  if (!currentUser) {
+                    e.preventDefault();
+                    onClose();
+                    openAuthModal();
+                  } else {
+                    onClose();
+                  }
+                }}
+                className="flex items-center justify-between p-3.5 text-sm font-medium text-slate-700 hover:bg-slate-100 transition-colors"
+              >
+                <span className="flex items-center gap-2.5">
+                  <BarChart3 className="w-4 h-4 text-indigo-600" />
+                  <span>Performance & History</span>
+                </span>
+                <ChevronRight className="w-4 h-4 text-slate-400" />
+              </Link>
+
+              <Link
+                href="/syllabus"
+                onClick={(e) => {
+                  if (!currentUser) {
+                    e.preventDefault();
+                    onClose();
+                    openAuthModal();
+                  } else {
+                    onClose();
+                  }
+                }}
+                className="flex items-center justify-between p-3.5 text-sm font-medium text-slate-700 hover:bg-slate-100 transition-colors"
+              >
+                <span className="flex items-center gap-2.5">
+                  <ListChecks className="w-4 h-4 text-indigo-600" />
+                  <span>Syllabus Tracker</span>
+                </span>
+                <ChevronRight className="w-4 h-4 text-slate-400" />
+              </Link>
+
+              <Link
+                href="/help/mcp"
+                onClick={onClose}
+                className="flex items-center justify-between p-3.5 text-sm font-medium text-slate-700 hover:bg-slate-100 transition-colors"
+              >
+                <span className="flex items-center gap-2.5">
+                  <Sparkles className="w-4 h-4 text-purple-600" />
+                  <span>AI Help & External Chatbots (MCP)</span>
+                </span>
+                <ChevronRight className="w-4 h-4 text-slate-400" />
+              </Link>
+            </div>
+          </div>
+
+          {/* AI Provider & API Keys */}
+          <div className="rounded-xl border border-slate-200 bg-white overflow-hidden shadow-2xs">
+            <div className="flex items-center justify-between border-b border-slate-200 px-4 py-3 bg-slate-50/70">
+              <div className="flex items-center gap-2">
+                <KeyRound className="h-4 w-4 text-indigo-600" />
+                <h3 className="text-sm font-semibold text-slate-900">
+                  AI Provider & API Keys
+                </h3>
+              </div>
+              {aiConfig?.apiKey ? (
+                <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800">
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                  Custom Key Active
+                </span>
+              ) : (
+                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-slate-100 text-slate-600">
+                  Free Live Tier
+                </span>
+              )}
+            </div>
+            <div className="p-4 space-y-3">
+              <div>
+                <p className="text-sm font-bold text-slate-900">
+                  {aiConfig?.provider
+                    ? PROVIDER_INFO[aiConfig.provider]?.label || aiConfig.provider
+                    : "Free Live AI Tier"}
+                </p>
+                <p className="text-xs text-slate-500 mt-0.5 leading-relaxed">
+                  {aiConfig?.apiKey
+                    ? `Key: ${aiConfig.apiKey.slice(0, 6)}••••••••${aiConfig.apiKey.slice(-4)}`
+                    : "Using shared free AI. Add your free Google Gemini, Groq, or OpenAI key for zero cooldowns and instant flashcard creation."}
+                </p>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => setShowAiModal(true)}
+                className="w-full inline-flex items-center justify-center gap-2 px-3.5 py-2.5 rounded-xl border border-indigo-200 bg-indigo-50/80 hover:bg-indigo-100/80 text-indigo-700 text-xs font-semibold transition-colors cursor-pointer"
+              >
+                <KeyRound className="w-3.5 h-3.5" />
+                <span>
+                  {aiConfig?.apiKey
+                    ? "Manage AI Provider & API Key"
+                    : "Configure API Key (Free Quotas)"}
+                </span>
+              </button>
             </div>
           </div>
 
@@ -405,5 +528,19 @@ export function ProfileSettingsModal({
         </div>
       </section>
     </ModalShell>
+    <RevisionSettingsModal
+      isOpen={showAiModal}
+      onClose={() => setShowAiModal(false)}
+      currentConfig={aiConfig}
+      onSave={(cfg) => {
+        setAiConfig(cfg);
+        setShowAiModal(false);
+      }}
+      onClear={() => {
+        setAiConfig(null);
+        setShowAiModal(false);
+      }}
+    />
+  </>
   );
 }

@@ -1976,13 +1976,14 @@ select:disabled,
   }
 
   .app-mobile-nav {
-    display: grid;
+    display: flex;
     position: fixed;
     bottom: 0;
     left: 0;
     right: 0;
     z-index: 45;
-    grid-template-columns: repeat(5, minmax(0, 1fr));
+    align-items: stretch;
+    justify-content: space-between;
     gap: 0.125rem;
     border-top: 1px solid rgba(226, 232, 240, 0.9);
     background: rgba(255, 255, 255, 0.95);
@@ -1994,6 +1995,7 @@ select:disabled,
 
   .app-mobile-nav-link {
     display: flex;
+    flex: 1 1 0;
     min-width: 0;
     min-height: 44px;
     flex-direction: column;
@@ -2005,12 +2007,21 @@ select:disabled,
     background: transparent;
     color: #64748b;
     font: inherit;
-    font-size: 10px;
+    font-size: 11px;
     font-weight: 600;
     text-decoration: none;
+    padding: 0.25rem 0.1rem;
     transition:
       color 0.15s ease,
       background-color 0.15s ease;
+  }
+
+  .app-mobile-nav-link span {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    max-width: 100%;
+    text-align: center;
   }
 
   .app-mobile-nav-link svg {
@@ -2453,3 +2464,26 @@ html[data-theme="dark"] body,
 [data-theme="dark"] textarea::placeholder {
   color: #64748b !important;
 }
+
+/* 3D Flip Card Utilities */
+.perspective-1000 {
+  perspective: 1000px;
+}
+.transform-style-3d {
+  transform-style: preserve-3d;
+}
+.backface-hidden {
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
+}
+.rotate-y-180 {
+  transform: rotateY(180deg);
+}
+
+/* Ensure Next.js dev indicator badge does not overlap bottom navigation */
+nextjs-portal,
+#__next-build-watcher,
+[data-nextjs-toast] {
+  bottom: 4.5rem !important;
+}
+
