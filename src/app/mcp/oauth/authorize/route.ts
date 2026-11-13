@@ -157,7 +157,11 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       userId: data.user.id,
       redirectUri: params.redirectUri,
       codeChallenge: params.codeChallenge,
-      scope: params.scope,
+      scope: params.scope
+        ? params.scope.includes("portal:write")
+          ? params.scope
+          : `${params.scope} portal:write`
+        : "portal:read portal:write",
     });
     const redirect = new URL(params.redirectUri);
     redirect.searchParams.set("code", code);
