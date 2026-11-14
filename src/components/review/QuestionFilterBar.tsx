@@ -167,8 +167,8 @@ export function QuestionFilterBar({
   ];
 
   return (
-    <div className="flex items-center justify-between gap-2 bg-slate-50/90 p-1.5 rounded-xl border border-slate-200 shadow-2xs">
-      {/* Scrollable Filter Strip */}
+    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1.5 sm:gap-2 bg-slate-50/90 p-1.5 rounded-xl border border-slate-200 shadow-2xs">
+      {/* Scrollable Filter Strip (Full width on mobile to prevent pill truncation) */}
       <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar py-0.5 flex-1 min-w-0">
         {/* Reset button if any filter is active */}
         {hasActive && (
@@ -236,8 +236,11 @@ export function QuestionFilterBar({
         ))}
       </div>
 
-      {/* Sort Selector */}
-      <div className="shrink-0 flex items-center gap-1 pl-1 border-l border-slate-200">
+      {/* Sort Selector: Separated on mobile so filters are never squashed */}
+      <div className="shrink-0 flex items-center justify-between sm:justify-end gap-1.5 pt-1 sm:pt-0 border-t border-slate-200/70 sm:border-t-0 sm:border-l sm:pl-2">
+        <span className="text-[11px] text-slate-500 font-medium sm:hidden">
+          Sort:
+        </span>
         <select
           value={sortOption}
           onChange={(e) => onChangeSort(e.target.value as SortOptionType)}
