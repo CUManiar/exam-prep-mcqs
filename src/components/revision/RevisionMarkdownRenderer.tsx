@@ -86,7 +86,10 @@ function AlertBox({ type, children }: AlertBoxProps) {
  * Automatically sanitizes and repairs common LLM Mermaid syntax flaws:
  * - Missing flowchart/graph declaration
  * - Unquoted parentheses or special characters inside node labels (e.g., A[Text (1976)] -> A["Text (1976)"])
- * - Unescaped quotes or markdown styling
+ * - Unescaped double quotes inside quoted labels (e.g., A["The "Why" Context"] -> A["The 'Why' Context"])
+ * - Unquoted subgraph headers with spaces/colons
+ * - Unquoted link text: A -- text --> B -> A -->|"text"| B
+ * - Trailing semicolons on diagram headers
  */
 function sanitizeMermaidCode(raw: string): string {
   if (!raw) return "";
@@ -115,22 +118,65 @@ function sanitizeMermaidCode(raw: string): string {
 
   // 2. Sanitize line-by-line
   const sanitizedLines = lines.map((rawLine) => {
-    let line = rawLine;
+    let line = rawLine.trim();
+    if (!line || line.startsWith("%%")) return line;
+
+    // Strip trailing semicolons on header lines (e.g. "graph TD;" -> "graph TD")
+    line = line.replace(/^(graph|flowchart)\s+[A-Za-z]+;+$/, (m) =>
+      m.replace(/;+$/, ""),
+    );
 
     // Strip markdown bold / italics inside labels
     line = line.replace(/\*\*([^*]+?)\*\*/g, "$1");
     line = line.replace(/(?<!\\)_([^_]+?)_/g, "$1");
 
-    // Auto-quote unquoted square brackets: A[Text with (parens)] -> A["Text with (parens)"]
-    line = line.replace(/\[(?!")([^\]]+?)\]/g, (_, content) => {
-      const clean = content.replace(/"/g, "'").trim();
-      return `["${clean}"]`;
-    });
+    // Fix subgraphs with invalid titles: e.g. "subgraph Part IVA: Fundamental Duties" -> "subgraph sg1 ["Part IVA: Fundamental Duties"]"
+    if (line.startsWith("subgraph ")) {
+      const subTitle = line.replace(/^subgraph\s+/, "").trim();
+      if (subTitle && !subTitle.includes("[") && subTitle !== "end") {
+        const cleanSub = subTitle.replace(/"/g, "'");
+        const safeId = "sg_" + Math.random().toString(36).slice(2, 6);
+        return `subgraph ${safeId} ["${cleanSub}"]`;
+      }
+    }
+
+    // Fix unquoted link labels: A -- Some link text --> B -> A -->|"Some link text"| B
+    line = line.replace(
+      /--\s+([^->|]+?)\s+-->/g,
+      (_, text) => `-->|"${text.replace(/"/g, "'").trim()}"|`,
+    );
+
+    // Auto-quote unquoted square brackets: A[Text with (parens) and "quotes"] -> A["Text with (parens) and 'quotes'"]
+    line = line.replace(
+      /([a-zA-Z0-9_-]+)\[(?!")([^\]]+?)\]/g,
+      (_, id, content) => {
+        const clean = content.replace(/"/g, "'").trim();
+        return `${id}["${clean}"]`;
+      },
+    );
+
+    // Auto-quote unquoted round brackets/parens: A(Text with "quotes") -> A("Text with 'quotes'")
+    line = line.replace(
+      /([a-zA-Z0-9_-]+)\((?!")([^)]+?)\)/g,
+      (_, id, content) => {
+        const clean = content.replace(/"/g, "'").trim();
+        return `${id}("${clean}")`;
+      },
+    );
 
     // Auto-quote unquoted curly braces: A{Text?} -> A{"Text?"}
-    line = line.replace(/\{(?!")([^}]+?)\}/g, (_, content) => {
-      const clean = content.replace(/"/g, "'").trim();
-      return `{"${clean}"}`;
+    line = line.replace(
+      /([a-zA-Z0-9_-]+)\{(?!")([^}]+?)\}/g,
+      (_, id, content) => {
+        const clean = content.replace(/"/g, "'").trim();
+        return `${id}{"${clean}"}`;
+      },
+    );
+
+    // If node already has quotes with nested inner quotes: A["Text with "inner" quotes"]
+    line = line.replace(/\["([^"]*?"[^"]*?)"\]/g, (_, inner) => {
+      const clean = inner.replace(/"/g, "'");
+      return `["${clean}"]`;
     });
 
     return line;
@@ -224,6 +270,7 @@ function MermaidDiagram({ code }: { code: string }) {
         w.mermaid.initialize({
           startOnLoad: false,
           suppressErrorRendering: true,
+          parseError: () => {}, // Suppress Mermaid's default error DOM injection
           theme:
             document.documentElement.getAttribute("data-theme") === "dark"
               ? "dark"
@@ -233,13 +280,14 @@ function MermaidDiagram({ code }: { code: string }) {
         });
 
         const id = `mermaid_${Math.random().toString(36).slice(2, 9)}`;
-        const oldError = document.getElementById(`d${id}`);
-        if (oldError) oldError.remove();
-
         const sanitizedCode = sanitizeMermaidCode(cleanCode);
 
+        // Pre-parse the code first: if parsing fails, NEVER call render() so Mermaid never injects the bomb icon
         w.mermaid
-          .render(id, sanitizedCode)
+          .parse(sanitizedCode, { suppressErrors: true })
+          .then(() => {
+            return w.mermaid.render(id, sanitizedCode);
+          })
           .then((res: any) => {
             if (isMounted && res?.svg) {
               setSvgHtml(res.svg);
@@ -247,9 +295,15 @@ function MermaidDiagram({ code }: { code: string }) {
             }
           })
           .catch((err: any) => {
-            console.warn("Mermaid render error:", err);
-            const errEl = document.getElementById(`d${id}`);
-            if (errEl) errEl.remove();
+            console.warn("Mermaid validation/render error:", err);
+            // Clean up any stray error element that Mermaid might have inserted into document.body
+            document
+              .querySelectorAll(
+                '[id^="dmermaid"], svg[aria-roledescription="error"], .error-icon',
+              )
+              .forEach((el) => {
+                if (el.parentElement === document.body) el.remove();
+              });
             if (isMounted) setHasError(true);
           });
       } catch (err) {
