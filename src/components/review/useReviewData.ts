@@ -269,12 +269,16 @@ export function useReviewData(attempt: Attempt, papers: QuestionPaper[]) {
                 : ans.isCorrect
               : null;
 
+          const effectivePreviousYears =
+            pq?.previousYears || ans?.previousYears || undefined;
+
           if (ans) {
             return {
               ...ans,
               correctAnswer: effectiveCorrect,
               explanation: effectiveExp,
               isCorrect,
+              previousYears: effectivePreviousYears,
             };
           }
           return {
@@ -288,6 +292,7 @@ export function useReviewData(attempt: Attempt, papers: QuestionPaper[]) {
             timeSpentSeconds: 0,
             changesCount: 0,
             answerHistory: [],
+            previousYears: effectivePreviousYears,
           };
         },
       ),

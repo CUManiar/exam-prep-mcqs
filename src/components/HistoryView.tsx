@@ -255,12 +255,12 @@ export function HistoryView({
         </div>
 
         {/* View Mode Toggle & Search */}
-        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2.5">
+        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2.5 w-full sm:w-auto">
           {/* Segmented Control with inline whitespace-nowrap counts */}
-          <div className="inline-flex items-center gap-1 bg-slate-100 p-1 rounded-xl border border-slate-200/80 text-xs font-medium shrink-0">
+          <div className="grid grid-cols-2 sm:inline-flex items-center gap-1 bg-slate-100 p-1 rounded-xl border border-slate-200/80 text-xs font-medium shrink-0">
             <button
               onClick={() => setViewMode("all")}
-              className={`cursor-pointer inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 whitespace-nowrap transition-colors ${
+              className={`cursor-pointer inline-flex items-center justify-center gap-1.5 rounded-lg px-2.5 py-1.5 whitespace-nowrap transition-colors ${
                 viewMode === "all"
                   ? "bg-white text-indigo-700 shadow-xs font-semibold"
                   : "text-slate-600 hover:text-slate-900"
@@ -276,7 +276,7 @@ export function HistoryView({
             </button>
             <button
               onClick={() => setViewMode("cumulative")}
-              className={`cursor-pointer inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 whitespace-nowrap transition-colors ${
+              className={`cursor-pointer inline-flex items-center justify-center gap-1.5 rounded-lg px-2.5 py-1.5 whitespace-nowrap transition-colors ${
                 viewMode === "cumulative"
                   ? "bg-white text-indigo-700 shadow-xs font-semibold"
                   : "text-slate-600 hover:text-slate-900"
@@ -292,95 +292,97 @@ export function HistoryView({
             </button>
           </div>
 
-          {/* Search */}
-          <div className="w-full sm:w-56 relative">
-            <Search className="absolute left-3 top-2.5 h-3.5 w-3.5 text-slate-400" />
-            <input
-              type="text"
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              placeholder="Search paper..."
-              className="w-full rounded-xl border border-slate-200 bg-white pl-8 pr-3 py-1.5 text-xs text-slate-800 placeholder-slate-400 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 focus:outline-none transition-all shadow-xs"
-            />
-          </div>
+          {/* Search & Layout switcher */}
+          <div className="flex items-center gap-2 w-full sm:w-auto">
+            <div className="flex-1 sm:w-56 relative">
+              <Search className="absolute left-3 top-2.5 h-3.5 w-3.5 text-slate-400" />
+              <input
+                type="text"
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                placeholder="Search paper..."
+                className="w-full rounded-xl border border-slate-200 bg-white pl-8 pr-3 py-1.5 text-xs text-slate-800 placeholder-slate-400 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 focus:outline-none transition-all shadow-xs"
+              />
+            </div>
 
-          <div
-            className="inline-flex items-center gap-0.5 rounded-xl border border-slate-200 bg-slate-100 p-0.5 self-start sm:self-auto"
-            aria-label="Performance layout"
-          >
-            <button
-              type="button"
-              onClick={() => setPerformanceViewMode("grid")}
-              aria-label="Show performance as grid"
-              aria-pressed={performanceViewMode === "grid"}
-              className={`cursor-pointer rounded-lg p-1.5 transition-colors ${
-                performanceViewMode === "grid"
-                  ? "bg-white text-indigo-700 shadow-xs"
-                  : "text-slate-500 hover:text-slate-900"
-              }`}
+            <div
+              className="inline-flex items-center gap-0.5 rounded-xl border border-slate-200 bg-slate-100 p-0.5 shrink-0"
+              aria-label="Performance layout"
             >
-              <Grid2X2 className="h-3.5 w-3.5" />
-            </button>
-            <button
-              type="button"
-              onClick={() => setPerformanceViewMode("list")}
-              aria-label="Show performance as list"
-              aria-pressed={performanceViewMode === "list"}
-              className={`cursor-pointer rounded-lg p-1.5 transition-colors ${
-                performanceViewMode === "list"
-                  ? "bg-white text-indigo-700 shadow-xs"
-                  : "text-slate-500 hover:text-slate-900"
-              }`}
-            >
-              <List className="h-3.5 w-3.5" />
-            </button>
+              <button
+                type="button"
+                onClick={() => setPerformanceViewMode("grid")}
+                aria-label="Show performance as grid"
+                aria-pressed={performanceViewMode === "grid"}
+                className={`cursor-pointer rounded-lg p-1.5 transition-colors ${
+                  performanceViewMode === "grid"
+                    ? "bg-white text-indigo-700 shadow-xs"
+                    : "text-slate-500 hover:text-slate-900"
+                }`}
+              >
+                <Grid2X2 className="h-3.5 w-3.5" />
+              </button>
+              <button
+                type="button"
+                onClick={() => setPerformanceViewMode("list")}
+                aria-label="Show performance as list"
+                aria-pressed={performanceViewMode === "list"}
+                className={`cursor-pointer rounded-lg p-1.5 transition-colors ${
+                  performanceViewMode === "list"
+                    ? "bg-white text-indigo-700 shadow-xs"
+                    : "text-slate-500 hover:text-slate-900"
+                }`}
+              >
+                <List className="h-3.5 w-3.5" />
+              </button>
+            </div>
           </div>
         </div>
       </div>
 
       {/* Aggregate Overview Bar (if attempts exist) */}
       {totalMocks > 0 && !search && (
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-          <div className="bi-card p-4 flex items-center gap-3">
-            <div className="h-9 w-9 rounded-xl bg-indigo-50 border border-indigo-100/80 flex items-center justify-center text-indigo-600 shrink-0">
-              <Award className="h-4.5 w-4.5" />
+        <div className="grid grid-cols-3 gap-2 sm:gap-4">
+          <div className="bi-card p-2.5 sm:p-4 flex items-center gap-2 sm:gap-3 rounded-xl sm:rounded-2xl">
+            <div className="h-7 w-7 sm:h-9 sm:w-9 rounded-lg sm:rounded-xl bg-indigo-50 border border-indigo-100/80 flex items-center justify-center text-indigo-600 shrink-0">
+              <Award className="h-3.5 w-3.5 sm:h-4.5 sm:w-4.5" />
             </div>
-            <div>
-              <span className="text-[11px] font-medium text-slate-400 block">
-                Total Attempts
+            <div className="min-w-0">
+              <span className="text-[10px] sm:text-[11px] font-medium text-slate-400 block truncate">
+                Attempts
               </span>
-              <div className="text-xl font-bold text-slate-900 font-mono mt-0.5">
+              <div className="text-base sm:text-xl font-bold text-slate-900 font-mono mt-0.5 truncate">
                 {totalMocks}
               </div>
             </div>
           </div>
 
-          <div className="bi-card p-4 flex items-center gap-3">
-            <div className="h-9 w-9 rounded-xl bg-emerald-50 border border-emerald-100/80 flex items-center justify-center text-emerald-600 shrink-0">
-              <Target className="h-4.5 w-4.5" />
+          <div className="bi-card p-2.5 sm:p-4 flex items-center gap-2 sm:gap-3 rounded-xl sm:rounded-2xl">
+            <div className="h-7 w-7 sm:h-9 sm:w-9 rounded-lg sm:rounded-xl bg-emerald-50 border border-emerald-100/80 flex items-center justify-center text-emerald-600 shrink-0">
+              <Target className="h-3.5 w-3.5 sm:h-4.5 sm:w-4.5" />
             </div>
-            <div>
-              <span className="text-[11px] font-medium text-slate-400 block">
-                Average Score
+            <div className="min-w-0">
+              <span className="text-[10px] sm:text-[11px] font-medium text-slate-400 block truncate">
+                Avg Score
               </span>
-              <div className="text-xl font-bold text-slate-900 font-mono mt-0.5">
+              <div className="text-base sm:text-xl font-bold text-slate-900 font-mono mt-0.5 truncate">
                 {avgScore}{" "}
-                <span className="text-xs text-slate-400 font-normal">
-                  / {avgMaxScore}
+                <span className="text-[10px] sm:text-xs text-slate-400 font-normal">
+                  /{avgMaxScore}
                 </span>
               </div>
             </div>
           </div>
 
-          <div className="bi-card p-4 flex items-center gap-3">
-            <div className="h-9 w-9 rounded-xl bg-teal-50 border border-teal-100/80 flex items-center justify-center text-teal-600 shrink-0">
-              <Zap className="h-4.5 w-4.5" />
+          <div className="bi-card p-2.5 sm:p-4 flex items-center gap-2 sm:gap-3 rounded-xl sm:rounded-2xl">
+            <div className="h-7 w-7 sm:h-9 sm:w-9 rounded-lg sm:rounded-xl bg-teal-50 border border-teal-100/80 flex items-center justify-center text-teal-600 shrink-0">
+              <Zap className="h-3.5 w-3.5 sm:h-4.5 sm:w-4.5" />
             </div>
-            <div>
-              <span className="text-[11px] font-medium text-slate-400 block">
-                Average Accuracy
+            <div className="min-w-0">
+              <span className="text-[10px] sm:text-[11px] font-medium text-slate-400 block truncate">
+                Accuracy
               </span>
-              <div className="text-xl font-bold text-teal-700 font-mono mt-0.5">
+              <div className="text-base sm:text-xl font-bold text-teal-700 font-mono mt-0.5 truncate">
                 {avgAccuracy}%
               </div>
             </div>
@@ -440,7 +442,7 @@ export function HistoryView({
                       </div>
                       <h3
                         title={group.paperLabel}
-                        className="text-sm sm:text-base font-semibold text-slate-900 truncate"
+                        className="text-sm sm:text-base font-semibold text-slate-900 line-clamp-2"
                       >
                         {group.paperLabel}
                       </h3>
@@ -564,8 +566,67 @@ export function HistoryView({
                     </div>
                   )}
 
-                  {/* Individual Attempt Records Table */}
-                  <div className="overflow-x-auto rounded-xl border border-slate-200">
+                  {/* Mobile Attempt Cards (< sm) */}
+                  <div className="block sm:hidden space-y-2">
+                    {group.attempts.map((att, idx) => (
+                      <div
+                        key={att.id}
+                        onClick={() => onViewAttempt(att)}
+                        className="p-3 rounded-xl border border-slate-200 bg-white shadow-2xs space-y-2 cursor-pointer hover:border-indigo-300 transition-colors"
+                      >
+                        <div className="flex items-center justify-between text-xs">
+                          <span className="font-bold font-mono text-slate-900 bg-slate-100 px-2 py-0.5 rounded">
+                            Attempt #{idx + 1}
+                          </span>
+                          <span className="text-slate-400 font-mono flex items-center gap-1 text-[11px]">
+                            <Clock className="h-3 w-3 text-slate-400" />
+                            {formatTimeSeconds(att.durationSeconds)}
+                          </span>
+                        </div>
+
+                        <div className="text-[11px] text-slate-500 font-medium">
+                          {formatDateTime(att.startedAt)}
+                        </div>
+
+                        <div className="flex items-center justify-between text-xs pt-1.5 border-t border-slate-100">
+                          <div>
+                            <span className="text-[10px] text-slate-400 uppercase tracking-wider block font-medium">
+                              Score
+                            </span>
+                            <span className="font-mono font-bold text-slate-900 text-sm">
+                              {att.score} / {att.maxScore}
+                            </span>
+                            <span className="ml-1 text-[10px] font-semibold text-indigo-700 bg-indigo-50 border border-indigo-200 px-1 py-0.2 rounded">
+                              {getAttemptPercentage(att)}%
+                            </span>
+                          </div>
+
+                          <div className="text-right">
+                            <span className="text-[10px] text-slate-400 uppercase tracking-wider block font-medium">
+                              Accuracy
+                            </span>
+                            <span className="font-mono font-bold text-teal-700 text-sm">
+                              {Math.round(att.accuracyPct || 0)}%
+                            </span>
+                          </div>
+                        </div>
+
+                        <div className="flex items-center justify-between pt-1.5 border-t border-slate-100 text-[11px]">
+                          <div className="font-mono text-slate-500">
+                            <span className="text-emerald-600 font-semibold">{att.correct}C</span>{" "}
+                            / <span className="text-rose-600 font-semibold">{att.incorrect}W</span>{" "}
+                            / <span>{att.unattempted}S</span>
+                          </div>
+                          <span className="font-semibold text-indigo-600 flex items-center gap-0.5">
+                            Review <ChevronRight className="h-3 w-3" />
+                          </span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+
+                  {/* Individual Attempt Records Table (>= sm) */}
+                  <div className="hidden sm:block overflow-x-auto rounded-xl border border-slate-200">
                     <table className="w-full text-left text-xs border-collapse">
                       <thead>
                         <tr className="bg-slate-100 text-slate-700 font-bold border-b border-slate-200">
@@ -717,7 +778,7 @@ export function HistoryView({
                 {/* Main Attempt Card */}
                 <div
                   onClick={() => onViewAttempt(activeAttempt)}
-                  className={`cursor-pointer relative flex justify-between bi-card p-5 group hover:border-indigo-300 transition-all shadow-xs bg-white rounded-2xl h-full flex-1 ${
+                  className={`cursor-pointer relative flex justify-between bi-card p-4 sm:p-5 group hover:border-indigo-300 transition-all shadow-xs bg-white rounded-2xl h-full flex-1 ${
                     performanceViewMode === "grid"
                       ? "flex-col"
                       : "flex-col md:grid md:grid-cols-[minmax(0,1fr)_minmax(180px,230px)] md:gap-6"
@@ -746,7 +807,7 @@ export function HistoryView({
                         {hasMultiple ? (
                           <div
                             onClick={(e) => e.stopPropagation()}
-                            className="flex items-center gap-1 bg-slate-100 p-0.5 rounded-md border border-slate-200 text-[10px] font-mono"
+                            className="flex items-center gap-1 bg-slate-100 p-0.5 rounded-md border border-slate-200 text-[10px] font-mono overflow-x-auto max-w-[140px] sm:max-w-none"
                             title="Switch attempt to inspect"
                           >
                             {group.attempts.map((att, idx) => {
@@ -790,7 +851,7 @@ export function HistoryView({
                     <div>
                       <h3
                         title={group.paperLabel}
-                        className="text-sm font-semibold text-slate-900 group-hover:text-indigo-600 transition-colors leading-snug truncate"
+                        className="text-sm font-semibold text-slate-900 group-hover:text-indigo-600 transition-colors leading-snug line-clamp-2"
                       >
                         {group.paperLabel}
                       </h3>
@@ -814,14 +875,14 @@ export function HistoryView({
                     </div>
 
                     {/* Score & Accuracy Box - Clean card style */}
-                    <div className="flex items-center justify-between rounded-xl bg-slate-50/90 px-3.5 py-2.5 border border-slate-200/70">
+                    <div className="flex items-center justify-between rounded-xl bg-slate-50/90 px-3 py-2 sm:px-3.5 sm:py-2.5 border border-slate-200/70">
                       <div className="min-w-0">
                         <span className="text-[10px] text-slate-400 uppercase tracking-wider block font-medium">
                           Score
                         </span>
-                        <div className="flex items-baseline gap-1.5 mt-0.5 min-w-0">
+                        <div className="flex items-baseline gap-1 sm:gap-1.5 mt-0.5 min-w-0 flex-wrap">
                           <span
-                            className={`text-xl font-bold font-mono ${scoreColor}`}
+                            className={`text-lg sm:text-xl font-bold font-mono ${scoreColor}`}
                           >
                             {Number(activeAttempt.score).toFixed(
                               activeAttempt.score % 1 !== 0 ? 2 : 0,
@@ -830,16 +891,16 @@ export function HistoryView({
                           <span className="text-xs text-slate-400 font-mono">
                             / {activeAttempt.maxScore}
                           </span>
-                          <span className="ml-1 text-[11px] font-semibold text-indigo-700 bg-indigo-50 border border-indigo-200 px-1.5 py-0.5 rounded-md">
+                          <span className="text-[10px] sm:text-[11px] font-semibold text-indigo-700 bg-indigo-50 border border-indigo-200 px-1.5 py-0.2 rounded-md">
                             {getAttemptPercentage(activeAttempt)}%
                           </span>
                         </div>
                       </div>
-                      <div className="text-right shrink-0">
+                      <div className="text-right shrink-0 pl-2">
                         <span className="text-[10px] text-slate-400 uppercase tracking-wider block font-medium">
                           Accuracy
                         </span>
-                        <div className="text-lg font-bold text-teal-700 font-mono mt-0.5">
+                        <div className="text-base sm:text-lg font-bold text-teal-700 font-mono mt-0.5">
                           {Math.round(activeAttempt.accuracyPct || 0)}%
                         </div>
                       </div>

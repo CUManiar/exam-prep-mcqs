@@ -518,14 +518,13 @@ export function AttemptReviewView({
 
       {/* Multi-Attempt History Switcher Strip */}
       {totalRelatedAttempts > 1 && (
-        <div className="screen-only border-b border-indigo-100 bg-indigo-50/70 px-4 sm:px-6 py-2 flex items-center justify-between gap-3 shrink-0 text-xs shadow-2xs z-20">
-          <div className="flex items-center gap-2 min-w-0">
-            <span className="flex h-5 w-5 items-center justify-center rounded-md bg-indigo-600 text-white text-[10px] font-bold shrink-0">
+        <div className="screen-only border-b border-indigo-100 bg-indigo-50/70 px-3 sm:px-6 py-1.5 flex items-center justify-between gap-2 shrink-0 text-xs shadow-2xs z-20">
+          <div className="flex items-center gap-1.5 min-w-0">
+            <span className="flex h-4.5 w-4.5 items-center justify-center rounded-md bg-indigo-600 text-white text-[10px] font-bold shrink-0">
               {currentAttemptIndex >= 0 ? currentAttemptIndex + 1 : "?"}
             </span>
             <span className="text-xs font-semibold text-slate-800 truncate">
-              Attempt #{currentAttemptIndex >= 0 ? currentAttemptIndex + 1 : 1}{" "}
-              of {totalRelatedAttempts} on this paper
+              <span className="hidden sm:inline">Attempt </span>#{currentAttemptIndex >= 0 ? currentAttemptIndex + 1 : 1} of {totalRelatedAttempts}
             </span>
           </div>
 
@@ -541,7 +540,7 @@ export function AttemptReviewView({
                       handleSwitchAttempt(rel);
                     }
                   }}
-                  className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-bold transition-all cursor-pointer shrink-0 ${
+                  className={`flex items-center gap-1 px-2 py-0.5 rounded-lg text-xs font-bold transition-all cursor-pointer shrink-0 ${
                     isCurrent
                       ? "bg-indigo-600 text-white shadow-xs"
                       : "bg-white border border-slate-200 text-slate-700 hover:border-indigo-300 hover:text-indigo-600 shadow-2xs"
@@ -564,12 +563,12 @@ export function AttemptReviewView({
       )}
 
       {/* 2. Mobile Responsive Tab Switcher */}
-      <div className="lg:hidden px-3 pt-2 shrink-0">
+      <div className="lg:hidden px-3 pt-1.5 shrink-0">
         <div className="flex rounded-xl border border-slate-200 bg-white p-1 shadow-2xs">
           <button
             type="button"
             onClick={() => setActiveMobileView("review")}
-            className={`flex-1 flex items-center justify-center gap-1.5 py-2 text-xs font-bold rounded-lg transition-colors cursor-pointer ${
+            className={`flex-1 flex items-center justify-center gap-1.5 py-1.5 text-xs font-bold rounded-lg transition-colors cursor-pointer ${
               activeMobileView === "review"
                 ? "bg-slate-900 text-white shadow-xs"
                 : "text-slate-600 hover:text-slate-900"
@@ -582,7 +581,7 @@ export function AttemptReviewView({
           <button
             type="button"
             onClick={() => setActiveMobileView("score")}
-            className={`flex-1 flex items-center justify-center gap-1.5 py-2 text-xs font-bold rounded-lg transition-colors cursor-pointer ${
+            className={`flex-1 flex items-center justify-center gap-1.5 py-1.5 text-xs font-bold rounded-lg transition-colors cursor-pointer ${
               activeMobileView === "score"
                 ? "bg-slate-900 text-white shadow-xs"
                 : "text-slate-600 hover:text-slate-900"
@@ -590,8 +589,7 @@ export function AttemptReviewView({
           >
             <BarChart3 className="h-3.5 w-3.5" />
             <span>
-              Scorecard ({formatReviewNumber(attempt.score)}/{effectiveMaxScore}
-              )
+              Scorecard ({formatReviewNumber(attempt.score)}/{effectiveMaxScore})
             </span>
           </button>
         </div>

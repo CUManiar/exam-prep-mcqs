@@ -1,6 +1,6 @@
 "use client";
 
-import { Suspense, useEffect } from "react";
+import { Suspense, useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useApp } from "../../context/AppContext";
 import { ExamSessionView } from "../../components/ExamSessionView";
@@ -86,7 +86,12 @@ function ExamSessionContent() {
     notifyExamReady,
   } = useApp();
 
-  const localDraft = typeof window !== "undefined" ? getActiveDraft() : null;
+  const [mounted, setMounted] = useState<boolean>(false);
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  const localDraft = mounted ? getActiveDraft() : null;
   const effectiveActiveDraft = activeDraft || localDraft;
 
   const paperId = searchParams.get("paperId") || effectiveActiveDraft?.paperId;
@@ -96,7 +101,7 @@ function ExamSessionContent() {
     "mock";
 
   let paper = papers.find((p) => p.id === paperId);
-  if (!paper && paperId) {
+  if (!paper && paperId && mounted) {
     const localCustom = getCustomPapers();
     paper = localCustom.find((p) => p.id === paperId);
   }
@@ -121,14 +126,12 @@ function ExamSessionContent() {
   // and we're about to render the ExamSessionView. This guarantees the loader
   // stays visible for the entire hydration/data-fetch period.
   useEffect(() => {
-    if (paper) {
+    if (paper && mounted) {
       notifyExamReady();
     }
-    // Run once per resolved paper — notifyExamReady is stable.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [!!paper]);
+  }, [!!paper, mounted, notifyExamReady]);
 
-  if (isLoading && !paper) {
+  if (!mounted || (isLoading && !paper)) {
     return <ExamSessionLoadingBuffer message="Restoring Exam Session..." />;
   }
 

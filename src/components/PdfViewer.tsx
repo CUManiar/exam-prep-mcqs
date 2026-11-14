@@ -34,7 +34,13 @@ export function PdfViewer({
 }: PdfViewerProps) {
   // Mode: 'canvas' (PDF.js in-browser engine - unlimited size, mobile friendly) or 'native' (browser continuous document)
   const [internalViewMode, setInternalViewMode] = useState<"canvas" | "native">(
-    initialMode,
+    () => {
+      // On mobile viewports, default to touch-friendly canvas engine for flawless page flipping
+      if (typeof window !== "undefined" && window.innerWidth < 768) {
+        return "canvas";
+      }
+      return initialMode;
+    },
   );
   const viewMode = currentMode !== undefined ? currentMode : internalViewMode;
 
@@ -511,25 +517,25 @@ export function PdfViewer({
         </div>
       ) : (
         /* Native Browser PDF Engine (Continuous Document Scrolling) */
-        <div className="relative flex-1 w-full h-full min-h-0 bg-slate-100 overflow-visible">
-          <object
-            data={`${absoluteUrl}#view=FitH&toolbar=1&navpanes=0`}
-            type="application/pdf"
-            className="w-full h-full block min-h-full"
-            style={{ width: "100%", height: "100%", minHeight: "100%" }}
-          >
-            <iframe
-              src={`${absoluteUrl}#view=FitH&toolbar=1&navpanes=0`}
-              title={title}
-              className="w-full h-full border-0 block"
-              style={{
-                width: "100%",
-                height: "100%",
-                minHeight: "100%",
-                WebkitOverflowScrolling: "touch",
-              }}
-            />
-          </object>
+        <div
+          className="relative flex-1 w-full h-full min-h-0 bg-slate-100 overflow-auto overscroll-contain touch-pan-y"
+          style={{
+            WebkitOverflowScrolling: "touch",
+            touchAction: "pan-y",
+            height: "100%",
+          }}
+        >
+          <iframe
+            src={`${absoluteUrl}#view=FitH&toolbar=1&navpanes=0`}
+            title={title}
+            className="w-full h-full border-0 block min-h-full"
+            style={{
+              width: "100%",
+              height: "100%",
+              minHeight: "100%",
+              WebkitOverflowScrolling: "touch",
+            }}
+          />
         </div>
       )}
     </div>

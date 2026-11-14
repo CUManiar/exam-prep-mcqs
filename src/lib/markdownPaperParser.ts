@@ -98,6 +98,19 @@ export function cleanHeaderValue(value: string): string {
 }
 
 /**
+ * Normalizes comma-separated previously asked years (e.g. "2017, 2021, 2024").
+ */
+export function cleanPreviousYears(val: string): string {
+  if (!val) return "";
+  const cleaned = stripMarkdownFormatting(val).replace(/[\u2212]/g, "-").trim();
+  const years = cleaned
+    .split(/[,;/]+/)
+    .map((y) => y.trim())
+    .filter(Boolean);
+  return years.join(", ");
+}
+
+/**
  * Parses a hierarchical topic string like "History > Modern India > 1857 Revolt"
  * or "Modern India / 1857 Revolt".
  */
@@ -386,6 +399,7 @@ function parseQuestionBlock(
   let questionSubject: string | undefined;
   let questionChapter: string | undefined;
   let questionTopic: string | undefined;
+  let questionPreviousYears: string | undefined;
 
   for (const line of lines) {
     const normalizedLine = stripMarkdownFormatting(line).trim();
@@ -453,24 +467,48 @@ function parseQuestionBlock(
         continue;
       }
 
+      const inlineYearMatch = line.match(
+        /^\s*(?:\*\*|__)?(?:Previous\s*Years?|Previously\s*Asked|Years?|PYQ|Repeated)(?:\*\*|__)?\s*:\s*([^\n]+)$/i,
+      );
+      if (inlineYearMatch) {
+        questionPreviousYears = cleanPreviousYears(inlineYearMatch[1]);
+        continue;
+      }
+
       let lineText = line;
       // Multi-part bracket tags:
-      // [Subject: History | Chapter: Modern India | Topic: 1857 Revolt]
-      // or [Subject: History, Chapter: Modern India, Topic: 1857 Revolt]
+      // [Subject: History | Chapter: Modern India | Topic: 1857 Revolt | Year: 2017, 2021]
+      // or [Subject: History, Chapter: Modern India, Topic: 1857 Revolt, PYQ: 2017, 2021]
       const fullTagMatch = lineText.match(
-        /\[\s*([^\]]*(?:Subject|Chapter|Topic)\s*:[^\]]*)\]/i,
+        /\[\s*([^\]]*(?:Subject|Chapter|Topic|Year|PYQ|Previously|Repeated)\s*:[^\]]*)\]/i,
       );
       if (fullTagMatch) {
         const inside = fullTagMatch[1];
-        const parts = inside.split(/[|,;]/);
+        const parts = inside.split(
+          /\s*\|\s*|\s*;\s*|,\s*(?=(?:Subject|Chapter|Topic|Previous|Years?|PYQ|Repeated)\s*:)/i,
+        );
         for (const part of parts) {
-          const kv = part.match(/^\s*(Subject|Chapter|Topic)\s*:\s*(.+)$/i);
+          const kv = part.match(
+            /^\s*(Subject|Chapter|Topic|Previous\s*Years?|Previously\s*Asked|Years?|PYQ|Repeated)\s*:\s*(.+)$/i,
+          );
           if (kv) {
-            const k = kv[1].toLowerCase();
+            const k = kv[1].toLowerCase().replace(/\s+/g, "");
             const v = cleanHeaderValue(kv[2]);
             if (k === "subject" && !questionSubject) questionSubject = v;
             if (k === "chapter" && !questionChapter) questionChapter = v;
             if (k === "topic" && !questionTopic) questionTopic = v;
+            if (
+              (k === "year" ||
+                k === "years" ||
+                k === "previousyear" ||
+                k === "previousyears" ||
+                k === "previouslyasked" ||
+                k === "pyq" ||
+                k === "repeated") &&
+              !questionPreviousYears
+            ) {
+              questionPreviousYears = cleanPreviousYears(kv[2]);
+            }
           }
         }
         lineText = lineText.replace(fullTagMatch[0], "").trim();
@@ -492,6 +530,37 @@ function parseQuestionBlock(
       if (topicTagMatch) {
         if (!questionTopic) questionTopic = cleanHeaderValue(topicTagMatch[1]);
         lineText = lineText.replace(topicTagMatch[0], "").trim();
+      }
+
+      // Standalone tag [Year: 2017, 2021] or [PYQ: 2017, 2021] or [Previously Asked: 2014, 2019]
+      const standaloneYearTag = lineText.match(
+        /\[\s*(?:(?:UPSC\s+)?PYQ|Previously\s*Asked|Previous\s*Years?|Years?|Repeated)\s*:\s*([^\]]+)\s*\]/i,
+      );
+      if (standaloneYearTag) {
+        if (!questionPreviousYears) {
+          questionPreviousYears = cleanPreviousYears(standaloneYearTag[1]);
+        }
+        lineText = lineText.replace(standaloneYearTag[0], "").trim();
+      }
+
+      // Standalone [UPSC 2017, 2021] or [CSE 2018] or [PYQ 2017, 2021] without colon
+      const directYearTag = lineText.match(
+        /\[\s*(?:UPSC\s+|CSE\s+|PYQ\s+)?((?:19\d\d|20\d\d)(?:\s*,\s*(?:19\d\d|20\d\d))*)\s*\]/i,
+      );
+      if (directYearTag) {
+        if (!questionPreviousYears) {
+          questionPreviousYears = cleanPreviousYears(directYearTag[1]);
+        }
+        lineText = lineText.replace(directYearTag[0], "").trim();
+      }
+
+      // Optional trailing annotation like "(UPSC 2017, 2021)" or "[UPSC 2017, 2021]"
+      const trailingYearMatch = lineText.match(
+        /(?:\[|\()\s*(?:UPSC\s+|CSE\s+|PYQ\s+)?((?:19\d\d|20\d\d)(?:\s*,\s*(?:19\d\d|20\d\d))*)\s*(?:\]|\))\s*$/i,
+      );
+      if (trailingYearMatch && !questionPreviousYears) {
+        questionPreviousYears = cleanPreviousYears(trailingYearMatch[1]);
+        lineText = lineText.replace(trailingYearMatch[0], "").trim();
       }
 
       if (lineText.trim()) {
@@ -533,6 +602,7 @@ function parseQuestionBlock(
     ...(questionChapter ? { chapter: questionChapter } : {}),
     ...(questionTopic ? { topic: questionTopic } : {}),
     ...(wordLimit ? { wordLimit } : {}),
+    ...(questionPreviousYears ? { previousYears: questionPreviousYears } : {}),
   };
 }
 
@@ -663,4 +733,112 @@ export function parseQuestionnaireMarkdown(
   }
 
   return parsedQuestions;
+}
+
+/**
+ * Updates or injects question-wise previously asked years in questionnaire markdown.
+ * If years is non-empty, sets/updates [Year: 2017, 2021] for that question.
+ * If years is empty, strips any existing year annotation for that question.
+ */
+export function updateQuestionPreviousYearsInMarkdown(
+  markdownText: string,
+  questionNo: number,
+  years: string,
+): string {
+  const cleanYears = cleanPreviousYears(years);
+  const raw = (markdownText || "").replace(/\r\n?/g, "\n");
+  const separatorMatch = raw.match(/^\s*-{3,}\s*$/m);
+
+  if (!separatorMatch) {
+    return raw;
+  }
+
+  const blocks = raw.split(/^\s*-{3,}\s*$/m);
+  const firstBlockIsHeader = Boolean(
+    parseMarkdownHeader(blocks[0] || "").rawLines,
+  );
+  const targetIndex = firstBlockIsHeader ? questionNo : questionNo - 1;
+
+  if (targetIndex < 0 || targetIndex >= blocks.length) {
+    return raw;
+  }
+
+  let block = blocks[targetIndex];
+
+  // Regexes for existing year tags inside block
+  const standaloneYearRegex =
+    /\[\s*(?:(?:UPSC\s+)?PYQ|Previously\s*Asked|Previous\s*Years?|Years?|Repeated)\s*:\s*[^\]]+\]/gi;
+  const directYearRegex =
+    /\[\s*(?:UPSC\s+|CSE\s+|PYQ\s+)?(?:19\d\d|20\d\d)(?:\s*,\s*(?:19\d\d|20\d\d))*\s*\]/gi;
+  const inlineYearRegex =
+    /^\s*(?:\*\*|__)?(?:Previous\s*Years?|Previously\s*Asked|Years?|PYQ|Repeated)(?:\*\*|__)?\s*:\s*[^\n]+$/gim;
+
+  // Multi-part bracket tag check: [Subject: ... | Year: ...]
+  const multipartRegex =
+    /\[\s*([^\]]*(?:Subject|Chapter|Topic)\s*:[^\]]*)\]/gi;
+
+  let replaced = false;
+
+  // 1. Check if there's a multipart tag
+  block = block.replace(multipartRegex, (full, content) => {
+    const parts = content.split(/[|;]/).map((p: string) => p.trim());
+    const yearIdx = parts.findIndex((p: string) =>
+      /^(?:Subject|Chapter|Topic)?.*(?:Year|PYQ|Previously|Repeated)\s*:/i.test(
+        p,
+      ),
+    );
+    if (yearIdx >= 0) {
+      if (cleanYears) {
+        parts[yearIdx] = `Year: ${cleanYears}`;
+      } else {
+        parts.splice(yearIdx, 1);
+      }
+      replaced = true;
+      return `[${parts.join(" | ")}]`;
+    } else if (cleanYears) {
+      parts.push(`Year: ${cleanYears}`);
+      replaced = true;
+      return `[${parts.join(" | ")}]`;
+    }
+    return full;
+  });
+
+  // 2. Check standalone or direct year tag
+  if (
+    !replaced &&
+    (standaloneYearRegex.test(block) || directYearRegex.test(block))
+  ) {
+    standaloneYearRegex.lastIndex = 0;
+    directYearRegex.lastIndex = 0;
+    if (cleanYears) {
+      block = block
+        .replace(standaloneYearRegex, `[Year: ${cleanYears}]`)
+        .replace(directYearRegex, `[Year: ${cleanYears}]`);
+    } else {
+      block = block
+        .replace(standaloneYearRegex, "")
+        .replace(directYearRegex, "");
+    }
+    replaced = true;
+  }
+
+  // 3. Check inline line tag
+  if (!replaced && inlineYearRegex.test(block)) {
+    inlineYearRegex.lastIndex = 0;
+    if (cleanYears) {
+      block = block.replace(inlineYearRegex, `Year: ${cleanYears}`);
+    } else {
+      block = block.replace(inlineYearRegex, "");
+    }
+    replaced = true;
+  }
+
+  // 4. If not replaced and cleanYears is provided, prepend it to the block
+  if (!replaced && cleanYears) {
+    const trimmed = block.trimStart();
+    block = `\n[Year: ${cleanYears}]\n${trimmed}`;
+  }
+
+  blocks[targetIndex] = block;
+  return blocks.join("\n---\n");
 }

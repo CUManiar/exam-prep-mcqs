@@ -65,7 +65,7 @@ INSTRUCTIONS:
 - Do not mark more than one option per question.
 - Use this mock to test your preparation, not just guess.
 ---
-[Subject: Economy | Topic: Monetary Policy]
+[Subject: Economy | Topic: Monetary Policy | Year: 2017, 2021]
 With reference to the **Monetary Policy Committee (MPC)** of the Reserve Bank of India, consider the following statements:
 1. It determines the policy repo rate required to achieve the inflation target.
 2. The Governor of the RBI is the ex-officio Chairman of the Committee and has a second or casting vote in case of a tie.

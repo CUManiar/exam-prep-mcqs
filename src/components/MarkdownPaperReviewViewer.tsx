@@ -1,6 +1,7 @@
 "use client";
 
 import { useRef, useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import { QuestionPaper, ParsedQuestion, QuestionAnswer } from "../lib/types";
 import { ParsedMarkdownHeader } from "../lib/markdownPaperParser";
 import { MatchingItemsTable } from "./MatchingItemsTable";
@@ -18,6 +19,10 @@ import {
   FileText,
   RotateCcw,
   Sparkles,
+  History,
+  Grid3X3,
+  ChevronLeft,
+  ChevronRight,
 } from "lucide-react";
 import { HtmlExplanation } from "./HtmlExplanation";
 
@@ -48,9 +53,88 @@ export function MarkdownPaperReviewViewer({
   hasActiveFilters,
   onResetFilters,
 }: MarkdownPaperReviewViewerProps) {
+  const router = useRouter();
   const scrollContainerRef = useRef<HTMLDivElement>(null);
-  const [viewMode, setViewMode] = useState<"all" | "single">("all");
+  const [viewMode, setViewMode] = useState<"all" | "single">("single");
   const [showPaperDetails, setShowPaperDetails] = useState<boolean>(false);
+  const [isPaletteOpen, setIsPaletteOpen] = useState<boolean>(false);
+
+  const touchStartRef = useRef<{ x: number; y: number; time: number } | null>(
+    null,
+  );
+
+  const currentIndex = questions.findIndex(
+    (q) =>
+      q.questionNo === (activeQuestionNo || (questions[0]?.questionNo ?? 1)),
+  );
+
+  const handleNextQuestion = () => {
+    if (currentIndex >= 0 && currentIndex < questions.length - 1) {
+      onSelectQuestion?.(questions[currentIndex + 1].questionNo);
+    }
+  };
+
+  const handlePrevQuestion = () => {
+    if (currentIndex > 0) {
+      onSelectQuestion?.(questions[currentIndex - 1].questionNo);
+    }
+  };
+
+  const handleTouchStart = (e: React.TouchEvent) => {
+    const target = e.target as HTMLElement;
+    if (
+      target &&
+      (target.tagName === "INPUT" ||
+        target.tagName === "TEXTAREA" ||
+        target.tagName === "BUTTON" ||
+        target.tagName === "SELECT" ||
+        target.isContentEditable)
+    ) {
+      return;
+    }
+    const touch = e.touches[0];
+    touchStartRef.current = {
+      x: touch.clientX,
+      y: touch.clientY,
+      time: Date.now(),
+    };
+  };
+
+  const handleTouchEnd = (e: React.TouchEvent) => {
+    if (!touchStartRef.current) return;
+    const touch = e.changedTouches[0];
+    const deltaX = touch.clientX - touchStartRef.current.x;
+    const deltaY = touch.clientY - touchStartRef.current.y;
+    const deltaTime = Date.now() - touchStartRef.current.time;
+    touchStartRef.current = null;
+
+    // Only trigger horizontal navigation if the swipe was predominantly horizontal
+    // and distinctly fast/long, preventing interference with normal vertical scrolling
+    if (
+      deltaTime < 500 &&
+      Math.abs(deltaX) > 60 &&
+      Math.abs(deltaX) > Math.abs(deltaY) * 2.0
+    ) {
+      if (deltaX < 0) {
+        handleNextQuestion();
+      } else {
+        handlePrevQuestion();
+      }
+    }
+  };
+
+  const correctCount = questions.filter(
+    (q) => answers[q.questionNo]?.isCorrect === true,
+  ).length;
+  const wrongCount = questions.filter(
+    (q) => answers[q.questionNo]?.isCorrect === false,
+  ).length;
+  const skippedCount = questions.filter(
+    (q) => !answers[q.questionNo]?.selected?.trim(),
+  ).length;
+  const flaggedCount = questions.filter(
+    (q) => Boolean(answers[q.questionNo]?.flagged),
+  ).length;
 
   // Auto-scroll to selected question inside the paper container only (never scrolling the window)
   useEffect(() => {
@@ -76,23 +160,24 @@ export function MarkdownPaperReviewViewer({
       : questions;
 
   return (
-    <div className="flex flex-col h-full bg-slate-50 overflow-hidden">
+    <div className="flex flex-col h-full bg-slate-50 overflow-hidden relative">
       {/* 1. Header Toolbar */}
-      <div className="flex items-center justify-between px-3.5 py-2.5 bg-white border-b border-slate-200 shrink-0 gap-2">
-        <div className="flex items-center gap-2 text-xs font-medium text-slate-800 min-w-0">
+      <div className="flex items-center justify-between px-3 sm:px-3.5 py-1.5 sm:py-2 bg-white border-b border-slate-200 shrink-0 gap-2">
+        <div className="hidden sm:flex items-center gap-2 text-xs font-medium text-slate-800 min-w-0">
           <span
             className="truncate max-w-[150px] sm:max-w-[220px]"
             title={displayTitle}
           >
             {displayTitle}
           </span>
-          <span className="hidden sm:inline text-[11px] text-slate-400 font-normal">
+          <span className="text-[11px] text-slate-400 font-normal">
             · {questions.length} questions
           </span>
         </div>
 
-        <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
-          <div className="flex items-center rounded-lg border border-slate-200 bg-slate-50 p-0.5">
+        <div className="flex items-center justify-between sm:justify-end w-full sm:w-auto gap-1.5 sm:gap-2 shrink-0">
+          {/* View mode toggle - Desktop only, mobile defaults to focused single question */}
+          <div className="hidden sm:flex items-center rounded-lg border border-slate-200 bg-slate-50 p-0.5">
             {(
               [
                 ["all", "All questions"],
@@ -103,43 +188,38 @@ export function MarkdownPaperReviewViewer({
                 key={mode}
                 type="button"
                 onClick={() => setViewMode(mode)}
-                className={`rounded-md px-2 py-1 text-[10px] font-semibold transition-colors ${viewMode === mode ? "bg-white text-slate-900 shadow-2xs" : "text-slate-500 hover:text-slate-800"}`}
+                className={`rounded-md px-2 py-1 text-[11px] font-semibold transition-colors cursor-pointer ${
+                  viewMode === mode
+                    ? "bg-white text-slate-900 shadow-2xs"
+                    : "text-slate-500 hover:text-slate-800"
+                }`}
               >
                 {label}
               </button>
             ))}
           </div>
 
-          {/* Quick Question Jump Dropdown */}
+          {/* Question Palette Trigger Button */}
           {questions.length > 0 && (
-            <select
-              value={activeQuestionNo || ""}
-              onChange={(e) => {
-                const val = parseInt(e.target.value, 10);
-                if (!isNaN(val)) {
-                  onSelectQuestion?.(val);
-                }
-              }}
-              className="text-xs font-medium bg-white border border-slate-200 rounded-lg px-2.5 py-1 text-slate-700 hover:bg-slate-50 cursor-pointer transition-colors"
+            <button
+              type="button"
+              onClick={() => setIsPaletteOpen(true)}
+              className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg border border-indigo-200 bg-indigo-50/90 hover:bg-indigo-100 text-indigo-700 text-xs font-bold transition-all shadow-2xs cursor-pointer"
+              title="Open Visual Question Palette"
             >
-              <option value="">Jump to Q...</option>
-              {questions.map((q) => {
-                const ans = answers[q.questionNo];
-                const marker = ans?.isCorrect ? "✓" : ans?.selected ? "✗" : "○";
-                return (
-                  <option key={q.questionNo} value={q.questionNo}>
-                    Q{q.questionNo} {marker}
-                  </option>
-                );
-              })}
-            </select>
+              <Grid3X3 className="h-3.5 w-3.5 text-indigo-600" />
+              <span>
+                {activeQuestionNo ? `Q${activeQuestionNo}` : "Palette"} (
+                {questions.length})
+              </span>
+            </button>
           )}
 
           {onClose && (
             <button
               type="button"
               onClick={onClose}
-              className="text-xs font-semibold text-slate-600 hover:text-slate-900 px-2.5 py-1 rounded-md hover:bg-slate-100 transition-colors cursor-pointer"
+              className="hidden sm:inline-flex text-xs font-semibold text-slate-600 hover:text-slate-900 px-2.5 py-1 rounded-md hover:bg-slate-100 transition-colors cursor-pointer"
               title="Hide question paper preview"
             >
               ✕ Hide
@@ -148,10 +228,16 @@ export function MarkdownPaperReviewViewer({
         </div>
       </div>
 
-      {/* 2. Scrollable Paper Body */}
+      {/* 2. Scrollable Paper Body with Touch Swipe Listener */}
       <div
         ref={scrollContainerRef}
-        className="flex-1 overflow-y-auto p-3.5 sm:p-5 space-y-4 bg-slate-100/60"
+        onTouchStart={handleTouchStart}
+        onTouchEnd={handleTouchEnd}
+        className="flex-1 overflow-y-auto overscroll-y-contain p-3.5 sm:p-5 space-y-4 bg-slate-100/60 pb-20 sm:pb-24 touch-pan-y"
+        style={{
+          WebkitOverflowScrolling: "touch",
+          touchAction: "pan-y",
+        }}
       >
         {/* Exam Header & Rules (Collapsible, collapsed by default to save vertical space) */}
         {(header || instructions.length > 0 || paper.instructions?.length) && (
@@ -307,11 +393,12 @@ export function MarkdownPaperReviewViewer({
               <div
                 key={q.questionNo}
                 id={`paper-q-${q.questionNo}`}
-                className={`p-3.5 sm:p-4 rounded-xl bg-white border transition-all duration-150 shadow-xs ${
+                className={`p-3.5 sm:p-4 rounded-xl bg-white border transition-all duration-150 shadow-xs touch-pan-y ${
                   isSelectedActive
                     ? "border-slate-900 ring-2 ring-slate-900/10"
                     : "border-slate-200 hover:border-slate-300"
                 }`}
+                style={{ touchAction: "pan-y" }}
               >
                 {/* Top Question Status Bar */}
                 <div className="flex items-center justify-between gap-2 flex-wrap pb-2 border-b border-slate-100">
@@ -353,6 +440,13 @@ export function MarkdownPaperReviewViewer({
                       <span className="inline-flex items-center gap-1 text-[11px] font-medium text-slate-500 bg-slate-100 border border-slate-200 px-2 py-0.5 rounded-full">
                         <HelpCircle className="h-3 w-3 text-slate-400" />
                         <span>Skipped · 0 pts</span>
+                      </span>
+                    )}
+
+                    {(q.previousYears || ans?.previousYears) && (
+                      <span className="inline-flex items-center gap-1 text-[11px] font-bold text-amber-800 bg-amber-50 border border-amber-200 px-2 py-0.5 rounded-full shadow-2xs">
+                        <History className="h-3 w-3 text-amber-600" />
+                        <span>PYQ: {q.previousYears || ans?.previousYears}</span>
                       </span>
                     )}
                   </div>
@@ -492,16 +586,19 @@ export function MarkdownPaperReviewViewer({
                         <Lightbulb className="h-4 w-4 text-indigo-600" />
                         <span>Solution & Explanation</span>
                       </div>
-                      <a
-                        href={`/revision?paperId=${encodeURIComponent(paper.id)}&q=${q.questionNo}`}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md bg-white border border-indigo-200 text-indigo-700 hover:bg-indigo-50 text-[11px] font-semibold transition-colors shadow-2xs"
+                      <button
+                        type="button"
+                        onClick={() =>
+                          router.push(
+                            `/revision?paperId=${encodeURIComponent(paper.id)}&q=${q.questionNo}`,
+                          )
+                        }
+                        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md bg-indigo-600 text-white hover:bg-indigo-700 active:bg-indigo-800 text-[11px] sm:text-xs font-semibold transition-colors shadow-sm whitespace-nowrap"
                         title="Open question in AI Revision"
                       >
-                        <Sparkles className="h-3 w-3 text-indigo-600" />
+                        <Sparkles className="h-3 w-3 flex-shrink-0" />
                         <span>Discuss with AI</span>
-                      </a>
+                      </button>
                     </div>
                     <HtmlExplanation
                       text={explanationText}
@@ -513,7 +610,164 @@ export function MarkdownPaperReviewViewer({
             );
           })
         )}
+
       </div>
+
+      {/* Sticky Bottom Navigator - hovering and docked at bottom while card scrolls freely behind */}
+      {viewMode === "single" && questions.length > 0 && (
+        <div className="absolute bottom-0 inset-x-0 z-20 p-2.5 sm:p-3 bg-white/95 backdrop-blur-md border-t border-slate-200 flex items-center justify-between gap-2 shadow-lg">
+          <button
+            type="button"
+            disabled={currentIndex <= 0}
+            onClick={handlePrevQuestion}
+            className="flex items-center gap-1 px-3 py-1.5 rounded-xl border border-slate-200 bg-white text-xs font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-40 disabled:pointer-events-none transition-colors cursor-pointer"
+          >
+            <ChevronLeft className="h-4 w-4" />
+            <span className="hidden sm:inline">Previous</span>
+            <span className="sm:hidden">Prev</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setIsPaletteOpen(true)}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-indigo-50 border border-indigo-200 text-indigo-700 text-xs font-bold hover:bg-indigo-100 transition-colors shadow-2xs cursor-pointer"
+          >
+            <Grid3X3 className="h-3.5 w-3.5" />
+            <span>
+              Q{activeQuestionNo || 1} of {questions.length}
+            </span>
+          </button>
+
+          <button
+            type="button"
+            disabled={currentIndex >= questions.length - 1}
+            onClick={handleNextQuestion}
+            className="flex items-center gap-1 px-3.5 py-1.5 rounded-xl bg-indigo-600 text-xs font-semibold text-white hover:bg-indigo-700 disabled:opacity-40 disabled:pointer-events-none transition-colors shadow-xs cursor-pointer"
+          >
+            <span className="hidden sm:inline">Next Question</span>
+            <span className="sm:hidden">Next</span>
+            <ChevronRight className="h-4 w-4" />
+          </button>
+        </div>
+      )}
+
+      {/* Visual Question Palette Drawer / Bottom Sheet */}
+      {isPaletteOpen && (
+        <div className="fixed inset-0 z-50 flex flex-col justify-end lg:justify-center lg:items-center">
+          {/* Backdrop */}
+          <div
+            className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs transition-opacity"
+            onClick={() => setIsPaletteOpen(false)}
+          />
+
+          {/* Modal / Sheet Container */}
+          <div className="relative z-10 flex max-h-[85vh] lg:max-h-[80vh] w-full lg:max-w-xl flex-col rounded-t-3xl lg:rounded-3xl bg-white shadow-2xl animate-in slide-in-from-bottom duration-200">
+            {/* Header */}
+            <div className="flex items-center justify-between border-b border-slate-100 px-4 py-3">
+              <div className="flex items-center gap-2">
+                <Grid3X3 className="h-4 w-4 text-indigo-600" />
+                <h3 className="text-sm font-bold text-slate-900">
+                  Question Palette ({questions.length} Questions)
+                </h3>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsPaletteOpen(false)}
+                className="rounded-full p-1.5 text-slate-400 hover:bg-slate-100 hover:text-slate-600"
+                aria-label="Close palette"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+
+            {/* Status Legend */}
+            <div className="flex items-center gap-3 overflow-x-auto border-b border-slate-100 px-4 py-2 text-[11px] font-medium text-slate-600 shrink-0">
+              <span className="inline-flex items-center gap-1 shrink-0">
+                <span className="h-2.5 w-2.5 rounded-full bg-emerald-600" />
+                Correct ({correctCount})
+              </span>
+              <span className="inline-flex items-center gap-1 shrink-0">
+                <span className="h-2.5 w-2.5 rounded-full bg-rose-600" />
+                Mistakes ({wrongCount})
+              </span>
+              <span className="inline-flex items-center gap-1 shrink-0">
+                <span className="h-2.5 w-2.5 rounded-full bg-slate-400" />
+                Skipped ({skippedCount})
+              </span>
+              {flaggedCount > 0 && (
+                <span className="inline-flex items-center gap-1 shrink-0">
+                  <span className="h-2.5 w-2.5 rounded-full bg-amber-500" />
+                  Flagged ({flaggedCount})
+                </span>
+              )}
+            </div>
+
+            {/* Question Grid */}
+            <div className="overflow-y-auto p-4 max-h-[55vh]">
+              <div className="grid grid-cols-5 xs:grid-cols-6 sm:grid-cols-8 gap-2">
+                {questions.map((q) => {
+                  const ans = answers[q.questionNo];
+                  const isCur = activeQuestionNo === q.questionNo;
+                  const isAnswered = Boolean(ans?.selected?.trim());
+                  const isCorrect = isAnswered && ans?.isCorrect === true;
+                  const isWrong = isAnswered && ans?.isCorrect === false;
+                  const isFlagged = Boolean(ans?.flagged);
+
+                  let badgeColor =
+                    "bg-slate-100 text-slate-600 border-slate-200 hover:bg-slate-200";
+
+                  if (isCorrect) {
+                    badgeColor =
+                      "bg-emerald-600 text-white border-emerald-600 font-bold shadow-xs";
+                  } else if (isWrong) {
+                    badgeColor =
+                      "bg-rose-600 text-white border-rose-600 font-bold shadow-xs";
+                  } else if (isAnswered) {
+                    badgeColor =
+                      "bg-indigo-600 text-white border-indigo-600 font-bold";
+                  }
+
+                  if (isCur) {
+                    badgeColor +=
+                      " ring-2 ring-indigo-600 ring-offset-2 scale-105 font-black";
+                  }
+
+                  return (
+                    <button
+                      key={q.questionNo}
+                      type="button"
+                      onClick={() => {
+                        onSelectQuestion?.(q.questionNo);
+                        setIsPaletteOpen(false);
+                      }}
+                      className={`relative flex h-11 items-center justify-center rounded-xl border text-xs transition-all ${badgeColor}`}
+                    >
+                      <span>{q.questionNo}</span>
+                      {isFlagged && (
+                        <span className="absolute top-1 right-1 h-2 w-2 rounded-full bg-amber-400 ring-1 ring-white" />
+                      )}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* Footer */}
+            <div className="flex items-center justify-between border-t border-slate-100 px-4 py-3 bg-slate-50 rounded-b-3xl">
+              <span className="text-xs text-slate-500">
+                Tap any question to review
+              </span>
+              <button
+                type="button"
+                onClick={() => setIsPaletteOpen(false)}
+                className="rounded-xl bg-indigo-600 px-4 py-1.5 text-xs font-bold text-white shadow-xs hover:bg-indigo-700"
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

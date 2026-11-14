@@ -173,6 +173,24 @@ export function MarkdownFormatGuideModal({
                     .
                   </li>
                   <li>
+                    <strong>Previously Asked Years (PYQ):</strong> Annotate
+                    questions asked previously in past exams using comma-separated
+                    years for multi-year repetition:{" "}
+                    <code className="font-mono bg-white px-1 py-0.5 rounded text-[11px]">
+                      [Year: 2017, 2021]
+                    </code>{" "}
+                    or{" "}
+                    <code className="font-mono bg-white px-1 py-0.5 rounded text-[11px]">
+                      [Subject: Economy | Topic: Monetary Policy | Year: 2017, 2021]
+                    </code>{" "}
+                    or inline{" "}
+                    <code className="font-mono bg-white px-1 py-0.5 rounded text-[11px]">
+                      Year: 2017, 2021
+                    </code>
+                    . You can also annotate years directly on each question card
+                    in the Preview tab.
+                  </li>
+                  <li>
                     <strong>Answer Key Syntax:</strong> Paste answers like{" "}
                     <code className="font-mono bg-white px-1 py-0.5 rounded text-[11px]">
                       1. b &quot;&quot;&quot; explanation / HTML

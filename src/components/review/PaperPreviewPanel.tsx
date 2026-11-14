@@ -43,7 +43,12 @@ export function PaperPreviewPanel({
   onResetFilters,
   attemptFallbackData,
 }: PaperPreviewPanelProps) {
-  const [pdfMode, setPdfMode] = useState<"native" | "canvas">("native");
+  const [pdfMode, setPdfMode] = useState<"native" | "canvas">(() => {
+    if (typeof window !== "undefined" && window.innerWidth < 768) {
+      return "canvas";
+    }
+    return "native";
+  });
 
   const effectivePaper: QuestionPaper = matchedPaper || {
     id: attemptFallbackData.paperId,
