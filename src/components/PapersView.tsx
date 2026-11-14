@@ -40,6 +40,8 @@ import {
   Lock,
   Grid2X2,
   List,
+  Filter,
+  ChevronDown,
 } from "lucide-react";
 
 interface PapersViewProps {
@@ -93,6 +95,7 @@ export function PapersView({
     "all" | "attempted" | "unattempted" | "mock" | "practice"
   >("all");
   const [paperViewMode, setPaperViewMode] = useState<"grid" | "list">("grid");
+  const [isMobileFiltersOpen, setIsMobileFiltersOpen] = useState(false);
   const [mounted, setMounted] = useState(false);
   const [viewingSolutionPaper, setViewingSolutionPaper] =
     useState<QuestionPaper | null>(null);
@@ -404,6 +407,12 @@ export function PapersView({
     selectedYear !== "all" ||
     selectedAttemptFilter !== "all";
 
+  const activeFiltersCount =
+    (selectedAttemptFilter !== "all" ? 1 : 0) +
+    (selectedSource !== "all" ? 1 : 0) +
+    (selectedCategory !== "all" ? 1 : 0) +
+    (selectedYear !== "all" ? 1 : 0);
+
   const handleResetFilters = () => {
     setSearchQuery("");
     setSelectedCategory("all");
@@ -582,14 +591,40 @@ export function PapersView({
                 </span>
               )}
             </div>
-            <div className="text-[11px] text-slate-400 hidden sm:block">
-              Combine filters using AND logic
+            <div className="flex items-center gap-2 w-full sm:w-auto justify-between sm:justify-end pt-1 sm:pt-0">
+              <button
+                type="button"
+                onClick={() => setIsMobileFiltersOpen(!isMobileFiltersOpen)}
+                className="sm:hidden cursor-pointer inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-semibold bg-white text-indigo-700 hover:bg-slate-50 border border-indigo-200 transition-colors shadow-2xs shrink-0"
+              >
+                <Filter className="h-3 w-3 text-indigo-600" />
+                <span>
+                  {isMobileFiltersOpen ? "Collapse filters" : "Filter options"}
+                </span>
+                {activeFiltersCount > 0 && (
+                  <span className="h-4 w-4 rounded-full bg-indigo-600 text-white font-mono text-[10px] flex items-center justify-center font-bold">
+                    {activeFiltersCount}
+                  </span>
+                )}
+                <ChevronDown
+                  className={`h-3 w-3 transition-transform ${
+                    isMobileFiltersOpen ? "rotate-180" : ""
+                  }`}
+                />
+              </button>
+              <div className="text-[11px] text-slate-400 hidden sm:block">
+                Combine filters using AND logic
+              </div>
             </div>
           </div>
         </div>
 
         {/* Filter Rows with Small Gap and Distinct Highlighting */}
-        <div className="p-2.5 sm:p-3 bg-slate-50/50 space-y-2">
+        <div
+          className={`p-2.5 sm:p-3 bg-slate-50/50 space-y-2 ${
+            isMobileFiltersOpen ? "block" : "hidden sm:block"
+          }`}
+        >
           {/* Row 1: Attempted, Unattempted */}
           <div className="flex items-center gap-2 flex-wrap">
             <span className="text-[11px] font-semibold text-slate-500 w-24 shrink-0">
