@@ -5,6 +5,7 @@ import {
   QuestionPaper,
   SyllabusItem,
 } from "./types";
+import { VocabCard } from "./vocabTypes";
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || "";
 const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || "";
@@ -34,6 +35,7 @@ export interface UserProfile {
   only_custom_papers?: boolean;
   custom_syllabus?: SyllabusItem[];
   custom_syllabus_markdown?: string;
+  vocab_cards?: VocabCard[];
 }
 
 // Check current authenticated user
@@ -331,6 +333,26 @@ export async function saveUserSyllabusMarkdownToSupabase(
     })
     .eq("id", userId);
   return !error;
+}
+
+export async function saveUserVocabCardsToSupabase(
+  userId: string,
+  cards: VocabCard[],
+): Promise<boolean> {
+  const supabase = getSupabaseClient();
+  if (!supabase) return false;
+  try {
+    const { error } = await supabase
+      .from("profiles")
+      .update({
+        vocab_cards: cards,
+        updated_at: new Date().toISOString(),
+      })
+      .eq("id", userId);
+    return !error;
+  } catch {
+    return false;
+  }
 }
 
 // Fetch user's isolated custom papers from Supabase

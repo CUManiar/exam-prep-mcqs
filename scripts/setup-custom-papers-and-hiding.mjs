@@ -27,7 +27,8 @@ async function run() {
       ADD COLUMN IF NOT EXISTS hidden_paper_ids TEXT[] DEFAULT '{}',
       ADD COLUMN IF NOT EXISTS only_custom_papers BOOLEAN NOT NULL DEFAULT FALSE,
       ADD COLUMN IF NOT EXISTS custom_syllabus JSONB NOT NULL DEFAULT '[]'::jsonb,
-      ADD COLUMN IF NOT EXISTS custom_syllabus_markdown TEXT NOT NULL DEFAULT '';
+      ADD COLUMN IF NOT EXISTS custom_syllabus_markdown TEXT NOT NULL DEFAULT '',
+      ADD COLUMN IF NOT EXISTS vocab_cards JSONB NOT NULL DEFAULT '[]'::jsonb;
 
     -- 2. Create custom_papers table (isolated per user)
     CREATE TABLE IF NOT EXISTS public.custom_papers (

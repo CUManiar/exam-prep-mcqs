@@ -51,6 +51,7 @@ import { ConfirmationModal } from "../components/ConfirmationModal";
 import { ProUpgradeModal } from "../components/ProUpgradeModal";
 import { AuthModal } from "../components/AuthModal";
 import { GuestCompletionModal } from "../components/GuestCompletionModal";
+import { syncVocabCardsWithSupabase } from "../lib/vocabStorage";
 import {
   isPaperFree,
   isUserUploadedPaper,
@@ -396,6 +397,11 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         setSyllabusMarkdown(
           profile?.custom_syllabus_markdown ??
             getCustomSyllabusMarkdown(user.id),
+        );
+
+        // Sync vocab cards between local storage and Supabase cloud profile
+        syncVocabCardsWithSupabase(user.id).catch((err) =>
+          console.warn("Background vocab sync on auth load failed:", err),
         );
 
         const localCustom = getCustomPapers();

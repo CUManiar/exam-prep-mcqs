@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { RevisionProviderConfig } from "../../../lib/types";
+import { getAuthenticatedUser } from "@/lib/apiSecurity";
+import { getUserProfile, saveUserVocabCardsToSupabase } from "../../../lib/supabase";
 
 export const runtime = "nodejs";
 
@@ -400,6 +402,22 @@ async function executePrompt(
   return await callFreePollinations(prompt);
 }
 
+export async function GET(req: NextRequest) {
+  try {
+    const user = await getAuthenticatedUser(req);
+    if (!user) {
+      return NextResponse.json({ ok: false, error: "Unauthorized" }, { status: 401 });
+    }
+    const profile = await getUserProfile(user.id);
+    return NextResponse.json({
+      ok: true,
+      cards: Array.isArray(profile?.vocab_cards) ? profile.vocab_cards : [],
+    });
+  } catch (err: any) {
+    return NextResponse.json({ ok: false, error: err.message }, { status: 500 });
+  }
+}
+
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
@@ -407,6 +425,20 @@ export async function POST(req: NextRequest) {
 
     if (!action) {
       return NextResponse.json({ error: "Missing action." }, { status: 400 });
+    }
+
+    // 0. ACTION: SYNC (Save/Update user vocab cards in Supabase)
+    if (action === "sync") {
+      const user = await getAuthenticatedUser(req);
+      if (!user) {
+        return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      }
+      const { cards } = body;
+      if (Array.isArray(cards)) {
+        await saveUserVocabCardsToSupabase(user.id, cards);
+        return NextResponse.json({ success: true, cards });
+      }
+      return NextResponse.json({ error: "Invalid cards array." }, { status: 400 });
     }
 
     // 1. ACTION: ENRICH (Student entered ONLY the word -> make flashcard)
