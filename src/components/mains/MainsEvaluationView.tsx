@@ -396,9 +396,26 @@ Answer strictly as an expert UPSC CSE examiner. Give concrete examples, model po
     }
   };
 
+  const sanitizeModelAnswerText = (raw: string): string => {
+    if (!raw) return "";
+    let text = raw.trim();
+    if (text.startsWith("{") || text.includes('"modelAnswer"')) {
+      const match = text.match(/"modelAnswer"\s*:\s*"([\s\S]*)/i);
+      if (match) {
+        let clean = match[1].replace(/"\s*}\s*$/, "").replace(/"\s*$/, "");
+        return clean
+          .replace(/\\n/g, "\n")
+          .replace(/\\"/g, '"')
+          .replace(/\\t/g, "\t")
+          .trim();
+      }
+    }
+    return text.replace(/\\n/g, "\n").replace(/\\"/g, '"');
+  };
+
   const handleCopyModelAnswer = () => {
     if (!evaluation?.modelAnswer) return;
-    navigator.clipboard.writeText(evaluation.modelAnswer);
+    navigator.clipboard.writeText(sanitizeModelAnswerText(evaluation.modelAnswer));
     setCopiedModel(true);
     setTimeout(() => setCopiedModel(false), 2000);
   };
@@ -1227,7 +1244,7 @@ Answer strictly as an expert UPSC CSE examiner. Give concrete examples, model po
                   </div>
 
                   <div className="prose dark:prose-invert max-w-none text-xs sm:text-sm">
-                    <RevisionMarkdownRenderer content={evaluation.modelAnswer} />
+                    <RevisionMarkdownRenderer content={sanitizeModelAnswerText(evaluation.modelAnswer)} />
                   </div>
                 </div>
               )}
