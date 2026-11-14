@@ -49,7 +49,7 @@ async function callGeminiEvaluation(
         parts.push({
           inlineData: {
             mimeType: img.mimeType || "image/jpeg",
-            data: img.data.replace(/^data:image\/[a-zA-Z]+;base64,/, "").replace(/^data:application\/pdf;base64,/, ""),
+            data: img.data.replace(/^data:[^;]+;base64,/, ""),
           },
         });
       }
@@ -149,15 +149,27 @@ async function callAnthropicEvaluation(
 
   const content: any[] = [];
   for (const img of images) {
-    const base64Clean = img.data.replace(/^data:[a-zA-Z0-9/]+;base64,/, "");
-    content.push({
-      type: "image",
-      source: {
-        type: "base64",
-        media_type: img.mimeType || "image/jpeg",
-        data: base64Clean,
-      },
-    });
+    const base64Clean = img.data.replace(/^data:[^;]+;base64,/, "");
+    const mime = img.mimeType || "image/jpeg";
+    if (mime === "application/pdf") {
+      content.push({
+        type: "document",
+        source: {
+          type: "base64",
+          media_type: "application/pdf",
+          data: base64Clean,
+        },
+      });
+    } else {
+      content.push({
+        type: "image",
+        source: {
+          type: "base64",
+          media_type: mime,
+          data: base64Clean,
+        },
+      });
+    }
   }
   content.push({ type: "text", text: prompt });
 
@@ -272,7 +284,7 @@ export async function POST(req: NextRequest) {
       images = [],
       providerConfig,
     }: {
-      question: string;
+      question?: string;
       answerText?: string;
       paperType?: "GS-1" | "GS-2" | "GS-3" | "GS-4" | "Optional";
       optionalSubject?: string;
@@ -281,27 +293,25 @@ export async function POST(req: NextRequest) {
       providerConfig?: RevisionProviderConfig | null;
     } = body;
 
-    if (!question || !question.trim()) {
-      return NextResponse.json(
-        { error: "Question prompt is required for evaluation." },
-        { status: 400 }
-      );
-    }
+    const trimmedQuestion = (question || "").trim();
+    const trimmedAnswer = (answerText || "").trim();
+    const hasAnyText = Boolean(trimmedQuestion || trimmedAnswer);
+    const hasImages = Boolean(images && images.length > 0);
 
-    if (!answerText.trim() && images.length === 0) {
+    if (!hasAnyText && !hasImages) {
       return NextResponse.json(
-        { error: "Please enter your answer text or upload an answer sheet image/PDF." },
+        { error: "Please provide either answer text or upload an answer sheet image/PDF." },
         { status: 400 }
       );
     }
 
     const evaluationPrompt = buildMainsEvaluationPrompt({
-      question,
-      answerText,
+      question: trimmedQuestion,
+      answerText: trimmedAnswer,
       paperType,
       optionalSubject,
       maxMarks,
-      hasAttachment: images.length > 0,
+      hasAttachment: hasImages,
     });
 
     const userApiKey = providerConfig?.apiKey?.trim();
@@ -346,10 +356,15 @@ export async function POST(req: NextRequest) {
     const actualWordCount = answerText ? answerText.trim().split(/\s+/).length : 0;
     const percentage = Math.round((parsed.marksAwarded / maxMarks) * 100);
 
+    const resolvedQuestion =
+      trimmedQuestion ||
+      (parsed.question && String(parsed.question).trim()) ||
+      "UPSC CSE Mains Question";
+
     const result: MainsEvaluationResult = {
       id: `eval_${Date.now()}`,
-      question: question.trim(),
-      studentAnswer: answerText.trim(),
+      question: resolvedQuestion,
+      studentAnswer: trimmedAnswer || (hasImages ? "(Answer submitted via uploaded document/images)" : ""),
       paperType,
       optionalSubject: optionalSubject?.trim() || undefined,
       maxMarks,
