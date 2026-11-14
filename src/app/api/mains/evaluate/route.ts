@@ -1,0 +1,387 @@
+import { NextRequest, NextResponse } from "next/server";
+import { buildMainsEvaluationPrompt, MainsEvaluationResult } from "@/lib/mainsEvaluation";
+import { RevisionProviderConfig } from "@/lib/types";
+
+export const runtime = "nodejs";
+
+function parseJsonFromText(raw: string): any {
+  if (!raw) return null;
+  // 1. Try direct parse
+  try {
+    return JSON.parse(raw);
+  } catch {}
+
+  // 2. Try markdown code block extraction
+  const match = raw.match(/```(?:json)?\s*([\s\S]*?)\s*```/);
+  if (match && match[1]) {
+    try {
+      return JSON.parse(match[1]);
+    } catch {}
+  }
+
+  // 3. Try finding outermost { ... }
+  const firstBrace = raw.indexOf("{");
+  const lastBrace = raw.lastIndexOf("}");
+  if (firstBrace !== -1 && lastBrace > firstBrace) {
+    try {
+      return JSON.parse(raw.slice(firstBrace, lastBrace + 1));
+    } catch {}
+  }
+
+  return null;
+}
+
+/** Execute with Google Gemini */
+async function callGeminiEvaluation(
+  apiKey: string,
+  prompt: string,
+  images: Array<{ mimeType: string; data: string }> = []
+): Promise<string> {
+  const models = ["gemini-2.0-flash", "gemini-1.5-flash", "gemini-1.5-pro"];
+  let lastError = "";
+
+  for (const model of models) {
+    try {
+      const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
+      const parts: any[] = [{ text: prompt }];
+
+      for (const img of images) {
+        parts.push({
+          inlineData: {
+            mimeType: img.mimeType || "image/jpeg",
+            data: img.data.replace(/^data:image\/[a-zA-Z]+;base64,/, "").replace(/^data:application\/pdf;base64,/, ""),
+          },
+        });
+      }
+
+      const res = await fetch(url, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          contents: [{ role: "user", parts }],
+          generationConfig: {
+            temperature: 0.3,
+            maxOutputTokens: 4000,
+            responseMimeType: "application/json",
+          },
+        }),
+        signal: AbortSignal.timeout(45000),
+      });
+
+      if (res.ok) {
+        const data = await res.json();
+        const text = data.candidates?.[0]?.content?.parts?.[0]?.text || "";
+        if (text) return text;
+      } else {
+        const errJson = await res.json().catch(() => ({}));
+        lastError = errJson.error?.message || `HTTP ${res.status}`;
+      }
+    } catch (e: any) {
+      lastError = e?.message || "Gemini connection error";
+    }
+  }
+
+  throw new Error(lastError || "Gemini failed to evaluate");
+}
+
+/** Execute with OpenAI */
+async function callOpenAIEvaluation(
+  apiKey: string,
+  prompt: string,
+  images: Array<{ mimeType: string; data: string }> = []
+): Promise<string> {
+  const models = ["gpt-4o-mini", "gpt-4o"];
+  let lastError = "";
+
+  const content: any[] = [{ type: "text", text: prompt }];
+  for (const img of images) {
+    const dataUrl = img.data.startsWith("data:")
+      ? img.data
+      : `data:${img.mimeType || "image/jpeg"};base64,${img.data}`;
+    content.push({
+      type: "image_url",
+      image_url: { url: dataUrl },
+    });
+  }
+
+  for (const model of models) {
+    try {
+      const res = await fetch("https://api.openai.com/v1/chat/completions", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${apiKey}`,
+        },
+        body: JSON.stringify({
+          model,
+          messages: [{ role: "user", content }],
+          temperature: 0.3,
+          max_tokens: 4000,
+          response_format: { type: "json_object" },
+        }),
+        signal: AbortSignal.timeout(45000),
+      });
+
+      if (res.ok) {
+        const data = await res.json();
+        const text = data.choices?.[0]?.message?.content || "";
+        if (text) return text;
+      } else {
+        const errJson = await res.json().catch(() => ({}));
+        lastError = errJson.error?.message || `HTTP ${res.status}`;
+      }
+    } catch (e: any) {
+      lastError = e?.message || "OpenAI connection error";
+    }
+  }
+
+  throw new Error(lastError || "OpenAI evaluation failed");
+}
+
+/** Execute with Anthropic */
+async function callAnthropicEvaluation(
+  apiKey: string,
+  prompt: string,
+  images: Array<{ mimeType: string; data: string }> = []
+): Promise<string> {
+  const models = ["claude-3-5-sonnet-latest", "claude-3-5-haiku-latest"];
+  let lastError = "";
+
+  const content: any[] = [];
+  for (const img of images) {
+    const base64Clean = img.data.replace(/^data:[a-zA-Z0-9/]+;base64,/, "");
+    content.push({
+      type: "image",
+      source: {
+        type: "base64",
+        media_type: img.mimeType || "image/jpeg",
+        data: base64Clean,
+      },
+    });
+  }
+  content.push({ type: "text", text: prompt });
+
+  for (const model of models) {
+    try {
+      const res = await fetch("https://api.anthropic.com/v1/messages", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "x-api-key": apiKey,
+          "anthropic-version": "2023-06-01",
+        },
+        body: JSON.stringify({
+          model,
+          messages: [{ role: "user", content }],
+          max_tokens: 4000,
+          temperature: 0.3,
+        }),
+        signal: AbortSignal.timeout(45000),
+      });
+
+      if (res.ok) {
+        const data = await res.json();
+        const text = data.content?.[0]?.text || "";
+        if (text) return text;
+      } else {
+        const errJson = await res.json().catch(() => ({}));
+        lastError = errJson.error?.message || `HTTP ${res.status}`;
+      }
+    } catch (e: any) {
+      lastError = e?.message || "Anthropic connection error";
+    }
+  }
+
+  throw new Error(lastError || "Anthropic evaluation failed");
+}
+
+/** Execute with Groq (Text Only) */
+async function callGroqEvaluation(apiKey: string, prompt: string): Promise<string> {
+  const models = ["llama-3.3-70b-versatile", "llama-3.1-70b-versatile"];
+  let lastError = "";
+
+  for (const model of models) {
+    try {
+      const res = await fetch("https://api.groq.com/openai/v1/chat/completions", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${apiKey}`,
+        },
+        body: JSON.stringify({
+          model,
+          messages: [{ role: "user", content: prompt }],
+          temperature: 0.3,
+          max_tokens: 4000,
+          response_format: { type: "json_object" },
+        }),
+        signal: AbortSignal.timeout(45000),
+      });
+
+      if (res.ok) {
+        const data = await res.json();
+        const text = data.choices?.[0]?.message?.content || "";
+        if (text) return text;
+      } else {
+        const errJson = await res.json().catch(() => ({}));
+        lastError = errJson.error?.message || `HTTP ${res.status}`;
+      }
+    } catch (e: any) {
+      lastError = e?.message || "Groq connection error";
+    }
+  }
+
+  throw new Error(lastError || "Groq evaluation failed");
+}
+
+/** Fallback Live Tier (Pollinations) */
+async function callFreeTier(prompt: string): Promise<string> {
+  const res = await fetch("https://text.pollinations.ai/", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      messages: [
+        {
+          role: "system",
+          content: "You are a senior UPSC CSE Mains examiner. Output ONLY valid JSON according to the schema requested.",
+        },
+        { role: "user", content: prompt },
+      ],
+      model: "openai-fast",
+      temperature: 0.3,
+    }),
+    signal: AbortSignal.timeout(75000),
+  });
+
+  const raw = await res.text();
+  if (res.ok && raw && raw.trim() && !raw.startsWith("<!DOCTYPE")) {
+    return raw;
+  }
+  throw new Error("Free evaluation service timed out.");
+}
+
+export async function POST(req: NextRequest) {
+  try {
+    const body = await req.json();
+    const {
+      question,
+      answerText = "",
+      paperType = "GS-2",
+      optionalSubject = "",
+      maxMarks = 10,
+      images = [],
+      providerConfig,
+    }: {
+      question: string;
+      answerText?: string;
+      paperType?: "GS-1" | "GS-2" | "GS-3" | "GS-4" | "Optional";
+      optionalSubject?: string;
+      maxMarks?: 10 | 15 | 20;
+      images?: Array<{ mimeType: string; data: string }>;
+      providerConfig?: RevisionProviderConfig | null;
+    } = body;
+
+    if (!question || !question.trim()) {
+      return NextResponse.json(
+        { error: "Question prompt is required for evaluation." },
+        { status: 400 }
+      );
+    }
+
+    if (!answerText.trim() && images.length === 0) {
+      return NextResponse.json(
+        { error: "Please enter your answer text or upload an answer sheet image/PDF." },
+        { status: 400 }
+      );
+    }
+
+    const evaluationPrompt = buildMainsEvaluationPrompt({
+      question,
+      answerText,
+      paperType,
+      optionalSubject,
+      maxMarks,
+      hasAttachment: images.length > 0,
+    });
+
+    const userApiKey = providerConfig?.apiKey?.trim();
+    const provider = providerConfig?.provider;
+    const serverGeminiKey = process.env.GEMINI_API_KEY?.trim();
+
+    let rawOutput = "";
+
+    // 1. User-configured provider
+    if (userApiKey && provider) {
+      if (provider === "gemini") {
+        rawOutput = await callGeminiEvaluation(userApiKey, evaluationPrompt, images);
+      } else if (provider === "openai") {
+        rawOutput = await callOpenAIEvaluation(userApiKey, evaluationPrompt, images);
+      } else if (provider === "anthropic") {
+        rawOutput = await callAnthropicEvaluation(userApiKey, evaluationPrompt, images);
+      } else if (provider === "groq") {
+        rawOutput = await callGroqEvaluation(userApiKey, evaluationPrompt);
+      }
+    }
+
+    // 2. Server-side Gemini Key fallback
+    if (!rawOutput && serverGeminiKey) {
+      try {
+        rawOutput = await callGeminiEvaluation(serverGeminiKey, evaluationPrompt, images);
+      } catch (err: any) {
+        console.warn("Server Gemini evaluation failed:", err?.message);
+      }
+    }
+
+    // 3. Free Live Tier fallback
+    if (!rawOutput) {
+      rawOutput = await callFreeTier(evaluationPrompt);
+    }
+
+    const parsed = parseJsonFromText(rawOutput);
+    if (!parsed || typeof parsed.marksAwarded !== "number") {
+      throw new Error("AI returned malformed evaluation. Please retry.");
+    }
+
+    const targetWordCount = maxMarks === 10 ? 150 : maxMarks === 15 ? 250 : 300;
+    const actualWordCount = answerText ? answerText.trim().split(/\s+/).length : 0;
+    const percentage = Math.round((parsed.marksAwarded / maxMarks) * 100);
+
+    const result: MainsEvaluationResult = {
+      id: `eval_${Date.now()}`,
+      question: question.trim(),
+      studentAnswer: answerText.trim(),
+      paperType,
+      optionalSubject: optionalSubject?.trim() || undefined,
+      maxMarks,
+      targetWordCount,
+      actualWordCount,
+      marksAwarded: parsed.marksAwarded,
+      percentage,
+      verdict: parsed.verdict || (percentage >= 55 ? "Top Tier (Safe Zone)" : percentage >= 45 ? "Good Attempt" : "Average"),
+      directive: parsed.directive || "General",
+      directiveAnalysis: parsed.directiveAnalysis || "",
+      rubric: {
+        introduction: parsed.rubric?.introduction || { score: 1, max: 2, comment: "Fair introduction" },
+        bodyContent: parsed.rubric?.bodyContent || { score: 2.5, max: 4.5, comment: "Adequate coverage" },
+        structurePresentation: parsed.rubric?.structurePresentation || { score: 0.5, max: 1.5, comment: "Points formatted" },
+        valueAddition: parsed.rubric?.valueAddition || { score: 0.5, max: 1.5, comment: "Articles and reports" },
+        conclusion: parsed.rubric?.conclusion || { score: 0.5, max: 1.5, comment: "Way forward provided" },
+      },
+      strengths: Array.isArray(parsed.strengths) ? parsed.strengths : [],
+      weaknesses: Array.isArray(parsed.weaknesses) ? parsed.weaknesses : [],
+      missingDimensions: Array.isArray(parsed.missingDimensions) ? parsed.missingDimensions : [],
+      actionableRoadmap: Array.isArray(parsed.actionableRoadmap) ? parsed.actionableRoadmap : [],
+      diagramIdea: parsed.diagramIdea || undefined,
+      modelAnswer: parsed.modelAnswer || "Model answer could not be generated.",
+      evaluatedAt: new Date().toISOString(),
+    };
+
+    return NextResponse.json({ success: true, evaluation: result });
+  } catch (err: any) {
+    console.error("Mains evaluation error:", err);
+    return NextResponse.json(
+      { error: err?.message || "Failed to evaluate Mains answer. Please retry." },
+      { status: 500 }
+    );
+  }
+}
