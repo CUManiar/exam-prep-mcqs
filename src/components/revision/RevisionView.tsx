@@ -233,13 +233,17 @@ export function RevisionView() {
     selectedQuestionNo,
   ]);
 
-  // Handle URL search params on mount
+  // Handle URL search params — runs after session restore; URL wins over saved state
   useEffect(() => {
     const topicParam = searchParams.get("topic");
     const paperIdParam = searchParams.get("paperId");
     const qParam = searchParams.get("q");
 
     if (paperIdParam) {
+      // Start a fresh chat session for the linked question
+      const freshId = `sess_${Date.now()}`;
+      setCurrentSessionId(freshId);
+      setMessages([]);
       setMode("paper");
       setSelectedPaperId(paperIdParam);
       if (qParam) setSelectedQuestionNo(Number(qParam));
@@ -247,7 +251,8 @@ export function RevisionView() {
       setMode("syllabus");
       setSelectedTopic(topicParam);
     }
-  }, [searchParams]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // Create New Chat (starts fresh session, preserving previous in history)
   const handleCreateNewChat = () => {
