@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import { useState } from "react";
 import { Attempt } from "../../lib/types";
 import { formatTimeSeconds } from "../../lib/defaults";
 import {
@@ -11,12 +11,10 @@ import {
   EMPTY_FILTER_STATE,
 } from "./reviewTypes";
 import {
-  Award,
   ChevronDown,
   ChevronUp,
   Sparkles,
   Clock,
-  ArrowRight,
   ShieldCheck,
   ShieldAlert,
   BarChart3,

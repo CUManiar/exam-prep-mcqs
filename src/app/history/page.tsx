@@ -1,6 +1,4 @@
 "use client";
-
-import React from "react";
 import { useApp } from "../../context/AppContext";
 import { HistoryView } from "../../components/HistoryView";
 import { AccountRequired } from "../../components/AccountRequired";

@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef } from "react";
 import { VocabCard } from "../../lib/vocabTypes";
 import {
   Timer,
@@ -9,9 +9,7 @@ import {
   RotateCcw,
   CheckCircle2,
   XCircle,
-  Sparkles,
   Flame,
-  ArrowRight,
   AlertCircle,
 } from "lucide-react";
 

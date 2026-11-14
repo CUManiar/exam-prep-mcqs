@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useSearchParams } from "next/navigation";
 import { createPortal } from "react-dom";
 import { CutoffType, QuestionPaper, Attempt } from "../lib/types";
@@ -8,13 +8,11 @@ import {
   SUPPORTED_YEARS,
   hasAnswerKey,
   hasSolution,
-  parseAnswerKeyText,
   parseAnswerKeyDetailed,
   isPaperFree,
   isUserUploadedPaper,
   getPaperDisplayTitle,
   getPaperDownloadFilename,
-  getAttemptPercentage,
   getPaperCutoffStatus,
 } from "../lib/defaults";
 import { attachToPaperOnServer } from "../lib/storage";
@@ -39,7 +37,6 @@ import {
   Upload,
   Trash2,
   Settings2,
-  ChevronRight,
   Lock,
   Grid2X2,
   List,

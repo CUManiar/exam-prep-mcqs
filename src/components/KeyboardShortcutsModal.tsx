@@ -1,6 +1,5 @@
 "use client";
-
-import React from "react";
+import { Fragment } from "react";
 import { ModalShell } from "./ModalShell";
 import { Keyboard, Sparkles } from "lucide-react";
 
@@ -117,14 +116,14 @@ export function KeyboardShortcutsModal({
                   </span>
                   <div className="flex items-center gap-1">
                     {item.keys.map((k, kIdx) => (
-                      <React.Fragment key={kIdx}>
+                      <Fragment key={kIdx}>
                         {kIdx > 0 && (
                           <span className="text-[10px] text-slate-400">or</span>
                         )}
                         <kbd className="min-w-6 rounded-md border border-slate-200 bg-slate-100 px-1.5 py-0.5 text-center font-mono text-[11px] font-bold text-slate-800 shadow-2xs">
                           {k}
                         </kbd>
-                      </React.Fragment>
+                      </Fragment>
                     ))}
                   </div>
                 </div>

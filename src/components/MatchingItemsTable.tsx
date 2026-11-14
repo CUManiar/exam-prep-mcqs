@@ -1,6 +1,4 @@
 "use client";
-
-import React from "react";
 import { MatchingItem } from "../lib/types";
 import { stripMarkdownFormatting } from "../lib/markdownPaperParser";
 

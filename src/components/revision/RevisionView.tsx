@@ -1,6 +1,6 @@
 "use client";
 
-import React, {
+import {
   useCallback,
   useEffect,
   useMemo,
@@ -9,19 +9,12 @@ import React, {
 } from "react";
 import { useSearchParams } from "next/navigation";
 import {
-  AlertCircle,
-  ArrowRight,
   BookOpen,
   Bot,
   Check,
-  ChevronDown,
   Copy,
   GraduationCap,
-  History,
-  Layers,
   MessageSquare,
-  MessageSquarePlus,
-  PanelLeft,
   PanelLeftClose,
   PanelLeftOpen,
   Paperclip,
@@ -31,7 +24,6 @@ import {
   Send,
   Settings2,
   Sparkles,
-  Target,
   Trash2,
   User,
   X,

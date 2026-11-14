@@ -1,17 +1,8 @@
 "use client";
 
-import React, { useState, useMemo } from "react";
+import { useState, useMemo } from "react";
 import { Attempt } from "../../lib/types";
-import {
-  BarChart3,
-  Calendar,
-  CheckCircle2,
-  Clock,
-  Layers,
-  Sparkles,
-  Target,
-  TrendingUp,
-} from "lucide-react";
+import { BarChart3 } from "lucide-react";
 
 interface McqAndMockTrendsChartProps {
   attempts: Attempt[];

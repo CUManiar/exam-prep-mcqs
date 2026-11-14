@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import { useState, useEffect } from "react";
 import { VocabCard } from "../../lib/vocabTypes";
 import {
   getStoredVocabCards,
@@ -20,15 +20,18 @@ import {
   CheckCircle2,
   Calendar,
   Layers,
-  Timer,
   Zap,
 } from "lucide-react";
 
 export function MiscHubView() {
-  const [activeTab, setActiveTab] = useState<"cards" | "practice" | "game">("cards");
+  const [activeTab, setActiveTab] = useState<"cards" | "practice" | "game">(
+    "cards",
+  );
   const [cards, setCards] = useState<VocabCard[]>([]);
   const [todayCount, setTodayCount] = useState(0);
-  const [filter, setFilter] = useState<"all" | "today" | "learning" | "mastered">("all");
+  const [filter, setFilter] = useState<
+    "all" | "today" | "learning" | "mastered"
+  >("all");
   const [practiceWord, setPracticeWord] = useState<string | null>(null);
 
   useEffect(() => {
@@ -87,7 +90,9 @@ export function MiscHubView() {
             </h1>
           </div>
           <p className="text-xs sm:text-sm text-slate-500 dark:text-slate-400 mt-1">
-            Build high-retention vocabulary at 4–5 words a day. Feed only the word — AI creates memory hooks, flashcards & 2-min rapid recall games.
+            Build high-retention vocabulary at 4–5 words a day. Feed only the
+            word — AI creates memory hooks, flashcards & 2-min rapid recall
+            games.
           </p>
         </div>
 
@@ -138,7 +143,10 @@ export function MiscHubView() {
       {activeTab === "cards" && (
         <div className="space-y-4 sm:space-y-5">
           {/* Quick Input Bar */}
-          <VocabInputBar onWordAdded={handleWordAdded} todayCount={todayCount} />
+          <VocabInputBar
+            onWordAdded={handleWordAdded}
+            todayCount={todayCount}
+          />
 
           {/* Filter Chips and Quick Game Icon */}
           {cards.length > 0 && (
@@ -189,7 +197,8 @@ export function MiscHubView() {
                       : "bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 hover:bg-slate-200"
                   }`}
                 >
-                  <CheckCircle2 className="w-3 h-3" /> Mastered ({cards.filter((c) => c.mastered).length})
+                  <CheckCircle2 className="w-3 h-3" /> Mastered (
+                  {cards.filter((c) => c.mastered).length})
                 </button>
               </div>
 
@@ -260,10 +269,7 @@ export function MiscHubView() {
 
       {/* TAB 3: 2-MINUTE BLITZ GAME MODE */}
       {activeTab === "game" && (
-        <VocabGameMode
-          cards={cards}
-          onExitGame={() => setActiveTab("cards")}
-        />
+        <VocabGameMode cards={cards} onExitGame={() => setActiveTab("cards")} />
       )}
     </div>
   );

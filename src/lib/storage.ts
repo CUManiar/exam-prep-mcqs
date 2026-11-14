@@ -6,7 +6,6 @@ import {
 } from "./types";
 import {
   INITIAL_PAPERS,
-  parseAnswerKeyText,
   parseAnswerKeyDetailed,
   getStandardTimeMinutes,
 } from "./defaults";

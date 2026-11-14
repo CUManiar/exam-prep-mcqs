@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import { useState } from "react";
 import { Attempt, QuestionPaper } from "../../lib/types";
 import { formatDateTime } from "../../lib/defaults";
 import {

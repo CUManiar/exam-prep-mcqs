@@ -1,7 +1,7 @@
 "use client";
 
-import React, { useState, useEffect, useMemo } from "react";
-import { Quote, Sparkles, Shuffle, Check, Copy, RefreshCw } from "lucide-react";
+import { useState, useEffect } from "react";
+import { Quote, Sparkles, Shuffle, Check, Copy } from "lucide-react";
 
 interface QuoteItem {
   quote: string;

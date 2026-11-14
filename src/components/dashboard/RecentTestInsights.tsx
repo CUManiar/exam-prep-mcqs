@@ -1,23 +1,13 @@
 "use client";
 
-import React, { useMemo } from "react";
+import { useMemo } from "react";
 import { Attempt, QuestionPaper } from "../../lib/types";
 import { getAttemptPercentage } from "../../lib/defaults";
 import { isSpecificSingleSubject } from "../../lib/markdownPaperParser";
 import {
-  AlertTriangle,
   ArrowRight,
-  BarChart3,
-  CheckCircle2,
   Clock,
-  Compass,
   LineChart,
-  RotateCcw,
-  ShieldAlert,
-  Sparkles,
-  Target,
-  TrendingDown,
-  TrendingUp,
   Zap,
 } from "lucide-react";
 

@@ -1,6 +1,6 @@
 "use client";
 
-import React, {
+import {
   useState,
   useEffect,
   useCallback,
@@ -18,7 +18,6 @@ import {
 } from "../lib/types";
 import {
   formatTimeSeconds,
-  parseAnswerKeyText,
   parseAnswerKeyDetailed,
   getStandardTimeMinutes,
   getPaperDisplayTitle,
@@ -57,8 +56,6 @@ import {
   UploadCloud,
   FileUp,
   FileText,
-  FileSpreadsheet,
-  Trash2,
   Loader2,
   AlertTriangle,
   Bookmark,
@@ -72,7 +69,6 @@ import {
   RotateCcw,
   Lightbulb,
   Keyboard,
-  Sparkles,
 } from "lucide-react";
 
 interface ExamSessionViewProps {
@@ -881,21 +877,6 @@ export function ExamSessionView({
         [qNo]: {
           ...current,
           flagged: !current.flagged,
-        },
-      };
-    });
-  };
-
-  // Note change handler
-  const handleUpdateNote = (qNo: number, noteText: string) => {
-    markUserInteraction();
-    setAnswers((prev) => {
-      const current = prev[qNo] || { questionNo: qNo, selected: null };
-      return {
-        ...prev,
-        [qNo]: {
-          ...current,
-          note: noteText,
         },
       };
     });

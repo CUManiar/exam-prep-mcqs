@@ -10,7 +10,6 @@ import {
   ChevronDown,
   Clipboard,
   ExternalLink,
-  FileText,
   KeyRound,
   ListChecks,
   MessageSquareText,

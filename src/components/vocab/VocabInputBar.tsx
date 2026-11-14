@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import { useState } from "react";
 import { Sparkles, Loader2 } from "lucide-react";
 import { getRevisionConfig } from "../../lib/revisionAi";
 

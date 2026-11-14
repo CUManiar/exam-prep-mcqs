@@ -10,8 +10,6 @@ import {
   formatTimeSeconds,
   getPaperDisplayTitle,
   formatCustomIdentifier,
-  SUBJECTIVE_ASSESSMENT_META,
-  isCsatPaper,
 } from "../../lib/defaults";
 import {
   parseQuestionnaireMarkdown,
@@ -22,7 +20,6 @@ import { getCustomPapers } from "../../lib/storage";
 import {
   CutoffVerdict,
   TakeawayItem,
-  ReviewSuggestion,
   FilterTabType,
   SortOptionType,
   ReviewFilterState,

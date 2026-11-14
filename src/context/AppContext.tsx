@@ -1,6 +1,6 @@
 "use client";
 
-import React, {
+import {
   createContext,
   useContext,
   useState,
@@ -20,7 +20,6 @@ import {
 import { getNotifications, saveNotifications } from "../lib/notifications";
 import {
   getAttempts,
-  loadAttemptsFromServer,
   saveAttempt,
   updateAttempt,
   deleteAttempt,

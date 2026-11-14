@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import { useState, useEffect, use } from "react";
 import { useRouter } from "next/navigation";
 import { useApp } from "../../../context/AppContext";
 import { AttemptReviewView } from "../../../components/review/AttemptReviewView";
@@ -12,7 +12,7 @@ export default function AttemptDetailPage({
 }: {
   params: Promise<{ id: string }>;
 }) {
-  const resolvedParams = React.use(params);
+  const resolvedParams = use(params);
   const router = useRouter();
   const {
     attempts,

@@ -1,6 +1,6 @@
 "use client";
 
-import React, {
+import {
   useState,
   useMemo,
   useCallback,
@@ -36,7 +36,6 @@ import {
   Sparkles,
   BookOpen,
   Eye,
-  Lightbulb,
   Play,
   Clock,
   ArrowRight,

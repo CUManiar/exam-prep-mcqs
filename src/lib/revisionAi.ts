@@ -1,6 +1,4 @@
 import {
-  ParsedQuestion,
-  QuestionAnswer,
   RevisionContext,
   RevisionMessage,
   RevisionProviderConfig,

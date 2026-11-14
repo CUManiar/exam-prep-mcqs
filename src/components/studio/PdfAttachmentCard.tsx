@@ -1,6 +1,4 @@
 "use client";
-
-import React from "react";
 import { FileText, FileUp, ExternalLink } from "lucide-react";
 
 interface PdfAttachmentCardProps {

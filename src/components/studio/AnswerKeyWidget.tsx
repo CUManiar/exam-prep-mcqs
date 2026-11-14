@@ -1,6 +1,4 @@
 "use client";
-
-import React from "react";
 import { FileUp } from "lucide-react";
 
 interface AnswerKeyWidgetProps {
