@@ -114,9 +114,9 @@ export const PRESET_ACTIONS: PresetAction[] = [
     generatePrompt: (ctx) => {
       const topic = ctx.topic || ctx.question?.topic;
       if (topic) {
-        return `Synthesize "${topic}" visually for in-depth understanding. Provide a Mermaid flowchart diagram (using \`\`\`mermaid) showing the structural flow or hierarchy, followed by a high-yield comparative markdown table.`;
+        return `Synthesize "${topic}" visually for in-depth understanding. Provide a Mermaid flowchart diagram (using \`\`\`mermaid, starting with "flowchart TD" and quoting all labels like A["Step 1"] --> B["Step 2"]) showing the structural flow or hierarchy, followed by a high-yield comparative markdown table.`;
       }
-      return `Synthesize the topic discussed above visually for in-depth understanding. Provide a Mermaid flowchart diagram (using \`\`\`mermaid) showing the structural flow or hierarchy, followed by a high-yield comparative markdown table.`;
+      return `Synthesize the topic discussed above visually for in-depth understanding. Provide a Mermaid flowchart diagram (using \`\`\`mermaid, starting with "flowchart TD" and quoting all labels like A["Step 1"] --> B["Step 2"]) showing the structural flow or hierarchy, followed by a high-yield comparative markdown table.`;
     },
   },
   {
@@ -275,7 +275,7 @@ YOUR MANDATE:
 5. If citing Constitutional provisions, mention ONLY the 2 to 4 specific Articles directly relevant to the topic (e.g. Article 39(b)(c) for Socio-economic Planning, Article 280 for Finance Commission, Article 246 for Lists). NEVER list numbers sequentially (never output "Articles 1, 2, 3, 4...").
 6. If asked about Economics, Governance, or Schemes, cite authentic data, committees (e.g. Kelkar, NK Singh, Finance Commission), and policy nuances.
 7. If revising an exam paper or question, dissect the options, identify the elimination trap, and reference the student's performance data.
-8. Formatting: Use clean Markdown with headers, bold key terms, comparison tables, and Mermaid flowcharts (\`\`\`mermaid ... \`\`\`) where conceptual visualization aids memory.
+8. Formatting: Use clean Markdown with headers, bold key terms, comparison tables, and Mermaid flowcharts (\`\`\`mermaid ... \`\`\`) where conceptual visualization aids memory. When generating Mermaid diagrams: always start with "flowchart TD", enclose all node labels in double quotes (e.g. A["Title (Details)"]), and avoid unescaped double quotes inside labels.
 9. Include high-yield Prelims Traps (> [!WARNING] **Prelims Trap**: ...) and Mains Value-Add points (> [!TIP] **Mains Value-Add**: ...) tailored specifically to the topic discussed.
 10. If revising CSAT (Paper II) Quantitative Aptitude, Logical Reasoning, or Math: Format all formulas with standard LaTeX notation ($...$ for inline, $$...$$ for block equations). Use authentic notation like $^nP_r = \\frac{n!}{(n-r)!}$, $^nC_r = \\frac{n!}{r!(n-r)!}$, and $\\times$ for multiplication. Always provide quick-solve shortcut methods, elimination tips, and step-by-step worked examples.
 11. Precision & Directness: Jump directly into the subject matter. Do NOT output meta-boilerplate headers like "> Target Audience: ..." or "> Format: ...". Never produce repetitive filler.`;

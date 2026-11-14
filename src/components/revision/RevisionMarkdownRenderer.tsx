@@ -83,8 +83,170 @@ function AlertBox({ type, children }: AlertBoxProps) {
 }
 
 /**
- * Diagram Card that tries to dynamically render with Mermaid.js,
- * or falls back to a clean native SVG/Tree diagram representation.
+ * Automatically sanitizes and repairs common LLM Mermaid syntax flaws:
+ * - Missing flowchart/graph declaration
+ * - Unquoted parentheses or special characters inside node labels (e.g., A[Text (1976)] -> A["Text (1976)"])
+ * - Unescaped double quotes inside quoted labels (e.g., A["The "Why" Context"] -> A["The 'Why' Context"])
+ * - Unquoted subgraph headers with spaces/colons
+ * - Unquoted link text: A -- text --> B -> A -->|"text"| B
+ * - Trailing semicolons on diagram headers
+ */
+function sanitizeMermaidCode(raw: string): string {
+  if (!raw) return "";
+  const lines = raw.trim().split("\n");
+  if (!lines.length) return "";
+
+  // 1. Ensure a valid diagram header is present
+  const first = lines[0].trim();
+  const validHeaders = [
+    "flowchart",
+    "graph",
+    "sequenceDiagram",
+    "classDiagram",
+    "stateDiagram",
+    "erDiagram",
+    "gantt",
+    "pie",
+    "journey",
+    "gitGraph",
+    "mindmap",
+    "timeline",
+  ];
+  if (!validHeaders.some((h) => first.startsWith(h))) {
+    lines.unshift("flowchart TD");
+  }
+
+  // 2. Sanitize line-by-line
+  const sanitizedLines = lines.map((rawLine) => {
+    let line = rawLine.trim();
+    if (!line || line.startsWith("%%")) return line;
+
+    // Strip trailing semicolons on header lines (e.g. "graph TD;" -> "graph TD")
+    line = line.replace(/^(graph|flowchart)\s+[A-Za-z]+;+$/, (m) =>
+      m.replace(/;+$/, ""),
+    );
+
+    // Strip markdown bold / italics inside labels
+    line = line.replace(/\*\*([^*]+?)\*\*/g, "$1");
+    line = line.replace(/(?<!\\)_([^_]+?)_/g, "$1");
+
+    // Fix subgraphs with invalid titles: e.g. "subgraph Part IVA: Fundamental Duties" -> "subgraph sg1 ["Part IVA: Fundamental Duties"]"
+    if (line.startsWith("subgraph ")) {
+      const subTitle = line.replace(/^subgraph\s+/, "").trim();
+      if (subTitle && !subTitle.includes("[") && subTitle !== "end") {
+        const cleanSub = subTitle.replace(/"/g, "'");
+        const safeId = "sg_" + Math.random().toString(36).slice(2, 6);
+        return `subgraph ${safeId} ["${cleanSub}"]`;
+      }
+    }
+
+    // Fix unquoted link labels: A -- Some link text --> B -> A -->|"Some link text"| B
+    line = line.replace(
+      /--\s+([^->|]+?)\s+-->/g,
+      (_, text) => `-->|"${text.replace(/"/g, "'").trim()}"|`,
+    );
+
+    // Auto-quote unquoted square brackets: A[Text with (parens) and "quotes"] -> A["Text with (parens) and 'quotes'"]
+    line = line.replace(
+      /([a-zA-Z0-9_-]+)\[(?!")([^\]]+?)\]/g,
+      (_, id, content) => {
+        const clean = content.replace(/"/g, "'").trim();
+        return `${id}["${clean}"]`;
+      },
+    );
+
+    // Auto-quote unquoted round brackets/parens: A(Text with "quotes") -> A("Text with 'quotes'")
+    line = line.replace(
+      /([a-zA-Z0-9_-]+)\((?!")([^)]+?)\)/g,
+      (_, id, content) => {
+        const clean = content.replace(/"/g, "'").trim();
+        return `${id}("${clean}")`;
+      },
+    );
+
+    // Auto-quote unquoted curly braces: A{Text?} -> A{"Text?"}
+    line = line.replace(
+      /([a-zA-Z0-9_-]+)\{(?!")([^}]+?)\}/g,
+      (_, id, content) => {
+        const clean = content.replace(/"/g, "'").trim();
+        return `${id}{"${clean}"}`;
+      },
+    );
+
+    // If node already has quotes with nested inner quotes: A["Text with "inner" quotes"]
+    line = line.replace(/\["([^"]*?"[^"]*?)"\]/g, (_, inner) => {
+      const clean = inner.replace(/"/g, "'");
+      return `["${clean}"]`;
+    });
+
+    return line;
+  });
+
+  return sanitizedLines.join("\n");
+}
+
+/**
+ * Intelligent fallback parser for Mermaid flowcharts:
+ * Extracts node IDs and labels across all syntax shapes ([...], (...), {...})
+ */
+function parseMermaidFallback(code: string) {
+  const lines = code.split("\n");
+  const connections: Array<{ from: string; to: string; text?: string }> = [];
+  const nodeLabels = new Map<string, string>();
+
+  for (const rawLine of lines) {
+    const line = rawLine.trim();
+    if (
+      !line ||
+      line.startsWith("flowchart") ||
+      line.startsWith("graph") ||
+      line.startsWith("%%") ||
+      line.startsWith("subgraph") ||
+      line === "end"
+    ) {
+      continue;
+    }
+
+    // 1. Extract any node definitions with labels on this line
+    const nodeDefRegex =
+      /([a-zA-Z0-9_-]+)(?:\["([^"]+)"\]|\[([^\]]+)\]|\("([^"]+)"\)|\(([^)]+)\)|\{"([^"]+)"\}|\{([^}]+)\})/g;
+    let match: RegExpExecArray | null;
+    while ((match = nodeDefRegex.exec(line)) !== null) {
+      const id = match[1];
+      const label =
+        match[2] ||
+        match[3] ||
+        match[4] ||
+        match[5] ||
+        match[6] ||
+        match[7] ||
+        id;
+      nodeLabels.set(
+        id,
+        label.replace(/<br\s*\/?>/gi, " • ").replace(/&quot;/g, '"'),
+      );
+    }
+
+    // 2. Extract connections: A --> B, A -->|text| B, A --- B, A ==> B
+    const arrowMatch = line.match(
+      /([a-zA-Z0-9_-]+)\s*(?:-->|==>|---|---\s*\|[^|]+\|\s*|-->\s*\|([^|]+)\|\s*|-\.->)\s*([a-zA-Z0-9_-]+)/,
+    );
+    if (arrowMatch) {
+      const from = arrowMatch[1];
+      const linkText = arrowMatch[2]?.trim();
+      const to = arrowMatch[3];
+      if (!nodeLabels.has(from)) nodeLabels.set(from, from);
+      if (!nodeLabels.has(to)) nodeLabels.set(to, to);
+      connections.push({ from, to, text: linkText });
+    }
+  }
+
+  return { connections, nodeLabels };
+}
+
+/**
+ * Diagram Card that dynamically renders with Mermaid.js,
+ * with automatic syntax self-healing and rich fallback representation.
  */
 function MermaidDiagram({ code }: { code: string }) {
   const [svgHtml, setSvgHtml] = useState<string | null>(null);
@@ -102,47 +264,87 @@ function MermaidDiagram({ code }: { code: string }) {
     // Load mermaid script if not present
     const renderWithMermaid = () => {
       const w = window as any;
-      if (w.mermaid) {
-        try {
-          w.mermaid.initialize({
-            startOnLoad: false,
-            theme:
-              document.documentElement.getAttribute("data-theme") === "dark"
-                ? "dark"
-                : "default",
-            flowchart: { useMaxWidth: true, htmlLabels: true, curve: "basis" },
+      if (!w.mermaid) return;
+
+      try {
+        w.mermaid.initialize({
+          startOnLoad: false,
+          suppressErrorRendering: true,
+          parseError: () => {}, // Suppress Mermaid's default error DOM injection
+          theme:
+            document.documentElement.getAttribute("data-theme") === "dark"
+              ? "dark"
+              : "default",
+          flowchart: { useMaxWidth: true, htmlLabels: true, curve: "basis" },
+          securityLevel: "loose",
+        });
+
+        const id = `mermaid_${Math.random().toString(36).slice(2, 9)}`;
+        const sanitizedCode = sanitizeMermaidCode(cleanCode);
+
+        // Pre-parse the code first: if parsing fails, NEVER call render() so Mermaid never injects the bomb icon
+        w.mermaid
+          .parse(sanitizedCode, { suppressErrors: true })
+          .then(() => {
+            return w.mermaid.render(id, sanitizedCode);
+          })
+          .then((res: any) => {
+            if (isMounted && res?.svg) {
+              setSvgHtml(res.svg);
+              setHasError(false);
+            }
+          })
+          .catch((err: any) => {
+            console.warn("Mermaid validation/render error:", err);
+            // Clean up any stray error element that Mermaid might have inserted into document.body
+            document
+              .querySelectorAll(
+                '[id^="dmermaid"], svg[aria-roledescription="error"], .error-icon',
+              )
+              .forEach((el) => {
+                if (el.parentElement === document.body) el.remove();
+              });
+            if (isMounted) setHasError(true);
           });
-          const id = `mermaid_${Math.random().toString(36).slice(2, 9)}`;
-          w.mermaid
-            .render(id, cleanCode)
-            .then((res: any) => {
-              if (isMounted && res?.svg) {
-                setSvgHtml(res.svg);
-                setHasError(false);
-              }
-            })
-            .catch(() => {
-              if (isMounted) setHasError(true);
-            });
-        } catch {
-          if (isMounted) setHasError(true);
-        }
+      } catch (err) {
+        console.warn("Mermaid initialization error:", err);
+        if (isMounted) setHasError(true);
       }
     };
 
-    const existingScript = document.getElementById("mermaid-script");
+    const existingScript = document.getElementById(
+      "mermaid-script",
+    ) as HTMLScriptElement | null;
+
     if (!(window as any).mermaid && !existingScript) {
       const script = document.createElement("script");
       script.id = "mermaid-script";
       script.src =
         "https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js";
-      script.onload = renderWithMermaid;
+      script.crossOrigin = "anonymous";
+      script.onload = () => {
+        renderWithMermaid();
+      };
       script.onerror = () => {
         if (isMounted) setHasError(true);
       };
       document.head.appendChild(script);
     } else if ((window as any).mermaid) {
       renderWithMermaid();
+    } else if (existingScript) {
+      // Script is already in DOM and loading
+      existingScript.addEventListener("load", renderWithMermaid);
+      const timer = setInterval(() => {
+        if ((window as any).mermaid) {
+          clearInterval(timer);
+          renderWithMermaid();
+        }
+      }, 150);
+      return () => {
+        clearInterval(timer);
+        existingScript.removeEventListener("load", renderWithMermaid);
+        isMounted = false;
+      };
     }
 
     return () => {
@@ -156,32 +358,8 @@ function MermaidDiagram({ code }: { code: string }) {
     setTimeout(() => setCopied(false), 2000);
   };
 
-  // Fallback native node parser for flowcharts (e.g. A["Text"] --> B["Text"])
   const parsedFlowNodes = useMemo(() => {
-    const lines = code.split("\n");
-    const connections: Array<{ from: string; to: string; text?: string }> = [];
-    const nodeLabels = new Map<string, string>();
-
-    for (const rawLine of lines) {
-      const line = rawLine.trim();
-      if (!line || line.startsWith("flowchart") || line.startsWith("graph"))
-        continue;
-
-      const linkMatch = line.match(
-        /([a-zA-Z0-9_-]+)(?:\["([^"]+)"\])?\s*-->\s*([a-zA-Z0-9_-]+)(?:\["([^"]+)"\])?/,
-      );
-      if (linkMatch) {
-        const fromId = linkMatch[1];
-        const fromLabel = linkMatch[2] || fromId;
-        const toId = linkMatch[3];
-        const toLabel = linkMatch[4] || toId;
-
-        nodeLabels.set(fromId, fromLabel.replace(/<br\s*\/?>/gi, " • "));
-        nodeLabels.set(toId, toLabel.replace(/<br\s*\/?>/gi, " • "));
-        connections.push({ from: fromId, to: toId });
-      }
-    }
-    return { connections, nodeLabels };
+    return parseMermaidFallback(code);
   }, [code]);
 
   return (
@@ -247,28 +425,57 @@ function MermaidDiagram({ code }: { code: string }) {
       ) : (
         /* Native Fallback Node Visualizer */
         <div className="space-y-3 py-2">
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-2.5">
-            {Array.from(parsedFlowNodes.nodeLabels.entries()).map(
-              ([id, label]) => (
-                <div
-                  key={id}
-                  className="p-2.5 rounded-lg border border-indigo-200 dark:border-indigo-800 bg-white dark:bg-slate-900 shadow-2xs text-xs"
-                >
-                  <div className="font-mono text-[10px] text-indigo-500 font-bold uppercase tracking-wider mb-0.5">
-                    Node [{id}]
+          {parsedFlowNodes.nodeLabels.size > 0 ? (
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2.5">
+              {Array.from(parsedFlowNodes.nodeLabels.entries()).map(
+                ([id, label], idx) => (
+                  <div
+                    key={id}
+                    className="p-3 rounded-xl border border-indigo-200 dark:border-indigo-800 bg-white dark:bg-slate-900 shadow-2xs text-xs flex flex-col justify-between"
+                  >
+                    <div className="flex items-center justify-between gap-1 mb-1.5">
+                      <span className="font-mono text-[10px] text-indigo-600 dark:text-indigo-400 font-bold uppercase tracking-wider bg-indigo-50 dark:bg-indigo-950 px-2 py-0.5 rounded">
+                        Step {idx + 1}
+                      </span>
+                      <span className="text-[10px] text-slate-400 font-mono">
+                        [{id}]
+                      </span>
+                    </div>
+                    <div className="font-semibold text-slate-900 dark:text-slate-100 text-xs sm:text-[13px] leading-snug">
+                      {label}
+                    </div>
                   </div>
-                  <div className="font-medium text-slate-800 dark:text-slate-200 leading-snug">
-                    {label}
-                  </div>
-                </div>
-              ),
-            )}
-          </div>
+                ),
+              )}
+            </div>
+          ) : (
+            <pre className="p-3 bg-slate-900 text-slate-100 rounded-lg text-xs font-mono overflow-x-auto whitespace-pre">
+              {code}
+            </pre>
+          )}
+
           {parsedFlowNodes.connections.length > 0 && (
-            <div className="text-[11px] text-slate-500 dark:text-slate-400 font-mono pt-1">
+            <div className="flex flex-wrap items-center gap-2 text-[11px] text-slate-600 dark:text-slate-400 bg-slate-100/80 dark:bg-slate-900/80 px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-800">
+              <span className="font-semibold text-slate-500 uppercase tracking-wider text-[10px]">
+                Flow:
+              </span>
               {parsedFlowNodes.connections.map((c, i) => (
-                <span key={i} className="inline-block mr-3">
-                  {c.from} ➔ {c.to}
+                <span
+                  key={i}
+                  className="inline-flex items-center gap-1 font-medium bg-white dark:bg-slate-800 px-2 py-0.5 rounded border border-slate-200 dark:border-slate-700 shadow-2xs"
+                >
+                  <span className="text-indigo-600 dark:text-indigo-400 font-bold font-mono">
+                    {c.from}
+                  </span>
+                  <span className="text-slate-400">➔</span>
+                  {c.text && (
+                    <span className="text-[10px] italic text-slate-500">
+                      ({c.text})
+                    </span>
+                  )}
+                  <span className="text-indigo-600 dark:text-indigo-400 font-bold font-mono">
+                    {c.to}
+                  </span>
                 </span>
               ))}
             </div>
