@@ -1,6 +1,7 @@
 "use client";
 
 import { useRef, useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import { QuestionPaper, ParsedQuestion, QuestionAnswer } from "../lib/types";
 import { ParsedMarkdownHeader } from "../lib/markdownPaperParser";
 import { MatchingItemsTable } from "./MatchingItemsTable";
@@ -52,6 +53,7 @@ export function MarkdownPaperReviewViewer({
   hasActiveFilters,
   onResetFilters,
 }: MarkdownPaperReviewViewerProps) {
+  const router = useRouter();
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const [viewMode, setViewMode] = useState<"all" | "single">("single");
   const [showPaperDetails, setShowPaperDetails] = useState<boolean>(false);
@@ -575,16 +577,19 @@ export function MarkdownPaperReviewViewer({
                         <Lightbulb className="h-4 w-4 text-indigo-600" />
                         <span>Solution & Explanation</span>
                       </div>
-                      <a
-                        href={`/revision?paperId=${encodeURIComponent(paper.id)}&q=${q.questionNo}`}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md bg-white border border-indigo-200 text-indigo-700 hover:bg-indigo-50 text-[11px] font-semibold transition-colors shadow-2xs"
+                      <button
+                        type="button"
+                        onClick={() =>
+                          router.push(
+                            `/revision?paperId=${encodeURIComponent(paper.id)}&q=${q.questionNo}`,
+                          )
+                        }
+                        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md bg-indigo-600 text-white hover:bg-indigo-700 active:bg-indigo-800 text-[11px] sm:text-xs font-semibold transition-colors shadow-sm whitespace-nowrap"
                         title="Open question in AI Revision"
                       >
-                        <Sparkles className="h-3 w-3 text-indigo-600" />
+                        <Sparkles className="h-3 w-3 flex-shrink-0" />
                         <span>Discuss with AI</span>
-                      </a>
+                      </button>
                     </div>
                     <HtmlExplanation
                       text={explanationText}
