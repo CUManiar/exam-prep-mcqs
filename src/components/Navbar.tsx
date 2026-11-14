@@ -85,14 +85,14 @@ const mobilePrimaryNavigation = [
     icon: BookOpen,
   },
   {
+    href: "/mains",
+    label: "Mains",
+    icon: Award,
+  },
+  {
     href: "/revision",
     label: "Revision",
     icon: GraduationCap,
-  },
-  {
-    href: "/misc",
-    label: "Misc",
-    icon: Layers,
   },
 ];
 
@@ -235,6 +235,7 @@ export function Navbar() {
           if (
             !currentUser &&
             href !== "/" &&
+            href !== "/mains" &&
             href !== "/revision" &&
             href !== "/misc"
           ) {
