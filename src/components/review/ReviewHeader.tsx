@@ -94,9 +94,9 @@ export function ReviewHeader({
   };
 
   return (
-    <header className="screen-only flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2.5 sm:gap-3 border-b border-slate-200/90 bg-white/80 backdrop-blur-md px-3 sm:px-6 py-2.5 sm:py-3.5 sticky top-0 z-30 shadow-2xs">
+    <header className="screen-only flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2.5 sm:gap-4 border-b border-slate-200/90 bg-white/90 backdrop-blur-md px-3 sm:px-6 py-2.5 sm:py-3 sticky top-0 z-30 shadow-2xs">
       {/* Title & Metadata */}
-      <div className="flex min-w-0 items-center gap-2.5 sm:gap-3">
+      <div className="flex flex-1 min-w-0 items-center gap-2.5 sm:gap-3">
         <button
           onClick={onBack}
           aria-label="Go back"
@@ -105,7 +105,7 @@ export function ReviewHeader({
         >
           <ArrowLeft className="h-4 w-4" />
         </button>
-        <div className="min-w-0">
+        <div className="min-w-0 flex-1">
           <div className="flex items-center gap-1.5 sm:gap-2 text-[10px] sm:text-[11px] text-slate-500 flex-wrap">
             <span className="font-semibold text-slate-700 uppercase tracking-wider text-[9px] sm:text-[10px] bg-slate-100 px-1.5 py-0.2 rounded-md">
               {attempt.mode === "mock" ? "Timed Mock" : "Practice"}
@@ -131,7 +131,7 @@ export function ReviewHeader({
       </div>
 
       {/* Action Controls */}
-      <div className="flex shrink-0 items-center justify-between sm:justify-end gap-1.5 sm:gap-2 overflow-x-auto no-scrollbar w-full sm:w-auto">
+      <div className="flex shrink-0 items-center justify-end gap-1.5 sm:gap-2 max-sm:overflow-x-auto max-sm:no-scrollbar sm:overflow-visible w-full sm:w-auto relative">
         {/* Paper split toggle (desktop & tablet) */}
         {canPreviewPaper && (
           <button
@@ -201,7 +201,7 @@ export function ReviewHeader({
                 className="fixed inset-0 z-40"
                 onClick={() => setShowExportMenu(false)}
               />
-              <div className="absolute right-0 mt-2 z-50 min-w-[280px] w-max max-w-xs rounded-2xl border border-slate-200 bg-white p-1.5 shadow-2xl space-y-0.5 animate-in fade-in zoom-in-95">
+              <div className="absolute right-0 top-full mt-1.5 z-50 min-w-[280px] w-max max-w-xs rounded-2xl border border-slate-200 bg-white p-1.5 shadow-2xl space-y-0.5 animate-in fade-in zoom-in-95">
                 {matchedPaper && canPreviewPaper && (
                   <button
                     onClick={() => {
