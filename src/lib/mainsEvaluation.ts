@@ -121,9 +121,12 @@ ${
    - Structure & Presentation: Bullet formatting, clear headers, micro-flowchart or diagram idea.
    - Value Addition: Concrete citations (Articles, Landmark Judgements with year, 2nd ARC, NITI Aayog, Committees, Economic Survey, Budget, or Thinkers if Optional).
    - Conclusion: Balanced, forward-looking way forward (SDGs, Constitutional Morality, Amrit Kaal targets).
-4. Model Answer:
+4. Model Answer (Mandatory):
    - Provide a complete, topper-standard Model Answer strictly matching the ${wordLimit}-word limit.
-   - Must include an enrichment box with high-impact data/case laws/committee recommendations.
+   - Format cleanly with Markdown headings, sub-points, and a Topper Value-Addition / Enrichment Box.
+5. Handwritten & Document Evaluation:
+   - Carefully read and evaluate the handwritten arguments or text in the submission.
+   - Never award 0 marks unless the sheet is completely blank. Evaluate actual substance, identify strengths and blindspots, and assign standard UPSC marks (typically 3.0 to 6.0 / 10).
 
 CANDIDATE SUBMISSION TO EVALUATE:
 [QUESTION]:
@@ -141,6 +144,7 @@ You MUST return your response as a valid, parsable JSON object matching this sch
   "verdict": "Good Attempt" | "Average" | "Below Average" | "Top Tier (Safe Zone)",
   "directive": "Directive found in question (e.g. Critically Examine)",
   "directiveAnalysis": "1-2 sentences on how well candidate satisfied this directive",
+  "modelAnswer": "Full topper-grade model answer with Markdown headings, bullet points, citations, forward-looking conclusion, and Value Addition box.",
   "rubric": {
     "introduction": { "score": 1.0, "max": 2.0, "comment": "Feedback on intro" },
     "bodyContent": { "score": 2.5, "max": 4.5, "comment": "Feedback on arguments and dimensions" },
@@ -164,7 +168,6 @@ You MUST return your response as a valid, parsable JSON object matching this sch
     "Immediate fix 1 to gain +1.0 mark",
     "Immediate fix 2"
   ],
-  "diagramIdea": "Concise description of 1 micro-diagram or flowchart that would save words and catch the examiner's eye",
-  "modelAnswer": "Full topper-grade model answer with Markdown headings, bullet points, citations, and forward-looking conclusion."
+  "diagramIdea": "Concise description of 1 micro-diagram or flowchart that would save words and catch the examiner's eye"
 }`;
 }
