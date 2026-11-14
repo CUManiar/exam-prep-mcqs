@@ -19,6 +19,95 @@ function cleanJsonString(str: string): string {
     .replace(/,\s*([}\]])/g, "$1");
 }
 
+function tryRepairTruncatedJson(str: string): any {
+  let s = str.trim();
+  // Strip opening markdown fences if present
+  s = s.replace(/^```(?:json)?\s*/i, "").replace(/\s*```$/i, "");
+  const firstBrace = s.indexOf("{");
+  if (firstBrace !== -1) {
+    s = s.slice(firstBrace);
+  }
+
+  // Count unescaped quotes
+  let inString = false;
+  let escaped = false;
+  for (let i = 0; i < s.length; i++) {
+    const c = s[i];
+    if (c === "\\" && inString) {
+      escaped = !escaped;
+    } else if (c === '"' && !escaped) {
+      inString = !inString;
+    } else {
+      escaped = false;
+    }
+  }
+
+  // If truncated inside a string literal, close the quote
+  if (inString) {
+    s += '"';
+  }
+
+  // Count unclosed braces and brackets
+  let openBraces = 0;
+  let openBrackets = 0;
+  inString = false;
+  escaped = false;
+  for (let i = 0; i < s.length; i++) {
+    const c = s[i];
+    if (c === "\\" && inString) {
+      escaped = !escaped;
+    } else if (c === '"' && !escaped) {
+      inString = !inString;
+    } else if (!inString) {
+      if (c === "{") openBraces++;
+      if (c === "}") openBraces--;
+      if (c === "[") openBrackets++;
+      if (c === "]") openBrackets--;
+    } else {
+      escaped = false;
+    }
+  }
+
+  while (openBrackets > 0) {
+    s += "]";
+    openBrackets--;
+  }
+  while (openBraces > 0) {
+    s += "}";
+    openBraces--;
+  }
+
+  try {
+    return JSON.parse(s);
+  } catch {
+    try {
+      return JSON.parse(cleanJsonString(s));
+    } catch {}
+  }
+  return null;
+}
+
+export function formatCleanModelAnswer(text: string): string {
+  if (!text) return "Model answer could not be generated.";
+  let trimmed = text.trim();
+
+  // If text starts with a JSON object or contains JSON keys, extract the modelAnswer value
+  if (trimmed.startsWith("{") || trimmed.includes('"modelAnswer"')) {
+    const match = trimmed.match(/"modelAnswer"\s*:\s*"([\s\S]*)/i);
+    if (match) {
+      let clean = match[1];
+      clean = clean.replace(/"\s*}\s*$/, "").replace(/"\s*$/, "");
+      return clean
+        .replace(/\\n/g, "\n")
+        .replace(/\\"/g, '"')
+        .replace(/\\t/g, "\t")
+        .trim();
+    }
+  }
+
+  return trimmed.replace(/\\n/g, "\n").replace(/\\"/g, '"');
+}
+
 function parseJsonFromText(raw: string): any {
   if (!raw || typeof raw !== "string") return null;
 
@@ -57,6 +146,10 @@ function parseJsonFromText(raw: string): any {
       } catch {}
     }
   }
+
+  // 5. Try auto-repairing truncated JSON
+  const repaired = tryRepairTruncatedJson(raw);
+  if (repaired) return repaired;
 
   return null;
 }
@@ -556,7 +649,7 @@ export async function POST(req: NextRequest) {
       missingDimensions: Array.isArray(parsed.missingDimensions) ? parsed.missingDimensions : [],
       actionableRoadmap: Array.isArray(parsed.actionableRoadmap) ? parsed.actionableRoadmap : [],
       diagramIdea: parsed.diagramIdea || undefined,
-      modelAnswer: parsed.modelAnswer || "Model answer could not be generated.",
+      modelAnswer: formatCleanModelAnswer(parsed.modelAnswer || rawOutput),
       evaluatedAt: new Date().toISOString(),
     };
 
