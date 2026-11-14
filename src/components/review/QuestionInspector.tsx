@@ -123,7 +123,10 @@ export function QuestionInspector({
   );
 
   return (
-    <div className="rounded-2xl border border-slate-200/90 bg-white shadow-xs overflow-hidden flex flex-col justify-between min-h-[580px]">
+    <div
+      className="rounded-2xl border border-slate-200/90 bg-white shadow-xs overflow-hidden flex flex-col justify-between min-h-[580px] touch-pan-y"
+      style={{ touchAction: "pan-y" }}
+    >
       {/* 1. Header Bar: Q.No, Outcome, Marks, Time, Confidence */}
       <div className="border-b border-slate-200/90 bg-slate-50/70 p-4 sm:p-5 flex flex-wrap items-center justify-between gap-3">
         {/* Left: Question No & Badges */}
