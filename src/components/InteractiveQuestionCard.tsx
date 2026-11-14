@@ -17,6 +17,7 @@ import {
   Sparkles,
   RotateCcw,
   FileText,
+  History,
 } from "lucide-react";
 
 interface InteractiveQuestionCardProps {
@@ -314,6 +315,15 @@ export function InteractiveQuestionCard({
             <span className="hidden sm:inline-flex items-center gap-1 text-[11px] font-bold text-rose-700 bg-rose-50 px-2 py-0.5 rounded-md border border-rose-200">
               -{paper.incorrectMarks}m
             </span>
+            {qData.previousYears && (
+              <span
+                className="inline-flex items-center gap-1 text-[11px] font-bold text-amber-800 bg-amber-50 px-2 py-0.5 rounded-md border border-amber-200 shadow-2xs"
+                title="Previously asked in exam(s)"
+              >
+                <History className="h-3 w-3 text-amber-600" />
+                <span>PYQ: {qData.previousYears}</span>
+              </span>
+            )}
           </div>
 
           <div className="flex items-center gap-2">

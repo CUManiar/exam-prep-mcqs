@@ -16,7 +16,7 @@ INSTRUCTIONS:
 - Read each question statement thoroughly before choosing the answer.
 - Practice active elimination techniques during the attempt.
 ---
-[Subject: Economy | Topic: Monetary Policy]
+[Subject: Economy | Topic: Monetary Policy | Year: 2017, 2021]
 With reference to the **Monetary Policy Committee (MPC)** of the Reserve Bank of India, consider the following statements:
 1. It determines the policy repo rate required to achieve the inflation target.
 2. The Governor of the RBI is the ex-officio Chairperson of the Committee and has a casting vote.
@@ -110,6 +110,12 @@ Provide the answer key in one of these exact syntaxes:
   [Subject: Polity | Topic: Fundamental Rights]
   or [Subject: Economy]
   This allows the student's dashboard analytics to track individual subject mastery accurately.
+
+5. PREVIOUSLY ASKED YEARS (PYQs & MULTI-YEAR REPETITIONS):
+- If a question was asked previously in past exams, annotate it using comma-separated years for multi-year repetition:
+  [Year: 2017, 2021] or [PYQ: 2015, 2019, 2023] or [Subject: Economy | Topic: Monetary Policy | Year: 2017, 2021]
+  or a separate line: Year: 2017, 2021
+  This tags repetitions for high-yield revision and repeat-trend tracking.
 
 Example:
 1. b """ Statement 1 is correct because... Statement 2 is incorrect because... """

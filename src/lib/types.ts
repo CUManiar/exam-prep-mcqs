@@ -18,6 +18,7 @@ export interface ParsedQuestion {
   chapter?: string;
   topic?: string;
   wordLimit?: number;
+  previousYears?: string; // e.g. "2017, 2021" for multi-year repetition
 }
 
 export interface MatchingItem {
@@ -80,6 +81,7 @@ export interface QuestionAnswer {
   subject?: string;
   chapter?: string;
   topic?: string;
+  previousYears?: string;
 }
 
 export interface Attempt {

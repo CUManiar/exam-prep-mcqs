@@ -1353,6 +1353,7 @@ export function ExamSessionView({
           timeSpentSeconds: spentSecs,
           subject: a.subject || qMeta?.subject || undefined,
           topic: a.topic || qMeta?.topic || undefined,
+          previousYears: a.previousYears || qMeta?.previousYears || undefined,
         };
       }
 

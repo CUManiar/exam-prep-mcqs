@@ -2,19 +2,21 @@
 import { ParsedQuestion } from "../../lib/types";
 import { stripMarkdownFormatting } from "../../lib/markdownPaperParser";
 import { MatchingItemsTable } from "../MatchingItemsTable";
-import { Check, Lightbulb, BookOpen } from "lucide-react";
+import { Check, Lightbulb, BookOpen, History } from "lucide-react";
 import { HtmlExplanation } from "../HtmlExplanation";
 
 interface QuestionStreamPreviewProps {
   questions: ParsedQuestion[];
   answers?: Record<number, string>;
   explanations?: Record<number, string>;
+  onUpdateQuestionYears?: (questionNo: number, years: string) => void;
 }
 
 export function QuestionStreamPreview({
   questions = [],
   answers = {},
   explanations = {},
+  onUpdateQuestionYears,
 }: QuestionStreamPreviewProps) {
   if (questions.length === 0) {
     return (
@@ -56,10 +58,23 @@ export function QuestionStreamPreview({
             key={q.questionNo}
             className="rounded-xl border border-slate-200 bg-white p-3.5 space-y-2 shadow-2xs"
           >
-            <div className="flex items-center justify-between gap-2">
-              <span className="font-mono text-xs font-bold bg-purple-50 text-purple-800 px-2 py-0.5 rounded border border-purple-200">
-                Q{q.questionNo}
-              </span>
+            <div className="flex items-center justify-between gap-2 flex-wrap">
+              <div className="flex items-center gap-1.5 flex-wrap">
+                <span className="font-mono text-xs font-bold bg-purple-50 text-purple-800 px-2 py-0.5 rounded border border-purple-200">
+                  Q{q.questionNo}
+                </span>
+                {(q.subject || q.topic) && (
+                  <span className="text-[10px] text-slate-500 bg-slate-100 px-1.5 py-0.5 rounded font-medium">
+                    {[q.subject, q.topic].filter(Boolean).join(" › ")}
+                  </span>
+                )}
+                {q.previousYears && (
+                  <span className="text-[10px] font-bold text-amber-800 bg-amber-50 px-2 py-0.5 rounded border border-amber-200 inline-flex items-center gap-1">
+                    <History className="h-3 w-3 text-amber-600" />
+                    PYQ: {q.previousYears}
+                  </span>
+                )}
+              </div>
               {ansLetter ? (
                 <span className="text-[11px] font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200 inline-flex items-center gap-1">
                   <Check className="h-3 w-3" /> Answer: Option {ansLetter}
@@ -127,6 +142,38 @@ export function QuestionStreamPreview({
                 </div>
               </div>
             )}
+
+            {/* Question-wise Previously Asked Year Annotation */}
+            <div className="flex items-center gap-2 pt-2 border-t border-slate-100 text-xs">
+              <label
+                htmlFor={`pyq-years-${q.questionNo}`}
+                className="text-[11px] font-semibold text-slate-500 flex items-center gap-1 shrink-0"
+              >
+                <History className="h-3.5 w-3.5 text-amber-600" />
+                <span>Previously asked year(s):</span>
+              </label>
+              <input
+                id={`pyq-years-${q.questionNo}`}
+                type="text"
+                placeholder="e.g. 2017, 2021 (comma-separated for multi-year repetition)"
+                defaultValue={q.previousYears || ""}
+                key={`${q.questionNo}-${q.previousYears || ""}`}
+                disabled={!onUpdateQuestionYears}
+                onBlur={(e) => {
+                  const val = e.target.value.trim();
+                  if (val !== (q.previousYears || "").trim()) {
+                    onUpdateQuestionYears?.(q.questionNo, val);
+                  }
+                }}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") {
+                    e.preventDefault();
+                    (e.target as HTMLInputElement).blur();
+                  }
+                }}
+                className="flex-1 text-xs bg-slate-50 focus:bg-white border border-slate-200 focus:border-amber-400 focus:ring-1 focus:ring-amber-300 rounded-md px-2.5 py-1 text-slate-800 placeholder:text-slate-400 transition-all font-mono"
+              />
+            </div>
           </div>
         );
       })}

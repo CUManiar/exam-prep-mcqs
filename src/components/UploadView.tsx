@@ -39,6 +39,7 @@ import {
   parseQuestionnaireMarkdown,
   parseMarkdownHeader,
   ParsedMarkdownHeader,
+  updateQuestionPreviousYearsInMarkdown,
 } from "../lib/markdownPaperParser";
 import { parseAnswerKeyDetailed } from "../lib/defaults";
 import { getAuthHeaders } from "../lib/supabase";
@@ -98,6 +99,9 @@ function getOrReconstructMarkdown(paper?: QuestionPaper | null): string {
     out += `---\n\n`;
 
     paper.parsedQuestions.forEach((q, idx) => {
+      if (q.previousYears) {
+        out += `[Year: ${q.previousYears}]\n`;
+      }
       out += `${q.text}\n\n`;
       if (q.matchingItems?.length) {
         out += `${q.matchingHeaders?.left || "List-I"} : ${q.matchingHeaders?.right || "List-II"}\n`;
@@ -1415,6 +1419,15 @@ export function UploadView({
                       questions={detectedQuestions}
                       answers={detectedAnswerKey.answers}
                       explanations={detectedAnswerKey.explanations}
+                      onUpdateQuestionYears={(qNo, years) => {
+                        setCustomQpMarkdown((prev) =>
+                          updateQuestionPreviousYearsInMarkdown(
+                            prev,
+                            qNo,
+                            years,
+                          ),
+                        );
+                      }}
                     />
                   </div>
                 )}
@@ -1971,6 +1984,15 @@ export function UploadView({
                           questions={detectedUpdateQuestions}
                           answers={detectedUpdateAnswerKey.answers}
                           explanations={detectedUpdateAnswerKey.explanations}
+                          onUpdateQuestionYears={(qNo, years) => {
+                            setUpdateMarkdown((prev) =>
+                              updateQuestionPreviousYearsInMarkdown(
+                                prev,
+                                qNo,
+                                years,
+                              ),
+                            );
+                          }}
                         />
                       </div>
                     )}

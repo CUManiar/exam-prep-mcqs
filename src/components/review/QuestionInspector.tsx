@@ -22,6 +22,7 @@ import {
   Bookmark,
   ArrowRight,
   Eye,
+  History,
 } from "lucide-react";
 import { HtmlExplanation } from "../HtmlExplanation";
 
@@ -234,15 +235,23 @@ export function QuestionInspector({
             </div>
           )}
 
-        {/* 3-Tier Topic Hierarchy & Word Limit Badge */}
+        {/* 3-Tier Topic Hierarchy, PYQ Year & Word Limit Badge */}
         {(parsedQuestion?.subject ||
           question.subject ||
           parsedQuestion?.chapter ||
           question.chapter ||
           parsedQuestion?.topic ||
           question.topic ||
+          parsedQuestion?.previousYears ||
+          question.previousYears ||
           parsedQuestion?.wordLimit) && (
           <div className="flex flex-wrap items-center gap-1.5 text-xs text-slate-500 pb-1 border-b border-slate-100">
+            {(parsedQuestion?.previousYears || question.previousYears) && (
+              <span className="inline-flex items-center gap-1 rounded-md bg-amber-50 border border-amber-200 px-2 py-0.5 font-bold text-amber-800 shadow-2xs">
+                <History className="h-3 w-3 text-amber-600" />
+                PYQ: {parsedQuestion?.previousYears || question.previousYears}
+              </span>
+            )}
             {(parsedQuestion?.subject || question.subject) && (
               <span className="inline-flex items-center rounded-md bg-indigo-50 border border-indigo-200/80 px-2 py-0.5 font-semibold text-indigo-700">
                 {parsedQuestion?.subject || question.subject}
