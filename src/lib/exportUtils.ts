@@ -833,21 +833,52 @@ export function exportAttemptAsPrintPDF(
       return;
     }
 
-    const printWindow = window.open("", "_blank");
-    if (printWindow) {
-      printWindow.document.open();
-      printWindow.document.write(html);
-      printWindow.document.close();
-      printWindow.focus();
-    } else {
-      window.open(blobUrl, "_blank");
+    let printWindow: Window | null = null;
+    try {
+      printWindow = window.open("", "_blank");
+    } catch {}
+
+    if (printWindow && !printWindow.closed) {
+      try {
+        printWindow.document.open();
+        printWindow.document.write(html);
+        printWindow.document.close();
+        printWindow.focus();
+        return;
+      } catch {}
+    }
+
+    let blobWin: Window | null = null;
+    try {
+      blobWin = window.open(blobUrl, "_blank");
+    } catch {}
+
+    if (!blobWin || blobWin.closed || typeof blobWin.closed === "undefined") {
+      // Popups blocked: directly download HTML report file
+      const a = document.createElement("a");
+      a.href = blobUrl;
+      a.download = `${paperTitle.replace(/[^a-zA-Z0-9_-]/g, "_")}_Assessment_Report.html`;
+      document.body.appendChild(a);
+      a.click();
+      setTimeout(() => {
+        document.body.removeChild(a);
+        URL.revokeObjectURL(blobUrl);
+      }, 1500);
     }
   } catch (err) {
     console.error("exportAttemptAsPrintPDF error:", err);
     try {
       const blob = new Blob([html], { type: "text/html;charset=utf-8" });
       const blobUrl = URL.createObjectURL(blob);
-      window.open(blobUrl, "_blank");
+      const a = document.createElement("a");
+      a.href = blobUrl;
+      a.download = `${paperTitle.replace(/[^a-zA-Z0-9_-]/g, "_")}_Assessment_Report.html`;
+      document.body.appendChild(a);
+      a.click();
+      setTimeout(() => {
+        document.body.removeChild(a);
+        URL.revokeObjectURL(blobUrl);
+      }, 1500);
     } catch {
       window.print();
     }
