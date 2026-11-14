@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import {
   AlertTriangle,
+  Award,
   BarChart3,
   Check,
   ChevronRight,
@@ -164,6 +165,18 @@ export function ProfileSettingsModal({
                 More Sections
               </div>
               <div className="divide-y divide-slate-200/80">
+                <Link
+                  href="/mains"
+                  onClick={onClose}
+                  className="flex items-center justify-between p-3.5 text-sm font-medium text-slate-700 hover:bg-slate-100 transition-colors"
+                >
+                  <span className="flex items-center gap-2.5">
+                    <Award className="w-4 h-4 text-emerald-600" />
+                    <span>Mains Answer Evaluation</span>
+                  </span>
+                  <ChevronRight className="w-4 h-4 text-slate-400" />
+                </Link>
+
                 <Link
                   href="/history"
                   onClick={(e) => {
