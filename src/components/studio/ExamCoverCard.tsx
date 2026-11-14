@@ -1,6 +1,4 @@
 "use client";
-
-import React from "react";
 import { Clock, Check } from "lucide-react";
 
 interface ExamCoverCardProps {

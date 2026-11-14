@@ -1,17 +1,12 @@
 "use client";
 
-import React, { useState, useMemo } from "react";
+import { useState, useMemo } from "react";
 import { Attempt } from "../../lib/types";
 import {
   Flame,
   ChevronLeft,
   ChevronRight,
-  Calendar as CalendarIcon,
-  Award,
-  Zap,
-  Target,
-  Clock,
-  Sparkles,
+  Calendar as Award,
 } from "lucide-react";
 
 interface StrikeCalendarProps {

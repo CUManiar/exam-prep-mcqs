@@ -1,6 +1,4 @@
 "use client";
-
-import React from "react";
 import { LogIn, ShieldCheck } from "lucide-react";
 import { useApp } from "../context/AppContext";
 

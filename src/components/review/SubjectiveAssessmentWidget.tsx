@@ -1,6 +1,4 @@
 "use client";
-
-import React from "react";
 import { SubjectiveAssessment } from "../../lib/types";
 import { Sparkles } from "lucide-react";
 

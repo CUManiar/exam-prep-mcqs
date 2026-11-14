@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import { useState } from "react";
 import { QuestionPaper, ParsedQuestion, QuestionAnswer } from "../../lib/types";
 import { getPaperDisplayTitle } from "../../lib/defaults";
 import { PdfViewer } from "../PdfViewer";

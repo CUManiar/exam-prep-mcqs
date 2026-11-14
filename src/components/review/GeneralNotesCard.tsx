@@ -1,7 +1,7 @@
 "use client";
 
-import React, { useState } from "react";
-import { Edit3, FileText, Check, X } from "lucide-react";
+import { useState } from "react";
+import { Edit3, FileText, Check } from "lucide-react";
 
 interface GeneralNotesCardProps {
   initialNotes?: string;

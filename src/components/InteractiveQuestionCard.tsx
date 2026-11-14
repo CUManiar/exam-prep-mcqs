@@ -1,16 +1,14 @@
 "use client";
 
-import React, { useState, useEffect, useRef, useCallback } from "react";
-import { QuestionPaper, ParsedQuestion, QuestionAnswer } from "../lib/types";
+import { useState, useEffect, useRef, useCallback } from "react";
+import { QuestionPaper, QuestionAnswer } from "../lib/types";
 import { MatchingItemsTable } from "./MatchingItemsTable";
 import { HtmlExplanation } from "./HtmlExplanation";
 import {
   CheckCircle2,
   XCircle,
-  HelpCircle,
   ChevronLeft,
   ChevronRight,
-  BookOpen,
   Bookmark,
   ArrowRight,
   Lightbulb,

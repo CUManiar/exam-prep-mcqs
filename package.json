@@ -17,7 +17,6 @@
     "@supabase/supabase-js": "^2.117.3",
     "@vercel/analytics": "^2.0.1",
     "@vercel/blob": "^2.8.1",
-    "clsx": "^2.1.1",
     "jspdf": "^4.2.1",
     "katex": "^0.19.1",
     "lucide-react": "^1.55.0",
@@ -25,8 +24,7 @@
     "pg": "^8.23.1",
     "razorpay": "^2.9.8",
     "react": "^19.3.0",
-    "react-dom": "^19.3.0",
-    "tailwind-merge": "^3.7.0"
+    "react-dom": "^19.3.0"
   },
   "devDependencies": {
     "@types/katex": "^0.16.8",

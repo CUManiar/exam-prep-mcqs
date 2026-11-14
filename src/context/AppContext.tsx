@@ -1,6 +1,6 @@
 "use client";
 
-import React, {
+import {
   createContext,
   useContext,
   useState,
@@ -20,7 +20,6 @@ import {
 import { getNotifications, saveNotifications } from "../lib/notifications";
 import {
   getAttempts,
-  loadAttemptsFromServer,
   saveAttempt,
   updateAttempt,
   deleteAttempt,
@@ -52,6 +51,7 @@ import { ConfirmationModal } from "../components/ConfirmationModal";
 import { ProUpgradeModal } from "../components/ProUpgradeModal";
 import { AuthModal } from "../components/AuthModal";
 import { GuestCompletionModal } from "../components/GuestCompletionModal";
+import { syncVocabCardsWithSupabase } from "../lib/vocabStorage";
 import {
   isPaperFree,
   isUserUploadedPaper,
@@ -399,6 +399,11 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
             getCustomSyllabusMarkdown(user.id),
         );
 
+        // Sync vocab cards between local storage and Supabase cloud profile
+        syncVocabCardsWithSupabase(user.id).catch((err) =>
+          console.warn("Background vocab sync on auth load failed:", err),
+        );
+
         const localCustom = getCustomPapers();
         // Backfill Markdown papers created before remote content fields existed.
         // This is the recovery path for the original browser's local copy.
@@ -422,9 +427,23 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         }
 
         // Merge userCustomPapers from Supabase with localCustom so parsedQuestions, markdownContent, and instructions are preserved
+        // NOTE: ucp (server source of truth) takes precedence for answer keys, explanations, and scoring rules so updates reflect immediately.
         const mergedUserCustom = userCustomPapers.map((ucp) => {
           const match = localCustom.find((lc) => lc.id === ucp.id);
-          return match
+          const resolvedAnswerKey =
+            Object.keys(ucp.answerKey || {}).length > 0
+              ? ucp.answerKey
+              : match?.answerKey || {};
+          const resolvedExplanations =
+            Object.keys(ucp.explanations || {}).length > 0
+              ? ucp.explanations
+              : match?.explanations || {};
+          const resolvedCorrectMarks =
+            Number(ucp.correctMarks ?? match?.correctMarks) || 2.0;
+          const resolvedIncorrectMarks =
+            Number(ucp.incorrectMarks ?? match?.incorrectMarks) || 0.667;
+
+          const mergedPaper: QuestionPaper = match
             ? {
                 ...match,
                 ...ucp,
@@ -437,16 +456,16 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
                   match.instructions && match.instructions.length > 0
                     ? match.instructions
                     : ucp.instructions,
-                answerKey:
-                  Object.keys(match.answerKey || {}).length > 0
-                    ? match.answerKey
-                    : ucp.answerKey,
-                explanations:
-                  Object.keys(match.explanations || {}).length > 0
-                    ? match.explanations
-                    : ucp.explanations,
+                answerKey: resolvedAnswerKey,
+                explanations: resolvedExplanations,
+                correctMarks: resolvedCorrectMarks,
+                incorrectMarks: resolvedIncorrectMarks,
               }
             : ucp;
+
+          // Keep local storage synchronized with fresh server data
+          saveCustomPaper(mergedPaper);
+          return mergedPaper;
         });
 
         // Also add any local custom papers not yet returned by Supabase

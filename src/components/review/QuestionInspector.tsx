@@ -1,28 +1,24 @@
 "use client";
 
-import React, { useState } from "react";
+import { useState } from "react";
 import {
   QuestionAnswer,
   ParsedQuestion,
   SubjectiveAssessment,
 } from "../../lib/types";
-import { formatTimeSeconds } from "../../lib/defaults";
 import { MatchingItemsTable } from "../MatchingItemsTable";
 import { SubjectiveAssessmentWidget } from "./SubjectiveAssessmentWidget";
 import {
   CheckCircle2,
   XCircle,
   Clock,
-  Sparkles,
   FileText,
   Lightbulb,
   Edit3,
   Check,
-  X,
   ChevronLeft,
   ChevronRight,
   RotateCcw,
-  AlertTriangle,
   Bookmark,
   ArrowRight,
   Eye,

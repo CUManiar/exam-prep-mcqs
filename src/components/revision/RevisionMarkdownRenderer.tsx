@@ -1,12 +1,9 @@
 "use client";
 
-import React, { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   AlertTriangle,
   Check,
-  ChevronDown,
-  ChevronRight,
-  Code2,
   Copy,
   Info,
   Layers,
@@ -14,7 +11,6 @@ import {
   Maximize2,
   RotateCcw,
   ShieldAlert,
-  Sparkles,
   X,
   ZoomIn,
   ZoomOut,

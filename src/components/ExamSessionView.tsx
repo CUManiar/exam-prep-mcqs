@@ -1,12 +1,6 @@
 "use client";
 
-import React, {
-  useState,
-  useEffect,
-  useCallback,
-  useMemo,
-  useRef,
-} from "react";
+import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { useRouter } from "next/navigation";
 import {
   QuestionPaper,
@@ -18,13 +12,13 @@ import {
 } from "../lib/types";
 import {
   formatTimeSeconds,
-  parseAnswerKeyText,
   parseAnswerKeyDetailed,
   getStandardTimeMinutes,
   getPaperDisplayTitle,
   getAttemptPercentage,
   getSubjectiveAssessmentFraction,
   SUBJECTIVE_ASSESSMENT_META,
+  isCsatPaper,
 } from "../lib/defaults";
 import {
   saveActiveDraft,
@@ -57,8 +51,6 @@ import {
   UploadCloud,
   FileUp,
   FileText,
-  FileSpreadsheet,
-  Trash2,
   Loader2,
   AlertTriangle,
   Bookmark,
@@ -72,7 +64,6 @@ import {
   RotateCcw,
   Lightbulb,
   Keyboard,
-  Sparkles,
 } from "lucide-react";
 
 interface ExamSessionViewProps {
@@ -886,21 +877,6 @@ export function ExamSessionView({
     });
   };
 
-  // Note change handler
-  const handleUpdateNote = (qNo: number, noteText: string) => {
-    markUserInteraction();
-    setAnswers((prev) => {
-      const current = prev[qNo] || { questionNo: qNo, selected: null };
-      return {
-        ...prev,
-        [qNo]: {
-          ...current,
-          note: noteText,
-        },
-      };
-    });
-  };
-
   // Keyboard navigation shortcuts for exam session
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -1380,11 +1356,30 @@ export function ExamSessionView({
         };
       }
 
+      const effectiveCorrectMarks =
+        Number(paper.correctMarks) > 0
+          ? Number(paper.correctMarks)
+          : paper.totalQuestions > 0 && Number(paper.totalMarks) > 0
+            ? Math.round((Number(paper.totalMarks) / paper.totalQuestions) * 1000) / 1000
+            : isCsatPaper(paper)
+              ? 2.5
+              : 2.0;
+
+      const effectiveIncorrectMarks =
+        paper.incorrectMarks !== undefined && Number(paper.incorrectMarks) >= 0
+          ? Number(paper.incorrectMarks)
+          : isCsatPaper(paper)
+            ? 0.833
+            : 0.667;
+
       const calculatedScore = isSubjective
         ? subjectiveScore
-        : correctCount * paper.correctMarks -
-          incorrectCount * paper.incorrectMarks;
-      const maxScore = paper.totalMarks;
+        : correctCount * effectiveCorrectMarks -
+          incorrectCount * effectiveIncorrectMarks;
+      const maxScore =
+        Number(paper.totalMarks) > 0
+          ? Number(paper.totalMarks)
+          : paper.totalQuestions * effectiveCorrectMarks;
       const accuracyPct =
         attemptedCount > 0
           ? (isSubjective
@@ -1415,9 +1410,9 @@ export function ExamSessionView({
         startedAt: new Date(Date.now() - elapsedSeconds * 1000).toISOString(),
         finishedAt: new Date().toISOString(),
         totalQuestions: paper.totalQuestions,
-        totalMarks: paper.totalMarks,
-        correctMarks: paper.correctMarks,
-        incorrectMarks: paper.incorrectMarks,
+        totalMarks: maxScore,
+        correctMarks: effectiveCorrectMarks,
+        incorrectMarks: effectiveIncorrectMarks,
         timeMinutes: timeLimitMinutes,
         durationSeconds: elapsedSeconds,
         idleTimeSeconds,

@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useMemo } from "react";
+import { useState, useEffect } from "react";
 import {
   CheckCircle2,
   Circle,
@@ -9,12 +9,8 @@ import {
   Flame,
   ListTodo,
   Plus,
-  RotateCcw,
-  Sparkles,
   Target,
   Trash2,
-  X,
-  Zap,
 } from "lucide-react";
 
 interface ReminderItem {

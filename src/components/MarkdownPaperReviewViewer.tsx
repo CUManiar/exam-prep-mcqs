@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useRef, useEffect, useState } from "react";
+import { useRef, useEffect, useState } from "react";
 import { QuestionPaper, ParsedQuestion, QuestionAnswer } from "../lib/types";
 import { ParsedMarkdownHeader } from "../lib/markdownPaperParser";
 import { MatchingItemsTable } from "./MatchingItemsTable";

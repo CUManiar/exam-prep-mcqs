@@ -329,12 +329,21 @@ export function parseMarkdownHeader(
       const instruction = stripMarkdownFormatting(bulletMatch[1]);
       if (instruction) instructions.push(instruction);
 
-      const positiveMatch = instruction.match(
-        /correct(?:\s+answer)?\s*:\s*\+?\s*([\d.]+)/i,
-      );
-      const negativeMatch = instruction.match(
-        /wrong\s+answer\s*:\s*[-−]?\s*([\d.]+)/i,
-      );
+      const positiveMatch =
+        instruction.match(/correct(?:\s+answer)?\s*:\s*\+?\s*([\d.]+)/i) ||
+        instruction.match(
+          /(?:each|every)\s+question\s+(?:carries|is\s+of)\s+([\d.]+)\s*marks?/i,
+        ) ||
+        instruction.match(/carries\s+([\d.]+)\s*marks?/i) ||
+        instruction.match(
+          /\+([\d.]+)\s*marks?\s*(?:per|for\s+each)\s+(?:correct\s+answer|question)/i,
+        );
+      const negativeMatch =
+        instruction.match(/wrong\s+answer\s*:\s*[-−]?\s*([\d.]+)/i) ||
+        instruction.match(
+          /(?:negative\s+marking|penalty)\s*:\s*[-−]?\s*([\d.]+)/i,
+        ) ||
+        instruction.match(/[-−]([\d.]+)\s*marks?\s*(?:per|for\s+each)\s+wrong/i);
       if (!result.positiveMarks && positiveMatch) {
         result.positiveMarks = parseFloat(positiveMatch[1]) || undefined;
       }
@@ -343,6 +352,17 @@ export function parseMarkdownHeader(
       }
       hasHeaderContent = true;
     }
+  }
+
+  // Fallback: derive positiveMarks from totalMarks and totalQuestions if not explicitly declared
+  if (
+    !result.positiveMarks &&
+    result.totalMarks &&
+    result.totalQuestions &&
+    result.totalQuestions > 0
+  ) {
+    result.positiveMarks =
+      Math.round((result.totalMarks / result.totalQuestions) * 1000) / 1000;
   }
 
   if (instructions.length > 0) result.instructions = instructions;

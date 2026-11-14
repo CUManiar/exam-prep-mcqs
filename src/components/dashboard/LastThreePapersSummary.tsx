@@ -1,23 +1,7 @@
 "use client";
-
-import React from "react";
 import { Attempt, QuestionPaper } from "../../lib/types";
-import { getAttemptPercentage, getPaperCutoffStatus } from "../../lib/defaults";
-import {
-  ArrowRight,
-  Award,
-  BookOpen,
-  CheckCircle2,
-  Clock,
-  ExternalLink,
-  Flame,
-  RotateCcw,
-  Sparkles,
-  Target,
-  TrendingDown,
-  TrendingUp,
-  XCircle,
-} from "lucide-react";
+import { getPaperCutoffStatus } from "../../lib/defaults";
+import { ArrowRight, Award, BookOpen, RotateCcw, Sparkles } from "lucide-react";
 
 interface LastThreePapersSummaryProps {
   attempts: Attempt[];
@@ -114,7 +98,6 @@ export function LastThreePapersSummary({
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           {lastThree.map((attempt, index) => {
             const matchedPaper = papers.find((p) => p.id === attempt.paperId);
-            const scorePercentage = getAttemptPercentage(attempt);
             const cutoffInfo = getPaperCutoffStatus(matchedPaper, attempt);
             const accuracy = Math.round(attempt.accuracyPct || 0);
 

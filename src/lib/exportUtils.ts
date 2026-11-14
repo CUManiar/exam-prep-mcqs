@@ -1,5 +1,5 @@
 import { Attempt, ParsedQuestion, QuestionPaper, SyllabusItem } from "./types";
-import { formatDateTime, formatTimeSeconds } from "./defaults";
+import { formatDateTime, formatTimeSeconds, isCsatPaper } from "./defaults";
 import { jsPDF } from "jspdf";
 import {
   parseMarkdownHeader,
@@ -143,8 +143,10 @@ function getExamStageDescription(attempt: Attempt): {
 export function generateAttemptSummaryMarkdown(attempt: Attempt): string {
   const { stageName, formatName } = getExamStageDescription(attempt);
 
-  const correctMarksPerQ = attempt.correctMarks || 2.0;
-  const incorrectMarksPerQ = attempt.incorrectMarks || 0.667;
+  const defaultCorrect = isCsatPaper(null, attempt) ? 2.5 : 2.0;
+  const defaultIncorrect = isCsatPaper(null, attempt) ? 0.833 : 0.667;
+  const correctMarksPerQ = attempt.correctMarks || defaultCorrect;
+  const incorrectMarksPerQ = attempt.incorrectMarks || defaultIncorrect;
   const grossMarks = ((attempt.correct || 0) * correctMarksPerQ).toFixed(2);
   const penaltyMarks = ((attempt.incorrect || 0) * incorrectMarksPerQ).toFixed(
     2,
@@ -393,8 +395,10 @@ export function generateAttemptSummaryMarkdown(attempt: Attempt): string {
  */
 export function generateAttemptReportMarkdown(attempt: Attempt): string {
   const summaryMarkdown = generateAttemptSummaryMarkdown(attempt);
-  const correctMarksPerQ = attempt.correctMarks || 2.0;
-  const incorrectMarksPerQ = attempt.incorrectMarks || 0.667;
+  const defaultCorrect = isCsatPaper(null, attempt) ? 2.5 : 2.0;
+  const defaultIncorrect = isCsatPaper(null, attempt) ? 0.833 : 0.667;
+  const correctMarksPerQ = attempt.correctMarks || defaultCorrect;
+  const incorrectMarksPerQ = attempt.incorrectMarks || defaultIncorrect;
 
   const lines: string[] = [
     summaryMarkdown,
@@ -476,8 +480,10 @@ export function exportAttemptAsPrintPDF(
         ? attempt.maxScore
         : 200;
 
-  const correctMarksPerQ = attempt.correctMarks || 2.0;
-  const incorrectMarksPerQ = attempt.incorrectMarks || 0.667;
+  const defaultCorrect = isCsatPaper(null, attempt) ? 2.5 : 2.0;
+  const defaultIncorrect = isCsatPaper(null, attempt) ? 0.833 : 0.667;
+  const correctMarksPerQ = attempt.correctMarks || defaultCorrect;
+  const incorrectMarksPerQ = attempt.incorrectMarks || defaultIncorrect;
   const grossCorrectMarks =
     Math.round(attempt.correct * correctMarksPerQ * 100) / 100;
   const negativePenaltyMarks =

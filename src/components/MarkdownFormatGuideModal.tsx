@@ -9,8 +9,6 @@ import {
   Sparkles,
   BookOpen,
   ArrowRight,
-  HelpCircle,
-  Download,
 } from "lucide-react";
 import {
   MARKDOWN_PAPER_TEMPLATE,

@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useMemo } from "react";
+import { useMemo } from "react";
 import { ActiveSessionDraft, Attempt, QuestionPaper } from "../lib/types";
 import { getAttemptPercentage } from "../lib/defaults";
 import {
@@ -8,15 +8,12 @@ import {
   AlertTriangle,
   BarChart3,
   BookOpen,
-  CheckCircle2,
   Clock3,
   FileCheck2,
   Flame,
   RotateCcw,
-  Sparkles,
   Target,
   Trash2,
-  TrendingUp,
 } from "lucide-react";
 import { PageHeader } from "./PageHeader";
 import { DailyMotivationQuote } from "./dashboard/DailyMotivationQuote";

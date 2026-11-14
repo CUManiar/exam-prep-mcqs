@@ -1,5 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { RevisionProviderConfig } from "../../../lib/types";
+import { getAuthenticatedUser } from "@/lib/apiSecurity";
+import {
+  getUserProfile,
+  saveUserVocabCardsToSupabase,
+} from "../../../lib/supabase";
 
 export const runtime = "nodejs";
 
@@ -84,7 +89,9 @@ async function discoverOpenAIModels(apiKey: string): Promise<string[]> {
         .map((m: any) => m.id as string)
         .filter(
           (id: string) =>
-            (id.startsWith("gpt-") || id.startsWith("o1") || id.startsWith("o3")) &&
+            (id.startsWith("gpt-") ||
+              id.startsWith("o1") ||
+              id.startsWith("o3")) &&
             !id.includes("instruct") &&
             !id.includes("realtime") &&
             !id.includes("audio"),
@@ -119,7 +126,9 @@ async function discoverAnthropicModels(apiKey: string): Promise<string[]> {
     });
     if (res.ok) {
       const data = await res.json();
-      const models: string[] = (data.data || []).map((m: any) => m.id as string);
+      const models: string[] = (data.data || []).map(
+        (m: any) => m.id as string,
+      );
       models.sort((a, b) => {
         const score = (id: string) => {
           if (id.includes("haiku")) return 20;
@@ -207,7 +216,10 @@ async function callOpenAICompatibleWithFallback(
 
       // If rejected due to response_format not supported, retry model without response_format
       if (res.status === 400) {
-        const errJson = await res.clone().json().catch(() => ({}));
+        const errJson = await res
+          .clone()
+          .json()
+          .catch(() => ({}));
         const errMsg = (errJson.error?.message || "").toLowerCase();
         if (
           errMsg.includes("response_format") ||
@@ -297,7 +309,8 @@ async function callFreePollinations(prompt: string): Promise<string> {
       messages: [
         {
           role: "system",
-          content: "You are an expert tutor. Always respond ONLY with valid JSON.",
+          content:
+            "You are an expert tutor. Always respond ONLY with valid JSON.",
         },
         { role: "user", content: prompt },
       ],
@@ -353,9 +366,12 @@ async function executePrompt(
         const discovered = await discoverOpenAIModels(userApiKey);
         const candidates = Array.from(
           new Set(
-            [providerConfig?.model, ...discovered, "gpt-4o-mini", "gpt-4o"].filter(
-              Boolean,
-            ) as string[],
+            [
+              providerConfig?.model,
+              ...discovered,
+              "gpt-4o-mini",
+              "gpt-4o",
+            ].filter(Boolean) as string[],
           ),
         );
         return await callOpenAICompatibleWithFallback(
@@ -400,6 +416,28 @@ async function executePrompt(
   return await callFreePollinations(prompt);
 }
 
+export async function GET(req: NextRequest) {
+  try {
+    const user = await getAuthenticatedUser(req);
+    if (!user) {
+      return NextResponse.json(
+        { ok: false, error: "Unauthorized" },
+        { status: 401 },
+      );
+    }
+    const profile = await getUserProfile(user.id);
+    return NextResponse.json({
+      ok: true,
+      cards: Array.isArray(profile?.vocab_cards) ? profile.vocab_cards : [],
+    });
+  } catch (err: any) {
+    return NextResponse.json(
+      { ok: false, error: err.message },
+      { status: 500 },
+    );
+  }
+}
+
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
@@ -409,10 +447,30 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Missing action." }, { status: 400 });
     }
 
+    // 0. ACTION: SYNC (Save/Update user vocab cards in Supabase)
+    if (action === "sync") {
+      const user = await getAuthenticatedUser(req);
+      if (!user) {
+        return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      }
+      const { cards } = body;
+      if (Array.isArray(cards)) {
+        await saveUserVocabCardsToSupabase(user.id, cards);
+        return NextResponse.json({ success: true, cards });
+      }
+      return NextResponse.json(
+        { error: "Invalid cards array." },
+        { status: 400 },
+      );
+    }
+
     // 1. ACTION: ENRICH (Student entered ONLY the word -> make flashcard)
     if (action === "enrich") {
       if (!word || !word.trim()) {
-        return NextResponse.json({ error: "Please provide a word." }, { status: 400 });
+        return NextResponse.json(
+          { error: "Please provide a word." },
+          { status: 400 },
+        );
       }
 
       const prompt = `You are an expert vocabulary coach for serious students preparing for competitive exams and academic writing.
@@ -435,7 +493,10 @@ Respond ONLY with a JSON object in this exact format:
     // 2. ACTION: GENERATE PRACTICE (Statement with blank for word identification)
     if (action === "generate_practice") {
       if (!word || !word.trim()) {
-        return NextResponse.json({ error: "Please provide a word." }, { status: 400 });
+        return NextResponse.json(
+          { error: "Please provide a word." },
+          { status: 400 },
+        );
       }
 
       const prompt = `You are creating a quick vocabulary practice question.
@@ -457,7 +518,9 @@ Respond ONLY with a JSON object in this exact format:
       const parsed = parseJsonFromText(raw);
       if (
         Array.isArray(parsed.options) &&
-        !parsed.options.some((o: string) => o.toLowerCase() === word.toLowerCase())
+        !parsed.options.some(
+          (o: string) => o.toLowerCase() === word.toLowerCase(),
+        )
       ) {
         parsed.options[0] = word;
       }
@@ -467,7 +530,10 @@ Respond ONLY with a JSON object in this exact format:
     // 3. ACTION: EVALUATE SENTENCE (Student wrote a sentence from their word)
     if (action === "evaluate_sentence") {
       if (!word || !sentence) {
-        return NextResponse.json({ error: "Missing word or sentence." }, { status: 400 });
+        return NextResponse.json(
+          { error: "Missing word or sentence." },
+          { status: 400 },
+        );
       }
 
       const prompt = `The student was challenged to form an original sentence using the word "${word.trim()}".

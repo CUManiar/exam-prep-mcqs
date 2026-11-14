@@ -1,6 +1,4 @@
 "use client";
-
-import React from "react";
 import { usePathname } from "next/navigation";
 import { AppProvider } from "../context/AppContext";
 import { Navbar } from "./Navbar";

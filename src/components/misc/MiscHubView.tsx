@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import { useState, useEffect } from "react";
 import { VocabCard } from "../../lib/vocabTypes";
 import {
   getStoredVocabCards,
@@ -8,7 +8,10 @@ import {
   toggleVocabMastery,
   deleteVocabCard,
   getTodayVocabCount,
+  syncVocabCardsWithSupabase,
+  getTodayString,
 } from "../../lib/vocabStorage";
+import { useApp } from "../../context/AppContext";
 import { VocabInputBar } from "../vocab/VocabInputBar";
 import { VocabFlashcard } from "../vocab/VocabFlashcard";
 import { WordPracticeView } from "../vocab/WordPracticeView";
@@ -20,22 +23,49 @@ import {
   CheckCircle2,
   Calendar,
   Layers,
-  Timer,
   Zap,
+  Cloud,
+  Loader2,
 } from "lucide-react";
 
 export function MiscHubView() {
-  const [activeTab, setActiveTab] = useState<"cards" | "practice" | "game">("cards");
-  const [cards, setCards] = useState<VocabCard[]>([]);
-  const [todayCount, setTodayCount] = useState(0);
-  const [filter, setFilter] = useState<"all" | "today" | "learning" | "mastered">("all");
+  const { currentUser } = useApp();
+  const [activeTab, setActiveTab] = useState<"cards" | "practice" | "game">(
+    "cards",
+  );
+  const [cards, setCards] = useState<VocabCard[]>(() =>
+    getStoredVocabCards(currentUser?.id),
+  );
+  const [todayCount, setTodayCount] = useState<number>(() =>
+    getTodayVocabCount(currentUser?.id),
+  );
+  const [filter, setFilter] = useState<
+    "all" | "today" | "learning" | "mastered"
+  >("all");
   const [practiceWord, setPracticeWord] = useState<string | null>(null);
+  const [isSyncing, setIsSyncing] = useState<boolean>(false);
 
   useEffect(() => {
-    const loaded = getStoredVocabCards();
-    setCards(loaded);
-    setTodayCount(getTodayVocabCount());
-  }, []);
+    if (currentUser?.id) {
+      setIsSyncing(true);
+      syncVocabCardsWithSupabase(currentUser.id)
+        .then((synced) => {
+          setCards(synced);
+          const today = getTodayString();
+          setTodayCount(synced.filter((c) => c.dateAdded === today).length);
+        })
+        .catch((err) => {
+          console.warn("Failed syncing vocab cards on Misc mount:", err);
+        })
+        .finally(() => {
+          setIsSyncing(false);
+        });
+    } else {
+      const loaded = getStoredVocabCards();
+      setCards(loaded);
+      setTodayCount(getTodayVocabCount());
+    }
+  }, [currentUser?.id]);
 
   const handleWordAdded = (newWordData: {
     word: string;
@@ -43,20 +73,21 @@ export function MiscHubView() {
     memoryHook: string;
     example: string;
   }) => {
-    addVocabCard(newWordData);
-    setCards(getStoredVocabCards());
-    setTodayCount(getTodayVocabCount());
+    addVocabCard(newWordData, currentUser?.id);
+    const updated = getStoredVocabCards(currentUser?.id);
+    setCards(updated);
+    setTodayCount(getTodayVocabCount(currentUser?.id));
   };
 
   const handleToggleMastery = (id: string) => {
-    const updated = toggleVocabMastery(id);
+    const updated = toggleVocabMastery(id, currentUser?.id);
     setCards(updated);
   };
 
   const handleDelete = (id: string) => {
-    const updated = deleteVocabCard(id);
+    const updated = deleteVocabCard(id, currentUser?.id);
     setCards(updated);
-    setTodayCount(getTodayVocabCount());
+    setTodayCount(getTodayVocabCount(currentUser?.id));
   };
 
   const handlePracticeCard = (word: string) => {
@@ -85,9 +116,29 @@ export function MiscHubView() {
             <h1 className="text-lg sm:text-2xl font-semibold text-slate-900 dark:text-white">
               Study Aids & Misc.
             </h1>
+            {currentUser && (
+              <span
+                className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-medium bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300 border border-emerald-200/80 dark:border-emerald-800/60"
+                title="Your vocab cards are backed up and synced to your account"
+              >
+                {isSyncing ? (
+                  <>
+                    <Loader2 className="w-3 h-3 animate-spin text-emerald-600 dark:text-emerald-400" />
+                    <span>Syncing...</span>
+                  </>
+                ) : (
+                  <>
+                    <Cloud className="w-3 h-3 text-emerald-600 dark:text-emerald-400" />
+                    <span>Cloud Synced</span>
+                  </>
+                )}
+              </span>
+            )}
           </div>
           <p className="text-xs sm:text-sm text-slate-500 dark:text-slate-400 mt-1">
-            Build high-retention vocabulary at 4–5 words a day. Feed only the word — AI creates memory hooks, flashcards & 2-min rapid recall games.
+            Build high-retention vocabulary at 4–5 words a day. Feed only the
+            word — AI creates memory hooks, flashcards & 2-min rapid recall
+            games.
           </p>
         </div>
 
@@ -138,7 +189,10 @@ export function MiscHubView() {
       {activeTab === "cards" && (
         <div className="space-y-4 sm:space-y-5">
           {/* Quick Input Bar */}
-          <VocabInputBar onWordAdded={handleWordAdded} todayCount={todayCount} />
+          <VocabInputBar
+            onWordAdded={handleWordAdded}
+            todayCount={todayCount}
+          />
 
           {/* Filter Chips and Quick Game Icon */}
           {cards.length > 0 && (
@@ -189,7 +243,8 @@ export function MiscHubView() {
                       : "bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 hover:bg-slate-200"
                   }`}
                 >
-                  <CheckCircle2 className="w-3 h-3" /> Mastered ({cards.filter((c) => c.mastered).length})
+                  <CheckCircle2 className="w-3 h-3" /> Mastered (
+                  {cards.filter((c) => c.mastered).length})
                 </button>
               </div>
 
@@ -260,10 +315,7 @@ export function MiscHubView() {
 
       {/* TAB 3: 2-MINUTE BLITZ GAME MODE */}
       {activeTab === "game" && (
-        <VocabGameMode
-          cards={cards}
-          onExitGame={() => setActiveTab("cards")}
-        />
+        <VocabGameMode cards={cards} onExitGame={() => setActiveTab("cards")} />
       )}
     </div>
   );

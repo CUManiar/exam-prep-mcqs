@@ -1,7 +1,11 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
-import { VocabCard, PracticeQuestion, SentenceEvaluationResponse } from "../../lib/vocabTypes";
+import { useState, useEffect } from "react";
+import {
+  VocabCard,
+  PracticeQuestion,
+  SentenceEvaluationResponse,
+} from "../../lib/vocabTypes";
 import { getRevisionConfig } from "../../lib/revisionAi";
 import {
   HelpCircle,
@@ -30,7 +34,8 @@ export function WordPracticeView({
 
   // State for Mode 1: Identify Word
   const [currentCardIndex, setCurrentCardIndex] = useState(0);
-  const [practiceQuestion, setPracticeQuestion] = useState<PracticeQuestion | null>(null);
+  const [practiceQuestion, setPracticeQuestion] =
+    useState<PracticeQuestion | null>(null);
   const [selectedOption, setSelectedOption] = useState<string | null>(null);
   const [isAnswerRevealed, setIsAnswerRevealed] = useState(false);
   const [loadingQuestion, setLoadingQuestion] = useState(false);
@@ -100,7 +105,10 @@ export function WordPracticeView({
         cardId: targetCard.id,
         word: targetCard.word,
         statementWithBlank: targetCard.example
-          ? targetCard.example.replace(new RegExp(targetCard.word, "gi"), "_____")
+          ? targetCard.example.replace(
+              new RegExp(targetCard.word, "gi"),
+              "_____",
+            )
           : `The concept of _____ is relevant to: ${targetCard.meaning}`,
         options: [
           targetCard.word,
@@ -157,7 +165,8 @@ export function WordPracticeView({
     } catch (err: any) {
       setSentenceEvalResult({
         isNatural: true,
-        feedback: "Sentence submitted! Keep practicing daily to sharpen your vocabulary.",
+        feedback:
+          "Sentence submitted! Keep practicing daily to sharpen your vocabulary.",
       });
     } finally {
       setEvaluatingSentence(false);
@@ -166,7 +175,8 @@ export function WordPracticeView({
 
   const handleNextFormWord = () => {
     if (cards.length === 0) return;
-    const nextIdx = (cards.findIndex((c) => c.id === formWordCard?.id) + 1) % cards.length;
+    const nextIdx =
+      (cards.findIndex((c) => c.id === formWordCard?.id) + 1) % cards.length;
     setFormWordCard(cards[nextIdx]);
     setStudentSentence("");
     setSentenceEvalResult(null);
@@ -180,7 +190,8 @@ export function WordPracticeView({
           No words in your practice list yet
         </h3>
         <p className="text-xs text-slate-500 dark:text-slate-400 max-w-md mx-auto mt-1 leading-relaxed">
-          Add at least 1–2 words you found hard in the Vocab tab above. Once added, you can practice them here with instant AI feedback!
+          Add at least 1–2 words you found hard in the Vocab tab above. Once
+          added, you can practice them here with instant AI feedback!
         </p>
       </div>
     );
@@ -237,7 +248,9 @@ export function WordPracticeView({
           {loadingQuestion ? (
             <div className="py-10 flex flex-col items-center justify-center text-slate-400">
               <Loader2 className="w-6 h-6 animate-spin text-indigo-600 mb-2" />
-              <p className="text-xs font-normal">Generating context sentence...</p>
+              <p className="text-xs font-normal">
+                Generating context sentence...
+              </p>
             </div>
           ) : practiceQuestion ? (
             <div className="space-y-4">
@@ -256,7 +269,8 @@ export function WordPracticeView({
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
                 {practiceQuestion.options?.map((option) => {
                   const isCorrect =
-                    option.toLowerCase() === practiceQuestion.word.toLowerCase();
+                    option.toLowerCase() ===
+                    practiceQuestion.word.toLowerCase();
                   const isSelected = selectedOption === option;
 
                   let btnStyle =
@@ -270,7 +284,8 @@ export function WordPracticeView({
                       btnStyle =
                         "border-rose-400 bg-rose-50 dark:bg-rose-950/50 text-rose-800 dark:text-rose-200 line-through";
                     } else {
-                      btnStyle = "opacity-40 border-slate-200 dark:border-slate-800";
+                      btnStyle =
+                        "opacity-40 border-slate-200 dark:border-slate-800";
                     }
                   }
 
@@ -285,7 +300,9 @@ export function WordPracticeView({
                       }}
                       className={`min-h-[46px] p-3 rounded-xl border text-sm font-normal transition-all text-left flex items-center justify-between active:scale-[0.98] touch-manipulation cursor-pointer ${btnStyle}`}
                     >
-                      <span className="capitalize break-words hyphens-auto pr-2">{option}</span>
+                      <span className="capitalize break-words hyphens-auto pr-2">
+                        {option}
+                      </span>
                       {isAnswerRevealed && isCorrect && (
                         <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
                       )}
@@ -300,7 +317,8 @@ export function WordPracticeView({
               {isAnswerRevealed && (
                 <div className="pt-2 flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-t border-slate-100 dark:border-slate-800">
                   <span className="text-xs text-slate-600 dark:text-slate-400 leading-snug">
-                    {selectedOption?.toLowerCase() === practiceQuestion.word.toLowerCase()
+                    {selectedOption?.toLowerCase() ===
+                    practiceQuestion.word.toLowerCase()
                       ? "🎉 Spot on! Great context recognition."
                       : `The correct word was "${practiceQuestion.word}".`}
                   </span>
@@ -363,7 +381,8 @@ export function WordPracticeView({
 
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
               <span className="text-[11px] text-slate-400">
-                AI evaluates your grammar, nuance, and gives an editorial upgrade.
+                AI evaluates your grammar, nuance, and gives an editorial
+                upgrade.
               </span>
               <button
                 type="submit"

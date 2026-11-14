@@ -1,7 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import fs from "node:fs";
-import path from "node:path";
-import { QuestionPaper, ExamCategory, ExamType } from "../../../lib/types";
+import { QuestionPaper } from "../../../lib/types";
 import {
   INITIAL_PAPERS,
   getStandardTimeMinutes,
@@ -9,7 +7,6 @@ import {
 } from "../../../lib/defaults";
 import {
   readJsonStore,
-  writeJsonStore,
   isBlobEnabled,
   getAppEnvironment,
   isProdEnv,
@@ -17,24 +14,6 @@ import {
   getBlobToken,
 } from "@/lib/cloudStorage";
 import { getAuthenticatedUser } from "@/lib/apiSecurity";
-
-const DATA_DIR = path.join(process.cwd(), "public", "data");
-
-function parseAnswerKeyFile(filePath: string): Record<number, string> {
-  const answers: Record<number, string> = {};
-  try {
-    if (!fs.existsSync(filePath)) return answers;
-    const content = fs.readFileSync(filePath, "utf8");
-    const lines = content.split("\n");
-    for (const line of lines) {
-      const m = line.trim().match(/^(\d+)[\.\)\s\-\:]+([A-Da-d])/);
-      if (m) answers[parseInt(m[1])] = m[2].toUpperCase();
-    }
-  } catch (err) {
-    console.error("Failed to parse answer key:", err);
-  }
-  return answers;
-}
 
 export async function GET(req: NextRequest) {
   try {
@@ -66,7 +45,7 @@ export async function GET(req: NextRequest) {
               const localMeta = await readJsonStore<
                 Record<string, QuestionPaper>
               >("papers.json", {});
-              for (const [id, paper] of Object.entries(localMeta)) {
+              for (const paper of Object.values(localMeta)) {
                 if (
                   paper &&
                   paper.id &&
@@ -114,7 +93,7 @@ export async function GET(req: NextRequest) {
     const allPapers: QuestionPaper[] = [];
 
     // 2. Add valid papers from customMeta (user uploads)
-    for (const [id, paper] of Object.entries(customMeta)) {
+    for (const paper of Object.values(customMeta)) {
       if (paper && paper.id && paper.qpUrl && paper.userId === user?.id) {
         if (
           !paper.label ||

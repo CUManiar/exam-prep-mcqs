@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { WebStandardStreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/webStandardStreamableHttp.js";
 import { createPortalMcpServer } from "../../lib/mcpServer";
-import { getMcpResourceUrl, noStoreHeaders } from "../../lib/mcpProtocol";
+import { noStoreHeaders } from "../../lib/mcpProtocol";
 import { verifyMcpAccessToken } from "../../lib/mcpAuth";
 
 export const runtime = "nodejs";

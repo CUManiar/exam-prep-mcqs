@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import { useState } from "react";
 import { VocabCard } from "../../lib/vocabTypes";
 import { VocabInfographicModal } from "./VocabInfographicModal";
 import {
