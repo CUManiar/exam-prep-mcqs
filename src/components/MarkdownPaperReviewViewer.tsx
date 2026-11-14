@@ -19,6 +19,9 @@ import {
   RotateCcw,
   Sparkles,
   History,
+  Grid3X3,
+  ChevronLeft,
+  ChevronRight,
 } from "lucide-react";
 import { HtmlExplanation } from "./HtmlExplanation";
 
@@ -52,6 +55,80 @@ export function MarkdownPaperReviewViewer({
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const [viewMode, setViewMode] = useState<"all" | "single">("all");
   const [showPaperDetails, setShowPaperDetails] = useState<boolean>(false);
+  const [isPaletteOpen, setIsPaletteOpen] = useState<boolean>(false);
+
+  const touchStartRef = useRef<{ x: number; y: number; time: number } | null>(
+    null,
+  );
+
+  const currentIndex = questions.findIndex(
+    (q) =>
+      q.questionNo === (activeQuestionNo || (questions[0]?.questionNo ?? 1)),
+  );
+
+  const handleNextQuestion = () => {
+    if (currentIndex >= 0 && currentIndex < questions.length - 1) {
+      onSelectQuestion?.(questions[currentIndex + 1].questionNo);
+    }
+  };
+
+  const handlePrevQuestion = () => {
+    if (currentIndex > 0) {
+      onSelectQuestion?.(questions[currentIndex - 1].questionNo);
+    }
+  };
+
+  const handleTouchStart = (e: React.TouchEvent) => {
+    const target = e.target as HTMLElement;
+    if (
+      target &&
+      (target.tagName === "INPUT" ||
+        target.tagName === "TEXTAREA" ||
+        target.isContentEditable)
+    ) {
+      return;
+    }
+    const touch = e.touches[0];
+    touchStartRef.current = {
+      x: touch.clientX,
+      y: touch.clientY,
+      time: Date.now(),
+    };
+  };
+
+  const handleTouchEnd = (e: React.TouchEvent) => {
+    if (!touchStartRef.current) return;
+    const touch = e.changedTouches[0];
+    const deltaX = touch.clientX - touchStartRef.current.x;
+    const deltaY = touch.clientY - touchStartRef.current.y;
+    const deltaTime = Date.now() - touchStartRef.current.time;
+    touchStartRef.current = null;
+
+    if (
+      deltaTime < 650 &&
+      Math.abs(deltaX) > 45 &&
+      Math.abs(deltaX) > Math.abs(deltaY) * 1.3
+    ) {
+      if (deltaX < 0) {
+        handleNextQuestion();
+      } else {
+        handlePrevQuestion();
+      }
+    }
+  };
+
+  const correctCount = questions.filter(
+    (q) => answers[q.questionNo]?.isCorrect === true,
+  ).length;
+  const wrongCount = questions.filter(
+    (q) => answers[q.questionNo]?.isCorrect === false,
+  ).length;
+  const skippedCount = questions.filter(
+    (q) => !answers[q.questionNo]?.selected?.trim(),
+  ).length;
+  const flaggedCount = questions.filter(
+    (q) => Boolean(answers[q.questionNo]?.flagged),
+  ).length;
 
   // Auto-scroll to selected question inside the paper container only (never scrolling the window)
   useEffect(() => {
@@ -115,30 +192,20 @@ export function MarkdownPaperReviewViewer({
             ))}
           </div>
 
-          {/* Quick Question Jump Dropdown */}
+          {/* Question Palette Trigger Button */}
           {questions.length > 0 && (
-            <select
-              value={activeQuestionNo || ""}
-              onChange={(e) => {
-                const val = parseInt(e.target.value, 10);
-                if (!isNaN(val)) {
-                  onSelectQuestion?.(val);
-                }
-              }}
-              aria-label="Jump to Question"
-              className="text-xs font-medium bg-white border border-slate-200 rounded-lg px-2 py-1 text-slate-700 hover:bg-slate-50 cursor-pointer transition-colors"
+            <button
+              type="button"
+              onClick={() => setIsPaletteOpen(true)}
+              className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg border border-indigo-200 bg-indigo-50/90 hover:bg-indigo-100 text-indigo-700 text-xs font-bold transition-all shadow-2xs cursor-pointer"
+              title="Open Visual Question Palette"
             >
-              <option value="">Jump to Q...</option>
-              {questions.map((q) => {
-                const ans = answers[q.questionNo];
-                const marker = ans?.isCorrect ? "✓" : ans?.selected ? "✗" : "○";
-                return (
-                  <option key={q.questionNo} value={q.questionNo}>
-                    Q{q.questionNo} {marker}
-                  </option>
-                );
-              })}
-            </select>
+              <Grid3X3 className="h-3.5 w-3.5 text-indigo-600" />
+              <span>
+                {activeQuestionNo ? `Q${activeQuestionNo}` : "Palette"} (
+                {questions.length})
+              </span>
+            </button>
           )}
 
           {onClose && (
@@ -154,9 +221,11 @@ export function MarkdownPaperReviewViewer({
         </div>
       </div>
 
-      {/* 2. Scrollable Paper Body */}
+      {/* 2. Scrollable Paper Body with Touch Swipe Listener */}
       <div
         ref={scrollContainerRef}
+        onTouchStart={handleTouchStart}
+        onTouchEnd={handleTouchEnd}
         className="flex-1 overflow-y-auto p-3.5 sm:p-5 space-y-4 bg-slate-100/60"
       >
         {/* Exam Header & Rules (Collapsible, collapsed by default to save vertical space) */}
@@ -526,7 +595,163 @@ export function MarkdownPaperReviewViewer({
             );
           })
         )}
+
+        {/* Sticky Question Navigator for Single Question Mode */}
+        {viewMode === "single" && questions.length > 0 && (
+          <div className="sticky bottom-0 z-20 -mx-3.5 -mb-3.5 sm:-mx-5 sm:-mb-5 p-2.5 sm:p-3 bg-white/95 backdrop-blur-xs border-t border-slate-200 flex items-center justify-between gap-2 shadow-md">
+            <button
+              type="button"
+              disabled={currentIndex <= 0}
+              onClick={handlePrevQuestion}
+              className="flex items-center gap-1 px-3 py-1.5 rounded-xl border border-slate-200 bg-white text-xs font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-40 disabled:pointer-events-none transition-colors cursor-pointer"
+            >
+              <ChevronLeft className="h-4 w-4" />
+              <span className="hidden sm:inline">Previous</span>
+              <span className="sm:hidden">Prev</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setIsPaletteOpen(true)}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-indigo-50 border border-indigo-200 text-indigo-700 text-xs font-bold hover:bg-indigo-100 transition-colors shadow-2xs cursor-pointer"
+            >
+              <Grid3X3 className="h-3.5 w-3.5" />
+              <span>
+                Q{activeQuestionNo || 1} of {questions.length}
+              </span>
+            </button>
+
+            <button
+              type="button"
+              disabled={currentIndex >= questions.length - 1}
+              onClick={handleNextQuestion}
+              className="flex items-center gap-1 px-3 py-1.5 rounded-xl bg-indigo-600 text-xs font-semibold text-white hover:bg-indigo-700 disabled:opacity-40 disabled:pointer-events-none transition-colors shadow-xs cursor-pointer"
+            >
+              <span className="hidden sm:inline">Next Question</span>
+              <span className="sm:hidden">Next</span>
+              <ChevronRight className="h-4 w-4" />
+            </button>
+          </div>
+        )}
       </div>
+
+      {/* Visual Question Palette Drawer / Bottom Sheet */}
+      {isPaletteOpen && (
+        <div className="fixed inset-0 z-50 flex flex-col justify-end lg:justify-center lg:items-center">
+          {/* Backdrop */}
+          <div
+            className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs transition-opacity"
+            onClick={() => setIsPaletteOpen(false)}
+          />
+
+          {/* Modal / Sheet Container */}
+          <div className="relative z-10 flex max-h-[85vh] lg:max-h-[80vh] w-full lg:max-w-xl flex-col rounded-t-3xl lg:rounded-3xl bg-white shadow-2xl animate-in slide-in-from-bottom duration-200">
+            {/* Header */}
+            <div className="flex items-center justify-between border-b border-slate-100 px-4 py-3">
+              <div className="flex items-center gap-2">
+                <Grid3X3 className="h-4 w-4 text-indigo-600" />
+                <h3 className="text-sm font-bold text-slate-900">
+                  Question Palette ({questions.length} Questions)
+                </h3>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsPaletteOpen(false)}
+                className="rounded-full p-1.5 text-slate-400 hover:bg-slate-100 hover:text-slate-600"
+                aria-label="Close palette"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+
+            {/* Status Legend */}
+            <div className="flex items-center gap-3 overflow-x-auto border-b border-slate-100 px-4 py-2 text-[11px] font-medium text-slate-600 shrink-0">
+              <span className="inline-flex items-center gap-1 shrink-0">
+                <span className="h-2.5 w-2.5 rounded-full bg-emerald-600" />
+                Correct ({correctCount})
+              </span>
+              <span className="inline-flex items-center gap-1 shrink-0">
+                <span className="h-2.5 w-2.5 rounded-full bg-rose-600" />
+                Mistakes ({wrongCount})
+              </span>
+              <span className="inline-flex items-center gap-1 shrink-0">
+                <span className="h-2.5 w-2.5 rounded-full bg-slate-400" />
+                Skipped ({skippedCount})
+              </span>
+              {flaggedCount > 0 && (
+                <span className="inline-flex items-center gap-1 shrink-0">
+                  <span className="h-2.5 w-2.5 rounded-full bg-amber-500" />
+                  Flagged ({flaggedCount})
+                </span>
+              )}
+            </div>
+
+            {/* Question Grid */}
+            <div className="overflow-y-auto p-4 max-h-[55vh]">
+              <div className="grid grid-cols-5 xs:grid-cols-6 sm:grid-cols-8 gap-2">
+                {questions.map((q) => {
+                  const ans = answers[q.questionNo];
+                  const isCur = activeQuestionNo === q.questionNo;
+                  const isAnswered = Boolean(ans?.selected?.trim());
+                  const isCorrect = isAnswered && ans?.isCorrect === true;
+                  const isWrong = isAnswered && ans?.isCorrect === false;
+                  const isFlagged = Boolean(ans?.flagged);
+
+                  let badgeColor =
+                    "bg-slate-100 text-slate-600 border-slate-200 hover:bg-slate-200";
+
+                  if (isCorrect) {
+                    badgeColor =
+                      "bg-emerald-600 text-white border-emerald-600 font-bold shadow-xs";
+                  } else if (isWrong) {
+                    badgeColor =
+                      "bg-rose-600 text-white border-rose-600 font-bold shadow-xs";
+                  } else if (isAnswered) {
+                    badgeColor =
+                      "bg-indigo-600 text-white border-indigo-600 font-bold";
+                  }
+
+                  if (isCur) {
+                    badgeColor +=
+                      " ring-2 ring-indigo-600 ring-offset-2 scale-105 font-black";
+                  }
+
+                  return (
+                    <button
+                      key={q.questionNo}
+                      type="button"
+                      onClick={() => {
+                        onSelectQuestion?.(q.questionNo);
+                        setIsPaletteOpen(false);
+                      }}
+                      className={`relative flex h-11 items-center justify-center rounded-xl border text-xs transition-all ${badgeColor}`}
+                    >
+                      <span>{q.questionNo}</span>
+                      {isFlagged && (
+                        <span className="absolute top-1 right-1 h-2 w-2 rounded-full bg-amber-400 ring-1 ring-white" />
+                      )}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* Footer */}
+            <div className="flex items-center justify-between border-t border-slate-100 px-4 py-3 bg-slate-50 rounded-b-3xl">
+              <span className="text-xs text-slate-500">
+                Tap any question to review
+              </span>
+              <button
+                type="button"
+                onClick={() => setIsPaletteOpen(false)}
+                className="rounded-xl bg-indigo-600 px-4 py-1.5 text-xs font-bold text-white shadow-xs hover:bg-indigo-700"
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
