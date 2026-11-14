@@ -68,6 +68,8 @@ export function MainsEvaluationView() {
   const [optionalSubject, setOptionalSubject] = useState("");
   const [maxMarks, setMaxMarks] = useState<10 | 15 | 20>(10);
   const [uploadedImages, setUploadedImages] = useState<Array<{ mimeType: string; data: string; name: string }>>([]);
+  const [isDragging, setIsDragging] = useState(false);
+  const [isProcessingFiles, setIsProcessingFiles] = useState(false);
 
   // Processing & evaluation state
   const [isLoading, setIsLoading] = useState(false);
@@ -154,26 +156,115 @@ export function MainsEvaluationView() {
     }
   };
 
+  // Helper to load PDF.js dynamically
+  const loadPdfJs = async (): Promise<any> => {
+    if (typeof window === "undefined") return null;
+    if ((window as any).pdfjsLib) return (window as any).pdfjsLib;
+
+    return new Promise((resolve) => {
+      const existing = document.querySelector('script[src="/vendor/pdfjs/pdf.min.js"]');
+      if (existing) {
+        existing.addEventListener("load", () => {
+          const lib = (window as any).pdfjsLib;
+          if (lib) lib.GlobalWorkerOptions.workerSrc = "/vendor/pdfjs/pdf.worker.min.js";
+          resolve(lib || null);
+        });
+        return;
+      }
+      const script = document.createElement("script");
+      script.src = "/vendor/pdfjs/pdf.min.js";
+      script.onload = () => {
+        const lib = (window as any).pdfjsLib;
+        if (lib) {
+          lib.GlobalWorkerOptions.workerSrc = "/vendor/pdfjs/pdf.worker.min.js";
+        }
+        resolve(lib || null);
+      };
+      script.onerror = () => resolve(null);
+      document.head.appendChild(script);
+    });
+  };
+
+  const processIncomingFiles = async (files: File[]) => {
+    if (!files || files.length === 0) return;
+    setIsProcessingFiles(true);
+    setInputMode("upload");
+    setErrorMsg(null);
+
+    const newAttachments: Array<{ mimeType: string; data: string; name: string }> = [];
+
+    for (const file of files) {
+      const isPdf =
+        file.type === "application/pdf" || file.name.toLowerCase().endsWith(".pdf");
+
+      if (isPdf) {
+        try {
+          const pdfjsLib = await loadPdfJs();
+          if (pdfjsLib) {
+            const arrayBuffer = await file.arrayBuffer();
+            const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+
+            for (let pageNum = 1; pageNum <= pdf.numPages; pageNum++) {
+              const page = await pdf.getPage(pageNum);
+              const viewport = page.getViewport({ scale: 1.5 });
+              const canvas = document.createElement("canvas");
+              canvas.width = Math.ceil(viewport.width);
+              canvas.height = Math.ceil(viewport.height);
+              const ctx = canvas.getContext("2d");
+              if (ctx) {
+                await page.render({ canvasContext: ctx, viewport }).promise;
+                const dataUrl = canvas.toDataURL("image/jpeg", 0.9);
+                newAttachments.push({
+                  mimeType: "image/jpeg",
+                  data: dataUrl,
+                  name: `${file.name} (P.${pageNum}/${pdf.numPages})`,
+                });
+              }
+            }
+            continue;
+          }
+        } catch (pdfErr) {
+          console.warn("Failed to render PDF pages as images, falling back to raw PDF:", pdfErr);
+        }
+
+        // Fallback: Read raw PDF as data URL
+        const dataUrl = await new Promise<string>((resolve, reject) => {
+          const reader = new FileReader();
+          reader.onload = () => resolve(reader.result as string);
+          reader.onerror = reject;
+          reader.readAsDataURL(file);
+        });
+        newAttachments.push({
+          mimeType: "application/pdf",
+          data: dataUrl,
+          name: file.name,
+        });
+      } else {
+        // Image files
+        const dataUrl = await new Promise<string>((resolve, reject) => {
+          const reader = new FileReader();
+          reader.onload = () => resolve(reader.result as string);
+          reader.onerror = reject;
+          reader.readAsDataURL(file);
+        });
+        newAttachments.push({
+          mimeType: file.type || "image/jpeg",
+          data: dataUrl,
+          name: file.name,
+        });
+      }
+    }
+
+    setUploadedImages((prev) => [...prev, ...newAttachments]);
+    setIsProcessingFiles(false);
+  };
+
   // Handle image / PDF file selection
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
     if (!files || files.length === 0) return;
-
-    Array.from(files).forEach((file) => {
-      const reader = new FileReader();
-      reader.onload = () => {
-        const base64 = reader.result as string;
-        setUploadedImages((prev) => [
-          ...prev,
-          {
-            mimeType: file.type || "image/jpeg",
-            data: base64,
-            name: file.name,
-          },
-        ]);
-      };
-      reader.readAsDataURL(file);
-    });
+    processIncomingFiles(Array.from(files));
+    e.target.value = "";
   };
 
   const removeUploadedImage = (index: number) => {
@@ -182,12 +273,11 @@ export function MainsEvaluationView() {
 
   // Execute Mains Evaluation
   const handleEvaluate = async () => {
-    if (!question.trim()) {
-      setErrorMsg("Please enter the Mains question prompt.");
-      return;
-    }
-    if (!answerText.trim() && uploadedImages.length === 0) {
-      setErrorMsg("Please enter your answer text or upload an answer sheet image/PDF.");
+    const hasAnyText = Boolean(question.trim() || answerText.trim());
+    const hasUploads = uploadedImages.length > 0;
+
+    if (!hasAnyText && !hasUploads) {
+      setErrorMsg("Please provide your written answer text or upload an answer sheet image/PDF.");
       return;
     }
 
@@ -200,8 +290,8 @@ export function MainsEvaluationView() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          question,
-          answerText,
+          question: question.trim(),
+          answerText: answerText.trim(),
           paperType,
           optionalSubject: paperType === "Optional" ? optionalSubject : undefined,
           maxMarks,
@@ -220,16 +310,20 @@ export function MainsEvaluationView() {
 
       const evalResult: MainsEvaluationResult = data.evaluation;
       setEvaluation(evalResult);
+      if (!question.trim() && evalResult.question) {
+        setQuestion(evalResult.question);
+      }
       setActiveTab("feedback");
 
       // Save to sessions
+      const bestTitle = evalResult.question || question || "Mains Evaluation";
       const autoTitle =
-        question.slice(0, 38).trim() + (question.length > 38 ? "..." : "");
+        bestTitle.slice(0, 38).trim() + (bestTitle.length > 38 ? "..." : "");
       const sessionObj: MainsEvaluationSession = {
         id: currentSessionId,
         title: autoTitle || "Mains Evaluation",
         updatedAt: new Date().toISOString(),
-        question,
+        question: evalResult.question || question,
         studentAnswer: answerText,
         paperType,
         optionalSubject: paperType === "Optional" ? optionalSubject : undefined,
@@ -438,7 +532,38 @@ Answer strictly as an expert UPSC CSE examiner. Give concrete examples, model po
         {/* Content Body */}
         <div className="max-w-5xl w-full mx-auto p-3.5 sm:p-6 space-y-6">
           {/* Submission Card (When not evaluated yet, or editable above) */}
-          <div className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-4 sm:p-6 shadow-sm space-y-4">
+          <div
+            onDragOver={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              setIsDragging(true);
+            }}
+            onDragEnter={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              setIsDragging(true);
+            }}
+            onDragLeave={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              if (!e.currentTarget.contains(e.relatedTarget as Node)) {
+                setIsDragging(false);
+              }
+            }}
+            onDrop={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              setIsDragging(false);
+              if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+                processIncomingFiles(Array.from(e.dataTransfer.files));
+              }
+            }}
+            className={`rounded-2xl border bg-white dark:bg-slate-900 p-4 sm:p-6 shadow-sm space-y-4 transition-all ${
+              isDragging
+                ? "border-indigo-500 ring-2 ring-indigo-500/30 bg-indigo-50/20 dark:bg-indigo-950/20"
+                : "border-slate-200 dark:border-slate-800"
+            }`}
+          >
             <div className="flex items-center justify-between flex-wrap gap-2 pb-3 border-b border-slate-100 dark:border-slate-800">
               <span className="text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300 flex items-center gap-1.5">
                 <FileText className="h-4 w-4 text-indigo-600" />
@@ -541,14 +666,25 @@ Answer strictly as an expert UPSC CSE examiner. Give concrete examples, model po
 
             {/* Question Textarea */}
             <div>
-              <label className="block text-[11px] font-bold text-slate-700 dark:text-slate-300 mb-1">
-                QUESTION PROMPT
-              </label>
+              <div className="flex items-center justify-between mb-1">
+                <label className="block text-[11px] font-bold text-slate-700 dark:text-slate-300">
+                  QUESTION PROMPT
+                </label>
+                <span className="text-[10px] text-slate-500 font-medium">
+                  {uploadedImages.length > 0
+                    ? "Optional: Auto-extracted from uploaded answer sheet"
+                    : "Optional if question is included in your answer below"}
+                </span>
+              </div>
               <textarea
                 value={question}
                 onChange={(e) => setQuestion(e.target.value)}
                 rows={2}
-                placeholder="Paste or type the UPSC Mains question prompt here (include directive e.g. Discuss, Critically Examine)..."
+                placeholder={
+                  uploadedImages.length > 0
+                    ? "Optional: Question will be auto-read from top of your uploaded sheet. (Type here only to override)..."
+                    : "Paste question here, or leave blank if your pasted answer text below already starts with the question..."
+                }
                 className="w-full rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800/80 p-3 text-xs sm:text-sm font-medium focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 outline-none transition-all placeholder:text-slate-400"
               />
             </div>
@@ -620,21 +756,56 @@ Answer strictly as an expert UPSC CSE examiner. Give concrete examples, model po
                 <div className="space-y-3">
                   <div
                     onClick={() => fileInputRef.current?.click()}
-                    className="border-2 border-dashed border-slate-300 dark:border-slate-700 rounded-2xl p-6 text-center hover:border-indigo-500 dark:hover:border-indigo-500 bg-slate-50/50 dark:bg-slate-800/40 cursor-pointer transition-all space-y-2"
+                    onDragOver={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      setIsDragging(true);
+                    }}
+                    onDragEnter={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      setIsDragging(true);
+                    }}
+                    onDragLeave={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      setIsDragging(false);
+                    }}
+                    onDrop={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      setIsDragging(false);
+                      if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+                        processIncomingFiles(Array.from(e.dataTransfer.files));
+                      }
+                    }}
+                    className={`border-2 border-dashed rounded-2xl p-6 text-center cursor-pointer transition-all space-y-2 ${
+                      isDragging
+                        ? "border-indigo-600 bg-indigo-50 dark:bg-indigo-950/50 scale-[1.01] shadow-md"
+                        : "border-slate-300 dark:border-slate-700 hover:border-indigo-500 dark:hover:border-indigo-500 bg-slate-50/50 dark:bg-slate-800/40"
+                    }`}
                   >
                     <div className="h-10 w-10 mx-auto rounded-full bg-indigo-50 dark:bg-indigo-950 flex items-center justify-center text-indigo-600">
-                      <Upload className="h-5 w-5" />
+                      {isProcessingFiles ? (
+                        <Loader2 className="h-5 w-5 animate-spin" />
+                      ) : (
+                        <Upload className="h-5 w-5" />
+                      )}
                     </div>
                     <p className="text-xs font-bold text-slate-800 dark:text-slate-200">
-                      Click to upload handwritten answer pages or PDF
+                      {isProcessingFiles
+                        ? "Converting and preparing answer pages..."
+                        : isDragging
+                          ? "Drop image or PDF files here!"
+                          : "Drag & drop handwritten answer pages or PDF, or click to browse"}
                     </p>
-                    <p className="text-[11px] text-slate-400">
-                      Supports JPG, PNG, WEBP photos of answer sheets, or PDF document
+                    <p className="text-[11px] text-slate-500 dark:text-slate-400">
+                      Supports JPG, PNG, WEBP, or multi-page PDF • Question prompt on sheet is auto-read
                     </p>
                     <input
                       ref={fileInputRef}
                       type="file"
-                      accept="image/*,application/pdf"
+                      accept="image/*,application/pdf,.pdf"
                       multiple
                       onChange={handleFileUpload}
                       className="hidden"
@@ -642,25 +813,55 @@ Answer strictly as an expert UPSC CSE examiner. Give concrete examples, model po
                   </div>
 
                   {uploadedImages.length > 0 && (
-                    <div className="flex flex-wrap gap-2.5 pt-1">
-                      {uploadedImages.map((img, idx) => (
-                        <div
-                          key={idx}
-                          className="relative group p-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 flex items-center gap-2 text-xs"
+                    <div className="space-y-2 pt-1">
+                      <div className="flex items-center justify-between text-xs text-slate-500">
+                        <span className="font-semibold text-slate-700 dark:text-slate-300">
+                          Uploaded Pages ({uploadedImages.length})
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => setUploadedImages([])}
+                          className="text-slate-400 hover:text-rose-600 transition-colors text-[11px]"
                         >
-                          <ImageIcon className="h-4 w-4 text-indigo-600" />
-                          <span className="max-w-[140px] truncate text-slate-700 dark:text-slate-200 font-medium">
-                            {img.name}
-                          </span>
-                          <button
-                            type="button"
-                            onClick={() => removeUploadedImage(idx)}
-                            className="p-1 rounded-full text-slate-400 hover:text-rose-600 hover:bg-slate-100 transition-colors"
+                          Clear all
+                        </button>
+                      </div>
+                      <div className="flex flex-wrap gap-2.5">
+                        {uploadedImages.map((img, idx) => (
+                          <div
+                            key={idx}
+                            className="relative group p-1.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 flex items-center gap-2 text-xs shadow-2xs hover:border-indigo-300 transition-all"
                           >
-                            <X className="h-3 w-3" />
-                          </button>
-                        </div>
-                      ))}
+                            {img.data.startsWith("data:image/") ? (
+                              <img
+                                src={img.data}
+                                alt={img.name}
+                                className="h-10 w-10 object-cover rounded-lg border border-slate-100 dark:border-slate-700"
+                              />
+                            ) : (
+                              <div className="h-10 w-10 rounded-lg bg-rose-50 dark:bg-rose-950 flex items-center justify-center text-rose-600">
+                                <FileText className="h-5 w-5" />
+                              </div>
+                            )}
+                            <div className="min-w-0 pr-1">
+                              <p className="max-w-[130px] truncate text-slate-800 dark:text-slate-200 font-semibold text-[11px]">
+                                {img.name}
+                              </p>
+                              <span className="text-[10px] text-slate-400">
+                                {img.mimeType.includes("pdf") ? "PDF Doc" : "Page Sheet"}
+                              </span>
+                            </div>
+                            <button
+                              type="button"
+                              onClick={() => removeUploadedImage(idx)}
+                              aria-label={`Remove ${img.name}`}
+                              className="p-1 rounded-full text-slate-400 hover:text-rose-600 hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors"
+                            >
+                              <X className="h-3.5 w-3.5" />
+                            </button>
+                          </div>
+                        ))}
+                      </div>
                     </div>
                   )}
                 </div>
