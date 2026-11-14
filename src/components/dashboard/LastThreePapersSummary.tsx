@@ -1,13 +1,7 @@
 "use client";
 import { Attempt, QuestionPaper } from "../../lib/types";
 import { getPaperCutoffStatus } from "../../lib/defaults";
-import {
-  ArrowRight,
-  Award,
-  BookOpen,
-  RotateCcw,
-  Sparkles,
-} from "lucide-react";
+import { ArrowRight, Award, BookOpen, RotateCcw, Sparkles } from "lucide-react";
 
 interface LastThreePapersSummaryProps {
   attempts: Attempt[];

@@ -1,12 +1,6 @@
 "use client";
 
-import {
-  useState,
-  useMemo,
-  useCallback,
-  useEffect,
-  useRef,
-} from "react";
+import { useState, useMemo, useCallback, useEffect, useRef } from "react";
 import { CutoffType, QuestionPaper, ExamType } from "../lib/types";
 import {
   SUPPORTED_YEARS,

@@ -4,12 +4,7 @@ import { useMemo } from "react";
 import { Attempt, QuestionPaper } from "../../lib/types";
 import { getAttemptPercentage } from "../../lib/defaults";
 import { isSpecificSingleSubject } from "../../lib/markdownPaperParser";
-import {
-  ArrowRight,
-  Clock,
-  LineChart,
-  Zap,
-} from "lucide-react";
+import { ArrowRight, Clock, LineChart, Zap } from "lucide-react";
 
 interface RecentTestInsightsProps {
   attempts: Attempt[];

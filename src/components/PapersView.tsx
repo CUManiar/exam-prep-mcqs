@@ -111,13 +111,17 @@ export function PapersView({
       saved.selectedCategory &&
       ["all", "prelims", "mains"].includes(saved.selectedCategory)
     ) {
-      setSelectedCategory(saved.selectedCategory as "all" | "prelims" | "mains");
+      setSelectedCategory(
+        saved.selectedCategory as "all" | "prelims" | "mains",
+      );
     }
     if (
       saved.selectedSource &&
       ["all", "custom", "predefined"].includes(saved.selectedSource)
     ) {
-      setSelectedSource(saved.selectedSource as "all" | "custom" | "predefined");
+      setSelectedSource(
+        saved.selectedSource as "all" | "custom" | "predefined",
+      );
     }
     if (
       typeof saved.selectedYear === "string" &&
@@ -356,7 +360,8 @@ export function PapersView({
     if (selectedSource === "predefined" && isUploaded) return false;
 
     // 2. Category filter: Prelims vs Mains vs All
-    if (selectedCategory === "prelims" && p.category !== "prelims") return false;
+    if (selectedCategory === "prelims" && p.category !== "prelims")
+      return false;
     if (selectedCategory === "mains" && p.category !== "mains") return false;
 
     // 3. Year filter
@@ -374,10 +379,20 @@ export function PapersView({
 
     // 5. Attempt filter: Attempted vs Unattempted vs All
     const paperAtts = attemptsByPaperId.get(p.id) || [];
-    if (selectedAttemptFilter === "attempted" && paperAtts.length === 0) return false;
-    if (selectedAttemptFilter === "unattempted" && paperAtts.length > 0) return false;
-    if (selectedAttemptFilter === "mock" && !paperAtts.some((a) => a.mode === "mock")) return false;
-    if (selectedAttemptFilter === "practice" && !paperAtts.some((a) => a.mode === "practice")) return false;
+    if (selectedAttemptFilter === "attempted" && paperAtts.length === 0)
+      return false;
+    if (selectedAttemptFilter === "unattempted" && paperAtts.length > 0)
+      return false;
+    if (
+      selectedAttemptFilter === "mock" &&
+      !paperAtts.some((a) => a.mode === "mock")
+    )
+      return false;
+    if (
+      selectedAttemptFilter === "practice" &&
+      !paperAtts.some((a) => a.mode === "practice")
+    )
+      return false;
 
     return true;
   });
@@ -480,28 +495,39 @@ export function PapersView({
           {/* Current Filtered Criteria in Small Text Right Below Search Bar */}
           <div className="flex flex-wrap items-center justify-between gap-1.5 pt-2 px-0.5 text-[11px]">
             <div className="flex items-center gap-1.5 flex-wrap">
-              <span className="font-semibold text-slate-400">Current filters:</span>
+              <span className="font-semibold text-slate-400">
+                Current filters:
+              </span>
               {hasActiveFilters ? (
                 <>
                   {selectedAttemptFilter !== "all" && (
                     <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md font-semibold text-[11px] bg-emerald-50 text-emerald-800 border border-emerald-200">
-                      {selectedAttemptFilter === "attempted" ? "Attempted" : "Unattempted"}
+                      {selectedAttemptFilter === "attempted"
+                        ? "Attempted"
+                        : "Unattempted"}
                     </span>
                   )}
                   {selectedSource !== "all" && (
                     <>
                       {selectedAttemptFilter !== "all" && (
-                        <span className="text-[10px] font-bold text-slate-400">AND</span>
+                        <span className="text-[10px] font-bold text-slate-400">
+                          AND
+                        </span>
                       )}
                       <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md font-semibold text-[11px] bg-purple-50 text-purple-800 border border-purple-200">
-                        {selectedSource === "custom" ? "Uploaded" : "Pre-Defined"}
+                        {selectedSource === "custom"
+                          ? "Uploaded"
+                          : "Pre-Defined"}
                       </span>
                     </>
                   )}
                   {selectedCategory !== "all" && (
                     <>
-                      {(selectedAttemptFilter !== "all" || selectedSource !== "all") && (
-                        <span className="text-[10px] font-bold text-slate-400">AND</span>
+                      {(selectedAttemptFilter !== "all" ||
+                        selectedSource !== "all") && (
+                        <span className="text-[10px] font-bold text-slate-400">
+                          AND
+                        </span>
                       )}
                       <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md font-semibold text-[11px] bg-indigo-50 text-indigo-800 border border-indigo-200">
                         {selectedCategory === "prelims" ? "Prelims" : "Mains"}
@@ -513,7 +539,9 @@ export function PapersView({
                       {(selectedAttemptFilter !== "all" ||
                         selectedSource !== "all" ||
                         selectedCategory !== "all") && (
-                        <span className="text-[10px] font-bold text-slate-400">AND</span>
+                        <span className="text-[10px] font-bold text-slate-400">
+                          AND
+                        </span>
                       )}
                       <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md font-semibold text-[11px] bg-amber-50 text-amber-900 border border-amber-200">
                         Year {selectedYear}
@@ -526,7 +554,9 @@ export function PapersView({
                         selectedSource !== "all" ||
                         selectedCategory !== "all" ||
                         selectedYear !== "all") && (
-                        <span className="text-[10px] font-bold text-slate-400">AND</span>
+                        <span className="text-[10px] font-bold text-slate-400">
+                          AND
+                        </span>
                       )}
                       <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md font-medium text-[11px] bg-slate-100 text-slate-700 border border-slate-200">
                         &ldquo;{searchQuery.trim()}&rdquo;
@@ -534,7 +564,8 @@ export function PapersView({
                     </>
                   )}
                   <span className="text-slate-400 font-normal">
-                    &bull; {filteredPapers.length} of {papers.length} {filteredPapers.length === 1 ? "paper" : "papers"} shown
+                    &bull; {filteredPapers.length} of {papers.length}{" "}
+                    {filteredPapers.length === 1 ? "paper" : "papers"} shown
                   </span>
                   <button
                     type="button"
@@ -546,7 +577,8 @@ export function PapersView({
                 </>
               ) : (
                 <span className="text-slate-400">
-                  Showing all {papers.length} papers &bull; No active restrictions
+                  Showing all {papers.length} papers &bull; No active
+                  restrictions
                 </span>
               )}
             </div>
@@ -895,7 +927,8 @@ export function PapersView({
                 No question papers match your filters
               </h3>
               <p className="text-xs text-slate-500 mt-1 max-w-sm mx-auto">
-                No papers found matching the combined criteria. Try clearing the search term or resetting some filters.
+                No papers found matching the combined criteria. Try clearing the
+                search term or resetting some filters.
               </p>
               {hasActiveFilters && (
                 <div className="mt-4">
@@ -1047,12 +1080,17 @@ export function PapersView({
                     {paper.createdAt && isUserUploadedPaper(paper) && (
                       <>
                         <span>•</span>
-                        <span title={new Date(paper.createdAt).toLocaleString()}>
-                          {new Date(paper.createdAt).toLocaleDateString("en-IN", {
-                            day: "numeric",
-                            month: "short",
-                            year: "numeric",
-                          })}
+                        <span
+                          title={new Date(paper.createdAt).toLocaleString()}
+                        >
+                          {new Date(paper.createdAt).toLocaleDateString(
+                            "en-IN",
+                            {
+                              day: "numeric",
+                              month: "short",
+                              year: "numeric",
+                            },
+                          )}
                         </span>
                       </>
                     )}

@@ -29,7 +29,9 @@ interface GameQuestion {
 export function VocabGameMode({ cards, onExitGame }: VocabGameModeProps) {
   const TOTAL_TIME_SECONDS = 120; // Strictly maximum 2 minutes
 
-  const [gameState, setGameState] = useState<"idle" | "playing" | "gameover">("idle");
+  const [gameState, setGameState] = useState<"idle" | "playing" | "gameover">(
+    "idle",
+  );
   const [timeLeft, setTimeLeft] = useState(TOTAL_TIME_SECONDS);
   const [score, setScore] = useState(0);
   const [streak, setStreak] = useState(0);
@@ -37,9 +39,13 @@ export function VocabGameMode({ cards, onExitGame }: VocabGameModeProps) {
   const [questionsAnswered, setQuestionsAnswered] = useState(0);
   const [correctCount, setCorrectCount] = useState(0);
 
-  const [currentQuestion, setCurrentQuestion] = useState<GameQuestion | null>(null);
+  const [currentQuestion, setCurrentQuestion] = useState<GameQuestion | null>(
+    null,
+  );
   const [selectedAnswer, setSelectedAnswer] = useState<string | null>(null);
-  const [feedback, setFeedback] = useState<"correct" | "incorrect" | null>(null);
+  const [feedback, setFeedback] = useState<"correct" | "incorrect" | null>(
+    null,
+  );
 
   const timerRef = useRef<NodeJS.Timeout | null>(null);
 
@@ -65,7 +71,9 @@ export function VocabGameMode({ cards, onExitGame }: VocabGameModeProps) {
         .map((c) => c.meaning);
 
       // Pick up to 3 distractors
-      const shuffledDistractors = otherMeanings.sort(() => Math.random() - 0.5).slice(0, 3);
+      const shuffledDistractors = otherMeanings
+        .sort(() => Math.random() - 0.5)
+        .slice(0, 3);
 
       // Fallback distractors if user has few cards
       while (shuffledDistractors.length < 3) {
@@ -73,8 +81,8 @@ export function VocabGameMode({ cards, onExitGame }: VocabGameModeProps) {
           shuffledDistractors.length === 0
             ? "To deliberately obscure or make unclear"
             : shuffledDistractors.length === 1
-            ? "Lasting for a very short or transient time"
-            : "Possessing supreme power or authoritative dominion",
+              ? "Lasting for a very short or transient time"
+              : "Possessing supreme power or authoritative dominion",
         );
       }
 
@@ -95,10 +103,16 @@ export function VocabGameMode({ cards, onExitGame }: VocabGameModeProps) {
         .filter((c) => c.id !== targetCard.id)
         .map((c) => c.word);
 
-      const shuffledDistractors = otherWords.sort(() => Math.random() - 0.5).slice(0, 3);
+      const shuffledDistractors = otherWords
+        .sort(() => Math.random() - 0.5)
+        .slice(0, 3);
       while (shuffledDistractors.length < 3) {
         shuffledDistractors.push(
-          shuffledDistractors.length === 0 ? "Epigram" : shuffledDistractors.length === 1 ? "Hegemony" : "Subsume",
+          shuffledDistractors.length === 0
+            ? "Epigram"
+            : shuffledDistractors.length === 1
+              ? "Hegemony"
+              : "Subsume",
         );
       }
 
@@ -191,7 +205,8 @@ export function VocabGameMode({ cards, onExitGame }: VocabGameModeProps) {
     return `${String(mins).padStart(2, "0")}:${String(secs).padStart(2, "0")}`;
   };
 
-  const progressPercent = ((TOTAL_TIME_SECONDS - timeLeft) / TOTAL_TIME_SECONDS) * 100;
+  const progressPercent =
+    ((TOTAL_TIME_SECONDS - timeLeft) / TOTAL_TIME_SECONDS) * 100;
 
   if (cards.length < 2) {
     return (
@@ -201,7 +216,9 @@ export function VocabGameMode({ cards, onExitGame }: VocabGameModeProps) {
           Need at least 2 words to play Blitz Game
         </h3>
         <p className="text-xs sm:text-sm text-slate-500 dark:text-slate-400 max-w-md mx-auto mt-1 leading-relaxed">
-          Add at least 2 or more words in your Vocab list first. The Blitz game randomly throws cards from your saved words in an intense 2-minute round!
+          Add at least 2 or more words in your Vocab list first. The Blitz game
+          randomly throws cards from your saved words in an intense 2-minute
+          round!
         </p>
         <button
           type="button"
@@ -232,21 +249,33 @@ export function VocabGameMode({ cards, onExitGame }: VocabGameModeProps) {
           </h2>
 
           <p className="text-xs sm:text-sm text-indigo-200/90 leading-relaxed font-normal">
-            Test your memory recall under pressure! Random cards from your saved wordbook will be thrown at you. You have exactly <strong>120 seconds</strong> to score as many points as you can.
+            Test your memory recall under pressure! Random cards from your saved
+            wordbook will be thrown at you. You have exactly{" "}
+            <strong>120 seconds</strong> to score as many points as you can.
           </p>
 
           <div className="grid grid-cols-3 gap-3 py-2 text-center">
             <div className="p-3 rounded-xl bg-white/5 border border-white/10">
               <span className="text-xl font-semibold text-amber-400">120s</span>
-              <span className="text-[10px] text-slate-400 block uppercase font-medium">Max Duration</span>
+              <span className="text-[10px] text-slate-400 block uppercase font-medium">
+                Max Duration
+              </span>
             </div>
             <div className="p-3 rounded-xl bg-white/5 border border-white/10">
-              <span className="text-xl font-semibold text-emerald-400">+{cards.length}</span>
-              <span className="text-[10px] text-slate-400 block uppercase font-medium">Saved Cards</span>
+              <span className="text-xl font-semibold text-emerald-400">
+                +{cards.length}
+              </span>
+              <span className="text-[10px] text-slate-400 block uppercase font-medium">
+                Saved Cards
+              </span>
             </div>
             <div className="p-3 rounded-xl bg-white/5 border border-white/10">
-              <span className="text-xl font-semibold text-indigo-400">Combo</span>
-              <span className="text-[10px] text-slate-400 block uppercase font-medium">Streak Bonus</span>
+              <span className="text-xl font-semibold text-indigo-400">
+                Combo
+              </span>
+              <span className="text-[10px] text-slate-400 block uppercase font-medium">
+                Streak Bonus
+              </span>
             </div>
           </div>
 
@@ -371,12 +400,16 @@ export function VocabGameMode({ cards, onExitGame }: VocabGameModeProps) {
           <div>
             <span
               className={`text-base sm:text-lg font-semibold font-mono tracking-tight ${
-                timeLeft <= 20 ? "text-rose-600 dark:text-rose-400" : "text-slate-800 dark:text-white"
+                timeLeft <= 20
+                  ? "text-rose-600 dark:text-rose-400"
+                  : "text-slate-800 dark:text-white"
               }`}
             >
               {formatTimer(timeLeft)}
             </span>
-            <span className="text-[10px] text-slate-400 block font-medium">2-Min Blitz</span>
+            <span className="text-[10px] text-slate-400 block font-medium">
+              2-Min Blitz
+            </span>
           </div>
         </div>
 
@@ -413,8 +446,8 @@ export function VocabGameMode({ cards, onExitGame }: VocabGameModeProps) {
             timeLeft <= 20
               ? "bg-rose-500"
               : timeLeft <= 50
-              ? "bg-amber-500"
-              : "bg-indigo-600"
+                ? "bg-amber-500"
+                : "bg-indigo-600"
           }`}
           style={{ width: `${100 - progressPercent}%` }}
         />
@@ -454,7 +487,8 @@ export function VocabGameMode({ cards, onExitGame }: VocabGameModeProps) {
                   btnStyle =
                     "border-rose-500 bg-rose-50 dark:bg-rose-950/60 text-rose-900 dark:text-rose-100 line-through ring-1 ring-rose-500/30";
                 } else {
-                  btnStyle = "opacity-40 border-slate-200 dark:border-slate-800";
+                  btnStyle =
+                    "opacity-40 border-slate-200 dark:border-slate-800";
                 }
               }
 
@@ -466,13 +500,17 @@ export function VocabGameMode({ cards, onExitGame }: VocabGameModeProps) {
                   onClick={() => handleSelectOption(option)}
                   className={`w-full min-h-[48px] p-3.5 rounded-xl border text-left text-sm font-normal transition-all flex items-center justify-between active:scale-[0.98] cursor-pointer touch-manipulation ${btnStyle}`}
                 >
-                  <span className="pr-3 leading-snug break-words hyphens-auto">{option}</span>
+                  <span className="pr-3 leading-snug break-words hyphens-auto">
+                    {option}
+                  </span>
                   {selectedAnswer !== null && isCorrectAnswer && (
                     <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
                   )}
-                  {selectedAnswer !== null && isSelected && !isCorrectAnswer && (
-                    <XCircle className="w-4 h-4 text-rose-600 shrink-0" />
-                  )}
+                  {selectedAnswer !== null &&
+                    isSelected &&
+                    !isCorrectAnswer && (
+                      <XCircle className="w-4 h-4 text-rose-600 shrink-0" />
+                    )}
                 </button>
               );
             })}
@@ -496,4 +534,3 @@ export function VocabGameMode({ cards, onExitGame }: VocabGameModeProps) {
     </div>
   );
 }
-

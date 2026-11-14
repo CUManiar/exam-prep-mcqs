@@ -47,13 +47,18 @@ export function VocabInputBar({ onWordAdded, todayCount }: VocabInputBarProps) {
       onWordAdded({
         word: json.data.word || cleanWord,
         meaning: json.data.meaning || "A useful term for academic analysis.",
-        memoryHook: json.data.memoryHook || "Recall context clues from your reading.",
-        example: json.data.example || `The term ${cleanWord} was applied effectively.`,
+        memoryHook:
+          json.data.memoryHook || "Recall context clues from your reading.",
+        example:
+          json.data.example || `The term ${cleanWord} was applied effectively.`,
       });
       setWord("");
     } catch (err: any) {
       console.error("Vocab add error:", err);
-      setError(err.message || "Could not generate flashcard. Please check network or try again.");
+      setError(
+        err.message ||
+          "Could not generate flashcard. Please check network or try again.",
+      );
     } finally {
       setLoading(false);
     }
@@ -73,7 +78,8 @@ export function VocabInputBar({ onWordAdded, todayCount }: VocabInputBarProps) {
             </span>
           </div>
           <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
-            Feed only the word you found tough. AI builds your flashcard & practice.
+            Feed only the word you found tough. AI builds your flashcard &
+            practice.
           </p>
         </div>
 
@@ -99,7 +105,10 @@ export function VocabInputBar({ onWordAdded, todayCount }: VocabInputBarProps) {
       </div>
 
       {/* Input Form with iOS auto-zoom prevention (text-base on mobile) */}
-      <form onSubmit={handleSubmit} className="flex flex-col sm:flex-row gap-2.5">
+      <form
+        onSubmit={handleSubmit}
+        className="flex flex-col sm:flex-row gap-2.5"
+      >
         <div className="relative flex-1">
           <input
             type="text"

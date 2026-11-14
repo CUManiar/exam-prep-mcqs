@@ -203,7 +203,9 @@ function createImportedPaper(
       header.positiveMarks ??
       (header.totalMarks && totalQuestions > 0
         ? Number((header.totalMarks / totalQuestions).toFixed(2))
-        : (examType === "objective" ? 2 : 0)),
+        : examType === "objective"
+          ? 2
+          : 0),
   );
 
   // Incorrect marks:
