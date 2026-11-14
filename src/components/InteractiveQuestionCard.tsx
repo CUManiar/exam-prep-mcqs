@@ -18,6 +18,8 @@ import {
   RotateCcw,
   FileText,
   History,
+  Grid3X3,
+  Edit3,
 } from "lucide-react";
 
 interface InteractiveQuestionCardProps {
@@ -40,6 +42,14 @@ interface InteractiveQuestionCardProps {
   onClearOption: (qNo: number) => void;
   onNavigateQuestion: (qNo: number) => void;
   onStartExam: () => void;
+  onToggleFlag?: (qNo: number) => void;
+  onSetConfidence?: (
+    qNo: number,
+    conf: "sure" | "50-50" | "elimination" | "guess",
+  ) => void;
+  onOpenPalette?: () => void;
+  onOpenScratchpad?: () => void;
+  hasScratchpadNote?: boolean;
 }
 
 interface ClozeAnswerInputProps {
@@ -142,6 +152,11 @@ export function InteractiveQuestionCard({
   onClearOption,
   onNavigateQuestion,
   onStartExam,
+  onToggleFlag,
+  onSetConfidence,
+  onOpenPalette,
+  onOpenScratchpad,
+  hasScratchpadNote,
 }: InteractiveQuestionCardProps) {
   const [showExplanationManual, setShowExplanationManual] =
     useState<boolean>(false);
@@ -566,6 +581,81 @@ export function InteractiveQuestionCard({
           />
         )}
 
+        {/* Certainty & Mobile Auxiliary Controls */}
+        <div className="flex items-center justify-between gap-2 flex-wrap pt-1">
+          {/* Certainty / Confidence Level */}
+          {onSetConfidence && (
+            <div className="flex items-center gap-1 bg-slate-100/80 p-0.5 rounded-xl border border-slate-200 text-xs">
+              {(
+                [
+                  { id: "sure", label: "Sure", icon: "🎯" },
+                  { id: "50-50", label: "50:50", icon: "⚖️" },
+                  { id: "elimination", label: "Elim", icon: "✂️" },
+                  { id: "guess", label: "Guess", icon: "🎲" },
+                ] as const
+              ).map((conf) => {
+                const isSelected = currentAnswer?.confidence === conf.id;
+                return (
+                  <button
+                    key={conf.id}
+                    type="button"
+                    onClick={() => onSetConfidence(currentQuestion, conf.id)}
+                    className={`flex items-center gap-1 px-2 py-1 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
+                      isSelected
+                        ? "bg-slate-900 text-white shadow-2xs font-bold"
+                        : "text-slate-600 hover:text-slate-900 hover:bg-white"
+                    }`}
+                    title={`Mark ${conf.label} certainty`}
+                  >
+                    <span>{conf.icon}</span>
+                    <span className="hidden xs:inline">{conf.label}</span>
+                  </button>
+                );
+              })}
+            </div>
+          )}
+
+          {/* Mobile Tools: Flag & Scratchpad */}
+          <div className="flex items-center gap-1.5 lg:hidden">
+            {onToggleFlag && (
+              <button
+                type="button"
+                onClick={() => onToggleFlag(currentQuestion)}
+                className={`flex items-center gap-1 px-2.5 py-1 rounded-xl text-xs font-semibold border transition-all cursor-pointer ${
+                  currentAnswer?.flagged
+                    ? "bg-amber-500 border-amber-500 text-white shadow-2xs"
+                    : "border-slate-200 bg-white text-slate-700 hover:bg-slate-50"
+                }`}
+                title="Flag for review"
+              >
+                <Bookmark
+                  className={`h-3.5 w-3.5 ${currentAnswer?.flagged ? "fill-white text-white" : "text-amber-600"}`}
+                />
+                <span>{currentAnswer?.flagged ? "Flagged" : "Flag"}</span>
+              </button>
+            )}
+
+            {onOpenScratchpad && (
+              <button
+                type="button"
+                onClick={onOpenScratchpad}
+                className={`flex items-center gap-1 px-2.5 py-1 rounded-xl text-xs font-semibold border transition-all cursor-pointer ${
+                  hasScratchpadNote
+                    ? "bg-indigo-600 border-indigo-600 text-white shadow-2xs"
+                    : "border-slate-200 bg-white text-slate-700 hover:bg-slate-50"
+                }`}
+                title="Open scratchpad notes"
+              >
+                <Edit3 className="h-3.5 w-3.5" />
+                <span>Notes</span>
+                {hasScratchpadNote && (
+                  <span className="h-1.5 w-1.5 rounded-full bg-amber-300" />
+                )}
+              </button>
+            )}
+          </div>
+        </div>
+
         {/* Practice Mode Detailed Explanation Card */}
         {shouldShowExplanation && (
           <div className="rounded-2xl border border-indigo-200 bg-gradient-to-br from-indigo-50/80 via-white to-slate-50 p-5 sm:p-6 shadow-sm space-y-3 animate-in fade-in slide-in-from-bottom-2">
@@ -612,25 +702,38 @@ export function InteractiveQuestionCard({
       </div>
 
       {/* Quick Navigation Footer */}
-      <div className="max-w-3xl w-full mx-auto pt-6 flex items-center justify-between gap-3 border-t border-slate-200/80 mt-6">
+      <div className="max-w-3xl w-full mx-auto pt-4 sm:pt-6 flex items-center justify-between gap-2 sm:gap-3 border-t border-slate-200/80 mt-4 sm:mt-6">
         <button
           type="button"
           disabled={currentQuestion <= 1}
           onClick={() => onNavigateQuestion(Math.max(1, currentQuestion - 1))}
-          className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl border border-slate-200 bg-white text-xs font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-30 disabled:pointer-events-none transition-colors shadow-2xs cursor-pointer"
+          className="flex items-center gap-1 sm:gap-1.5 px-3 sm:px-3.5 py-2 rounded-xl border border-slate-200 bg-white text-xs font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-30 disabled:pointer-events-none transition-colors shadow-2xs cursor-pointer"
         >
           <ChevronLeft className="h-4 w-4" />
-          <span>Previous</span>
+          <span>Prev</span>
         </button>
+
+        {/* Mobile Palette Trigger */}
+        {onOpenPalette && (
+          <button
+            type="button"
+            onClick={onOpenPalette}
+            className="lg:hidden flex items-center gap-1.5 px-3 py-2 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-xs font-semibold text-slate-700 shadow-2xs cursor-pointer"
+            title="Open question palette"
+          >
+            <Grid3X3 className="h-3.5 w-3.5 text-indigo-600" />
+            <span>Palette ({paper.totalQuestions})</span>
+          </button>
+        )}
 
         {hasAnswered && (
           <button
             type="button"
             onClick={() => onClearOption(currentQuestion)}
-            className="flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-semibold text-slate-500 hover:text-rose-600 hover:bg-rose-50 transition-colors cursor-pointer"
+            className="flex items-center gap-1 px-2.5 sm:px-3 py-1.5 rounded-lg text-xs font-semibold text-slate-500 hover:text-rose-600 hover:bg-rose-50 transition-colors cursor-pointer"
           >
             <RotateCcw className="h-3.5 w-3.5" />
-            <span>Clear Choice</span>
+            <span className="hidden sm:inline">Clear Choice</span>
           </button>
         )}
 
@@ -642,7 +745,7 @@ export function InteractiveQuestionCard({
               Math.min(paper.totalQuestions, currentQuestion + 1),
             )
           }
-          className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold shadow-xs hover:shadow-sm disabled:opacity-30 disabled:pointer-events-none transition-all cursor-pointer"
+          className="flex items-center gap-1 sm:gap-1.5 px-3.5 sm:px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold shadow-xs hover:shadow-sm disabled:opacity-30 disabled:pointer-events-none transition-all cursor-pointer"
         >
           <span>Next</span>
           <ChevronRight className="h-4 w-4" />
