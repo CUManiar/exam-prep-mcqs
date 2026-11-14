@@ -801,40 +801,43 @@ export function RevisionView() {
                   setMode("general");
                   setSelectedTopic("");
                 }}
-                className={`px-2.5 sm:px-3 py-1.5 rounded-md transition-all flex items-center gap-1.5 whitespace-nowrap ${
+                className={`px-2 sm:px-3 py-1.5 rounded-md transition-all flex items-center gap-1.5 whitespace-nowrap ${
                   mode === "general"
                     ? "bg-white dark:bg-slate-900 text-indigo-600 dark:text-indigo-400 shadow-2xs font-bold"
                     : "text-slate-600 dark:text-slate-400 hover:text-slate-900"
                 }`}
               >
                 <MessageSquare className="h-3.5 w-3.5" />
-                <span>General Revision</span>
+                <span className="sm:hidden">General</span>
+                <span className="hidden sm:inline">General Revision</span>
               </button>
 
               <button
                 type="button"
                 onClick={() => setMode("paper")}
-                className={`px-2.5 sm:px-3 py-1.5 rounded-md transition-all flex items-center gap-1.5 whitespace-nowrap ${
+                className={`px-2 sm:px-3 py-1.5 rounded-md transition-all flex items-center gap-1.5 whitespace-nowrap ${
                   mode === "paper"
                     ? "bg-white dark:bg-slate-900 text-indigo-600 dark:text-indigo-400 shadow-2xs font-bold"
                     : "text-slate-600 dark:text-slate-400 hover:text-slate-900"
                 }`}
               >
                 <Paperclip className="h-3.5 w-3.5" />
-                <span>Chat with Paper</span>
+                <span className="sm:hidden">Paper</span>
+                <span className="hidden sm:inline">Chat with Paper</span>
               </button>
 
               <button
                 type="button"
                 onClick={() => setMode("syllabus")}
-                className={`px-2.5 sm:px-3 py-1.5 rounded-md transition-all flex items-center gap-1.5 whitespace-nowrap ${
+                className={`px-2 sm:px-3 py-1.5 rounded-md transition-all flex items-center gap-1.5 whitespace-nowrap ${
                   mode === "syllabus"
                     ? "bg-white dark:bg-slate-900 text-indigo-600 dark:text-indigo-400 shadow-2xs font-bold"
                     : "text-slate-600 dark:text-slate-400 hover:text-slate-900"
                 }`}
               >
                 <BookOpen className="h-3.5 w-3.5" />
-                <span>Syllabus Track</span>
+                <span className="sm:hidden">Syllabus</span>
+                <span className="hidden sm:inline">Syllabus Track</span>
               </button>
             </div>
 
