@@ -4,6 +4,7 @@ import { useEffect, useState, useRef } from "react";
 import {
   FileText,
   Upload,
+  Camera,
   CheckCircle2,
   AlertTriangle,
   Award,
@@ -84,6 +85,7 @@ export function MainsEvaluationView() {
   const [copiedModel, setCopiedModel] = useState(false);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const cameraInputRef = useRef<HTMLInputElement>(null);
 
   // Auto-close sidebar on small screens
   useEffect(() => {
@@ -492,8 +494,16 @@ Answer strictly as an expert UPSC CSE examiner. Give concrete examples, model po
         </div>
       </aside>
 
+      {/* Mobile Backdrop for Drawer */}
+      {isSidebarOpen && (
+        <div
+          onClick={() => setIsSidebarOpen(false)}
+          className="sm:hidden fixed inset-0 bg-slate-900/50 backdrop-blur-xs z-10"
+        />
+      )}
+
       {/* ── 2. MAIN EVALUATION WORKSPACE ── */}
-      <main className="flex-1 flex flex-col min-w-0 overflow-y-auto">
+      <main className="flex-1 flex flex-col min-w-0 overflow-y-auto touch-pan-y pb-28 sm:pb-20">
         {/* Top Controls Bar */}
         <header className="bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 px-3.5 sm:px-6 py-2.5 flex items-center justify-between gap-3 shrink-0">
           <div className="flex items-center gap-2">
@@ -510,9 +520,10 @@ Answer strictly as an expert UPSC CSE examiner. Give concrete examples, model po
               )}
             </button>
             <div className="flex items-center gap-2">
-              <Award className="h-5 w-5 text-indigo-600" />
+              <Award className="h-5 w-5 text-indigo-600 shrink-0" />
               <h1 className="text-sm sm:text-base font-bold text-slate-900 dark:text-slate-100 truncate">
-                UPSC CSE Mains Answer Evaluation
+                <span className="hidden sm:inline">UPSC CSE Mains Answer Evaluation</span>
+                <span className="sm:hidden">Mains Evaluation Desk</span>
               </h1>
             </div>
           </div>
@@ -521,10 +532,11 @@ Answer strictly as an expert UPSC CSE examiner. Give concrete examples, model po
             <button
               type="button"
               onClick={handleNewEvaluation}
-              className="hidden sm:inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 text-xs font-semibold text-slate-700 dark:text-slate-200 hover:bg-slate-50 transition-colors shadow-2xs"
+              className="inline-flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 text-xs font-semibold text-slate-700 dark:text-slate-200 hover:bg-slate-50 transition-colors shadow-2xs cursor-pointer"
             >
               <Plus className="h-3.5 w-3.5 text-indigo-600" />
-              <span>New Question</span>
+              <span className="hidden sm:inline">New Question</span>
+              <span className="sm:hidden">New</span>
             </button>
           </div>
         </header>
@@ -754,6 +766,45 @@ Answer strictly as an expert UPSC CSE examiner. Give concrete examples, model po
                 </div>
               ) : (
                 <div className="space-y-3">
+                  {/* Mobile Quick Action Buttons */}
+                  <div className="grid grid-cols-2 gap-2.5">
+                    <button
+                      type="button"
+                      onClick={() => cameraInputRef.current?.click()}
+                      className="flex items-center justify-center gap-2 py-3 px-3 rounded-xl border border-indigo-200 dark:border-indigo-800 bg-indigo-50/70 dark:bg-indigo-950/40 text-indigo-700 dark:text-indigo-300 font-bold text-xs hover:bg-indigo-100 dark:hover:bg-indigo-900/50 transition-all cursor-pointer shadow-2xs active:scale-[0.98]"
+                    >
+                      <Camera className="h-4 w-4 shrink-0 text-indigo-600 dark:text-indigo-400" />
+                      <span>Take Photo</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => fileInputRef.current?.click()}
+                      className="flex items-center justify-center gap-2 py-3 px-3 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-700 dark:text-slate-200 font-bold text-xs hover:bg-slate-100 dark:hover:bg-slate-750 transition-all cursor-pointer shadow-2xs active:scale-[0.98]"
+                    >
+                      <Upload className="h-4 w-4 shrink-0 text-slate-500" />
+                      <span>Upload File / PDF</span>
+                    </button>
+                  </div>
+
+                  {/* Hidden inputs */}
+                  <input
+                    ref={cameraInputRef}
+                    type="file"
+                    accept="image/*"
+                    capture="environment"
+                    onChange={handleFileUpload}
+                    className="hidden"
+                  />
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    accept="image/*,application/pdf,.pdf"
+                    multiple
+                    onChange={handleFileUpload}
+                    className="hidden"
+                  />
+
+                  {/* Desktop Drag & Drop Area */}
                   <div
                     onClick={() => fileInputRef.current?.click()}
                     onDragOver={(e) => {
@@ -779,7 +830,7 @@ Answer strictly as an expert UPSC CSE examiner. Give concrete examples, model po
                         processIncomingFiles(Array.from(e.dataTransfer.files));
                       }
                     }}
-                    className={`border-2 border-dashed rounded-2xl p-6 text-center cursor-pointer transition-all space-y-2 ${
+                    className={`hidden sm:block border-2 border-dashed rounded-2xl p-6 text-center cursor-pointer transition-all space-y-2 ${
                       isDragging
                         ? "border-indigo-600 bg-indigo-50 dark:bg-indigo-950/50 scale-[1.01] shadow-md"
                         : "border-slate-300 dark:border-slate-700 hover:border-indigo-500 dark:hover:border-indigo-500 bg-slate-50/50 dark:bg-slate-800/40"
@@ -802,14 +853,6 @@ Answer strictly as an expert UPSC CSE examiner. Give concrete examples, model po
                     <p className="text-[11px] text-slate-500 dark:text-slate-400">
                       Supports JPG, PNG, WEBP, or multi-page PDF • Question prompt on sheet is auto-read
                     </p>
-                    <input
-                      ref={fileInputRef}
-                      type="file"
-                      accept="image/*,application/pdf,.pdf"
-                      multiple
-                      onChange={handleFileUpload}
-                      className="hidden"
-                    />
                   </div>
 
                   {uploadedImages.length > 0 && (
@@ -929,10 +972,15 @@ Answer strictly as an expert UPSC CSE examiner. Give concrete examples, model po
                   </p>
                 </div>
 
-                <div className="text-right sm:text-right bg-white dark:bg-slate-800 px-5 py-3 rounded-2xl border border-indigo-100 dark:border-slate-700 shadow-2xs shrink-0">
-                  <span className="text-[11px] font-bold uppercase text-slate-400 block">
-                    Marks Awarded
-                  </span>
+                <div className="w-full sm:w-auto flex items-center justify-between sm:block text-right bg-white dark:bg-slate-800 px-5 py-3 rounded-2xl border border-indigo-100 dark:border-slate-700 shadow-2xs shrink-0">
+                  <div className="text-left sm:text-right">
+                    <span className="text-[11px] font-bold uppercase text-slate-400 block">
+                      Marks Awarded
+                    </span>
+                    <span className="text-[11px] font-mono text-emerald-600 font-bold block sm:hidden">
+                      {evaluation.percentage}% Score
+                    </span>
+                  </div>
                   <div className="flex items-baseline justify-end gap-1">
                     <span className="text-3xl sm:text-4xl font-black text-indigo-600 dark:text-indigo-400">
                       {evaluation.marksAwarded}
@@ -941,14 +989,14 @@ Answer strictly as an expert UPSC CSE examiner. Give concrete examples, model po
                       / {evaluation.maxMarks}
                     </span>
                   </div>
-                  <span className="text-[11px] font-mono text-emerald-600 font-bold">
+                  <span className="text-[11px] font-mono text-emerald-600 font-bold hidden sm:block">
                     {evaluation.percentage}% Score
                   </span>
                 </div>
               </div>
 
               {/* Navigation Tabs */}
-              <div className="flex rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-1 gap-1 text-xs shadow-2xs overflow-x-auto">
+              <div className="flex rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-1 gap-1 text-xs shadow-2xs overflow-x-auto no-scrollbar scroll-smooth">
                 <button
                   type="button"
                   onClick={() => setActiveTab("feedback")}
