@@ -83,7 +83,7 @@ export function saveMainsSessions(sessions: MainsEvaluationSession[]): void {
  * Creates the strict UPSC Examiner System Prompt for Mains Answer Evaluation
  */
 export function buildMainsEvaluationPrompt(params: {
-  question: string;
+  question?: string;
   answerText: string;
   paperType: string;
   optionalSubject?: string;
@@ -92,6 +92,7 @@ export function buildMainsEvaluationPrompt(params: {
 }): string {
   const { question, answerText, paperType, optionalSubject, maxMarks } = params;
   const wordLimit = maxMarks === 10 ? 150 : maxMarks === 15 ? 250 : 300;
+  const trimmedQ = (question || "").trim();
 
   return `You are a strict, senior UPSC Civil Services Examination (CSE) Mains Evaluator and Subject Expert.
 
@@ -101,13 +102,19 @@ EXAMINATION STANDARD:
 - Target Word Limit: ${wordLimit} Words
 
 YOUR EVALUATION METHODOLOGY:
-1. Strict UPSC Marking Standards:
+1. Question & Directive Extraction:
+${
+  trimmedQ
+    ? `   - Candidate specified question: "${trimmedQ}"`
+    : `   - IMPORTANT: The candidate did not provide a separate question prompt because it is written or printed directly at the top of the uploaded answer booklet / document / text.
+   - You MUST read the top of the submission, transcribe the exact Question into the "question" field of your output JSON, and extract the primary directive into the "directive" field.`
+}
+   - Identify the operational directive (e.g., Critically Examine, Discuss, Elucidate, Evaluate, Analyse).
+   - Test whether the candidate truly addressed the directive or merely wrote a generic descriptive essay.
+2. Strict UPSC Marking Standards:
    - Average answers score 3.0 to 4.5 out of 10, or 5.0 to 6.5 out of 15.
    - Above-average/Topper answers score 5.0 to 6.5 out of 10, or 7.5 to 9.0 out of 15.
    - Never award unrealistic 8+/10 or 12+/15 marks. Be honest, rigorous, and constructive.
-2. Directive Adherence:
-   - Identify the operational directive (e.g., Critically Examine, Discuss, Elucidate, Evaluate, Analyse).
-   - Test whether the candidate truly addressed the directive or merely wrote a generic descriptive essay.
 3. 5-Component Rubric Breakdown:
    - Introduction: Context, crisp definition, or contemporary relevance (15–20 words).
    - Body Content & Arguments: Multi-dimensional subheadings (Socio-Economic, Constitutional, Administrative, Environmental, International, Ethical).
@@ -120,7 +127,7 @@ YOUR EVALUATION METHODOLOGY:
 
 CANDIDATE SUBMISSION TO EVALUATE:
 [QUESTION]:
-${question}
+${trimmedQ || "(Question is written at the top of the attached answer sheet or document)"}
 
 [STUDENT'S ANSWER]:
 ${answerText || "(Handwritten / Typed answer provided in attached image or document)"}
@@ -128,6 +135,7 @@ ${answerText || "(Handwritten / Typed answer provided in attached image or docum
 OUTPUT FORMAT:
 You MUST return your response as a valid, parsable JSON object matching this schema exactly:
 {
+  "question": "${trimmedQ ? trimmedQ.replace(/"/g, '\\"') : "Exact UPSC question transcribed from the top of the submission"}",
   "marksAwarded": 4.5,
   "maxMarks": ${maxMarks},
   "verdict": "Good Attempt" | "Average" | "Below Average" | "Top Tier (Safe Zone)",
