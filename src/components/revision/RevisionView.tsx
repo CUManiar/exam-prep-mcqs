@@ -101,8 +101,21 @@ export function RevisionView() {
   const [config, setConfig] = useState<RevisionProviderConfig | null>(null);
   const [showSettingsModal, setShowSettingsModal] = useState(false);
 
-  // Sidebar visibility (left column)
+  // Sidebar visibility (left column) - start closed on mobile
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
+
+  // Auto-close sidebar on small screens on initial mount
+  useEffect(() => {
+    if (typeof window !== "undefined" && window.innerWidth < 640) {
+      setIsSidebarOpen(false);
+    }
+  }, []);
+
+  const closeSidebarOnMobile = () => {
+    if (typeof window !== "undefined" && window.innerWidth < 640) {
+      setIsSidebarOpen(false);
+    }
+  };
 
   // Active Mode: 'general' (default free chat), 'paper' (chat with test paper), 'syllabus' (anchored to syllabus item)
   const [mode, setMode] = useState<"general" | "paper" | "syllabus">("general");
@@ -238,6 +251,7 @@ export function RevisionView() {
 
   // Create New Chat (starts fresh session, preserving previous in history)
   const handleCreateNewChat = () => {
+    closeSidebarOnMobile();
     const newId = `sess_${Date.now()}`;
     setCurrentSessionId(newId);
     setMessages([]);
@@ -256,6 +270,7 @@ export function RevisionView() {
 
   // Switch to a saved session
   const handleSwitchSession = (session: StoredSession) => {
+    closeSidebarOnMobile();
     setCurrentSessionId(session.id);
     setMessages(session.messages || []);
     setMode(session.mode || "general");
@@ -506,12 +521,23 @@ export function RevisionView() {
   };
 
   return (
-    <div className="flex-1 min-h-0 flex h-full w-full overflow-hidden bg-slate-100/60 dark:bg-slate-950">
+    <div className="flex-1 min-h-0 flex h-full w-full overflow-hidden bg-slate-100/60 dark:bg-slate-950 relative">
+      {/* Mobile Drawer Backdrop */}
+      {isSidebarOpen && (
+        <div
+          className="fixed inset-0 bg-slate-900/50 backdrop-blur-xs z-40 sm:hidden"
+          onClick={() => setIsSidebarOpen(false)}
+          aria-hidden="true"
+        />
+      )}
+
       {/* ── LEFT SIDEBAR: SAVED CHATS COLUMN (Store up to 5) ── */}
       <aside
         className={`${
-          isSidebarOpen ? "flex" : "hidden sm:hidden"
-        } w-64 sm:w-72 shrink-0 border-r border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 flex-col h-full z-20 transition-all`}
+          isSidebarOpen ? "flex" : "hidden"
+        } fixed inset-y-0 left-0 z-50 w-72 sm:relative sm:z-auto sm:inset-auto ${
+          isSidebarOpen ? "sm:flex" : "sm:hidden"
+        } border-r border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 flex-col h-full shrink-0 shadow-2xl sm:shadow-none transition-all`}
       >
         {/* Sidebar Header: New Chat */}
         <div className="p-3.5 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between gap-2">
@@ -694,14 +720,17 @@ export function RevisionView() {
       {/* ── RIGHT MAIN COLUMN: ACTIVE CHAT WORKSPACE ── */}
       <main className="flex-1 min-h-0 flex flex-col h-full overflow-hidden bg-white dark:bg-slate-900">
         {/* Main Workspace Header */}
-        <div className="shrink-0 px-3 sm:px-6 py-2.5 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between gap-3 flex-wrap">
-          <div className="flex items-center gap-2.5">
-            {!isSidebarOpen && (
+        <div className="shrink-0 px-3 sm:px-6 py-2 sm:py-2.5 border-b border-slate-200 dark:border-slate-800 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 sm:gap-3">
+          {/* Top row on mobile / Left group on desktop */}
+          <div className="flex items-center justify-between sm:justify-start gap-2.5">
+            <div className="flex items-center gap-2">
               <button
                 type="button"
-                onClick={() => setIsSidebarOpen(true)}
-                className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 hover:bg-slate-50 text-xs font-semibold text-slate-700 dark:text-slate-200 transition-colors shadow-2xs cursor-pointer"
-                title="Show saved chats column"
+                onClick={() => setIsSidebarOpen(!isSidebarOpen)}
+                className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 hover:bg-slate-50 text-xs font-semibold text-slate-700 dark:text-slate-200 transition-colors shadow-2xs cursor-pointer ${
+                  isSidebarOpen ? "sm:hidden" : ""
+                }`}
+                title="Toggle saved chats"
               >
                 <PanelLeftOpen className="h-4 w-4 text-indigo-600" />
                 <span className="hidden sm:inline">Saved Chats</span>
@@ -709,31 +738,72 @@ export function RevisionView() {
                   {sessions.length}/5
                 </span>
               </button>
-            )}
 
-            <div>
-              <h1 className="text-sm sm:text-base font-bold text-slate-900 dark:text-white leading-tight">
-                Revision workspace
-              </h1>
-              <p className="text-[11px] text-slate-500 dark:text-slate-400 hidden sm:block">
-                Syllabus-focused study, landmark SC judgements, PIB updates, and
-                question dissection.
-              </p>
+              <div>
+                <h1 className="text-sm sm:text-base font-bold text-slate-900 dark:text-white leading-tight">
+                  Revision workspace
+                </h1>
+                <p className="text-[11px] text-slate-500 dark:text-slate-400 hidden sm:block">
+                  Syllabus-focused study, landmark SC judgements, PIB updates, and
+                  question dissection.
+                </p>
+              </div>
+            </div>
+
+            {/* Mobile actions: AI Settings & Clear */}
+            <div className="flex sm:hidden items-center gap-1.5">
+              <button
+                type="button"
+                onClick={() => setShowSettingsModal(true)}
+                className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-xs text-slate-700 dark:text-slate-200 font-medium shadow-2xs"
+                title="Configure AI Provider & API Key"
+              >
+                <span
+                  className={`h-2 w-2 rounded-full shrink-0 ${
+                    config?.apiKey ? "bg-emerald-500 animate-pulse" : "bg-amber-500"
+                  }`}
+                />
+                <span className="text-[11px] font-semibold">
+                  {config?.apiKey
+                    ? config.provider === "gemini"
+                      ? "Gemini"
+                      : config.provider === "openai"
+                        ? "OpenAI"
+                        : config.provider === "anthropic"
+                          ? "Claude"
+                          : config.provider === "groq"
+                            ? "Groq"
+                            : "AI"
+                    : "API Key"}
+                </span>
+                <Settings2 className="h-3 w-3 text-slate-400" />
+              </button>
+
+              {messages.length > 0 && (
+                <button
+                  type="button"
+                  onClick={handleClearActiveChat}
+                  title="Clear current conversation"
+                  className="p-1.5 rounded-lg text-slate-400 hover:text-rose-600 border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900"
+                >
+                  <Trash2 className="h-4 w-4" />
+                </button>
+              )}
             </div>
           </div>
 
-          {/* Mode Switcher */}
-          <div className="flex items-center gap-2">
-            <div className="flex items-center rounded-lg bg-slate-100 dark:bg-slate-800 p-0.5 text-xs font-semibold">
+          {/* Controls: Mode Switcher + Desktop actions */}
+          <div className="flex items-center justify-between sm:justify-end gap-2 overflow-x-auto no-scrollbar pb-0.5 sm:pb-0">
+            <div className="inline-flex items-center rounded-lg bg-slate-100 dark:bg-slate-800 p-0.5 text-xs font-semibold shrink-0">
               <button
                 type="button"
                 onClick={() => {
                   setMode("general");
                   setSelectedTopic("");
                 }}
-                className={`px-3 py-1.5 rounded-md transition-all flex items-center gap-1.5 ${
+                className={`px-2.5 sm:px-3 py-1.5 rounded-md transition-all flex items-center gap-1.5 whitespace-nowrap ${
                   mode === "general"
-                    ? "bg-white dark:bg-slate-900 text-indigo-600 dark:text-indigo-400 shadow-2xs"
+                    ? "bg-white dark:bg-slate-900 text-indigo-600 dark:text-indigo-400 shadow-2xs font-bold"
                     : "text-slate-600 dark:text-slate-400 hover:text-slate-900"
                 }`}
               >
@@ -744,9 +814,9 @@ export function RevisionView() {
               <button
                 type="button"
                 onClick={() => setMode("paper")}
-                className={`px-3 py-1.5 rounded-md transition-all flex items-center gap-1.5 ${
+                className={`px-2.5 sm:px-3 py-1.5 rounded-md transition-all flex items-center gap-1.5 whitespace-nowrap ${
                   mode === "paper"
-                    ? "bg-white dark:bg-slate-900 text-indigo-600 dark:text-indigo-400 shadow-2xs"
+                    ? "bg-white dark:bg-slate-900 text-indigo-600 dark:text-indigo-400 shadow-2xs font-bold"
                     : "text-slate-600 dark:text-slate-400 hover:text-slate-900"
                 }`}
               >
@@ -757,9 +827,9 @@ export function RevisionView() {
               <button
                 type="button"
                 onClick={() => setMode("syllabus")}
-                className={`px-3 py-1.5 rounded-md transition-all flex items-center gap-1.5 ${
+                className={`px-2.5 sm:px-3 py-1.5 rounded-md transition-all flex items-center gap-1.5 whitespace-nowrap ${
                   mode === "syllabus"
-                    ? "bg-white dark:bg-slate-900 text-indigo-600 dark:text-indigo-400 shadow-2xs"
+                    ? "bg-white dark:bg-slate-900 text-indigo-600 dark:text-indigo-400 shadow-2xs font-bold"
                     : "text-slate-600 dark:text-slate-400 hover:text-slate-900"
                 }`}
               >
@@ -768,142 +838,146 @@ export function RevisionView() {
               </button>
             </div>
 
-            {/* AI Provider & API Key Button */}
-            <button
-              type="button"
-              onClick={() => setShowSettingsModal(true)}
-              className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700/60 text-xs text-slate-700 dark:text-slate-200 font-medium transition-all shadow-2xs cursor-pointer"
-              title="Configure AI Provider & API Key"
-            >
-              <span
-                className={`h-2 w-2 rounded-full shrink-0 ${
-                  config?.apiKey
-                    ? "bg-emerald-500 animate-pulse"
-                    : "bg-amber-500"
-                }`}
-              />
-              <span
-                className={`font-semibold ${
-                  config?.apiKey
-                    ? "text-emerald-700 dark:text-emerald-400"
-                    : "text-slate-700 dark:text-slate-200"
-                }`}
-              >
-                {config?.apiKey
-                  ? config.provider === "gemini"
-                    ? "Gemini"
-                    : config.provider === "openai"
-                      ? "OpenAI"
-                      : config.provider === "anthropic"
-                        ? "Claude"
-                        : config.provider === "groq"
-                          ? "Groq"
-                          : "Custom AI"
-                  : "API Key"}
-              </span>
-              <Settings2 className="h-3.5 w-3.5 text-slate-400 shrink-0" />
-            </button>
-
-            {messages.length > 0 && (
+            {/* Desktop-only: AI Provider & Clear */}
+            <div className="hidden sm:flex items-center gap-2 shrink-0">
               <button
                 type="button"
-                onClick={handleClearActiveChat}
-                title="Clear current conversation"
-                className="p-1.5 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/40 border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 transition-colors cursor-pointer"
+                onClick={() => setShowSettingsModal(true)}
+                className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700/60 text-xs text-slate-700 dark:text-slate-200 font-medium transition-all shadow-2xs cursor-pointer"
+                title="Configure AI Provider & API Key"
               >
-                <Trash2 className="h-4 w-4" />
+                <span
+                  className={`h-2 w-2 rounded-full shrink-0 ${
+                    config?.apiKey
+                      ? "bg-emerald-500 animate-pulse"
+                      : "bg-amber-500"
+                  }`}
+                />
+                <span
+                  className={`font-semibold ${
+                    config?.apiKey
+                      ? "text-emerald-700 dark:text-emerald-400"
+                      : "text-slate-700 dark:text-slate-200"
+                  }`}
+                >
+                  {config?.apiKey
+                    ? config.provider === "gemini"
+                      ? "Gemini"
+                      : config.provider === "openai"
+                        ? "OpenAI"
+                        : config.provider === "anthropic"
+                          ? "Claude"
+                          : config.provider === "groq"
+                            ? "Groq"
+                            : "Custom AI"
+                    : "API Key"}
+                </span>
+                <Settings2 className="h-3.5 w-3.5 text-slate-400 shrink-0" />
               </button>
-            )}
+
+              {messages.length > 0 && (
+                <button
+                  type="button"
+                  onClick={handleClearActiveChat}
+                  title="Clear current conversation"
+                  className="p-1.5 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/40 border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 transition-colors cursor-pointer"
+                >
+                  <Trash2 className="h-4 w-4" />
+                </button>
+              )}
+            </div>
           </div>
         </div>
 
         {/* Paper / Syllabus Sub-Context Bar (When Selected) */}
         {mode === "paper" && (
-          <div className="shrink-0 px-3 sm:px-6 py-2 bg-slate-50 dark:bg-slate-950/60 border-b border-slate-200 dark:border-slate-800 flex flex-wrap items-center gap-2.5 text-xs">
-            <span className="text-slate-600 dark:text-slate-300 font-semibold flex items-center gap-1.5">
-              <Paperclip className="h-4 w-4 text-indigo-500" /> Select Paper &
-              Question:
+          <div className="shrink-0 px-3 sm:px-6 py-2 bg-slate-50 dark:bg-slate-950/60 border-b border-slate-200 dark:border-slate-800 flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-2.5 text-xs">
+            <span className="text-slate-600 dark:text-slate-300 font-semibold flex items-center gap-1.5 shrink-0">
+              <Paperclip className="h-4 w-4 text-indigo-500" /> Select Paper & Question:
             </span>
 
-            <select
-              value={selectedPaperId}
-              onChange={(e) => {
-                setSelectedPaperId(e.target.value);
-                setSelectedQuestionNo(null);
-              }}
-              className="px-3 py-1.5 text-xs rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white font-medium min-w-[240px]"
-            >
-              <option value="">Select Paper from Library...</option>
-              {papers.map((p) => (
-                <option key={p.id} value={p.id}>
-                  {getPaperDisplayTitle(p)}
-                </option>
-              ))}
-            </select>
-
-            {activePaper && (activePaper.parsedQuestions?.length ?? 0) > 0 && (
+            <div className="flex flex-col sm:flex-row sm:items-center gap-2 flex-1 min-w-0">
               <select
-                value={selectedQuestionNo || ""}
-                onChange={(e) =>
-                  setSelectedQuestionNo(
-                    e.target.value ? Number(e.target.value) : null,
-                  )
-                }
-                className="px-3 py-1.5 text-xs rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white font-medium max-w-[300px]"
+                value={selectedPaperId}
+                onChange={(e) => {
+                  setSelectedPaperId(e.target.value);
+                  setSelectedQuestionNo(null);
+                }}
+                className="px-3 py-1.5 text-xs rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white font-medium w-full sm:w-auto sm:min-w-[220px] max-w-full sm:max-w-xs"
               >
-                <option value="">All Paper Questions (General)</option>
-                {activePaper.parsedQuestions?.map((q) => (
-                  <option key={q.questionNo} value={q.questionNo}>
-                    Q#{q.questionNo}: {q.text.slice(0, 48)}...
+                <option value="">Select Paper from Library...</option>
+                {papers.map((p) => (
+                  <option key={p.id} value={p.id}>
+                    {getPaperDisplayTitle(p)}
                   </option>
                 ))}
               </select>
-            )}
 
-            {activeQuestion && (
-              <span className="text-[11px] text-indigo-600 dark:text-indigo-400 font-semibold bg-indigo-50 dark:bg-indigo-950/60 px-2.5 py-1 rounded-md border border-indigo-100 dark:border-indigo-900">
-                Active: Question #{activeQuestion.questionNo}
-              </span>
-            )}
+              {activePaper && (activePaper.parsedQuestions?.length ?? 0) > 0 && (
+                <select
+                  value={selectedQuestionNo || ""}
+                  onChange={(e) =>
+                    setSelectedQuestionNo(
+                      e.target.value ? Number(e.target.value) : null,
+                    )
+                  }
+                  className="px-3 py-1.5 text-xs rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white font-medium w-full sm:w-auto sm:max-w-[280px] max-w-full"
+                >
+                  <option value="">All Paper Questions (General)</option>
+                  {activePaper.parsedQuestions?.map((q) => (
+                    <option key={q.questionNo} value={q.questionNo}>
+                      Q#{q.questionNo}: {q.text.slice(0, 48)}...
+                    </option>
+                  ))}
+                </select>
+              )}
+
+              {activeQuestion && (
+                <span className="text-[11px] text-indigo-600 dark:text-indigo-400 font-semibold bg-indigo-50 dark:bg-indigo-950/60 px-2.5 py-1 rounded-md border border-indigo-100 dark:border-indigo-900 self-start sm:self-auto shrink-0">
+                  Active: Question #{activeQuestion.questionNo}
+                </span>
+              )}
+            </div>
           </div>
         )}
 
         {mode === "syllabus" && (
-          <div className="shrink-0 px-3 sm:px-6 py-2 bg-slate-50 dark:bg-slate-950/60 border-b border-slate-200 dark:border-slate-800 flex flex-wrap items-center gap-2.5 text-xs">
-            <span className="text-slate-600 dark:text-slate-300 font-semibold flex items-center gap-1.5">
+          <div className="shrink-0 px-3 sm:px-6 py-2 bg-slate-50 dark:bg-slate-950/60 border-b border-slate-200 dark:border-slate-800 flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-2.5 text-xs">
+            <span className="text-slate-600 dark:text-slate-300 font-semibold flex items-center gap-1.5 shrink-0">
               <BookOpen className="h-4 w-4 text-indigo-500" /> Syllabus Topic:
             </span>
 
-            {syllabusItems.length > 0 ? (
-              <select
-                value={selectedTopic}
-                onChange={(e) => setSelectedTopic(e.target.value)}
-                className="px-3 py-1.5 text-xs rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white font-medium min-w-[260px]"
-              >
-                <option value="">Choose a tracked syllabus item...</option>
-                {syllabusItems.map((item) => (
-                  <option key={item.id} value={item.title}>
-                    {item.title}
-                  </option>
-                ))}
-              </select>
-            ) : (
-              <span className="text-slate-500 italic">
-                No syllabus outline saved yet. Go to Syllabus tab to paste an
-                outline, or use General Revision.
-              </span>
-            )}
+            <div className="flex items-center gap-2 w-full sm:w-auto flex-1 min-w-0">
+              {syllabusItems.length > 0 ? (
+                <select
+                  value={selectedTopic}
+                  onChange={(e) => setSelectedTopic(e.target.value)}
+                  className="px-3 py-1.5 text-xs rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white font-medium w-full sm:w-auto sm:min-w-[240px] max-w-full sm:max-w-md"
+                >
+                  <option value="">Choose a tracked syllabus item...</option>
+                  {syllabusItems.map((item) => (
+                    <option key={item.id} value={item.title}>
+                      {item.title}
+                    </option>
+                  ))}
+                </select>
+              ) : (
+                <span className="text-slate-500 italic text-[11px]">
+                  No syllabus outline saved yet. Go to Syllabus tab to paste an outline.
+                </span>
+              )}
 
-            {selectedTopic && (
-              <button
-                type="button"
-                onClick={() => setSelectedTopic("")}
-                className="text-slate-400 hover:text-slate-600 p-1"
-                title="Clear topic selection"
-              >
-                <X className="h-4 w-4" />
-              </button>
-            )}
+              {selectedTopic && (
+                <button
+                  type="button"
+                  onClick={() => setSelectedTopic("")}
+                  className="text-slate-400 hover:text-slate-600 p-1 shrink-0"
+                  title="Clear topic selection"
+                >
+                  <X className="h-4 w-4" />
+                </button>
+              )}
+            </div>
           </div>
         )}
 
@@ -1001,9 +1075,9 @@ export function RevisionView() {
                 )}
 
                 <div
-                  className={`max-w-3xl rounded-xl p-4 shadow-xs text-xs sm:text-sm ${
+                  className={`rounded-2xl p-3.5 sm:p-4 shadow-xs text-xs sm:text-sm ${
                     msg.role === "user"
-                      ? "bg-indigo-600 text-white font-medium ml-12"
+                      ? "bg-indigo-600 text-white font-medium ml-4 sm:ml-12 max-w-[88%] sm:max-w-2xl"
                       : msg.isError || msg.content.startsWith("⚠️")
                         ? "bg-rose-50/75 dark:bg-rose-950/30 border border-rose-200 dark:border-rose-900/60 text-slate-800 dark:text-slate-200 w-full"
                         : "bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-slate-800 dark:text-slate-200 w-full"
@@ -1016,11 +1090,11 @@ export function RevisionView() {
                   ) : msg.isError || msg.content.startsWith("⚠️") ? (
                     <div className="space-y-3">
                       <RevisionMarkdownRenderer content={msg.content} />
-                      <div className="pt-2 border-t border-rose-200/60 dark:border-rose-900/40 flex items-center justify-between gap-2 text-xs">
+                      <div className="pt-2 border-t border-rose-200/60 dark:border-rose-900/40 flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs">
                         <span className="text-rose-600 dark:text-rose-400 font-medium text-[11px]">
                           Generation stopped
                         </span>
-                        <div className="flex items-center gap-2">
+                        <div className="flex items-center gap-1.5 sm:gap-2 flex-wrap">
                           {config?.apiKey && (
                             <button
                               type="button"
@@ -1125,7 +1199,7 @@ export function RevisionView() {
         </div>
 
         {/* Bottom Message Input Box */}
-        <div className="shrink-0 p-3 sm:px-8 bg-slate-50 dark:bg-slate-950 border-t border-slate-200 dark:border-slate-800">
+        <div className="shrink-0 p-2.5 sm:p-3 sm:px-8 bg-slate-50 dark:bg-slate-950 border-t border-slate-200 dark:border-slate-800">
           <form
             onSubmit={(e) => {
               e.preventDefault();
@@ -1147,27 +1221,27 @@ export function RevisionView() {
                 }}
                 placeholder={
                   mode === "paper" && activeQuestion
-                    ? `Ask about Question #${activeQuestion.questionNo} (e.g. Why is (C) correct? What was the elimination trap?)...`
+                    ? `Ask about Question #${activeQuestion.questionNo}...`
                     : mode === "paper"
                       ? "Ask anything about this question paper..."
                       : mode === "syllabus" && selectedTopic
                         ? `Ask anything on ${selectedTopic}...`
-                        : "Ask any UPSC topic or doubt (e.g. Permutations & Combinations, Fundamental Rights, Monetary Policy)..."
+                        : "Ask any UPSC topic or doubt..."
                 }
-                className="w-full resize-none px-3.5 py-2.5 text-xs sm:text-sm rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-900 dark:text-white placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 font-normal leading-relaxed shadow-xs"
+                className="w-full resize-none px-3 sm:px-3.5 py-2 sm:py-2.5 text-xs sm:text-sm rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-900 dark:text-white placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 font-normal leading-relaxed shadow-xs"
               />
             </div>
 
-            <div className="flex items-center justify-between gap-2 flex-wrap">
-              <div className="text-[11px] text-slate-500 dark:text-slate-400 flex items-center gap-1.5">
-                <span>Press Enter to send, Shift+Enter for newline</span>
+            <div className="flex items-center justify-between gap-2">
+              <div className="text-[11px] text-slate-500 dark:text-slate-400 flex items-center gap-1.5 min-w-0">
+                <span className="hidden sm:inline">Press Enter to send, Shift+Enter for newline</span>
                 {mode === "syllabus" && selectedTopic && (
-                  <span className="hidden sm:inline-flex items-center gap-1.5 text-[11px] bg-indigo-50 dark:bg-indigo-950/60 border border-indigo-200 dark:border-indigo-800 px-2 py-0.5 rounded text-indigo-700 dark:text-indigo-300 font-medium">
-                    <span>Topic: {selectedTopic}</span>
+                  <span className="inline-flex items-center gap-1.5 text-[10px] sm:text-[11px] bg-indigo-50 dark:bg-indigo-950/60 border border-indigo-200 dark:border-indigo-800 px-2 py-0.5 rounded text-indigo-700 dark:text-indigo-300 font-medium truncate max-w-[200px] sm:max-w-none">
+                    <span className="truncate">Topic: {selectedTopic}</span>
                     <button
                       type="button"
                       onClick={() => setSelectedTopic("")}
-                      className="p-0.5 hover:text-rose-600 rounded cursor-pointer"
+                      className="p-0.5 hover:text-rose-600 rounded cursor-pointer shrink-0"
                       title="Clear syllabus topic"
                     >
                       <X className="h-3 w-3" />
@@ -1179,7 +1253,7 @@ export function RevisionView() {
               <button
                 type="submit"
                 disabled={isLoading || !inputPrompt.trim()}
-                className="flex items-center gap-1.5 px-4 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 text-white font-semibold text-xs transition-colors shadow-xs cursor-pointer"
+                className="flex items-center gap-1.5 px-3.5 sm:px-4 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 text-white font-semibold text-xs transition-colors shadow-xs cursor-pointer shrink-0"
               >
                 <Send className="h-3.5 w-3.5" />
                 <span>Ask Mentor</span>
