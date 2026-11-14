@@ -64,6 +64,8 @@ import {
   RotateCcw,
   Lightbulb,
   Keyboard,
+  X,
+  Grid3X3,
 } from "lucide-react";
 
 interface ExamSessionViewProps {
@@ -183,8 +185,12 @@ export function ExamSessionView({
     } catch {}
   };
   const [mobileTab, setMobileTab] = useState<"paper" | "split" | "questions">(
-    "questions",
+    "paper",
   );
+  const [isMobilePaletteOpen, setIsMobilePaletteOpen] =
+    useState<boolean>(false);
+  const [isMobileScratchpadOpen, setIsMobileScratchpadOpen] =
+    useState<boolean>(false);
   const [isPaused, setIsPaused] = useState<boolean>(false);
   const [revealedAnswers, setRevealedAnswers] = useState<
     Record<number, boolean>
@@ -1548,7 +1554,7 @@ export function ExamSessionView({
                       ? "Auto-Next is ON: Automatically moves to next question after selecting an option. Click to turn OFF."
                       : "Auto-Next is OFF: Stays on question after selecting an option. Click to turn ON."
                   }
-                  className={`flex items-center gap-1.5 rounded-xl border px-2 sm:px-2.5 py-1 text-xs font-semibold transition-all shadow-2xs cursor-pointer ${
+                  className={`hidden sm:flex items-center gap-1.5 rounded-xl border px-2 sm:px-2.5 py-1 text-xs font-semibold transition-all shadow-2xs cursor-pointer ${
                     autoAdvance
                       ? "border-emerald-300 bg-emerald-50 text-emerald-800 hover:bg-emerald-100"
                       : "border-slate-200 bg-white text-slate-600 hover:bg-slate-50"
@@ -1676,56 +1682,61 @@ export function ExamSessionView({
             </div>
           </div>
 
-          {/* Mobile/Tablet View Switcher (< lg) */}
-          <div className="flex lg:hidden items-center gap-0.5 bg-slate-100 p-0.5 rounded-lg border border-slate-200 shrink-0 text-[11px]">
-            <button
-              onClick={() => setMobileTab("paper")}
-              className={`px-2 py-0.5 rounded-md font-semibold transition-all ${
-                mobileTab === "paper"
-                  ? "bg-indigo-600 text-white shadow-2xs"
-                  : "text-slate-600 hover:text-slate-900"
-              }`}
-            >
-              Paper
-            </button>
-            <button
-              onClick={() => setMobileTab("split")}
-              className={`px-2 py-0.5 rounded-md font-semibold transition-all ${
-                mobileTab === "split"
-                  ? "bg-indigo-600 text-white shadow-2xs"
-                  : "text-slate-600 hover:text-slate-900"
-              }`}
-            >
-              Split
-            </button>
-            <button
-              onClick={() => setMobileTab("questions")}
-              className={`px-2 py-0.5 rounded-md font-semibold transition-all ${
-                mobileTab === "questions"
-                  ? "bg-indigo-600 text-white shadow-2xs"
-                  : "text-slate-600 hover:text-slate-900"
-              }`}
-            >
-              Questions
-            </button>
+          {/* Mobile/Tablet Controls (< lg) */}
+          <div className="flex lg:hidden items-center gap-1 shrink-0 text-[11px]">
+            {isMarkdownPaper ? (
+              <button
+                type="button"
+                onClick={() => setIsMobilePaletteOpen(true)}
+                className="flex items-center gap-1 rounded-lg bg-indigo-50 border border-indigo-200 px-2.5 py-1 text-indigo-700 font-bold hover:bg-indigo-100 transition-colors shadow-2xs"
+              >
+                <Grid3X3 className="h-3.5 w-3.5" />
+                <span>Palette ({paper.totalQuestions})</span>
+              </button>
+            ) : (
+              <div className="flex items-center gap-0.5 bg-slate-100 p-0.5 rounded-lg border border-slate-200">
+                <button
+                  onClick={() => setMobileTab("paper")}
+                  className={`px-2 py-0.5 rounded-md font-semibold transition-all ${
+                    mobileTab === "paper"
+                      ? "bg-indigo-600 text-white shadow-2xs"
+                      : "text-slate-600 hover:text-slate-900"
+                  }`}
+                >
+                  PDF
+                </button>
+                <button
+                  onClick={() => setMobileTab("questions")}
+                  className={`px-2 py-0.5 rounded-md font-semibold transition-all ${
+                    mobileTab === "questions"
+                      ? "bg-indigo-600 text-white shadow-2xs"
+                      : "text-slate-600 hover:text-slate-900"
+                  }`}
+                >
+                  Answers
+                </button>
+              </div>
+            )}
           </div>
         </div>
       </div>
 
       {/* Main Layout */}
       <div
-        className={`exam-session-main ${mobileTab === "split" ? "is-split" : ""}`}
+        className={`exam-session-main ${!isMarkdownPaper && mobileTab === "split" ? "is-split" : ""}`}
         onTouchStart={handleTouchStart}
         onTouchEnd={handleTouchEnd}
       >
         {/* Left Side: Interactive Markdown Question or PDF Viewer */}
         <div
           className={`exam-paper-pane w-full border-r border-slate-200 bg-slate-100 flex flex-col ${
-            mobileTab === "paper"
+            isMarkdownPaper
               ? "flex"
-              : mobileTab === "questions"
-                ? "hidden lg:flex"
-                : "flex"
+              : mobileTab === "paper"
+                ? "flex"
+                : mobileTab === "questions"
+                  ? "hidden lg:flex"
+                  : "flex"
           }`}
         >
           {effectivePaper.parsedQuestions &&
@@ -1791,6 +1802,20 @@ export function ExamSessionView({
                   onClearOption={handleClearSelection}
                   onNavigateQuestion={navigateToQuestion}
                   onStartExam={() => navigateToQuestion(1)}
+                  onToggleFlag={() =>
+                    currentQuestion !== null &&
+                    handleToggleFlag(currentQuestion)
+                  }
+                  onSetConfidence={(qNo, conf) =>
+                    handleSetConfidence(qNo, conf)
+                  }
+                  onOpenPalette={() => setIsMobilePaletteOpen(true)}
+                  onOpenScratchpad={() => setIsMobileScratchpadOpen(true)}
+                  hasScratchpadNote={
+                    currentQuestion !== null
+                      ? Boolean(answers[currentQuestion]?.note)
+                      : false
+                  }
                 />
               ) : (
                 <PdfViewer
@@ -1962,11 +1987,13 @@ export function ExamSessionView({
         {/* Right Side: Question and answer workspace */}
         <div
           className={`exam-question-pane w-full bg-slate-50/70 border-l border-slate-200 flex flex-col overflow-hidden ${
-            mobileTab === "questions"
-              ? "flex"
-              : mobileTab === "paper"
-                ? "hidden lg:flex"
-                : "flex"
+            isMarkdownPaper
+              ? "hidden lg:flex"
+              : mobileTab === "questions"
+                ? "flex"
+                : mobileTab === "paper"
+                  ? "hidden lg:flex"
+                  : "flex"
           }`}
         >
           {/* Active Question Top Card */}
@@ -3636,6 +3663,233 @@ export function ExamSessionView({
         isOpen={showShortcutsModal}
         onClose={() => setShowShortcutsModal(false)}
       />
+
+      {/* Mobile Question Palette Drawer / Bottom Sheet */}
+      {isMobilePaletteOpen && (
+        <div className="fixed inset-0 z-50 flex flex-col justify-end lg:hidden">
+          {/* Backdrop */}
+          <div
+            className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs transition-opacity"
+            onClick={() => setIsMobilePaletteOpen(false)}
+          />
+
+          {/* Sheet Container */}
+          <div className="relative z-10 flex max-h-[85vh] flex-col rounded-t-3xl bg-white shadow-2xl animate-in slide-in-from-bottom duration-200">
+            {/* Header */}
+            <div className="flex items-center justify-between border-b border-slate-100 px-4 py-3">
+              <div className="flex items-center gap-2">
+                <Grid3X3 className="h-4 w-4 text-indigo-600" />
+                <h3 className="text-sm font-bold text-slate-900">
+                  Question Palette ({paper.totalQuestions} Qs)
+                </h3>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsMobilePaletteOpen(false)}
+                className="rounded-full p-1.5 text-slate-400 hover:bg-slate-100 hover:text-slate-600"
+                aria-label="Close palette"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+
+            {/* Filter Pills */}
+            <div className="flex items-center gap-1.5 overflow-x-auto border-b border-slate-100 px-4 py-2 text-xs">
+              {(["all", "attempted", "unattempted", "flagged"] as const).map(
+                (tab) => (
+                  <button
+                    key={tab}
+                    type="button"
+                    onClick={() => setFilterMode(tab)}
+                    className={`rounded-lg px-2.5 py-1 capitalize font-medium shrink-0 transition-all ${
+                      filterMode === tab
+                        ? "bg-indigo-600 text-white font-bold shadow-2xs"
+                        : "bg-slate-100 text-slate-600 hover:bg-slate-200"
+                    }`}
+                  >
+                    {tab}
+                  </button>
+                ),
+              )}
+            </div>
+
+            {/* Question Grid */}
+            <div className="overflow-y-auto p-4 max-h-[55vh]">
+              <div className="grid grid-cols-5 xs:grid-cols-6 gap-2">
+                {filteredQuestionNumbers.map((qNo) => {
+                  const q = answers[qNo];
+                  const isCurrent = currentQuestion === qNo;
+                  const isAnswered = isQuestionAnswered(q);
+                  const isFlagged = q?.flagged;
+
+                  let badgeColor =
+                    "bg-white text-slate-700 border-slate-200 hover:bg-slate-100 shadow-2xs";
+
+                  if (isAnswered) {
+                    if (isPractice && !isSubjective) {
+                      if (q?.isCorrect === false) {
+                        badgeColor =
+                          "bg-rose-600 text-white border-rose-600 font-semibold";
+                      } else if (q?.isCorrect === true) {
+                        badgeColor =
+                          "bg-emerald-600 text-white border-emerald-600 font-semibold";
+                      } else {
+                        badgeColor =
+                          "bg-emerald-600 text-white border-emerald-600 font-semibold";
+                      }
+                    } else {
+                      const conf = q?.confidence;
+                      if (conf === "sure") {
+                        badgeColor =
+                          "bg-emerald-600 text-white border-emerald-600 font-semibold";
+                      } else if (conf === "50-50") {
+                        badgeColor =
+                          "bg-amber-500 text-white border-amber-500 font-semibold";
+                      } else if (conf === "elimination") {
+                        badgeColor =
+                          "bg-sky-600 text-white border-sky-600 font-semibold";
+                      } else if (conf === "guess") {
+                        badgeColor =
+                          "bg-purple-600 text-white border-purple-600 font-semibold";
+                      } else {
+                        badgeColor =
+                          "bg-indigo-600 text-white border-indigo-600 font-semibold";
+                      }
+                    }
+                  }
+
+                  if (isFlagged) {
+                    badgeColor =
+                      "bg-amber-100 text-amber-900 border-amber-300 font-semibold";
+                  }
+
+                  if (isCurrent) {
+                    badgeColor +=
+                      " ring-2 ring-indigo-600 border-indigo-600 font-bold scale-105";
+                  }
+
+                  return (
+                    <button
+                      key={qNo}
+                      type="button"
+                      onClick={() => {
+                        navigateToQuestion(qNo);
+                        setIsMobilePaletteOpen(false);
+                      }}
+                      className={`relative flex h-11 items-center justify-center rounded-xl border text-xs transition-all ${badgeColor}`}
+                    >
+                      <span>{qNo}</span>
+                      {isFlagged && (
+                        <span className="absolute top-1 right-1 h-2 w-2 rounded-full bg-amber-500" />
+                      )}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* Footer */}
+            <div className="flex items-center justify-between border-t border-slate-100 px-4 py-3 bg-slate-50 rounded-b-3xl">
+              <div className="flex items-center gap-2.5 text-[11px] text-slate-600 font-medium">
+                <span>
+                  Ans: <strong>{attemptedCount}</strong>
+                </span>
+                <span>
+                  Unans: <strong>{unattemptedCount}</strong>
+                </span>
+                <span>
+                  Flag: <strong>{flaggedCount}</strong>
+                </span>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsMobilePaletteOpen(false)}
+                className="rounded-xl bg-indigo-600 px-4 py-1.5 text-xs font-bold text-white shadow-xs hover:bg-indigo-700"
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Mobile Scratchpad Drawer / Bottom Sheet */}
+      {isMobileScratchpadOpen && currentQuestion !== null && (
+        <div className="fixed inset-0 z-50 flex flex-col justify-end lg:hidden">
+          {/* Backdrop */}
+          <div
+            className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs transition-opacity"
+            onClick={() => {
+              flushNoteDraftForQ(currentQuestion);
+              setIsMobileScratchpadOpen(false);
+            }}
+          />
+
+          {/* Sheet Container */}
+          <div className="relative z-10 flex max-h-[85vh] flex-col rounded-t-3xl bg-white shadow-2xl animate-in slide-in-from-bottom duration-200 p-4 space-y-3">
+            {/* Header */}
+            <div className="flex items-center justify-between border-b border-slate-100 pb-2.5">
+              <div className="flex items-center gap-2">
+                <Edit3 className="h-4 w-4 text-indigo-600" />
+                <h3 className="text-sm font-bold text-slate-900">
+                  Scratchpad & Notes — Q{currentQuestion}
+                </h3>
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  flushNoteDraftForQ(currentQuestion);
+                  setIsMobileScratchpadOpen(false);
+                }}
+                className="rounded-full p-1.5 text-slate-400 hover:bg-slate-100 hover:text-slate-600"
+                aria-label="Close notes"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+
+            {/* Note Area */}
+            <textarea
+              value={noteDraft}
+              onChange={(e) => {
+                const val = e.target.value;
+                setNoteDraft(val);
+                noteDraftRef.current = val;
+              }}
+              onBlur={() => flushNoteDraftForQ(currentQuestion)}
+              placeholder="Jot down keywords, elimination notes, rough outline or formulas while solving..."
+              rows={7}
+              className="w-full rounded-2xl border border-slate-300 bg-slate-50/50 p-3.5 text-xs text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 font-sans shadow-inner"
+              autoFocus
+            />
+
+            {/* Footer */}
+            <div className="flex items-center justify-between pt-1">
+              <button
+                type="button"
+                onClick={() => {
+                  setNoteDraft("");
+                  noteDraftRef.current = "";
+                  flushNoteDraftForQ(currentQuestion);
+                }}
+                className="text-xs font-semibold text-rose-600 hover:underline px-2 py-1"
+              >
+                Clear note
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  flushNoteDraftForQ(currentQuestion);
+                  setIsMobileScratchpadOpen(false);
+                }}
+                className="rounded-xl bg-indigo-600 px-5 py-2 text-xs font-bold text-white shadow-xs hover:bg-indigo-700"
+              >
+                Done
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
