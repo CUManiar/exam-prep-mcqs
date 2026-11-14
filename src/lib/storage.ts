@@ -482,11 +482,38 @@ export async function getAllPapers(
     }
 
     // Always merge local custom papers from localStorage (user uploaded / markdown mocks)
+    // Server paper (if present) takes precedence for answer keys, explanations, and marking rules.
     const localCustom = getCustomPapers();
     for (const cp of localCustom) {
       const existingIdx = papers.findIndex((p) => p.id === cp.id);
       if (existingIdx >= 0) {
-        papers[existingIdx] = { ...papers[existingIdx], ...cp };
+        const serverPaper = papers[existingIdx];
+        papers[existingIdx] = {
+          ...cp,
+          ...serverPaper,
+          answerKey:
+            Object.keys(serverPaper.answerKey || {}).length > 0
+              ? serverPaper.answerKey
+              : cp.answerKey || {},
+          explanations:
+            Object.keys(serverPaper.explanations || {}).length > 0
+              ? serverPaper.explanations
+              : cp.explanations || {},
+          parsedQuestions:
+            serverPaper.parsedQuestions && serverPaper.parsedQuestions.length > 0
+              ? serverPaper.parsedQuestions
+              : cp.parsedQuestions,
+          markdownContent:
+            serverPaper.markdownContent || cp.markdownContent,
+          instructions:
+            serverPaper.instructions && serverPaper.instructions.length > 0
+              ? serverPaper.instructions
+              : cp.instructions,
+          correctMarks:
+            Number(serverPaper.correctMarks ?? cp.correctMarks) || 2.0,
+          incorrectMarks:
+            Number(serverPaper.incorrectMarks ?? cp.incorrectMarks) || 0.667,
+        };
       } else {
         papers.unshift(cp);
       }

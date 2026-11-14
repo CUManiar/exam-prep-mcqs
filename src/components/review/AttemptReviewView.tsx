@@ -382,8 +382,10 @@ export function AttemptReviewView({
     assessment: SubjectiveAssessment,
     subjectiveMarks?: number,
   ) => {
-    const correctMarksPerQ = attempt.correctMarks || 2.0;
-    const incorrectMarksPerQ = attempt.incorrectMarks || 0.667;
+    const correctMarksPerQ =
+      matchedPaper?.correctMarks ?? attempt.correctMarks ?? 2.0;
+    const incorrectMarksPerQ =
+      matchedPaper?.incorrectMarks ?? attempt.incorrectMarks ?? 0.667;
     const updatedAnswers = { ...attempt.answers };
     const currentAnswer = updatedAnswers[qNo] || {
       questionNo: qNo,

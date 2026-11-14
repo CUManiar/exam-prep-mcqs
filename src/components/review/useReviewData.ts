@@ -187,8 +187,10 @@ export function useReviewData(attempt: Attempt, papers: QuestionPaper[]) {
 
   // Classification flags
   const isSubjectiveAttempt = attempt.examType === "subjective";
-  const correctMarksPerQ = attempt.correctMarks || 2.0;
-  const incorrectMarksPerQ = attempt.incorrectMarks || 0.667;
+  const correctMarksPerQ =
+    matchedPaper?.correctMarks ?? attempt.correctMarks ?? 2.0;
+  const incorrectMarksPerQ =
+    matchedPaper?.incorrectMarks ?? attempt.incorrectMarks ?? 0.667;
   const subjectiveMarksPerQ =
     attempt.totalQuestions > 0
       ? (attempt.totalMarks || attempt.maxScore || 0) / attempt.totalQuestions
@@ -248,25 +250,38 @@ export function useReviewData(attempt: Attempt, papers: QuestionPaper[]) {
   };
 
   // Question list
+  // Dynamically binds latest answer keys and explanations from matchedPaper so updates reflect immediately.
   const questionList: QuestionAnswer[] = useMemo(
     () =>
       Array.from({ length: attempt.totalQuestions }, (_, i) => i + 1).map(
         (qNo) => {
           const ans = attempt.answers[qNo];
-          const paperCorrect = matchedPaper?.answerKey?.[qNo];
-          const paperExp = matchedPaper?.explanations?.[qNo];
+          const pq = markdownQuestions.find((m) => m.questionNo === qNo);
+          const paperCorrect = matchedPaper?.answerKey?.[qNo] || pq?.answer;
+          const paperExp = matchedPaper?.explanations?.[qNo] || pq?.explanation;
+          const effectiveCorrect = paperCorrect || ans?.correctAnswer;
+          const effectiveExp = paperExp || ans?.explanation;
+          const isCorrect =
+            ans?.selected !== null && ans?.selected !== undefined
+              ? effectiveCorrect
+                ? ans.selected.trim().toUpperCase() ===
+                  effectiveCorrect.trim().toUpperCase()
+                : ans.isCorrect
+              : null;
+
           if (ans) {
             return {
               ...ans,
-              correctAnswer: ans.correctAnswer || paperCorrect,
-              explanation: ans.explanation || paperExp,
+              correctAnswer: effectiveCorrect,
+              explanation: effectiveExp,
+              isCorrect,
             };
           }
           return {
             questionNo: qNo,
             selected: null,
-            correctAnswer: paperCorrect,
-            explanation: paperExp,
+            correctAnswer: effectiveCorrect,
+            explanation: effectiveExp,
             isCorrect: null,
             flagged: false,
             note: "",
@@ -276,7 +291,12 @@ export function useReviewData(attempt: Attempt, papers: QuestionPaper[]) {
           };
         },
       ),
-    [attempt, matchedPaper?.answerKey, matchedPaper?.explanations],
+    [
+      attempt,
+      matchedPaper?.answerKey,
+      matchedPaper?.explanations,
+      markdownQuestions,
+    ],
   );
 
   // Derived metrics

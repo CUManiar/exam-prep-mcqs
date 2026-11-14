@@ -18,6 +18,7 @@ import {
   getAttemptPercentage,
   getSubjectiveAssessmentFraction,
   SUBJECTIVE_ASSESSMENT_META,
+  isCsatPaper,
 } from "../lib/defaults";
 import {
   saveActiveDraft,
@@ -1355,11 +1356,30 @@ export function ExamSessionView({
         };
       }
 
+      const effectiveCorrectMarks =
+        Number(paper.correctMarks) > 0
+          ? Number(paper.correctMarks)
+          : paper.totalQuestions > 0 && Number(paper.totalMarks) > 0
+            ? Math.round((Number(paper.totalMarks) / paper.totalQuestions) * 1000) / 1000
+            : isCsatPaper(paper)
+              ? 2.5
+              : 2.0;
+
+      const effectiveIncorrectMarks =
+        paper.incorrectMarks !== undefined && Number(paper.incorrectMarks) >= 0
+          ? Number(paper.incorrectMarks)
+          : isCsatPaper(paper)
+            ? 0.833
+            : 0.667;
+
       const calculatedScore = isSubjective
         ? subjectiveScore
-        : correctCount * paper.correctMarks -
-          incorrectCount * paper.incorrectMarks;
-      const maxScore = paper.totalMarks;
+        : correctCount * effectiveCorrectMarks -
+          incorrectCount * effectiveIncorrectMarks;
+      const maxScore =
+        Number(paper.totalMarks) > 0
+          ? Number(paper.totalMarks)
+          : paper.totalQuestions * effectiveCorrectMarks;
       const accuracyPct =
         attemptedCount > 0
           ? (isSubjective
@@ -1390,9 +1410,9 @@ export function ExamSessionView({
         startedAt: new Date(Date.now() - elapsedSeconds * 1000).toISOString(),
         finishedAt: new Date().toISOString(),
         totalQuestions: paper.totalQuestions,
-        totalMarks: paper.totalMarks,
-        correctMarks: paper.correctMarks,
-        incorrectMarks: paper.incorrectMarks,
+        totalMarks: maxScore,
+        correctMarks: effectiveCorrectMarks,
+        incorrectMarks: effectiveIncorrectMarks,
         timeMinutes: timeLimitMinutes,
         durationSeconds: elapsedSeconds,
         idleTimeSeconds,
