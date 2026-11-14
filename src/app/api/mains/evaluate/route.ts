@@ -207,10 +207,35 @@ async function callAnthropicEvaluation(
   throw new Error(lastError || "Anthropic evaluation failed");
 }
 
-/** Execute with Groq (Text Only) */
-async function callGroqEvaluation(apiKey: string, prompt: string): Promise<string> {
-  const models = ["llama-3.3-70b-versatile", "llama-3.1-70b-versatile"];
+/** Execute with Groq */
+async function callGroqEvaluation(
+  apiKey: string,
+  prompt: string,
+  images: Array<{ mimeType: string; data: string }> = []
+): Promise<string> {
+  const isVision = images.length > 0;
+  const models = isVision
+    ? ["llama-3.2-11b-vision-preview", "llama-3.2-90b-vision-preview"]
+    : ["llama-3.3-70b-versatile", "llama-3.1-8b-instant"];
+
   let lastError = "";
+
+  const messages: any[] = [];
+  if (isVision) {
+    const userContent: any[] = [{ type: "text", text: prompt }];
+    for (const img of images) {
+      const dataUrl = img.data.startsWith("data:")
+        ? img.data
+        : `data:${img.mimeType || "image/jpeg"};base64,${img.data}`;
+      userContent.push({
+        type: "image_url",
+        image_url: { url: dataUrl },
+      });
+    }
+    messages.push({ role: "user", content: userContent });
+  } else {
+    messages.push({ role: "user", content: prompt });
+  }
 
   for (const model of models) {
     try {
@@ -222,9 +247,9 @@ async function callGroqEvaluation(apiKey: string, prompt: string): Promise<strin
         },
         body: JSON.stringify({
           model,
-          messages: [{ role: "user", content: prompt }],
+          messages,
           temperature: 0.3,
-          max_tokens: 4000,
+          max_tokens: 3500,
           response_format: { type: "json_object" },
         }),
         signal: AbortSignal.timeout(45000),
@@ -322,14 +347,18 @@ export async function POST(req: NextRequest) {
 
     // 1. User-configured provider
     if (userApiKey && provider) {
-      if (provider === "gemini") {
-        rawOutput = await callGeminiEvaluation(userApiKey, evaluationPrompt, images);
-      } else if (provider === "openai") {
-        rawOutput = await callOpenAIEvaluation(userApiKey, evaluationPrompt, images);
-      } else if (provider === "anthropic") {
-        rawOutput = await callAnthropicEvaluation(userApiKey, evaluationPrompt, images);
-      } else if (provider === "groq") {
-        rawOutput = await callGroqEvaluation(userApiKey, evaluationPrompt);
+      try {
+        if (provider === "gemini") {
+          rawOutput = await callGeminiEvaluation(userApiKey, evaluationPrompt, images);
+        } else if (provider === "openai") {
+          rawOutput = await callOpenAIEvaluation(userApiKey, evaluationPrompt, images);
+        } else if (provider === "anthropic") {
+          rawOutput = await callAnthropicEvaluation(userApiKey, evaluationPrompt, images);
+        } else if (provider === "groq") {
+          rawOutput = await callGroqEvaluation(userApiKey, evaluationPrompt, images);
+        }
+      } catch (err: any) {
+        console.warn(`User-configured ${provider} evaluation failed, falling back:`, err?.message);
       }
     }
 
