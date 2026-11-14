@@ -53,7 +53,7 @@ export function MarkdownPaperReviewViewer({
   onResetFilters,
 }: MarkdownPaperReviewViewerProps) {
   const scrollContainerRef = useRef<HTMLDivElement>(null);
-  const [viewMode, setViewMode] = useState<"all" | "single">("all");
+  const [viewMode, setViewMode] = useState<"all" | "single">("single");
   const [showPaperDetails, setShowPaperDetails] = useState<boolean>(false);
   const [isPaletteOpen, setIsPaletteOpen] = useState<boolean>(false);
 
@@ -170,7 +170,8 @@ export function MarkdownPaperReviewViewer({
         </div>
 
         <div className="flex items-center justify-between sm:justify-end w-full sm:w-auto gap-1.5 sm:gap-2 shrink-0">
-          <div className="flex items-center rounded-lg border border-slate-200 bg-slate-50 p-0.5">
+          {/* View mode toggle - Desktop only, mobile defaults to focused single question */}
+          <div className="hidden sm:flex items-center rounded-lg border border-slate-200 bg-slate-50 p-0.5">
             {(
               [
                 ["all", "All questions"],
