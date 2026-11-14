@@ -79,20 +79,20 @@ export function MarkdownPaperReviewViewer({
   return (
     <div className="flex flex-col h-full bg-slate-50 overflow-hidden">
       {/* 1. Header Toolbar */}
-      <div className="flex items-center justify-between px-3.5 py-2.5 bg-white border-b border-slate-200 shrink-0 gap-2">
-        <div className="flex items-center gap-2 text-xs font-medium text-slate-800 min-w-0">
+      <div className="flex items-center justify-between px-3 sm:px-3.5 py-1.5 sm:py-2 bg-white border-b border-slate-200 shrink-0 gap-2">
+        <div className="hidden sm:flex items-center gap-2 text-xs font-medium text-slate-800 min-w-0">
           <span
             className="truncate max-w-[150px] sm:max-w-[220px]"
             title={displayTitle}
           >
             {displayTitle}
           </span>
-          <span className="hidden sm:inline text-[11px] text-slate-400 font-normal">
+          <span className="text-[11px] text-slate-400 font-normal">
             · {questions.length} questions
           </span>
         </div>
 
-        <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
+        <div className="flex items-center justify-between sm:justify-end w-full sm:w-auto gap-1.5 sm:gap-2 shrink-0">
           <div className="flex items-center rounded-lg border border-slate-200 bg-slate-50 p-0.5">
             {(
               [
@@ -104,7 +104,11 @@ export function MarkdownPaperReviewViewer({
                 key={mode}
                 type="button"
                 onClick={() => setViewMode(mode)}
-                className={`rounded-md px-2 py-1 text-[10px] font-semibold transition-colors ${viewMode === mode ? "bg-white text-slate-900 shadow-2xs" : "text-slate-500 hover:text-slate-800"}`}
+                className={`rounded-md px-2 py-1 text-[11px] font-semibold transition-colors cursor-pointer ${
+                  viewMode === mode
+                    ? "bg-white text-slate-900 shadow-2xs"
+                    : "text-slate-500 hover:text-slate-800"
+                }`}
               >
                 {label}
               </button>
@@ -121,7 +125,8 @@ export function MarkdownPaperReviewViewer({
                   onSelectQuestion?.(val);
                 }
               }}
-              className="text-xs font-medium bg-white border border-slate-200 rounded-lg px-2.5 py-1 text-slate-700 hover:bg-slate-50 cursor-pointer transition-colors"
+              aria-label="Jump to Question"
+              className="text-xs font-medium bg-white border border-slate-200 rounded-lg px-2 py-1 text-slate-700 hover:bg-slate-50 cursor-pointer transition-colors"
             >
               <option value="">Jump to Q...</option>
               {questions.map((q) => {
@@ -140,7 +145,7 @@ export function MarkdownPaperReviewViewer({
             <button
               type="button"
               onClick={onClose}
-              className="text-xs font-semibold text-slate-600 hover:text-slate-900 px-2.5 py-1 rounded-md hover:bg-slate-100 transition-colors cursor-pointer"
+              className="hidden sm:inline-flex text-xs font-semibold text-slate-600 hover:text-slate-900 px-2.5 py-1 rounded-md hover:bg-slate-100 transition-colors cursor-pointer"
               title="Hide question paper preview"
             >
               ✕ Hide
