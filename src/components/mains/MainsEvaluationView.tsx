@@ -678,14 +678,14 @@ Answer strictly as an expert UPSC CSE examiner. Give concrete examples, model po
 
             {/* Question Textarea */}
             <div>
-              <div className="flex items-center justify-between mb-1">
-                <label className="block text-[11px] font-bold text-slate-700 dark:text-slate-300">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1 mb-1.5">
+                <label className="text-xs font-bold text-slate-800 dark:text-slate-200">
                   QUESTION PROMPT
                 </label>
-                <span className="text-[10px] text-slate-500 font-medium">
+                <span className="text-[11px] text-slate-500 dark:text-slate-400 font-medium">
                   {uploadedImages.length > 0
-                    ? "Optional: Auto-extracted from uploaded answer sheet"
-                    : "Optional if question is included in your answer below"}
+                    ? "✨ Auto-transcribed from answer sheet if left empty"
+                    : "Optional if already in your answer text below"}
                 </span>
               </div>
               <textarea
@@ -694,8 +694,8 @@ Answer strictly as an expert UPSC CSE examiner. Give concrete examples, model po
                 rows={2}
                 placeholder={
                   uploadedImages.length > 0
-                    ? "Optional: Question will be auto-read from top of your uploaded sheet. (Type here only to override)..."
-                    : "Paste question here, or leave blank if your pasted answer text below already starts with the question..."
+                    ? "Leave blank to auto-read question from your uploaded sheet, or type here to override..."
+                    : "Paste question here, or leave blank if already included in your answer below..."
                 }
                 className="w-full rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800/80 p-3 text-xs sm:text-sm font-medium focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 outline-none transition-all placeholder:text-slate-400"
               />
@@ -703,20 +703,20 @@ Answer strictly as an expert UPSC CSE examiner. Give concrete examples, model po
 
             {/* Answer Input Method Selector */}
             <div className="pt-2">
-              <div className="flex items-center justify-between pb-2">
-                <span className="text-[11px] font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider flex items-center gap-1.5">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 pb-3">
+                <span className="text-xs font-bold text-slate-800 dark:text-slate-200 uppercase tracking-wider flex items-center gap-1.5">
                   <FileCheck className="h-4 w-4 text-indigo-600" />
                   <span>2. Candidate Answer Submission</span>
                 </span>
 
-                <div className="flex rounded-lg border border-slate-200 dark:border-slate-700 p-0.5 bg-slate-50 dark:bg-slate-800 text-xs">
+                <div className="flex rounded-xl border border-slate-200 dark:border-slate-700 p-0.5 bg-slate-100 dark:bg-slate-800 text-xs w-full sm:w-auto">
                   <button
                     type="button"
                     onClick={() => setInputMode("text")}
-                    className={`px-3 py-1 rounded-md font-semibold text-xs transition-colors cursor-pointer ${
+                    className={`flex-1 sm:flex-initial px-3.5 py-1.5 rounded-lg font-semibold text-xs transition-colors cursor-pointer text-center ${
                       inputMode === "text"
                         ? "bg-white dark:bg-slate-900 text-indigo-600 shadow-2xs font-bold"
-                        : "text-slate-500 hover:text-slate-800"
+                        : "text-slate-500 hover:text-slate-800 dark:hover:text-slate-200"
                     }`}
                   >
                     Type / Paste Text
@@ -724,13 +724,13 @@ Answer strictly as an expert UPSC CSE examiner. Give concrete examples, model po
                   <button
                     type="button"
                     onClick={() => setInputMode("upload")}
-                    className={`px-3 py-1 rounded-md font-semibold text-xs transition-colors cursor-pointer flex items-center gap-1 ${
+                    className={`flex-1 sm:flex-initial px-3.5 py-1.5 rounded-lg font-semibold text-xs transition-colors cursor-pointer flex items-center justify-center gap-1.5 text-center ${
                       inputMode === "upload"
                         ? "bg-white dark:bg-slate-900 text-indigo-600 shadow-2xs font-bold"
-                        : "text-slate-500 hover:text-slate-800"
+                        : "text-slate-500 hover:text-slate-800 dark:hover:text-slate-200"
                     }`}
                   >
-                    <Upload className="h-3 w-3" />
+                    <Upload className="h-3.5 w-3.5" />
                     <span>Upload Image / PDF</span>
                   </button>
                 </div>
@@ -766,26 +766,6 @@ Answer strictly as an expert UPSC CSE examiner. Give concrete examples, model po
                 </div>
               ) : (
                 <div className="space-y-3">
-                  {/* Mobile Quick Action Buttons */}
-                  <div className="grid grid-cols-2 gap-2.5">
-                    <button
-                      type="button"
-                      onClick={() => cameraInputRef.current?.click()}
-                      className="flex items-center justify-center gap-2 py-3 px-3 rounded-xl border border-indigo-200 dark:border-indigo-800 bg-indigo-50/70 dark:bg-indigo-950/40 text-indigo-700 dark:text-indigo-300 font-bold text-xs hover:bg-indigo-100 dark:hover:bg-indigo-900/50 transition-all cursor-pointer shadow-2xs active:scale-[0.98]"
-                    >
-                      <Camera className="h-4 w-4 shrink-0 text-indigo-600 dark:text-indigo-400" />
-                      <span>Take Photo</span>
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => fileInputRef.current?.click()}
-                      className="flex items-center justify-center gap-2 py-3 px-3 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-700 dark:text-slate-200 font-bold text-xs hover:bg-slate-100 dark:hover:bg-slate-750 transition-all cursor-pointer shadow-2xs active:scale-[0.98]"
-                    >
-                      <Upload className="h-4 w-4 shrink-0 text-slate-500" />
-                      <span>Upload File / PDF</span>
-                    </button>
-                  </div>
-
                   {/* Hidden inputs */}
                   <input
                     ref={cameraInputRef}
@@ -804,9 +784,8 @@ Answer strictly as an expert UPSC CSE examiner. Give concrete examples, model po
                     className="hidden"
                   />
 
-                  {/* Desktop Drag & Drop Area */}
+                  {/* Unified Upload & Camera Drop Zone */}
                   <div
-                    onClick={() => fileInputRef.current?.click()}
                     onDragOver={(e) => {
                       e.preventDefault();
                       e.stopPropagation();
@@ -830,29 +809,52 @@ Answer strictly as an expert UPSC CSE examiner. Give concrete examples, model po
                         processIncomingFiles(Array.from(e.dataTransfer.files));
                       }
                     }}
-                    className={`hidden sm:block border-2 border-dashed rounded-2xl p-6 text-center cursor-pointer transition-all space-y-2 ${
+                    className={`border-2 border-dashed rounded-2xl p-5 sm:p-7 text-center transition-all space-y-3 ${
                       isDragging
-                        ? "border-indigo-600 bg-indigo-50 dark:bg-indigo-950/50 scale-[1.01] shadow-md"
-                        : "border-slate-300 dark:border-slate-700 hover:border-indigo-500 dark:hover:border-indigo-500 bg-slate-50/50 dark:bg-slate-800/40"
+                        ? "border-indigo-600 bg-indigo-50/80 dark:bg-indigo-950/60 scale-[1.01] shadow-md"
+                        : "border-slate-300 dark:border-slate-700 bg-slate-50/60 dark:bg-slate-800/40"
                     }`}
                   >
-                    <div className="h-10 w-10 mx-auto rounded-full bg-indigo-50 dark:bg-indigo-950 flex items-center justify-center text-indigo-600">
+                    <div className="h-12 w-12 mx-auto rounded-full bg-indigo-50 dark:bg-indigo-950 flex items-center justify-center text-indigo-600">
                       {isProcessingFiles ? (
-                        <Loader2 className="h-5 w-5 animate-spin" />
+                        <Loader2 className="h-6 w-6 animate-spin" />
                       ) : (
-                        <Upload className="h-5 w-5" />
+                        <Upload className="h-6 w-6" />
                       )}
                     </div>
-                    <p className="text-xs font-bold text-slate-800 dark:text-slate-200">
-                      {isProcessingFiles
-                        ? "Converting and preparing answer pages..."
-                        : isDragging
-                          ? "Drop image or PDF files here!"
-                          : "Drag & drop handwritten answer pages or PDF, or click to browse"}
-                    </p>
-                    <p className="text-[11px] text-slate-500 dark:text-slate-400">
-                      Supports JPG, PNG, WEBP, or multi-page PDF • Question prompt on sheet is auto-read
-                    </p>
+
+                    <div className="space-y-1">
+                      <p className="text-xs sm:text-sm font-bold text-slate-800 dark:text-slate-200">
+                        {isProcessingFiles
+                          ? "Processing & preparing answer sheets..."
+                          : isDragging
+                            ? "Drop image or PDF files here!"
+                            : "Upload handwritten answer pages or PDF booklet"}
+                      </p>
+                      <p className="text-[11px] text-slate-500 dark:text-slate-400 max-w-sm mx-auto">
+                        Supports photo snapshots (JPG, PNG) or multi-page PDF documents. The question on the sheet is auto-transcribed.
+                      </p>
+                    </div>
+
+                    {/* Dual Action Buttons (Camera & File Browser) */}
+                    <div className="flex flex-col sm:flex-row items-center justify-center gap-2 pt-1 max-w-md mx-auto">
+                      <button
+                        type="button"
+                        onClick={() => cameraInputRef.current?.click()}
+                        className="w-full sm:w-auto inline-flex items-center justify-center gap-2 py-2.5 px-4 rounded-xl border border-indigo-200 dark:border-indigo-800 bg-indigo-600 hover:bg-indigo-700 active:bg-indigo-800 text-white font-bold text-xs shadow-xs transition-all cursor-pointer"
+                      >
+                        <Camera className="h-4 w-4" />
+                        <span>Take Photo (Camera)</span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => fileInputRef.current?.click()}
+                        className="w-full sm:w-auto inline-flex items-center justify-center gap-2 py-2.5 px-4 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 font-bold text-xs shadow-2xs transition-all cursor-pointer"
+                      >
+                        <Upload className="h-4 w-4" />
+                        <span>Choose Images / PDF</span>
+                      </button>
+                    </div>
                   </div>
 
                   {uploadedImages.length > 0 && (
@@ -861,13 +863,24 @@ Answer strictly as an expert UPSC CSE examiner. Give concrete examples, model po
                         <span className="font-semibold text-slate-700 dark:text-slate-300">
                           Uploaded Pages ({uploadedImages.length})
                         </span>
-                        <button
-                          type="button"
-                          onClick={() => setUploadedImages([])}
-                          className="text-slate-400 hover:text-rose-600 transition-colors text-[11px]"
-                        >
-                          Clear all
-                        </button>
+                        <div className="flex items-center gap-2">
+                          <button
+                            type="button"
+                            onClick={() => fileInputRef.current?.click()}
+                            className="inline-flex items-center gap-1 text-[11px] text-indigo-600 dark:text-indigo-400 font-bold hover:underline"
+                          >
+                            <Plus className="h-3 w-3" />
+                            <span>Add page</span>
+                          </button>
+                          <span className="text-slate-300 dark:text-slate-700">|</span>
+                          <button
+                            type="button"
+                            onClick={() => setUploadedImages([])}
+                            className="text-slate-400 hover:text-rose-600 transition-colors text-[11px]"
+                          >
+                            Clear all
+                          </button>
+                        </div>
                       </div>
                       <div className="flex flex-wrap gap-2.5">
                         {uploadedImages.map((img, idx) => (
