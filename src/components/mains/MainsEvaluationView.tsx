@@ -27,6 +27,7 @@ import {
   Layers,
   ArrowRight,
   X,
+  Settings2,
 } from "lucide-react";
 import {
   MainsEvaluationResult,
@@ -37,6 +38,7 @@ import {
 import { getRevisionConfig, RevisionProviderConfig } from "@/lib/revisionAi";
 import { MainsScorecardCanvas } from "./MainsScorecardCanvas";
 import { RevisionMarkdownRenderer } from "../revision/RevisionMarkdownRenderer";
+import { RevisionSettingsModal } from "../revision/RevisionSettingsModal";
 
 const SAMPLE_QUESTIONS = [
   {
@@ -78,6 +80,8 @@ export function MainsEvaluationView() {
   const [activeTab, setActiveTab] = useState<"feedback" | "scorecard" | "model" | "chat">("feedback");
   const [evaluation, setEvaluation] = useState<MainsEvaluationResult | null>(null);
   const [activeProvider, setActiveProvider] = useState<string>("");
+  const [aiConfig, setAiConfig] = useState<RevisionProviderConfig | null>(null);
+  const [showSettingsModal, setShowSettingsModal] = useState(false);
 
   // Follow-up chat state
   const [followUpPrompt, setFollowUpPrompt] = useState("");
@@ -95,9 +99,28 @@ export function MainsEvaluationView() {
     }
   }, []);
 
+  // Synchronize active AI provider config across window events and modal changes
+  useEffect(() => {
+    const syncConfig = () => {
+      const cfg = getRevisionConfig();
+      setAiConfig(cfg);
+      setActiveProvider(cfg?.provider || "");
+    };
+
+    syncConfig();
+    window.addEventListener("upsc-ai-config-changed", syncConfig);
+    window.addEventListener("storage", syncConfig);
+    window.addEventListener("focus", syncConfig);
+
+    return () => {
+      window.removeEventListener("upsc-ai-config-changed", syncConfig);
+      window.removeEventListener("storage", syncConfig);
+      window.removeEventListener("focus", syncConfig);
+    };
+  }, []);
+
   // Load saved sessions on mount
   useEffect(() => {
-    setActiveProvider(getRevisionConfig()?.provider || "");
     const loaded = loadMainsSessions();
     if (loaded.length > 0) {
       setSessions(loaded);
@@ -607,6 +630,31 @@ To advance constitutional morality and responsive governance, administrative exe
           <div className="flex items-center gap-2">
             <button
               type="button"
+              onClick={() => setShowSettingsModal(true)}
+              className="inline-flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 text-xs font-semibold text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors shadow-2xs cursor-pointer"
+              title="Configure AI Provider & API Key"
+            >
+              <span
+                className={`h-2 w-2 rounded-full shrink-0 ${
+                  activeProvider ? "bg-emerald-500 animate-pulse" : "bg-amber-500"
+                }`}
+              />
+              <span className="font-semibold text-xs">
+                {activeProvider === "gemini"
+                  ? "Google Gemini"
+                  : activeProvider === "groq"
+                    ? "Groq"
+                    : activeProvider === "openai"
+                      ? "OpenAI"
+                      : activeProvider === "anthropic"
+                        ? "Claude"
+                        : "Free AI"}
+              </span>
+              <Settings2 className="h-3.5 w-3.5 text-slate-400" />
+            </button>
+
+            <button
+              type="button"
               onClick={handleNewEvaluation}
               className="inline-flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 text-xs font-semibold text-slate-700 dark:text-slate-200 hover:bg-slate-50 transition-colors shadow-2xs cursor-pointer"
             >
@@ -936,14 +984,23 @@ To advance constitutional morality and responsive governance, administrative exe
                   {uploadedImages.length > 0 && (
                     <div className="space-y-2 pt-1">
                       {activeProvider === "groq" && !answerText.trim() && (
-                        <div className="p-3 rounded-xl bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800 text-xs text-amber-800 dark:text-amber-200 flex items-start gap-2">
-                          <AlertTriangle className="h-4 w-4 shrink-0 text-amber-600 mt-0.5" />
-                          <div className="space-y-0.5">
-                            <p className="font-bold">Groq is text-only</p>
-                            <p className="text-[11px] text-amber-700 dark:text-amber-300">
-                              Groq does not support handwritten image OCR. For uploaded sheets or PDFs, please switch to Google Gemini (free at aistudio.google.com) in AI Revision Settings, or type your answer in the "Type / Paste Text" tab.
-                            </p>
+                        <div className="p-3 rounded-xl bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800 text-xs text-amber-800 dark:text-amber-200 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                          <div className="flex items-start gap-2">
+                            <AlertTriangle className="h-4 w-4 shrink-0 text-amber-600 mt-0.5" />
+                            <div className="space-y-0.5">
+                              <p className="font-bold">Groq is text-only</p>
+                              <p className="text-[11px] text-amber-700 dark:text-amber-300">
+                                Groq does not support handwritten image OCR. For uploaded sheets or PDFs, please switch to Google Gemini (free at aistudio.google.com) or type your answer in the &quot;Type / Paste Text&quot; tab.
+                              </p>
+                            </div>
                           </div>
+                          <button
+                            type="button"
+                            onClick={() => setShowSettingsModal(true)}
+                            className="shrink-0 px-3 py-1.5 rounded-lg bg-amber-600 hover:bg-amber-700 active:bg-amber-800 text-white font-bold text-xs shadow-2xs transition-colors cursor-pointer self-start sm:self-auto"
+                          >
+                            Change Provider
+                          </button>
                         </div>
                       )}
                       <div className="flex items-center justify-between text-xs text-slate-500">
@@ -1378,6 +1435,24 @@ To advance constitutional morality and responsive governance, administrative exe
           )}
         </div>
       </main>
+
+      <RevisionSettingsModal
+        isOpen={showSettingsModal}
+        onClose={() => setShowSettingsModal(false)}
+        currentConfig={aiConfig}
+        onSave={(cfg) => {
+          setAiConfig(cfg);
+          setActiveProvider(cfg.provider);
+          setShowSettingsModal(false);
+          setErrorMsg(null);
+        }}
+        onClear={() => {
+          setAiConfig(null);
+          setActiveProvider("");
+          setShowSettingsModal(false);
+          setErrorMsg(null);
+        }}
+      />
     </div>
   );
 }
