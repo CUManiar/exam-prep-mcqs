@@ -44,20 +44,112 @@ export interface MainsEvaluationResult {
   strengths?: string[];
 }
 
-export interface MainsEvaluationSession {
+export interface MainsQuestionItem {
   id: string;
-  title: string;
-  updatedAt: string;
+  questionNumber: number;
   question: string;
   studentAnswer: string;
   paperType: "GS-1" | "GS-2" | "GS-3" | "GS-4" | "Optional";
   optionalSubject?: string;
   maxMarks: 10 | 15 | 20;
-  attachedImages?: string[]; // base64 strings
+  attachedImages?: Array<{ mimeType: string; data: string; name: string }>;
+  evaluation?: MainsEvaluationResult;
+}
+
+export interface MainsEvaluationSession {
+  id: string;
+  title: string;
+  updatedAt: string;
+  paperType: "GS-1" | "GS-2" | "GS-3" | "GS-4" | "Optional";
+  optionalSubject?: string;
+  questions?: MainsQuestionItem[];
+  // Legacy / backward-compatibility fields:
+  question?: string;
+  studentAnswer?: string;
+  maxMarks?: 10 | 15 | 20;
+  attachedImages?: any[];
   evaluation?: MainsEvaluationResult;
 }
 
 export const MAINS_STORAGE_KEY = "upsc_mains_evaluations_v1";
+
+/**
+ * Normalizes a session to ensure it has a valid list of questions.
+ */
+export function normalizeSessionQuestions(sess: MainsEvaluationSession): MainsQuestionItem[] {
+  if (Array.isArray(sess.questions) && sess.questions.length > 0) {
+    return sess.questions;
+  }
+  const legacyQ: MainsQuestionItem = {
+    id: `${sess.id}_q1`,
+    questionNumber: 1,
+    question: sess.question || "",
+    studentAnswer: sess.studentAnswer || "",
+    paperType: sess.paperType || "GS-2",
+    optionalSubject: sess.optionalSubject,
+    maxMarks: sess.maxMarks || 10,
+    attachedImages: Array.isArray(sess.attachedImages)
+      ? sess.attachedImages.map((img: any, i: number) =>
+          typeof img === "string"
+            ? { mimeType: "image/jpeg", data: img, name: `Page ${i + 1}` }
+            : img
+        )
+      : [],
+    evaluation: sess.evaluation,
+  };
+  return [legacyQ];
+}
+
+/**
+ * Fast client-side check to detect if an uploaded page image is completely blank or contains negligible ink.
+ */
+export async function isImageBlankOrNegligible(dataUrl: string): Promise<boolean> {
+  if (typeof window === "undefined" || !dataUrl) return false;
+  return new Promise((resolve) => {
+    const img = new Image();
+    img.crossOrigin = "anonymous";
+    img.onload = () => {
+      try {
+        const canvas = document.createElement("canvas");
+        const w = 80;
+        const h = 80;
+        canvas.width = w;
+        canvas.height = h;
+        const ctx = canvas.getContext("2d");
+        if (!ctx) return resolve(false);
+        ctx.drawImage(img, 0, 0, w, h);
+        const imgData = ctx.getImageData(0, 0, w, h);
+        const data = imgData.data;
+
+        let darkOrPenPixels = 0;
+        const total = w * h;
+
+        for (let i = 0; i < data.length; i += 4) {
+          const r = data[i];
+          const g = data[i + 1];
+          const b = data[i + 2];
+          const a = data[i + 3];
+
+          // Check if pixel is not transparent and significantly differs from pure paper white (e.g. handwriting/printed text)
+          if (a > 30) {
+            const isWhite = r > 235 && g > 235 && b > 235;
+            const isUniformDark = r < 12 && g < 12 && b < 12;
+            if (!isWhite && !isUniformDark) {
+              darkOrPenPixels++;
+            }
+          }
+        }
+
+        // If less than 0.3% of pixels contain ink or variation, it's effectively a blank sheet
+        resolve(darkOrPenPixels / total < 0.003);
+      } catch {
+        resolve(false);
+      }
+    };
+    img.onerror = () => resolve(false);
+    img.src = dataUrl;
+  });
+}
 
 /**
  * Loads saved evaluation sessions from localStorage

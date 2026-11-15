@@ -32,8 +32,11 @@ import {
 import {
   MainsEvaluationResult,
   MainsEvaluationSession,
+  MainsQuestionItem,
   loadMainsSessions,
   saveMainsSessions,
+  normalizeSessionQuestions,
+  isImageBlankOrNegligible,
 } from "@/lib/mainsEvaluation";
 import {
   getRevisionConfig,
@@ -67,7 +70,12 @@ export function MainsEvaluationView() {
   const [currentSessionId, setCurrentSessionId] = useState<string>("");
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
 
-  // Input states
+  // Multi-Question State per booklet/session
+  const [questions, setQuestions] = useState<MainsQuestionItem[]>([]);
+  const [activeQuestionIndex, setActiveQuestionIndex] = useState<number>(0);
+  const [isFormExpanded, setIsFormExpanded] = useState<boolean>(true);
+
+  // Input states (bound to active question)
   const [inputMode, setInputMode] = useState<"text" | "upload">("text");
   const [question, setQuestion] = useState("");
   const [answerText, setAnswerText] = useState("");
@@ -138,31 +146,145 @@ export function MainsEvaluationView() {
 
   const loadSession = (sess: MainsEvaluationSession) => {
     setCurrentSessionId(sess.id);
-    setQuestion(sess.question || "");
-    setAnswerText(sess.studentAnswer || "");
-    setPaperType(sess.paperType || "GS-2");
-    setOptionalSubject(sess.optionalSubject || "");
-    setMaxMarks(sess.maxMarks || 10);
-    setEvaluation(sess.evaluation || null);
+    const normalizedQs = normalizeSessionQuestions(sess);
+    setQuestions(normalizedQs);
+    setActiveQuestionIndex(0);
+
+    const firstQ = normalizedQs[0] || {
+      id: `${sess.id}_q1`,
+      questionNumber: 1,
+      question: sess.question || "",
+      studentAnswer: sess.studentAnswer || "",
+      paperType: sess.paperType || "GS-2",
+      optionalSubject: sess.optionalSubject,
+      maxMarks: sess.maxMarks || 10,
+    };
+
+    setQuestion(firstQ.question || "");
+    setAnswerText(firstQ.studentAnswer || "");
+    setPaperType(firstQ.paperType || sess.paperType || "GS-2");
+    setOptionalSubject(firstQ.optionalSubject || sess.optionalSubject || "");
+    setMaxMarks(firstQ.maxMarks || 10);
+    setUploadedImages(firstQ.attachedImages || []);
+    setEvaluation(firstQ.evaluation || null);
+    setIsFormExpanded(!firstQ.evaluation); // Collapse input form if answer already evaluated
     setChatMessages([]);
     setErrorMsg(null);
-    if (sess.evaluation) {
+    if (firstQ.evaluation) {
       setActiveTab("feedback");
     }
   };
 
+  const selectQuestion = (idx: number) => {
+    if (idx < 0 || idx >= questions.length) return;
+    setActiveQuestionIndex(idx);
+    const q = questions[idx];
+    setQuestion(q.question || "");
+    setAnswerText(q.studentAnswer || "");
+    setPaperType(q.paperType || paperType || "GS-2");
+    setOptionalSubject(q.optionalSubject || "");
+    setMaxMarks(q.maxMarks || 10);
+    setUploadedImages(q.attachedImages || []);
+    setEvaluation(q.evaluation || null);
+    setIsFormExpanded(!q.evaluation);
+    setChatMessages([]);
+    setErrorMsg(null);
+    if (q.evaluation) {
+      setActiveTab("feedback");
+    }
+  };
+
+  const handleAddNewQuestion = () => {
+    const nextNum = questions.length + 1;
+    const newQ: MainsQuestionItem = {
+      id: `${currentSessionId}_q${Date.now()}`,
+      questionNumber: nextNum,
+      question: "",
+      studentAnswer: "",
+      paperType: paperType || "GS-2",
+      optionalSubject: paperType === "Optional" ? optionalSubject : undefined,
+      maxMarks: 10,
+      attachedImages: [],
+      evaluation: undefined,
+    };
+    const updatedQs = [...questions, newQ];
+    setQuestions(updatedQs);
+    setActiveQuestionIndex(updatedQs.length - 1);
+    setQuestion("");
+    setAnswerText("");
+    setMaxMarks(10);
+    setUploadedImages([]);
+    setEvaluation(null);
+    setIsFormExpanded(true); // Open submission form for new question
+    setErrorMsg(null);
+    setChatMessages([]);
+
+    setSessions((prev) => {
+      const updated = prev.map((s) => {
+        if (s.id === currentSessionId) {
+          return {
+            ...s,
+            updatedAt: new Date().toISOString(),
+            questions: updatedQs,
+          };
+        }
+        return s;
+      });
+      saveMainsSessions(updated);
+      return updated;
+    });
+  };
+
+  const handleDeleteQuestion = (idx: number, e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (questions.length <= 1) return;
+    const updatedQs = questions
+      .filter((_, i) => i !== idx)
+      .map((q, i) => ({ ...q, questionNumber: i + 1 }));
+    setQuestions(updatedQs);
+    const nextIdx = Math.min(activeQuestionIndex, updatedQs.length - 1);
+    selectQuestion(nextIdx);
+
+    setSessions((prev) => {
+      const updated = prev.map((s) => {
+        if (s.id === currentSessionId) {
+          return {
+            ...s,
+            updatedAt: new Date().toISOString(),
+            questions: updatedQs,
+          };
+        }
+        return s;
+      });
+      saveMainsSessions(updated);
+      return updated;
+    });
+  };
+
   const handleNewEvaluation = () => {
     const newId = `mains_${Date.now()}`;
-    const newSession: MainsEvaluationSession = {
-      id: newId,
-      title: "New Evaluation",
-      updatedAt: new Date().toISOString(),
+    const initialQ: MainsQuestionItem = {
+      id: `${newId}_q1`,
+      questionNumber: 1,
       question: "",
       studentAnswer: "",
       paperType: "GS-2",
       maxMarks: 10,
+      attachedImages: [],
+    };
+    const newSession: MainsEvaluationSession = {
+      id: newId,
+      title: "New Evaluation",
+      updatedAt: new Date().toISOString(),
+      paperType: "GS-2",
+      maxMarks: 10,
+      questions: [initialQ],
+      question: "",
+      studentAnswer: "",
     };
     setCurrentSessionId(newId);
+    setQuestions([initialQ]);
+    setActiveQuestionIndex(0);
     setQuestion("");
     setAnswerText("");
     setPaperType("GS-2");
@@ -170,9 +292,16 @@ export function MainsEvaluationView() {
     setMaxMarks(10);
     setUploadedImages([]);
     setEvaluation(null);
+    setIsFormExpanded(true);
     setChatMessages([]);
     setErrorMsg(null);
     setInputMode("text");
+
+    setSessions((prev) => {
+      const updated = [newSession, ...prev.filter((s) => s.id !== newId)];
+      saveMainsSessions(updated);
+      return updated;
+    });
   };
 
   const handleDeleteSession = (id: string, e: React.MouseEvent) => {
@@ -306,19 +435,45 @@ export function MainsEvaluationView() {
 
   // Execute Mains Evaluation
   const handleEvaluate = async () => {
-    const hasAnyText = Boolean(question.trim() || answerText.trim());
+    const trimmedAnswer = answerText.trim();
+    const hasAnyText = Boolean(trimmedAnswer);
     const hasUploads = uploadedImages.length > 0;
 
     if (!hasAnyText && !hasUploads) {
-      setErrorMsg("Please provide your written answer text or upload an answer sheet image/PDF.");
+      setErrorMsg("Please type or paste your written answer, or upload an answer sheet image/PDF.");
       return;
+    }
+
+    // Pre-flight check: Text mode minimum length
+    if (inputMode === "text" && trimmedAnswer.length < 20) {
+      setErrorMsg("Answer text is too short (minimum 20 characters required). Please enter your complete answer before evaluating.");
+      return;
+    }
+
+    // Pre-flight check: Upload mode blank sheet detection
+    if (inputMode === "upload") {
+      if (uploadedImages.length === 0) {
+        setErrorMsg("Please upload at least one written answer sheet image or PDF.");
+        return;
+      }
+
+      // Fast client-side image blank check to save user tokens
+      if (uploadedImages[0]?.data.startsWith("data:image/")) {
+        const isBlank = await isImageBlankOrNegligible(uploadedImages[0].data);
+        if (isBlank) {
+          setErrorMsg(
+            "The uploaded image appears completely blank or unwritten. Please upload a clear photo of your handwritten answer sheet to avoid wasting tokens."
+          );
+          return;
+        }
+      }
     }
 
     const config = getRevisionConfig();
     setActiveProvider(config?.provider || "");
 
     // Early client-side check: Groq is text-only and cannot process uploaded sheets without text
-    if (hasUploads && !answerText.trim() && config?.provider === "groq") {
+    if (hasUploads && !trimmedAnswer && config?.provider === "groq") {
       setEvaluation(null);
       setErrorMsg(
         "Groq Cloud currently only supports text evaluation and does not support image or handwritten OCR. Please select Google Gemini (free at aistudio.google.com) in AI Revision Settings, or type/paste your answer directly in the text tab."
@@ -335,7 +490,7 @@ export function MainsEvaluationView() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           question: question.trim(),
-          answerText: answerText.trim(),
+          answerText: trimmedAnswer,
           paperType,
           optionalSubject: paperType === "Optional" ? optionalSubject : undefined,
           maxMarks,
@@ -357,22 +512,49 @@ export function MainsEvaluationView() {
       if (!question.trim() && evalResult.question) {
         setQuestion(evalResult.question);
       }
+      setIsFormExpanded(false); // Collapse form once evaluated!
       setActiveTab("feedback");
 
+      // Update question in questions array
+      const updatedQs = questions.map((q, idx) => {
+        if (idx === activeQuestionIndex) {
+          return {
+            ...q,
+            question: evalResult.question || question,
+            studentAnswer: answerText,
+            paperType,
+            optionalSubject: paperType === "Optional" ? optionalSubject : undefined,
+            maxMarks,
+            attachedImages: uploadedImages,
+            evaluation: evalResult,
+          };
+        }
+        return q;
+      });
+      setQuestions(updatedQs);
+
       // Save to sessions
-      const bestTitle = evalResult.question || question || "Mains Evaluation";
+      const bestTitle =
+        updatedQs[0]?.evaluation?.question ||
+        updatedQs[0]?.question ||
+        evalResult.question ||
+        question ||
+        "Mains Test";
       const autoTitle =
         bestTitle.slice(0, 38).trim() + (bestTitle.length > 38 ? "..." : "");
+
       const sessionObj: MainsEvaluationSession = {
         id: currentSessionId,
-        title: autoTitle || "Mains Evaluation",
+        title: autoTitle || "Mains Test",
         updatedAt: new Date().toISOString(),
-        question: evalResult.question || question,
-        studentAnswer: answerText,
         paperType,
         optionalSubject: paperType === "Optional" ? optionalSubject : undefined,
-        maxMarks,
-        evaluation: evalResult,
+        questions: updatedQs,
+        // Legacy fallback fields
+        question: updatedQs[0]?.question,
+        studentAnswer: updatedQs[0]?.studentAnswer,
+        maxMarks: updatedQs[0]?.maxMarks,
+        evaluation: updatedQs[0]?.evaluation,
       };
 
       setSessions((prev) => {
@@ -723,65 +905,197 @@ To advance constitutional morality and responsive governance, administrative exe
         </header>
 
         {/* Content Body */}
-        <div className="max-w-5xl w-full mx-auto p-3.5 sm:p-6 space-y-6">
-          {/* Submission Card (When not evaluated yet, or editable above) */}
-          <div
-            onDragOver={(e) => {
-              e.preventDefault();
-              e.stopPropagation();
-              setIsDragging(true);
-            }}
-            onDragEnter={(e) => {
-              e.preventDefault();
-              e.stopPropagation();
-              setIsDragging(true);
-            }}
-            onDragLeave={(e) => {
-              e.preventDefault();
-              e.stopPropagation();
-              if (!e.currentTarget.contains(e.relatedTarget as Node)) {
-                setIsDragging(false);
-              }
-            }}
-            onDrop={(e) => {
-              e.preventDefault();
-              e.stopPropagation();
-              setIsDragging(false);
-              if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
-                processIncomingFiles(Array.from(e.dataTransfer.files));
-              }
-            }}
-            className={`rounded-2xl border bg-white dark:bg-slate-900 p-4 sm:p-6 shadow-sm space-y-4 transition-all ${
-              isDragging
-                ? "border-indigo-500 ring-2 ring-indigo-500/30 bg-indigo-50/20 dark:bg-indigo-950/20"
-                : "border-slate-200 dark:border-slate-800"
-            }`}
-          >
-            <div className="flex items-center justify-between flex-wrap gap-2 pb-3 border-b border-slate-100 dark:border-slate-800">
-              <span className="text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300 flex items-center gap-1.5">
-                <FileText className="h-4 w-4 text-indigo-600" />
-                <span>1. Question & Exam Configuration</span>
-              </span>
+        <div className="max-w-5xl w-full mx-auto p-3.5 sm:p-6 space-y-5">
+          {/* ── A. MULTI-QUESTION SWITCHER & TEST SCORE BAR ── */}
+          <div className="flex items-center justify-between flex-wrap gap-2.5 bg-white dark:bg-slate-900 p-2.5 sm:p-3 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-2xs">
+            <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar py-0.5 max-w-full">
+              {questions.map((q, idx) => {
+                const isActive = idx === activeQuestionIndex;
+                const hasScore = q.evaluation?.marksAwarded !== undefined;
+                return (
+                  <div key={q.id || idx} className="flex items-center gap-0.5 shrink-0">
+                    <button
+                      type="button"
+                      onClick={() => selectQuestion(idx)}
+                      className={`px-3 py-1.5 rounded-xl font-bold text-xs flex items-center gap-2 transition-all cursor-pointer ${
+                        isActive
+                          ? "bg-indigo-600 text-white shadow-xs"
+                          : "bg-slate-50 dark:bg-slate-800/80 text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700/80 border border-slate-200/60 dark:border-slate-700/60"
+                      }`}
+                    >
+                      <span>Q{idx + 1}</span>
+                      {hasScore ? (
+                        <span
+                          className={`px-1.5 py-0.5 rounded-md text-[10px] font-mono font-bold ${
+                            isActive
+                              ? "bg-white/20 text-white"
+                              : "bg-indigo-50 dark:bg-indigo-950 text-indigo-600 dark:text-indigo-400 border border-indigo-200 dark:border-indigo-800"
+                          }`}
+                        >
+                          {q.evaluation?.marksAwarded}/{q.evaluation?.maxMarks}
+                        </span>
+                      ) : (
+                        <span
+                          className={`text-[10px] font-medium ${
+                            isActive ? "text-indigo-200" : "text-amber-500"
+                          }`}
+                        >
+                          Draft
+                        </span>
+                      )}
+                    </button>
+                    {questions.length > 1 && (
+                      <button
+                        type="button"
+                        onClick={(e) => handleDeleteQuestion(idx, e)}
+                        className="text-slate-300 hover:text-rose-500 p-1 transition-colors cursor-pointer"
+                        title={`Remove Question ${idx + 1}`}
+                      >
+                        <X className="h-3 w-3" />
+                      </button>
+                    )}
+                  </div>
+                );
+              })}
 
-              {/* Sample Question Pills */}
-              <div className="flex items-center gap-1.5 overflow-x-auto text-xs">
-                <span className="text-[11px] text-slate-400 font-medium">Try Sample:</span>
-                {SAMPLE_QUESTIONS.map((sample, idx) => (
-                  <button
-                    key={idx}
-                    type="button"
-                    onClick={() => {
-                      setQuestion(sample.text);
-                      setPaperType(sample.paper as any);
-                      setMaxMarks(sample.marks as any);
-                    }}
-                    className="px-2 py-0.5 rounded bg-slate-100 dark:bg-slate-800 hover:bg-indigo-50 dark:hover:bg-indigo-950 text-[11px] font-semibold text-slate-600 dark:text-slate-300 hover:text-indigo-600 transition-colors shrink-0"
-                  >
-                    {sample.paper} ({sample.marks}M)
-                  </button>
-                ))}
+              <button
+                type="button"
+                onClick={handleAddNewQuestion}
+                className="px-3 py-1.5 rounded-xl border border-dashed border-indigo-300 dark:border-indigo-800 text-indigo-600 dark:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-950/50 font-bold text-xs flex items-center gap-1 transition-colors cursor-pointer shrink-0"
+                title="Add next question to this test booklet"
+              >
+                <Plus className="h-3.5 w-3.5" />
+                <span>Add Question</span>
+              </button>
+            </div>
+
+            {/* Aggregated Test Score when multiple evaluated */}
+            {questions.filter((q) => q.evaluation).length > 0 && (
+              <div className="flex items-center gap-2 text-xs font-mono font-bold text-slate-700 dark:text-slate-300 bg-slate-50 dark:bg-slate-800/80 px-2.5 py-1 rounded-xl border border-slate-200/80 dark:border-slate-700/80 shrink-0">
+                <span className="text-[11px] text-slate-400 uppercase font-sans font-semibold">
+                  Test Score:
+                </span>
+                <span className="text-indigo-600 dark:text-indigo-400 font-black">
+                  {questions.reduce((sum, q) => sum + (q.evaluation?.marksAwarded || 0), 0)}
+                </span>
+                <span className="text-slate-400 font-normal">
+                  / {questions.reduce((sum, q) => sum + (q.evaluation?.maxMarks || q.maxMarks || 10), 0)} Marks
+                </span>
+              </div>
+            )}
+          </div>
+
+          {/* ── B. EVALUATED QUESTION SUMMARY CARD (When answer evaluated & form collapsed) ── */}
+          {evaluation && !isFormExpanded && (
+            <div className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-4 sm:p-5 shadow-xs flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+              <div className="space-y-1.5 max-w-2xl">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <span className="px-2 py-0.5 rounded-md font-bold text-[11px] bg-indigo-50 dark:bg-indigo-950 text-indigo-600 dark:text-indigo-400 border border-indigo-200 dark:border-indigo-800 font-mono">
+                    Question {activeQuestionIndex + 1} of {questions.length}
+                  </span>
+                  <span className="text-[11px] font-bold text-slate-500 uppercase">
+                    {paperType} {optionalSubject ? `(${optionalSubject})` : ""} • {maxMarks} Marks ({targetWords} Words)
+                  </span>
+                </div>
+                <h3 className="text-xs sm:text-sm font-bold text-slate-800 dark:text-slate-200 leading-snug">
+                  {evaluation.question || question || "UPSC CSE Mains Question"}
+                </h3>
+              </div>
+
+              <div className="flex items-center gap-2 shrink-0 w-full sm:w-auto">
+                <button
+                  type="button"
+                  onClick={() => setIsFormExpanded(true)}
+                  className="flex-1 sm:flex-initial inline-flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-xl border border-slate-300 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-200 text-xs font-semibold cursor-pointer transition-colors"
+                  title="Edit answer or re-evaluate"
+                >
+                  <span>✏️ Edit / Re-evaluate</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={handleAddNewQuestion}
+                  className="flex-1 sm:flex-initial inline-flex items-center justify-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 active:bg-indigo-800 text-white text-xs font-bold shadow-xs cursor-pointer transition-colors"
+                  title="Add next question to evaluate"
+                >
+                  <Plus className="h-3.5 w-3.5" />
+                  <span>Add Question</span>
+                </button>
               </div>
             </div>
+          )}
+
+          {/* ── C. SUBMISSION FORM (Shown when not evaluated or when explicitly expanded) ── */}
+          {(isFormExpanded || !evaluation) && (
+            <div
+              onDragOver={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                setIsDragging(true);
+              }}
+              onDragEnter={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                setIsDragging(true);
+              }}
+              onDragLeave={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                if (!e.currentTarget.contains(e.relatedTarget as Node)) {
+                  setIsDragging(false);
+                }
+              }}
+              onDrop={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                setIsDragging(false);
+                if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+                  processIncomingFiles(Array.from(e.dataTransfer.files));
+                }
+              }}
+              className={`rounded-2xl border bg-white dark:bg-slate-900 p-4 sm:p-6 shadow-sm space-y-4 transition-all ${
+                isDragging
+                  ? "border-indigo-500 ring-2 ring-indigo-500/30 bg-indigo-50/20 dark:bg-indigo-950/20"
+                  : "border-slate-200 dark:border-slate-800"
+              }`}
+            >
+              <div className="flex items-center justify-between flex-wrap gap-2 pb-3 border-b border-slate-100 dark:border-slate-800">
+                <div className="flex items-center gap-2">
+                  <span className="text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300 flex items-center gap-1.5">
+                    <FileText className="h-4 w-4 text-indigo-600" />
+                    <span>
+                      1. Question & Exam Configuration (Q{activeQuestionIndex + 1})
+                    </span>
+                  </span>
+                  {evaluation && (
+                    <button
+                      type="button"
+                      onClick={() => setIsFormExpanded(false)}
+                      className="text-[11px] font-semibold text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 underline cursor-pointer"
+                    >
+                      Cancel / View Result
+                    </button>
+                  )}
+                </div>
+
+                {/* Sample Question Pills */}
+                <div className="flex items-center gap-1.5 overflow-x-auto text-xs">
+                  <span className="text-[11px] text-slate-400 font-medium">Try Sample:</span>
+                  {SAMPLE_QUESTIONS.map((sample, idx) => (
+                    <button
+                      key={idx}
+                      type="button"
+                      onClick={() => {
+                        setQuestion(sample.text);
+                        setPaperType(sample.paper as any);
+                        setMaxMarks(sample.marks as any);
+                      }}
+                      className="px-2 py-0.5 rounded bg-slate-100 dark:bg-slate-800 hover:bg-indigo-50 dark:hover:bg-indigo-950 text-[11px] font-semibold text-slate-600 dark:text-slate-300 hover:text-indigo-600 transition-colors shrink-0"
+                    >
+                      {sample.paper} ({sample.marks}M)
+                    </button>
+                  ))}
+                </div>
+              </div>
 
             {/* Exam Configuration Row */}
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 text-xs">
@@ -1162,38 +1476,68 @@ To advance constitutional morality and responsive governance, administrative exe
               </button>
             </div>
           </div>
+          )}
 
           {/* ── 3. EVALUATION RESULTS CONTAINER ── */}
           {evaluation && (
             <div className="space-y-5 animate-in fade-in duration-300">
               {/* Score Hero Banner */}
               <div className="rounded-2xl border border-indigo-200 dark:border-indigo-900/60 bg-gradient-to-r from-indigo-50/70 via-white to-indigo-50/40 dark:from-slate-900 dark:via-slate-900 dark:to-indigo-950 p-5 sm:p-6 shadow-sm flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-                <div className="space-y-1">
+                <div className="space-y-2.5 flex-1 min-w-0">
                   <div className="flex items-center gap-2 flex-wrap">
                     <span className="text-xs font-bold uppercase tracking-wider text-indigo-700 dark:text-indigo-400">
                       UPSC Examiner Evaluation
                     </span>
                     <span
-                      className={`text-xs font-black px-2.5 py-0.5 rounded-full uppercase shadow-2xs ${
-                        evaluation.percentage >= 55
-                          ? "bg-emerald-100 text-emerald-800 border border-emerald-300"
-                          : evaluation.percentage >= 45
-                            ? "bg-blue-100 text-blue-800 border border-blue-300"
-                            : "bg-amber-100 text-amber-800 border border-amber-300"
+                      className={`text-[11px] font-bold px-2.5 py-0.5 rounded-lg uppercase shadow-2xs border ${
+                        evaluation.percentage >= 50
+                          ? "bg-emerald-50 text-emerald-800 border-emerald-300 dark:bg-emerald-950/60 dark:text-emerald-300 dark:border-emerald-800"
+                          : evaluation.percentage >= 35
+                            ? "bg-blue-50 text-blue-800 border-blue-300 dark:bg-blue-950/60 dark:text-blue-300 dark:border-blue-800"
+                            : "bg-amber-50 text-amber-800 border-amber-300 dark:bg-amber-950/60 dark:text-amber-300 dark:border-amber-800"
                       }`}
                     >
-                      {evaluation.verdict}
+                      {evaluation.percentage >= 50
+                        ? "Topper Tier"
+                        : evaluation.percentage >= 35
+                          ? "Average Attempt"
+                          : "Below Average"}
+                    </span>
+                    <span className="text-xs text-slate-400 font-mono">
+                      • Q{activeQuestionIndex + 1}
                     </span>
                   </div>
-                  <h3 className="text-base sm:text-lg font-bold text-slate-900 dark:text-slate-100">
-                    Directive: {evaluation.directive.toUpperCase()}
-                  </h3>
-                  <p className="text-xs text-slate-600 dark:text-slate-400 max-w-xl">
-                    {evaluation.directiveAnalysis}
-                  </p>
+
+                  <div className="text-sm sm:text-base font-bold text-slate-900 dark:text-slate-100 flex items-center gap-1.5 flex-wrap">
+                    <span className="text-slate-500 font-medium text-xs">Directive:</span>
+                    <span className="text-indigo-600 dark:text-indigo-400 uppercase tracking-wide">
+                      {evaluation.directive}
+                    </span>
+                  </div>
+
+                  {/* Examiner One-Line Verdict Quote */}
+                  {evaluation.verdict && (
+                    <div className="p-3 rounded-xl bg-amber-50/80 dark:bg-amber-950/40 border border-amber-200/80 dark:border-amber-900/60 text-xs text-amber-900 dark:text-amber-200 flex items-start gap-2.5 shadow-2xs">
+                      <span className="text-base shrink-0 select-none">🖋️</span>
+                      <div className="space-y-0.5 min-w-0">
+                        <span className="font-bold text-[10px] uppercase tracking-wider text-amber-700 dark:text-amber-400 block font-mono">
+                          Examiner One-Line Verdict
+                        </span>
+                        <p className="font-semibold italic leading-relaxed text-xs text-amber-900 dark:text-amber-100">
+                          &ldquo;{evaluation.verdict}&rdquo;
+                        </p>
+                      </div>
+                    </div>
+                  )}
+
+                  {evaluation.directiveAnalysis && (
+                    <p className="text-xs text-slate-600 dark:text-slate-400 leading-relaxed pt-0.5">
+                      {evaluation.directiveAnalysis}
+                    </p>
+                  )}
                 </div>
 
-                <div className="w-full sm:w-auto flex items-center justify-between sm:block text-right bg-white dark:bg-slate-800 px-5 py-3 rounded-2xl border border-indigo-100 dark:border-slate-700 shadow-2xs shrink-0">
+                <div className="w-full sm:w-auto flex items-center justify-between sm:block text-right bg-white dark:bg-slate-800 px-5 py-3.5 rounded-2xl border border-indigo-100 dark:border-slate-700 shadow-2xs shrink-0">
                   <div className="text-left sm:text-right">
                     <span className="text-[11px] font-bold uppercase text-slate-400 block">
                       Marks Awarded
@@ -1264,37 +1608,40 @@ To advance constitutional morality and responsive governance, administrative exe
                   {/* 4 Core Dimensions Scored Strictly /10 */}
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                     {/* Demand */}
-                    <div className="p-4 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-2xs space-y-2">
-                      <div className="flex items-center justify-between">
-                        <span className="font-bold text-xs text-slate-800 dark:text-slate-200">
-                          1. Demand & Directive Compliance
-                        </span>
-                        <span className="font-mono font-bold text-xs px-2 py-0.5 rounded-md bg-indigo-50 dark:bg-indigo-950 text-indigo-600 dark:text-indigo-400 border border-indigo-200 dark:border-indigo-800">
-                          {evaluation.dimensions?.demand?.score ?? Math.round((evaluation.marksAwarded / evaluation.maxMarks) * 10 * 10) / 10} / 10
-                        </span>
-                      </div>
-                      <div className="w-full bg-slate-100 dark:bg-slate-800 h-1.5 rounded-full overflow-hidden">
-                        <div
-                          className={`h-full rounded-full transition-all duration-300 ${
-                            (evaluation.dimensions?.demand?.score ?? 5) >= 6
-                              ? "bg-emerald-500"
-                              : (evaluation.dimensions?.demand?.score ?? 5) >= 4
-                                ? "bg-indigo-500"
-                                : "bg-amber-500"
-                          }`}
-                          style={{
-                            width: `${Math.min(
-                              100,
-                              Math.max(
-                                0,
-                                ((evaluation.dimensions?.demand?.score ??
-                                  (evaluation.marksAwarded / evaluation.maxMarks) * 10) /
-                                  10) *
-                                  100
-                              )
-                            )}%`,
-                          }}
-                        />
+                    <div className="p-4 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-2xs space-y-2.5 flex flex-col justify-between">
+                      <div className="space-y-2">
+                        <div className="flex items-center justify-between">
+                          <span className="font-bold text-xs text-slate-800 dark:text-slate-200 uppercase tracking-wide">
+                            1. Demand & Directive Compliance
+                          </span>
+                          <span className="font-mono font-bold text-xs px-2 py-0.5 rounded-lg bg-indigo-50 dark:bg-indigo-950 text-indigo-600 dark:text-indigo-400 border border-indigo-200 dark:border-indigo-800 shrink-0">
+                            {evaluation.dimensions?.demand?.score ?? Math.round((evaluation.marksAwarded / evaluation.maxMarks) * 10 * 10) / 10}{" "}
+                            <span className="text-slate-400 font-normal">/ 10</span>
+                          </span>
+                        </div>
+                        <div className="w-full bg-slate-100 dark:bg-slate-800 h-1.5 rounded-full overflow-hidden">
+                          <div
+                            className={`h-full rounded-full transition-all duration-300 ${
+                              (evaluation.dimensions?.demand?.score ?? 5) >= 6
+                                ? "bg-emerald-500"
+                                : (evaluation.dimensions?.demand?.score ?? 5) >= 4
+                                  ? "bg-indigo-500"
+                                  : "bg-amber-500"
+                            }`}
+                            style={{
+                              width: `${Math.min(
+                                100,
+                                Math.max(
+                                  0,
+                                  ((evaluation.dimensions?.demand?.score ??
+                                    (evaluation.marksAwarded / evaluation.maxMarks) * 10) /
+                                    10) *
+                                    100
+                                )
+                              )}%`,
+                            }}
+                          />
+                        </div>
                       </div>
                       <p className="text-xs text-slate-600 dark:text-slate-400 leading-relaxed">
                         {evaluation.dimensions?.demand?.comment ||
@@ -1304,46 +1651,48 @@ To advance constitutional morality and responsive governance, administrative exe
                     </div>
 
                     {/* Content */}
-                    <div className="p-4 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-2xs space-y-2">
-                      <div className="flex items-center justify-between">
-                        <span className="font-bold text-xs text-slate-800 dark:text-slate-200">
-                          2. Content & Citation Depth
-                        </span>
-                        <span className="font-mono font-bold text-xs px-2 py-0.5 rounded-md bg-indigo-50 dark:bg-indigo-950 text-indigo-600 dark:text-indigo-400 border border-indigo-200 dark:border-indigo-800">
-                          {evaluation.dimensions?.content?.score ??
-                            (evaluation.rubric?.bodyContent?.score
-                              ? Math.round(
-                                  (evaluation.rubric.bodyContent.score /
-                                    evaluation.rubric.bodyContent.max) *
-                                    10 *
-                                    10
-                                ) / 10
-                              : Math.round((evaluation.marksAwarded / evaluation.maxMarks) * 10 * 10) / 10)}{" "}
-                          / 10
-                        </span>
-                      </div>
-                      <div className="w-full bg-slate-100 dark:bg-slate-800 h-1.5 rounded-full overflow-hidden">
-                        <div
-                          className={`h-full rounded-full transition-all duration-300 ${
-                            (evaluation.dimensions?.content?.score ?? 5) >= 6
-                              ? "bg-emerald-500"
-                              : (evaluation.dimensions?.content?.score ?? 5) >= 4
-                                ? "bg-indigo-500"
-                                : "bg-amber-500"
-                          }`}
-                          style={{
-                            width: `${Math.min(
-                              100,
-                              Math.max(
-                                0,
-                                ((evaluation.dimensions?.content?.score ??
-                                  (evaluation.marksAwarded / evaluation.maxMarks) * 10) /
-                                  10) *
-                                  100
-                              )
-                            )}%`,
-                          }}
-                        />
+                    <div className="p-4 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-2xs space-y-2.5 flex flex-col justify-between">
+                      <div className="space-y-2">
+                        <div className="flex items-center justify-between">
+                          <span className="font-bold text-xs text-slate-800 dark:text-slate-200 uppercase tracking-wide">
+                            2. Content & Citation Depth
+                          </span>
+                          <span className="font-mono font-bold text-xs px-2 py-0.5 rounded-lg bg-indigo-50 dark:bg-indigo-950 text-indigo-600 dark:text-indigo-400 border border-indigo-200 dark:border-indigo-800 shrink-0">
+                            {evaluation.dimensions?.content?.score ??
+                              (evaluation.rubric?.bodyContent?.score
+                                ? Math.round(
+                                    (evaluation.rubric.bodyContent.score /
+                                      evaluation.rubric.bodyContent.max) *
+                                      10 *
+                                      10
+                                  ) / 10
+                                : Math.round((evaluation.marksAwarded / evaluation.maxMarks) * 10 * 10) / 10)}{" "}
+                            <span className="text-slate-400 font-normal">/ 10</span>
+                          </span>
+                        </div>
+                        <div className="w-full bg-slate-100 dark:bg-slate-800 h-1.5 rounded-full overflow-hidden">
+                          <div
+                            className={`h-full rounded-full transition-all duration-300 ${
+                              (evaluation.dimensions?.content?.score ?? 5) >= 6
+                                ? "bg-emerald-500"
+                                : (evaluation.dimensions?.content?.score ?? 5) >= 4
+                                  ? "bg-indigo-500"
+                                  : "bg-amber-500"
+                            }`}
+                            style={{
+                              width: `${Math.min(
+                                100,
+                                Math.max(
+                                  0,
+                                  ((evaluation.dimensions?.content?.score ??
+                                    (evaluation.marksAwarded / evaluation.maxMarks) * 10) /
+                                    10) *
+                                    100
+                                )
+                              )}%`,
+                            }}
+                          />
+                        </div>
                       </div>
                       <p className="text-xs text-slate-600 dark:text-slate-400 leading-relaxed">
                         {evaluation.dimensions?.content?.comment ||
@@ -1353,46 +1702,48 @@ To advance constitutional morality and responsive governance, administrative exe
                     </div>
 
                     {/* Structure */}
-                    <div className="p-4 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-2xs space-y-2">
-                      <div className="flex items-center justify-between">
-                        <span className="font-bold text-xs text-slate-800 dark:text-slate-200">
-                          3. Structure & Keyword Headings
-                        </span>
-                        <span className="font-mono font-bold text-xs px-2 py-0.5 rounded-md bg-indigo-50 dark:bg-indigo-950 text-indigo-600 dark:text-indigo-400 border border-indigo-200 dark:border-indigo-800">
-                          {evaluation.dimensions?.structure?.score ??
-                            (evaluation.rubric?.structurePresentation?.score
-                              ? Math.round(
-                                  (evaluation.rubric.structurePresentation.score /
-                                    evaluation.rubric.structurePresentation.max) *
-                                    10 *
-                                    10
-                                ) / 10
-                              : Math.round((evaluation.marksAwarded / evaluation.maxMarks) * 10 * 10) / 10)}{" "}
-                          / 10
-                        </span>
-                      </div>
-                      <div className="w-full bg-slate-100 dark:bg-slate-800 h-1.5 rounded-full overflow-hidden">
-                        <div
-                          className={`h-full rounded-full transition-all duration-300 ${
-                            (evaluation.dimensions?.structure?.score ?? 5) >= 6
-                              ? "bg-emerald-500"
-                              : (evaluation.dimensions?.structure?.score ?? 5) >= 4
-                                ? "bg-indigo-500"
-                                : "bg-amber-500"
-                          }`}
-                          style={{
-                            width: `${Math.min(
-                              100,
-                              Math.max(
-                                0,
-                                ((evaluation.dimensions?.structure?.score ??
-                                  (evaluation.marksAwarded / evaluation.maxMarks) * 10) /
-                                  10) *
-                                  100
-                              )
-                            )}%`,
-                          }}
-                        />
+                    <div className="p-4 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-2xs space-y-2.5 flex flex-col justify-between">
+                      <div className="space-y-2">
+                        <div className="flex items-center justify-between">
+                          <span className="font-bold text-xs text-slate-800 dark:text-slate-200 uppercase tracking-wide">
+                            3. Structure & Keyword Headings
+                          </span>
+                          <span className="font-mono font-bold text-xs px-2 py-0.5 rounded-lg bg-indigo-50 dark:bg-indigo-950 text-indigo-600 dark:text-indigo-400 border border-indigo-200 dark:border-indigo-800 shrink-0">
+                            {evaluation.dimensions?.structure?.score ??
+                              (evaluation.rubric?.structurePresentation?.score
+                                ? Math.round(
+                                    (evaluation.rubric.structurePresentation.score /
+                                      evaluation.rubric.structurePresentation.max) *
+                                      10 *
+                                      10
+                                  ) / 10
+                                : Math.round((evaluation.marksAwarded / evaluation.maxMarks) * 10 * 10) / 10)}{" "}
+                            <span className="text-slate-400 font-normal">/ 10</span>
+                          </span>
+                        </div>
+                        <div className="w-full bg-slate-100 dark:bg-slate-800 h-1.5 rounded-full overflow-hidden">
+                          <div
+                            className={`h-full rounded-full transition-all duration-300 ${
+                              (evaluation.dimensions?.structure?.score ?? 5) >= 6
+                                ? "bg-emerald-500"
+                                : (evaluation.dimensions?.structure?.score ?? 5) >= 4
+                                  ? "bg-indigo-500"
+                                  : "bg-amber-500"
+                            }`}
+                            style={{
+                              width: `${Math.min(
+                                100,
+                                Math.max(
+                                  0,
+                                  ((evaluation.dimensions?.structure?.score ??
+                                    (evaluation.marksAwarded / evaluation.maxMarks) * 10) /
+                                    10) *
+                                    100
+                                )
+                              )}%`,
+                            }}
+                          />
+                        </div>
                       </div>
                       <p className="text-xs text-slate-600 dark:text-slate-400 leading-relaxed">
                         {evaluation.dimensions?.structure?.comment ||
@@ -1402,39 +1753,41 @@ To advance constitutional morality and responsive governance, administrative exe
                     </div>
 
                     {/* Presentation */}
-                    <div className="p-4 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-2xs space-y-2">
-                      <div className="flex items-center justify-between">
-                        <span className="font-bold text-xs text-slate-800 dark:text-slate-200">
-                          4. Presentation & Time Writability
-                        </span>
-                        <span className="font-mono font-bold text-xs px-2 py-0.5 rounded-md bg-indigo-50 dark:bg-indigo-950 text-indigo-600 dark:text-indigo-400 border border-indigo-200 dark:border-indigo-800">
-                          {evaluation.dimensions?.presentation?.score ??
-                            Math.round((evaluation.marksAwarded / evaluation.maxMarks) * 10 * 10) / 10}{" "}
-                          / 10
-                        </span>
-                      </div>
-                      <div className="w-full bg-slate-100 dark:bg-slate-800 h-1.5 rounded-full overflow-hidden">
-                        <div
-                          className={`h-full rounded-full transition-all duration-300 ${
-                            (evaluation.dimensions?.presentation?.score ?? 5) >= 6
-                              ? "bg-emerald-500"
-                              : (evaluation.dimensions?.presentation?.score ?? 5) >= 4
-                                ? "bg-indigo-500"
-                                : "bg-amber-500"
-                          }`}
-                          style={{
-                            width: `${Math.min(
-                              100,
-                              Math.max(
-                                0,
-                                ((evaluation.dimensions?.presentation?.score ??
-                                  (evaluation.marksAwarded / evaluation.maxMarks) * 10) /
-                                  10) *
-                                  100
-                              )
-                            )}%`,
-                          }}
-                        />
+                    <div className="p-4 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-2xs space-y-2.5 flex flex-col justify-between">
+                      <div className="space-y-2">
+                        <div className="flex items-center justify-between">
+                          <span className="font-bold text-xs text-slate-800 dark:text-slate-200 uppercase tracking-wide">
+                            4. Presentation & Time Writability
+                          </span>
+                          <span className="font-mono font-bold text-xs px-2 py-0.5 rounded-lg bg-indigo-50 dark:bg-indigo-950 text-indigo-600 dark:text-indigo-400 border border-indigo-200 dark:border-indigo-800 shrink-0">
+                            {evaluation.dimensions?.presentation?.score ??
+                              Math.round((evaluation.marksAwarded / evaluation.maxMarks) * 10 * 10) / 10}{" "}
+                            <span className="text-slate-400 font-normal">/ 10</span>
+                          </span>
+                        </div>
+                        <div className="w-full bg-slate-100 dark:bg-slate-800 h-1.5 rounded-full overflow-hidden">
+                          <div
+                            className={`h-full rounded-full transition-all duration-300 ${
+                              (evaluation.dimensions?.presentation?.score ?? 5) >= 6
+                                ? "bg-emerald-500"
+                                : (evaluation.dimensions?.presentation?.score ?? 5) >= 4
+                                  ? "bg-indigo-500"
+                                  : "bg-amber-500"
+                            }`}
+                            style={{
+                              width: `${Math.min(
+                                100,
+                                Math.max(
+                                  0,
+                                  ((evaluation.dimensions?.presentation?.score ??
+                                    (evaluation.marksAwarded / evaluation.maxMarks) * 10) /
+                                    10) *
+                                    100
+                                )
+                              )}%`,
+                            }}
+                          />
+                        </div>
                       </div>
                       <p className="text-xs text-slate-600 dark:text-slate-400 leading-relaxed">
                         {evaluation.dimensions?.presentation?.comment ||
@@ -1445,30 +1798,34 @@ To advance constitutional morality and responsive governance, administrative exe
 
                   {/* Examiner Marked Copy & Margin Notes */}
                   {evaluation.markedCopy && evaluation.markedCopy.length > 0 && (
-                    <div className="p-4 sm:p-5 rounded-2xl border border-indigo-200 dark:border-indigo-900/60 bg-white dark:bg-slate-900 shadow-2xs space-y-3">
+                    <div className="p-4 sm:p-5 rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-2xs space-y-3">
                       <div className="flex items-center justify-between pb-2 border-b border-slate-100 dark:border-slate-800">
-                        <h4 className="text-xs font-bold uppercase tracking-wider text-slate-900 dark:text-slate-100 flex items-center gap-1.5">
+                        <div className="flex items-center gap-2">
                           <FileCheck className="h-4 w-4 text-indigo-600" />
-                          <span>Examiner Annotated Marked Copy (Margin Notes)</span>
-                        </h4>
+                          <h4 className="text-xs font-bold uppercase tracking-wider text-slate-900 dark:text-slate-100">
+                            Examiner Annotated Marked Copy (Margin Notes)
+                          </h4>
+                        </div>
                         <span className="text-[11px] font-mono text-slate-400">
                           {evaluation.markedCopy.length} Annotations
                         </span>
                       </div>
-                      <div className="space-y-2.5">
+                      <div className="space-y-3">
                         {evaluation.markedCopy.map((item, idx) => (
                           <div
                             key={idx}
-                            className="p-3.5 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700/60 space-y-1.5 text-xs"
+                            className="p-3.5 rounded-xl bg-slate-50/80 dark:bg-slate-800/50 border border-slate-200/80 dark:border-slate-700/60 space-y-2 text-xs"
                           >
-                            <div className="text-slate-700 dark:text-slate-300 font-serif italic border-l-2 border-indigo-500 pl-2.5">
+                            <div className="text-slate-800 dark:text-slate-200 font-serif italic pl-3 border-l-2 border-indigo-400 leading-relaxed text-xs sm:text-[13px]">
                               &ldquo;{item.quote}&rdquo;
                             </div>
-                            <div className="text-rose-600 dark:text-rose-400 font-semibold flex items-start gap-1.5 pt-0.5">
-                              <span className="text-[11px] font-mono bg-rose-100 dark:bg-rose-950/80 px-1.5 py-0.5 rounded text-rose-700 dark:text-rose-300 shrink-0">
+                            <div className="flex items-start gap-2 pt-1 border-t border-slate-100 dark:border-slate-700/40">
+                              <span className="text-[10px] font-mono font-bold uppercase tracking-wider px-1.5 py-0.5 rounded bg-rose-100 dark:bg-rose-950/80 text-rose-700 dark:text-rose-300 shrink-0">
                                 Margin Note
                               </span>
-                              <span className="leading-relaxed">{item.note}</span>
+                              <span className="text-rose-600 dark:text-rose-400 font-semibold leading-relaxed">
+                                {item.note}
+                              </span>
                             </div>
                           </div>
                         ))}
@@ -1481,7 +1838,7 @@ To advance constitutional morality and responsive governance, administrative exe
                     {/* Specific Flaws (≤6 words) */}
                     <div className="p-4 rounded-xl border border-rose-200 dark:border-rose-900 bg-rose-50/50 dark:bg-rose-950/40 space-y-2">
                       <h4 className="text-xs font-bold uppercase tracking-wider text-rose-800 dark:text-rose-300 flex items-center gap-1.5">
-                        <AlertTriangle className="h-4 w-4" />
+                        <AlertTriangle className="h-4 w-4 text-rose-600" />
                         <span>This Answer&apos;s Specific Flaws (Blunt)</span>
                       </h4>
                       <ul className="text-xs text-slate-700 dark:text-slate-300 space-y-1.5 list-disc pl-4">
@@ -1500,7 +1857,7 @@ To advance constitutional morality and responsive governance, administrative exe
                     {/* Missing Dimensions & Citations */}
                     <div className="p-4 rounded-xl border border-amber-200 dark:border-amber-900 bg-amber-50/50 dark:bg-amber-950/40 space-y-2">
                       <h4 className="text-xs font-bold uppercase tracking-wider text-amber-800 dark:text-amber-300 flex items-center gap-1.5">
-                        <BookOpen className="h-4 w-4" />
+                        <BookOpen className="h-4 w-4 text-amber-600" />
                         <span>Missing Dimensions & Citations</span>
                       </h4>
                       <ul className="text-xs text-slate-700 dark:text-slate-300 space-y-1.5 list-disc pl-4">
@@ -1536,9 +1893,22 @@ To advance constitutional morality and responsive governance, administrative exe
 
                     {evaluation.diagramIdea && (
                       <div className="mt-3 p-3.5 rounded-xl bg-white dark:bg-slate-900 border border-indigo-200 dark:border-indigo-900/60 space-y-1.5 text-xs">
-                        <span className="font-bold text-indigo-600 dark:text-indigo-400 block">
-                          📊 Drawn Micro-Diagram (Examiner-Approved):
-                        </span>
+                        <div className="flex items-center justify-between pb-1">
+                          <span className="font-bold text-indigo-600 dark:text-indigo-400 block">
+                            📊 Drawn Micro-Diagram (Examiner-Approved):
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              if (evaluation.diagramIdea) {
+                                navigator.clipboard.writeText(evaluation.diagramIdea);
+                              }
+                            }}
+                            className="text-[10px] font-mono font-semibold text-slate-400 hover:text-indigo-600 cursor-pointer"
+                          >
+                            Copy Schema
+                          </button>
+                        </div>
                         <pre className="p-3 rounded-lg bg-slate-950 text-emerald-400 font-mono text-xs whitespace-pre-wrap overflow-x-auto border border-slate-800 leading-relaxed">
                           {evaluation.diagramIdea}
                         </pre>

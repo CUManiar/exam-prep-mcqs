@@ -536,12 +536,34 @@ export async function POST(req: NextRequest) {
 
     const trimmedQuestion = (question || "").trim();
     const trimmedAnswer = (answerText || "").trim();
-    const hasAnyText = Boolean(trimmedQuestion || trimmedAnswer);
-    const hasImages = Boolean(images && images.length > 0);
+    const rawImages = Array.isArray(images) ? images : [];
 
-    if (!hasAnyText && !hasImages) {
+    // Filter out corrupted or zero-length image payloads
+    const validImages = rawImages.filter((img) => {
+      if (!img || !img.data) return false;
+      const cleanData = img.data.replace(/^data:[^;]+;base64,/, "").trim();
+      return cleanData.length > 300; // Real page snapshot base64 is at least several KB
+    });
+
+    const hasValidImages = validImages.length > 0;
+    const hasMeaningfulText = trimmedAnswer.length >= 20;
+
+    // Reject empty or trivial submissions immediately without consuming tokens or calling AI APIs
+    if (!hasMeaningfulText && !hasValidImages) {
+      if (trimmedAnswer.length > 0 && trimmedAnswer.length < 20) {
+        return NextResponse.json(
+          {
+            error:
+              "Answer text is too short to evaluate (minimum 20 characters required). Please provide your complete answer.",
+          },
+          { status: 400 }
+        );
+      }
       return NextResponse.json(
-        { error: "Please provide either answer text or upload an answer sheet image/PDF." },
+        {
+          error:
+            "No answer content found. Please type or paste your written answer, or upload a clear answer sheet photo/PDF.",
+        },
         { status: 400 }
       );
     }
@@ -551,7 +573,7 @@ export async function POST(req: NextRequest) {
     const serverGeminiKey = process.env.GEMINI_API_KEY?.trim();
 
     // Early validation: Groq cannot process image uploads without text
-    if (hasImages && !trimmedAnswer && provider === "groq") {
+    if (hasValidImages && !trimmedAnswer && provider === "groq") {
       return NextResponse.json(
         {
           error:
@@ -567,7 +589,7 @@ export async function POST(req: NextRequest) {
       paperType,
       optionalSubject,
       maxMarks,
-      hasAttachment: hasImages,
+      hasAttachment: hasValidImages,
     });
 
     let rawOutput = "";
@@ -576,17 +598,17 @@ export async function POST(req: NextRequest) {
     if (userApiKey && provider) {
       try {
         if (provider === "gemini") {
-          rawOutput = await callGeminiEvaluation(userApiKey, evaluationPrompt, images);
+          rawOutput = await callGeminiEvaluation(userApiKey, evaluationPrompt, validImages);
         } else if (provider === "openai") {
-          rawOutput = await callOpenAIEvaluation(userApiKey, evaluationPrompt, images);
+          rawOutput = await callOpenAIEvaluation(userApiKey, evaluationPrompt, validImages);
         } else if (provider === "anthropic") {
-          rawOutput = await callAnthropicEvaluation(userApiKey, evaluationPrompt, images);
+          rawOutput = await callAnthropicEvaluation(userApiKey, evaluationPrompt, validImages);
         } else if (provider === "groq") {
-          rawOutput = await callGroqEvaluation(userApiKey, evaluationPrompt, images, trimmedAnswer);
+          rawOutput = await callGroqEvaluation(userApiKey, evaluationPrompt, validImages, trimmedAnswer);
         }
       } catch (err: any) {
         console.warn(`User-configured ${provider} evaluation failed:`, err?.message);
-        if (hasImages && !trimmedAnswer) {
+        if (hasValidImages && !trimmedAnswer) {
           throw err;
         }
       }
@@ -595,7 +617,7 @@ export async function POST(req: NextRequest) {
     // 2. Server-side Gemini Key fallback
     if (!rawOutput && serverGeminiKey) {
       try {
-        rawOutput = await callGeminiEvaluation(serverGeminiKey, evaluationPrompt, images);
+        rawOutput = await callGeminiEvaluation(serverGeminiKey, evaluationPrompt, validImages);
       } catch (err: any) {
         console.warn("Server Gemini evaluation failed:", err?.message);
       }
@@ -603,7 +625,7 @@ export async function POST(req: NextRequest) {
 
     // 3. Free Live Tier fallback (Text only)
     if (!rawOutput) {
-      if (hasImages && !trimmedAnswer) {
+      if (hasValidImages && !trimmedAnswer) {
         return NextResponse.json(
           {
             error:
@@ -670,7 +692,7 @@ export async function POST(req: NextRequest) {
       return matchesKeyword && bodyScore <= 1.0;
     };
 
-    if (hasImages && !trimmedAnswer && isAnswerMissingOrUnreadable(parsed)) {
+    if (hasValidImages && !trimmedAnswer && isAnswerMissingOrUnreadable(parsed)) {
       return NextResponse.json(
         {
           error:
@@ -763,7 +785,7 @@ export async function POST(req: NextRequest) {
     const result: MainsEvaluationResult = {
       id: `eval_${Date.now()}`,
       question: resolvedQuestion,
-      studentAnswer: trimmedAnswer || (hasImages ? "(Answer submitted via uploaded document/images)" : ""),
+      studentAnswer: trimmedAnswer || (hasValidImages ? "(Answer submitted via uploaded document/images)" : ""),
       paperType,
       optionalSubject: optionalSubject?.trim() || undefined,
       maxMarks,
