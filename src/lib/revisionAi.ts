@@ -1,10 +1,11 @@
 import {
   RevisionContext,
   RevisionMessage,
+  RevisionProvider,
   RevisionProviderConfig,
 } from "./types";
 
-export type { RevisionProviderConfig };
+export type { RevisionProvider, RevisionProviderConfig };
 
 const REVISION_CONFIG_KEY = "upsc_revision_llm_config";
 const REVISION_VAULT_KEY = "upsc_revision_keys_vault";
@@ -243,6 +244,21 @@ export function removeProviderKey(provider: string): void {
   } catch (e) {
     console.warn("Failed to remove provider key from vault:", e);
   }
+}
+
+export function switchActiveProvider(
+  newProvider: RevisionProvider | string,
+): RevisionProviderConfig | null {
+  if (typeof window === "undefined") return null;
+  const vault = getProviderVault();
+  const key = vault[newProvider];
+  if (!key) return null;
+  const config: RevisionProviderConfig = {
+    provider: newProvider as RevisionProvider,
+    apiKey: key,
+  };
+  saveRevisionConfig(config);
+  return config;
 }
 
 export function saveRevisionConfig(config: RevisionProviderConfig): void {

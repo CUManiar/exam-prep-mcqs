@@ -35,7 +35,12 @@ import {
   loadMainsSessions,
   saveMainsSessions,
 } from "@/lib/mainsEvaluation";
-import { getRevisionConfig, RevisionProviderConfig } from "@/lib/revisionAi";
+import {
+  getRevisionConfig,
+  getProviderVault,
+  switchActiveProvider,
+  RevisionProviderConfig,
+} from "@/lib/revisionAi";
 import { MainsScorecardCanvas } from "./MainsScorecardCanvas";
 import { RevisionMarkdownRenderer } from "../revision/RevisionMarkdownRenderer";
 import { RevisionSettingsModal } from "../revision/RevisionSettingsModal";
@@ -80,6 +85,7 @@ export function MainsEvaluationView() {
   const [activeTab, setActiveTab] = useState<"feedback" | "scorecard" | "model" | "chat">("feedback");
   const [evaluation, setEvaluation] = useState<MainsEvaluationResult | null>(null);
   const [activeProvider, setActiveProvider] = useState<string>("");
+  const [vault, setVault] = useState<Record<string, string>>({});
   const [aiConfig, setAiConfig] = useState<RevisionProviderConfig | null>(null);
   const [showSettingsModal, setShowSettingsModal] = useState(false);
 
@@ -105,6 +111,7 @@ export function MainsEvaluationView() {
       const cfg = getRevisionConfig();
       setAiConfig(cfg);
       setActiveProvider(cfg?.provider || "");
+      setVault(getProviderVault());
     };
 
     syncConfig();
@@ -628,30 +635,81 @@ To advance constitutional morality and responsive governance, administrative exe
           </div>
 
           <div className="flex items-center gap-2">
-            <button
-              type="button"
-              onClick={() => setShowSettingsModal(true)}
-              className="inline-flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 text-xs font-semibold text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors shadow-2xs cursor-pointer"
-              title="Configure AI Provider & API Key"
-            >
-              <span
-                className={`h-2 w-2 rounded-full shrink-0 ${
-                  activeProvider ? "bg-emerald-500 animate-pulse" : "bg-amber-500"
-                }`}
-              />
-              <span className="font-semibold text-xs">
-                {activeProvider === "gemini"
-                  ? "Google Gemini"
-                  : activeProvider === "groq"
-                    ? "Groq"
-                    : activeProvider === "openai"
-                      ? "OpenAI"
-                      : activeProvider === "anthropic"
-                        ? "Claude"
-                        : "Free AI"}
-              </span>
-              <Settings2 className="h-3.5 w-3.5 text-slate-400" />
-            </button>
+            {Object.keys(vault).filter((k) => Boolean(vault[k])).length > 1 ? (
+              <div className="flex items-center rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-100 dark:bg-slate-800/80 p-0.5 text-xs">
+                {Object.keys(vault)
+                  .filter((k) => Boolean(vault[k]))
+                  .map((p) => {
+                    const isCurrent = activeProvider === p;
+                    const label =
+                      p === "gemini"
+                        ? "Gemini"
+                        : p === "groq"
+                          ? "Groq"
+                          : p === "openai"
+                            ? "OpenAI"
+                            : p === "anthropic"
+                              ? "Claude"
+                              : p;
+                    return (
+                      <button
+                        key={p}
+                        type="button"
+                        onClick={() => {
+                          switchActiveProvider(p);
+                          setErrorMsg(null);
+                        }}
+                        className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                          isCurrent
+                            ? "bg-white dark:bg-slate-900 text-indigo-600 dark:text-indigo-400 shadow-2xs"
+                            : "text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200"
+                        }`}
+                        title={`Switch to ${label}`}
+                      >
+                        <span
+                          className={`h-1.5 w-1.5 rounded-full shrink-0 ${
+                            isCurrent ? "bg-emerald-500 animate-pulse" : "bg-slate-400"
+                          }`}
+                        />
+                        <span>{label}</span>
+                      </button>
+                    );
+                  })}
+                <button
+                  type="button"
+                  onClick={() => setShowSettingsModal(true)}
+                  className="p-1 rounded-lg text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition-colors"
+                  title="Configure Keys"
+                >
+                  <Settings2 className="h-3.5 w-3.5" />
+                </button>
+              </div>
+            ) : (
+              <button
+                type="button"
+                onClick={() => setShowSettingsModal(true)}
+                className="inline-flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 text-xs font-semibold text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors shadow-2xs cursor-pointer"
+                title="Configure AI Provider & API Key"
+              >
+                <span
+                  className={`h-2 w-2 rounded-full shrink-0 ${
+                    activeProvider ? "bg-emerald-500 animate-pulse" : "bg-amber-500"
+                  }`}
+                />
+                <span className="font-semibold text-xs">
+                  {activeProvider === "gemini"
+                    ? "Google Gemini"
+                    : activeProvider === "groq"
+                      ? "Groq"
+                      : activeProvider === "openai"
+                        ? "OpenAI"
+                        : activeProvider === "anthropic"
+                          ? "Claude"
+                          : "Free AI"}
+                </span>
+                <Settings2 className="h-3.5 w-3.5 text-slate-400" />
+              </button>
+            )}
 
             <button
               type="button"
@@ -996,10 +1054,17 @@ To advance constitutional morality and responsive governance, administrative exe
                           </div>
                           <button
                             type="button"
-                            onClick={() => setShowSettingsModal(true)}
+                            onClick={() => {
+                              if (vault.gemini) {
+                                switchActiveProvider("gemini");
+                                setErrorMsg(null);
+                              } else {
+                                setShowSettingsModal(true);
+                              }
+                            }}
                             className="shrink-0 px-3 py-1.5 rounded-lg bg-amber-600 hover:bg-amber-700 active:bg-amber-800 text-white font-bold text-xs shadow-2xs transition-colors cursor-pointer self-start sm:self-auto"
                           >
-                            Change Provider
+                            {vault.gemini ? "⚡ Switch to Gemini (Saved Key)" : "Set up Google Gemini"}
                           </button>
                         </div>
                       )}
