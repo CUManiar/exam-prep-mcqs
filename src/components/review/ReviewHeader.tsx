@@ -1,6 +1,7 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useRef, useEffect, useCallback } from "react";
+import { createPortal } from "react-dom";
 import { Attempt, QuestionPaper } from "../../lib/types";
 import { formatDateTime } from "../../lib/defaults";
 import {
@@ -56,9 +57,49 @@ export function ReviewHeader({
   onOpenSubmissionModal,
   effectiveMaxScore,
 }: ReviewHeaderProps) {
+  const [mounted, setMounted] = useState(false);
   const [showExportMenu, setShowExportMenu] = useState(false);
   const [copiedToast, setCopiedToast] = useState(false);
   const [isExportingPacket, setIsExportingPacket] = useState(false);
+  const exportButtonRef = useRef<HTMLButtonElement | null>(null);
+  const [menuPosition, setMenuPosition] = useState<{ top: number; right: number } | null>(null);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  const updateMenuPosition = useCallback(() => {
+    if (exportButtonRef.current) {
+      const rect = exportButtonRef.current.getBoundingClientRect();
+      setMenuPosition({
+        top: rect.bottom + 6,
+        right: Math.max(12, window.innerWidth - rect.right),
+      });
+    }
+  }, []);
+
+  useEffect(() => {
+    if (!showExportMenu) return;
+    updateMenuPosition();
+
+    const handleScrollOrResize = () => {
+      updateMenuPosition();
+    };
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        setShowExportMenu(false);
+      }
+    };
+
+    window.addEventListener("scroll", handleScrollOrResize, true);
+    window.addEventListener("resize", handleScrollOrResize);
+    window.addEventListener("keydown", handleKeyDown);
+    return () => {
+      window.removeEventListener("scroll", handleScrollOrResize, true);
+      window.removeEventListener("resize", handleScrollOrResize);
+      window.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [showExportMenu, updateMenuPosition]);
 
   const handleCopySummary = async () => {
     const success = await copyAttemptSummaryToClipboard(attempt);
@@ -131,7 +172,7 @@ export function ReviewHeader({
       </div>
 
       {/* Action Controls */}
-      <div className="flex shrink-0 items-center justify-end gap-1.5 sm:gap-2 max-sm:overflow-x-auto max-sm:no-scrollbar sm:overflow-visible w-full sm:w-auto relative">
+      <div className="flex shrink-0 items-center justify-end gap-1.5 sm:gap-2 flex-wrap sm:flex-nowrap w-full sm:w-auto">
         {/* Paper split toggle (desktop & tablet) */}
         {canPreviewPaper && (
           <button
@@ -185,7 +226,11 @@ export function ReviewHeader({
         {/* Export dropdown */}
         <div className="relative shrink-0">
           <button
-            onClick={() => setShowExportMenu(!showExportMenu)}
+            ref={exportButtonRef}
+            onClick={() => {
+              if (!showExportMenu) updateMenuPosition();
+              setShowExportMenu(!showExportMenu);
+            }}
             className="flex items-center gap-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 px-2.5 sm:px-3 py-1.5 text-xs font-semibold text-white transition-all cursor-pointer shadow-xs"
           >
             <Download className="h-3.5 w-3.5" />
@@ -194,14 +239,25 @@ export function ReviewHeader({
               className={`h-3 w-3 transition-transform ${showExportMenu ? "rotate-180" : ""}`}
             />
           </button>
+        </div>
 
-          {showExportMenu && (
+        {/* Export Dropdown Menu rendered via portal to never clip or scroll */}
+        {showExportMenu &&
+          mounted &&
+          createPortal(
             <>
               <div
-                className="fixed inset-0 z-40"
+                className="fixed inset-0 z-[9998] bg-black/5"
                 onClick={() => setShowExportMenu(false)}
               />
-              <div className="absolute right-0 top-full mt-1.5 z-50 min-w-[280px] w-max max-w-xs rounded-2xl border border-slate-200 bg-white p-1.5 shadow-2xl space-y-0.5 animate-in fade-in zoom-in-95">
+              <div
+                style={{
+                  position: "fixed",
+                  top: menuPosition ? `${menuPosition.top}px` : "auto",
+                  right: menuPosition ? `${menuPosition.right}px` : "16px",
+                }}
+                className="z-[9999] min-w-[280px] w-max max-w-xs rounded-2xl border border-slate-200 bg-white p-1.5 shadow-2xl space-y-0.5 animate-in fade-in zoom-in-95"
+              >
                 {matchedPaper && canPreviewPaper && (
                   <button
                     onClick={() => {
@@ -264,9 +320,9 @@ export function ReviewHeader({
                   <span>Download raw attempt (JSON)</span>
                 </button>
               </div>
-            </>
+            </>,
+            document.body,
           )}
-        </div>
 
         {/* Delete attempt */}
         <button
