@@ -1966,85 +1966,96 @@ To advance constitutional morality and responsive governance, administrative exe
                       </div>
                     )}
 
-                  {/* Strengths, Flaws, and Missing Dimensions 3-Panel Grid */}
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                    {/* 1. What Worked (Strengths that earned marks) */}
-                    <div className="p-4 rounded-xl border border-emerald-200 dark:border-emerald-900 bg-emerald-50/50 dark:bg-emerald-950/40 space-y-2 flex flex-col justify-between">
-                      <div className="space-y-2">
-                        <h4 className="text-xs font-bold uppercase tracking-wider text-emerald-800 dark:text-emerald-300 flex items-center gap-1.5">
-                          <CheckCircle2 className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
-                          <span>What Worked (Keep This Up)</span>
-                        </h4>
-                        <ul className="text-xs text-slate-700 dark:text-slate-300 space-y-1.5 list-disc pl-4">
-                          {evaluation.strengths && evaluation.strengths.length > 0 ? (
-                            evaluation.strengths.map((str, idx) => (
-                              <li key={idx} className="leading-relaxed font-medium">
-                                {str}
-                              </li>
-                            ))
-                          ) : (
-                            <li className="text-slate-400">Directly attempted the core prompt.</li>
-                          )}
-                        </ul>
-                      </div>
-                      <span className="text-[10px] text-emerald-700 dark:text-emerald-400 font-mono font-medium pt-1">
-                        ✓ Earned marks; retain in future answers
-                      </span>
-                    </div>
+                  {/* Strengths, Flaws, and Missing Dimensions Grid */}
+                  {(() => {
+                    const validStrengths = (evaluation.strengths || []).filter(
+                      (str) =>
+                        Boolean(str && str.trim()) &&
+                        !str.toLowerCase().includes("directly attempted the core prompt"),
+                    );
+                    const hasStrengths = validStrengths.length > 0;
 
-                    {/* 2. Specific Flaws (Blunt) */}
-                    <div className="p-4 rounded-xl border border-rose-200 dark:border-rose-900 bg-rose-50/50 dark:bg-rose-950/40 space-y-2 flex flex-col justify-between">
-                      <div className="space-y-2">
-                        <h4 className="text-xs font-bold uppercase tracking-wider text-rose-800 dark:text-rose-300 flex items-center gap-1.5">
-                          <AlertTriangle className="h-4 w-4 text-rose-600" />
-                          <span>This Answer&apos;s Specific Flaws</span>
-                        </h4>
-                        <ul className="text-xs text-slate-700 dark:text-slate-300 space-y-1.5 list-disc pl-4">
-                          {evaluation.weaknesses &&
-                          evaluation.weaknesses.length > 0 ? (
-                            evaluation.weaknesses.map((w, idx) => (
-                              <li
-                                key={idx}
-                                className="leading-relaxed font-medium"
-                              >
-                                {w}
-                              </li>
-                            ))
-                          ) : (
-                            <li className="text-slate-400">None flagged.</li>
-                          )}
-                        </ul>
-                      </div>
-                      <span className="text-[10px] text-rose-700 dark:text-rose-400 font-mono font-medium pt-1">
-                        ✗ Flaws to eliminate
-                      </span>
-                    </div>
+                    return (
+                      <div
+                        className={`grid grid-cols-1 ${hasStrengths ? "md:grid-cols-3" : "md:grid-cols-2"} gap-3`}
+                      >
+                        {/* 1. What Worked (Strengths that earned marks) */}
+                        {hasStrengths && (
+                          <div className="p-4 rounded-xl border border-emerald-200 dark:border-emerald-900 bg-emerald-50/50 dark:bg-emerald-950/40 space-y-2 flex flex-col justify-between">
+                            <div className="space-y-2">
+                              <h4 className="text-xs font-bold uppercase tracking-wider text-emerald-800 dark:text-emerald-300 flex items-center gap-1.5">
+                                <CheckCircle2 className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
+                                <span>What Worked (Keep This Up)</span>
+                              </h4>
+                              <ul className="text-xs text-slate-700 dark:text-slate-300 space-y-1.5 list-disc pl-4">
+                                {validStrengths.map((str, idx) => (
+                                  <li key={idx} className="leading-relaxed font-medium">
+                                    {str}
+                                  </li>
+                                ))}
+                              </ul>
+                            </div>
+                            <span className="text-[10px] text-emerald-700 dark:text-emerald-400 font-mono font-medium pt-1">
+                              ✓ Earned marks; retain in future answers
+                            </span>
+                          </div>
+                        )}
 
-                    {/* 3. Missing Dimensions & Citations */}
-                    <div className="p-4 rounded-xl border border-amber-200 dark:border-amber-900 bg-amber-50/50 dark:bg-amber-950/40 space-y-2 flex flex-col justify-between">
-                      <div className="space-y-2">
-                        <h4 className="text-xs font-bold uppercase tracking-wider text-amber-800 dark:text-amber-300 flex items-center gap-1.5">
-                          <BookOpen className="h-4 w-4 text-amber-600" />
-                          <span>Missing Dimensions & Citations</span>
-                        </h4>
-                        <ul className="text-xs text-slate-700 dark:text-slate-300 space-y-1.5 list-disc pl-4">
-                          {evaluation.missingDimensions &&
-                          evaluation.missingDimensions.length > 0 ? (
-                            evaluation.missingDimensions.map((dim, idx) => (
-                              <li key={idx} className="leading-relaxed">
-                                {dim}
-                              </li>
-                            ))
-                          ) : (
-                            <li className="text-slate-400">None flagged.</li>
-                          )}
-                        </ul>
+                        {/* 2. Specific Flaws (Blunt) */}
+                        <div className="p-4 rounded-xl border border-rose-200 dark:border-rose-900 bg-rose-50/50 dark:bg-rose-950/40 space-y-2 flex flex-col justify-between">
+                          <div className="space-y-2">
+                            <h4 className="text-xs font-bold uppercase tracking-wider text-rose-800 dark:text-rose-300 flex items-center gap-1.5">
+                              <AlertTriangle className="h-4 w-4 text-rose-600" />
+                              <span>This Answer&apos;s Specific Flaws</span>
+                            </h4>
+                            <ul className="text-xs text-slate-700 dark:text-slate-300 space-y-1.5 list-disc pl-4">
+                              {evaluation.weaknesses &&
+                              evaluation.weaknesses.length > 0 ? (
+                                evaluation.weaknesses.map((w, idx) => (
+                                  <li
+                                    key={idx}
+                                    className="leading-relaxed font-medium"
+                                  >
+                                    {w}
+                                  </li>
+                                ))
+                              ) : (
+                                <li className="text-slate-400">None flagged.</li>
+                              )}
+                            </ul>
+                          </div>
+                          <span className="text-[10px] text-rose-700 dark:text-rose-400 font-mono font-medium pt-1">
+                            ✗ Flaws to eliminate
+                          </span>
+                        </div>
+
+                        {/* 3. Missing Dimensions & Citations */}
+                        <div className="p-4 rounded-xl border border-amber-200 dark:border-amber-900 bg-amber-50/50 dark:bg-amber-950/40 space-y-2 flex flex-col justify-between">
+                          <div className="space-y-2">
+                            <h4 className="text-xs font-bold uppercase tracking-wider text-amber-800 dark:text-amber-300 flex items-center gap-1.5">
+                              <BookOpen className="h-4 w-4 text-amber-600" />
+                              <span>Missing Dimensions & Citations</span>
+                            </h4>
+                            <ul className="text-xs text-slate-700 dark:text-slate-300 space-y-1.5 list-disc pl-4">
+                              {evaluation.missingDimensions &&
+                              evaluation.missingDimensions.length > 0 ? (
+                                evaluation.missingDimensions.map((dim, idx) => (
+                                  <li key={idx} className="leading-relaxed">
+                                    {dim}
+                                  </li>
+                                ))
+                              ) : (
+                                <li className="text-slate-400">None flagged.</li>
+                              )}
+                            </ul>
+                          </div>
+                          <span className="text-[10px] text-amber-700 dark:text-amber-400 font-mono font-medium pt-1">
+                            + High-yield value addition
+                          </span>
+                        </div>
                       </div>
-                      <span className="text-[10px] text-amber-700 dark:text-amber-400 font-mono font-medium pt-1">
-                        + High-yield value addition
-                      </span>
-                    </div>
-                  </div>
+                    );
+                  })()}
 
                   {/* Actionable Roadmap & Drawn Micro-Diagram */}
                   <div className="p-4 sm:p-5 rounded-2xl border border-indigo-200 dark:border-indigo-900 bg-indigo-50/50 dark:bg-indigo-950/30 space-y-3">
