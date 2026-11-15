@@ -77,6 +77,7 @@ export function MainsEvaluationView() {
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<"feedback" | "scorecard" | "model" | "chat">("feedback");
   const [evaluation, setEvaluation] = useState<MainsEvaluationResult | null>(null);
+  const [activeProvider, setActiveProvider] = useState<string>("");
 
   // Follow-up chat state
   const [followUpPrompt, setFollowUpPrompt] = useState("");
@@ -96,6 +97,7 @@ export function MainsEvaluationView() {
 
   // Load saved sessions on mount
   useEffect(() => {
+    setActiveProvider(getRevisionConfig()?.provider || "");
     const loaded = loadMainsSessions();
     if (loaded.length > 0) {
       setSessions(loaded);
@@ -283,11 +285,22 @@ export function MainsEvaluationView() {
       return;
     }
 
+    const config = getRevisionConfig();
+    setActiveProvider(config?.provider || "");
+
+    // Early client-side check: Groq is text-only and cannot process uploaded sheets without text
+    if (hasUploads && !answerText.trim() && config?.provider === "groq") {
+      setEvaluation(null);
+      setErrorMsg(
+        "Groq Cloud currently only supports text evaluation and does not support image or handwritten OCR. Please select Google Gemini (free at aistudio.google.com) in AI Revision Settings, or type/paste your answer directly in the text tab."
+      );
+      return;
+    }
+
     setIsLoading(true);
     setErrorMsg(null);
 
     try {
-      const config = getRevisionConfig();
       const res = await fetch("/api/mains/evaluate", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -340,6 +353,7 @@ export function MainsEvaluationView() {
         return updated;
       });
     } catch (err: any) {
+      setEvaluation(null);
       setErrorMsg(err?.message || "An error occurred during evaluation.");
     } finally {
       setIsLoading(false);
@@ -921,6 +935,17 @@ To advance constitutional morality and responsive governance, administrative exe
 
                   {uploadedImages.length > 0 && (
                     <div className="space-y-2 pt-1">
+                      {activeProvider === "groq" && !answerText.trim() && (
+                        <div className="p-3 rounded-xl bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800 text-xs text-amber-800 dark:text-amber-200 flex items-start gap-2">
+                          <AlertTriangle className="h-4 w-4 shrink-0 text-amber-600 mt-0.5" />
+                          <div className="space-y-0.5">
+                            <p className="font-bold">Groq is text-only</p>
+                            <p className="text-[11px] text-amber-700 dark:text-amber-300">
+                              Groq does not support handwritten image OCR. For uploaded sheets or PDFs, please switch to Google Gemini (free at aistudio.google.com) in AI Revision Settings, or type your answer in the "Type / Paste Text" tab.
+                            </p>
+                          </div>
+                        </div>
+                      )}
                       <div className="flex items-center justify-between text-xs text-slate-500">
                         <span className="font-semibold text-slate-700 dark:text-slate-300">
                           Uploaded Pages ({uploadedImages.length})

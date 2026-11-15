@@ -269,13 +269,16 @@ function MermaidDiagram({ code }: { code: string }) {
       const style = document.createElement("style");
       style.id = "mermaid-suppress-css";
       style.textContent = `
-        [id^="dmermaid"], svg[aria-roledescription="error"], .error-icon, .mermaid .error-text {
+        [id^="dmermaid"], [id^="dmermaid_"], [id*="mermaid_"][aria-roledescription="error"], svg[aria-roledescription="error"], .error-icon, .mermaid .error-text, body > [id^="d"] {
           display: none !important;
           visibility: hidden !important;
+          opacity: 0 !important;
+          pointer-events: none !important;
           height: 0 !important;
           width: 0 !important;
           position: absolute !important;
-          left: -9999px !important;
+          left: -99999px !important;
+          top: -99999px !important;
         }
       `;
       document.head.appendChild(style);
@@ -298,6 +301,9 @@ function MermaidDiagram({ code }: { code: string }) {
           flowchart: { useMaxWidth: true, htmlLabels: true, curve: "basis" },
           securityLevel: "loose",
         });
+        if (typeof w.mermaid.parseError === "function") {
+          w.mermaid.parseError = () => {};
+        }
 
         const id = `mermaid_${Math.random().toString(36).slice(2, 9)}`;
         const sanitizedCode = sanitizeMermaidCode(cleanCode);
@@ -317,13 +323,15 @@ function MermaidDiagram({ code }: { code: string }) {
           .catch((err: any) => {
             console.warn("Mermaid validation/render error:", err);
             // Clean up any stray error element that Mermaid might have inserted into document.body
-            document
-              .querySelectorAll(
-                '[id^="dmermaid"], svg[aria-roledescription="error"], .error-icon',
-              )
-              .forEach((el) => {
-                if (el.parentElement === document.body) el.remove();
-              });
+            setTimeout(() => {
+              document
+                .querySelectorAll(
+                  '[id^="dmermaid"], [id^="dmermaid_"], svg[aria-roledescription="error"], .error-icon',
+                )
+                .forEach((el) => {
+                  if (el.parentElement === document.body) el.remove();
+                });
+            }, 0);
             if (isMounted) setHasError(true);
           });
       } catch (err) {
