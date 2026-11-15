@@ -125,8 +125,9 @@ ${
    - Provide a complete, topper-standard Model Answer strictly matching the ${wordLimit}-word limit.
    - Format cleanly with Markdown headings, sub-points, and a Topper Value-Addition / Enrichment Box.
 5. Handwritten & Document Evaluation:
-   - Carefully read and evaluate the handwritten arguments or text in the submission.
-   - Never award 0 marks unless the sheet is completely blank. Evaluate actual substance, identify strengths and blindspots, and assign standard UPSC marks (typically 3.0 to 6.0 / 10).
+   - Carefully transcribe and evaluate the handwritten arguments or text in the submission.
+   - If an answer is present, evaluate actual substance, identify strengths and blindspots, and assign standard UPSC marks (typically 3.0 to 6.0 / 10).
+   - If the attached sheet is completely blank, illegible, or contains no student attempt, do NOT simulate or invent an answer. Set "marksAwarded": 0, "verdict": "Below Average", and set "directiveAnalysis": "The submitted sheet was blank, unreadable, or did not contain an answer to evaluate."
 
 CANDIDATE SUBMISSION TO EVALUATE:
 [QUESTION]:

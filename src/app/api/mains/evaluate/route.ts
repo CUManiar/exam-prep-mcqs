@@ -87,44 +87,6 @@ function tryRepairTruncatedJson(str: string): any {
   return null;
 }
 
-export function generateFallbackModelAnswer(context?: {
-  question?: string;
-  paperType?: string;
-  optionalSubject?: string;
-  maxMarks?: number;
-  directive?: string;
-}): string {
-  const q = context?.question || "UPSC CSE Mains Question";
-  const paper = context?.paperType || "GS";
-  const opt = context?.optionalSubject ? ` (${context.optionalSubject})` : "";
-  const marks = context?.maxMarks || 10;
-  const wordLimit = marks === 10 ? 150 : 250;
-  const directive = context?.directive || "Examine";
-
-  return `### Topper-Grade Model Answer (${wordLimit} Words)
-
-#### 1. Introduction & Conceptual Hook (20–25 Words)
-The question addresses a pivotal theme under **${paper}${opt}**. A comprehensive approach to the directive **"${directive}"** requires critically examining structural foundations, institutional mechanisms, and constitutional safeguards.
-
-#### 2. Core Arguments & Multi-Dimensional Analysis
-* **Constitutional & Legal Framework:**
-  * Grounded in statutory mandates, institutional checks, and standard administrative doctrines.
-  * Ensures alignment between executive prerogative, public accountability, and fundamental rights.
-* **Structural Bottlenecks & Operational Friction:**
-  * Jurisdictional overlaps, resource asymmetry, and inter-governmental coordination challenges.
-  * Need for transparent institutional mechanisms to eliminate discretion-driven ambiguity.
-* **Judicial Precedents & Empirical Perspectives:**
-  * Landmark rulings and committee doctrines (e.g. 2nd ARC, judicial guidelines) highlight procedural fairness and institutional resilience.
-
-#### 3. Way Forward & Forward-Looking Conclusion (25–30 Words)
-To advance constitutional morality and responsive governance, administrative execution must synthesize procedural accountability with progressive jurisprudence, safeguarding democratic equilibrium.
-
----
-> **Topper Value-Addition Box**
-> * **Key Landmark Reference:** Statutory provisions, constitutional benchmarks, and relevant Supreme Court doctrines.
-> * **Committee & Policy Recommendation:** Implement 2nd ARC / Commission reforms to bolster institutional autonomy and timely compliance.`;
-}
-
 export function formatCleanModelAnswer(
   text: string,
   context?: {
@@ -135,7 +97,9 @@ export function formatCleanModelAnswer(
     directive?: string;
   }
 ): string {
-  if (!text) return generateFallbackModelAnswer(context);
+  if (!text || !text.trim()) {
+    return "A topper model answer was not provided in this evaluation. You can request a complete model answer in the 'Ask Examiner' tab.";
+  }
   let trimmed = text.trim();
 
   // If text starts with a JSON object or contains JSON keys, extract the modelAnswer value
@@ -159,17 +123,17 @@ export function formatCleanModelAnswer(
         .replace(/\\"/g, '"')
         .replace(/\\t/g, "\t")
         .trim();
-      if (clean && !clean.startsWith("{") && clean.length > 40) {
+      if (clean && !clean.startsWith("{") && clean.length > 20) {
         return clean;
       }
     }
     // Failed to extract a valid modelAnswer string from JSON dump
-    return generateFallbackModelAnswer(context);
+    return "A topper model answer was not provided in this evaluation. You can request a complete model answer in the 'Ask Examiner' tab.";
   }
 
   // If text is still surrounded by braces or looks like raw code
   if (trimmed.startsWith("{") || trimmed.endsWith("}")) {
-    return generateFallbackModelAnswer(context);
+    return "A topper model answer was not provided in this evaluation. You can request a complete model answer in the 'Ask Examiner' tab.";
   }
 
   return trimmed.replace(/\\n/g, "\n").replace(/\\"/g, '"');
@@ -219,111 +183,6 @@ function parseJsonFromText(raw: string): any {
   if (repaired) return repaired;
 
   return null;
-}
-
-/** Fallback extractor if JSON is completely malformed or unparsable */
-function extractEvaluationFromText(
-  raw: string,
-  maxMarks: number,
-  defaultDirective = "Discuss",
-  context?: {
-    question?: string;
-    paperType?: string;
-    optionalSubject?: string;
-  }
-): any {
-  const marksMatch =
-    raw.match(/"?(?:marksAwarded|marks|score|awardedMarks)"?\s*[:=]\s*"?([\d.]+)"?/i) ||
-    raw.match(/marks\s*(?:awarded)?\s*[:/]\s*([\d.]+)/i) ||
-    raw.match(/([\d.]+)\s*\/\s*(?:10|15)/);
-  const parsedMarks = marksMatch ? parseFloat(marksMatch[1]) : (maxMarks === 10 ? 4.0 : 6.0);
-  const rawMarks = isNaN(parsedMarks) ? (maxMarks === 10 ? 4.0 : 6.0) : Math.min(parsedMarks, maxMarks);
-  const marksAwarded = rawMarks > 0 ? rawMarks : (maxMarks === 10 ? 3.5 : 5.5);
-
-  const verdictMatch = raw.match(/"?(?:verdict)"?\s*[:=]\s*"([^"]+)"/i);
-  const directiveMatch = raw.match(/"?(?:directive)"?\s*[:=]\s*"([^"]+)"/i);
-  const directiveAnalysisMatch = raw.match(/"?(?:directiveAnalysis)"?\s*[:=]\s*"([^"]+)"/i);
-
-  // Extract model answer
-  let modelAnswer = "";
-  const modelAnswerMatch =
-    raw.match(/"?(?:modelAnswer)"?\s*[:=]\s*"([\s\S]*?)(?:",\s*"[a-zA-Z]+"|"\s*\}|$)/i) ||
-    raw.match(/###?\s*Model Answer[:\s]*\n([\s\S]*?)(?:###|$)/i) ||
-    raw.match(/Model Answer[:\s]*([\s\S]*)/i);
-  if (modelAnswerMatch) {
-    const candidate = modelAnswerMatch[1]
-      .replace(/\\n/g, "\n")
-      .replace(/\\"/g, '"')
-      .trim();
-    if (!candidate.startsWith("{") && candidate.length > 50) {
-      modelAnswer = candidate;
-    }
-  }
-
-  if (!modelAnswer) {
-    modelAnswer = generateFallbackModelAnswer({
-      question: context?.question,
-      paperType: context?.paperType,
-      optionalSubject: context?.optionalSubject,
-      maxMarks,
-      directive: directiveMatch ? directiveMatch[1] : defaultDirective,
-    });
-  }
-
-  return {
-    marksAwarded,
-    maxMarks,
-    verdict: verdictMatch ? verdictMatch[1] : marksAwarded / maxMarks >= 0.5 ? "Good Attempt" : "Average",
-    directive: directiveMatch ? directiveMatch[1] : defaultDirective,
-    directiveAnalysis: directiveAnalysisMatch
-      ? directiveAnalysisMatch[1]
-      : "The candidate attempt was assessed under strict UPSC evaluation parameters.",
-    rubric: {
-      introduction: {
-        score: Math.round(maxMarks * 0.1 * 10) / 10,
-        max: maxMarks === 10 ? 2.0 : 3.0,
-        comment: "Contextual framing and conceptual definition provided.",
-      },
-      bodyContent: {
-        score: Math.round(marksAwarded * 0.55 * 10) / 10,
-        max: maxMarks === 10 ? 4.5 : 6.5,
-        comment: "Coverage of core analytical dimensions and directives.",
-      },
-      structurePresentation: {
-        score: Math.round(maxMarks * 0.08 * 10) / 10,
-        max: maxMarks === 10 ? 1.5 : 2.0,
-        comment: "Paragraph transitions and bullet point presentation.",
-      },
-      valueAddition: {
-        score: Math.round(maxMarks * 0.08 * 10) / 10,
-        max: maxMarks === 10 ? 1.5 : 2.0,
-        comment: "Integration of constitutional articles, judgments, and committees.",
-      },
-      conclusion: {
-        score: Math.round(maxMarks * 0.08 * 10) / 10,
-        max: maxMarks === 10 ? 1.5 : 2.0,
-        comment: "Forward-looking synthesis and balanced way forward.",
-      },
-    },
-    strengths: [
-      "Addresses the primary core of the question directly.",
-      "Clear segregation between different aspects of the directive.",
-    ],
-    weaknesses: [
-      "Needs richer citation of landmark judicial precedents and committees.",
-      "Can incorporate a micro-diagram or flowchart to save word space.",
-    ],
-    missingDimensions: [
-      "Institutional and administrative federal friction perspectives.",
-      "Constitutional safeguard doctrines and Supreme Court guidelines.",
-    ],
-    actionableRoadmap: [
-      "Cite specific Articles and Committees (e.g. Sarkaria / Punchhi) in the body.",
-      "Frame the conclusion with forward-looking constitutional morality.",
-    ],
-    diagramIdea: "A 3-node flowchart illustrating the trigger conditions, approval procedure, and consequences.",
-    modelAnswer,
-  };
 }
 
 /** Execute with Google Gemini */
@@ -506,80 +365,30 @@ async function callAnthropicEvaluation(
 async function callGroqEvaluation(
   apiKey: string,
   prompt: string,
-  images: Array<{ mimeType: string; data: string }> = []
+  images: Array<{ mimeType: string; data: string }> = [],
+  answerText: string = ""
 ): Promise<string> {
   const isVision = images.length > 0;
-  let visionCandidates = ["qwen/qwen3.8-27b", "qwen/qwen3.6-27b"];
 
-  if (isVision) {
-    try {
-      const listRes = await fetch("https://api.groq.com/openai/v1/models", {
-        headers: { Authorization: `Bearer ${apiKey}` },
-        signal: AbortSignal.timeout(5000),
-      });
-      if (listRes.ok) {
-        const listData = await listRes.json();
-        const ids: string[] = (listData.data || []).map((m: any) => m.id);
-        const discovered = ids.filter(
-          (id) =>
-            id.includes("vision") ||
-            id.includes("qwen") ||
-            id.includes("vl") ||
-            id.includes("multimodal")
-        );
-        if (discovered.length > 0) {
-          visionCandidates = Array.from(new Set([...discovered, ...visionCandidates]));
-        }
-      }
-    } catch {}
+  // If candidate submitted only images and NO typed text, Groq cannot evaluate it
+  if (isVision && !answerText.trim()) {
+    throw new Error(
+      "Groq Cloud currently only supports text-based models and does not support image or handwritten OCR. Please select Google Gemini (free at aistudio.google.com) in AI Revision Settings, or type/paste your answer directly in the text tab."
+    );
   }
 
-  // If vision is present, try vision models with images; then fallback to text models with text prompt
-  const models = isVision
-    ? [...visionCandidates, "llama-3.3-70b-versatile"]
-    : ["llama-3.3-70b-versatile", "llama-3.1-8b-instant"];
-
+  const models = ["llama-3.3-70b-versatile", "llama-3.1-8b-instant"];
   let lastError = "";
 
   for (const model of models) {
     try {
-      const isModelVision =
-        isVision &&
-        (model.includes("qwen") ||
-          model.includes("vision") ||
-          model.includes("vl") ||
-          model.includes("multimodal"));
-
-      const messages: any[] = [];
-      if (isModelVision) {
-        const userContent: any[] = [{ type: "text", text: prompt }];
-        // Groq enforces maximum 3 images per request
-        const safeImages = images.slice(0, 3);
-        for (const img of safeImages) {
-          const dataUrl = img.data.startsWith("data:")
-            ? img.data
-            : `data:${img.mimeType || "image/jpeg"};base64,${img.data}`;
-          userContent.push({
-            type: "image_url",
-            image_url: { url: dataUrl },
-          });
-        }
-        messages.push({ role: "user", content: userContent });
-      } else {
-        messages.push({ role: "user", content: prompt });
-      }
-
       const payload: any = {
         model,
-        messages,
+        messages: [{ role: "user", content: prompt }],
         temperature: 0.3,
         max_tokens: 3500,
+        response_format: { type: "json_object" },
       };
-
-      // Groq vision models reject response_format parameter with 400 Bad Request
-      if (!isModelVision) {
-        payload.response_format = { type: "json_object" };
-      }
 
       const res = await fetch("https://api.groq.com/openai/v1/chat/completions", {
         method: "POST",
@@ -666,6 +475,21 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    const userApiKey = providerConfig?.apiKey?.trim();
+    const provider = providerConfig?.provider;
+    const serverGeminiKey = process.env.GEMINI_API_KEY?.trim();
+
+    // Early validation: Groq cannot process image uploads without text
+    if (hasImages && !trimmedAnswer && provider === "groq") {
+      return NextResponse.json(
+        {
+          error:
+            "Groq Cloud currently only supports text models and does not support image or handwritten OCR. Please select Google Gemini (free at aistudio.google.com) in AI Revision Settings, or type/paste your answer directly in the text tab.",
+        },
+        { status: 400 }
+      );
+    }
+
     const evaluationPrompt = buildMainsEvaluationPrompt({
       question: trimmedQuestion,
       answerText: trimmedAnswer,
@@ -674,10 +498,6 @@ export async function POST(req: NextRequest) {
       maxMarks,
       hasAttachment: hasImages,
     });
-
-    const userApiKey = providerConfig?.apiKey?.trim();
-    const provider = providerConfig?.provider;
-    const serverGeminiKey = process.env.GEMINI_API_KEY?.trim();
 
     let rawOutput = "";
 
@@ -691,10 +511,13 @@ export async function POST(req: NextRequest) {
         } else if (provider === "anthropic") {
           rawOutput = await callAnthropicEvaluation(userApiKey, evaluationPrompt, images);
         } else if (provider === "groq") {
-          rawOutput = await callGroqEvaluation(userApiKey, evaluationPrompt, images);
+          rawOutput = await callGroqEvaluation(userApiKey, evaluationPrompt, images, trimmedAnswer);
         }
       } catch (err: any) {
-        console.warn(`User-configured ${provider} evaluation failed, falling back:`, err?.message);
+        console.warn(`User-configured ${provider} evaluation failed:`, err?.message);
+        if (hasImages && !trimmedAnswer) {
+          throw err;
+        }
       }
     }
 
@@ -707,17 +530,21 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    // 3. Free Live Tier fallback
+    // 3. Free Live Tier fallback (Text only)
     if (!rawOutput) {
+      if (hasImages && !trimmedAnswer) {
+        return NextResponse.json(
+          {
+            error:
+              "To evaluate handwritten answer sheets or uploaded images/PDFs, please configure a Google Gemini API Key (free at aistudio.google.com) in AI Revision Settings, or type/paste your answer directly in the text tab.",
+          },
+          { status: 400 }
+        );
+      }
       rawOutput = await callFreeTier(evaluationPrompt);
     }
 
-    let parsed = parseJsonFromText(rawOutput);
-
-    const resolvedQuestion =
-      trimmedQuestion ||
-      (parsed?.question && String(parsed.question).trim()) ||
-      "UPSC CSE Mains Question";
+    const parsed = parseJsonFromText(rawOutput);
 
     if (
       !parsed ||
@@ -726,42 +553,83 @@ export async function POST(req: NextRequest) {
         typeof parsed.score !== "number" &&
         isNaN(parseFloat(String(parsed.marksAwarded || parsed.marks || parsed.score))))
     ) {
-      console.warn("Structured JSON parse failed, extracting evaluation fields with fallback parser.");
-      parsed = extractEvaluationFromText(rawOutput, maxMarks, "Discuss", {
-        question: resolvedQuestion,
-        paperType,
-        optionalSubject,
-      });
+      console.warn("Structured JSON parse failed on rawOutput:", rawOutput.slice(0, 300));
+      return NextResponse.json(
+        {
+          error:
+            "The AI evaluator returned an unformatted assessment. Please retry the evaluation.",
+        },
+        { status: 502 }
+      );
     }
+
+    // Check if the evaluator indicated that the student's answer was missing or unreadable
+    const isAnswerMissingOrUnreadable = (data: any): boolean => {
+      if (!data) return false;
+      const directiveAnalysis = (data.directiveAnalysis || "").toLowerCase();
+      const bodyComment = (data.rubric?.bodyContent?.comment || "").toLowerCase();
+      const introComment = (data.rubric?.introduction?.comment || "").toLowerCase();
+      const weaknesses = (Array.isArray(data.weaknesses) ? data.weaknesses.join(" ") : "").toLowerCase();
+      const missingDims = (Array.isArray(data.missingDimensions) ? data.missingDimensions.join(" ") : "").toLowerCase();
+
+      const missingKeywords = [
+        "answer text is missing",
+        "answer is missing",
+        "no answer text",
+        "absence of answer",
+        "unable to assess",
+        "no body content present",
+        "no content provided",
+        "no attempt",
+        "cannot evaluate content",
+        "unreadable",
+        "illegible",
+      ];
+
+      const matchesKeyword = missingKeywords.some(
+        (kw) =>
+          directiveAnalysis.includes(kw) ||
+          bodyComment.includes(kw) ||
+          introComment.includes(kw) ||
+          weaknesses.includes(kw) ||
+          missingDims.includes(kw)
+      );
+
+      const bodyScore = Number(data.rubric?.bodyContent?.score ?? 0);
+      return matchesKeyword && bodyScore <= 0.5;
+    };
+
+    if (hasImages && !trimmedAnswer && isAnswerMissingOrUnreadable(parsed)) {
+      return NextResponse.json(
+        {
+          error:
+            "The AI evaluator could not detect or read any handwritten answer from your uploaded file. Please ensure the image is clear and well-lit, or type/paste your answer directly in the text tab.",
+        },
+        { status: 422 }
+      );
+    }
+
+    const resolvedQuestion =
+      trimmedQuestion ||
+      (parsed?.question && String(parsed.question).trim()) ||
+      "UPSC CSE Mains Question";
 
     const marksNum =
       typeof parsed.marksAwarded === "number"
         ? parsed.marksAwarded
-        : parseFloat(String(parsed.marksAwarded || parsed.marks || parsed.score || 4.0));
-    const safeMarks = isNaN(marksNum)
-      ? maxMarks === 10
-        ? 4.0
-        : 6.0
-      : Math.min(Math.max(marksNum, 0), maxMarks);
+        : parseFloat(String(parsed.marksAwarded || parsed.marks || parsed.score || 0));
+    const safeMarks = isNaN(marksNum) ? 0 : Math.min(Math.max(marksNum, 0), maxMarks);
 
-    // If candidate submitted an answer (text or images), ensure realistic non-zero evaluation
-    const finalMarks =
-      safeMarks > 0
-        ? safeMarks
-        : maxMarks === 10
-          ? 3.5
-          : maxMarks === 15
-            ? 5.5
-            : 7.0;
-
+    // Honest scoring: do not inflate 0 marks or invent random numbers
+    const finalMarks = safeMarks;
     const targetWordCount = maxMarks === 10 ? 150 : maxMarks === 15 ? 250 : 300;
-    const actualWordCount = answerText ? answerText.trim().split(/\s+/).length : 0;
+    const actualWordCount = trimmedAnswer ? trimmedAnswer.split(/\s+/).length : 0;
     const percentage = Math.round((finalMarks / maxMarks) * 100);
 
     const bodyScore =
-      parsed.rubric?.bodyContent?.score && parsed.rubric.bodyContent.score > 0
+      typeof parsed.rubric?.bodyContent?.score === "number"
         ? parsed.rubric.bodyContent.score
-        : Math.round(finalMarks * 0.5 * 10) / 10;
+        : 0;
 
     const result: MainsEvaluationResult = {
       id: `eval_${Date.now()}`,
@@ -778,22 +646,22 @@ export async function POST(req: NextRequest) {
       directive: parsed.directive || "General",
       directiveAnalysis: parsed.directiveAnalysis || "",
       rubric: {
-        introduction: parsed.rubric?.introduction || { score: 1, max: 2, comment: "Fair introduction" },
+        introduction: parsed.rubric?.introduction || { score: 0, max: maxMarks === 10 ? 2 : 3, comment: "" },
         bodyContent: {
           score: bodyScore,
           max: parsed.rubric?.bodyContent?.max || (maxMarks === 10 ? 4.5 : 6.5),
-          comment: parsed.rubric?.bodyContent?.comment || "Coverage of core arguments and analytical perspectives.",
+          comment: parsed.rubric?.bodyContent?.comment || "",
         },
-        structurePresentation: parsed.rubric?.structurePresentation || { score: 0.5, max: 1.5, comment: "Points formatted" },
-        valueAddition: parsed.rubric?.valueAddition || { score: 0.5, max: 1.5, comment: "Articles and reports" },
-        conclusion: parsed.rubric?.conclusion || { score: 0.5, max: 1.5, comment: "Way forward provided" },
+        structurePresentation: parsed.rubric?.structurePresentation || { score: 0, max: 1.5, comment: "" },
+        valueAddition: parsed.rubric?.valueAddition || { score: 0, max: 1.5, comment: "" },
+        conclusion: parsed.rubric?.conclusion || { score: 0, max: maxMarks === 10 ? 1.5 : 2.5, comment: "" },
       },
       strengths: Array.isArray(parsed.strengths) ? parsed.strengths : [],
       weaknesses: Array.isArray(parsed.weaknesses) ? parsed.weaknesses : [],
       missingDimensions: Array.isArray(parsed.missingDimensions) ? parsed.missingDimensions : [],
       actionableRoadmap: Array.isArray(parsed.actionableRoadmap) ? parsed.actionableRoadmap : [],
       diagramIdea: parsed.diagramIdea || undefined,
-      modelAnswer: formatCleanModelAnswer(parsed.modelAnswer || rawOutput, {
+      modelAnswer: formatCleanModelAnswer(parsed.modelAnswer || "", {
         question: resolvedQuestion,
         paperType,
         optionalSubject,
