@@ -765,6 +765,10 @@ export async function POST(req: NextRequest) {
           }))
       : [];
 
+    const strengths = Array.isArray(parsed.strengths)
+      ? parsed.strengths.map((s: any) => String(s).trim()).filter(Boolean)
+      : [];
+
     const weaknesses = Array.isArray(parsed.weaknesses)
       ? parsed.weaknesses.map((w: any) => String(w).trim()).filter(Boolean)
       : [];
@@ -810,7 +814,7 @@ export async function POST(req: NextRequest) {
         valueAddition: parsed.rubric?.valueAddition || { score: 0, max: 1.5, comment: "" },
         conclusion: parsed.rubric?.conclusion || { score: 0, max: maxMarks === 10 ? 1.5 : 2.5, comment: "" },
       },
-      strengths: Array.isArray(parsed.strengths) ? parsed.strengths : [],
+      strengths,
       weaknesses,
       missingDimensions,
       actionableRoadmap,

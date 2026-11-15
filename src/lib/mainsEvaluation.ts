@@ -258,6 +258,10 @@ Return ONLY a valid, parsable JSON object matching this schema exactly:
     { "quote": "Exact short sentence or phrase from student's answer", "note": "Examiner margin note, correction, or ⚠️ VERIFY flag" },
     { "quote": "Another excerpt from answer", "note": "Examiner margin remark" }
   ],
+  "strengths": [
+    "What candidate did well that earned marks (e.g. Accurately cited Article 360(1) / Weber's Verstehen)",
+    "Another solid argument, concept, or structural element to keep up"
+  ],
   "weaknesses": [
     "Specific answer flaw (≤6 words)",
     "Another specific flaw (≤6 words)",
@@ -268,8 +272,8 @@ Return ONLY a valid, parsable JSON object matching this schema exactly:
     "Specific missing perspective or empirical data"
   ],
   "actionableRoadmap": [
-    "Immediate exam-hall fix to gain +1.0 mark",
-    "Second practical fix"
+    "Concrete exam-hall action to improve quality",
+    "Second practical improvement step"
   ],
   "diagramIdea": "A drawn ASCII or text flowchart diagram (e.g. [Trigger] --> [Mechanism] --> [Impact]). Drawn line-by-line, not just described.",
   "modelAnswer": "### Topper Model Answer (${wordLimit} Words | ${timeLimit} Mins)\\n**Word Count:** ${wordLimit} words | Writable in ${timeLimit} min\\n\\n**Introduction (20 words)**\\n...\\n\\n**[Heading Using Question Keywords]**\\n* Point 1: Claim + specific case/citation\\n* Point 2: Claim + empirical data\\n\\n**Counterview & Synthesis**\\n...\\n\\n**Way Forward / Conclusion**\\n...\\n\\n> **Value-Addition Box**\\n> * Key Article/Thinker: ...\\n> * Landmark Case / Committee: ..."

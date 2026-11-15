@@ -79,18 +79,26 @@ export function MainsEvaluationView() {
   const [inputMode, setInputMode] = useState<"text" | "upload">("text");
   const [question, setQuestion] = useState("");
   const [answerText, setAnswerText] = useState("");
-  const [paperType, setPaperType] = useState<"GS-1" | "GS-2" | "GS-3" | "GS-4" | "Optional">("GS-2");
+  const [paperType, setPaperType] = useState<
+    "GS-1" | "GS-2" | "GS-3" | "GS-4" | "Optional"
+  >("GS-2");
   const [optionalSubject, setOptionalSubject] = useState("");
   const [maxMarks, setMaxMarks] = useState<10 | 15 | 20>(10);
-  const [uploadedImages, setUploadedImages] = useState<Array<{ mimeType: string; data: string; name: string }>>([]);
+  const [uploadedImages, setUploadedImages] = useState<
+    Array<{ mimeType: string; data: string; name: string }>
+  >([]);
   const [isDragging, setIsDragging] = useState(false);
   const [isProcessingFiles, setIsProcessingFiles] = useState(false);
 
   // Processing & evaluation state
   const [isLoading, setIsLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState<"feedback" | "model" | "chat">("feedback");
-  const [evaluation, setEvaluation] = useState<MainsEvaluationResult | null>(null);
+  const [activeTab, setActiveTab] = useState<"feedback" | "model" | "chat">(
+    "feedback",
+  );
+  const [evaluation, setEvaluation] = useState<MainsEvaluationResult | null>(
+    null,
+  );
   const [activeProvider, setActiveProvider] = useState<string>("");
   const [vault, setVault] = useState<Record<string, string>>({});
   const [aiConfig, setAiConfig] = useState<RevisionProviderConfig | null>(null);
@@ -98,7 +106,9 @@ export function MainsEvaluationView() {
 
   // Follow-up chat state
   const [followUpPrompt, setFollowUpPrompt] = useState("");
-  const [chatMessages, setChatMessages] = useState<Array<{ role: "user" | "assistant"; content: string }>>([]);
+  const [chatMessages, setChatMessages] = useState<
+    Array<{ role: "user" | "assistant"; content: string }>
+  >([]);
   const [isChatLoading, setIsChatLoading] = useState(false);
   const [copiedModel, setCopiedModel] = useState(false);
 
@@ -324,11 +334,15 @@ export function MainsEvaluationView() {
     if ((window as any).pdfjsLib) return (window as any).pdfjsLib;
 
     return new Promise((resolve) => {
-      const existing = document.querySelector('script[src="/vendor/pdfjs/pdf.min.js"]');
+      const existing = document.querySelector(
+        'script[src="/vendor/pdfjs/pdf.min.js"]',
+      );
       if (existing) {
         existing.addEventListener("load", () => {
           const lib = (window as any).pdfjsLib;
-          if (lib) lib.GlobalWorkerOptions.workerSrc = "/vendor/pdfjs/pdf.worker.min.js";
+          if (lib)
+            lib.GlobalWorkerOptions.workerSrc =
+              "/vendor/pdfjs/pdf.worker.min.js";
           resolve(lib || null);
         });
         return;
@@ -353,18 +367,24 @@ export function MainsEvaluationView() {
     setInputMode("upload");
     setErrorMsg(null);
 
-    const newAttachments: Array<{ mimeType: string; data: string; name: string }> = [];
+    const newAttachments: Array<{
+      mimeType: string;
+      data: string;
+      name: string;
+    }> = [];
 
     for (const file of files) {
       const isPdf =
-        file.type === "application/pdf" || file.name.toLowerCase().endsWith(".pdf");
+        file.type === "application/pdf" ||
+        file.name.toLowerCase().endsWith(".pdf");
 
       if (isPdf) {
         try {
           const pdfjsLib = await loadPdfJs();
           if (pdfjsLib) {
             const arrayBuffer = await file.arrayBuffer();
-            const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+            const pdf = await pdfjsLib.getDocument({ data: arrayBuffer })
+              .promise;
 
             for (let pageNum = 1; pageNum <= pdf.numPages; pageNum++) {
               const page = await pdf.getPage(pageNum);
@@ -386,7 +406,10 @@ export function MainsEvaluationView() {
             continue;
           }
         } catch (pdfErr) {
-          console.warn("Failed to render PDF pages as images, falling back to raw PDF:", pdfErr);
+          console.warn(
+            "Failed to render PDF pages as images, falling back to raw PDF:",
+            pdfErr,
+          );
         }
 
         // Fallback: Read raw PDF as data URL
@@ -440,20 +463,26 @@ export function MainsEvaluationView() {
     const hasUploads = uploadedImages.length > 0;
 
     if (!hasAnyText && !hasUploads) {
-      setErrorMsg("Please type or paste your written answer, or upload an answer sheet image/PDF.");
+      setErrorMsg(
+        "Please type or paste your written answer, or upload an answer sheet image/PDF.",
+      );
       return;
     }
 
     // Pre-flight check: Text mode minimum length
     if (inputMode === "text" && trimmedAnswer.length < 20) {
-      setErrorMsg("Answer text is too short (minimum 20 characters required). Please enter your complete answer before evaluating.");
+      setErrorMsg(
+        "Answer text is too short (minimum 20 characters required). Please enter your complete answer before evaluating.",
+      );
       return;
     }
 
     // Pre-flight check: Upload mode blank sheet detection
     if (inputMode === "upload") {
       if (uploadedImages.length === 0) {
-        setErrorMsg("Please upload at least one written answer sheet image or PDF.");
+        setErrorMsg(
+          "Please upload at least one written answer sheet image or PDF.",
+        );
         return;
       }
 
@@ -462,7 +491,7 @@ export function MainsEvaluationView() {
         const isBlank = await isImageBlankOrNegligible(uploadedImages[0].data);
         if (isBlank) {
           setErrorMsg(
-            "The uploaded image appears completely blank or unwritten. Please upload a clear photo of your handwritten answer sheet to avoid wasting tokens."
+            "The uploaded image appears completely blank or unwritten. Please upload a clear photo of your handwritten answer sheet to avoid wasting tokens.",
           );
           return;
         }
@@ -476,7 +505,7 @@ export function MainsEvaluationView() {
     if (hasUploads && !trimmedAnswer && config?.provider === "groq") {
       setEvaluation(null);
       setErrorMsg(
-        "Groq Cloud currently only supports text evaluation and does not support image or handwritten OCR. Please select Google Gemini (free at aistudio.google.com) in AI Revision Settings, or type/paste your answer directly in the text tab."
+        "Groq Cloud currently only supports text evaluation and does not support image or handwritten OCR. Please select Google Gemini (free at aistudio.google.com) in AI Revision Settings, or type/paste your answer directly in the text tab.",
       );
       return;
     }
@@ -492,7 +521,8 @@ export function MainsEvaluationView() {
           question: question.trim(),
           answerText: trimmedAnswer,
           paperType,
-          optionalSubject: paperType === "Optional" ? optionalSubject : undefined,
+          optionalSubject:
+            paperType === "Optional" ? optionalSubject : undefined,
           maxMarks,
           images: uploadedImages.map((img) => ({
             mimeType: img.mimeType,
@@ -504,7 +534,10 @@ export function MainsEvaluationView() {
 
       const data = await res.json();
       if (!res.ok || !data.success) {
-        throw new Error(data.error || "Evaluation failed. Please verify your settings or retry.");
+        throw new Error(
+          data.error ||
+            "Evaluation failed. Please verify your settings or retry.",
+        );
       }
 
       const evalResult: MainsEvaluationResult = data.evaluation;
@@ -523,7 +556,8 @@ export function MainsEvaluationView() {
             question: evalResult.question || question,
             studentAnswer: answerText,
             paperType,
-            optionalSubject: paperType === "Optional" ? optionalSubject : undefined,
+            optionalSubject:
+              paperType === "Optional" ? optionalSubject : undefined,
             maxMarks,
             attachedImages: uploadedImages,
             evaluation: evalResult,
@@ -577,7 +611,10 @@ export function MainsEvaluationView() {
 
     const userMessage = followUpPrompt.trim();
     setFollowUpPrompt("");
-    setChatMessages((prev) => [...prev, { role: "user", content: userMessage }]);
+    setChatMessages((prev) => [
+      ...prev,
+      { role: "user", content: userMessage },
+    ]);
     setIsChatLoading(true);
 
     try {
@@ -632,8 +669,9 @@ Answer strictly as an expert UPSC CSE examiner. Give concrete examples, model po
       text.includes('"marksAwarded":')
     ) {
       const match =
-        text.match(/"modelAnswer"\s*:\s*"([\s\S]*?)(?:",\s*"[a-zA-Z]+"|"\s*\}|$)/i) ||
-        text.match(/"modelAnswer"\s*:\s*"([\s\S]*)/i);
+        text.match(
+          /"modelAnswer"\s*:\s*"([\s\S]*?)(?:",\s*"[a-zA-Z]+"|"\s*\}|$)/i,
+        ) || text.match(/"modelAnswer"\s*:\s*"([\s\S]*)/i);
       if (match) {
         let clean = match[1]
           .replace(/"\s*,\s*"[a-zA-Z]+".*$/s, "")
@@ -685,12 +723,16 @@ To advance constitutional morality and responsive governance, administrative exe
 
   const handleCopyModelAnswer = () => {
     if (!evaluation?.modelAnswer) return;
-    navigator.clipboard.writeText(sanitizeModelAnswerText(evaluation.modelAnswer));
+    navigator.clipboard.writeText(
+      sanitizeModelAnswerText(evaluation.modelAnswer),
+    );
     setCopiedModel(true);
     setTimeout(() => setCopiedModel(false), 2000);
   };
 
-  const wordCount = answerText.trim() ? answerText.trim().split(/\s+/).length : 0;
+  const wordCount = answerText.trim()
+    ? answerText.trim().split(/\s+/).length
+    : 0;
   const targetWords = maxMarks === 10 ? 150 : maxMarks === 15 ? 250 : 300;
 
   return (
@@ -809,7 +851,9 @@ To advance constitutional morality and responsive governance, administrative exe
             <div className="flex items-center gap-2">
               <Award className="h-5 w-5 text-indigo-600 shrink-0" />
               <h1 className="text-sm sm:text-base font-bold text-slate-900 dark:text-slate-100 truncate">
-                <span className="hidden sm:inline">UPSC CSE Mains Answer Evaluation</span>
+                <span className="hidden sm:inline">
+                  UPSC CSE Mains Answer Evaluation
+                </span>
                 <span className="sm:hidden">Mains Evaluation Desk</span>
               </h1>
             </div>
@@ -849,7 +893,9 @@ To advance constitutional morality and responsive governance, administrative exe
                       >
                         <span
                           className={`h-1.5 w-1.5 rounded-full shrink-0 ${
-                            isCurrent ? "bg-emerald-500 animate-pulse" : "bg-slate-400"
+                            isCurrent
+                              ? "bg-emerald-500 animate-pulse"
+                              : "bg-slate-400"
                           }`}
                         />
                         <span>{label}</span>
@@ -874,7 +920,9 @@ To advance constitutional morality and responsive governance, administrative exe
               >
                 <span
                   className={`h-2 w-2 rounded-full shrink-0 ${
-                    activeProvider ? "bg-emerald-500 animate-pulse" : "bg-amber-500"
+                    activeProvider
+                      ? "bg-emerald-500 animate-pulse"
+                      : "bg-amber-500"
                   }`}
                 />
                 <span className="font-semibold text-xs">
@@ -913,7 +961,10 @@ To advance constitutional morality and responsive governance, administrative exe
                 const isActive = idx === activeQuestionIndex;
                 const hasScore = q.evaluation?.marksAwarded !== undefined;
                 return (
-                  <div key={q.id || idx} className="flex items-center gap-0.5 shrink-0">
+                  <div
+                    key={q.id || idx}
+                    className="flex items-center gap-0.5 shrink-0"
+                  >
                     <button
                       type="button"
                       onClick={() => selectQuestion(idx)}
@@ -976,10 +1027,19 @@ To advance constitutional morality and responsive governance, administrative exe
                   Test Score:
                 </span>
                 <span className="text-indigo-600 dark:text-indigo-400 font-black">
-                  {questions.reduce((sum, q) => sum + (q.evaluation?.marksAwarded || 0), 0)}
+                  {questions.reduce(
+                    (sum, q) => sum + (q.evaluation?.marksAwarded || 0),
+                    0,
+                  )}
                 </span>
                 <span className="text-slate-400 font-normal">
-                  / {questions.reduce((sum, q) => sum + (q.evaluation?.maxMarks || q.maxMarks || 10), 0)} Marks
+                  /{" "}
+                  {questions.reduce(
+                    (sum, q) =>
+                      sum + (q.evaluation?.maxMarks || q.maxMarks || 10),
+                    0,
+                  )}{" "}
+                  Marks
                 </span>
               </div>
             )}
@@ -994,7 +1054,8 @@ To advance constitutional morality and responsive governance, administrative exe
                     Question {activeQuestionIndex + 1} of {questions.length}
                   </span>
                   <span className="text-[11px] font-bold text-slate-500 uppercase">
-                    {paperType} {optionalSubject ? `(${optionalSubject})` : ""} • {maxMarks} Marks ({targetWords} Words)
+                    {paperType} {optionalSubject ? `(${optionalSubject})` : ""}{" "}
+                    • {maxMarks} Marks ({targetWords} Words)
                   </span>
                 </div>
                 <h3 className="text-xs sm:text-sm font-bold text-slate-800 dark:text-slate-200 leading-snug">
@@ -1063,7 +1124,8 @@ To advance constitutional morality and responsive governance, administrative exe
                   <span className="text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300 flex items-center gap-1.5">
                     <FileText className="h-4 w-4 text-indigo-600" />
                     <span>
-                      1. Question & Exam Configuration (Q{activeQuestionIndex + 1})
+                      1. Question & Exam Configuration (Q
+                      {activeQuestionIndex + 1})
                     </span>
                   </span>
                   {evaluation && (
@@ -1079,7 +1141,9 @@ To advance constitutional morality and responsive governance, administrative exe
 
                 {/* Sample Question Pills */}
                 <div className="flex items-center gap-1.5 overflow-x-auto text-xs">
-                  <span className="text-[11px] text-slate-400 font-medium">Try Sample:</span>
+                  <span className="text-[11px] text-slate-400 font-medium">
+                    Try Sample:
+                  </span>
                   {SAMPLE_QUESTIONS.map((sample, idx) => (
                     <button
                       key={idx}
@@ -1097,385 +1161,405 @@ To advance constitutional morality and responsive governance, administrative exe
                 </div>
               </div>
 
-            {/* Exam Configuration Row */}
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 text-xs">
-              <div>
-                <label className="block text-[11px] font-bold text-slate-500 mb-1">
-                  PAPER TYPE
-                </label>
-                <select
-                  value={paperType}
-                  onChange={(e) => setPaperType(e.target.value as any)}
-                  className="w-full rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 px-2.5 py-1.5 text-xs font-semibold focus:border-indigo-500 outline-none"
-                >
-                  <option value="GS-1">GS-1 (History, Society, Geo)</option>
-                  <option value="GS-2">GS-2 (Polity, Governance, IR)</option>
-                  <option value="GS-3">GS-3 (Economy, Env, Security)</option>
-                  <option value="GS-4">GS-4 (Ethics, Integrity, Aptitude)</option>
-                  <option value="Optional">Optional Subject</option>
-                </select>
-              </div>
-
-              {paperType === "Optional" && (
+              {/* Exam Configuration Row */}
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 text-xs">
                 <div>
                   <label className="block text-[11px] font-bold text-slate-500 mb-1">
-                    OPTIONAL SUBJECT
+                    PAPER TYPE
                   </label>
-                  <input
-                    type="text"
-                    value={optionalSubject}
-                    onChange={(e) => setOptionalSubject(e.target.value)}
-                    placeholder="e.g. Sociology, PSIR, Geography"
+                  <select
+                    value={paperType}
+                    onChange={(e) => setPaperType(e.target.value as any)}
                     className="w-full rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 px-2.5 py-1.5 text-xs font-semibold focus:border-indigo-500 outline-none"
-                  />
-                </div>
-              )}
-
-              <div>
-                <label className="block text-[11px] font-bold text-slate-500 mb-1">
-                  MARKS WEIGHTAGE
-                </label>
-                <div className="flex rounded-lg border border-slate-200 dark:border-slate-700 p-0.5 bg-slate-50 dark:bg-slate-800">
-                  <button
-                    type="button"
-                    onClick={() => setMaxMarks(10)}
-                    className={`flex-1 py-1 rounded-md font-bold text-[11px] transition-colors ${
-                      maxMarks === 10
-                        ? "bg-indigo-600 text-white shadow-2xs"
-                        : "text-slate-600 hover:text-slate-900"
-                    }`}
                   >
-                    10 Marks
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setMaxMarks(15)}
-                    className={`flex-1 py-1 rounded-md font-bold text-[11px] transition-colors ${
-                      maxMarks === 15
-                        ? "bg-indigo-600 text-white shadow-2xs"
-                        : "text-slate-600 hover:text-slate-900"
-                    }`}
-                  >
-                    15 Marks
-                  </button>
+                    <option value="GS-1">GS-1 (History, Society, Geo)</option>
+                    <option value="GS-2">GS-2 (Polity, Governance, IR)</option>
+                    <option value="GS-3">GS-3 (Economy, Env, Security)</option>
+                    <option value="GS-4">
+                      GS-4 (Ethics, Integrity, Aptitude)
+                    </option>
+                    <option value="Optional">Optional Subject</option>
+                  </select>
                 </div>
-              </div>
 
-              <div>
-                <label className="block text-[11px] font-bold text-slate-500 mb-1">
-                  TARGET WORD LIMIT
-                </label>
-                <div className="px-2.5 py-1.5 rounded-lg bg-slate-100 dark:bg-slate-800 text-xs font-mono font-bold text-slate-700 dark:text-slate-300">
-                  {targetWords} Words
-                </div>
-              </div>
-            </div>
+                {paperType === "Optional" && (
+                  <div>
+                    <label className="block text-[11px] font-bold text-slate-500 mb-1">
+                      OPTIONAL SUBJECT
+                    </label>
+                    <input
+                      type="text"
+                      value={optionalSubject}
+                      onChange={(e) => setOptionalSubject(e.target.value)}
+                      placeholder="e.g. Sociology, PSIR, Geography"
+                      className="w-full rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 px-2.5 py-1.5 text-xs font-semibold focus:border-indigo-500 outline-none"
+                    />
+                  </div>
+                )}
 
-            {/* Question Textarea */}
-            <div>
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1 mb-1.5">
-                <label className="text-xs font-bold text-slate-800 dark:text-slate-200">
-                  QUESTION PROMPT
-                </label>
-                <span className="text-[11px] text-slate-500 dark:text-slate-400 font-medium">
-                  {uploadedImages.length > 0
-                    ? "✨ Auto-transcribed from answer sheet if left empty"
-                    : "Optional if already in your answer text below"}
-                </span>
-              </div>
-              <textarea
-                value={question}
-                onChange={(e) => setQuestion(e.target.value)}
-                rows={2}
-                placeholder={
-                  uploadedImages.length > 0
-                    ? "Leave blank to auto-read question from your uploaded sheet, or type here to override..."
-                    : "Paste question here, or leave blank if already included in your answer below..."
-                }
-                className="w-full rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800/80 p-3 text-xs sm:text-sm font-medium focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 outline-none transition-all placeholder:text-slate-400"
-              />
-            </div>
-
-            {/* Answer Input Method Selector */}
-            <div className="pt-2">
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 pb-3">
-                <span className="text-xs font-bold text-slate-800 dark:text-slate-200 uppercase tracking-wider flex items-center gap-1.5">
-                  <FileCheck className="h-4 w-4 text-indigo-600" />
-                  <span>2. Candidate Answer Submission</span>
-                </span>
-
-                <div className="flex rounded-xl border border-slate-200 dark:border-slate-700 p-0.5 bg-slate-100 dark:bg-slate-800 text-xs w-full sm:w-auto">
-                  <button
-                    type="button"
-                    onClick={() => setInputMode("text")}
-                    className={`flex-1 sm:flex-initial px-3.5 py-1.5 rounded-lg font-semibold text-xs transition-colors cursor-pointer text-center ${
-                      inputMode === "text"
-                        ? "bg-white dark:bg-slate-900 text-indigo-600 shadow-2xs font-bold"
-                        : "text-slate-500 hover:text-slate-800 dark:hover:text-slate-200"
-                    }`}
-                  >
-                    Type / Paste Text
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setInputMode("upload")}
-                    className={`flex-1 sm:flex-initial px-3.5 py-1.5 rounded-lg font-semibold text-xs transition-colors cursor-pointer flex items-center justify-center gap-1.5 text-center ${
-                      inputMode === "upload"
-                        ? "bg-white dark:bg-slate-900 text-indigo-600 shadow-2xs font-bold"
-                        : "text-slate-500 hover:text-slate-800 dark:hover:text-slate-200"
-                    }`}
-                  >
-                    <Upload className="h-3.5 w-3.5" />
-                    <span>Upload Image / PDF</span>
-                  </button>
-                </div>
-              </div>
-
-              {inputMode === "text" ? (
-                <div className="space-y-1.5">
-                  <textarea
-                    value={answerText}
-                    onChange={(e) => setAnswerText(e.target.value)}
-                    rows={8}
-                    placeholder="Type or paste your complete written answer here (Introduction, sub-headings, body points, conclusion)..."
-                    className="w-full rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800/80 p-3.5 text-xs sm:text-sm font-sans leading-relaxed focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 outline-none transition-all placeholder:text-slate-400"
-                  />
-                  <div className="flex items-center justify-between text-[11px] text-slate-500 font-mono">
-                    <span>
-                      Words: <strong>{wordCount}</strong> / {targetWords} target
-                    </span>
-                    <span
-                      className={
-                        wordCount > targetWords + 30
-                          ? "text-rose-500 font-bold"
-                          : wordCount < targetWords - 40
-                            ? "text-amber-500"
-                            : "text-emerald-600"
-                      }
+                <div>
+                  <label className="block text-[11px] font-bold text-slate-500 mb-1">
+                    MARKS WEIGHTAGE
+                  </label>
+                  <div className="flex rounded-lg border border-slate-200 dark:border-slate-700 p-0.5 bg-slate-50 dark:bg-slate-800">
+                    <button
+                      type="button"
+                      onClick={() => setMaxMarks(10)}
+                      className={`flex-1 py-1 rounded-md font-bold text-[11px] transition-colors ${
+                        maxMarks === 10
+                          ? "bg-indigo-600 text-white shadow-2xs"
+                          : "text-slate-600 hover:text-slate-900"
+                      }`}
                     >
-                      {wordCount > targetWords + 30
-                        ? `Exceeds target by ${wordCount - targetWords} words`
-                        : `${Math.round((wordCount / targetWords) * 100)}% of word limit`}
-                    </span>
+                      10 Marks
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setMaxMarks(15)}
+                      className={`flex-1 py-1 rounded-md font-bold text-[11px] transition-colors ${
+                        maxMarks === 15
+                          ? "bg-indigo-600 text-white shadow-2xs"
+                          : "text-slate-600 hover:text-slate-900"
+                      }`}
+                    >
+                      15 Marks
+                    </button>
                   </div>
                 </div>
-              ) : (
-                <div className="space-y-3">
-                  {/* Hidden inputs */}
-                  <input
-                    ref={cameraInputRef}
-                    type="file"
-                    accept="image/*"
-                    capture="environment"
-                    onChange={handleFileUpload}
-                    className="hidden"
-                  />
-                  <input
-                    ref={fileInputRef}
-                    type="file"
-                    accept="image/*,application/pdf,.pdf"
-                    multiple
-                    onChange={handleFileUpload}
-                    className="hidden"
-                  />
 
-                  {/* Unified Upload & Camera Drop Zone */}
-                  <div
-                    onDragOver={(e) => {
-                      e.preventDefault();
-                      e.stopPropagation();
-                      setIsDragging(true);
-                    }}
-                    onDragEnter={(e) => {
-                      e.preventDefault();
-                      e.stopPropagation();
-                      setIsDragging(true);
-                    }}
-                    onDragLeave={(e) => {
-                      e.preventDefault();
-                      e.stopPropagation();
-                      setIsDragging(false);
-                    }}
-                    onDrop={(e) => {
-                      e.preventDefault();
-                      e.stopPropagation();
-                      setIsDragging(false);
-                      if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
-                        processIncomingFiles(Array.from(e.dataTransfer.files));
-                      }
-                    }}
-                    className={`border-2 border-dashed rounded-2xl p-5 sm:p-7 text-center transition-all space-y-3 ${
-                      isDragging
-                        ? "border-indigo-600 bg-indigo-50/80 dark:bg-indigo-950/60 scale-[1.01] shadow-md"
-                        : "border-slate-300 dark:border-slate-700 bg-slate-50/60 dark:bg-slate-800/40"
-                    }`}
-                  >
-                    <div className="h-12 w-12 mx-auto rounded-full bg-indigo-50 dark:bg-indigo-950 flex items-center justify-center text-indigo-600">
-                      {isProcessingFiles ? (
-                        <Loader2 className="h-6 w-6 animate-spin" />
-                      ) : (
-                        <Upload className="h-6 w-6" />
-                      )}
-                    </div>
+                <div>
+                  <label className="block text-[11px] font-bold text-slate-500 mb-1">
+                    TARGET WORD LIMIT
+                  </label>
+                  <div className="px-2.5 py-1.5 rounded-lg bg-slate-100 dark:bg-slate-800 text-xs font-mono font-bold text-slate-700 dark:text-slate-300">
+                    {targetWords} Words
+                  </div>
+                </div>
+              </div>
 
-                    <div className="space-y-1">
-                      <p className="text-xs sm:text-sm font-bold text-slate-800 dark:text-slate-200">
-                        {isProcessingFiles
-                          ? "Processing & preparing answer sheets..."
-                          : isDragging
-                            ? "Drop image or PDF files here!"
-                            : "Upload handwritten answer pages or PDF booklet"}
-                      </p>
-                      <p className="text-[11px] text-slate-500 dark:text-slate-400 max-w-sm mx-auto">
-                        Supports photo snapshots (JPG, PNG) or multi-page PDF documents. The question on the sheet is auto-transcribed.
-                      </p>
-                    </div>
+              {/* Question Textarea */}
+              <div>
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1 mb-1.5">
+                  <label className="text-xs font-bold text-slate-800 dark:text-slate-200">
+                    QUESTION PROMPT
+                  </label>
+                  <span className="text-[11px] text-slate-500 dark:text-slate-400 font-medium">
+                    {uploadedImages.length > 0
+                      ? "✨ Auto-transcribed from answer sheet if left empty"
+                      : "Optional if already in your answer text below"}
+                  </span>
+                </div>
+                <textarea
+                  value={question}
+                  onChange={(e) => setQuestion(e.target.value)}
+                  rows={2}
+                  placeholder={
+                    uploadedImages.length > 0
+                      ? "Leave blank to auto-read question from your uploaded sheet, or type here to override..."
+                      : "Paste question here, or leave blank if already included in your answer below..."
+                  }
+                  className="w-full rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800/80 p-3 text-xs sm:text-sm font-medium focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 outline-none transition-all placeholder:text-slate-400"
+                />
+              </div>
 
-                    {/* Dual Action Buttons (Camera & File Browser) */}
-                    <div className="flex flex-col sm:flex-row items-center justify-center gap-2 pt-1 max-w-md mx-auto">
-                      <button
-                        type="button"
-                        onClick={() => cameraInputRef.current?.click()}
-                        className="w-full sm:w-auto inline-flex items-center justify-center gap-2 py-2.5 px-4 rounded-xl border border-indigo-200 dark:border-indigo-800 bg-indigo-600 hover:bg-indigo-700 active:bg-indigo-800 text-white font-bold text-xs shadow-xs transition-all cursor-pointer"
+              {/* Answer Input Method Selector */}
+              <div className="pt-2">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 pb-3">
+                  <span className="text-xs font-bold text-slate-800 dark:text-slate-200 uppercase tracking-wider flex items-center gap-1.5">
+                    <FileCheck className="h-4 w-4 text-indigo-600" />
+                    <span>2. Candidate Answer Submission</span>
+                  </span>
+
+                  <div className="flex rounded-xl border border-slate-200 dark:border-slate-700 p-0.5 bg-slate-100 dark:bg-slate-800 text-xs w-full sm:w-auto">
+                    <button
+                      type="button"
+                      onClick={() => setInputMode("text")}
+                      className={`flex-1 sm:flex-initial px-3.5 py-1.5 rounded-lg font-semibold text-xs transition-colors cursor-pointer text-center ${
+                        inputMode === "text"
+                          ? "bg-white dark:bg-slate-900 text-indigo-600 shadow-2xs font-bold"
+                          : "text-slate-500 hover:text-slate-800 dark:hover:text-slate-200"
+                      }`}
+                    >
+                      Type / Paste Text
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setInputMode("upload")}
+                      className={`flex-1 sm:flex-initial px-3.5 py-1.5 rounded-lg font-semibold text-xs transition-colors cursor-pointer flex items-center justify-center gap-1.5 text-center ${
+                        inputMode === "upload"
+                          ? "bg-white dark:bg-slate-900 text-indigo-600 shadow-2xs font-bold"
+                          : "text-slate-500 hover:text-slate-800 dark:hover:text-slate-200"
+                      }`}
+                    >
+                      <Upload className="h-3.5 w-3.5" />
+                      <span>Upload Image / PDF</span>
+                    </button>
+                  </div>
+                </div>
+
+                {inputMode === "text" ? (
+                  <div className="space-y-1.5">
+                    <textarea
+                      value={answerText}
+                      onChange={(e) => setAnswerText(e.target.value)}
+                      rows={8}
+                      placeholder="Type or paste your complete written answer here (Introduction, sub-headings, body points, conclusion)..."
+                      className="w-full rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800/80 p-3.5 text-xs sm:text-sm font-sans leading-relaxed focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 outline-none transition-all placeholder:text-slate-400"
+                    />
+                    <div className="flex items-center justify-between text-[11px] text-slate-500 font-mono">
+                      <span>
+                        Words: <strong>{wordCount}</strong> / {targetWords}{" "}
+                        target
+                      </span>
+                      <span
+                        className={
+                          wordCount > targetWords + 30
+                            ? "text-rose-500 font-bold"
+                            : wordCount < targetWords - 40
+                              ? "text-amber-500"
+                              : "text-emerald-600"
+                        }
                       >
-                        <Camera className="h-4 w-4" />
-                        <span>Take Photo (Camera)</span>
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => fileInputRef.current?.click()}
-                        className="w-full sm:w-auto inline-flex items-center justify-center gap-2 py-2.5 px-4 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 font-bold text-xs shadow-2xs transition-all cursor-pointer"
-                      >
-                        <Upload className="h-4 w-4" />
-                        <span>Choose Images / PDF</span>
-                      </button>
+                        {wordCount > targetWords + 30
+                          ? `Exceeds target by ${wordCount - targetWords} words`
+                          : `${Math.round((wordCount / targetWords) * 100)}% of word limit`}
+                      </span>
                     </div>
                   </div>
+                ) : (
+                  <div className="space-y-3">
+                    {/* Hidden inputs */}
+                    <input
+                      ref={cameraInputRef}
+                      type="file"
+                      accept="image/*"
+                      capture="environment"
+                      onChange={handleFileUpload}
+                      className="hidden"
+                    />
+                    <input
+                      ref={fileInputRef}
+                      type="file"
+                      accept="image/*,application/pdf,.pdf"
+                      multiple
+                      onChange={handleFileUpload}
+                      className="hidden"
+                    />
 
-                  {uploadedImages.length > 0 && (
-                    <div className="space-y-2 pt-1">
-                      {activeProvider === "groq" && !answerText.trim() && (
-                        <div className="p-3 rounded-xl bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800 text-xs text-amber-800 dark:text-amber-200 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                          <div className="flex items-start gap-2">
-                            <AlertTriangle className="h-4 w-4 shrink-0 text-amber-600 mt-0.5" />
-                            <div className="space-y-0.5">
-                              <p className="font-bold">Groq is text-only</p>
-                              <p className="text-[11px] text-amber-700 dark:text-amber-300">
-                                Groq does not support handwritten image OCR. For uploaded sheets or PDFs, please switch to Google Gemini (free at aistudio.google.com) or type your answer in the &quot;Type / Paste Text&quot; tab.
-                              </p>
-                            </div>
-                          </div>
-                          <button
-                            type="button"
-                            onClick={() => {
-                              if (vault.gemini) {
-                                switchActiveProvider("gemini");
-                                setErrorMsg(null);
-                              } else {
-                                setShowSettingsModal(true);
-                              }
-                            }}
-                            className="shrink-0 px-3 py-1.5 rounded-lg bg-amber-600 hover:bg-amber-700 active:bg-amber-800 text-white font-bold text-xs shadow-2xs transition-colors cursor-pointer self-start sm:self-auto"
-                          >
-                            {vault.gemini ? "⚡ Switch to Gemini (Saved Key)" : "Set up Google Gemini"}
-                          </button>
-                        </div>
-                      )}
-                      <div className="flex items-center justify-between text-xs text-slate-500">
-                        <span className="font-semibold text-slate-700 dark:text-slate-300">
-                          Uploaded Pages ({uploadedImages.length})
-                        </span>
-                        <div className="flex items-center gap-2">
-                          <button
-                            type="button"
-                            onClick={() => fileInputRef.current?.click()}
-                            className="inline-flex items-center gap-1 text-[11px] text-indigo-600 dark:text-indigo-400 font-bold hover:underline"
-                          >
-                            <Plus className="h-3 w-3" />
-                            <span>Add page</span>
-                          </button>
-                          <span className="text-slate-300 dark:text-slate-700">|</span>
-                          <button
-                            type="button"
-                            onClick={() => setUploadedImages([])}
-                            className="text-slate-400 hover:text-rose-600 transition-colors text-[11px]"
-                          >
-                            Clear all
-                          </button>
-                        </div>
+                    {/* Unified Upload & Camera Drop Zone */}
+                    <div
+                      onDragOver={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        setIsDragging(true);
+                      }}
+                      onDragEnter={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        setIsDragging(true);
+                      }}
+                      onDragLeave={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        setIsDragging(false);
+                      }}
+                      onDrop={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        setIsDragging(false);
+                        if (
+                          e.dataTransfer.files &&
+                          e.dataTransfer.files.length > 0
+                        ) {
+                          processIncomingFiles(
+                            Array.from(e.dataTransfer.files),
+                          );
+                        }
+                      }}
+                      className={`border-2 border-dashed rounded-2xl p-5 sm:p-7 text-center transition-all space-y-3 ${
+                        isDragging
+                          ? "border-indigo-600 bg-indigo-50/80 dark:bg-indigo-950/60 scale-[1.01] shadow-md"
+                          : "border-slate-300 dark:border-slate-700 bg-slate-50/60 dark:bg-slate-800/40"
+                      }`}
+                    >
+                      <div className="h-12 w-12 mx-auto rounded-full bg-indigo-50 dark:bg-indigo-950 flex items-center justify-center text-indigo-600">
+                        {isProcessingFiles ? (
+                          <Loader2 className="h-6 w-6 animate-spin" />
+                        ) : (
+                          <Upload className="h-6 w-6" />
+                        )}
                       </div>
-                      <div className="flex flex-wrap gap-2.5">
-                        {uploadedImages.map((img, idx) => (
-                          <div
-                            key={idx}
-                            className="relative group p-1.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 flex items-center gap-2 text-xs shadow-2xs hover:border-indigo-300 transition-all"
-                          >
-                            {img.data.startsWith("data:image/") ? (
-                              <img
-                                src={img.data}
-                                alt={img.name}
-                                className="h-10 w-10 object-cover rounded-lg border border-slate-100 dark:border-slate-700"
-                              />
-                            ) : (
-                              <div className="h-10 w-10 rounded-lg bg-rose-50 dark:bg-rose-950 flex items-center justify-center text-rose-600">
-                                <FileText className="h-5 w-5" />
+
+                      <div className="space-y-1">
+                        <p className="text-xs sm:text-sm font-bold text-slate-800 dark:text-slate-200">
+                          {isProcessingFiles
+                            ? "Processing & preparing answer sheets..."
+                            : isDragging
+                              ? "Drop image or PDF files here!"
+                              : "Upload handwritten answer pages or PDF booklet"}
+                        </p>
+                        <p className="text-[11px] text-slate-500 dark:text-slate-400 max-w-sm mx-auto">
+                          Supports photo snapshots (JPG, PNG) or multi-page PDF
+                          documents. The question on the sheet is
+                          auto-transcribed.
+                        </p>
+                      </div>
+
+                      {/* Dual Action Buttons (Camera & File Browser) */}
+                      <div className="flex flex-col sm:flex-row items-center justify-center gap-2 pt-1 max-w-md mx-auto">
+                        <button
+                          type="button"
+                          onClick={() => cameraInputRef.current?.click()}
+                          className="w-full sm:w-auto inline-flex items-center justify-center gap-2 py-2.5 px-4 rounded-xl border border-indigo-200 dark:border-indigo-800 bg-indigo-600 hover:bg-indigo-700 active:bg-indigo-800 text-white font-bold text-xs shadow-xs transition-all cursor-pointer"
+                        >
+                          <Camera className="h-4 w-4" />
+                          <span>Take Photo (Camera)</span>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => fileInputRef.current?.click()}
+                          className="w-full sm:w-auto inline-flex items-center justify-center gap-2 py-2.5 px-4 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 font-bold text-xs shadow-2xs transition-all cursor-pointer"
+                        >
+                          <Upload className="h-4 w-4" />
+                          <span>Choose Images / PDF</span>
+                        </button>
+                      </div>
+                    </div>
+
+                    {uploadedImages.length > 0 && (
+                      <div className="space-y-2 pt-1">
+                        {activeProvider === "groq" && !answerText.trim() && (
+                          <div className="p-3 rounded-xl bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800 text-xs text-amber-800 dark:text-amber-200 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                            <div className="flex items-start gap-2">
+                              <AlertTriangle className="h-4 w-4 shrink-0 text-amber-600 mt-0.5" />
+                              <div className="space-y-0.5">
+                                <p className="font-bold">Groq is text-only</p>
+                                <p className="text-[11px] text-amber-700 dark:text-amber-300">
+                                  Groq does not support handwritten image OCR.
+                                  For uploaded sheets or PDFs, please switch to
+                                  Google Gemini (free at aistudio.google.com) or
+                                  type your answer in the &quot;Type / Paste
+                                  Text&quot; tab.
+                                </p>
                               </div>
-                            )}
-                            <div className="min-w-0 pr-1">
-                              <p className="max-w-[130px] truncate text-slate-800 dark:text-slate-200 font-semibold text-[11px]">
-                                {img.name}
-                              </p>
-                              <span className="text-[10px] text-slate-400">
-                                {img.mimeType.includes("pdf") ? "PDF Doc" : "Page Sheet"}
-                              </span>
                             </div>
                             <button
                               type="button"
-                              onClick={() => removeUploadedImage(idx)}
-                              aria-label={`Remove ${img.name}`}
-                              className="p-1 rounded-full text-slate-400 hover:text-rose-600 hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors"
+                              onClick={() => {
+                                if (vault.gemini) {
+                                  switchActiveProvider("gemini");
+                                  setErrorMsg(null);
+                                } else {
+                                  setShowSettingsModal(true);
+                                }
+                              }}
+                              className="shrink-0 px-3 py-1.5 rounded-lg bg-amber-600 hover:bg-amber-700 active:bg-amber-800 text-white font-bold text-xs shadow-2xs transition-colors cursor-pointer self-start sm:self-auto"
                             >
-                              <X className="h-3.5 w-3.5" />
+                              {vault.gemini
+                                ? "⚡ Switch to Gemini (Saved Key)"
+                                : "Set up Google Gemini"}
                             </button>
                           </div>
-                        ))}
+                        )}
+                        <div className="flex items-center justify-between text-xs text-slate-500">
+                          <span className="font-semibold text-slate-700 dark:text-slate-300">
+                            Uploaded Pages ({uploadedImages.length})
+                          </span>
+                          <div className="flex items-center gap-2">
+                            <button
+                              type="button"
+                              onClick={() => fileInputRef.current?.click()}
+                              className="inline-flex items-center gap-1 text-[11px] text-indigo-600 dark:text-indigo-400 font-bold hover:underline"
+                            >
+                              <Plus className="h-3 w-3" />
+                              <span>Add page</span>
+                            </button>
+                            <span className="text-slate-300 dark:text-slate-700">
+                              |
+                            </span>
+                            <button
+                              type="button"
+                              onClick={() => setUploadedImages([])}
+                              className="text-slate-400 hover:text-rose-600 transition-colors text-[11px]"
+                            >
+                              Clear all
+                            </button>
+                          </div>
+                        </div>
+                        <div className="flex flex-wrap gap-2.5">
+                          {uploadedImages.map((img, idx) => (
+                            <div
+                              key={idx}
+                              className="relative group p-1.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 flex items-center gap-2 text-xs shadow-2xs hover:border-indigo-300 transition-all"
+                            >
+                              {img.data.startsWith("data:image/") ? (
+                                <img
+                                  src={img.data}
+                                  alt={img.name}
+                                  className="h-10 w-10 object-cover rounded-lg border border-slate-100 dark:border-slate-700"
+                                />
+                              ) : (
+                                <div className="h-10 w-10 rounded-lg bg-rose-50 dark:bg-rose-950 flex items-center justify-center text-rose-600">
+                                  <FileText className="h-5 w-5" />
+                                </div>
+                              )}
+                              <div className="min-w-0 pr-1">
+                                <p className="max-w-[130px] truncate text-slate-800 dark:text-slate-200 font-semibold text-[11px]">
+                                  {img.name}
+                                </p>
+                                <span className="text-[10px] text-slate-400">
+                                  {img.mimeType.includes("pdf")
+                                    ? "PDF Doc"
+                                    : "Page Sheet"}
+                                </span>
+                              </div>
+                              <button
+                                type="button"
+                                onClick={() => removeUploadedImage(idx)}
+                                aria-label={`Remove ${img.name}`}
+                                className="p-1 rounded-full text-slate-400 hover:text-rose-600 hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors"
+                              >
+                                <X className="h-3.5 w-3.5" />
+                              </button>
+                            </div>
+                          ))}
+                        </div>
                       </div>
-                    </div>
-                  )}
+                    )}
+                  </div>
+                )}
+              </div>
+
+              {/* Error Message */}
+              {errorMsg && (
+                <div className="p-3 rounded-xl bg-rose-50 dark:bg-rose-950/60 border border-rose-200 dark:border-rose-900 text-xs text-rose-700 dark:text-rose-300 flex items-center gap-2">
+                  <AlertTriangle className="h-4 w-4 shrink-0 text-rose-600" />
+                  <span>{errorMsg}</span>
                 </div>
               )}
-            </div>
 
-            {/* Error Message */}
-            {errorMsg && (
-              <div className="p-3 rounded-xl bg-rose-50 dark:bg-rose-950/60 border border-rose-200 dark:border-rose-900 text-xs text-rose-700 dark:text-rose-300 flex items-center gap-2">
-                <AlertTriangle className="h-4 w-4 shrink-0 text-rose-600" />
-                <span>{errorMsg}</span>
+              {/* Action Trigger */}
+              <div className="pt-2 flex items-center justify-end">
+                <button
+                  type="button"
+                  disabled={isLoading}
+                  onClick={handleEvaluate}
+                  className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-6 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 active:bg-indigo-800 text-white font-bold text-xs sm:text-sm shadow-md transition-all cursor-pointer disabled:opacity-50"
+                >
+                  {isLoading ? (
+                    <>
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                      <span>Evaluating Strict UPSC Criteria...</span>
+                    </>
+                  ) : (
+                    <>
+                      <Award className="h-4 w-4" />
+                      <span>Evaluate Mains Answer</span>
+                    </>
+                  )}
+                </button>
               </div>
-            )}
-
-            {/* Action Trigger */}
-            <div className="pt-2 flex items-center justify-end">
-              <button
-                type="button"
-                disabled={isLoading}
-                onClick={handleEvaluate}
-                className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-6 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 active:bg-indigo-800 text-white font-bold text-xs sm:text-sm shadow-md transition-all cursor-pointer disabled:opacity-50"
-              >
-                {isLoading ? (
-                  <>
-                    <Loader2 className="h-4 w-4 animate-spin" />
-                    <span>Evaluating Strict UPSC Criteria...</span>
-                  </>
-                ) : (
-                  <>
-                    <Award className="h-4 w-4" />
-                    <span>Evaluate Mains Answer</span>
-                  </>
-                )}
-              </button>
             </div>
-          </div>
           )}
 
           {/* ── 3. EVALUATION RESULTS CONTAINER ── */}
@@ -1509,7 +1593,9 @@ To advance constitutional morality and responsive governance, administrative exe
                   </div>
 
                   <div className="text-sm sm:text-base font-bold text-slate-900 dark:text-slate-100 flex items-center gap-1.5 flex-wrap">
-                    <span className="text-slate-500 font-medium text-xs">Directive:</span>
+                    <span className="text-slate-500 font-medium text-xs">
+                      Directive:
+                    </span>
                     <span className="text-indigo-600 dark:text-indigo-400 uppercase tracking-wide">
                       {evaluation.directive}
                     </span>
@@ -1615,8 +1701,16 @@ To advance constitutional morality and responsive governance, administrative exe
                             1. Demand & Directive Compliance
                           </span>
                           <span className="font-mono font-bold text-xs px-2 py-0.5 rounded-lg bg-indigo-50 dark:bg-indigo-950 text-indigo-600 dark:text-indigo-400 border border-indigo-200 dark:border-indigo-800 shrink-0">
-                            {evaluation.dimensions?.demand?.score ?? Math.round((evaluation.marksAwarded / evaluation.maxMarks) * 10 * 10) / 10}{" "}
-                            <span className="text-slate-400 font-normal">/ 10</span>
+                            {evaluation.dimensions?.demand?.score ??
+                              Math.round(
+                                (evaluation.marksAwarded /
+                                  evaluation.maxMarks) *
+                                  10 *
+                                  10,
+                              ) / 10}{" "}
+                            <span className="text-slate-400 font-normal">
+                              / 10
+                            </span>
                           </span>
                         </div>
                         <div className="w-full bg-slate-100 dark:bg-slate-800 h-1.5 rounded-full overflow-hidden">
@@ -1624,7 +1718,8 @@ To advance constitutional morality and responsive governance, administrative exe
                             className={`h-full rounded-full transition-all duration-300 ${
                               (evaluation.dimensions?.demand?.score ?? 5) >= 6
                                 ? "bg-emerald-500"
-                                : (evaluation.dimensions?.demand?.score ?? 5) >= 4
+                                : (evaluation.dimensions?.demand?.score ?? 5) >=
+                                    4
                                   ? "bg-indigo-500"
                                   : "bg-amber-500"
                             }`}
@@ -1634,10 +1729,12 @@ To advance constitutional morality and responsive governance, administrative exe
                                 Math.max(
                                   0,
                                   ((evaluation.dimensions?.demand?.score ??
-                                    (evaluation.marksAwarded / evaluation.maxMarks) * 10) /
+                                    (evaluation.marksAwarded /
+                                      evaluation.maxMarks) *
+                                      10) /
                                     10) *
-                                    100
-                                )
+                                    100,
+                                ),
                               )}%`,
                             }}
                           />
@@ -1664,10 +1761,17 @@ To advance constitutional morality and responsive governance, administrative exe
                                     (evaluation.rubric.bodyContent.score /
                                       evaluation.rubric.bodyContent.max) *
                                       10 *
-                                      10
+                                      10,
                                   ) / 10
-                                : Math.round((evaluation.marksAwarded / evaluation.maxMarks) * 10 * 10) / 10)}{" "}
-                            <span className="text-slate-400 font-normal">/ 10</span>
+                                : Math.round(
+                                    (evaluation.marksAwarded /
+                                      evaluation.maxMarks) *
+                                      10 *
+                                      10,
+                                  ) / 10)}{" "}
+                            <span className="text-slate-400 font-normal">
+                              / 10
+                            </span>
                           </span>
                         </div>
                         <div className="w-full bg-slate-100 dark:bg-slate-800 h-1.5 rounded-full overflow-hidden">
@@ -1675,7 +1779,8 @@ To advance constitutional morality and responsive governance, administrative exe
                             className={`h-full rounded-full transition-all duration-300 ${
                               (evaluation.dimensions?.content?.score ?? 5) >= 6
                                 ? "bg-emerald-500"
-                                : (evaluation.dimensions?.content?.score ?? 5) >= 4
+                                : (evaluation.dimensions?.content?.score ??
+                                      5) >= 4
                                   ? "bg-indigo-500"
                                   : "bg-amber-500"
                             }`}
@@ -1685,10 +1790,12 @@ To advance constitutional morality and responsive governance, administrative exe
                                 Math.max(
                                   0,
                                   ((evaluation.dimensions?.content?.score ??
-                                    (evaluation.marksAwarded / evaluation.maxMarks) * 10) /
+                                    (evaluation.marksAwarded /
+                                      evaluation.maxMarks) *
+                                      10) /
                                     10) *
-                                    100
-                                )
+                                    100,
+                                ),
                               )}%`,
                             }}
                           />
@@ -1712,21 +1819,32 @@ To advance constitutional morality and responsive governance, administrative exe
                             {evaluation.dimensions?.structure?.score ??
                               (evaluation.rubric?.structurePresentation?.score
                                 ? Math.round(
-                                    (evaluation.rubric.structurePresentation.score /
-                                      evaluation.rubric.structurePresentation.max) *
+                                    (evaluation.rubric.structurePresentation
+                                      .score /
+                                      evaluation.rubric.structurePresentation
+                                        .max) *
                                       10 *
-                                      10
+                                      10,
                                   ) / 10
-                                : Math.round((evaluation.marksAwarded / evaluation.maxMarks) * 10 * 10) / 10)}{" "}
-                            <span className="text-slate-400 font-normal">/ 10</span>
+                                : Math.round(
+                                    (evaluation.marksAwarded /
+                                      evaluation.maxMarks) *
+                                      10 *
+                                      10,
+                                  ) / 10)}{" "}
+                            <span className="text-slate-400 font-normal">
+                              / 10
+                            </span>
                           </span>
                         </div>
                         <div className="w-full bg-slate-100 dark:bg-slate-800 h-1.5 rounded-full overflow-hidden">
                           <div
                             className={`h-full rounded-full transition-all duration-300 ${
-                              (evaluation.dimensions?.structure?.score ?? 5) >= 6
+                              (evaluation.dimensions?.structure?.score ?? 5) >=
+                              6
                                 ? "bg-emerald-500"
-                                : (evaluation.dimensions?.structure?.score ?? 5) >= 4
+                                : (evaluation.dimensions?.structure?.score ??
+                                      5) >= 4
                                   ? "bg-indigo-500"
                                   : "bg-amber-500"
                             }`}
@@ -1736,10 +1854,12 @@ To advance constitutional morality and responsive governance, administrative exe
                                 Math.max(
                                   0,
                                   ((evaluation.dimensions?.structure?.score ??
-                                    (evaluation.marksAwarded / evaluation.maxMarks) * 10) /
+                                    (evaluation.marksAwarded /
+                                      evaluation.maxMarks) *
+                                      10) /
                                     10) *
-                                    100
-                                )
+                                    100,
+                                ),
                               )}%`,
                             }}
                           />
@@ -1761,16 +1881,25 @@ To advance constitutional morality and responsive governance, administrative exe
                           </span>
                           <span className="font-mono font-bold text-xs px-2 py-0.5 rounded-lg bg-indigo-50 dark:bg-indigo-950 text-indigo-600 dark:text-indigo-400 border border-indigo-200 dark:border-indigo-800 shrink-0">
                             {evaluation.dimensions?.presentation?.score ??
-                              Math.round((evaluation.marksAwarded / evaluation.maxMarks) * 10 * 10) / 10}{" "}
-                            <span className="text-slate-400 font-normal">/ 10</span>
+                              Math.round(
+                                (evaluation.marksAwarded /
+                                  evaluation.maxMarks) *
+                                  10 *
+                                  10,
+                              ) / 10}{" "}
+                            <span className="text-slate-400 font-normal">
+                              / 10
+                            </span>
                           </span>
                         </div>
                         <div className="w-full bg-slate-100 dark:bg-slate-800 h-1.5 rounded-full overflow-hidden">
                           <div
                             className={`h-full rounded-full transition-all duration-300 ${
-                              (evaluation.dimensions?.presentation?.score ?? 5) >= 6
+                              (evaluation.dimensions?.presentation?.score ??
+                                5) >= 6
                                 ? "bg-emerald-500"
-                                : (evaluation.dimensions?.presentation?.score ?? 5) >= 4
+                                : (evaluation.dimensions?.presentation?.score ??
+                                      5) >= 4
                                   ? "bg-indigo-500"
                                   : "bg-amber-500"
                             }`}
@@ -1779,11 +1908,14 @@ To advance constitutional morality and responsive governance, administrative exe
                                 100,
                                 Math.max(
                                   0,
-                                  ((evaluation.dimensions?.presentation?.score ??
-                                    (evaluation.marksAwarded / evaluation.maxMarks) * 10) /
+                                  ((evaluation.dimensions?.presentation
+                                    ?.score ??
+                                    (evaluation.marksAwarded /
+                                      evaluation.maxMarks) *
+                                      10) /
                                     10) *
-                                    100
-                                )
+                                    100,
+                                ),
                               )}%`,
                             }}
                           />
@@ -1797,88 +1929,128 @@ To advance constitutional morality and responsive governance, administrative exe
                   </div>
 
                   {/* Examiner Marked Copy & Margin Notes */}
-                  {evaluation.markedCopy && evaluation.markedCopy.length > 0 && (
-                    <div className="p-4 sm:p-5 rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-2xs space-y-3">
-                      <div className="flex items-center justify-between pb-2 border-b border-slate-100 dark:border-slate-800">
-                        <div className="flex items-center gap-2">
-                          <FileCheck className="h-4 w-4 text-indigo-600" />
-                          <h4 className="text-xs font-bold uppercase tracking-wider text-slate-900 dark:text-slate-100">
-                            Examiner Annotated Marked Copy (Margin Notes)
-                          </h4>
-                        </div>
-                        <span className="text-[11px] font-mono text-slate-400">
-                          {evaluation.markedCopy.length} Annotations
-                        </span>
-                      </div>
-                      <div className="space-y-3">
-                        {evaluation.markedCopy.map((item, idx) => (
-                          <div
-                            key={idx}
-                            className="p-3.5 rounded-xl bg-slate-50/80 dark:bg-slate-800/50 border border-slate-200/80 dark:border-slate-700/60 space-y-2 text-xs"
-                          >
-                            <div className="text-slate-800 dark:text-slate-200 font-serif italic pl-3 border-l-2 border-indigo-400 leading-relaxed text-xs sm:text-[13px]">
-                              &ldquo;{item.quote}&rdquo;
-                            </div>
-                            <div className="flex items-start gap-2 pt-1 border-t border-slate-100 dark:border-slate-700/40">
-                              <span className="text-[10px] font-mono font-bold uppercase tracking-wider px-1.5 py-0.5 rounded bg-rose-100 dark:bg-rose-950/80 text-rose-700 dark:text-rose-300 shrink-0">
-                                Margin Note
-                              </span>
-                              <span className="text-rose-600 dark:text-rose-400 font-semibold leading-relaxed">
-                                {item.note}
-                              </span>
-                            </div>
+                  {evaluation.markedCopy &&
+                    evaluation.markedCopy.length > 0 && (
+                      <div className="p-4 sm:p-5 rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-2xs space-y-3">
+                        <div className="flex items-center justify-between pb-2 border-b border-slate-100 dark:border-slate-800">
+                          <div className="flex items-center gap-2">
+                            <FileCheck className="h-4 w-4 text-indigo-600" />
+                            <h4 className="text-xs font-bold uppercase tracking-wider text-slate-900 dark:text-slate-100">
+                              Examiner Annotated Marked Copy (Margin Notes)
+                            </h4>
                           </div>
-                        ))}
+                          <span className="text-[11px] font-mono text-slate-400">
+                            {evaluation.markedCopy.length} Annotations
+                          </span>
+                        </div>
+                        <div className="space-y-3">
+                          {evaluation.markedCopy.map((item, idx) => (
+                            <div
+                              key={idx}
+                              className="p-3.5 rounded-xl bg-slate-50/80 dark:bg-slate-800/50 border border-slate-200/80 dark:border-slate-700/60 space-y-2 text-xs"
+                            >
+                              <div className="text-slate-800 dark:text-slate-200 font-serif italic pl-3 border-l-2 border-indigo-400 leading-relaxed text-xs sm:text-[13px]">
+                                &ldquo;{item.quote}&rdquo;
+                              </div>
+                              <div className="flex items-start gap-2 pt-1 border-t border-slate-100 dark:border-slate-700/40">
+                                <span className="text-[10px] font-mono font-bold uppercase tracking-wider px-1.5 py-0.5 rounded bg-rose-100 dark:bg-rose-950/80 text-rose-700 dark:text-rose-300 shrink-0">
+                                  Margin Note
+                                </span>
+                                <span className="text-rose-600 dark:text-rose-400 font-semibold leading-relaxed">
+                                  {item.note}
+                                </span>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
                       </div>
-                    </div>
-                  )}
+                    )}
 
-                  {/* Weaknesses & Missing Dimensions Dual Panel */}
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                    {/* Specific Flaws (≤6 words) */}
-                    <div className="p-4 rounded-xl border border-rose-200 dark:border-rose-900 bg-rose-50/50 dark:bg-rose-950/40 space-y-2">
-                      <h4 className="text-xs font-bold uppercase tracking-wider text-rose-800 dark:text-rose-300 flex items-center gap-1.5">
-                        <AlertTriangle className="h-4 w-4 text-rose-600" />
-                        <span>This Answer&apos;s Specific Flaws (Blunt)</span>
-                      </h4>
-                      <ul className="text-xs text-slate-700 dark:text-slate-300 space-y-1.5 list-disc pl-4">
-                        {evaluation.weaknesses && evaluation.weaknesses.length > 0 ? (
-                          evaluation.weaknesses.map((w, idx) => (
-                            <li key={idx} className="leading-relaxed font-medium">
-                              {w}
-                            </li>
-                          ))
-                        ) : (
-                          <li className="text-slate-400">None flagged.</li>
-                        )}
-                      </ul>
+                  {/* Strengths, Flaws, and Missing Dimensions 3-Panel Grid */}
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                    {/* 1. What Worked (Strengths that earned marks) */}
+                    <div className="p-4 rounded-xl border border-emerald-200 dark:border-emerald-900 bg-emerald-50/50 dark:bg-emerald-950/40 space-y-2 flex flex-col justify-between">
+                      <div className="space-y-2">
+                        <h4 className="text-xs font-bold uppercase tracking-wider text-emerald-800 dark:text-emerald-300 flex items-center gap-1.5">
+                          <CheckCircle2 className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
+                          <span>What Worked (Keep This Up)</span>
+                        </h4>
+                        <ul className="text-xs text-slate-700 dark:text-slate-300 space-y-1.5 list-disc pl-4">
+                          {evaluation.strengths && evaluation.strengths.length > 0 ? (
+                            evaluation.strengths.map((str, idx) => (
+                              <li key={idx} className="leading-relaxed font-medium">
+                                {str}
+                              </li>
+                            ))
+                          ) : (
+                            <li className="text-slate-400">Directly attempted the core prompt.</li>
+                          )}
+                        </ul>
+                      </div>
+                      <span className="text-[10px] text-emerald-700 dark:text-emerald-400 font-mono font-medium pt-1">
+                        ✓ Earned marks; retain in future answers
+                      </span>
                     </div>
 
-                    {/* Missing Dimensions & Citations */}
-                    <div className="p-4 rounded-xl border border-amber-200 dark:border-amber-900 bg-amber-50/50 dark:bg-amber-950/40 space-y-2">
-                      <h4 className="text-xs font-bold uppercase tracking-wider text-amber-800 dark:text-amber-300 flex items-center gap-1.5">
-                        <BookOpen className="h-4 w-4 text-amber-600" />
-                        <span>Missing Dimensions & Citations</span>
-                      </h4>
-                      <ul className="text-xs text-slate-700 dark:text-slate-300 space-y-1.5 list-disc pl-4">
-                        {evaluation.missingDimensions && evaluation.missingDimensions.length > 0 ? (
-                          evaluation.missingDimensions.map((dim, idx) => (
-                            <li key={idx} className="leading-relaxed">
-                              {dim}
-                            </li>
-                          ))
-                        ) : (
-                          <li className="text-slate-400">None flagged.</li>
-                        )}
-                      </ul>
+                    {/* 2. Specific Flaws (Blunt) */}
+                    <div className="p-4 rounded-xl border border-rose-200 dark:border-rose-900 bg-rose-50/50 dark:bg-rose-950/40 space-y-2 flex flex-col justify-between">
+                      <div className="space-y-2">
+                        <h4 className="text-xs font-bold uppercase tracking-wider text-rose-800 dark:text-rose-300 flex items-center gap-1.5">
+                          <AlertTriangle className="h-4 w-4 text-rose-600" />
+                          <span>This Answer&apos;s Specific Flaws</span>
+                        </h4>
+                        <ul className="text-xs text-slate-700 dark:text-slate-300 space-y-1.5 list-disc pl-4">
+                          {evaluation.weaknesses &&
+                          evaluation.weaknesses.length > 0 ? (
+                            evaluation.weaknesses.map((w, idx) => (
+                              <li
+                                key={idx}
+                                className="leading-relaxed font-medium"
+                              >
+                                {w}
+                              </li>
+                            ))
+                          ) : (
+                            <li className="text-slate-400">None flagged.</li>
+                          )}
+                        </ul>
+                      </div>
+                      <span className="text-[10px] text-rose-700 dark:text-rose-400 font-mono font-medium pt-1">
+                        ✗ Flaws to eliminate
+                      </span>
+                    </div>
+
+                    {/* 3. Missing Dimensions & Citations */}
+                    <div className="p-4 rounded-xl border border-amber-200 dark:border-amber-900 bg-amber-50/50 dark:bg-amber-950/40 space-y-2 flex flex-col justify-between">
+                      <div className="space-y-2">
+                        <h4 className="text-xs font-bold uppercase tracking-wider text-amber-800 dark:text-amber-300 flex items-center gap-1.5">
+                          <BookOpen className="h-4 w-4 text-amber-600" />
+                          <span>Missing Dimensions & Citations</span>
+                        </h4>
+                        <ul className="text-xs text-slate-700 dark:text-slate-300 space-y-1.5 list-disc pl-4">
+                          {evaluation.missingDimensions &&
+                          evaluation.missingDimensions.length > 0 ? (
+                            evaluation.missingDimensions.map((dim, idx) => (
+                              <li key={idx} className="leading-relaxed">
+                                {dim}
+                              </li>
+                            ))
+                          ) : (
+                            <li className="text-slate-400">None flagged.</li>
+                          )}
+                        </ul>
+                      </div>
+                      <span className="text-[10px] text-amber-700 dark:text-amber-400 font-mono font-medium pt-1">
+                        + High-yield value addition
+                      </span>
                     </div>
                   </div>
 
-                  {/* Actionable Roadmap (+2 Marks Leap) & Drawn Micro-Diagram */}
+                  {/* Actionable Roadmap & Drawn Micro-Diagram */}
                   <div className="p-4 sm:p-5 rounded-2xl border border-indigo-200 dark:border-indigo-900 bg-indigo-50/50 dark:bg-indigo-950/30 space-y-3">
                     <h4 className="text-xs font-bold uppercase tracking-wider text-indigo-900 dark:text-indigo-200 flex items-center gap-1.5">
                       <Award className="h-4 w-4 text-indigo-600" />
-                      <span>Actionable Roadmap to Gain +2.0 Marks</span>
+                      <span>Actionable Roadmap for Next Attempt</span>
                     </h4>
                     <div className="space-y-1.5 text-xs text-slate-800 dark:text-slate-200">
                       {evaluation.actionableRoadmap.map((act, idx) => (
@@ -1901,7 +2073,9 @@ To advance constitutional morality and responsive governance, administrative exe
                             type="button"
                             onClick={() => {
                               if (evaluation.diagramIdea) {
-                                navigator.clipboard.writeText(evaluation.diagramIdea);
+                                navigator.clipboard.writeText(
+                                  evaluation.diagramIdea,
+                                );
                               }
                             }}
                             className="text-[10px] font-mono font-semibold text-slate-400 hover:text-indigo-600 cursor-pointer"
@@ -1948,7 +2122,9 @@ To advance constitutional morality and responsive governance, administrative exe
                   </div>
 
                   <div className="prose dark:prose-invert max-w-none text-xs sm:text-sm">
-                    <RevisionMarkdownRenderer content={sanitizeModelAnswerText(evaluation.modelAnswer)} />
+                    <RevisionMarkdownRenderer
+                      content={sanitizeModelAnswerText(evaluation.modelAnswer)}
+                    />
                   </div>
                 </div>
               )}
@@ -1958,10 +2134,12 @@ To advance constitutional morality and responsive governance, administrative exe
                 <div className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-4 sm:p-6 shadow-sm space-y-4">
                   <div className="space-y-1">
                     <h4 className="text-xs font-bold uppercase tracking-wider text-slate-800 dark:text-slate-200">
-                      Examiner Consultation (Ask Questions About Your Evaluation)
+                      Examiner Consultation (Ask Questions About Your
+                      Evaluation)
                     </h4>
                     <p className="text-xs text-slate-500">
-                      Ask the evaluator for alternative introductions, specific committee cites, or how to address the directive better.
+                      Ask the evaluator for alternative introductions, specific
+                      committee cites, or how to address the directive better.
                     </p>
                   </div>
 
@@ -1993,7 +2171,9 @@ To advance constitutional morality and responsive governance, administrative exe
                       type="text"
                       value={followUpPrompt}
                       onChange={(e) => setFollowUpPrompt(e.target.value)}
-                      onKeyDown={(e) => e.key === "Enter" && handleSendFollowUp()}
+                      onKeyDown={(e) =>
+                        e.key === "Enter" && handleSendFollowUp()
+                      }
                       placeholder="e.g. How can I shorten my introduction while keeping the data point?"
                       className="flex-1 rounded-xl border border-slate-200 dark:border-slate-700 px-3.5 py-2 text-xs font-medium outline-none focus:border-indigo-500 bg-slate-50 dark:bg-slate-800"
                     />
