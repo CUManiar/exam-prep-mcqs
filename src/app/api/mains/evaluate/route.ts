@@ -185,53 +185,124 @@ function parseJsonFromText(raw: string): any {
   return null;
 }
 
+/** Dynamically discover active models from a Gemini key */
+async function discoverGeminiModels(apiKey: string): Promise<string[]> {
+  try {
+    const listRes = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models?key=${apiKey}`,
+      { signal: AbortSignal.timeout(8000) }
+    );
+    if (listRes.ok) {
+      const data = await listRes.json();
+      const models = (data.models || [])
+        .filter((m: any) =>
+          m.supportedGenerationMethods?.includes("generateContent")
+        )
+        .map((m: any) => m.name.replace(/^models\//, "") as string);
+
+      models.sort((a, b) => {
+        const score = (id: string) => {
+          let s = 0;
+          if (id.includes("2.0-flash")) s += 40;
+          if (id.includes("1.5-flash")) s += 30;
+          if (id.includes("flash")) s += 20;
+          if (id.includes("pro")) s += 10;
+          return s;
+        };
+        return score(b) - score(a);
+      });
+
+      if (models.length > 0) return models;
+    }
+  } catch (e: any) {
+    console.warn("Gemini model discovery failed:", e?.message);
+  }
+  return [
+    "gemini-1.5-flash",
+    "gemini-1.5-flash-latest",
+    "gemini-2.0-flash",
+    "gemini-2.0-flash-exp",
+    "gemini-1.5-pro",
+  ];
+}
+
 /** Execute with Google Gemini */
 async function callGeminiEvaluation(
   apiKey: string,
   prompt: string,
   images: Array<{ mimeType: string; data: string }> = []
 ): Promise<string> {
-  const models = ["gemini-2.0-flash", "gemini-1.5-flash", "gemini-1.5-pro"];
+  const discovered = await discoverGeminiModels(apiKey);
+  const models = discovered.length > 0 ? discovered : ["gemini-1.5-flash", "gemini-2.0-flash"];
   let lastError = "";
 
-  for (const model of models) {
-    try {
-      const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
-      const parts: any[] = [{ text: prompt }];
+  const preparedParts: any[] = [{ text: prompt }];
+  for (const img of images) {
+    let mime = (img.mimeType || "image/jpeg").toLowerCase().trim();
+    if (mime === "image/jpg") mime = "image/jpeg";
+    const cleanData = img.data.replace(/^data:[^;]+;base64,/, "").replace(/\s+/g, "");
+    preparedParts.push({
+      inlineData: {
+        mimeType: mime,
+        data: cleanData,
+      },
+    });
+  }
 
-      for (const img of images) {
-        parts.push({
-          inlineData: {
-            mimeType: img.mimeType || "image/jpeg",
-            data: img.data.replace(/^data:[^;]+;base64,/, ""),
-          },
+  for (const rawModel of models) {
+    const cleanModel = rawModel.replace(/^models\//, "");
+    const endpoints = [
+      `https://generativelanguage.googleapis.com/v1beta/models/${cleanModel}:generateContent?key=${apiKey}`,
+      `https://generativelanguage.googleapis.com/v1/models/${cleanModel}:generateContent?key=${apiKey}`,
+    ];
+
+    for (const url of endpoints) {
+      try {
+        const res = await fetch(url, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            contents: [{ role: "user", parts: preparedParts }],
+            generationConfig: {
+              temperature: 0.3,
+              maxOutputTokens: 4000,
+              responseMimeType: "application/json",
+            },
+          }),
+          signal: AbortSignal.timeout(45000),
         });
-      }
 
-      const res = await fetch(url, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          contents: [{ role: "user", parts }],
-          generationConfig: {
-            temperature: 0.3,
-            maxOutputTokens: 4000,
-            responseMimeType: "application/json",
-          },
-        }),
-        signal: AbortSignal.timeout(45000),
-      });
-
-      if (res.ok) {
-        const data = await res.json();
-        const text = data.candidates?.[0]?.content?.parts?.[0]?.text || "";
-        if (text) return text;
-      } else {
-        const errJson = await res.json().catch(() => ({}));
-        lastError = errJson.error?.message || `HTTP ${res.status}`;
+        if (res.ok) {
+          const data = await res.json();
+          const text = data.candidates?.[0]?.content?.parts?.[0]?.text || "";
+          if (text) return text;
+        } else {
+          const errJson = await res.json().catch(() => ({}));
+          lastError = errJson.error?.message || `HTTP ${res.status}`;
+          // If responseMimeType is rejected with 400 Bad Request, retry without it
+          if (res.status === 400 && lastError.toLowerCase().includes("responsemimetype")) {
+            const retryRes = await fetch(url, {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                contents: [{ role: "user", parts: preparedParts }],
+                generationConfig: {
+                  temperature: 0.3,
+                  maxOutputTokens: 4000,
+                },
+              }),
+              signal: AbortSignal.timeout(45000),
+            });
+            if (retryRes.ok) {
+              const retryData = await retryRes.json();
+              const retryText = retryData.candidates?.[0]?.content?.parts?.[0]?.text || "";
+              if (retryText) return retryText;
+            }
+          }
+        }
+      } catch (e: any) {
+        lastError = e?.message || "Gemini connection error";
       }
-    } catch (e: any) {
-      lastError = e?.message || "Gemini connection error";
     }
   }
 
