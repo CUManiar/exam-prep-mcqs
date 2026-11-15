@@ -55,7 +55,12 @@ export function MarkdownPaperReviewViewer({
 }: MarkdownPaperReviewViewerProps) {
   const router = useRouter();
   const scrollContainerRef = useRef<HTMLDivElement>(null);
-  const [viewMode, setViewMode] = useState<"all" | "single">("single");
+  const [viewMode, setViewMode] = useState<"all" | "single">(() => {
+    if (typeof window !== "undefined" && window.innerWidth < 768) {
+      return "single";
+    }
+    return "all";
+  });
   const [showPaperDetails, setShowPaperDetails] = useState<boolean>(false);
   const [isPaletteOpen, setIsPaletteOpen] = useState<boolean>(false);
 

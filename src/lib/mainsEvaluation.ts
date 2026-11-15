@@ -1,0 +1,282 @@
+import { RevisionProviderConfig } from "./types";
+
+export interface MainsDimensionScore {
+  score: number;
+  max: number;
+  comment: string;
+}
+
+export interface MainsMarkedCopyItem {
+  quote: string;
+  note: string;
+}
+
+export interface MainsEvaluationResult {
+  id: string;
+  question: string;
+  studentAnswer: string;
+  paperType: "GS-1" | "GS-2" | "GS-3" | "GS-4" | "Optional";
+  optionalSubject?: string;
+  maxMarks: 10 | 15 | 20;
+  targetWordCount: number;
+  actualWordCount: number;
+  timeLimitMinutes: number;
+  marksAwarded: number;
+  percentage: number;
+  verdict: string;
+  directive: string;
+  directiveAnalysis: string;
+  dimensions: {
+    demand: MainsDimensionScore;
+    content: MainsDimensionScore;
+    structure: MainsDimensionScore;
+    presentation: MainsDimensionScore;
+  };
+  markedCopy?: MainsMarkedCopyItem[];
+  weaknesses: string[];
+  missingDimensions: string[];
+  actionableRoadmap: string[];
+  diagramIdea?: string;
+  modelAnswer: string;
+  evaluatedAt: string;
+  // Backward compatibility
+  rubric?: Record<string, any>;
+  strengths?: string[];
+}
+
+export interface MainsQuestionItem {
+  id: string;
+  questionNumber: number;
+  question: string;
+  studentAnswer: string;
+  paperType: "GS-1" | "GS-2" | "GS-3" | "GS-4" | "Optional";
+  optionalSubject?: string;
+  maxMarks: 10 | 15 | 20;
+  attachedImages?: Array<{ mimeType: string; data: string; name: string }>;
+  evaluation?: MainsEvaluationResult;
+}
+
+export interface MainsEvaluationSession {
+  id: string;
+  title: string;
+  updatedAt: string;
+  paperType: "GS-1" | "GS-2" | "GS-3" | "GS-4" | "Optional";
+  optionalSubject?: string;
+  questions?: MainsQuestionItem[];
+  // Legacy / backward-compatibility fields:
+  question?: string;
+  studentAnswer?: string;
+  maxMarks?: 10 | 15 | 20;
+  attachedImages?: any[];
+  evaluation?: MainsEvaluationResult;
+}
+
+export const MAINS_STORAGE_KEY = "upsc_mains_evaluations_v1";
+
+/**
+ * Normalizes a session to ensure it has a valid list of questions.
+ */
+export function normalizeSessionQuestions(sess: MainsEvaluationSession): MainsQuestionItem[] {
+  if (Array.isArray(sess.questions) && sess.questions.length > 0) {
+    return sess.questions;
+  }
+  const legacyQ: MainsQuestionItem = {
+    id: `${sess.id}_q1`,
+    questionNumber: 1,
+    question: sess.question || "",
+    studentAnswer: sess.studentAnswer || "",
+    paperType: sess.paperType || "GS-2",
+    optionalSubject: sess.optionalSubject,
+    maxMarks: sess.maxMarks || 10,
+    attachedImages: Array.isArray(sess.attachedImages)
+      ? sess.attachedImages.map((img: any, i: number) =>
+          typeof img === "string"
+            ? { mimeType: "image/jpeg", data: img, name: `Page ${i + 1}` }
+            : img
+        )
+      : [],
+    evaluation: sess.evaluation,
+  };
+  return [legacyQ];
+}
+
+/**
+ * Fast client-side check to detect if an uploaded page image is completely blank or contains negligible ink.
+ */
+export async function isImageBlankOrNegligible(dataUrl: string): Promise<boolean> {
+  if (typeof window === "undefined" || !dataUrl) return false;
+  return new Promise((resolve) => {
+    const img = new Image();
+    img.crossOrigin = "anonymous";
+    img.onload = () => {
+      try {
+        const canvas = document.createElement("canvas");
+        const w = 80;
+        const h = 80;
+        canvas.width = w;
+        canvas.height = h;
+        const ctx = canvas.getContext("2d");
+        if (!ctx) return resolve(false);
+        ctx.drawImage(img, 0, 0, w, h);
+        const imgData = ctx.getImageData(0, 0, w, h);
+        const data = imgData.data;
+
+        let darkOrPenPixels = 0;
+        const total = w * h;
+
+        for (let i = 0; i < data.length; i += 4) {
+          const r = data[i];
+          const g = data[i + 1];
+          const b = data[i + 2];
+          const a = data[i + 3];
+
+          // Check if pixel is not transparent and significantly differs from pure paper white (e.g. handwriting/printed text)
+          if (a > 30) {
+            const isWhite = r > 235 && g > 235 && b > 235;
+            const isUniformDark = r < 12 && g < 12 && b < 12;
+            if (!isWhite && !isUniformDark) {
+              darkOrPenPixels++;
+            }
+          }
+        }
+
+        // If less than 0.3% of pixels contain ink or variation, it's effectively a blank sheet
+        resolve(darkOrPenPixels / total < 0.003);
+      } catch {
+        resolve(false);
+      }
+    };
+    img.onerror = () => resolve(false);
+    img.src = dataUrl;
+  });
+}
+
+/**
+ * Loads saved evaluation sessions from localStorage
+ */
+export function loadMainsSessions(): MainsEvaluationSession[] {
+  if (typeof window === "undefined") return [];
+  try {
+    const raw = localStorage.getItem(MAINS_STORAGE_KEY);
+    if (!raw) return [];
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed) ? parsed : [];
+  } catch (e) {
+    console.warn("Failed to load saved mains evaluation sessions:", e);
+    return [];
+  }
+}
+
+/**
+ * Saves evaluation sessions to localStorage (unlimited storage)
+ */
+export function saveMainsSessions(sessions: MainsEvaluationSession[]): void {
+  if (typeof window === "undefined") return;
+  try {
+    localStorage.setItem(MAINS_STORAGE_KEY, JSON.stringify(sessions));
+  } catch (e) {
+    console.warn("Failed to save mains evaluations to localStorage:", e);
+  }
+}
+
+/**
+ * Creates the strict UPSC Examiner System Prompt for Mains Answer Evaluation
+ */
+export function buildMainsEvaluationPrompt(params: {
+  question?: string;
+  answerText: string;
+  paperType: string;
+  optionalSubject?: string;
+  maxMarks: number;
+  hasAttachment?: boolean;
+}): string {
+  const { question, answerText, paperType, optionalSubject, maxMarks } = params;
+  const wordLimit = maxMarks === 10 ? 150 : maxMarks === 15 ? 250 : 300;
+  const timeLimit = maxMarks === 10 ? 7 : maxMarks === 15 ? 11 : 20;
+  const trimmedQ = (question || "").trim();
+  const isSociology =
+    paperType === "Optional" &&
+    (optionalSubject || "").toLowerCase().includes("socio");
+  const isEthics = paperType === "GS-4";
+
+  return `Act as a strict, senior UPSC Civil Services Examination (CSE) Mains Examiner. Evaluate the candidate's answer with uncompromising realism.
+
+EXAM SCALE & PARAMETERS:
+- Paper: ${paperType}${optionalSubject ? ` (${optionalSubject})` : ""}
+- Question Weightage: ${maxMarks} Marks
+- Word Limit: ${wordLimit} Words (Must be realistically writable in ${timeLimit} minutes)
+- Realistic Scaling: 3.0–4.0/10 is typical average; 5.0+/10 is topper-level. Never inflate marks. Never invent facts; flag uncertain ones with ⚠️ VERIFY.
+
+EVALUATE AND SCORE FOUR CORE DIMENSIONS (Score each strictly /10, numbers only):
+1. Demand (/10): Operational directive compliance (e.g. Critically Examine, Discuss, Give Reasons), every sub-part answered, limits observed.
+2. Content (/10): Accuracy, depth, authentic citations (Articles, Judgments, Committees, Reports, Data, Examples).
+${
+  isSociology
+    ? "   * Sociology Specifics: Exact sociological terms, thinkers (e.g. Weber, Durkheim, Marx, Parsons, Srinivas, Ghurye), Indian empirical examples, and analytical verdict (no years unless idea-bearing)."
+    : isEthics
+      ? "   * GS-4 Ethics Specifics: Stakeholders, ethical dilemmas, options evaluated, chosen action justified, moral & constitutional values explicitly named."
+      : "   * General Studies Specifics: Multi-dimensional sub-headings (Constitutional, Socio-Economic, Administrative, Global) grounded in empirical policy data."
+}
+3. Structure (/10): Introduction (15-20 words), question keywords used as subheadings, numbered arguments, counterview sentence, and a synthesis verdict line.
+4. Presentation (/10): Within word limit, exam-writable in ${timeLimit} minutes under exam-hall time pressure, table/flowchart where it earns marks.
+
+CRUCIAL EXAMINER CHECKS:
+- Did the candidate use the question's operational key words as headings?
+- Is each point complete: claim + case/example?
+- Counterview sentence present before verdict line?
+- Writable in ${timeLimit} minutes?
+
+STYLE REQUIREMENTS:
+- Blunt, concise, strictly ≤6 words per weakness pointer.
+- One witty or sharp examiner line allowed in verdict; never at accuracy's cost.
+- Marked copy: Quote 2 to 4 actual snippets/sentences from the student's submission and provide specific margin notes, corrections, or flags.
+- If the attached sheet is completely blank, illegible, or contains no student attempt, do NOT simulate an answer. Set "marksAwarded": 0, "verdict": "Below Average", and set "directiveAnalysis": "The submitted sheet was blank, unreadable, or did not contain an answer to evaluate."
+
+CANDIDATE SUBMISSION TO EVALUATE:
+[QUESTION]:
+${trimmedQ || "(Question is written at the top of the attached answer sheet or document)"}
+
+[STUDENT'S ANSWER]:
+${answerText || "(Handwritten / Typed answer provided in attached image or document)"}
+
+OUTPUT FORMAT:
+Return ONLY a valid, parsable JSON object matching this schema exactly:
+{
+  "question": "${trimmedQ ? trimmedQ.replace(/"/g, '\\"') : "Exact UPSC question transcribed from submission"}",
+  "marksAwarded": 4.0,
+  "maxMarks": ${maxMarks},
+  "verdict": "One-line blunt examiner verdict on this attempt.",
+  "directive": "Directive found in question (e.g. Discuss, Give Reasons, Critically Analyse)",
+  "directiveAnalysis": "1-2 sentences on how candidate addressed or missed the directive.",
+  "dimensions": {
+    "demand": { "score": 4.5, "max": 10, "comment": "Directive and question sub-parts addressed." },
+    "content": { "score": 4.0, "max": 10, "comment": "Depth, accuracy, citations, and empirical evidence." },
+    "structure": { "score": 5.0, "max": 10, "comment": "Intro, keyword headings, numbering, counterview." },
+    "presentation": { "score": 4.5, "max": 10, "comment": "Word count compliance and ${timeLimit}-min time writability." }
+  },
+  "markedCopy": [
+    { "quote": "Exact short sentence or phrase from student's answer", "note": "Examiner margin note, correction, or ⚠️ VERIFY flag" },
+    { "quote": "Another excerpt from answer", "note": "Examiner margin remark" }
+  ],
+  "strengths": [
+    "What candidate did well that earned marks (e.g. Accurately cited Article 360(1) / Weber's Verstehen)",
+    "Another solid argument, concept, or structural element to keep up"
+  ],
+  "weaknesses": [
+    "Specific answer flaw (≤6 words)",
+    "Another specific flaw (≤6 words)",
+    "Third answer flaw (≤6 words)"
+  ],
+  "missingDimensions": [
+    "Specific missing Article, Judgment, Committee, or Thinker",
+    "Specific missing perspective or empirical data"
+  ],
+  "actionableRoadmap": [
+    "Concrete exam-hall action to improve quality",
+    "Second practical improvement step"
+  ],
+  "diagramIdea": "A drawn ASCII or text flowchart diagram (e.g. [Trigger] --> [Mechanism] --> [Impact]). Drawn line-by-line, not just described.",
+  "modelAnswer": "### Topper Model Answer (${wordLimit} Words | ${timeLimit} Mins)\\n**Word Count:** ${wordLimit} words | Writable in ${timeLimit} min\\n\\n**Introduction (20 words)**\\n...\\n\\n**[Heading Using Question Keywords]**\\n* Point 1: Claim + specific case/citation\\n* Point 2: Claim + empirical data\\n\\n**Counterview & Synthesis**\\n...\\n\\n**Way Forward / Conclusion**\\n...\\n\\n> **Value-Addition Box**\\n> * Key Article/Thinker: ...\\n> * Landmark Case / Committee: ..."
+}
+`;
+}

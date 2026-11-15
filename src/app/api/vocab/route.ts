@@ -69,9 +69,8 @@ async function discoverGroqModels(apiKey: string): Promise<string[]> {
     console.warn("Groq model discovery failed:", e?.message);
   }
   return [
-    "llama-3.1-8b-instant",
     "llama-3.3-70b-versatile",
-    "llama-3.1-70b-versatile",
+    "llama-3.1-8b-instant",
     "mixtral-8x7b-32768",
   ];
 }
@@ -349,7 +348,6 @@ async function executePrompt(
               ...discovered,
               "llama-3.1-8b-instant",
               "llama-3.3-70b-versatile",
-              "llama-3.1-70b-versatile",
               "mixtral-8x7b-32768",
               "gemma2-9b-it",
             ].filter(Boolean) as string[],

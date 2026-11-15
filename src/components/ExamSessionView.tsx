@@ -375,7 +375,7 @@ export function ExamSessionView({
     } catch {}
   };
 
-  const isBlurringTextareaViaEscapeRef = useRef<boolean>(false);
+  const resumeButtonRef = useRef<HTMLButtonElement | null>(null);
 
   // Auto-request fullscreen for Mock Exam mode
   useEffect(() => {
@@ -388,15 +388,6 @@ export function ExamSessionView({
           ) {
             await document.documentElement.requestFullscreen();
             setIsFullscreen(true);
-            if (
-              typeof navigator !== "undefined" &&
-              "keyboard" in navigator &&
-              typeof (navigator as any).keyboard?.lock === "function"
-            ) {
-              await (navigator as any).keyboard
-                .lock(["Escape"])
-                .catch(() => {});
-            }
           }
         } catch {
           // Browser security policy might require explicit user gesture
@@ -406,66 +397,35 @@ export function ExamSessionView({
     }
 
     const handleFullscreenChange = () => {
-      const isFs = !!document.fullscreenElement;
-      setIsFullscreen(isFs);
-      if (isFs) {
-        if (
-          typeof navigator !== "undefined" &&
-          "keyboard" in navigator &&
-          typeof (navigator as any).keyboard?.lock === "function"
-        ) {
-          (navigator as any).keyboard.lock(["Escape"]).catch(() => {});
-        }
-      } else if (isBlurringTextareaViaEscapeRef.current) {
-        // If Escape was pressed only to blur a textarea, retain fullscreen
-        isBlurringTextareaViaEscapeRef.current = false;
-        if (
-          typeof document !== "undefined" &&
-          document.documentElement?.requestFullscreen
-        ) {
-          document.documentElement
-            .requestFullscreen()
-            .then(() => {
-              setIsFullscreen(true);
-              if (
-                typeof navigator !== "undefined" &&
-                "keyboard" in navigator &&
-                typeof (navigator as any).keyboard?.lock === "function"
-              ) {
-                (navigator as any).keyboard.lock(["Escape"]).catch(() => {});
-              }
-            })
-            .catch(() => {});
-        }
-      }
+      setIsFullscreen(Boolean(document.fullscreenElement));
     };
     document.addEventListener("fullscreenchange", handleFullscreenChange);
     return () =>
       document.removeEventListener("fullscreenchange", handleFullscreenChange);
   }, [mode]);
 
+  // Keep focus on resume button whenever exam paused modal opens
+  useEffect(() => {
+    if (isPaused) {
+      const timer = setTimeout(() => {
+        resumeButtonRef.current?.focus();
+      }, 40);
+      return () => clearTimeout(timer);
+    }
+  }, [isPaused]);
+
   const toggleFullscreen = async () => {
     try {
       if (!document.fullscreenElement) {
-        await document.documentElement.requestFullscreen();
-        setIsFullscreen(true);
-        if (
-          typeof navigator !== "undefined" &&
-          "keyboard" in navigator &&
-          typeof (navigator as any).keyboard?.lock === "function"
-        ) {
-          await (navigator as any).keyboard.lock(["Escape"]).catch(() => {});
+        if (document.documentElement.requestFullscreen) {
+          await document.documentElement.requestFullscreen();
+          setIsFullscreen(true);
         }
       } else {
-        if (
-          typeof navigator !== "undefined" &&
-          "keyboard" in navigator &&
-          typeof (navigator as any).keyboard?.unlock === "function"
-        ) {
-          (navigator as any).keyboard.unlock();
+        if (document.exitFullscreen) {
+          await document.exitFullscreen();
+          setIsFullscreen(false);
         }
-        await document.exitFullscreen();
-        setIsFullscreen(false);
       }
     } catch {}
   };
@@ -698,11 +658,19 @@ export function ExamSessionView({
       const question = effectivePaper.parsedQuestions?.find(
         (parsedQuestion) => parsedQuestion.questionNo === questionNo,
       );
-      return Boolean(
-        question && Object.keys(question.options || {}).length === 0,
-      );
+      if (question && Object.keys(question.options || {}).length === 0) return true;
+      const ans = answers[questionNo];
+      if (
+        ans?.selected &&
+        ans.selected.length > 1 &&
+        !["A", "B", "C", "D"].includes(ans.selected.trim().toUpperCase()) &&
+        ans.selected !== "attempted"
+      ) {
+        return true;
+      }
+      return false;
     },
-    [effectivePaper.parsedQuestions],
+    [effectivePaper.parsedQuestions, answers],
   );
 
   // Answer selection handler (Objective)
@@ -886,30 +854,67 @@ export function ExamSessionView({
   // Keyboard navigation shortcuts for exam session
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
+      // 1. Fullscreen Shortcuts
+      // Full screen - cmd + f (or ctrl + f)
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "f") {
+        e.preventDefault();
+        if (typeof document !== "undefined") {
+          if (
+            !document.fullscreenElement &&
+            document.documentElement.requestFullscreen
+          ) {
+            document.documentElement.requestFullscreen().catch(() => {});
+          } else if (document.fullscreenElement && document.exitFullscreen) {
+            document.exitFullscreen().catch(() => {});
+          }
+        }
+        return;
+      }
+
+      // Exit full screen - Esc (bind to full-screen exit only)
+      if (e.key === "Escape") {
+        if (typeof document !== "undefined" && document.fullscreenElement) {
+          e.preventDefault();
+          document.exitFullscreen().catch(() => {});
+          return;
+        }
+        if (showShortcutsModal) {
+          setShowShortcutsModal(false);
+          return;
+        }
+      }
+
       const target = e.target as HTMLElement | null;
-      if (
+      const isInputOrTextarea =
         target &&
         (target.tagName === "INPUT" ||
           target.tagName === "TEXTAREA" ||
-          target.isContentEditable)
-      ) {
-        if (e.key === "Escape") {
+          target.isContentEditable);
+
+      // In input or textarea:
+      if (isInputOrTextarea) {
+        // Exit from scratch book or cloze input: cmd + s (saves values and blurs)
+        if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "s") {
           e.preventDefault();
           e.stopPropagation();
-          isBlurringTextareaViaEscapeRef.current = true;
+          if (currentQuestion !== null) {
+            flushNoteDraftForQ(currentQuestion);
+          }
           target.blur();
-          setTimeout(() => {
-            isBlurringTextareaViaEscapeRef.current = false;
-          }, 400);
           return;
         }
+        // Do not intercept regular typing
+        return;
+      }
+
+      // Resume test - cmd + return (when paused)
+      if (isPaused) {
         if (
-          (e.key.toUpperCase() === "S" || e.key.toUpperCase() === "T") &&
-          (e.altKey || e.ctrlKey || e.metaKey)
+          (e.metaKey || e.ctrlKey) &&
+          (e.key === "Enter" || e.key === "Return")
         ) {
           e.preventDefault();
-          e.stopPropagation();
-          target.blur();
+          setExamPaused(false);
           return;
         }
         return;
@@ -918,6 +923,15 @@ export function ExamSessionView({
       if (e.metaKey || e.ctrlKey) return;
 
       const key = e.key.toUpperCase();
+
+      // Pauses the practice or Mock exam - P (must not be focused in scratch pad or text area)
+      if (key === "P" && !e.altKey) {
+        if (!showShortcutsModal && !showFinishConfirm && !solutionModalOpen) {
+          e.preventDefault();
+          setExamPaused(true);
+          return;
+        }
+      }
 
       if (e.key === "?" || (key === "H" && !e.altKey)) {
         e.preventDefault();
@@ -931,7 +945,7 @@ export function ExamSessionView({
 
       if (currentQuestion === null) return;
 
-      // Toggle focus on Scratchpad: S
+      // Focus on scratch book - s
       if (key === "S" && !e.altKey) {
         e.preventDefault();
         setShowNoteBox(true);
@@ -950,13 +964,16 @@ export function ExamSessionView({
         return;
       }
 
-      // Focus on Cloze answer area (only for cloze questions): T
+      // Focus on Text area (Cloze Questions) - t
       if (key === "T" && !e.altKey) {
         if (isClozeQuestion(currentQuestion)) {
           e.preventDefault();
-          const clozeEl = document.getElementById(
+          const clozeEl = (document.getElementById(
             `cloze-answer-${currentQuestion}`,
-          ) as HTMLTextAreaElement | null;
+          ) ||
+            document.getElementById(
+              `cloze-answer-control-${currentQuestion}`,
+            )) as HTMLTextAreaElement | null;
           if (clozeEl) {
             clozeEl.focus();
             clozeEl.scrollIntoView({ behavior: "smooth", block: "center" });
@@ -965,11 +982,13 @@ export function ExamSessionView({
         }
       }
 
-      // Options selection (A, B, C, D)
+      // Options selection (A, B, C, D) - only for questions that have options (never cloze)
       if (["A", "B", "C", "D"].includes(key) && !e.altKey) {
-        e.preventDefault();
-        handleSelectOption(currentQuestion, key);
-        return;
+        if (!isClozeQuestion(currentQuestion)) {
+          e.preventDefault();
+          handleSelectOption(currentQuestion, key);
+          return;
+        }
       }
 
       // Previous Question: ArrowLeft or J (J is to the left of K)
@@ -1024,6 +1043,7 @@ export function ExamSessionView({
   }, [
     currentQuestion,
     paper.totalQuestions,
+    isPaused,
     showShortcutsModal,
     showFinishConfirm,
     solutionModalOpen,
@@ -1033,6 +1053,7 @@ export function ExamSessionView({
     handleClearSelection,
     handleToggleFlag,
     handleSetConfidence,
+    flushNoteDraftForQ,
   ]);
 
   // Real-time automatic persistence to localStorage, Supabase & server
@@ -1211,7 +1232,7 @@ export function ExamSessionView({
     if (isClozeQuestion(q.questionNo)) {
       return Boolean(q.selected?.trim() && q.selected !== "attempted");
     }
-    if (!isSubjective) return q.selected !== null;
+    if (!isSubjective) return Boolean(q.selected && q.selected.trim().length > 0);
     return q.selected === "attempted";
   };
 
@@ -1472,12 +1493,15 @@ export function ExamSessionView({
         )
       : undefined;
   const currentQuestionIsCloze = isClozeQuestion(currentQuestion);
-  // A Markdown cloze question is objective, but has no option values. Keep
-  // its free-text answer out of MCQ-only UI.
+  // A cloze question is free-text and has no option values. Keep
+  // its answer out of MCQ-only UI and ensure option bubbles never appear.
   const currentQuestionHasOptions =
     !isSubjective &&
-    (!currentQuestionData ||
-      Object.keys(currentQuestionData.options || {}).length > 0);
+    !currentQuestionIsCloze &&
+    Boolean(
+      currentQuestionData?.options &&
+        Object.keys(currentQuestionData.options).length > 0,
+    );
   const currentQuestionExplanation =
     currentQuestion !== null
       ? effectivePaper.parsedQuestions?.find(
@@ -1791,12 +1815,6 @@ export function ExamSessionView({
                   idleTimeSeconds={idleTimeSeconds}
                   fontScale={fontScale}
                   confidenceCounts={confidenceCounts}
-                  onEscapeBlur={() => {
-                    isBlurringTextareaViaEscapeRef.current = true;
-                    setTimeout(() => {
-                      isBlurringTextareaViaEscapeRef.current = false;
-                    }, 400);
-                  }}
                   onSelectOption={handleSelectOption}
                   onUpdateAnswer={handleUpdateAnswer}
                   onClearOption={handleClearSelection}
@@ -2726,6 +2744,86 @@ export function ExamSessionView({
                       </div>
                     )}
                   </div>
+                ) : currentQuestionIsCloze ? (
+                  /* Dedicated Cloze Question Response Box */
+                  <div className="mt-3 sm:mt-4 space-y-3">
+                    <div className="rounded-2xl border border-slate-200 bg-slate-50 p-3.5 sm:p-4 space-y-3">
+                      <div className="flex items-center justify-between gap-2 flex-wrap">
+                        <div>
+                          <h4 className="text-xs sm:text-sm font-bold text-slate-900 flex items-center gap-1.5">
+                            Cloze Question {currentQuestion}
+                            <span className="text-[10px] font-normal text-slate-500">
+                              (Free Text Response)
+                            </span>
+                          </h4>
+                          <p className="text-[11px] text-slate-500">
+                            Type your answer in the text box below. No options are provided.
+                          </p>
+                        </div>
+                        <div className="flex items-center gap-1.5">
+                          {currentQObj.selected &&
+                          currentQObj.selected.trim().length > 0 &&
+                          currentQObj.selected !== "attempted" ? (
+                            <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 border border-emerald-200 px-2.5 py-0.5 text-[10px] font-bold text-emerald-800">
+                              <CheckCircle2 className="h-3 w-3 text-emerald-600" /> Answer Provided
+                            </span>
+                          ) : (
+                            <span className="inline-flex items-center gap-1 rounded-full bg-slate-100 border border-slate-200 px-2.5 py-0.5 text-[10px] font-medium text-slate-500">
+                              Unattempted
+                            </span>
+                          )}
+                          <span className="hidden sm:inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-mono font-semibold bg-indigo-50 text-indigo-700 border border-indigo-200">
+                            T to focus • ⌘S to save & exit
+                          </span>
+                        </div>
+                      </div>
+
+                      <textarea
+                        id={`cloze-answer-control-${currentQuestion}`}
+                        value={currentQObj.selected || ""}
+                        onChange={(e) =>
+                          handleUpdateAnswer(currentQuestion, e.target.value)
+                        }
+                        onKeyDown={(e) => {
+                          if (
+                            (e.metaKey || e.ctrlKey) &&
+                            e.key.toLowerCase() === "s"
+                          ) {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            (e.target as HTMLElement).blur();
+                          } else if (e.key === "Escape") {
+                            if (
+                              typeof document !== "undefined" &&
+                              document.fullscreenElement
+                            ) {
+                              e.preventDefault();
+                              document.exitFullscreen().catch(() => {});
+                            }
+                          }
+                        }}
+                        rows={3}
+                        placeholder="Type a one- or two-line answer..."
+                        className="w-full resize-y rounded-xl border border-slate-300 bg-white p-3 text-xs sm:text-sm leading-relaxed text-slate-800 shadow-2xs outline-none transition focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20"
+                      />
+
+                      <div className="flex items-center justify-between gap-2 pt-1">
+                        <span className="text-[11px] text-slate-400">
+                          Answer is recorded automatically. Press ⌘+S to finish editing.
+                        </span>
+                        {currentQObj.selected &&
+                          currentQObj.selected.trim().length > 0 && (
+                            <button
+                              type="button"
+                              onClick={() => handleClearSelection(currentQuestion)}
+                              className="rounded-lg border border-slate-200 bg-white px-2.5 py-1 text-xs font-semibold text-slate-600 hover:text-rose-600 hover:bg-slate-50 transition-colors shadow-2xs"
+                            >
+                              Clear Answer
+                            </button>
+                          )}
+                      </div>
+                    </div>
+                  </div>
                 ) : null}
 
                 {/* Practice Mode Live Feedback Banner + Detailed Solution Key Link (Objective) */}
@@ -2811,7 +2909,7 @@ export function ExamSessionView({
                           Rough Scratchpad for Question {currentQuestion}
                         </span>
                         <span className="hidden sm:inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-mono font-semibold bg-slate-200/80 text-slate-600">
-                          S to focus • Esc to exit
+                          S to focus • ⌘S to save & exit
                         </span>
                       </div>
                       <span className="text-[11px] font-medium text-slate-500">
@@ -2827,14 +2925,22 @@ export function ExamSessionView({
                         noteDraftRef.current = val;
                       }}
                       onKeyDown={(e) => {
-                        if (e.key === "Escape") {
+                        if (
+                          (e.metaKey || e.ctrlKey) &&
+                          e.key.toLowerCase() === "s"
+                        ) {
                           e.preventDefault();
                           e.stopPropagation();
-                          isBlurringTextareaViaEscapeRef.current = true;
+                          flushNoteDraftForQ(currentQuestion);
                           (e.target as HTMLElement).blur();
-                          setTimeout(() => {
-                            isBlurringTextareaViaEscapeRef.current = false;
-                          }, 400);
+                        } else if (e.key === "Escape") {
+                          if (
+                            typeof document !== "undefined" &&
+                            document.fullscreenElement
+                          ) {
+                            e.preventDefault();
+                            document.exitFullscreen().catch(() => {});
+                          }
                         }
                       }}
                       onBlur={() => flushNoteDraftForQ(currentQuestion)}
@@ -2976,6 +3082,7 @@ export function ExamSessionView({
                     const selected = q?.selected;
                     const isCur = currentQuestion === qNo;
                     const isFlag = Boolean(q?.flagged);
+                    const isQCloze = isClozeQuestion(qNo);
                     return (
                       <div
                         key={qNo}
@@ -2999,25 +3106,41 @@ export function ExamSessionView({
                             <Flag className="h-2.5 w-2.5 text-amber-500 fill-amber-500" />
                           )}
                         </div>
-                        <div className="flex items-center gap-2">
-                          {["A", "B", "C", "D"].map((opt) => {
-                            const isMarked = selected === opt;
-                            return (
-                              <button
-                                key={opt}
-                                type="button"
-                                onClick={() => handleSelectOption(qNo, opt)}
-                                className={`flex h-4.5 w-4.5 items-center justify-center rounded-full text-[9px] font-bold transition-all ${
-                                  isMarked
-                                    ? "bg-slate-950 text-white shadow-inner"
-                                    : "border border-slate-300 bg-white text-slate-600 hover:border-slate-500"
-                                }`}
-                              >
-                                {opt}
-                              </button>
-                            );
-                          })}
-                        </div>
+                        {isQCloze ? (
+                          <div className="text-[10px] font-medium pr-1">
+                            {selected &&
+                            selected.trim().length > 0 &&
+                            selected !== "attempted" ? (
+                              <span className="text-emerald-700 font-bold">
+                                Answered
+                              </span>
+                            ) : (
+                              <span className="text-slate-400">
+                                Cloze (Free text)
+                              </span>
+                            )}
+                          </div>
+                        ) : (
+                          <div className="flex items-center gap-2">
+                            {["A", "B", "C", "D"].map((opt) => {
+                              const isMarked = selected === opt;
+                              return (
+                                <button
+                                  key={opt}
+                                  type="button"
+                                  onClick={() => handleSelectOption(qNo, opt)}
+                                  className={`flex h-4.5 w-4.5 items-center justify-center rounded-full text-[9px] font-bold transition-all ${
+                                    isMarked
+                                      ? "bg-slate-950 text-white shadow-inner"
+                                      : "border border-slate-300 bg-white text-slate-600 hover:border-slate-500"
+                                  }`}
+                                >
+                                  {opt}
+                                </button>
+                              );
+                            })}
+                          </div>
+                        )}
                       </div>
                     );
                   })}
@@ -3079,10 +3202,14 @@ export function ExamSessionView({
                   effectivePaper.parsedQuestions?.find(
                     (question) => question.questionNo === qNo,
                   );
+                const isQNoCloze = isClozeQuestion(qNo);
                 const paletteQuestionHasOptions =
                   !isSubjective &&
-                  (!paletteQuestionData ||
-                    Object.keys(paletteQuestionData.options || {}).length > 0);
+                  !isQNoCloze &&
+                  Boolean(
+                    paletteQuestionData?.options &&
+                      Object.keys(paletteQuestionData.options).length > 0,
+                  );
 
                 let badgeColor =
                   "bg-white text-slate-700 border-slate-200 hover:bg-slate-100 hover:border-slate-300 shadow-2xs";
@@ -3210,17 +3337,25 @@ export function ExamSessionView({
 
             <div className="flex flex-col gap-2 pt-2">
               <button
+                ref={resumeButtonRef}
+                autoFocus
                 onClick={() => setExamPaused(false)}
-                className="flex items-center justify-center gap-2 rounded-xl bg-indigo-600 py-3 text-xs font-bold text-white shadow-xs hover:bg-indigo-700 transition-all"
+                className="flex items-center justify-center gap-2 rounded-xl bg-indigo-600 py-3 text-xs font-bold text-white shadow-xs hover:bg-indigo-700 transition-all focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2"
               >
                 <Play className="h-4 w-4 fill-current" /> Resume Exam
+                <span className="text-[10px] opacity-75 font-mono ml-1">
+                  (⌘+Return)
+                </span>
               </button>
 
               <button
                 onClick={handleSaveDraftAndExit}
-                className="flex items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white py-2.5 text-xs font-semibold text-slate-700 hover:bg-slate-50 transition-all shadow-2xs"
+                className="flex items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white py-2.5 text-xs font-semibold text-slate-700 hover:bg-slate-50 transition-all shadow-2xs focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2"
               >
                 <Save className="h-3.5 w-3.5" /> Save & Exit to Resume Later
+                <span className="text-[10px] text-slate-400 font-mono ml-1">
+                  (Tab)
+                </span>
               </button>
             </div>
           </div>

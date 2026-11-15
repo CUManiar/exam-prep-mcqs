@@ -29,24 +29,46 @@ export function KeyboardShortcutsModal({
       items: [
         {
           keys: ["A", "B", "C", "D"],
-          description: "Select Option A, B, C, or D",
+          description: "Select Option A, B, C, or D (MCQ only)",
         },
         {
           keys: ["T"],
-          description:
-            "Focus Cloze answer field (Cloze questions only • Esc to exit)",
+          description: "Focus on Cloze answer text box",
+        },
+        {
+          keys: ["⌘+S"],
+          description: "Save response and exit text box",
         },
         { keys: ["Backspace"], description: "Clear selected answer" },
       ],
     },
     {
-      title: "Navigation & Scratchpad",
+      title: "Scratchbook & Navigation",
       items: [
-        { keys: ["←", "J"], description: "Previous question (backward)" },
-        { keys: ["→", "K"], description: "Next question (forward)" },
         {
           keys: ["S"],
-          description: "Toggle focus on rough Scratchpad (Esc to exit)",
+          description: "Focus on rough Scratchbook",
+        },
+        {
+          keys: ["⌘+S"],
+          description: "Save note values and exit Scratchbook",
+        },
+        { keys: ["←", "J"], description: "Previous question (backward)" },
+        { keys: ["→", "K"], description: "Next question (forward)" },
+      ],
+    },
+    {
+      title: "Screen & Exam Control",
+      items: [
+        { keys: ["⌘+F"], description: "Enter full screen" },
+        { keys: ["Esc"], description: "Exit full screen only" },
+        {
+          keys: ["P"],
+          description: "Pause practice or mock exam (when not in text box)",
+        },
+        {
+          keys: ["⌘+Return"],
+          description: "Resume exam (Tab moves to Save & Exit)",
         },
       ],
     },
@@ -64,7 +86,6 @@ export function KeyboardShortcutsModal({
       title: "Help & Shortcuts",
       items: [
         { keys: ["?", "H"], description: "Toggle keyboard shortcuts guide" },
-        { keys: ["Esc"], description: "Close dialogs" },
       ],
     },
   ];

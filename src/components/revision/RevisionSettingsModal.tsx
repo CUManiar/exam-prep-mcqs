@@ -21,6 +21,7 @@ import {
   clearRevisionConfig,
   getProviderVault,
   removeProviderKey,
+  saveProviderKey,
   saveRevisionConfig,
   validateApiKey,
 } from "../../lib/revisionAi";
@@ -85,10 +86,21 @@ export function RevisionSettingsModal({
     setShowKey(false);
 
     // Auto-fill from active config if matching, or from vault
-    if (currentConfig?.provider === newProvider && currentConfig?.apiKey) {
-      setApiKey(currentConfig.apiKey);
-    } else if (vault[newProvider]) {
-      setApiKey(vault[newProvider]);
+    const savedKey =
+      (currentConfig?.provider === newProvider ? currentConfig.apiKey : "") ||
+      vault[newProvider] ||
+      "";
+
+    if (savedKey) {
+      setApiKey(savedKey);
+      // If this provider already has a saved key, instantly activate it!
+      const newCfg: RevisionProviderConfig = {
+        provider: newProvider,
+        apiKey: savedKey,
+      };
+      saveRevisionConfig(newCfg);
+      setVault((prev) => ({ ...prev, [newProvider]: savedKey }));
+      onSave(newCfg);
     } else {
       setApiKey("");
     }
@@ -262,8 +274,8 @@ export function RevisionSettingsModal({
                           IN USE
                         </span>
                       ) : hasSavedKey ? (
-                        <span className="text-[9px] font-semibold text-indigo-700 dark:text-indigo-300 bg-indigo-100 dark:bg-indigo-950/60 px-1.5 py-0.5 rounded-full">
-                          SAVED
+                        <span className="text-[9px] font-bold text-indigo-700 dark:text-indigo-300 bg-indigo-100 dark:bg-indigo-950/60 px-1.5 py-0.5 rounded-full">
+                          CLICK TO USE
                         </span>
                       ) : null}
                     </div>
@@ -300,8 +312,13 @@ export function RevisionSettingsModal({
                 type={showKey ? "text" : "password"}
                 value={apiKey}
                 onChange={(e) => {
-                  setApiKey(e.target.value);
+                  const val = e.target.value;
+                  setApiKey(val);
                   setTestResult(null);
+                  if (val.trim()) {
+                    saveProviderKey(provider, val.trim());
+                    setVault((prev) => ({ ...prev, [provider]: val.trim() }));
+                  }
                 }}
                 placeholder={info?.keyPlaceholder || "Paste your API key here"}
                 className="w-full px-3 py-2 text-xs rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-200 font-mono pr-16 focus:outline-none focus:ring-2 focus:ring-indigo-500"

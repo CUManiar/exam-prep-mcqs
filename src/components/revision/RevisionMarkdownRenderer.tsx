@@ -130,6 +130,9 @@ function sanitizeMermaidCode(raw: string): string {
     line = line.replace(/\*\*([^*]+?)\*\*/g, "$1");
     line = line.replace(/(?<!\\)_([^_]+?)_/g, "$1");
 
+    // Convert single arrow -> to standard Mermaid arrow -->
+    line = line.replace(/(?<![-.=])->(?![->])/g, "-->");
+
     // Fix subgraphs with invalid titles: e.g. "subgraph Part IVA: Fundamental Duties" -> "subgraph sg1 ["Part IVA: Fundamental Duties"]"
     if (line.startsWith("subgraph ")) {
       const subTitle = line.replace(/^subgraph\s+/, "").trim();
@@ -227,14 +230,14 @@ function parseMermaidFallback(code: string) {
       );
     }
 
-    // 2. Extract connections: A --> B, A -->|text| B, A --- B, A ==> B
-    const arrowMatch = line.match(
-      /([a-zA-Z0-9_-]+)\s*(?:-->|==>|---|---\s*\|[^|]+\|\s*|-->\s*\|([^|]+)\|\s*|-\.->)\s*([a-zA-Z0-9_-]+)/,
-    );
-    if (arrowMatch) {
-      const from = arrowMatch[1];
-      const linkText = arrowMatch[2]?.trim();
-      const to = arrowMatch[3];
+    // 2. Extract all connections on this line: A --> B, A -->|text| B, A --- B, A ==> B, A -> B
+    const connectionRegex =
+      /([a-zA-Z0-9_-]+)\s*(?:-->|==>|---|---\s*\|[^|]+\|\s*|-->\s*\|([^|]+)\|\s*|-\.->|->)\s*([a-zA-Z0-9_-]+)/g;
+    let connMatch: RegExpExecArray | null;
+    while ((connMatch = connectionRegex.exec(line)) !== null) {
+      const from = connMatch[1];
+      const linkText = connMatch[2]?.trim();
+      const to = connMatch[3];
       if (!nodeLabels.has(from)) nodeLabels.set(from, from);
       if (!nodeLabels.has(to)) nodeLabels.set(to, to);
       connections.push({ from, to, text: linkText });
@@ -261,6 +264,26 @@ function MermaidDiagram({ code }: { code: string }) {
     const cleanCode = code.trim();
     if (!cleanCode) return;
 
+    // Inject global suppression CSS for Mermaid error bomb icons
+    if (typeof document !== "undefined" && !document.getElementById("mermaid-suppress-css")) {
+      const style = document.createElement("style");
+      style.id = "mermaid-suppress-css";
+      style.textContent = `
+        [id^="dmermaid"], [id^="dmermaid_"], [id*="mermaid_"][aria-roledescription="error"], svg[aria-roledescription="error"], .error-icon, .mermaid .error-text, body > [id^="d"] {
+          display: none !important;
+          visibility: hidden !important;
+          opacity: 0 !important;
+          pointer-events: none !important;
+          height: 0 !important;
+          width: 0 !important;
+          position: absolute !important;
+          left: -99999px !important;
+          top: -99999px !important;
+        }
+      `;
+      document.head.appendChild(style);
+    }
+
     // Load mermaid script if not present
     const renderWithMermaid = () => {
       const w = window as any;
@@ -278,6 +301,9 @@ function MermaidDiagram({ code }: { code: string }) {
           flowchart: { useMaxWidth: true, htmlLabels: true, curve: "basis" },
           securityLevel: "loose",
         });
+        if (typeof w.mermaid.parseError === "function") {
+          w.mermaid.parseError = () => {};
+        }
 
         const id = `mermaid_${Math.random().toString(36).slice(2, 9)}`;
         const sanitizedCode = sanitizeMermaidCode(cleanCode);
@@ -297,13 +323,15 @@ function MermaidDiagram({ code }: { code: string }) {
           .catch((err: any) => {
             console.warn("Mermaid validation/render error:", err);
             // Clean up any stray error element that Mermaid might have inserted into document.body
-            document
-              .querySelectorAll(
-                '[id^="dmermaid"], svg[aria-roledescription="error"], .error-icon',
-              )
-              .forEach((el) => {
-                if (el.parentElement === document.body) el.remove();
-              });
+            setTimeout(() => {
+              document
+                .querySelectorAll(
+                  '[id^="dmermaid"], [id^="dmermaid_"], svg[aria-roledescription="error"], .error-icon',
+                )
+                .forEach((el) => {
+                  if (el.parentElement === document.body) el.remove();
+                });
+            }, 0);
             if (isMounted) setHasError(true);
           });
       } catch (err) {
@@ -425,10 +453,13 @@ function MermaidDiagram({ code }: { code: string }) {
       ) : (
         /* Native Fallback Node Visualizer */
         <div className="space-y-3 py-2">
-          {parsedFlowNodes.nodeLabels.size > 0 ? (
+          {Array.from(parsedFlowNodes.nodeLabels.entries()).filter(
+            ([id, label]) => label !== id || id.length > 2,
+          ).length > 0 ? (
             <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2.5">
-              {Array.from(parsedFlowNodes.nodeLabels.entries()).map(
-                ([id, label], idx) => (
+              {Array.from(parsedFlowNodes.nodeLabels.entries())
+                .filter(([id, label]) => label !== id || id.length > 2)
+                .map(([id, label], idx) => (
                   <div
                     key={id}
                     className="p-3 rounded-xl border border-indigo-200 dark:border-indigo-800 bg-white dark:bg-slate-900 shadow-2xs text-xs flex flex-col justify-between"
@@ -445,14 +476,13 @@ function MermaidDiagram({ code }: { code: string }) {
                       {label}
                     </div>
                   </div>
-                ),
-              )}
+                ))}
             </div>
-          ) : (
+          ) : parsedFlowNodes.connections.length === 0 ? (
             <pre className="p-3 bg-slate-900 text-slate-100 rounded-lg text-xs font-mono overflow-x-auto whitespace-pre">
               {code}
             </pre>
-          )}
+          ) : null}
 
           {parsedFlowNodes.connections.length > 0 && (
             <div className="flex flex-wrap items-center gap-2 text-[11px] text-slate-600 dark:text-slate-400 bg-slate-100/80 dark:bg-slate-900/80 px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-800">

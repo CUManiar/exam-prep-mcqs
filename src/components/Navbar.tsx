@@ -4,6 +4,7 @@ import { useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
+  Award,
   BarChart3,
   BookOpen,
   GraduationCap,
@@ -32,6 +33,12 @@ const navigation = [
     label: "Question papers",
     mobileLabel: "Papers",
     icon: BookOpen,
+  },
+  {
+    href: "/mains",
+    label: "Mains Evaluation",
+    mobileLabel: "Mains",
+    icon: Award,
   },
   {
     href: "/history",
@@ -78,14 +85,14 @@ const mobilePrimaryNavigation = [
     icon: BookOpen,
   },
   {
+    href: "/mains",
+    label: "Mains",
+    icon: Award,
+  },
+  {
     href: "/revision",
     label: "Revision",
     icon: GraduationCap,
-  },
-  {
-    href: "/misc",
-    label: "Misc",
-    icon: Layers,
   },
 ];
 
@@ -228,6 +235,7 @@ export function Navbar() {
           if (
             !currentUser &&
             href !== "/" &&
+            href !== "/mains" &&
             href !== "/revision" &&
             href !== "/misc"
           ) {

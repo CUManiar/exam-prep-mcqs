@@ -107,7 +107,7 @@ function ClozeAnswerInput({
           Your Answer
         </label>
         <span className="text-[10px] font-mono font-semibold text-indigo-600 bg-indigo-50 border border-indigo-200 px-1.5 py-0.5 rounded">
-          T to focus • Esc to exit
+          T to focus • ⌘S to save & exit
         </span>
       </div>
       <textarea
@@ -118,11 +118,16 @@ function ClozeAnswerInput({
           draftRef.current = event.target.value;
         }}
         onKeyDown={(e) => {
-          if (e.key === "Escape") {
+          if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "s") {
             e.preventDefault();
             e.stopPropagation();
-            onEscapeBlur?.();
+            handleFlush();
             (e.target as HTMLElement).blur();
+          } else if (e.key === "Escape") {
+            if (typeof document !== "undefined" && document.fullscreenElement) {
+              e.preventDefault();
+              document.exitFullscreen().catch(() => {});
+            }
           }
         }}
         onBlur={handleFlush}

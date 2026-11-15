@@ -713,7 +713,7 @@ export function SyllabusView() {
       />
 
       <div className="grid gap-4 md:grid-cols-[minmax(0,1fr)_minmax(16rem,20rem)] md:items-start">
-        <section className="surface-card order-1 overflow-hidden p-4 sm:p-5">
+        <section className="surface-card order-1 overflow-visible p-4 sm:p-5">
           <div className="flex flex-col gap-3 border-b border-slate-100 pb-4 sm:flex-row sm:items-center sm:justify-between">
             <div>
               <div className="flex items-center gap-2">
