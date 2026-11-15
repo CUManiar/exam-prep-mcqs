@@ -9,6 +9,7 @@ export interface MainsDimensionScore {
 export interface MainsMarkedCopyItem {
   quote: string;
   note: string;
+  type?: "correct" | "incorrect" | "flawed" | "verify" | string;
 }
 
 export interface MainsEvaluationResult {
@@ -226,10 +227,23 @@ CRUCIAL EXAMINER CHECKS:
 - Counterview sentence present before verdict line?
 - Writable in ${timeLimit} minutes?
 
+EXHAUSTIVE LINE-BY-LINE MARKED COPY AUDIT (MANDATORY):
+- Perform an exhaustive, granular line-by-line audit across the candidate's entire script (Introduction, Body arguments, Counterview, Citations, Conclusion).
+- Do NOT restrict evaluation to 2-3 notes. Provide 5 to 10+ substantive excerpts from across the answer.
+- For each excerpt, categorize with exact "type":
+  * "correct": Accurately cited or conceptually sound argument that earned marks (explain what worked and why it fits).
+  * "incorrect": Factual mistake, wrongly attributed thinker/article/data, or incorrect statement (specify the exact mistake and the correct factual reference).
+  * "flawed": Informal phrasing, weak conceptual grounding, poor structuring, or missing analytical depth.
+  * "verify": Dubious, unverifiable, or doubtful fact/citation (marked with ⚠️ VERIFY).
+
+DIAGRAM & VISUALS QUALITY GATING (STRICT):
+- Do NOT generate trivial, superficial 1-line ASCII flowcharts like "[Trigger] --> [Mechanism] --> [Impact]". In UPSC Mains, such trivial boxes fetch 0 marks and clutter the answer.
+- Only provide "diagramIdea" if a substantive, exam-practical multi-branch flowchart, 2x2 conceptual matrix, or drawn diagram genuinely adds value and earns +1 to +2 marks under exam-hall time constraints.
+- If no diagram is genuinely useful or high-yield for this specific question, set "diagramIdea": null. Strictly refrain from placeholder schemas.
+
 STYLE REQUIREMENTS:
 - Blunt, concise, strictly ≤6 words per weakness pointer.
 - One witty or sharp examiner line allowed in verdict; never at accuracy's cost.
-- Marked copy: Quote 2 to 4 actual snippets/sentences from the student's submission and provide specific margin notes, corrections, or flags.
 - If the attached sheet is completely blank, illegible, or contains no student attempt, do NOT simulate an answer. Set "marksAwarded": 0, "verdict": "Below Average", and set "directiveAnalysis": "The submitted sheet was blank, unreadable, or did not contain an answer to evaluate."
 
 CANDIDATE SUBMISSION TO EVALUATE:
@@ -255,8 +269,26 @@ Return ONLY a valid, parsable JSON object matching this schema exactly:
     "presentation": { "score": 4.5, "max": 10, "comment": "Word count compliance and ${timeLimit}-min time writability." }
   },
   "markedCopy": [
-    { "quote": "Exact short sentence or phrase from student's answer", "note": "Examiner margin note, correction, or ⚠️ VERIFY flag" },
-    { "quote": "Another excerpt from answer", "note": "Examiner margin remark" }
+    {
+      "quote": "Exact sentence or phrase from student's answer",
+      "note": "Examiner margin note explaining accuracy, factual correction, or flaw",
+      "type": "correct"
+    },
+    {
+      "quote": "Sentence with factual error or wrong thinker",
+      "note": "Exact factual mistake + correction (e.g. Durkheim coined social facts, not Comte)",
+      "type": "incorrect"
+    },
+    {
+      "quote": "Informal phrase or weak structure",
+      "note": "Examiner note on vocabulary or structure improvement",
+      "type": "flawed"
+    },
+    {
+      "quote": "Dubious statistic or uncited claim",
+      "note": "⚠️ VERIFY: Check veracity of this statistic or source",
+      "type": "verify"
+    }
   ],
   "strengths": [
     "What candidate did well that earned marks (e.g. Accurately cited Article 360(1) / Weber's Verstehen)",
@@ -275,7 +307,7 @@ Return ONLY a valid, parsable JSON object matching this schema exactly:
     "Concrete exam-hall action to improve quality",
     "Second practical improvement step"
   ],
-  "diagramIdea": "A drawn ASCII or text flowchart diagram (e.g. [Trigger] --> [Mechanism] --> [Impact]). Drawn line-by-line, not just described.",
+  "diagramIdea": null,
   "modelAnswer": "### Topper Model Answer (${wordLimit} Words | ${timeLimit} Mins)\\n**Word Count:** ${wordLimit} words | Writable in ${timeLimit} min\\n\\n**Introduction (20 words)**\\n...\\n\\n**[Heading Using Question Keywords]**\\n* Point 1: Claim + specific case/citation\\n* Point 2: Claim + empirical data\\n\\n**Counterview & Synthesis**\\n...\\n\\n**Way Forward / Conclusion**\\n...\\n\\n> **Value-Addition Box**\\n> * Key Article/Thinker: ...\\n> * Landmark Case / Committee: ..."
 }
 `;
