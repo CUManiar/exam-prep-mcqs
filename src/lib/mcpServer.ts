@@ -562,8 +562,12 @@ function getFullMarks(
   correctMarksPerQ = 2.0,
   subjectiveMarksPerQ = 0,
 ): number {
+  const effectiveCorrect =
+    paper?.correctMarks !== undefined && Number(paper.correctMarks) > 0
+      ? Number(paper.correctMarks)
+      : correctMarksPerQ;
   return isClozeQuestion(qNo, paper, ans)
-    ? correctMarksPerQ
+    ? effectiveCorrect
     : subjectiveMarksPerQ;
 }
 
@@ -599,11 +603,23 @@ function recalculateAttemptGrades(
   paper?: QuestionPaper | null,
 ): Attempt {
   const isSubjective = attempt.examType === "subjective";
-  const correctMarksPerQ = attempt.correctMarks || 2.0;
-  const incorrectMarksPerQ = attempt.incorrectMarks || 0.667;
+  const correctMarksPerQ =
+    paper?.correctMarks !== undefined && Number(paper.correctMarks) > 0
+      ? Number(paper.correctMarks)
+      : attempt.correctMarks || 2.0;
+  const incorrectMarksPerQ =
+    paper?.incorrectMarks !== undefined && Number(paper.incorrectMarks) >= 0
+      ? Number(paper.incorrectMarks)
+      : attempt.incorrectMarks !== undefined
+        ? attempt.incorrectMarks
+        : 0.667;
+  const effectiveTotalMarks =
+    paper?.totalMarks !== undefined && Number(paper.totalMarks) > 0
+      ? Number(paper.totalMarks)
+      : attempt.totalMarks || attempt.maxScore || 0;
   const subjectiveMarksPerQ =
     attempt.totalQuestions > 0
-      ? (attempt.totalMarks || attempt.maxScore || 0) / attempt.totalQuestions
+      ? effectiveTotalMarks / attempt.totalQuestions
       : 0;
 
   const allAnswers = Object.values(attempt.answers || {});
@@ -645,7 +661,24 @@ function recalculateAttemptGrades(
       }, 0) * 100,
     ) / 100;
 
-  const maxScore = attempt.maxScore || attempt.totalMarks || 0;
+  const calculatedMax =
+    attempt.totalQuestions > 0 && correctMarksPerQ > 0
+      ? Math.round(attempt.totalQuestions * correctMarksPerQ * 100) / 100
+      : null;
+
+  let maxScore = attempt.maxScore || attempt.totalMarks || 0;
+  if (paper?.totalMarks && paper.totalMarks > 0) {
+    if (calculatedMax && paper.totalMarks === 200 && calculatedMax !== 200) {
+      maxScore = calculatedMax;
+    } else {
+      maxScore = paper.totalMarks;
+    }
+  } else if (effectiveTotalMarks > 0) {
+    maxScore = effectiveTotalMarks;
+  } else if (calculatedMax) {
+    maxScore = calculatedMax;
+  }
+
   const answered = attemptedAnswers.length;
 
   const subjectivePoints = attemptedAnswers.reduce((total, answer) => {
@@ -706,6 +739,9 @@ function recalculateAttemptGrades(
 
   return {
     ...attempt,
+    correctMarks: correctMarksPerQ,
+    incorrectMarks: incorrectMarksPerQ,
+    totalMarks: effectiveTotalMarks > 0 ? effectiveTotalMarks : attempt.totalMarks,
     answered,
     correct,
     partial,
@@ -1430,11 +1466,17 @@ export function createPortalMcpServer(
 
       const paper = papers.find((p) => p.id === targetAttempt.paperId);
       const isSubjective = targetAttempt.examType === "subjective";
-      const correctMarksPerQ = targetAttempt.correctMarks || 2.0;
+      const correctMarksPerQ =
+        paper?.correctMarks !== undefined && Number(paper.correctMarks) > 0
+          ? Number(paper.correctMarks)
+          : targetAttempt.correctMarks || 2.0;
+      const effectiveTotalMarks =
+        paper?.totalMarks !== undefined && Number(paper.totalMarks) > 0
+          ? Number(paper.totalMarks)
+          : targetAttempt.totalMarks || targetAttempt.maxScore || 0;
       const subjectiveMarksPerQ =
         targetAttempt.totalQuestions > 0
-          ? (targetAttempt.totalMarks || targetAttempt.maxScore || 0) /
-            targetAttempt.totalQuestions
+          ? effectiveTotalMarks / targetAttempt.totalQuestions
           : 0;
 
       const updatedAnswers = { ...targetAttempt.answers };

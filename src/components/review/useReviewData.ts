@@ -193,7 +193,8 @@ export function useReviewData(attempt: Attempt, papers: QuestionPaper[]) {
     matchedPaper?.incorrectMarks ?? attempt.incorrectMarks ?? 0.667;
   const subjectiveMarksPerQ =
     attempt.totalQuestions > 0
-      ? (attempt.totalMarks || attempt.maxScore || 0) / attempt.totalQuestions
+      ? (matchedPaper?.totalMarks ?? attempt.totalMarks ?? attempt.maxScore ?? 0) /
+        attempt.totalQuestions
       : 0;
 
   // Helper functions (stable per render, depend on markdownQuestions / attempt)

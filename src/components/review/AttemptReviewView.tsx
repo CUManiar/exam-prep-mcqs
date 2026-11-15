@@ -435,7 +435,12 @@ export function AttemptReviewView({
         }, 0) * 100,
       ) / 100;
 
-    const maxScore = attempt.maxScore || attempt.totalMarks || 0;
+    const maxScore =
+      effectiveMaxScore ||
+      matchedPaper?.totalMarks ||
+      attempt.maxScore ||
+      attempt.totalMarks ||
+      0;
     const answered = attemptedAnswers.length;
     const subjectivePoints = attemptedAnswers.reduce(
       (total, answer) =>
@@ -450,6 +455,9 @@ export function AttemptReviewView({
 
     onUpdate({
       ...attempt,
+      correctMarks: correctMarksPerQ,
+      incorrectMarks: incorrectMarksPerQ,
+      totalMarks: matchedPaper?.totalMarks ?? attempt.totalMarks,
       answers: updatedAnswers,
       answered,
       correct: allAnswers.filter((answer) =>
