@@ -1,9 +1,14 @@
 import { RevisionProviderConfig } from "./types";
 
-export interface MainsRubricScore {
+export interface MainsDimensionScore {
   score: number;
   max: number;
   comment: string;
+}
+
+export interface MainsMarkedCopyItem {
+  quote: string;
+  note: string;
 }
 
 export interface MainsEvaluationResult {
@@ -15,25 +20,28 @@ export interface MainsEvaluationResult {
   maxMarks: 10 | 15 | 20;
   targetWordCount: number;
   actualWordCount: number;
+  timeLimitMinutes: number;
   marksAwarded: number;
   percentage: number;
-  verdict: "Top Tier (Safe Zone)" | "Good Attempt" | "Average" | "Below Average";
+  verdict: string;
   directive: string;
   directiveAnalysis: string;
-  rubric: {
-    introduction: MainsRubricScore;
-    bodyContent: MainsRubricScore;
-    structurePresentation: MainsRubricScore;
-    valueAddition: MainsRubricScore;
-    conclusion: MainsRubricScore;
+  dimensions: {
+    demand: MainsDimensionScore;
+    content: MainsDimensionScore;
+    structure: MainsDimensionScore;
+    presentation: MainsDimensionScore;
   };
-  strengths: string[];
+  markedCopy?: MainsMarkedCopyItem[];
   weaknesses: string[];
   missingDimensions: string[];
   actionableRoadmap: string[];
   diagramIdea?: string;
   modelAnswer: string;
   evaluatedAt: string;
+  // Backward compatibility
+  rubric?: Record<string, any>;
+  strengths?: string[];
 }
 
 export interface MainsEvaluationSession {
@@ -92,42 +100,45 @@ export function buildMainsEvaluationPrompt(params: {
 }): string {
   const { question, answerText, paperType, optionalSubject, maxMarks } = params;
   const wordLimit = maxMarks === 10 ? 150 : maxMarks === 15 ? 250 : 300;
+  const timeLimit = maxMarks === 10 ? 7 : maxMarks === 15 ? 11 : 20;
   const trimmedQ = (question || "").trim();
+  const isSociology =
+    paperType === "Optional" &&
+    (optionalSubject || "").toLowerCase().includes("socio");
+  const isEthics = paperType === "GS-4";
 
-  return `You are a strict, senior UPSC Civil Services Examination (CSE) Mains Evaluator and Subject Expert.
+  return `Act as a strict, senior UPSC Civil Services Examination (CSE) Mains Examiner. Evaluate the candidate's answer with uncompromising realism.
 
-EXAMINATION STANDARD:
+EXAM SCALE & PARAMETERS:
 - Paper: ${paperType}${optionalSubject ? ` (${optionalSubject})` : ""}
 - Question Weightage: ${maxMarks} Marks
-- Target Word Limit: ${wordLimit} Words
+- Word Limit: ${wordLimit} Words (Must be realistically writable in ${timeLimit} minutes)
+- Realistic Scaling: 3.0–4.0/10 is typical average; 5.0+/10 is topper-level. Never inflate marks. Never invent facts; flag uncertain ones with ⚠️ VERIFY.
 
-YOUR EVALUATION METHODOLOGY:
-1. Question & Directive Extraction:
+EVALUATE AND SCORE FOUR CORE DIMENSIONS (Score each strictly /10, numbers only):
+1. Demand (/10): Operational directive compliance (e.g. Critically Examine, Discuss, Give Reasons), every sub-part answered, limits observed.
+2. Content (/10): Accuracy, depth, authentic citations (Articles, Judgments, Committees, Reports, Data, Examples).
 ${
-  trimmedQ
-    ? `   - Candidate specified question: "${trimmedQ}"`
-    : `   - IMPORTANT: The candidate did not provide a separate question prompt because it is written or printed directly at the top of the uploaded answer booklet / document / text.
-   - You MUST read the top of the submission, transcribe the exact Question into the "question" field of your output JSON, and extract the primary directive into the "directive" field.`
+  isSociology
+    ? "   * Sociology Specifics: Exact sociological terms, thinkers (e.g. Weber, Durkheim, Marx, Parsons, Srinivas, Ghurye), Indian empirical examples, and analytical verdict (no years unless idea-bearing)."
+    : isEthics
+      ? "   * GS-4 Ethics Specifics: Stakeholders, ethical dilemmas, options evaluated, chosen action justified, moral & constitutional values explicitly named."
+      : "   * General Studies Specifics: Multi-dimensional sub-headings (Constitutional, Socio-Economic, Administrative, Global) grounded in empirical policy data."
 }
-   - Identify the operational directive (e.g., Critically Examine, Discuss, Elucidate, Evaluate, Analyse).
-   - Test whether the candidate truly addressed the directive or merely wrote a generic descriptive essay.
-2. Strict UPSC Marking Standards:
-   - Average answers score 3.0 to 4.5 out of 10, or 5.0 to 6.5 out of 15.
-   - Above-average/Topper answers score 5.0 to 6.5 out of 10, or 7.5 to 9.0 out of 15.
-   - Never award unrealistic 8+/10 or 12+/15 marks. Be honest, rigorous, and constructive.
-3. 5-Component Rubric Breakdown:
-   - Introduction: Context, crisp definition, or contemporary relevance (15–20 words).
-   - Body Content & Arguments: Multi-dimensional subheadings (Socio-Economic, Constitutional, Administrative, Environmental, International, Ethical).
-   - Structure & Presentation: Bullet formatting, clear headers, micro-flowchart or diagram idea.
-   - Value Addition: Concrete citations (Articles, Landmark Judgements with year, 2nd ARC, NITI Aayog, Committees, Economic Survey, Budget, or Thinkers if Optional).
-   - Conclusion: Balanced, forward-looking way forward (SDGs, Constitutional Morality, Amrit Kaal targets).
-4. Model Answer (Mandatory):
-   - Provide a complete, topper-standard Model Answer strictly matching the ${wordLimit}-word limit.
-   - Format cleanly with Markdown headings, sub-points, and a Topper Value-Addition / Enrichment Box.
-5. Handwritten & Document Evaluation:
-   - Carefully transcribe and evaluate the handwritten arguments or text in the submission.
-   - If an answer is present, evaluate actual substance, identify strengths and blindspots, and assign standard UPSC marks (typically 3.0 to 6.0 / 10).
-   - If the attached sheet is completely blank, illegible, or contains no student attempt, do NOT simulate or invent an answer. Set "marksAwarded": 0, "verdict": "Below Average", and set "directiveAnalysis": "The submitted sheet was blank, unreadable, or did not contain an answer to evaluate."
+3. Structure (/10): Introduction (15-20 words), question keywords used as subheadings, numbered arguments, counterview sentence, and a synthesis verdict line.
+4. Presentation (/10): Within word limit, exam-writable in ${timeLimit} minutes under exam-hall time pressure, table/flowchart where it earns marks.
+
+CRUCIAL EXAMINER CHECKS:
+- Did the candidate use the question's operational key words as headings?
+- Is each point complete: claim + case/example?
+- Counterview sentence present before verdict line?
+- Writable in ${timeLimit} minutes?
+
+STYLE REQUIREMENTS:
+- Blunt, concise, strictly ≤6 words per weakness pointer.
+- One witty or sharp examiner line allowed in verdict; never at accuracy's cost.
+- Marked copy: Quote 2 to 4 actual snippets/sentences from the student's submission and provide specific margin notes, corrections, or flags.
+- If the attached sheet is completely blank, illegible, or contains no student attempt, do NOT simulate an answer. Set "marksAwarded": 0, "verdict": "Below Average", and set "directiveAnalysis": "The submitted sheet was blank, unreadable, or did not contain an answer to evaluate."
 
 CANDIDATE SUBMISSION TO EVALUATE:
 [QUESTION]:
@@ -137,38 +148,39 @@ ${trimmedQ || "(Question is written at the top of the attached answer sheet or d
 ${answerText || "(Handwritten / Typed answer provided in attached image or document)"}
 
 OUTPUT FORMAT:
-You MUST return your response as a valid, parsable JSON object matching this schema exactly:
+Return ONLY a valid, parsable JSON object matching this schema exactly:
 {
-  "question": "${trimmedQ ? trimmedQ.replace(/"/g, '\\"') : "Exact UPSC question transcribed from the top of the submission"}",
-  "marksAwarded": 4.5,
+  "question": "${trimmedQ ? trimmedQ.replace(/"/g, '\\"') : "Exact UPSC question transcribed from submission"}",
+  "marksAwarded": 4.0,
   "maxMarks": ${maxMarks},
-  "verdict": "Good Attempt" | "Average" | "Below Average" | "Top Tier (Safe Zone)",
-  "directive": "Directive found in question (e.g. Critically Examine)",
-  "directiveAnalysis": "1-2 sentences on how well candidate satisfied this directive",
-  "modelAnswer": "Full topper-grade model answer with Markdown headings, bullet points, citations, forward-looking conclusion, and Value Addition box.",
-  "rubric": {
-    "introduction": { "score": 1.0, "max": 2.0, "comment": "Feedback on intro" },
-    "bodyContent": { "score": 2.5, "max": 4.5, "comment": "Feedback on arguments and dimensions" },
-    "structurePresentation": { "score": 0.5, "max": 1.5, "comment": "Feedback on structure, headings, points" },
-    "valueAddition": { "score": 0.5, "max": 1.5, "comment": "Feedback on Articles, cases, reports, data" },
-    "conclusion": { "score": 0.5, "max": 1.5, "comment": "Feedback on way forward" }
+  "verdict": "One-line blunt examiner verdict on this attempt.",
+  "directive": "Directive found in question (e.g. Discuss, Give Reasons, Critically Analyse)",
+  "directiveAnalysis": "1-2 sentences on how candidate addressed or missed the directive.",
+  "dimensions": {
+    "demand": { "score": 4.5, "max": 10, "comment": "Directive and question sub-parts addressed." },
+    "content": { "score": 4.0, "max": 10, "comment": "Depth, accuracy, citations, and empirical evidence." },
+    "structure": { "score": 5.0, "max": 10, "comment": "Intro, keyword headings, numbering, counterview." },
+    "presentation": { "score": 4.5, "max": 10, "comment": "Word count compliance and ${timeLimit}-min time writability." }
   },
-  "strengths": [
-    "Specific strength 1 with evidence from candidate's answer",
-    "Specific strength 2"
+  "markedCopy": [
+    { "quote": "Exact short sentence or phrase from student's answer", "note": "Examiner margin note, correction, or ⚠️ VERIFY flag" },
+    { "quote": "Another excerpt from answer", "note": "Examiner margin remark" }
   ],
   "weaknesses": [
-    "Specific weakness 1",
-    "Specific weakness 2"
+    "Specific answer flaw (≤6 words)",
+    "Another specific flaw (≤6 words)",
+    "Third answer flaw (≤6 words)"
   ],
   "missingDimensions": [
-    "Missing perspective 1 (e.g. Administrative bottleneck / federal friction)",
-    "Missing perspective 2 (e.g. Relevant Article or SC Judgement)"
+    "Specific missing Article, Judgment, Committee, or Thinker",
+    "Specific missing perspective or empirical data"
   ],
   "actionableRoadmap": [
-    "Immediate fix 1 to gain +1.0 mark",
-    "Immediate fix 2"
+    "Immediate exam-hall fix to gain +1.0 mark",
+    "Second practical fix"
   ],
-  "diagramIdea": "Concise description of 1 micro-diagram or flowchart that would save words and catch the examiner's eye"
-}`;
+  "diagramIdea": "A drawn ASCII or text flowchart diagram (e.g. [Trigger] --> [Mechanism] --> [Impact]). Drawn line-by-line, not just described.",
+  "modelAnswer": "### Topper Model Answer (${wordLimit} Words | ${timeLimit} Mins)\\n**Word Count:** ${wordLimit} words | Writable in ${timeLimit} min\\n\\n**Introduction (20 words)**\\n...\\n\\n**[Heading Using Question Keywords]**\\n* Point 1: Claim + specific case/citation\\n* Point 2: Claim + empirical data\\n\\n**Counterview & Synthesis**\\n...\\n\\n**Way Forward / Conclusion**\\n...\\n\\n> **Value-Addition Box**\\n> * Key Article/Thinker: ...\\n> * Landmark Case / Committee: ..."
+}
+`;
 }

@@ -666,8 +666,8 @@ export async function POST(req: NextRequest) {
           missingDims.includes(kw)
       );
 
-      const bodyScore = Number(data.rubric?.bodyContent?.score ?? 0);
-      return matchesKeyword && bodyScore <= 0.5;
+      const bodyScore = Number(data.dimensions?.content?.score ?? data.rubric?.bodyContent?.score ?? 0);
+      return matchesKeyword && bodyScore <= 1.0;
     };
 
     if (hasImages && !trimmedAnswer && isAnswerMissingOrUnreadable(parsed)) {
@@ -694,8 +694,66 @@ export async function POST(req: NextRequest) {
     // Honest scoring: do not inflate 0 marks or invent random numbers
     const finalMarks = safeMarks;
     const targetWordCount = maxMarks === 10 ? 150 : maxMarks === 15 ? 250 : 300;
+    const timeLimitMinutes = maxMarks === 10 ? 7 : maxMarks === 15 ? 11 : 20;
     const actualWordCount = trimmedAnswer ? trimmedAnswer.split(/\s+/).length : 0;
     const percentage = Math.round((finalMarks / maxMarks) * 100);
+
+    // Compute 4 Core Dimensions (/10 each)
+    const baseDimScore = Math.min(10, Math.max(0, Math.round((finalMarks / maxMarks) * 10 * 10) / 10));
+
+    const parseDim = (dim: any, fallbackComment: string) => {
+      const score =
+        typeof dim?.score === "number"
+          ? Math.min(10, Math.max(0, dim.score))
+          : typeof dim === "number"
+            ? Math.min(10, Math.max(0, dim))
+            : baseDimScore;
+      return {
+        score,
+        max: 10,
+        comment: typeof dim?.comment === "string" && dim.comment.trim() ? dim.comment.trim() : fallbackComment,
+      };
+    };
+
+    const dimensions = {
+      demand: parseDim(
+        parsed.dimensions?.demand,
+        parsed.directiveAnalysis || "Demand and sub-parts compliance."
+      ),
+      content: parseDim(
+        parsed.dimensions?.content,
+        parsed.rubric?.bodyContent?.comment || "Content depth, empirical evidence, and authentic citations."
+      ),
+      structure: parseDim(
+        parsed.dimensions?.structure,
+        parsed.rubric?.structurePresentation?.comment || "Intro, keyword headings, numbered points, and synthesis."
+      ),
+      presentation: parseDim(
+        parsed.dimensions?.presentation,
+        `Word limit compliance and ${timeLimitMinutes}-minute time writability.`
+      ),
+    };
+
+    const markedCopy = Array.isArray(parsed.markedCopy)
+      ? parsed.markedCopy
+          .filter((item: any) => item && (item.quote || item.note))
+          .map((item: any) => ({
+            quote: String(item.quote || "").trim(),
+            note: String(item.note || "").trim(),
+          }))
+      : [];
+
+    const weaknesses = Array.isArray(parsed.weaknesses)
+      ? parsed.weaknesses.map((w: any) => String(w).trim()).filter(Boolean)
+      : [];
+
+    const missingDimensions = Array.isArray(parsed.missingDimensions)
+      ? parsed.missingDimensions.map((m: any) => String(m).trim()).filter(Boolean)
+      : [];
+
+    const actionableRoadmap = Array.isArray(parsed.actionableRoadmap)
+      ? parsed.actionableRoadmap.map((a: any) => String(a).trim()).filter(Boolean)
+      : [];
 
     const bodyScore =
       typeof parsed.rubric?.bodyContent?.score === "number"
@@ -711,11 +769,14 @@ export async function POST(req: NextRequest) {
       maxMarks,
       targetWordCount,
       actualWordCount,
+      timeLimitMinutes,
       marksAwarded: finalMarks,
       percentage,
-      verdict: parsed.verdict || (percentage >= 55 ? "Top Tier (Safe Zone)" : percentage >= 45 ? "Good Attempt" : "Average"),
+      verdict: parsed.verdict || (percentage >= 50 ? "Topper Tier" : percentage >= 35 ? "Average Attempt" : "Below Average"),
       directive: parsed.directive || "General",
       directiveAnalysis: parsed.directiveAnalysis || "",
+      dimensions,
+      markedCopy,
       rubric: {
         introduction: parsed.rubric?.introduction || { score: 0, max: maxMarks === 10 ? 2 : 3, comment: "" },
         bodyContent: {
@@ -728,9 +789,9 @@ export async function POST(req: NextRequest) {
         conclusion: parsed.rubric?.conclusion || { score: 0, max: maxMarks === 10 ? 1.5 : 2.5, comment: "" },
       },
       strengths: Array.isArray(parsed.strengths) ? parsed.strengths : [],
-      weaknesses: Array.isArray(parsed.weaknesses) ? parsed.weaknesses : [],
-      missingDimensions: Array.isArray(parsed.missingDimensions) ? parsed.missingDimensions : [],
-      actionableRoadmap: Array.isArray(parsed.actionableRoadmap) ? parsed.actionableRoadmap : [],
+      weaknesses,
+      missingDimensions,
+      actionableRoadmap,
       diagramIdea: parsed.diagramIdea || undefined,
       modelAnswer: formatCleanModelAnswer(parsed.modelAnswer || "", {
         question: resolvedQuestion,

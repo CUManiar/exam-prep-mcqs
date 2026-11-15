@@ -41,7 +41,6 @@ import {
   switchActiveProvider,
   RevisionProviderConfig,
 } from "@/lib/revisionAi";
-import { MainsScorecardCanvas } from "./MainsScorecardCanvas";
 import { RevisionMarkdownRenderer } from "../revision/RevisionMarkdownRenderer";
 import { RevisionSettingsModal } from "../revision/RevisionSettingsModal";
 
@@ -82,7 +81,7 @@ export function MainsEvaluationView() {
   // Processing & evaluation state
   const [isLoading, setIsLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState<"feedback" | "scorecard" | "model" | "chat">("feedback");
+  const [activeTab, setActiveTab] = useState<"feedback" | "model" | "chat">("feedback");
   const [evaluation, setEvaluation] = useState<MainsEvaluationResult | null>(null);
   const [activeProvider, setActiveProvider] = useState<string>("");
   const [vault, setVault] = useState<Record<string, string>>({});
@@ -1234,19 +1233,6 @@ To advance constitutional morality and responsive governance, administrative exe
 
                 <button
                   type="button"
-                  onClick={() => setActiveTab("scorecard")}
-                  className={`flex-1 min-w-[120px] py-2 px-3 rounded-lg font-bold text-xs transition-colors cursor-pointer flex items-center justify-center gap-1.5 ${
-                    activeTab === "scorecard"
-                      ? "bg-slate-900 text-white shadow-xs"
-                      : "text-slate-600 dark:text-slate-400 hover:text-slate-900"
-                  }`}
-                >
-                  <ImageIcon className="h-3.5 w-3.5" />
-                  <span>Scorecard Image</span>
-                </button>
-
-                <button
-                  type="button"
                   onClick={() => setActiveTab("model")}
                   className={`flex-1 min-w-[120px] py-2 px-3 rounded-lg font-bold text-xs transition-colors cursor-pointer flex items-center justify-center gap-1.5 ${
                     activeTab === "model"
@@ -1275,134 +1261,290 @@ To advance constitutional morality and responsive governance, administrative exe
               {/* Tab 1: Detailed Rubric & Breakdown */}
               {activeTab === "feedback" && (
                 <div className="space-y-4">
-                  {/* 5-Component Rubric Cards */}
+                  {/* 4 Core Dimensions Scored Strictly /10 */}
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                    {/* Intro */}
-                    <div className="p-4 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-2xs space-y-1">
+                    {/* Demand */}
+                    <div className="p-4 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-2xs space-y-2">
                       <div className="flex items-center justify-between">
                         <span className="font-bold text-xs text-slate-800 dark:text-slate-200">
-                          1. Introduction & Context
+                          1. Demand & Directive Compliance
                         </span>
-                        <span className="font-mono font-bold text-xs text-indigo-600">
-                          {evaluation.rubric.introduction.score} / {evaluation.rubric.introduction.max}
+                        <span className="font-mono font-bold text-xs px-2 py-0.5 rounded-md bg-indigo-50 dark:bg-indigo-950 text-indigo-600 dark:text-indigo-400 border border-indigo-200 dark:border-indigo-800">
+                          {evaluation.dimensions?.demand?.score ?? Math.round((evaluation.marksAwarded / evaluation.maxMarks) * 10 * 10) / 10} / 10
                         </span>
                       </div>
+                      <div className="w-full bg-slate-100 dark:bg-slate-800 h-1.5 rounded-full overflow-hidden">
+                        <div
+                          className={`h-full rounded-full transition-all duration-300 ${
+                            (evaluation.dimensions?.demand?.score ?? 5) >= 6
+                              ? "bg-emerald-500"
+                              : (evaluation.dimensions?.demand?.score ?? 5) >= 4
+                                ? "bg-indigo-500"
+                                : "bg-amber-500"
+                          }`}
+                          style={{
+                            width: `${Math.min(
+                              100,
+                              Math.max(
+                                0,
+                                ((evaluation.dimensions?.demand?.score ??
+                                  (evaluation.marksAwarded / evaluation.maxMarks) * 10) /
+                                  10) *
+                                  100
+                              )
+                            )}%`,
+                          }}
+                        />
+                      </div>
                       <p className="text-xs text-slate-600 dark:text-slate-400 leading-relaxed">
-                        {evaluation.rubric.introduction.comment}
+                        {evaluation.dimensions?.demand?.comment ||
+                          evaluation.directiveAnalysis ||
+                          "Demand and directive compliance addressed."}
                       </p>
                     </div>
 
-                    {/* Body */}
-                    <div className="p-4 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-2xs space-y-1">
+                    {/* Content */}
+                    <div className="p-4 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-2xs space-y-2">
                       <div className="flex items-center justify-between">
                         <span className="font-bold text-xs text-slate-800 dark:text-slate-200">
-                          2. Body Content & Multi-Dimensions
+                          2. Content & Citation Depth
                         </span>
-                        <span className="font-mono font-bold text-xs text-indigo-600">
-                          {evaluation.rubric.bodyContent.score} / {evaluation.rubric.bodyContent.max}
+                        <span className="font-mono font-bold text-xs px-2 py-0.5 rounded-md bg-indigo-50 dark:bg-indigo-950 text-indigo-600 dark:text-indigo-400 border border-indigo-200 dark:border-indigo-800">
+                          {evaluation.dimensions?.content?.score ??
+                            (evaluation.rubric?.bodyContent?.score
+                              ? Math.round(
+                                  (evaluation.rubric.bodyContent.score /
+                                    evaluation.rubric.bodyContent.max) *
+                                    10 *
+                                    10
+                                ) / 10
+                              : Math.round((evaluation.marksAwarded / evaluation.maxMarks) * 10 * 10) / 10)}{" "}
+                          / 10
                         </span>
                       </div>
+                      <div className="w-full bg-slate-100 dark:bg-slate-800 h-1.5 rounded-full overflow-hidden">
+                        <div
+                          className={`h-full rounded-full transition-all duration-300 ${
+                            (evaluation.dimensions?.content?.score ?? 5) >= 6
+                              ? "bg-emerald-500"
+                              : (evaluation.dimensions?.content?.score ?? 5) >= 4
+                                ? "bg-indigo-500"
+                                : "bg-amber-500"
+                          }`}
+                          style={{
+                            width: `${Math.min(
+                              100,
+                              Math.max(
+                                0,
+                                ((evaluation.dimensions?.content?.score ??
+                                  (evaluation.marksAwarded / evaluation.maxMarks) * 10) /
+                                  10) *
+                                  100
+                              )
+                            )}%`,
+                          }}
+                        />
+                      </div>
                       <p className="text-xs text-slate-600 dark:text-slate-400 leading-relaxed">
-                        {evaluation.rubric.bodyContent.comment}
+                        {evaluation.dimensions?.content?.comment ||
+                          evaluation.rubric?.bodyContent?.comment ||
+                          "Coverage of core analytical dimensions, judgments, and empirical data."}
                       </p>
                     </div>
 
                     {/* Structure */}
-                    <div className="p-4 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-2xs space-y-1">
+                    <div className="p-4 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-2xs space-y-2">
                       <div className="flex items-center justify-between">
                         <span className="font-bold text-xs text-slate-800 dark:text-slate-200">
-                          3. Structure & Presentation
+                          3. Structure & Keyword Headings
                         </span>
-                        <span className="font-mono font-bold text-xs text-indigo-600">
-                          {evaluation.rubric.structurePresentation.score} / {evaluation.rubric.structurePresentation.max}
+                        <span className="font-mono font-bold text-xs px-2 py-0.5 rounded-md bg-indigo-50 dark:bg-indigo-950 text-indigo-600 dark:text-indigo-400 border border-indigo-200 dark:border-indigo-800">
+                          {evaluation.dimensions?.structure?.score ??
+                            (evaluation.rubric?.structurePresentation?.score
+                              ? Math.round(
+                                  (evaluation.rubric.structurePresentation.score /
+                                    evaluation.rubric.structurePresentation.max) *
+                                    10 *
+                                    10
+                                ) / 10
+                              : Math.round((evaluation.marksAwarded / evaluation.maxMarks) * 10 * 10) / 10)}{" "}
+                          / 10
                         </span>
                       </div>
+                      <div className="w-full bg-slate-100 dark:bg-slate-800 h-1.5 rounded-full overflow-hidden">
+                        <div
+                          className={`h-full rounded-full transition-all duration-300 ${
+                            (evaluation.dimensions?.structure?.score ?? 5) >= 6
+                              ? "bg-emerald-500"
+                              : (evaluation.dimensions?.structure?.score ?? 5) >= 4
+                                ? "bg-indigo-500"
+                                : "bg-amber-500"
+                          }`}
+                          style={{
+                            width: `${Math.min(
+                              100,
+                              Math.max(
+                                0,
+                                ((evaluation.dimensions?.structure?.score ??
+                                  (evaluation.marksAwarded / evaluation.maxMarks) * 10) /
+                                  10) *
+                                  100
+                              )
+                            )}%`,
+                          }}
+                        />
+                      </div>
                       <p className="text-xs text-slate-600 dark:text-slate-400 leading-relaxed">
-                        {evaluation.rubric.structurePresentation.comment}
+                        {evaluation.dimensions?.structure?.comment ||
+                          evaluation.rubric?.structurePresentation?.comment ||
+                          "Intro, keyword headings, numbered arguments, counterview, and verdict."}
                       </p>
                     </div>
 
-                    {/* Value Addition */}
-                    <div className="p-4 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-2xs space-y-1">
+                    {/* Presentation */}
+                    <div className="p-4 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-2xs space-y-2">
                       <div className="flex items-center justify-between">
                         <span className="font-bold text-xs text-slate-800 dark:text-slate-200">
-                          4. Value-Add (Articles / Judgements / Data)
+                          4. Presentation & Time Writability
                         </span>
-                        <span className="font-mono font-bold text-xs text-indigo-600">
-                          {evaluation.rubric.valueAddition.score} / {evaluation.rubric.valueAddition.max}
+                        <span className="font-mono font-bold text-xs px-2 py-0.5 rounded-md bg-indigo-50 dark:bg-indigo-950 text-indigo-600 dark:text-indigo-400 border border-indigo-200 dark:border-indigo-800">
+                          {evaluation.dimensions?.presentation?.score ??
+                            Math.round((evaluation.marksAwarded / evaluation.maxMarks) * 10 * 10) / 10}{" "}
+                          / 10
                         </span>
                       </div>
+                      <div className="w-full bg-slate-100 dark:bg-slate-800 h-1.5 rounded-full overflow-hidden">
+                        <div
+                          className={`h-full rounded-full transition-all duration-300 ${
+                            (evaluation.dimensions?.presentation?.score ?? 5) >= 6
+                              ? "bg-emerald-500"
+                              : (evaluation.dimensions?.presentation?.score ?? 5) >= 4
+                                ? "bg-indigo-500"
+                                : "bg-amber-500"
+                          }`}
+                          style={{
+                            width: `${Math.min(
+                              100,
+                              Math.max(
+                                0,
+                                ((evaluation.dimensions?.presentation?.score ??
+                                  (evaluation.marksAwarded / evaluation.maxMarks) * 10) /
+                                  10) *
+                                  100
+                              )
+                            )}%`,
+                          }}
+                        />
+                      </div>
                       <p className="text-xs text-slate-600 dark:text-slate-400 leading-relaxed">
-                        {evaluation.rubric.valueAddition.comment}
+                        {evaluation.dimensions?.presentation?.comment ||
+                          `Word limit compliance and realistic writability in ${evaluation.timeLimitMinutes || (evaluation.maxMarks === 10 ? 7 : 11)} minutes.`}
                       </p>
                     </div>
                   </div>
 
-                  {/* Strengths & Missing Dimensions Dual Panel */}
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                    <div className="p-4 rounded-xl border border-emerald-200 dark:border-emerald-900 bg-emerald-50/50 dark:bg-emerald-950/40 space-y-2">
-                      <h4 className="text-xs font-bold uppercase tracking-wider text-emerald-800 dark:text-emerald-300 flex items-center gap-1.5">
-                        <CheckCircle2 className="h-4 w-4" />
-                        <span>Key Strengths</span>
-                      </h4>
-                      <ul className="text-xs text-slate-700 dark:text-slate-300 space-y-1.5 list-disc pl-4">
-                        {evaluation.strengths.map((str, idx) => (
-                          <li key={idx} className="leading-relaxed">
-                            {str}
-                          </li>
+                  {/* Examiner Marked Copy & Margin Notes */}
+                  {evaluation.markedCopy && evaluation.markedCopy.length > 0 && (
+                    <div className="p-4 sm:p-5 rounded-2xl border border-indigo-200 dark:border-indigo-900/60 bg-white dark:bg-slate-900 shadow-2xs space-y-3">
+                      <div className="flex items-center justify-between pb-2 border-b border-slate-100 dark:border-slate-800">
+                        <h4 className="text-xs font-bold uppercase tracking-wider text-slate-900 dark:text-slate-100 flex items-center gap-1.5">
+                          <FileCheck className="h-4 w-4 text-indigo-600" />
+                          <span>Examiner Annotated Marked Copy (Margin Notes)</span>
+                        </h4>
+                        <span className="text-[11px] font-mono text-slate-400">
+                          {evaluation.markedCopy.length} Annotations
+                        </span>
+                      </div>
+                      <div className="space-y-2.5">
+                        {evaluation.markedCopy.map((item, idx) => (
+                          <div
+                            key={idx}
+                            className="p-3.5 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700/60 space-y-1.5 text-xs"
+                          >
+                            <div className="text-slate-700 dark:text-slate-300 font-serif italic border-l-2 border-indigo-500 pl-2.5">
+                              &ldquo;{item.quote}&rdquo;
+                            </div>
+                            <div className="text-rose-600 dark:text-rose-400 font-semibold flex items-start gap-1.5 pt-0.5">
+                              <span className="text-[11px] font-mono bg-rose-100 dark:bg-rose-950/80 px-1.5 py-0.5 rounded text-rose-700 dark:text-rose-300 shrink-0">
+                                Margin Note
+                              </span>
+                              <span className="leading-relaxed">{item.note}</span>
+                            </div>
+                          </div>
                         ))}
-                      </ul>
+                      </div>
                     </div>
+                  )}
 
+                  {/* Weaknesses & Missing Dimensions Dual Panel */}
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                    {/* Specific Flaws (≤6 words) */}
                     <div className="p-4 rounded-xl border border-rose-200 dark:border-rose-900 bg-rose-50/50 dark:bg-rose-950/40 space-y-2">
                       <h4 className="text-xs font-bold uppercase tracking-wider text-rose-800 dark:text-rose-300 flex items-center gap-1.5">
                         <AlertTriangle className="h-4 w-4" />
-                        <span>Missing Dimensions & Blindspots</span>
+                        <span>This Answer&apos;s Specific Flaws (Blunt)</span>
                       </h4>
                       <ul className="text-xs text-slate-700 dark:text-slate-300 space-y-1.5 list-disc pl-4">
-                        {evaluation.missingDimensions.map((dim, idx) => (
-                          <li key={idx} className="leading-relaxed">
-                            {dim}
-                          </li>
-                        ))}
+                        {evaluation.weaknesses && evaluation.weaknesses.length > 0 ? (
+                          evaluation.weaknesses.map((w, idx) => (
+                            <li key={idx} className="leading-relaxed font-medium">
+                              {w}
+                            </li>
+                          ))
+                        ) : (
+                          <li className="text-slate-400">None flagged.</li>
+                        )}
+                      </ul>
+                    </div>
+
+                    {/* Missing Dimensions & Citations */}
+                    <div className="p-4 rounded-xl border border-amber-200 dark:border-amber-900 bg-amber-50/50 dark:bg-amber-950/40 space-y-2">
+                      <h4 className="text-xs font-bold uppercase tracking-wider text-amber-800 dark:text-amber-300 flex items-center gap-1.5">
+                        <BookOpen className="h-4 w-4" />
+                        <span>Missing Dimensions & Citations</span>
+                      </h4>
+                      <ul className="text-xs text-slate-700 dark:text-slate-300 space-y-1.5 list-disc pl-4">
+                        {evaluation.missingDimensions && evaluation.missingDimensions.length > 0 ? (
+                          evaluation.missingDimensions.map((dim, idx) => (
+                            <li key={idx} className="leading-relaxed">
+                              {dim}
+                            </li>
+                          ))
+                        ) : (
+                          <li className="text-slate-400">None flagged.</li>
+                        )}
                       </ul>
                     </div>
                   </div>
 
-                  {/* Actionable Roadmap (+2 Marks Leap) */}
-                  <div className="p-4 sm:p-5 rounded-2xl border border-amber-200 dark:border-amber-900 bg-amber-50/60 dark:bg-amber-950/40 space-y-2">
-                    <h4 className="text-xs font-bold uppercase tracking-wider text-amber-900 dark:text-amber-200 flex items-center gap-1.5">
-                      <Award className="h-4 w-4 text-amber-600" />
+                  {/* Actionable Roadmap (+2 Marks Leap) & Drawn Micro-Diagram */}
+                  <div className="p-4 sm:p-5 rounded-2xl border border-indigo-200 dark:border-indigo-900 bg-indigo-50/50 dark:bg-indigo-950/30 space-y-3">
+                    <h4 className="text-xs font-bold uppercase tracking-wider text-indigo-900 dark:text-indigo-200 flex items-center gap-1.5">
+                      <Award className="h-4 w-4 text-indigo-600" />
                       <span>Actionable Roadmap to Gain +2.0 Marks</span>
                     </h4>
                     <div className="space-y-1.5 text-xs text-slate-800 dark:text-slate-200">
                       {evaluation.actionableRoadmap.map((act, idx) => (
                         <div key={idx} className="flex items-start gap-2">
-                          <span className="font-bold font-mono text-amber-700 dark:text-amber-300">
+                          <span className="font-bold font-mono text-indigo-700 dark:text-indigo-300">
                             {idx + 1}.
                           </span>
                           <span className="leading-relaxed">{act}</span>
                         </div>
                       ))}
                     </div>
+
                     {evaluation.diagramIdea && (
-                      <div className="mt-3 p-3 rounded-xl bg-white dark:bg-slate-900 border border-amber-200 dark:border-amber-900/60 text-xs">
-                        <span className="font-bold text-indigo-600 block mb-1">
-                          📊 High-Yield Micro-Diagram Idea:
+                      <div className="mt-3 p-3.5 rounded-xl bg-white dark:bg-slate-900 border border-indigo-200 dark:border-indigo-900/60 space-y-1.5 text-xs">
+                        <span className="font-bold text-indigo-600 dark:text-indigo-400 block">
+                          📊 Drawn Micro-Diagram (Examiner-Approved):
                         </span>
-                        <p className="text-slate-700 dark:text-slate-300">
+                        <pre className="p-3 rounded-lg bg-slate-950 text-emerald-400 font-mono text-xs whitespace-pre-wrap overflow-x-auto border border-slate-800 leading-relaxed">
                           {evaluation.diagramIdea}
-                        </p>
+                        </pre>
                       </div>
                     )}
                   </div>
-                </div>
-              )}
-
-              {/* Tab 2: Visual Scorecard Image */}
-              {activeTab === "scorecard" && (
-                <div className="p-4 sm:p-6 rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-sm">
-                  <MainsScorecardCanvas evaluation={evaluation} />
                 </div>
               )}
 
