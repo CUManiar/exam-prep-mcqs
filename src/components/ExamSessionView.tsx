@@ -19,6 +19,7 @@ import {
   getSubjectiveAssessmentFraction,
   SUBJECTIVE_ASSESSMENT_META,
   isCsatPaper,
+  evaluateClozeMatch,
 } from "../lib/defaults";
 import {
   saveActiveDraft,
@@ -473,12 +474,36 @@ export function ExamSessionView({
     (qNo: number): string | undefined => {
       const k = paper.answerKey;
       let val = k ? k[qNo] || k[String(qNo)] : undefined;
+      if (!val && effectivePaper.parsedQuestions) {
+        val = effectivePaper.parsedQuestions.find((q) => q.questionNo === qNo)?.answer;
+      }
       if (!val && answersRef.current[qNo]?.correctAnswer) {
         val = answersRef.current[qNo].correctAnswer;
       }
-      return val ? String(val).toUpperCase().trim() : undefined;
+      if (!val && paper.answerKeyText) {
+        const parsed = parseAnswerKeyDetailed(paper.answerKeyText);
+        val = parsed.answers[qNo];
+      }
+      if (!val && (paper.explanations?.[qNo] || sessionExplanations[qNo])) {
+        const exp = (paper.explanations?.[qNo] || sessionExplanations[qNo])!.trim();
+        const ansMatch = exp.match(
+          /^(?:Answer|Ans|Key|Reference|Correct\s*Answer)\s*[:\-]\s*([^\n\.]+)/i,
+        );
+        if (ansMatch) {
+          val = ansMatch[1].trim();
+        } else if (!exp.includes("\n") && exp.length <= 120) {
+          val = exp;
+        }
+      }
+      return val ? String(val).trim() : undefined;
     },
-    [paper.answerKey],
+    [
+      paper.answerKey,
+      paper.answerKeyText,
+      paper.explanations,
+      sessionExplanations,
+      effectivePaper.parsedQuestions,
+    ],
   );
 
   // Initialize questions unless resuming from draft
@@ -777,26 +802,32 @@ export function ExamSessionView({
         }
 
         const rawCorrect = getCorrectAnswerForQ(qNo);
-        const correct = rawCorrect
-          ? rawCorrect.toUpperCase().trim()
-          : undefined;
-        const isCorrect =
-          newSelected && correct
-            ? newSelected.toUpperCase().trim() === correct
-            : null;
+        const explanation =
+          sessionExplanations[qNo] || paper.explanations?.[qNo];
+        const evalRes = evaluateClozeMatch(newSelected, rawCorrect, explanation);
+        const isCorrect = newSelected ? evalRes.isCorrect : null;
+        const subjectiveAssessment: SubjectiveAssessment | undefined =
+          isCorrect === true
+            ? "strong"
+            : evalRes.partial
+              ? "partial"
+              : isCorrect === false
+                ? "needs-work"
+                : undefined;
 
         return {
           ...prev,
           [qNo]: {
             ...current,
             selected: newSelected,
-            correctAnswer: correct,
+            correctAnswer: rawCorrect,
             isCorrect,
+            subjectiveAssessment,
           },
         };
       });
     },
-    [isClozeQuestion, getCorrectAnswerForQ],
+    [isClozeQuestion, getCorrectAnswerForQ, sessionExplanations, paper.explanations],
   );
 
   const handleSetConfidence = (qNo: number, confidence: ConfidenceLevel) => {
@@ -1317,7 +1348,48 @@ export function ExamSessionView({
         const spentSecs = mode === "mock" ? qTimeSpent[i] || 0 : 0;
 
         let isCorrect: boolean | null = null;
-        if (isSubjective) {
+        let subjectiveAssessment = a.subjectiveAssessment;
+        let subjectiveMarks = a.subjectiveMarks;
+        const isCloze = isClozeQuestion(i);
+        const qMeta = effectivePaper.parsedQuestions?.find(
+          (pq) => pq.questionNo === i,
+        );
+        const explanation =
+          sessionExplanations[i] || paper.explanations?.[i] || qMeta?.explanation;
+
+        if (isCloze) {
+          if (a.selected && a.selected.trim()) {
+            const evalRes = evaluateClozeMatch(a.selected, rawCorrect, explanation);
+            if (evalRes.isCorrect === true && !evalRes.partial) {
+              correctCount++;
+              isCorrect = true;
+              subjectiveAssessment = "strong";
+              if (isSubjective) {
+                subjectiveMarks = subjectiveMarksPerQuestion;
+                subjectiveScore += subjectiveMarksPerQuestion;
+                subjectiveAssessmentPoints += 1;
+              }
+              timeCorrectSum += spentSecs;
+            } else if (evalRes.partial) {
+              partialCount++;
+              isCorrect = false;
+              subjectiveAssessment = "partial";
+              if (isSubjective) {
+                subjectiveMarks = subjectiveMarksPerQuestion * 0.5;
+                subjectiveScore += subjectiveMarksPerQuestion * 0.5;
+                subjectiveAssessmentPoints += 0.5;
+              }
+            } else if (evalRes.isCorrect === false) {
+              incorrectCount++;
+              isCorrect = false;
+              subjectiveAssessment = "needs-work";
+              subjectiveMarks = 0;
+              timeIncorrectSum += spentSecs;
+            } else {
+              isCorrect = null;
+            }
+          }
+        } else if (isSubjective) {
           if (a.selected === "attempted") {
             const fraction = getSubjectiveAssessmentFraction(
               a.subjectiveAssessment,
@@ -1349,7 +1421,7 @@ export function ExamSessionView({
         // Check alteration nuance in Mock mode (exclude cloze free-text questions)
         if (
           mode === "mock" &&
-          !isClozeQuestion(i) &&
+          !isCloze &&
           a.changesCount &&
           a.changesCount > 0
         ) {
@@ -1367,16 +1439,18 @@ export function ExamSessionView({
           }
         }
 
-        const qMeta = effectivePaper.parsedQuestions?.find(
-          (pq) => pq.questionNo === i,
-        );
+        const effectiveCorrectAnswer = isCloze
+          ? rawCorrect || qMeta?.answer || undefined
+          : correctAns;
+
         finalAnswers[i] = {
           ...a,
           confidence: a.selected ? a.confidence : undefined,
-          correctAnswer: correctAns,
-          explanation:
-            sessionExplanations[i] || paper.explanations?.[i] || undefined,
+          correctAnswer: effectiveCorrectAnswer,
+          explanation: explanation || undefined,
           isCorrect,
+          subjectiveAssessment,
+          subjectiveMarks,
           timeSpentSeconds: spentSecs,
           subject: a.subject || qMeta?.subject || undefined,
           topic: a.topic || qMeta?.topic || undefined,
@@ -1402,7 +1476,8 @@ export function ExamSessionView({
 
       const calculatedScore = isSubjective
         ? subjectiveScore
-        : correctCount * effectiveCorrectMarks -
+        : correctCount * effectiveCorrectMarks +
+          partialCount * (effectiveCorrectMarks * 0.5) -
           incorrectCount * effectiveIncorrectMarks;
       const maxScore =
         Number(paper.totalMarks) > 0

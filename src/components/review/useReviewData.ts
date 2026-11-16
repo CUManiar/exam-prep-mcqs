@@ -10,6 +10,7 @@ import {
   formatTimeSeconds,
   getPaperDisplayTitle,
   formatCustomIdentifier,
+  evaluateClozeMatch,
 } from "../../lib/defaults";
 import {
   parseQuestionnaireMarkdown,
@@ -268,12 +269,23 @@ export function useReviewData(attempt: Attempt, papers: QuestionPaper[]) {
           const paperExp = matchedPaper?.explanations?.[qNo] || pq?.explanation;
           const effectiveCorrect = paperCorrect || ans?.correctAnswer;
           const effectiveExp = paperExp || ans?.explanation;
+          const isCloze = isClozeQuestion(qNo);
           const isCorrect =
             ans?.selected !== null && ans?.selected !== undefined
-              ? effectiveCorrect
-                ? ans.selected.trim().toUpperCase() ===
-                  effectiveCorrect.trim().toUpperCase()
-                : ans.isCorrect
+              ? isCloze
+                ? ans.subjectiveAssessment
+                  ? ans.subjectiveAssessment === "strong"
+                    ? true
+                    : ans.subjectiveAssessment === "needs-work"
+                      ? false
+                      : null
+                  : ans.isCorrect !== null && ans.isCorrect !== undefined
+                    ? ans.isCorrect
+                    : evaluateClozeMatch(ans.selected, effectiveCorrect, effectiveExp).isCorrect
+                : effectiveCorrect
+                  ? ans.selected.trim().toUpperCase() ===
+                    effectiveCorrect.trim().toUpperCase()
+                  : ans.isCorrect
               : null;
 
           const effectivePreviousYears =

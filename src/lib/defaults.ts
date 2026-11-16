@@ -34,6 +34,96 @@ export function getSubjectiveAssessmentFraction(
   return assessment ? SUBJECTIVE_ASSESSMENT_META[assessment].fraction : 0;
 }
 
+export function normalizeClozeText(text: string): string {
+  if (!text) return "";
+  return text
+    .toLowerCase()
+    .replace(/[^\w\s]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+export interface ClozeEvaluationResult {
+  isCorrect: boolean | null;
+  scoreFraction: number;
+  partial?: boolean;
+}
+
+export function evaluateClozeMatch(
+  userAnswer?: string | null,
+  refAnswer?: string | null,
+  explanation?: string | null,
+): ClozeEvaluationResult {
+  if (!userAnswer || !userAnswer.trim()) {
+    return { isCorrect: null, scoreFraction: 0 };
+  }
+
+  const uNorm = normalizeClozeText(userAnswer);
+  if (!uNorm) return { isCorrect: null, scoreFraction: 0 };
+
+  const targets: string[] = [];
+  if (refAnswer && refAnswer.trim()) {
+    targets.push(refAnswer.trim());
+    refAnswer
+      .split(/\s*(?:\/|;|\bor\b)\s*/i)
+      .forEach((t) => {
+        const trimmed = t.trim();
+        if (trimmed && !targets.includes(trimmed)) targets.push(trimmed);
+      });
+  }
+
+  // 1. Direct or substring match on reference answer variants
+  for (const t of targets) {
+    const tNorm = normalizeClozeText(t);
+    if (!tNorm) continue;
+    if (uNorm === tNorm) {
+      return { isCorrect: true, scoreFraction: 1.0 };
+    }
+    if (tNorm.length >= 4 || /\d+/.test(tNorm)) {
+      if (uNorm.includes(tNorm) || tNorm.includes(uNorm)) {
+        return { isCorrect: true, scoreFraction: 1.0 };
+      }
+    }
+  }
+
+  // 2. Token overlap analysis against targets
+  const uWords = new Set(uNorm.split(" ").filter((w) => w.length > 2));
+  if (uWords.size > 0 && targets.length > 0) {
+    for (const t of targets) {
+      const tNorm = normalizeClozeText(t);
+      const tWords = new Set(tNorm.split(" ").filter((w) => w.length > 2));
+      if (tWords.size === 0) continue;
+      let matchCount = 0;
+      for (const w of uWords) {
+        if (tWords.has(w)) matchCount++;
+      }
+      const recall = matchCount / tWords.size;
+      const precision = matchCount / uWords.size;
+      if (recall >= 0.75 || (recall >= 0.5 && precision >= 0.5)) {
+        return { isCorrect: true, scoreFraction: 1.0 };
+      }
+      if (recall >= 0.4 || matchCount >= 2) {
+        return { isCorrect: true, scoreFraction: 0.5, partial: true };
+      }
+    }
+  }
+
+  // 3. Fallback to explanation if reference answer was absent or uninformative
+  if (explanation && (!refAnswer || refAnswer.trim().length < 3)) {
+    const expNorm = normalizeClozeText(explanation);
+    if (uNorm.length >= 4 && expNorm.includes(uNorm)) {
+      return { isCorrect: true, scoreFraction: 1.0 };
+    }
+  }
+
+  // If no reference answer or explanation exists at all, cannot evaluate automatically
+  if (!refAnswer && !explanation) {
+    return { isCorrect: null, scoreFraction: 0 };
+  }
+
+  return { isCorrect: false, scoreFraction: 0 };
+}
+
 export function parseAnswerKeyDetailed(text: string): {
   answers: Record<number, string>;
   explanations: Record<number, string>;
@@ -43,21 +133,40 @@ export function parseAnswerKeyDetailed(text: string): {
   if (!text) return { answers, explanations };
 
   // Supports:
-  // 1. a """ multiline or single line explanation """,
-  // 2. c """ some explanation """,
-  // 3. 1. """ reference explanation for a cloze/free-text question """
-  // Supports """ delimiter, 3+ quotes, smart/curly quotes [“"”], and backward-compatible formats
+  // 1. A """ explanation """
+  // 2. 1971 census """ explanation """
+  // 3. """ 1971 census """
+  // 4. """ Answer: 1971 census \n Explanation: ... """
+  // 5. 1. A / 1. 1971 census
   const pattern =
-    /(?:^|\n)\s*(\d+)[\.\)\s\-\:\t]+\s*(?:([A-Da-d])\s*)?(?:[\"“]{3,}([\s\S]*?)[\"”]{3,})?/g;
+    /(?:^|\n)\s*(\d+)[\.\)\s\-\:\t]+(?:\s*([^\n\"“]+?))?(?:\s*[\"“]{3,}([\s\S]*?)[\"”]{3,})?(?=\s*(?:\n\s*\d+[\.\)\s\-\:\t]+|$))/g;
   let match: RegExpExecArray | null;
   while ((match = pattern.exec(text)) !== null) {
     const qNo = parseInt(match[1], 10);
-    const ans = match[2]?.toUpperCase();
-    if (ans) answers[qNo] = ans;
-    if (match[3] !== undefined) {
-      const cleaned = match[3].replace(/^[\"“”\s]+|[\"“”\s,]+$/g, "").trim();
-      if (cleaned.length > 0) {
-        explanations[qNo] = cleaned;
+    const before = match[2]?.trim();
+    const inside =
+      match[3] !== undefined
+        ? match[3].replace(/^[\"“”\s]+|[\"“”\s,]+$/g, "").trim()
+        : undefined;
+
+    if (inside !== undefined && inside.length > 0) {
+      explanations[qNo] = inside;
+    }
+
+    if (before) {
+      const upper = before.toUpperCase();
+      answers[qNo] = ["A", "B", "C", "D"].includes(upper) ? upper : before;
+    } else if (inside) {
+      const ansMatch = inside.match(
+        /^(?:Answer|Ans|Key|Reference|Correct\s*Answer)\s*[:\-]\s*([^\n]+)/i,
+      );
+      if (ansMatch) {
+        const extracted = ansMatch[1].trim();
+        const upper = extracted.toUpperCase();
+        answers[qNo] = ["A", "B", "C", "D"].includes(upper) ? upper : extracted;
+      } else if (!inside.includes("\n") && inside.length <= 120) {
+        const upper = inside.toUpperCase();
+        answers[qNo] = ["A", "B", "C", "D"].includes(upper) ? upper : inside;
       }
     }
   }

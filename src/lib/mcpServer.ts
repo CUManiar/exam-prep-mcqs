@@ -462,17 +462,28 @@ function buildAttemptDetails(attempt: Attempt, paper?: QuestionPaper | null) {
         ans.selected !== "attempted",
       );
 
-    const correctAnswer =
-      ans?.correctAnswer ||
-      pq?.answer ||
-      (paper?.answerKey ? paper.answerKey[qNo] : undefined) ||
-      null;
-
     const explanation =
       ans?.explanation ||
       pq?.explanation ||
       (paper?.explanations ? paper.explanations[qNo] : undefined) ||
       null;
+
+    let correctAnswer =
+      ans?.correctAnswer ||
+      pq?.answer ||
+      (paper?.answerKey ? paper.answerKey[qNo] : undefined) ||
+      null;
+
+    if (!correctAnswer && isCloze && explanation) {
+      const ansMatch = explanation.match(
+        /^(?:Answer|Ans|Key|Reference|Correct\s*Answer)\s*[:\-]\s*([^\n\.]+)/i,
+      );
+      if (ansMatch) {
+        correctAnswer = ansMatch[1].trim();
+      } else if (!explanation.includes("\n") && explanation.length <= 120) {
+        correctAnswer = explanation.trim();
+      }
+    }
 
     return {
       questionNo: qNo,

@@ -98,15 +98,32 @@ export function QuestionInspector({
     question.correctAnswer ||
     ""
   ).trim();
-  const expectedAnswer = rawExpected
-    .replace(/[\(\)\[\]\.\s]/g, "")
-    .toUpperCase();
+  const expectedAnswer = isCloze
+    ? rawExpected
+    : rawExpected
+        .replace(/[\(\)\[\]\.\s]/g, "")
+        .toUpperCase();
   const rawCandidate = (question.selected || "").trim();
-  const candidateAnswer = rawCandidate
-    .replace(/[\(\)\[\]\.\s]/g, "")
-    .toUpperCase();
+  const candidateAnswer = isCloze
+    ? rawCandidate
+    : rawCandidate
+        .replace(/[\(\)\[\]\.\s]/g, "")
+        .toUpperCase();
   const officialExplanation =
     parsedQuestion?.explanation || question.explanation;
+
+  let displayClozeAnswer = rawExpected;
+  if (isCloze && !displayClozeAnswer && officialExplanation) {
+    const exp = officialExplanation.trim();
+    const ansMatch = exp.match(
+      /^(?:Answer|Ans|Key|Reference|Correct\s*Answer)\s*[:\-]\s*([^\n\.]+)/i,
+    );
+    if (ansMatch) {
+      displayClozeAnswer = ansMatch[1].trim();
+    } else if (!exp.includes("\n") && exp.length <= 120) {
+      displayClozeAnswer = exp;
+    }
+  }
 
   const handleSaveNote = () => {
     onSaveQuestionNote(qNo, noteText);
@@ -351,7 +368,7 @@ export function QuestionInspector({
                   Official Answer Key
                 </span>
                 <div className="p-2.5 rounded-lg bg-white font-mono text-sm font-bold text-emerald-950 border border-emerald-100 min-h-[48px] flex items-center">
-                  {expectedAnswer || "Refer to Solution Key"}
+                  {displayClozeAnswer || "Refer to Solution Key"}
                 </div>
               </div>
             </div>
