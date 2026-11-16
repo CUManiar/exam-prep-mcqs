@@ -2744,8 +2744,8 @@ export function ExamSessionView({
                       </div>
                     )}
                   </div>
-                ) : currentQuestionIsCloze ? (
-                  /* Dedicated Cloze Question Response Box */
+                ) : currentQuestionIsCloze && !isMarkdownPaper ? (
+                  /* Dedicated Cloze Question Response Box (for PDF / non-markdown papers where paper pane is not interactive) */
                   <div className="mt-3 sm:mt-4 space-y-3">
                     <div className="rounded-2xl border border-slate-200 bg-slate-50 p-3.5 sm:p-4 space-y-3">
                       <div className="flex items-center justify-between gap-2 flex-wrap">
