@@ -472,10 +472,22 @@ function createImportedPaper(
     markdownContent: markdownText || undefined,
     parsedQuestions: parsedQuestions.length > 0 ? parsedQuestions : undefined,
     instructions,
-    cutoffEnabled: Boolean(input.cutoffEnabled),
-    cutoffType: input.cutoffType === "marks" ? "marks" : "percentage",
+    cutoffEnabled: Boolean(
+      input.cutoffEnabled ||
+        header.cutoffEnabled ||
+        (input.cutoffValue !== undefined && Number(input.cutoffValue) > 0) ||
+        (header.cutoffValue !== undefined && Number(header.cutoffValue) > 0),
+    ),
+    cutoffType:
+      input.cutoffType === "marks" || header.cutoffType === "marks"
+        ? "marks"
+        : "percentage",
     cutoffValue:
-      input.cutoffValue === undefined ? undefined : Number(input.cutoffValue),
+      input.cutoffValue !== undefined
+        ? Number(input.cutoffValue)
+        : header.cutoffValue !== undefined
+          ? Number(header.cutoffValue)
+          : undefined,
     isCustom: true,
   };
 }

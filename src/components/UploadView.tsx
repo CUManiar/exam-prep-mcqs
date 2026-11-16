@@ -641,12 +641,15 @@ export function UploadView({
           isCustom: true,
           userId: currentUser?.id,
           instructions: mdHeader.instructions,
-          cutoffEnabled: customCutoffEnabled,
-          cutoffType: customCutoffType,
+          cutoffEnabled:
+            customCutoffEnabled || Boolean(mdHeader.cutoffEnabled),
+          cutoffType: mdHeader.cutoffType || customCutoffType,
           cutoffValue:
             customCutoffEnabled && customCutoffValue !== ""
               ? parseFloat(customCutoffValue)
-              : undefined,
+              : mdHeader.cutoffValue !== undefined
+                ? mdHeader.cutoffValue
+                : undefined,
         };
 
         try {

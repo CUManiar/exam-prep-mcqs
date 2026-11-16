@@ -43,6 +43,7 @@ export function isFilterActive(filters: ReviewFilterState): boolean {
 export type SortOptionType = "qno_asc" | "qno_desc" | "time_asc" | "time_desc";
 
 export interface CutoffVerdict {
+  hasCutoff?: boolean;
   isCsat: boolean;
   targetScore: number;
   targetLabel: string;

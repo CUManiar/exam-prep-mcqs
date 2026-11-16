@@ -39,18 +39,23 @@ function parseAnswerKeyDetailed(text: string): {
  *   TOTAL QUESTIONS: <number>
  *   TOTAL MARKS: <number>
  *   TIME: <duration>
- *   NEGATIVE MARKING: <description>
+ *   NEGATIVE MARKING: <description or number, e.g. 0 for no negative marking>
+ *   CUTOFF: <qualifying threshold, e.g. 66.67 marks or 33.33%>
  *   INSTRUCTIONS:
  *   - <rule 1>
  *   - <rule 2>
+ *
+ * If no CUTOFF is configured in the header and the paper is not CSAT, no
+ * "Qualified" / "Not Qualified" verdict is stamped on student scorecards.
  *
  * After the first `---`, each question block is separated by `---`.
  * MCQ options are labeled (a), (b), (c), (d); cloze questions may omit them.
  *
  * Answer Key (separate text block, not in questionnaire):
  *   1. b """ explanation text (supports rich HTML formatting) """
- *   2. c """ another explanation """
- *   3. """ reference explanation for a cloze question """
+ *   2. 1971 census """ reference explanation with answer """
+ *   3. """ 1971 census """
+ *   4. """ Answer: Lok Sabha \n Detailed explanation... """
  */
 
 export const SAMPLE_QUESTIONNAIRE_TEXT = `EXAM: UPSC Prelims 2026 High-Yield Mock
