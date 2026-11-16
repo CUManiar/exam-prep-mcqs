@@ -766,7 +766,7 @@ export function createPortalMcpServer(
     { name: "UPSC Prep Hub", version: "1.0.0" },
     {
       instructions:
-        "You are connected to a student's UPSC Prep Hub account. Read the student's data before making assumptions. Use get_attempt_history for attempt questions: it is newest-first and defaults to one latest attempt per distinct paper, so 'last N exams' must not count retries of the same paper as separate exams. Ask for confirmation before calling write tools, especially imports, score changes, or visibility changes.",
+        "You are connected to a student's UPSC Prep Hub account. Read the student's data before making assumptions. Use get_attempt_history for attempt questions: it is newest-first and defaults to one latest attempt per distinct paper. When evaluating or re-grading attempts, use get_attempt_detail to inspect candidate responses and use grade_attempt_questions to update marks, tags, or feedback—this automatically recalculates the attempt's score, percentage, and accuracy using the paper's current marks. For vocabulary and Study Aids, use list_vocab_cards, add_vocab_card, toggle_vocab_mastery, delete_vocab_card, get_vocab_practice_question, evaluate_vocab_sentence, and get_daily_motivation. Ask for confirmation before calling write tools, especially imports, score changes, or visibility changes.",
       maxToolInputElements: 5000,
     },
   );
