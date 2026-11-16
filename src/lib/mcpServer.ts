@@ -57,6 +57,87 @@ import {
 
 const looseObject = z.record(z.string(), z.any());
 
+export const paperImportSchema = z
+  .object({
+    title: z
+      .string()
+      .optional()
+      .describe("Paper title or name (e.g. 'Polity Cloze Practice')"),
+    label: z
+      .string()
+      .optional()
+      .describe("Alternative label for the paper title"),
+    year: z.string().optional().describe("Exam year (e.g. '2026')"),
+    subject: z
+      .string()
+      .optional()
+      .describe("Subject (e.g. 'Polity', 'GS I', 'CSAT')"),
+    category: z
+      .enum(["prelims", "mains"])
+      .optional()
+      .describe("Exam category: 'prelims' or 'mains'"),
+    examType: z
+      .enum(["objective", "subjective"])
+      .optional()
+      .describe("Exam type: 'objective' or 'subjective'"),
+    markdownContent: z
+      .string()
+      .optional()
+      .describe(
+        "Questionnaire in markdown format with numbered questions (e.g. '1. Question prompt...')",
+      ),
+    answerKeyText: z
+      .string()
+      .optional()
+      .describe(
+        "Documented raw answer key text: MCQs '<number>. <letter> \"\"\" explanation \"\"\"', Cloze '<number>. <answer> \"\"\" explanation \"\"\"' or '<number>. \"\"\" reference answer \"\"\"'",
+      ),
+    answerKey: z
+      .union([z.record(z.string(), z.string()), z.string()])
+      .optional()
+      .describe(
+        "Structured answer key object { [qNo]: answer } OR raw answer key text",
+      ),
+    explanations: z
+      .record(z.string(), z.string())
+      .optional()
+      .describe("Optional structured explanations map { [qNo]: explanation }"),
+    totalQuestions: z.number().optional().describe("Total number of questions"),
+    totalMarks: z.number().optional().describe("Total marks for the paper"),
+    correctMarks: z
+      .number()
+      .optional()
+      .describe("Marks awarded per correct answer (e.g. 1 or 2)"),
+    incorrectMarks: z
+      .number()
+      .optional()
+      .describe(
+        "Marks deducted per incorrect answer (e.g. 0 for no negative marking, 0.667 for prelims)",
+      ),
+    timeMinutes: z
+      .number()
+      .optional()
+      .describe("Exam duration in minutes (e.g. 60 or 120)"),
+    instructions: z
+      .array(z.string())
+      .optional()
+      .describe("Array of exam instructions"),
+    cutoffEnabled: z
+      .boolean()
+      .optional()
+      .describe("Whether a cutoff threshold is enabled"),
+    cutoffValue: z.number().optional().describe("Cutoff target value"),
+    cutoffType: z
+      .enum(["percentage", "marks"])
+      .optional()
+      .describe("Cutoff target type: 'percentage' or 'marks'"),
+    questions: z
+      .array(z.record(z.string(), z.any()))
+      .optional()
+      .describe("Optional pre-parsed questions array"),
+  })
+  .passthrough();
+
 function textResult(value: unknown) {
   return {
     content: [{ type: "text" as const, text: JSON.stringify(value) }],
@@ -252,9 +333,53 @@ function createImportedPaper(
     });
   }
 
-  const parsedAnswerKey = input.answerKeyText
-    ? parseAnswerKeyDetailed(String(input.answerKeyText))
+  let rawAnswerKeyText =
+    typeof input.answerKeyText === "string" ? input.answerKeyText : undefined;
+  let rawAnswerKey = input.answerKey;
+
+  // Auto-heal: If answerKey was provided as a string (e.g. "1. A\n2. B..."), treat as answerKeyText
+  if (typeof rawAnswerKey === "string") {
+    if (!rawAnswerKeyText) rawAnswerKeyText = rawAnswerKey;
+    rawAnswerKey = undefined;
+  } else if (rawAnswerKey && typeof rawAnswerKey === "object") {
+    // Detect if answerKey was corrupted by string spreading: {"0": "1", "1": ".", ...}
+    const keys = Object.keys(rawAnswerKey);
+    const isCharSpread =
+      keys.length > 5 && keys.every((k, idx) => k === String(idx));
+    if (isCharSpread) {
+      const reconstituted = Object.values(rawAnswerKey).join("");
+      if (!rawAnswerKeyText) rawAnswerKeyText = reconstituted;
+      rawAnswerKey = undefined;
+    }
+  }
+
+  const parsedAnswerKey = rawAnswerKeyText
+    ? parseAnswerKeyDetailed(rawAnswerKeyText)
     : { answers: {}, explanations: {} };
+
+  const mergedAnswerKey: Record<number, string> = {
+    ...parsedAnswerKey.answers,
+  };
+  if (rawAnswerKey && typeof rawAnswerKey === "object") {
+    for (const [k, v] of Object.entries(rawAnswerKey)) {
+      const qNo = Number(k);
+      if (!isNaN(qNo) && typeof v === "string" && v.trim()) {
+        mergedAnswerKey[qNo] = v.trim();
+      }
+    }
+  }
+
+  const mergedExplanations: Record<number, string> = {
+    ...parsedAnswerKey.explanations,
+  };
+  if (input.explanations && typeof input.explanations === "object") {
+    for (const [k, v] of Object.entries(input.explanations)) {
+      const qNo = Number(k);
+      if (!isNaN(qNo) && typeof v === "string" && v.trim()) {
+        mergedExplanations[qNo] = v.trim();
+      }
+    }
+  }
 
   // Calculate total questions:
   // 1. Explicit input.totalQuestions
@@ -341,12 +466,9 @@ function createImportedPaper(
     incorrectMarks,
     timeMinutes,
     qpUrl: "local://interactive_markdown",
-    answerKey: { ...parsedAnswerKey.answers, ...(input.answerKey || {}) },
-    answerKeyText: input.answerKeyText,
-    explanations: {
-      ...parsedAnswerKey.explanations,
-      ...(input.explanations || {}),
-    },
+    answerKey: mergedAnswerKey,
+    answerKeyText: rawAnswerKeyText || input.answerKeyText || undefined,
+    explanations: mergedExplanations,
     markdownContent: markdownText || undefined,
     parsedQuestions: parsedQuestions.length > 0 ? parsedQuestions : undefined,
     instructions,
@@ -1196,9 +1318,9 @@ export function createPortalMcpServer(
     {
       title: "Preview paper import",
       description:
-        'Validate a paper before saving it to the student\'s library. Markdown questions may be MCQs with options (a)-(d) or cloze/free-text questions with no options. In the answer key, MCQs use \'<number>. <letter> \\"\\"\\" explanation \\"\\"\\"\' and cloze questions use \'<number>. \\"\\"\\" reference explanation \\"\\"\\"\'. Explanations inside \\"\\"\\" support rich HTML formatting (e.g. <b>, <i>, <ul>, <ol>, <li>, <table>, <code>, <blockquote>, <p>).',
+        'Validate a paper before saving it to the student\'s library. Supply `markdownContent` for the question text and `answerKeyText` (or `answerKey`) for the answers. Questions may be MCQs with options (a)-(d) or cloze/free-text questions with no options. In the answer key, MCQs use \'<number>. <letter> """ explanation """\' and cloze questions use \'<number>. <answer> """ explanation """\' or \'<number>. """ reference explanation """\'. Explanations inside """ support rich HTML formatting (e.g. <b>, <i>, <ul>, <ol>, <li>, <table>, <code>, <blockquote>, <p>).',
       annotations: { readOnlyHint: true },
-      inputSchema: { paper: looseObject },
+      inputSchema: { paper: paperImportSchema },
     },
     async ({ paper }) => {
       const authError = scopeError(scope, MCP_WRITE_SCOPE);
@@ -1208,12 +1330,29 @@ export function createPortalMcpServer(
       if (!imported.markdownContent && !imported.parsedQuestions?.length) {
         warnings.push("No markdownContent or questions were supplied.");
       }
+
+      // Detect string answerKey or character-spread answerKey
+      if (typeof paper?.answerKey === "string") {
+        warnings.push(
+          "Notice: `answerKey` was provided as a raw string instead of a structured object or `answerKeyText`. It was automatically parsed into `answerKeyText` and structured question-answer mappings.",
+        );
+      } else if (
+        paper?.answerKey &&
+        typeof paper.answerKey === "object" &&
+        Object.keys(paper.answerKey).length > 5 &&
+        Object.keys(paper.answerKey).every((k, idx) => k === String(idx))
+      ) {
+        warnings.push(
+          'Warning: `answerKey` was received as a character-indexed object (e.g. {"0": "1", ...}). It has been healed and reconstituted into `answerKeyText` and structured mappings.',
+        );
+      }
+
       if (
         !Object.keys(imported.answerKey || {}).length &&
         !Object.keys(imported.explanations || {}).length
       ) {
         warnings.push(
-          "No answer key was supplied; practice grading may be unavailable.",
+          "No answer key or explanations were supplied; practice grading may be unavailable.",
         );
       }
       const existing = await getUserPaper(userId, imported.id);
@@ -1235,9 +1374,9 @@ export function createPortalMcpServer(
     {
       title: "Save imported paper",
       description:
-        "Save a validated paper in the student's personal library. Ask the student for confirmation first.",
+        "Save a validated paper in the student's personal library. Supports markdownContent, answerKeyText, answerKey, and explanations. Ask the student for confirmation first.",
       annotations: { readOnlyHint: false, destructiveHint: false },
-      inputSchema: { paper: looseObject },
+      inputSchema: { paper: paperImportSchema },
     },
     async ({ paper }) => {
       const authError = scopeError(scope, MCP_WRITE_SCOPE);

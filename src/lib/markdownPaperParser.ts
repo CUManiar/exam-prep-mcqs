@@ -675,12 +675,24 @@ export function parseQuestionnaireMarkdown(
       }
 
       const marker = parseQuestionMarker(line);
+      const isSequential =
+        Boolean(marker) &&
+        Boolean(currentMarker) &&
+        marker!.questionNo === currentMarker!.questionNo + 1;
+      const hasInternalList =
+        currentLines.length > 1 &&
+        currentLines.slice(1).some((l) => /^\s*1[\.\)]\s+/.test(l));
+
       const isPlainBoundary =
         Boolean(marker) &&
         !marker?.explicit &&
         questionStarted &&
-        hasOptionLine(currentLines) &&
-        marker!.questionNo > (currentMarker?.questionNo || 0);
+        (hasOptionLine(currentLines) ||
+          (isSequential && !hasInternalList) ||
+          (marker!.questionNo > (currentMarker?.questionNo || 0) &&
+            currentLines[currentLines.length - 1]?.trim() === "" &&
+            !hasInternalList));
+
       const startsQuestion =
         Boolean(marker) &&
         (marker!.explicit || !questionStarted || isPlainBoundary);
