@@ -759,10 +759,71 @@ export async function POST(req: NextRequest) {
     const markedCopy = Array.isArray(parsed.markedCopy)
       ? parsed.markedCopy
           .filter((item: any) => item && (item.quote || item.note))
-          .map((item: any) => ({
-            quote: String(item.quote || "").trim(),
-            note: String(item.note || "").trim(),
-          }))
+          .map((item: any) => {
+            const quote = String(item.quote || "").trim();
+            const note = String(item.note || "").trim();
+            let rawType = String(item.type || "").toLowerCase().trim();
+
+            let inferredType: "correct" | "incorrect" | "flawed" | "verify" = "flawed";
+            if (
+              rawType.includes("correct") ||
+              rawType.includes("accurate") ||
+              rawType.includes("good") ||
+              rawType.includes("strength") ||
+              rawType.includes("earned")
+            ) {
+              inferredType = "correct";
+            } else if (
+              rawType.includes("incorrect") ||
+              rawType.includes("wrong") ||
+              rawType.includes("error") ||
+              rawType.includes("mistake") ||
+              rawType.includes("misattributed")
+            ) {
+              inferredType = "incorrect";
+            } else if (
+              rawType.includes("verify") ||
+              rawType.includes("doubt") ||
+              note.includes("⚠️") ||
+              note.toLowerCase().includes("verify")
+            ) {
+              inferredType = "verify";
+            } else if (
+              rawType.includes("flaw") ||
+              rawType.includes("informal") ||
+              rawType.includes("structure") ||
+              rawType.includes("weak")
+            ) {
+              inferredType = "flawed";
+            } else {
+              const noteLower = note.toLowerCase();
+              if (note.includes("⚠️") || noteLower.includes("verify") || noteLower.includes("unverified")) {
+                inferredType = "verify";
+              } else if (
+                noteLower.includes("wrong") ||
+                noteLower.includes("incorrect") ||
+                noteLower.includes("misattributed") ||
+                noteLower.includes("not comte") ||
+                noteLower.includes("spelling error")
+              ) {
+                inferredType = "incorrect";
+              } else if (
+                noteLower.includes("accurate") ||
+                noteLower.includes("correct") ||
+                noteLower.includes("good") ||
+                noteLower.includes("well framed") ||
+                noteLower.includes("earns marks")
+              ) {
+                inferredType = "correct";
+              }
+            }
+
+            return {
+              quote,
+              note,
+              type: inferredType,
+            };
+          })
       : [];
 
     const strengths = Array.isArray(parsed.strengths)
@@ -780,6 +841,38 @@ export async function POST(req: NextRequest) {
     const actionableRoadmap = Array.isArray(parsed.actionableRoadmap)
       ? parsed.actionableRoadmap.map((a: any) => String(a).trim()).filter(Boolean)
       : [];
+
+    const sanitizeDiagramIdea = (rawDiagram: any): string | undefined => {
+      if (!rawDiagram || typeof rawDiagram !== "string") return undefined;
+      const trimmed = rawDiagram.trim();
+      const lower = trimmed.toLowerCase();
+      if (
+        !trimmed ||
+        lower === "null" ||
+        lower === "none" ||
+        lower === "n/a" ||
+        lower.startsWith("none required") ||
+        lower.startsWith("no diagram")
+      ) {
+        return undefined;
+      }
+      const lines = trimmed.split("\n").filter((l) => l.trim().length > 0);
+      if (lines.length <= 1 && trimmed.length < 50 && (trimmed.includes("-->") || trimmed.includes("->"))) {
+        return undefined;
+      }
+      if (
+        !trimmed.includes("[") &&
+        !trimmed.includes("|") &&
+        !trimmed.includes("+") &&
+        !trimmed.includes("->") &&
+        !trimmed.includes("-->")
+      ) {
+        return undefined;
+      }
+      return trimmed;
+    };
+
+    const cleanDiagramIdea = sanitizeDiagramIdea(parsed.diagramIdea);
 
     const bodyScore =
       typeof parsed.rubric?.bodyContent?.score === "number"
@@ -818,7 +911,7 @@ export async function POST(req: NextRequest) {
       weaknesses,
       missingDimensions,
       actionableRoadmap,
-      diagramIdea: parsed.diagramIdea || undefined,
+      diagramIdea: cleanDiagramIdea,
       modelAnswer: formatCleanModelAnswer(parsed.modelAnswer || "", {
         question: resolvedQuestion,
         paperType,

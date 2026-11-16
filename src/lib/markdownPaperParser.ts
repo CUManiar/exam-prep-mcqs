@@ -13,6 +13,9 @@ export interface ParsedMarkdownHeader {
   negativeMarking?: string;
   instructions?: string[];
   rawLines?: string[];
+  cutoffEnabled?: boolean;
+  cutoffType?: "percentage" | "marks";
+  cutoffValue?: number;
 }
 
 const OPTION_REGEX =
@@ -248,11 +251,29 @@ function parseHeaderKeyValue(
     case "MARKS_PER_QUESTION":
       result.positiveMarks = parseFloat(value) || undefined;
       break;
+    case "CUTOFF":
+    case "CUT_OFF":
+    case "QUALIFYING_MARKS":
+    case "QUALIFYING_SCORE":
+    case "QUALIFYING":
+    case "PASSING_MARKS": {
+      const isPercent = value.includes("%");
+      const numMatch = value.match(/[\d.]+/);
+      if (numMatch) {
+        const val = parseFloat(numMatch[0]);
+        if (!isNaN(val) && val > 0) {
+          result.cutoffEnabled = true;
+          result.cutoffType = isPercent ? "percentage" : "marks";
+          result.cutoffValue = val;
+        }
+      }
+      break;
+    }
   }
 }
 
 const INLINE_METADATA_KEYS =
-  "total questions|total marks|positive marks|negative marking|time limit|time|duration|questions|marks|penalty|correct marks|correct answer|correct|positive";
+  "total questions|total marks|positive marks|negative marking|time limit|time|duration|questions|marks|penalty|correct marks|correct answer|correct|positive|cutoff|cut off|qualifying marks|qualifying score|qualifying|passing marks";
 
 function parseHeaderLine(line: string, result: ParsedMarkdownHeader): boolean {
   let matchedMetadata = false;
@@ -675,12 +696,24 @@ export function parseQuestionnaireMarkdown(
       }
 
       const marker = parseQuestionMarker(line);
+      const isSequential =
+        Boolean(marker) &&
+        Boolean(currentMarker) &&
+        marker!.questionNo === currentMarker!.questionNo + 1;
+      const hasInternalList =
+        currentLines.length > 1 &&
+        currentLines.slice(1).some((l) => /^\s*1[\.\)]\s+/.test(l));
+
       const isPlainBoundary =
         Boolean(marker) &&
         !marker?.explicit &&
         questionStarted &&
-        hasOptionLine(currentLines) &&
-        marker!.questionNo > (currentMarker?.questionNo || 0);
+        (hasOptionLine(currentLines) ||
+          (isSequential && !hasInternalList) ||
+          (marker!.questionNo > (currentMarker?.questionNo || 0) &&
+            currentLines[currentLines.length - 1]?.trim() === "" &&
+            !hasInternalList));
+
       const startsQuestion =
         Boolean(marker) &&
         (marker!.explicit || !questionStarted || isPlainBoundary);

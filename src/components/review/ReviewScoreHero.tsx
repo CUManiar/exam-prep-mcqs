@@ -82,17 +82,19 @@ export function ReviewScoreHero({
           </div>
 
           <div className="flex items-center gap-2 shrink-0">
-            <span
-              className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold border shadow-2xs ${cutoffVerdict.statusColor}`}
-            >
-              {cutoffVerdict.status.toLowerCase().includes("qualified") ||
-              cutoffVerdict.status.toLowerCase().includes("clear") ? (
-                <ShieldCheck className="h-3.5 w-3.5" />
-              ) : (
-                <ShieldAlert className="h-3.5 w-3.5" />
-              )}
-              <span>{cutoffVerdict.status}</span>
-            </span>
+            {Boolean(cutoffVerdict.hasCutoff && cutoffVerdict.status) && (
+              <span
+                className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold border shadow-2xs ${cutoffVerdict.statusColor}`}
+              >
+                {cutoffVerdict.status.toLowerCase().includes("qualified") ||
+                cutoffVerdict.status.toLowerCase().includes("clear") ? (
+                  <ShieldCheck className="h-3.5 w-3.5" />
+                ) : (
+                  <ShieldAlert className="h-3.5 w-3.5" />
+                )}
+                <span>{cutoffVerdict.status}</span>
+              </span>
+            )}
 
             <button
               type="button"
@@ -167,40 +169,42 @@ export function ReviewScoreHero({
               </div>
             </div>
 
-            {/* Cutoff Benchmark Progress Bar */}
-            <div className="space-y-1.5 pt-1 border-t border-slate-100">
-              <div className="flex items-center justify-between text-xs">
-                <span className="text-slate-500 text-[11px]">
-                  Target: <strong>{cutoffVerdict.targetLabel}</strong>
-                </span>
-                <span className="text-slate-700 font-mono font-bold text-[11px]">
-                  {cutoffVerdict.diff >= 0
-                    ? `+${cutoffVerdict.diff}`
-                    : cutoffVerdict.diff}{" "}
-                  pts margin
-                </span>
-              </div>
+            {/* Cutoff Benchmark Progress Bar (shown only when paper has an explicit cutoff or is CSAT) */}
+            {Boolean(cutoffVerdict.hasCutoff) && (
+              <div className="space-y-1.5 pt-1 border-t border-slate-100">
+                <div className="flex items-center justify-between text-xs">
+                  <span className="text-slate-500 text-[11px]">
+                    Target: <strong>{cutoffVerdict.targetLabel}</strong>
+                  </span>
+                  <span className="text-slate-700 font-mono font-bold text-[11px]">
+                    {cutoffVerdict.diff >= 0
+                      ? `+${cutoffVerdict.diff}`
+                      : cutoffVerdict.diff}{" "}
+                    pts margin
+                  </span>
+                </div>
 
-              <div className="relative h-2 w-full rounded-full bg-slate-100 overflow-hidden border border-slate-200">
-                <div
-                  className={`h-full rounded-full transition-all duration-500 ${cutoffVerdict.barColor}`}
-                  style={{
-                    width: `${Math.min(100, Math.max(0, (attempt.score / (effectiveMaxScore || 200)) * 100))}%`,
-                  }}
-                />
-                <div
-                  className="absolute top-0 bottom-0 w-0.5 bg-slate-900 z-10"
-                  style={{
-                    left: `${Math.min(100, Math.max(0, (cutoffVerdict.targetScore / (effectiveMaxScore || 200)) * 100))}%`,
-                  }}
-                  title={`Benchmark Cutoff: ${cutoffVerdict.targetScore} pts`}
-                />
-              </div>
+                <div className="relative h-2 w-full rounded-full bg-slate-100 overflow-hidden border border-slate-200">
+                  <div
+                    className={`h-full rounded-full transition-all duration-500 ${cutoffVerdict.barColor}`}
+                    style={{
+                      width: `${Math.min(100, Math.max(0, (attempt.score / (effectiveMaxScore || 200)) * 100))}%`,
+                    }}
+                  />
+                  <div
+                    className="absolute top-0 bottom-0 w-0.5 bg-slate-900 z-10"
+                    style={{
+                      left: `${Math.min(100, Math.max(0, (cutoffVerdict.targetScore / (effectiveMaxScore || 200)) * 100))}%`,
+                    }}
+                    title={`Benchmark Cutoff: ${cutoffVerdict.targetScore} pts`}
+                  />
+                </div>
 
-              <p className="text-[11px] text-slate-600 leading-relaxed pt-0.5">
-                {cutoffVerdict.message}
-              </p>
-            </div>
+                <p className="text-[11px] text-slate-600 leading-relaxed pt-0.5">
+                  {cutoffVerdict.message}
+                </p>
+              </div>
+            )}
 
             {/* Analytics Accordion Toggle */}
             <div className="pt-1 border-t border-slate-100 flex items-center justify-between">

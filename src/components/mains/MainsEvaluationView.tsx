@@ -20,6 +20,7 @@ import {
   Maximize2,
   HelpCircle,
   FileCheck,
+  XCircle,
   Image as ImageIcon,
   MessageSquare,
   PanelLeftClose,
@@ -46,6 +47,7 @@ import {
 } from "@/lib/revisionAi";
 import { RevisionMarkdownRenderer } from "../revision/RevisionMarkdownRenderer";
 import { RevisionSettingsModal } from "../revision/RevisionSettingsModal";
+import { MainsDiagramRenderer } from "./MainsDiagramRenderer";
 
 const SAMPLE_QUESTIONS = [
   {
@@ -1928,123 +1930,216 @@ To advance constitutional morality and responsive governance, administrative exe
                     </div>
                   </div>
 
-                  {/* Examiner Marked Copy & Margin Notes */}
+                  {/* Examiner Marked Copy & Line-by-Line Script Audit */}
                   {evaluation.markedCopy &&
                     evaluation.markedCopy.length > 0 && (
                       <div className="p-4 sm:p-5 rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-2xs space-y-3">
-                        <div className="flex items-center justify-between pb-2 border-b border-slate-100 dark:border-slate-800">
+                        <div className="flex flex-wrap items-center justify-between gap-2 pb-2 border-b border-slate-100 dark:border-slate-800">
                           <div className="flex items-center gap-2">
                             <FileCheck className="h-4 w-4 text-indigo-600" />
                             <h4 className="text-xs font-bold uppercase tracking-wider text-slate-900 dark:text-slate-100">
-                              Examiner Annotated Marked Copy (Margin Notes)
+                              Examiner Script Audit (Line-by-Line Marked Copy)
                             </h4>
                           </div>
-                          <span className="text-[11px] font-mono text-slate-400">
-                            {evaluation.markedCopy.length} Annotations
-                          </span>
+                          <div className="flex items-center gap-1.5 text-[11px] font-mono">
+                            <span className="px-2 py-0.5 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 font-semibold">
+                              {evaluation.markedCopy.length} Annotations
+                            </span>
+                            {(() => {
+                              const correctCount = evaluation.markedCopy.filter(
+                                (m) => m.type === "correct",
+                              ).length;
+                              const incorrectCount = evaluation.markedCopy.filter(
+                                (m) => m.type === "incorrect",
+                              ).length;
+                              const verifyCount = evaluation.markedCopy.filter(
+                                (m) => m.type === "verify",
+                              ).length;
+                              return (
+                                <>
+                                  {correctCount > 0 && (
+                                    <span className="px-2 py-0.5 rounded-full bg-emerald-100 dark:bg-emerald-950/80 text-emerald-700 dark:text-emerald-300 font-semibold">
+                                      {correctCount} Accurate
+                                    </span>
+                                  )}
+                                  {incorrectCount > 0 && (
+                                    <span className="px-2 py-0.5 rounded-full bg-rose-100 dark:bg-rose-950/80 text-rose-700 dark:text-rose-300 font-semibold">
+                                      {incorrectCount} Wrong/Errors
+                                    </span>
+                                  )}
+                                  {verifyCount > 0 && (
+                                    <span className="px-2 py-0.5 rounded-full bg-amber-100 dark:bg-amber-950/80 text-amber-700 dark:text-amber-300 font-semibold">
+                                      {verifyCount} Unverified
+                                    </span>
+                                  )}
+                                </>
+                              );
+                            })()}
+                          </div>
                         </div>
                         <div className="space-y-3">
-                          {evaluation.markedCopy.map((item, idx) => (
-                            <div
-                              key={idx}
-                              className="p-3.5 rounded-xl bg-slate-50/80 dark:bg-slate-800/50 border border-slate-200/80 dark:border-slate-700/60 space-y-2 text-xs"
-                            >
-                              <div className="text-slate-800 dark:text-slate-200 font-serif italic pl-3 border-l-2 border-indigo-400 leading-relaxed text-xs sm:text-[13px]">
-                                &ldquo;{item.quote}&rdquo;
+                          {evaluation.markedCopy.map((item, idx) => {
+                            const isCorrect = item.type === "correct";
+                            const isIncorrect = item.type === "incorrect";
+                            const isVerify = item.type === "verify";
+
+                            const cardBorder = isCorrect
+                              ? "bg-emerald-50/40 dark:bg-emerald-950/20 border-emerald-200/80 dark:border-emerald-900/60"
+                              : isIncorrect
+                                ? "bg-rose-50/40 dark:bg-rose-950/20 border-rose-200/80 dark:border-rose-900/60"
+                                : isVerify
+                                  ? "bg-amber-50/40 dark:bg-amber-950/20 border-amber-200/80 dark:border-amber-900/60"
+                                  : "bg-slate-50/80 dark:bg-slate-800/50 border-slate-200/80 dark:border-slate-700/60";
+
+                            const quoteBorder = isCorrect
+                              ? "border-emerald-500"
+                              : isIncorrect
+                                ? "border-rose-500"
+                                : isVerify
+                                  ? "border-amber-500"
+                                  : "border-indigo-400";
+
+                            const badgeStyle = isCorrect
+                              ? "bg-emerald-100 dark:bg-emerald-950/80 text-emerald-800 dark:text-emerald-300"
+                              : isIncorrect
+                                ? "bg-rose-100 dark:bg-rose-950/80 text-rose-800 dark:text-rose-300"
+                                : isVerify
+                                  ? "bg-amber-100 dark:bg-amber-950/80 text-amber-800 dark:text-amber-300"
+                                  : "bg-indigo-100 dark:bg-indigo-950/80 text-indigo-700 dark:text-indigo-300";
+
+                            const badgeText = isCorrect
+                              ? "✓ Accurate & Fits"
+                              : isIncorrect
+                                ? "✗ Factually Wrong / Error"
+                                : isVerify
+                                  ? "⚠️ Verify Fact"
+                                  : "Examiner Note";
+
+                            const noteColor = isCorrect
+                              ? "text-emerald-800 dark:text-emerald-300 font-semibold"
+                              : isIncorrect
+                                ? "text-rose-700 dark:text-rose-300 font-semibold"
+                                : isVerify
+                                  ? "text-amber-800 dark:text-amber-300 font-semibold"
+                                  : "text-slate-700 dark:text-slate-300 font-semibold";
+
+                            return (
+                              <div
+                                key={idx}
+                                className={`p-3.5 rounded-xl border space-y-2 text-xs transition-colors ${cardBorder}`}
+                              >
+                                <div
+                                  className={`text-slate-800 dark:text-slate-200 font-serif italic pl-3 border-l-2 leading-relaxed text-xs sm:text-[13px] ${quoteBorder}`}
+                                >
+                                  &ldquo;{item.quote}&rdquo;
+                                </div>
+                                <div className="flex items-start gap-2 pt-1 border-t border-slate-100 dark:border-slate-700/40">
+                                  <span
+                                    className={`text-[10px] font-mono font-bold uppercase tracking-wider px-1.5 py-0.5 rounded shrink-0 ${badgeStyle}`}
+                                  >
+                                    {badgeText}
+                                  </span>
+                                  <span className={`leading-relaxed ${noteColor}`}>
+                                    {item.note}
+                                  </span>
+                                </div>
                               </div>
-                              <div className="flex items-start gap-2 pt-1 border-t border-slate-100 dark:border-slate-700/40">
-                                <span className="text-[10px] font-mono font-bold uppercase tracking-wider px-1.5 py-0.5 rounded bg-rose-100 dark:bg-rose-950/80 text-rose-700 dark:text-rose-300 shrink-0">
-                                  Margin Note
-                                </span>
-                                <span className="text-rose-600 dark:text-rose-400 font-semibold leading-relaxed">
-                                  {item.note}
-                                </span>
-                              </div>
-                            </div>
-                          ))}
+                            );
+                          })}
                         </div>
                       </div>
                     )}
 
-                  {/* Strengths, Flaws, and Missing Dimensions 3-Panel Grid */}
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                    {/* 1. What Worked (Strengths that earned marks) */}
-                    <div className="p-4 rounded-xl border border-emerald-200 dark:border-emerald-900 bg-emerald-50/50 dark:bg-emerald-950/40 space-y-2 flex flex-col justify-between">
-                      <div className="space-y-2">
-                        <h4 className="text-xs font-bold uppercase tracking-wider text-emerald-800 dark:text-emerald-300 flex items-center gap-1.5">
-                          <CheckCircle2 className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
-                          <span>What Worked (Keep This Up)</span>
-                        </h4>
-                        <ul className="text-xs text-slate-700 dark:text-slate-300 space-y-1.5 list-disc pl-4">
-                          {evaluation.strengths && evaluation.strengths.length > 0 ? (
-                            evaluation.strengths.map((str, idx) => (
-                              <li key={idx} className="leading-relaxed font-medium">
-                                {str}
-                              </li>
-                            ))
-                          ) : (
-                            <li className="text-slate-400">Directly attempted the core prompt.</li>
-                          )}
-                        </ul>
-                      </div>
-                      <span className="text-[10px] text-emerald-700 dark:text-emerald-400 font-mono font-medium pt-1">
-                        ✓ Earned marks; retain in future answers
-                      </span>
-                    </div>
+                  {/* Strengths, Flaws, and Missing Dimensions Grid */}
+                  {(() => {
+                    const validStrengths = (evaluation.strengths || []).filter(
+                      (str) =>
+                        Boolean(str && str.trim()) &&
+                        !str.toLowerCase().includes("directly attempted the core prompt"),
+                    );
+                    const hasStrengths = validStrengths.length > 0;
 
-                    {/* 2. Specific Flaws (Blunt) */}
-                    <div className="p-4 rounded-xl border border-rose-200 dark:border-rose-900 bg-rose-50/50 dark:bg-rose-950/40 space-y-2 flex flex-col justify-between">
-                      <div className="space-y-2">
-                        <h4 className="text-xs font-bold uppercase tracking-wider text-rose-800 dark:text-rose-300 flex items-center gap-1.5">
-                          <AlertTriangle className="h-4 w-4 text-rose-600" />
-                          <span>This Answer&apos;s Specific Flaws</span>
-                        </h4>
-                        <ul className="text-xs text-slate-700 dark:text-slate-300 space-y-1.5 list-disc pl-4">
-                          {evaluation.weaknesses &&
-                          evaluation.weaknesses.length > 0 ? (
-                            evaluation.weaknesses.map((w, idx) => (
-                              <li
-                                key={idx}
-                                className="leading-relaxed font-medium"
-                              >
-                                {w}
-                              </li>
-                            ))
-                          ) : (
-                            <li className="text-slate-400">None flagged.</li>
-                          )}
-                        </ul>
-                      </div>
-                      <span className="text-[10px] text-rose-700 dark:text-rose-400 font-mono font-medium pt-1">
-                        ✗ Flaws to eliminate
-                      </span>
-                    </div>
+                    return (
+                      <div
+                        className={`grid grid-cols-1 ${hasStrengths ? "md:grid-cols-3" : "md:grid-cols-2"} gap-3`}
+                      >
+                        {/* 1. What Worked (Strengths that earned marks) */}
+                        {hasStrengths && (
+                          <div className="p-4 rounded-xl border border-emerald-200 dark:border-emerald-900 bg-emerald-50/50 dark:bg-emerald-950/40 space-y-2 flex flex-col justify-between">
+                            <div className="space-y-2">
+                              <h4 className="text-xs font-bold uppercase tracking-wider text-emerald-800 dark:text-emerald-300 flex items-center gap-1.5">
+                                <CheckCircle2 className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
+                                <span>What Worked (Keep This Up)</span>
+                              </h4>
+                              <ul className="text-xs text-slate-700 dark:text-slate-300 space-y-1.5 list-disc pl-4">
+                                {validStrengths.map((str, idx) => (
+                                  <li key={idx} className="leading-relaxed font-medium">
+                                    {str}
+                                  </li>
+                                ))}
+                              </ul>
+                            </div>
+                            <span className="text-[10px] text-emerald-700 dark:text-emerald-400 font-mono font-medium pt-1">
+                              ✓ Earned marks; retain in future answers
+                            </span>
+                          </div>
+                        )}
 
-                    {/* 3. Missing Dimensions & Citations */}
-                    <div className="p-4 rounded-xl border border-amber-200 dark:border-amber-900 bg-amber-50/50 dark:bg-amber-950/40 space-y-2 flex flex-col justify-between">
-                      <div className="space-y-2">
-                        <h4 className="text-xs font-bold uppercase tracking-wider text-amber-800 dark:text-amber-300 flex items-center gap-1.5">
-                          <BookOpen className="h-4 w-4 text-amber-600" />
-                          <span>Missing Dimensions & Citations</span>
-                        </h4>
-                        <ul className="text-xs text-slate-700 dark:text-slate-300 space-y-1.5 list-disc pl-4">
-                          {evaluation.missingDimensions &&
-                          evaluation.missingDimensions.length > 0 ? (
-                            evaluation.missingDimensions.map((dim, idx) => (
-                              <li key={idx} className="leading-relaxed">
-                                {dim}
-                              </li>
-                            ))
-                          ) : (
-                            <li className="text-slate-400">None flagged.</li>
-                          )}
-                        </ul>
+                        {/* 2. Specific Flaws (Blunt) */}
+                        <div className="p-4 rounded-xl border border-rose-200 dark:border-rose-900 bg-rose-50/50 dark:bg-rose-950/40 space-y-2 flex flex-col justify-between">
+                          <div className="space-y-2">
+                            <h4 className="text-xs font-bold uppercase tracking-wider text-rose-800 dark:text-rose-300 flex items-center gap-1.5">
+                              <AlertTriangle className="h-4 w-4 text-rose-600" />
+                              <span>This Answer&apos;s Specific Flaws</span>
+                            </h4>
+                            <ul className="text-xs text-slate-700 dark:text-slate-300 space-y-1.5 list-disc pl-4">
+                              {evaluation.weaknesses &&
+                              evaluation.weaknesses.length > 0 ? (
+                                evaluation.weaknesses.map((w, idx) => (
+                                  <li
+                                    key={idx}
+                                    className="leading-relaxed font-medium"
+                                  >
+                                    {w}
+                                  </li>
+                                ))
+                              ) : (
+                                <li className="text-slate-400">None flagged.</li>
+                              )}
+                            </ul>
+                          </div>
+                          <span className="text-[10px] text-rose-700 dark:text-rose-400 font-mono font-medium pt-1">
+                            ✗ Flaws to eliminate
+                          </span>
+                        </div>
+
+                        {/* 3. Missing Dimensions & Citations */}
+                        <div className="p-4 rounded-xl border border-amber-200 dark:border-amber-900 bg-amber-50/50 dark:bg-amber-950/40 space-y-2 flex flex-col justify-between">
+                          <div className="space-y-2">
+                            <h4 className="text-xs font-bold uppercase tracking-wider text-amber-800 dark:text-amber-300 flex items-center gap-1.5">
+                              <BookOpen className="h-4 w-4 text-amber-600" />
+                              <span>Missing Dimensions & Citations</span>
+                            </h4>
+                            <ul className="text-xs text-slate-700 dark:text-slate-300 space-y-1.5 list-disc pl-4">
+                              {evaluation.missingDimensions &&
+                              evaluation.missingDimensions.length > 0 ? (
+                                evaluation.missingDimensions.map((dim, idx) => (
+                                  <li key={idx} className="leading-relaxed">
+                                    {dim}
+                                  </li>
+                                ))
+                              ) : (
+                                <li className="text-slate-400">None flagged.</li>
+                              )}
+                            </ul>
+                          </div>
+                          <span className="text-[10px] text-amber-700 dark:text-amber-400 font-mono font-medium pt-1">
+                            + High-yield value addition
+                          </span>
+                        </div>
                       </div>
-                      <span className="text-[10px] text-amber-700 dark:text-amber-400 font-mono font-medium pt-1">
-                        + High-yield value addition
-                      </span>
-                    </div>
-                  </div>
+                    );
+                  })()}
 
                   {/* Actionable Roadmap & Drawn Micro-Diagram */}
                   <div className="p-4 sm:p-5 rounded-2xl border border-indigo-200 dark:border-indigo-900 bg-indigo-50/50 dark:bg-indigo-950/30 space-y-3">
@@ -2063,31 +2158,8 @@ To advance constitutional morality and responsive governance, administrative exe
                       ))}
                     </div>
 
-                    {evaluation.diagramIdea && (
-                      <div className="mt-3 p-3.5 rounded-xl bg-white dark:bg-slate-900 border border-indigo-200 dark:border-indigo-900/60 space-y-1.5 text-xs">
-                        <div className="flex items-center justify-between pb-1">
-                          <span className="font-bold text-indigo-600 dark:text-indigo-400 block">
-                            📊 Drawn Micro-Diagram (Examiner-Approved):
-                          </span>
-                          <button
-                            type="button"
-                            onClick={() => {
-                              if (evaluation.diagramIdea) {
-                                navigator.clipboard.writeText(
-                                  evaluation.diagramIdea,
-                                );
-                              }
-                            }}
-                            className="text-[10px] font-mono font-semibold text-slate-400 hover:text-indigo-600 cursor-pointer"
-                          >
-                            Copy Schema
-                          </button>
-                        </div>
-                        <pre className="p-3 rounded-lg bg-slate-950 text-emerald-400 font-mono text-xs whitespace-pre-wrap overflow-x-auto border border-slate-800 leading-relaxed">
-                          {evaluation.diagramIdea}
-                        </pre>
-                      </div>
-                    )}
+                    {/* Examiner-Approved Micro-Diagram: Visual Flowchart or clean Schema */}
+                    <MainsDiagramRenderer diagramIdea={evaluation.diagramIdea} />
                   </div>
                 </div>
               )}

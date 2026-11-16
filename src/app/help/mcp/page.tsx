@@ -23,6 +23,7 @@ import { DEFAULT_PROD_URL } from "../../../lib/config";
 
 const promptExamples = [
   "Provide a comprehensive revision dossier for Federal Structure including articles, case laws, and recent PIB news.",
+  "Show my vocabulary flashcards from Study Aids and quiz me on unmastered words.",
   "Show my overall progress and the papers I have not attempted yet.",
   "What are my weakest topics in History across past tests?",
   "Inspect question 5 on my latest Mains attempt and provide grading feedback.",
@@ -33,6 +34,11 @@ const promptExamples = [
 ];
 
 const faqItems = [
+  {
+    question: "Can an AI assistant manage my Study Aids, Vocabulary, and Daily Quotes?",
+    answer:
+      "Yes. The MCP server includes dedicated tools for the Study Aids & Misc section: list_vocab_cards, add_vocab_card, toggle_vocab_mastery, delete_vocab_card, get_vocab_practice_question, evaluate_vocab_sentence, and get_daily_motivation. An assistant can quiz you on unmastered terms, auto-generate editorial memory hooks, and evaluate your sentence usage.",
+  },
   {
     question: "How does the AI Revision Tutor and 'Chat with Papers' work?",
     answer:
@@ -61,9 +67,9 @@ const faqItems = [
   },
   {
     question:
-      "Can an assistant inspect and grade Mains handwritten answers and word limits?",
+      "Can an assistant inspect and re-grade answers to fill assessment gaps?",
     answer:
-      "Yes. The get_attempt_detail tool surfaces question prompts, word limits (e.g. 150 words for 10 marks), options, candidate responses, and your uploaded full-booklet PDF URL (userSubmissionPdfUrl). The assistant can evaluate your answers and call grade_attempt_questions to post adjusted marks and feedback.",
+      "Yes. The get_attempt_detail tool surfaces question prompts, word limits (e.g. 150 words for 10 marks), options, candidate responses, and your uploaded full-booklet PDF URL (userSubmissionPdfUrl). The assistant can evaluate your answers and call grade_attempt_questions to post adjusted marks, qualitative tags (strong, partial, needs-work), and feedback notes. Re-grading automatically uses the paper's current marks and recalculates your total score, percentage, and accuracy in real time.",
   },
   {
     question: "How can I see tests I haven't attempted yet?",

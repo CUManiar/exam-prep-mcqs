@@ -10,6 +10,7 @@ import {
   formatTimeSeconds,
   getPaperDisplayTitle,
   formatCustomIdentifier,
+  evaluateClozeMatch,
 } from "../../lib/defaults";
 import {
   parseQuestionnaireMarkdown,
@@ -188,12 +189,19 @@ export function useReviewData(attempt: Attempt, papers: QuestionPaper[]) {
   // Classification flags
   const isSubjectiveAttempt = attempt.examType === "subjective";
   const correctMarksPerQ =
-    matchedPaper?.correctMarks ?? attempt.correctMarks ?? 2.0;
+    matchedPaper?.correctMarks !== undefined && Number(matchedPaper.correctMarks) > 0
+      ? Number(matchedPaper.correctMarks)
+      : attempt.correctMarks ?? 2.0;
   const incorrectMarksPerQ =
-    matchedPaper?.incorrectMarks ?? attempt.incorrectMarks ?? 0.667;
+    matchedPaper?.incorrectMarks !== undefined && Number(matchedPaper.incorrectMarks) >= 0
+      ? Number(matchedPaper.incorrectMarks)
+      : attempt.incorrectMarks !== undefined && Number(attempt.incorrectMarks) >= 0
+        ? Number(attempt.incorrectMarks)
+        : 0.667;
   const subjectiveMarksPerQ =
     attempt.totalQuestions > 0
-      ? (attempt.totalMarks || attempt.maxScore || 0) / attempt.totalQuestions
+      ? (matchedPaper?.totalMarks ?? attempt.totalMarks ?? attempt.maxScore ?? 0) /
+        attempt.totalQuestions
       : 0;
 
   // Helper functions (stable per render, depend on markdownQuestions / attempt)
@@ -261,12 +269,23 @@ export function useReviewData(attempt: Attempt, papers: QuestionPaper[]) {
           const paperExp = matchedPaper?.explanations?.[qNo] || pq?.explanation;
           const effectiveCorrect = paperCorrect || ans?.correctAnswer;
           const effectiveExp = paperExp || ans?.explanation;
+          const isCloze = isClozeQuestion(qNo);
           const isCorrect =
             ans?.selected !== null && ans?.selected !== undefined
-              ? effectiveCorrect
-                ? ans.selected.trim().toUpperCase() ===
-                  effectiveCorrect.trim().toUpperCase()
-                : ans.isCorrect
+              ? isCloze
+                ? ans.subjectiveAssessment
+                  ? ans.subjectiveAssessment === "strong"
+                    ? true
+                    : ans.subjectiveAssessment === "needs-work"
+                      ? false
+                      : null
+                  : ans.isCorrect !== null && ans.isCorrect !== undefined
+                    ? ans.isCorrect
+                    : evaluateClozeMatch(ans.selected, effectiveCorrect, effectiveExp).isCorrect
+                : effectiveCorrect
+                  ? ans.selected.trim().toUpperCase() ===
+                    effectiveCorrect.trim().toUpperCase()
+                  : ans.isCorrect
               : null;
 
           const effectivePreviousYears =
@@ -477,6 +496,7 @@ export function useReviewData(attempt: Attempt, papers: QuestionPaper[]) {
         : `${val} pts (Qualifying)`;
 
       return {
+        hasCutoff: true,
         isCsat,
         targetScore: target,
         targetLabel,
@@ -498,6 +518,7 @@ export function useReviewData(attempt: Attempt, papers: QuestionPaper[]) {
       const diff = Number((attempt.score - target).toFixed(1));
       const isQualified = attempt.score >= target;
       return {
+        hasCutoff: true,
         isCsat: true,
         targetScore: target,
         targetLabel: "33.3% (Qualifying)",
@@ -513,41 +534,17 @@ export function useReviewData(attempt: Attempt, papers: QuestionPaper[]) {
       };
     }
 
-    // 3. General Studies estimated benchmark
-    const target = Number(((effectiveMaxScore || 200) * 0.44).toFixed(1));
-    const diff = Number((attempt.score - target).toFixed(1));
-    const isClear = diff >= 0;
-    const isComfortable = diff >= 10;
-    const isBorderline = diff >= -6 && diff < 10;
-
-    let status = isClear ? "Qualified" : "Not Qualified";
-    let statusColor = "bg-rose-50 text-rose-800 border-rose-200";
-    let barColor = "bg-rose-500";
-    let message = `Short by ${Math.abs(diff)} pts of the ~${target} pts estimated prelims benchmark.`;
-
-    if (isComfortable) {
-      statusColor = "bg-emerald-50 text-emerald-800 border-emerald-200";
-      barColor = "bg-emerald-500";
-      message = `Outstanding score! You are +${diff} pts above the estimated benchmark (~${target} pts).`;
-    } else if (isClear) {
-      statusColor = "bg-teal-50 text-teal-800 border-teal-200";
-      barColor = "bg-teal-500";
-      message = `Cleared by +${diff} pts over the ~${target} pts benchmark.`;
-    } else if (isBorderline) {
-      statusColor = "bg-amber-50 text-amber-800 border-amber-200";
-      barColor = "bg-amber-500";
-      message = `Within striking distance: only ${Math.abs(diff)} pts below the ~${target} pts benchmark.`;
-    }
-
+    // 3. When no cutoff is specified and paper is not CSAT: do not fabricate qualification verdict
     return {
+      hasCutoff: false,
       isCsat: false,
-      targetScore: target,
-      targetLabel: `~${target} pts (Est. Cutoff)`,
-      diff,
-      status,
-      statusColor,
-      barColor,
-      message,
+      targetScore: 0,
+      targetLabel: "",
+      diff: 0,
+      status: "",
+      statusColor: "",
+      barColor: "",
+      message: "",
     };
   }, [
     isCsat,

@@ -115,7 +115,7 @@ export function Navbar() {
             aria-label="UPSC Prep Hub overview"
           >
             <span className="app-brand-mark">
-              <img src="/upsc_logo.png" alt="" />
+              <img src="/favicon.svg" alt="UPSC Prep Hub" />
             </span>
             <span className="min-w-0">
               <span className="app-brand-name">UPSC Prep Hub</span>
@@ -133,9 +133,7 @@ export function Navbar() {
               if (
                 !currentUser &&
                 href !== "/" &&
-                href !== "/help/mcp" &&
-                href !== "/revision" &&
-                href !== "/misc"
+                href !== "/help/mcp"
               ) {
                 return (
                   <button
@@ -164,32 +162,36 @@ export function Navbar() {
           </nav>
 
           <div className="app-header-actions">
-            {/* Quick Reading Theme Toggle */}
-            <button
-              type="button"
-              onClick={() => {
-                const nextTheme =
-                  theme === "light"
-                    ? "sepia"
-                    : theme === "sepia"
-                      ? "dark"
-                      : "light";
-                setTheme(nextTheme);
-              }}
-              title={`Switch visual comfort theme (Current: ${theme})`}
-              aria-label={`Switch visual comfort theme. Current theme: ${theme}`}
-              className="flex h-9 w-9 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-600 hover:bg-slate-50 hover:text-slate-900 transition-colors cursor-pointer"
-            >
-              {theme === "light" ? (
-                <Sun className="h-4 w-4 text-amber-500" />
-              ) : theme === "sepia" ? (
-                <BookOpen className="h-4 w-4 text-amber-700" />
-              ) : (
-                <Moon className="h-4 w-4 text-indigo-400" />
-              )}
-            </button>
+            {/* Quick Reading Theme Toggle: Shown only to logged-in students */}
+            {currentUser && (
+              <button
+                type="button"
+                onClick={() => {
+                  const nextTheme =
+                    theme === "light"
+                      ? "sepia"
+                      : theme === "sepia"
+                        ? "dark"
+                        : "light";
+                  setTheme(nextTheme);
+                }}
+                title={`Switch visual comfort theme (Current: ${theme})`}
+                aria-label={`Switch visual comfort theme. Current theme: ${theme}`}
+                className="flex h-9 w-9 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-600 hover:bg-slate-50 hover:text-slate-900 transition-colors cursor-pointer"
+              >
+                {theme === "light" ? (
+                  <Sun className="h-4 w-4 text-amber-500" />
+                ) : theme === "sepia" ? (
+                  <BookOpen className="h-4 w-4 text-amber-700" />
+                ) : (
+                  <Moon className="h-4 w-4 text-indigo-400" />
+                )}
+              </button>
+            )}
 
-            <NotificationCenter />
+            {/* Notifications: Shown only to logged-in students */}
+            {currentUser && <NotificationCenter />}
+
             {currentUser ? (
               <button
                 type="button"
@@ -235,9 +237,7 @@ export function Navbar() {
           if (
             !currentUser &&
             href !== "/" &&
-            href !== "/mains" &&
-            href !== "/revision" &&
-            href !== "/misc"
+            href !== "/mains"
           ) {
             return (
               <button

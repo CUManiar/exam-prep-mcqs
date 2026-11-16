@@ -26,7 +26,10 @@ import {
   EMPTY_FILTER_STATE,
   isFilterActive,
 } from "./reviewTypes";
-import { SUBJECTIVE_ASSESSMENT_META } from "../../lib/defaults";
+import {
+  SUBJECTIVE_ASSESSMENT_META,
+  evaluateClozeMatch,
+} from "../../lib/defaults";
 import { BarChart3, Columns, RotateCcw } from "lucide-react";
 
 interface AttemptReviewViewProps {
@@ -144,6 +147,144 @@ export function AttemptReviewView({
   const currentParsedQuestion = useMemo(() => {
     return markdownQuestions.find((mq) => mq.questionNo === activeQuestionNo);
   }, [markdownQuestions, activeQuestionNo]);
+
+  // Auto-heal attempts saved with historical bugs (false default penalty or un-evaluated Cloze)
+  useEffect(() => {
+    if (!matchedPaper) return;
+    const targetIncorrect =
+      matchedPaper.incorrectMarks !== undefined &&
+      Number(matchedPaper.incorrectMarks) >= 0
+        ? Number(matchedPaper.incorrectMarks)
+        : undefined;
+
+    const penaltyMismatch =
+      targetIncorrect !== undefined &&
+      attempt.incorrectMarks !== undefined &&
+      Number(attempt.incorrectMarks) !== targetIncorrect;
+
+    const hasUnevaluatedCloze = Object.values(attempt.answers || {}).some(
+      (a) =>
+        isClozeQuestion(a.questionNo) &&
+        Boolean(a.selected && a.selected.trim()) &&
+        (a.isCorrect === null || a.correctAnswer === null || a.correctAnswer === undefined),
+    );
+
+    if (penaltyMismatch || hasUnevaluatedCloze) {
+      const correctMarksPerQ =
+        matchedPaper.correctMarks !== undefined && Number(matchedPaper.correctMarks) > 0
+          ? Number(matchedPaper.correctMarks)
+          : attempt.correctMarks ?? 2.0;
+      const incorrectMarksPerQ =
+        targetIncorrect !== undefined
+          ? targetIncorrect
+          : attempt.incorrectMarks !== undefined && Number(attempt.incorrectMarks) >= 0
+            ? Number(attempt.incorrectMarks)
+            : 0;
+
+      const updatedAnswers = { ...attempt.answers };
+
+      for (const [key, ans] of Object.entries(updatedAnswers)) {
+        const qNo = Number(key);
+        if (isClozeQuestion(qNo) && ans.selected && ans.selected.trim()) {
+          const paperCorrect =
+            matchedPaper.answerKey?.[qNo] ||
+            markdownQuestions.find((m) => m.questionNo === qNo)?.answer;
+          const paperExp =
+            matchedPaper.explanations?.[qNo] ||
+            markdownQuestions.find((m) => m.questionNo === qNo)?.explanation;
+          const evalRes = evaluateClozeMatch(ans.selected, paperCorrect, paperExp);
+          if (ans.isCorrect === null || ans.isCorrect === undefined) {
+            updatedAnswers[qNo] = {
+              ...ans,
+              correctAnswer: paperCorrect || ans.correctAnswer,
+              explanation: paperExp || ans.explanation,
+              isCorrect: evalRes.isCorrect,
+              subjectiveAssessment:
+                ans.subjectiveAssessment ||
+                (evalRes.isCorrect === true
+                  ? "strong"
+                  : evalRes.partial
+                    ? "partial"
+                    : evalRes.isCorrect === false
+                      ? "needs-work"
+                      : undefined),
+            };
+          }
+        }
+      }
+
+      const allAnswers = Object.values(updatedAnswers);
+      const attemptedAnswers = allAnswers.filter((a) => isQuestionAnswered(a));
+      const score =
+        Math.round(
+          allAnswers.reduce((total, answer) => {
+            if (isAssessmentQuestion(answer.questionNo)) {
+              return isQuestionAnswered(answer)
+                ? total +
+                    getAssessmentMarks(
+                      answer.questionNo,
+                      answer.subjectiveAssessment,
+                      answer.subjectiveMarks,
+                    )
+                : total;
+            }
+            if (answer.isCorrect === true) return total + correctMarksPerQ;
+            if (answer.isCorrect === false) return total - incorrectMarksPerQ;
+            return total;
+          }, 0) * 100,
+        ) / 100;
+
+      const maxScore =
+        effectiveMaxScore ||
+        matchedPaper.totalMarks ||
+        attempt.maxScore ||
+        attempt.totalMarks ||
+        0;
+
+      const answered = attemptedAnswers.length;
+      const correct = allAnswers.filter((answer) =>
+        isAssessmentQuestion(answer.questionNo)
+          ? isQuestionAnswered(answer) &&
+            answer.subjectiveAssessment === "strong"
+          : answer.isCorrect === true,
+      ).length;
+      const partial = allAnswers.filter(
+        (answer) =>
+          isAssessmentQuestion(answer.questionNo) &&
+          isQuestionAnswered(answer) &&
+          answer.subjectiveAssessment === "partial",
+      ).length;
+      const incorrect = allAnswers.filter((answer) =>
+        isAssessmentQuestion(answer.questionNo)
+          ? isQuestionAnswered(answer) &&
+            answer.subjectiveAssessment === "needs-work"
+          : answer.isCorrect === false,
+      ).length;
+
+      const percentagePct = maxScore
+        ? Math.round((score / maxScore) * 1000) / 10
+        : 0;
+      const accuracyPct = answered
+        ? Math.round((correct / answered) * 1000) / 10
+        : 0;
+
+      onUpdate({
+        ...attempt,
+        correctMarks: correctMarksPerQ,
+        incorrectMarks: incorrectMarksPerQ,
+        totalMarks: matchedPaper.totalMarks ?? attempt.totalMarks,
+        answers: updatedAnswers,
+        answered,
+        correct,
+        partial,
+        incorrect,
+        score,
+        maxScore,
+        percentagePct,
+        accuracyPct,
+      });
+    }
+  }, [matchedPaper?.id, attempt.id]);
 
   // Jump to specific question
   const jumpToQuestion = (qNo: number) => {
@@ -383,9 +524,15 @@ export function AttemptReviewView({
     subjectiveMarks?: number,
   ) => {
     const correctMarksPerQ =
-      matchedPaper?.correctMarks ?? attempt.correctMarks ?? 2.0;
+      matchedPaper?.correctMarks !== undefined && Number(matchedPaper.correctMarks) > 0
+        ? Number(matchedPaper.correctMarks)
+        : attempt.correctMarks ?? 2.0;
     const incorrectMarksPerQ =
-      matchedPaper?.incorrectMarks ?? attempt.incorrectMarks ?? 0.667;
+      matchedPaper?.incorrectMarks !== undefined && Number(matchedPaper.incorrectMarks) >= 0
+        ? Number(matchedPaper.incorrectMarks)
+        : attempt.incorrectMarks !== undefined && Number(attempt.incorrectMarks) >= 0
+          ? Number(attempt.incorrectMarks)
+          : 0.667;
     const updatedAnswers = { ...attempt.answers };
     const currentAnswer = updatedAnswers[qNo] || {
       questionNo: qNo,
@@ -435,7 +582,12 @@ export function AttemptReviewView({
         }, 0) * 100,
       ) / 100;
 
-    const maxScore = attempt.maxScore || attempt.totalMarks || 0;
+    const maxScore =
+      effectiveMaxScore ||
+      matchedPaper?.totalMarks ||
+      attempt.maxScore ||
+      attempt.totalMarks ||
+      0;
     const answered = attemptedAnswers.length;
     const subjectivePoints = attemptedAnswers.reduce(
       (total, answer) =>
@@ -450,6 +602,9 @@ export function AttemptReviewView({
 
     onUpdate({
       ...attempt,
+      correctMarks: correctMarksPerQ,
+      incorrectMarks: incorrectMarksPerQ,
+      totalMarks: matchedPaper?.totalMarks ?? attempt.totalMarks,
       answers: updatedAnswers,
       answered,
       correct: allAnswers.filter((answer) =>
@@ -694,7 +849,7 @@ export function AttemptReviewView({
                   isAssessmentQuestion={isAssessmentQuestion}
                   isClozeQuestion={isClozeQuestion}
                   getFullMarks={getFullMarks}
-                  incorrectMarksPerQ={attempt.incorrectMarks || 0.667}
+                  incorrectMarksPerQ={attempt.incorrectMarks ?? 0.667}
                   onSaveQuestionNote={handleSaveQuestionNote}
                   onSetSubjectiveAssessment={handleSetSubjectiveAssessment}
                   onNavigatePrev={handleNavigatePrev}
@@ -765,7 +920,7 @@ export function AttemptReviewView({
                 hasNextSkipped={skippedQuestionsList.length > 0}
                 canNavigatePrev={canNavigatePrev}
                 canNavigateNext={canNavigateNext}
-                incorrectMarksPerQ={attempt.incorrectMarks || 0.667}
+                incorrectMarksPerQ={attempt.incorrectMarks ?? 0.667}
                 getFullMarks={getFullMarks}
                 filteredQuestionNos={filteredQuestionNosSet}
                 hasActiveFilters={hasActiveFilters}

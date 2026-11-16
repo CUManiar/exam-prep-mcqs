@@ -8,7 +8,12 @@ import {
   QuestionPaper,
   SubjectiveAssessment,
 } from "./types";
-import { parseAnswerKeyDetailed, SUBJECTIVE_ASSESSMENT_META } from "./defaults";
+import { VocabCard } from "./vocabTypes";
+import {
+  parseAnswerKeyDetailed,
+  SUBJECTIVE_ASSESSMENT_META,
+  isCsatPaper,
+} from "./defaults";
 import {
   isSpecificSingleSubject,
   parseMarkdownHeader,
@@ -21,9 +26,13 @@ import {
   saveTopicRevisionNote,
   getUserAttempts,
   getUserPaper,
+  getPaperById,
   getUserPapers,
   getUserProfileData,
   getUserSyllabus,
+  getUserVocabCards,
+  saveUserVocabCards,
+  getMcpDailyQuote,
   isCustomMcpPaper,
   saveMcpAttempt,
   saveMcpPaper,
@@ -47,6 +56,87 @@ import {
 } from "./syllabusMarkdown";
 
 const looseObject = z.record(z.string(), z.any());
+
+export const paperImportSchema = z
+  .object({
+    title: z
+      .string()
+      .optional()
+      .describe("Paper title or name (e.g. 'Polity Cloze Practice')"),
+    label: z
+      .string()
+      .optional()
+      .describe("Alternative label for the paper title"),
+    year: z.string().optional().describe("Exam year (e.g. '2026')"),
+    subject: z
+      .string()
+      .optional()
+      .describe("Subject (e.g. 'Polity', 'GS I', 'CSAT')"),
+    category: z
+      .enum(["prelims", "mains"])
+      .optional()
+      .describe("Exam category: 'prelims' or 'mains'"),
+    examType: z
+      .enum(["objective", "subjective"])
+      .optional()
+      .describe("Exam type: 'objective' or 'subjective'"),
+    markdownContent: z
+      .string()
+      .optional()
+      .describe(
+        "Questionnaire in markdown format with numbered questions (e.g. '1. Question prompt...')",
+      ),
+    answerKeyText: z
+      .string()
+      .optional()
+      .describe(
+        "Documented raw answer key text: MCQs '<number>. <letter> \"\"\" explanation \"\"\"', Cloze '<number>. <answer> \"\"\" explanation \"\"\"' or '<number>. \"\"\" reference answer \"\"\"'",
+      ),
+    answerKey: z
+      .union([z.record(z.string(), z.string()), z.string()])
+      .optional()
+      .describe(
+        "Structured answer key object { [qNo]: answer } OR raw answer key text",
+      ),
+    explanations: z
+      .record(z.string(), z.string())
+      .optional()
+      .describe("Optional structured explanations map { [qNo]: explanation }"),
+    totalQuestions: z.number().optional().describe("Total number of questions"),
+    totalMarks: z.number().optional().describe("Total marks for the paper"),
+    correctMarks: z
+      .number()
+      .optional()
+      .describe("Marks awarded per correct answer (e.g. 1 or 2)"),
+    incorrectMarks: z
+      .number()
+      .optional()
+      .describe(
+        "Marks deducted per incorrect answer (e.g. 0 for no negative marking, 0.667 for prelims)",
+      ),
+    timeMinutes: z
+      .number()
+      .optional()
+      .describe("Exam duration in minutes (e.g. 60 or 120)"),
+    instructions: z
+      .array(z.string())
+      .optional()
+      .describe("Array of exam instructions"),
+    cutoffEnabled: z
+      .boolean()
+      .optional()
+      .describe("Whether a cutoff threshold is enabled"),
+    cutoffValue: z.number().optional().describe("Cutoff target value"),
+    cutoffType: z
+      .enum(["percentage", "marks"])
+      .optional()
+      .describe("Cutoff target type: 'percentage' or 'marks'"),
+    questions: z
+      .array(z.record(z.string(), z.any()))
+      .optional()
+      .describe("Optional pre-parsed questions array"),
+  })
+  .passthrough();
 
 function textResult(value: unknown) {
   return {
@@ -109,6 +199,72 @@ function parseDurationToMinutes(raw: unknown): number | undefined {
   if (!isNaN(plainNum) && plainNum > 0) return plainNum;
 
   return undefined;
+}
+
+function generateFallbackVocabDetails(word: string): {
+  meaning: string;
+  memoryHook: string;
+  example: string;
+} {
+  const cleanWord = word.trim();
+  return {
+    meaning: `Key conceptual term referring to ${cleanWord.toLowerCase()} within administrative, constitutional, or socio-economic discourse.`,
+    memoryHook: `Link "${cleanWord}" with core root or thematic context to recall instantly in exam recall drills.`,
+    example: `The policy paper underscored the significance of ${cleanWord.toLowerCase()} in ensuring robust institutional governance.`,
+  };
+}
+
+async function enrichVocabWordWithAi(word: string): Promise<{
+  meaning: string;
+  memoryHook: string;
+  example: string;
+}> {
+  const cleanWord = word.trim();
+  const apiKey = process.env.GEMINI_API_KEY?.trim();
+  if (apiKey) {
+    try {
+      const prompt = `You are an expert vocabulary coach for serious students preparing for competitive exams (UPSC/editorial).
+The student provided the word: "${cleanWord}".
+Respond ONLY with a JSON object in this exact format:
+{
+  "meaning": "One clear, intuitive, and plain-language sentence explaining what the word means.",
+  "memoryHook": "A clever, relatable memory hook, association, or root clue that makes the word instant to remember.",
+  "example": "A realistic, contemporary sentence demonstrating how to naturally use this word in an editorial or essay."
+}`;
+      const res = await fetch(
+        `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            contents: [{ parts: [{ text: prompt }] }],
+            generationConfig: {
+              temperature: 0.3,
+              responseMimeType: "application/json",
+            },
+          }),
+          signal: AbortSignal.timeout(8000),
+        },
+      );
+      if (res.ok) {
+        const data = await res.json();
+        const text = data.candidates?.[0]?.content?.parts?.[0]?.text;
+        if (text) {
+          const parsed = JSON.parse(text);
+          if (parsed.meaning && parsed.memoryHook && parsed.example) {
+            return {
+              meaning: String(parsed.meaning).trim(),
+              memoryHook: String(parsed.memoryHook).trim(),
+              example: String(parsed.example).trim(),
+            };
+          }
+        }
+      }
+    } catch {
+      // Fallback cleanly
+    }
+  }
+  return generateFallbackVocabDetails(cleanWord);
 }
 
 function normalizeQuestions(input: Record<string, any>): ParsedQuestion[] {
@@ -177,9 +333,53 @@ function createImportedPaper(
     });
   }
 
-  const parsedAnswerKey = input.answerKeyText
-    ? parseAnswerKeyDetailed(String(input.answerKeyText))
+  let rawAnswerKeyText =
+    typeof input.answerKeyText === "string" ? input.answerKeyText : undefined;
+  let rawAnswerKey = input.answerKey;
+
+  // Auto-heal: If answerKey was provided as a string (e.g. "1. A\n2. B..."), treat as answerKeyText
+  if (typeof rawAnswerKey === "string") {
+    if (!rawAnswerKeyText) rawAnswerKeyText = rawAnswerKey;
+    rawAnswerKey = undefined;
+  } else if (rawAnswerKey && typeof rawAnswerKey === "object") {
+    // Detect if answerKey was corrupted by string spreading: {"0": "1", "1": ".", ...}
+    const keys = Object.keys(rawAnswerKey);
+    const isCharSpread =
+      keys.length > 5 && keys.every((k, idx) => k === String(idx));
+    if (isCharSpread) {
+      const reconstituted = Object.values(rawAnswerKey).join("");
+      if (!rawAnswerKeyText) rawAnswerKeyText = reconstituted;
+      rawAnswerKey = undefined;
+    }
+  }
+
+  const parsedAnswerKey = rawAnswerKeyText
+    ? parseAnswerKeyDetailed(rawAnswerKeyText)
     : { answers: {}, explanations: {} };
+
+  const mergedAnswerKey: Record<number, string> = {
+    ...parsedAnswerKey.answers,
+  };
+  if (rawAnswerKey && typeof rawAnswerKey === "object") {
+    for (const [k, v] of Object.entries(rawAnswerKey)) {
+      const qNo = Number(k);
+      if (!isNaN(qNo) && typeof v === "string" && v.trim()) {
+        mergedAnswerKey[qNo] = v.trim();
+      }
+    }
+  }
+
+  const mergedExplanations: Record<number, string> = {
+    ...parsedAnswerKey.explanations,
+  };
+  if (input.explanations && typeof input.explanations === "object") {
+    for (const [k, v] of Object.entries(input.explanations)) {
+      const qNo = Number(k);
+      if (!isNaN(qNo) && typeof v === "string" && v.trim()) {
+        mergedExplanations[qNo] = v.trim();
+      }
+    }
+  }
 
   // Calculate total questions:
   // 1. Explicit input.totalQuestions
@@ -266,19 +466,28 @@ function createImportedPaper(
     incorrectMarks,
     timeMinutes,
     qpUrl: "local://interactive_markdown",
-    answerKey: { ...parsedAnswerKey.answers, ...(input.answerKey || {}) },
-    answerKeyText: input.answerKeyText,
-    explanations: {
-      ...parsedAnswerKey.explanations,
-      ...(input.explanations || {}),
-    },
+    answerKey: mergedAnswerKey,
+    answerKeyText: rawAnswerKeyText || input.answerKeyText || undefined,
+    explanations: mergedExplanations,
     markdownContent: markdownText || undefined,
     parsedQuestions: parsedQuestions.length > 0 ? parsedQuestions : undefined,
     instructions,
-    cutoffEnabled: Boolean(input.cutoffEnabled),
-    cutoffType: input.cutoffType === "marks" ? "marks" : "percentage",
+    cutoffEnabled: Boolean(
+      input.cutoffEnabled ||
+        header.cutoffEnabled ||
+        (input.cutoffValue !== undefined && Number(input.cutoffValue) > 0) ||
+        (header.cutoffValue !== undefined && Number(header.cutoffValue) > 0),
+    ),
+    cutoffType:
+      input.cutoffType === "marks" || header.cutoffType === "marks"
+        ? "marks"
+        : "percentage",
     cutoffValue:
-      input.cutoffValue === undefined ? undefined : Number(input.cutoffValue),
+      input.cutoffValue !== undefined
+        ? Number(input.cutoffValue)
+        : header.cutoffValue !== undefined
+          ? Number(header.cutoffValue)
+          : undefined,
     isCustom: true,
   };
 }
@@ -387,17 +596,28 @@ function buildAttemptDetails(attempt: Attempt, paper?: QuestionPaper | null) {
         ans.selected !== "attempted",
       );
 
-    const correctAnswer =
-      ans?.correctAnswer ||
-      pq?.answer ||
-      (paper?.answerKey ? paper.answerKey[qNo] : undefined) ||
-      null;
-
     const explanation =
       ans?.explanation ||
       pq?.explanation ||
       (paper?.explanations ? paper.explanations[qNo] : undefined) ||
       null;
+
+    let correctAnswer =
+      ans?.correctAnswer ||
+      pq?.answer ||
+      (paper?.answerKey ? paper.answerKey[qNo] : undefined) ||
+      null;
+
+    if (!correctAnswer && isCloze && explanation) {
+      const ansMatch = explanation.match(
+        /^(?:Answer|Ans|Key|Reference|Correct\s*Answer)\s*[:\-]\s*([^\n\.]+)/i,
+      );
+      if (ansMatch) {
+        correctAnswer = ansMatch[1].trim();
+      } else if (!explanation.includes("\n") && explanation.length <= 120) {
+        correctAnswer = explanation.trim();
+      }
+    }
 
     return {
       questionNo: qNo,
@@ -492,8 +712,12 @@ function getFullMarks(
   correctMarksPerQ = 2.0,
   subjectiveMarksPerQ = 0,
 ): number {
+  const effectiveCorrect =
+    paper?.correctMarks !== undefined && Number(paper.correctMarks) > 0
+      ? Number(paper.correctMarks)
+      : correctMarksPerQ;
   return isClozeQuestion(qNo, paper, ans)
-    ? correctMarksPerQ
+    ? effectiveCorrect
     : subjectiveMarksPerQ;
 }
 
@@ -504,7 +728,7 @@ function getAssessmentMarks(
   paper?: QuestionPaper | null,
   ans?: QuestionAnswer,
   correctMarksPerQ = 2.0,
-  incorrectMarksPerQ = 0.667,
+  incorrectMarksPerQ = 0,
   subjectiveMarksPerQ = 0,
 ): number {
   if (!assessment) return 0;
@@ -520,7 +744,9 @@ function getAssessmentMarks(
   if (assessment === "partial") {
     return Math.min(full, Math.max(0, subjectiveMarks ?? full * 0.5));
   }
-  if (assessment === "needs-work") return -penalty;
+  if (assessment === "needs-work") {
+    return -penalty;
+  }
   return 0;
 }
 
@@ -529,11 +755,25 @@ function recalculateAttemptGrades(
   paper?: QuestionPaper | null,
 ): Attempt {
   const isSubjective = attempt.examType === "subjective";
-  const correctMarksPerQ = attempt.correctMarks || 2.0;
-  const incorrectMarksPerQ = attempt.incorrectMarks || 0.667;
+  const correctMarksPerQ =
+    paper?.correctMarks !== undefined && Number(paper.correctMarks) > 0
+      ? Number(paper.correctMarks)
+      : attempt.correctMarks || 2.0;
+  const incorrectMarksPerQ =
+    paper?.incorrectMarks !== undefined && Number(paper.incorrectMarks) >= 0
+      ? Number(paper.incorrectMarks)
+      : attempt.incorrectMarks !== undefined && Number(attempt.incorrectMarks) >= 0
+        ? Number(attempt.incorrectMarks)
+        : isCsatPaper(paper, attempt)
+          ? 0.833
+          : 0.667;
+  const effectiveTotalMarks =
+    paper?.totalMarks !== undefined && Number(paper.totalMarks) > 0
+      ? Number(paper.totalMarks)
+      : attempt.totalMarks || attempt.maxScore || 0;
   const subjectiveMarksPerQ =
     attempt.totalQuestions > 0
-      ? (attempt.totalMarks || attempt.maxScore || 0) / attempt.totalQuestions
+      ? effectiveTotalMarks / attempt.totalQuestions
       : 0;
 
   const allAnswers = Object.values(attempt.answers || {});
@@ -575,7 +815,24 @@ function recalculateAttemptGrades(
       }, 0) * 100,
     ) / 100;
 
-  const maxScore = attempt.maxScore || attempt.totalMarks || 0;
+  const calculatedMax =
+    attempt.totalQuestions > 0 && correctMarksPerQ > 0
+      ? Math.round(attempt.totalQuestions * correctMarksPerQ * 100) / 100
+      : null;
+
+  let maxScore = attempt.maxScore || attempt.totalMarks || 0;
+  if (paper?.totalMarks && paper.totalMarks > 0) {
+    if (calculatedMax && paper.totalMarks === 200 && calculatedMax !== 200) {
+      maxScore = calculatedMax;
+    } else {
+      maxScore = paper.totalMarks;
+    }
+  } else if (effectiveTotalMarks > 0) {
+    maxScore = effectiveTotalMarks;
+  } else if (calculatedMax) {
+    maxScore = calculatedMax;
+  }
+
   const answered = attemptedAnswers.length;
 
   const subjectivePoints = attemptedAnswers.reduce((total, answer) => {
@@ -636,6 +893,9 @@ function recalculateAttemptGrades(
 
   return {
     ...attempt,
+    correctMarks: correctMarksPerQ,
+    incorrectMarks: incorrectMarksPerQ,
+    totalMarks: effectiveTotalMarks > 0 ? effectiveTotalMarks : attempt.totalMarks,
     answered,
     correct,
     partial,
@@ -660,7 +920,7 @@ export function createPortalMcpServer(
     { name: "UPSC Prep Hub", version: "1.0.0" },
     {
       instructions:
-        "You are connected to a student's UPSC Prep Hub account. Read the student's data before making assumptions. Use get_attempt_history for attempt questions: it is newest-first and defaults to one latest attempt per distinct paper, so 'last N exams' must not count retries of the same paper as separate exams. Ask for confirmation before calling write tools, especially imports, score changes, or visibility changes.",
+        "You are connected to a student's UPSC Prep Hub account. Read the student's data before making assumptions. Use get_attempt_history for attempt questions: it is newest-first and defaults to one latest attempt per distinct paper. When evaluating or re-grading attempts, use get_attempt_detail to inspect candidate responses and use grade_attempt_questions to update marks, tags, or feedback—this automatically recalculates the attempt's score, percentage, and accuracy using the paper's current marks. For vocabulary and Study Aids, use list_vocab_cards, add_vocab_card, toggle_vocab_mastery, delete_vocab_card, get_vocab_practice_question, evaluate_vocab_sentence, and get_daily_motivation. Ask for confirmation before calling write tools, especially imports, score changes, or visibility changes.",
       maxToolInputElements: 5000,
     },
   );
@@ -684,16 +944,28 @@ export function createPortalMcpServer(
     async ({ includeTopics }) => {
       const authError = scopeError(scope, MCP_READ_SCOPE);
       if (authError) return authError;
-      const [papers, attempts] = await Promise.all([
+      const [papers, attempts, vocabCards] = await Promise.all([
         getUserPapers(userId),
         getUserAttempts(userId),
+        getUserVocabCards(userId),
       ]);
       const progress = summarizeProgress(papers, attempts);
+      const todayStr = new Date().toISOString().split("T")[0];
+      const studyAids = {
+        vocabTotal: vocabCards.length,
+        vocabMastered: vocabCards.filter((c) => c.mastered).length,
+        vocabLearning: vocabCards.filter((c) => !c.mastered).length,
+        vocabAddedToday: vocabCards.filter((c) => c.dateAdded === todayStr).length,
+        dailyGoal: 5,
+        dailyGoalAchieved:
+          vocabCards.filter((c) => c.dateAdded === todayStr).length >= 5,
+      };
       const topicAnalytics = includeTopics
         ? await getTopicAnalytics(userId)
         : undefined;
       return textResult({
         progress,
+        studyAids,
         ...(topicAnalytics ? { topicAnalytics } : {}),
       });
     },
@@ -1058,9 +1330,9 @@ export function createPortalMcpServer(
     {
       title: "Preview paper import",
       description:
-        'Validate a paper before saving it to the student\'s library. Markdown questions may be MCQs with options (a)-(d) or cloze/free-text questions with no options. In the answer key, MCQs use \'<number>. <letter> \\"\\"\\" explanation \\"\\"\\"\' and cloze questions use \'<number>. \\"\\"\\" reference explanation \\"\\"\\"\'. Explanations inside \\"\\"\\" support rich HTML formatting (e.g. <b>, <i>, <ul>, <ol>, <li>, <table>, <code>, <blockquote>, <p>).',
+        'Validate a paper before saving it to the student\'s library. Supply `markdownContent` for the question text and `answerKeyText` (or `answerKey`) for the answers. Questions may be MCQs with options (a)-(d) or cloze/free-text questions with no options. In the answer key, MCQs use \'<number>. <letter> """ explanation """\' and cloze questions use \'<number>. <answer> """ explanation """\' or \'<number>. """ reference explanation """\'. Explanations inside """ support rich HTML formatting (e.g. <b>, <i>, <ul>, <ol>, <li>, <table>, <code>, <blockquote>, <p>).',
       annotations: { readOnlyHint: true },
-      inputSchema: { paper: looseObject },
+      inputSchema: { paper: paperImportSchema },
     },
     async ({ paper }) => {
       const authError = scopeError(scope, MCP_WRITE_SCOPE);
@@ -1070,12 +1342,29 @@ export function createPortalMcpServer(
       if (!imported.markdownContent && !imported.parsedQuestions?.length) {
         warnings.push("No markdownContent or questions were supplied.");
       }
+
+      // Detect string answerKey or character-spread answerKey
+      if (typeof paper?.answerKey === "string") {
+        warnings.push(
+          "Notice: `answerKey` was provided as a raw string instead of a structured object or `answerKeyText`. It was automatically parsed into `answerKeyText` and structured question-answer mappings.",
+        );
+      } else if (
+        paper?.answerKey &&
+        typeof paper.answerKey === "object" &&
+        Object.keys(paper.answerKey).length > 5 &&
+        Object.keys(paper.answerKey).every((k, idx) => k === String(idx))
+      ) {
+        warnings.push(
+          'Warning: `answerKey` was received as a character-indexed object (e.g. {"0": "1", ...}). It has been healed and reconstituted into `answerKeyText` and structured mappings.',
+        );
+      }
+
       if (
         !Object.keys(imported.answerKey || {}).length &&
         !Object.keys(imported.explanations || {}).length
       ) {
         warnings.push(
-          "No answer key was supplied; practice grading may be unavailable.",
+          "No answer key or explanations were supplied; practice grading may be unavailable.",
         );
       }
       const existing = await getUserPaper(userId, imported.id);
@@ -1097,9 +1386,9 @@ export function createPortalMcpServer(
     {
       title: "Save imported paper",
       description:
-        "Save a validated paper in the student's personal library. Ask the student for confirmation first.",
+        "Save a validated paper in the student's personal library. Supports markdownContent, answerKeyText, answerKey, and explanations. Ask the student for confirmation first.",
       annotations: { readOnlyHint: false, destructiveHint: false },
-      inputSchema: { paper: looseObject },
+      inputSchema: { paper: paperImportSchema },
     },
     async ({ paper }) => {
       const authError = scopeError(scope, MCP_WRITE_SCOPE);
@@ -1346,13 +1635,37 @@ export function createPortalMcpServer(
         );
       }
 
-      const paper = papers.find((p) => p.id === targetAttempt.paperId);
+      let paper = papers.find((p) => p.id === targetAttempt.paperId);
+      if (!paper && targetAttempt.paperId) {
+        paper =
+          (await getPaperById(targetAttempt.paperId)) ||
+          (await getUserPaper(userId, targetAttempt.paperId)) ||
+          undefined;
+      }
+
+      if (
+        paper &&
+        (paper.incorrectMarks === undefined || paper.incorrectMarks === null) &&
+        paper.markdownContent
+      ) {
+        const hdr = parseMarkdownHeader(paper.markdownContent);
+        if (hdr.negativeMarking) {
+          const m = hdr.negativeMarking.match(/[\d.]+/);
+          if (m) paper.incorrectMarks = parseFloat(m[0]);
+        }
+      }
       const isSubjective = targetAttempt.examType === "subjective";
-      const correctMarksPerQ = targetAttempt.correctMarks || 2.0;
+      const correctMarksPerQ =
+        paper?.correctMarks !== undefined && Number(paper.correctMarks) > 0
+          ? Number(paper.correctMarks)
+          : targetAttempt.correctMarks || 2.0;
+      const effectiveTotalMarks =
+        paper?.totalMarks !== undefined && Number(paper.totalMarks) > 0
+          ? Number(paper.totalMarks)
+          : targetAttempt.totalMarks || targetAttempt.maxScore || 0;
       const subjectiveMarksPerQ =
         targetAttempt.totalQuestions > 0
-          ? (targetAttempt.totalMarks || targetAttempt.maxScore || 0) /
-            targetAttempt.totalQuestions
+          ? effectiveTotalMarks / targetAttempt.totalQuestions
           : 0;
 
       const updatedAnswers = { ...targetAttempt.answers };
@@ -1802,6 +2115,402 @@ export function createPortalMcpServer(
       });
 
       return textResult(res);
+    },
+  );
+
+  server.registerTool(
+    "list_vocab_cards",
+    {
+      title: "List vocabulary flashcards",
+      description:
+        "List, filter, and search vocabulary cards in the student's Study Aids (Misc) section. Shows memory hooks, definitions, editorial examples, and mastery state.",
+      annotations: { readOnlyHint: true },
+      inputSchema: {
+        filter: z
+          .enum(["all", "today", "learning", "mastered"])
+          .optional()
+          .describe(
+            "Filter flashcards: 'all', 'today' for words added today, 'learning' for active words, or 'mastered'. Defaults to 'all'.",
+          ),
+        search: z
+          .string()
+          .optional()
+          .describe("Search keyword across words, meanings, or memory hooks."),
+      },
+    },
+    async ({ filter = "all", search }) => {
+      const authError = scopeError(scope, MCP_READ_SCOPE);
+      if (authError) return authError;
+
+      const cards = await getUserVocabCards(userId);
+      const todayStr = new Date().toISOString().split("T")[0];
+
+      let filtered = cards;
+      if (filter === "today") {
+        filtered = filtered.filter((c) => c.dateAdded === todayStr);
+      } else if (filter === "learning") {
+        filtered = filtered.filter((c) => !c.mastered);
+      } else if (filter === "mastered") {
+        filtered = filtered.filter((c) => c.mastered);
+      }
+
+      if (search && search.trim()) {
+        const q = search.trim().toLowerCase();
+        filtered = filtered.filter(
+          (c) =>
+            c.word.toLowerCase().includes(q) ||
+            c.meaning.toLowerCase().includes(q) ||
+            c.memoryHook.toLowerCase().includes(q) ||
+            c.example.toLowerCase().includes(q),
+        );
+      }
+
+      return textResult({
+        summary: {
+          total: cards.length,
+          mastered: cards.filter((c) => c.mastered).length,
+          learning: cards.filter((c) => !c.mastered).length,
+          addedToday: cards.filter((c) => c.dateAdded === todayStr).length,
+          dailyGoal: 5,
+        },
+        cards: filtered,
+      });
+    },
+  );
+
+  server.registerTool(
+    "add_vocab_card",
+    {
+      title: "Add vocabulary flashcard",
+      description:
+        "Add a high-retention vocabulary card to the student's Study Aids (Misc) section. Auto-populates definitions, mnemonics, and editorial examples if omitted.",
+      annotations: { readOnlyHint: false, destructiveHint: false },
+      inputSchema: {
+        word: z.string().min(1).describe("Vocabulary word to add."),
+        meaning: z
+          .string()
+          .optional()
+          .describe(
+            "Clear intuitive definition. If omitted, an editorial definition is auto-generated.",
+          ),
+        memoryHook: z
+          .string()
+          .optional()
+          .describe(
+            "Relatable mnemonic or root clue. If omitted, an instant memory hook is auto-generated.",
+          ),
+        example: z
+          .string()
+          .optional()
+          .describe(
+            "Practical UPSC/editorial usage sentence. If omitted, an illustrative sentence is auto-generated.",
+          ),
+        mastered: z
+          .boolean()
+          .optional()
+          .describe("Initial mastery state (default false)."),
+      },
+    },
+    async ({ word, meaning, memoryHook, example, mastered }) => {
+      const authError = scopeError(scope, MCP_WRITE_SCOPE);
+      if (authError) return authError;
+
+      const cleanWord = word.trim();
+      let finalMeaning = meaning?.trim();
+      let finalHook = memoryHook?.trim();
+      let finalExample = example?.trim();
+
+      if (!finalMeaning || !finalHook || !finalExample) {
+        const generated = await enrichVocabWordWithAi(cleanWord);
+        if (!finalMeaning) finalMeaning = generated.meaning;
+        if (!finalHook) finalHook = generated.memoryHook;
+        if (!finalExample) finalExample = generated.example;
+      }
+
+      const cards = await getUserVocabCards(userId);
+      const existingIdx = cards.findIndex(
+        (c) => c.word.trim().toLowerCase() === cleanWord.toLowerCase(),
+      );
+
+      const todayStr = new Date().toISOString().split("T")[0];
+      const nowIso = new Date().toISOString();
+
+      let targetCard: VocabCard;
+      if (existingIdx >= 0) {
+        targetCard = {
+          ...cards[existingIdx],
+          meaning: finalMeaning,
+          memoryHook: finalHook,
+          example: finalExample,
+          mastered:
+            mastered !== undefined
+              ? Boolean(mastered)
+              : cards[existingIdx].mastered,
+        };
+        cards[existingIdx] = targetCard;
+      } else {
+        targetCard = {
+          id: `vocab_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
+          word: cleanWord,
+          meaning: finalMeaning,
+          memoryHook: finalHook,
+          example: finalExample,
+          dateAdded: todayStr,
+          mastered: Boolean(mastered),
+          createdAt: nowIso,
+        };
+        cards.unshift(targetCard);
+      }
+
+      await saveUserVocabCards(userId, cards);
+
+      return textResult({
+        saved: true,
+        action: existingIdx >= 0 ? "updated" : "created",
+        card: targetCard,
+        totalCards: cards.length,
+        todayCount: cards.filter((c) => c.dateAdded === todayStr).length,
+      });
+    },
+  );
+
+  server.registerTool(
+    "toggle_vocab_mastery",
+    {
+      title: "Toggle vocabulary card mastery",
+      description:
+        "Mark a vocabulary card as mastered or in-learning in the student's Study Aids (Misc) section.",
+      annotations: { readOnlyHint: false, destructiveHint: false },
+      inputSchema: {
+        id: z.string().optional().describe("ID of the vocab card."),
+        word: z
+          .string()
+          .optional()
+          .describe("Word text (case-insensitive) if ID is not available."),
+        mastered: z
+          .boolean()
+          .optional()
+          .describe(
+            "Explicit mastery state. If omitted, toggles current status.",
+          ),
+      },
+    },
+    async ({ id, word, mastered }) => {
+      const authError = scopeError(scope, MCP_WRITE_SCOPE);
+      if (authError) return authError;
+
+      const cards = await getUserVocabCards(userId);
+      const target = cards.find(
+        (c) =>
+          (id && c.id === id) ||
+          (word && c.word.toLowerCase() === word.trim().toLowerCase()),
+      );
+
+      if (!target) {
+        return errorResult("Vocab card not found.");
+      }
+
+      target.mastered = mastered !== undefined ? mastered : !target.mastered;
+      await saveUserVocabCards(userId, cards);
+
+      return textResult({
+        updated: true,
+        card: target,
+        mastered: target.mastered,
+        totalMastered: cards.filter((c) => c.mastered).length,
+        totalLearning: cards.filter((c) => !c.mastered).length,
+      });
+    },
+  );
+
+  server.registerTool(
+    "delete_vocab_card",
+    {
+      title: "Delete vocabulary card",
+      description:
+        "Remove a vocabulary card from the student's Study Aids (Misc) section.",
+      annotations: { readOnlyHint: false, destructiveHint: true },
+      inputSchema: {
+        id: z.string().optional().describe("ID of the card to delete."),
+        word: z
+          .string()
+          .optional()
+          .describe("Word text to delete (case-insensitive)."),
+      },
+    },
+    async ({ id, word }) => {
+      const authError = scopeError(scope, MCP_WRITE_SCOPE);
+      if (authError) return authError;
+
+      const cards = await getUserVocabCards(userId);
+      const filtered = cards.filter(
+        (c) =>
+          !(id && c.id === id) &&
+          !(word && c.word.toLowerCase() === word.trim().toLowerCase()),
+      );
+
+      if (filtered.length === cards.length) {
+        return errorResult("No matching vocab card found to delete.");
+      }
+
+      await saveUserVocabCards(userId, filtered);
+
+      return textResult({
+        deleted: true,
+        remainingCount: filtered.length,
+      });
+    },
+  );
+
+  server.registerTool(
+    "get_vocab_practice_question",
+    {
+      title: "Get vocabulary practice question",
+      description:
+        "Generate a fill-in-the-blank practice question for a word from the student's Study Aids (Misc) section.",
+      annotations: { readOnlyHint: true },
+      inputSchema: {
+        word: z
+          .string()
+          .optional()
+          .describe("Target word. If omitted, selects from unmastered cards."),
+        id: z.string().optional().describe("Card ID to practice."),
+      },
+    },
+    async ({ word, id }) => {
+      const authError = scopeError(scope, MCP_READ_SCOPE);
+      if (authError) return authError;
+
+      const cards = await getUserVocabCards(userId);
+      if (!cards.length) {
+        return errorResult(
+          "No vocabulary cards found in Study Aids. Add a word first.",
+        );
+      }
+
+      let target = cards.find(
+        (c) =>
+          (id && c.id === id) ||
+          (word && c.word.toLowerCase() === word.trim().toLowerCase()),
+      );
+
+      if (!target) {
+        const unmastered = cards.filter((c) => !c.mastered);
+        const pool = unmastered.length > 0 ? unmastered : cards;
+        target = pool[Math.floor(Math.random() * pool.length)];
+      }
+
+      const escaped = target.word.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+      const blankRegex = new RegExp(`\\b${escaped}\\b`, "gi");
+      let statementWithBlank = target.example.replace(blankRegex, "_______");
+      if (statementWithBlank === target.example) {
+        statementWithBlank = `The administrative committee evaluated the policy, emphasizing the need for _______ in governance.`;
+      }
+
+      const otherWords = cards
+        .map((c) => c.word)
+        .filter((w) => w.toLowerCase() !== target!.word.toLowerCase());
+      const fallbackDistractors = [
+        "paradigm",
+        "hegemony",
+        "ubiquity",
+        "antithesis",
+        "surreptitious",
+      ];
+      const distractors: string[] = [];
+      for (const w of [...otherWords, ...fallbackDistractors]) {
+        if (
+          w.toLowerCase() !== target.word.toLowerCase() &&
+          !distractors.includes(w)
+        ) {
+          distractors.push(w);
+          if (distractors.length === 3) break;
+        }
+      }
+
+      const options = [target.word, ...distractors].sort(
+        () => 0.5 - Math.random(),
+      );
+
+      return textResult({
+        cardId: target.id,
+        word: target.word,
+        statementWithBlank,
+        options,
+        hint: target.memoryHook,
+      });
+    },
+  );
+
+  server.registerTool(
+    "evaluate_vocab_sentence",
+    {
+      title: "Evaluate vocabulary sentence",
+      description:
+        "Evaluate whether a student's sentence uses a target vocabulary word naturally and accurately in academic or civil services context.",
+      annotations: { readOnlyHint: true },
+      inputSchema: {
+        word: z.string().min(1).describe("Target vocabulary word."),
+        sentence: z
+          .string()
+          .min(3)
+          .describe("Student-composed sentence using the target word."),
+      },
+    },
+    async ({ word, sentence }) => {
+      const authError = scopeError(scope, MCP_READ_SCOPE);
+      if (authError) return authError;
+
+      const cleanWord = word.trim().toLowerCase();
+      const cleanSentence = sentence.trim();
+      const hasWord = cleanSentence.toLowerCase().includes(cleanWord);
+
+      if (!hasWord) {
+        return textResult({
+          isNatural: false,
+          feedback: `The sentence does not appear to contain the target word "${word}".`,
+        });
+      }
+
+      const wordCount = cleanSentence.split(/\s+/).length;
+      if (wordCount < 4) {
+        return textResult({
+          isNatural: false,
+          feedback:
+            "The sentence is too brief to demonstrate contextual understanding. Aim for at least 6-8 words.",
+        });
+      }
+
+      return textResult({
+        isNatural: true,
+        feedback: `Good usage! "${word}" is used in a coherent and grammatically sound context.`,
+        improvedSentence: `${cleanSentence.charAt(0).toUpperCase() + cleanSentence.slice(1).replace(/[.]+$/, "")}, illustrating effective analytical expression.`,
+      });
+    },
+  );
+
+  server.registerTool(
+    "get_daily_motivation",
+    {
+      title: "Get daily motivation quote",
+      description:
+        "Get today's inspirational quote and administrative resilience takeaway from the Study Aids & Misc section.",
+      annotations: { readOnlyHint: true },
+      inputSchema: {
+        random: z
+          .boolean()
+          .optional()
+          .describe(
+            "If true, returns a random quote instead of today's fixed quote.",
+          ),
+      },
+    },
+    async ({ random = false }) => {
+      const authError = scopeError(scope, MCP_READ_SCOPE);
+      if (authError) return authError;
+
+      const quote = getMcpDailyQuote(Boolean(random));
+      return textResult(quote);
     },
   );
 
