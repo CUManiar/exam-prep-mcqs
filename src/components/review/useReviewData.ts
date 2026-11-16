@@ -188,9 +188,15 @@ export function useReviewData(attempt: Attempt, papers: QuestionPaper[]) {
   // Classification flags
   const isSubjectiveAttempt = attempt.examType === "subjective";
   const correctMarksPerQ =
-    matchedPaper?.correctMarks ?? attempt.correctMarks ?? 2.0;
+    matchedPaper?.correctMarks !== undefined && Number(matchedPaper.correctMarks) > 0
+      ? Number(matchedPaper.correctMarks)
+      : attempt.correctMarks ?? 2.0;
   const incorrectMarksPerQ =
-    matchedPaper?.incorrectMarks ?? attempt.incorrectMarks ?? 0.667;
+    matchedPaper?.incorrectMarks !== undefined && Number(matchedPaper.incorrectMarks) >= 0
+      ? Number(matchedPaper.incorrectMarks)
+      : attempt.incorrectMarks !== undefined && Number(attempt.incorrectMarks) >= 0
+        ? Number(attempt.incorrectMarks)
+        : 0.667;
   const subjectiveMarksPerQ =
     attempt.totalQuestions > 0
       ? (matchedPaper?.totalMarks ?? attempt.totalMarks ?? attempt.maxScore ?? 0) /

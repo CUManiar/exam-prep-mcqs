@@ -146,6 +146,27 @@ export async function getUserPaper(
   return papers.find((paper) => paper.id === paperId) || null;
 }
 
+export async function getPaperById(
+  paperId: string,
+): Promise<QuestionPaper | null> {
+  const supabase = getAdminClient();
+  if (supabase) {
+    const { data } = await supabase
+      .from("custom_papers")
+      .select("*")
+      .eq("id", paperId)
+      .maybeSingle();
+    if (data) return normalizePaper(data);
+  } else {
+    const stored = await readJsonStore<Record<string, QuestionPaper>>(
+      "papers.json",
+      {},
+    );
+    if (stored[paperId]) return normalizePaper(stored[paperId]);
+  }
+  return INITIAL_PAPERS.find((p) => p.id === paperId) || null;
+}
+
 export async function searchMcpPapers(
   userId: string,
   query: string,

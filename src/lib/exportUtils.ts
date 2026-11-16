@@ -146,7 +146,11 @@ export function generateAttemptSummaryMarkdown(attempt: Attempt): string {
   const defaultCorrect = isCsatPaper(null, attempt) ? 2.5 : 2.0;
   const defaultIncorrect = isCsatPaper(null, attempt) ? 0.833 : 0.667;
   const correctMarksPerQ = attempt.correctMarks || defaultCorrect;
-  const incorrectMarksPerQ = attempt.incorrectMarks || defaultIncorrect;
+  const incorrectMarksPerQ =
+    attempt.incorrectMarks !== undefined &&
+    Number(attempt.incorrectMarks) >= 0
+      ? Number(attempt.incorrectMarks)
+      : defaultIncorrect;
   const grossMarks = ((attempt.correct || 0) * correctMarksPerQ).toFixed(2);
   const penaltyMarks = ((attempt.incorrect || 0) * incorrectMarksPerQ).toFixed(
     2,
@@ -398,7 +402,11 @@ export function generateAttemptReportMarkdown(attempt: Attempt): string {
   const defaultCorrect = isCsatPaper(null, attempt) ? 2.5 : 2.0;
   const defaultIncorrect = isCsatPaper(null, attempt) ? 0.833 : 0.667;
   const correctMarksPerQ = attempt.correctMarks || defaultCorrect;
-  const incorrectMarksPerQ = attempt.incorrectMarks || defaultIncorrect;
+  const incorrectMarksPerQ =
+    attempt.incorrectMarks !== undefined &&
+    Number(attempt.incorrectMarks) >= 0
+      ? Number(attempt.incorrectMarks)
+      : defaultIncorrect;
 
   const lines: string[] = [
     summaryMarkdown,
@@ -483,7 +491,11 @@ export function exportAttemptAsPrintPDF(
   const defaultCorrect = isCsatPaper(null, attempt) ? 2.5 : 2.0;
   const defaultIncorrect = isCsatPaper(null, attempt) ? 0.833 : 0.667;
   const correctMarksPerQ = attempt.correctMarks || defaultCorrect;
-  const incorrectMarksPerQ = attempt.incorrectMarks || defaultIncorrect;
+  const incorrectMarksPerQ =
+    attempt.incorrectMarks !== undefined &&
+    Number(attempt.incorrectMarks) >= 0
+      ? Number(attempt.incorrectMarks)
+      : defaultIncorrect;
   const grossCorrectMarks =
     Math.round(attempt.correct * correctMarksPerQ * 100) / 100;
   const negativePenaltyMarks =

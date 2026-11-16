@@ -9,7 +9,11 @@ import {
   SubjectiveAssessment,
 } from "./types";
 import { VocabCard } from "./vocabTypes";
-import { parseAnswerKeyDetailed, SUBJECTIVE_ASSESSMENT_META } from "./defaults";
+import {
+  parseAnswerKeyDetailed,
+  SUBJECTIVE_ASSESSMENT_META,
+  isCsatPaper,
+} from "./defaults";
 import {
   isSpecificSingleSubject,
   parseMarkdownHeader,
@@ -22,6 +26,7 @@ import {
   saveTopicRevisionNote,
   getUserAttempts,
   getUserPaper,
+  getPaperById,
   getUserPapers,
   getUserProfileData,
   getUserSyllabus,
@@ -578,7 +583,7 @@ function getAssessmentMarks(
   paper?: QuestionPaper | null,
   ans?: QuestionAnswer,
   correctMarksPerQ = 2.0,
-  incorrectMarksPerQ = 0.667,
+  incorrectMarksPerQ = 0,
   subjectiveMarksPerQ = 0,
 ): number {
   if (!assessment) return 0;
@@ -594,7 +599,9 @@ function getAssessmentMarks(
   if (assessment === "partial") {
     return Math.min(full, Math.max(0, subjectiveMarks ?? full * 0.5));
   }
-  if (assessment === "needs-work") return -penalty;
+  if (assessment === "needs-work") {
+    return -penalty;
+  }
   return 0;
 }
 
@@ -610,9 +617,11 @@ function recalculateAttemptGrades(
   const incorrectMarksPerQ =
     paper?.incorrectMarks !== undefined && Number(paper.incorrectMarks) >= 0
       ? Number(paper.incorrectMarks)
-      : attempt.incorrectMarks !== undefined
-        ? attempt.incorrectMarks
-        : 0.667;
+      : attempt.incorrectMarks !== undefined && Number(attempt.incorrectMarks) >= 0
+        ? Number(attempt.incorrectMarks)
+        : isCsatPaper(paper, attempt)
+          ? 0.833
+          : 0.667;
   const effectiveTotalMarks =
     paper?.totalMarks !== undefined && Number(paper.totalMarks) > 0
       ? Number(paper.totalMarks)
@@ -1464,7 +1473,25 @@ export function createPortalMcpServer(
         );
       }
 
-      const paper = papers.find((p) => p.id === targetAttempt.paperId);
+      let paper = papers.find((p) => p.id === targetAttempt.paperId);
+      if (!paper && targetAttempt.paperId) {
+        paper =
+          (await getPaperById(targetAttempt.paperId)) ||
+          (await getUserPaper(userId, targetAttempt.paperId)) ||
+          undefined;
+      }
+
+      if (
+        paper &&
+        (paper.incorrectMarks === undefined || paper.incorrectMarks === null) &&
+        paper.markdownContent
+      ) {
+        const hdr = parseMarkdownHeader(paper.markdownContent);
+        if (hdr.negativeMarking) {
+          const m = hdr.negativeMarking.match(/[\d.]+/);
+          if (m) paper.incorrectMarks = parseFloat(m[0]);
+        }
+      }
       const isSubjective = targetAttempt.examType === "subjective";
       const correctMarksPerQ =
         paper?.correctMarks !== undefined && Number(paper.correctMarks) > 0

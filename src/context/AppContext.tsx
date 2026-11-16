@@ -438,10 +438,22 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
             Object.keys(ucp.explanations || {}).length > 0
               ? ucp.explanations
               : match?.explanations || {};
+          const rawCorrect = ucp.correctMarks ?? match?.correctMarks;
           const resolvedCorrectMarks =
-            Number(ucp.correctMarks ?? match?.correctMarks) || 2.0;
+            rawCorrect !== undefined &&
+            rawCorrect !== null &&
+            !isNaN(Number(rawCorrect)) &&
+            Number(rawCorrect) > 0
+              ? Number(rawCorrect)
+              : 2.0;
+
+          const rawIncorrect = ucp.incorrectMarks ?? match?.incorrectMarks;
           const resolvedIncorrectMarks =
-            Number(ucp.incorrectMarks ?? match?.incorrectMarks) || 0.667;
+            rawIncorrect !== undefined &&
+            rawIncorrect !== null &&
+            !isNaN(Number(rawIncorrect))
+              ? Number(rawIncorrect)
+              : 0.667;
 
           const mergedPaper: QuestionPaper = match
             ? {

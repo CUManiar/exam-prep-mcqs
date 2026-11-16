@@ -401,8 +401,18 @@ export async function fetchUserCustomPapersFromSupabase(
             ? Number(row.total_marks)
             : (Number(row.total_questions) || 0) *
                 (Number(row.correct_marks) || 1) || 100,
-        correctMarks: Number(row.correct_marks) || 2.0,
-        incorrectMarks: Number(row.incorrect_marks) || 0.667,
+        correctMarks:
+          row.correct_marks !== undefined &&
+          row.correct_marks !== null &&
+          !isNaN(Number(row.correct_marks))
+            ? Number(row.correct_marks)
+            : 2.0,
+        incorrectMarks:
+          row.incorrect_marks !== undefined &&
+          row.incorrect_marks !== null &&
+          !isNaN(Number(row.incorrect_marks))
+            ? Number(row.incorrect_marks)
+            : 0.667,
         timeMinutes: Number(row.time_minutes) || 120,
         qpUrl: row.qp_url,
         akUrl: row.ak_url || undefined,

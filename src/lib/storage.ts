@@ -510,9 +510,27 @@ export async function getAllPapers(
               ? serverPaper.instructions
               : cp.instructions,
           correctMarks:
-            Number(serverPaper.correctMarks ?? cp.correctMarks) || 2.0,
+            serverPaper.correctMarks !== undefined &&
+            serverPaper.correctMarks !== null &&
+            !isNaN(Number(serverPaper.correctMarks)) &&
+            Number(serverPaper.correctMarks) > 0
+              ? Number(serverPaper.correctMarks)
+              : cp.correctMarks !== undefined &&
+                  cp.correctMarks !== null &&
+                  !isNaN(Number(cp.correctMarks)) &&
+                  Number(cp.correctMarks) > 0
+                ? Number(cp.correctMarks)
+                : 2.0,
           incorrectMarks:
-            Number(serverPaper.incorrectMarks ?? cp.incorrectMarks) || 0.667,
+            serverPaper.incorrectMarks !== undefined &&
+            serverPaper.incorrectMarks !== null &&
+            !isNaN(Number(serverPaper.incorrectMarks))
+              ? Number(serverPaper.incorrectMarks)
+              : cp.incorrectMarks !== undefined &&
+                  cp.incorrectMarks !== null &&
+                  !isNaN(Number(cp.incorrectMarks))
+                ? Number(cp.incorrectMarks)
+                : 0.667,
         };
       } else {
         papers.unshift(cp);

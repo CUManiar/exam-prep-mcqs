@@ -383,9 +383,15 @@ export function AttemptReviewView({
     subjectiveMarks?: number,
   ) => {
     const correctMarksPerQ =
-      matchedPaper?.correctMarks ?? attempt.correctMarks ?? 2.0;
+      matchedPaper?.correctMarks !== undefined && Number(matchedPaper.correctMarks) > 0
+        ? Number(matchedPaper.correctMarks)
+        : attempt.correctMarks ?? 2.0;
     const incorrectMarksPerQ =
-      matchedPaper?.incorrectMarks ?? attempt.incorrectMarks ?? 0.667;
+      matchedPaper?.incorrectMarks !== undefined && Number(matchedPaper.incorrectMarks) >= 0
+        ? Number(matchedPaper.incorrectMarks)
+        : attempt.incorrectMarks !== undefined && Number(attempt.incorrectMarks) >= 0
+          ? Number(attempt.incorrectMarks)
+          : 0.667;
     const updatedAnswers = { ...attempt.answers };
     const currentAnswer = updatedAnswers[qNo] || {
       questionNo: qNo,
@@ -702,7 +708,7 @@ export function AttemptReviewView({
                   isAssessmentQuestion={isAssessmentQuestion}
                   isClozeQuestion={isClozeQuestion}
                   getFullMarks={getFullMarks}
-                  incorrectMarksPerQ={attempt.incorrectMarks || 0.667}
+                  incorrectMarksPerQ={attempt.incorrectMarks ?? 0.667}
                   onSaveQuestionNote={handleSaveQuestionNote}
                   onSetSubjectiveAssessment={handleSetSubjectiveAssessment}
                   onNavigatePrev={handleNavigatePrev}
@@ -773,7 +779,7 @@ export function AttemptReviewView({
                 hasNextSkipped={skippedQuestionsList.length > 0}
                 canNavigatePrev={canNavigatePrev}
                 canNavigateNext={canNavigateNext}
-                incorrectMarksPerQ={attempt.incorrectMarks || 0.667}
+                incorrectMarksPerQ={attempt.incorrectMarks ?? 0.667}
                 getFullMarks={getFullMarks}
                 filteredQuestionNos={filteredQuestionNosSet}
                 hasActiveFilters={hasActiveFilters}
