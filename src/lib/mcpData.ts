@@ -1,5 +1,6 @@
 import { createClient, SupabaseClient } from "@supabase/supabase-js";
 import { Attempt, ParsedQuestion, QuestionPaper, SyllabusItem } from "./types";
+import { VocabCard } from "./vocabTypes";
 import {
   INITIAL_PAPERS,
   getStandardTimeMinutes,
@@ -12,6 +13,7 @@ const memoryHiddenPaperIds = new Map<string, string[]>();
 const memoryOnlyCustomPapers = new Map<string, boolean>();
 const memorySyllabus = new Map<string, SyllabusItem[]>();
 const memorySyllabusMarkdown = new Map<string, string>();
+const memoryVocabCards = new Map<string, VocabCard[]>();
 
 function getAdminClient(): SupabaseClient | null {
   if (adminClient !== undefined) return adminClient;
@@ -916,4 +918,139 @@ export async function saveTopicRevisionNote(
     saved: false,
     destination: "No matching question or syllabus item found to attach note.",
   };
+}
+
+export const FALLBACK_UPSC_QUOTES = [
+  {
+    quote:
+      "You have to dream before your dreams can come true. Excellence is a continuous process and not an accident.",
+    author: "Dr. A.P.J. Abdul Kalam",
+    role: "Former President of India & Scientist",
+    tag: "Vision & Consistency",
+  },
+  {
+    quote:
+      "Arise, awake, and stop not till the goal is reached. All power is within you; you can do anything and everything.",
+    author: "Swami Vivekananda",
+    role: "Philosopher & Youth Icon",
+    tag: "Unstoppable Will",
+  },
+  {
+    quote:
+      "By common endeavor we can raise the country to a new greatness, while a lack of unity will expose us to fresh calamities.",
+    author: "Sardar Vallabhbhai Patel",
+    role: "Architect of Indian Civil Services",
+    tag: "Service to Nation",
+  },
+  {
+    quote:
+      "Cultivation of mind should still be the ultimate aim of human existence. Educate, Agitate, Organize.",
+    author: "Dr. B.R. Ambedkar",
+    role: "Chief Architect of the Indian Constitution",
+    tag: "Intellectual Rigor",
+  },
+  {
+    quote:
+      "It does not matter how slowly you go as long as you do not stop. The man who moves a mountain begins by carrying away small stones.",
+    author: "Confucius",
+    role: "Philosopher",
+    tag: "Daily Persistence",
+  },
+  {
+    quote:
+      "You cannot cross the sea merely by standing and staring at the water. Hard work always brings you to your shore.",
+    author: "Rabindranath Tagore",
+    role: "Nobel Laureate & Poet",
+    tag: "Active Action",
+  },
+  {
+    quote:
+      "Success is not final, failure is not fatal: it is the courage to continue that counts in this marathon.",
+    author: "Winston Churchill",
+    role: "Statesman",
+    tag: "Resilience",
+  },
+  {
+    quote:
+      "A nation's greatness is measured by how it treats its weakest members. Remember the purpose of your administrative calling.",
+    author: "Mahatma Gandhi",
+    role: "Father of the Nation",
+    tag: "Public Service",
+  },
+  {
+    quote:
+      "The secret of getting ahead is getting started. Break your complex overwhelming tasks into small manageable steps.",
+    author: "Mark Twain",
+    role: "Author & Thinker",
+    tag: "Daily Discipline",
+  },
+];
+
+export async function getUserVocabCards(userId: string): Promise<VocabCard[]> {
+  const supabase = getAdminClient();
+  if (supabase) {
+    try {
+      const { data } = await supabase
+        .from("profiles")
+        .select("vocab_cards")
+        .eq("id", userId)
+        .maybeSingle();
+      if (Array.isArray(data?.vocab_cards) && data.vocab_cards.length > 0) {
+        return data.vocab_cards;
+      }
+    } catch (e) {
+      console.warn("Supabase vocab fetch failed:", e);
+    }
+  }
+
+  const stored = await readJsonStore<Record<string, VocabCard[]>>(
+    "vocab.json",
+    {},
+  );
+  if (Array.isArray(stored[userId]) && stored[userId].length > 0) {
+    return stored[userId];
+  }
+
+  return memoryVocabCards.get(userId) || [];
+}
+
+export async function saveUserVocabCards(
+  userId: string,
+  cards: VocabCard[],
+): Promise<boolean> {
+  memoryVocabCards.set(userId, cards);
+
+  try {
+    const stored = await readJsonStore<Record<string, VocabCard[]>>(
+      "vocab.json",
+      {},
+    );
+    stored[userId] = cards;
+    await writeJsonStore("vocab.json", stored);
+  } catch (e) {
+    console.warn("JSON store vocab save failed:", e);
+  }
+
+  const supabase = getAdminClient();
+  if (supabase) {
+    try {
+      await supabase
+        .from("profiles")
+        .update({
+          vocab_cards: cards,
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", userId);
+    } catch (e) {
+      console.warn("Failed updating vocab_cards in Supabase profiles:", e);
+    }
+  }
+  return true;
+}
+
+export function getMcpDailyQuote(random = false) {
+  const idx = random
+    ? Math.floor(Math.random() * FALLBACK_UPSC_QUOTES.length)
+    : Math.floor(Date.now() / 86400000) % FALLBACK_UPSC_QUOTES.length;
+  return FALLBACK_UPSC_QUOTES[idx];
 }

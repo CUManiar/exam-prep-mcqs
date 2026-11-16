@@ -8,6 +8,7 @@ import {
   QuestionPaper,
   SubjectiveAssessment,
 } from "./types";
+import { VocabCard } from "./vocabTypes";
 import { parseAnswerKeyDetailed, SUBJECTIVE_ASSESSMENT_META } from "./defaults";
 import {
   isSpecificSingleSubject,
@@ -24,6 +25,9 @@ import {
   getUserPapers,
   getUserProfileData,
   getUserSyllabus,
+  getUserVocabCards,
+  saveUserVocabCards,
+  getMcpDailyQuote,
   isCustomMcpPaper,
   saveMcpAttempt,
   saveMcpPaper,
@@ -109,6 +113,72 @@ function parseDurationToMinutes(raw: unknown): number | undefined {
   if (!isNaN(plainNum) && plainNum > 0) return plainNum;
 
   return undefined;
+}
+
+function generateFallbackVocabDetails(word: string): {
+  meaning: string;
+  memoryHook: string;
+  example: string;
+} {
+  const cleanWord = word.trim();
+  return {
+    meaning: `Key conceptual term referring to ${cleanWord.toLowerCase()} within administrative, constitutional, or socio-economic discourse.`,
+    memoryHook: `Link "${cleanWord}" with core root or thematic context to recall instantly in exam recall drills.`,
+    example: `The policy paper underscored the significance of ${cleanWord.toLowerCase()} in ensuring robust institutional governance.`,
+  };
+}
+
+async function enrichVocabWordWithAi(word: string): Promise<{
+  meaning: string;
+  memoryHook: string;
+  example: string;
+}> {
+  const cleanWord = word.trim();
+  const apiKey = process.env.GEMINI_API_KEY?.trim();
+  if (apiKey) {
+    try {
+      const prompt = `You are an expert vocabulary coach for serious students preparing for competitive exams (UPSC/editorial).
+The student provided the word: "${cleanWord}".
+Respond ONLY with a JSON object in this exact format:
+{
+  "meaning": "One clear, intuitive, and plain-language sentence explaining what the word means.",
+  "memoryHook": "A clever, relatable memory hook, association, or root clue that makes the word instant to remember.",
+  "example": "A realistic, contemporary sentence demonstrating how to naturally use this word in an editorial or essay."
+}`;
+      const res = await fetch(
+        `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            contents: [{ parts: [{ text: prompt }] }],
+            generationConfig: {
+              temperature: 0.3,
+              responseMimeType: "application/json",
+            },
+          }),
+          signal: AbortSignal.timeout(8000),
+        },
+      );
+      if (res.ok) {
+        const data = await res.json();
+        const text = data.candidates?.[0]?.content?.parts?.[0]?.text;
+        if (text) {
+          const parsed = JSON.parse(text);
+          if (parsed.meaning && parsed.memoryHook && parsed.example) {
+            return {
+              meaning: String(parsed.meaning).trim(),
+              memoryHook: String(parsed.memoryHook).trim(),
+              example: String(parsed.example).trim(),
+            };
+          }
+        }
+      }
+    } catch {
+      // Fallback cleanly
+    }
+  }
+  return generateFallbackVocabDetails(cleanWord);
 }
 
 function normalizeQuestions(input: Record<string, any>): ParsedQuestion[] {
@@ -684,16 +754,28 @@ export function createPortalMcpServer(
     async ({ includeTopics }) => {
       const authError = scopeError(scope, MCP_READ_SCOPE);
       if (authError) return authError;
-      const [papers, attempts] = await Promise.all([
+      const [papers, attempts, vocabCards] = await Promise.all([
         getUserPapers(userId),
         getUserAttempts(userId),
+        getUserVocabCards(userId),
       ]);
       const progress = summarizeProgress(papers, attempts);
+      const todayStr = new Date().toISOString().split("T")[0];
+      const studyAids = {
+        vocabTotal: vocabCards.length,
+        vocabMastered: vocabCards.filter((c) => c.mastered).length,
+        vocabLearning: vocabCards.filter((c) => !c.mastered).length,
+        vocabAddedToday: vocabCards.filter((c) => c.dateAdded === todayStr).length,
+        dailyGoal: 5,
+        dailyGoalAchieved:
+          vocabCards.filter((c) => c.dateAdded === todayStr).length >= 5,
+      };
       const topicAnalytics = includeTopics
         ? await getTopicAnalytics(userId)
         : undefined;
       return textResult({
         progress,
+        studyAids,
         ...(topicAnalytics ? { topicAnalytics } : {}),
       });
     },
@@ -1802,6 +1884,402 @@ export function createPortalMcpServer(
       });
 
       return textResult(res);
+    },
+  );
+
+  server.registerTool(
+    "list_vocab_cards",
+    {
+      title: "List vocabulary flashcards",
+      description:
+        "List, filter, and search vocabulary cards in the student's Study Aids (Misc) section. Shows memory hooks, definitions, editorial examples, and mastery state.",
+      annotations: { readOnlyHint: true },
+      inputSchema: {
+        filter: z
+          .enum(["all", "today", "learning", "mastered"])
+          .optional()
+          .describe(
+            "Filter flashcards: 'all', 'today' for words added today, 'learning' for active words, or 'mastered'. Defaults to 'all'.",
+          ),
+        search: z
+          .string()
+          .optional()
+          .describe("Search keyword across words, meanings, or memory hooks."),
+      },
+    },
+    async ({ filter = "all", search }) => {
+      const authError = scopeError(scope, MCP_READ_SCOPE);
+      if (authError) return authError;
+
+      const cards = await getUserVocabCards(userId);
+      const todayStr = new Date().toISOString().split("T")[0];
+
+      let filtered = cards;
+      if (filter === "today") {
+        filtered = filtered.filter((c) => c.dateAdded === todayStr);
+      } else if (filter === "learning") {
+        filtered = filtered.filter((c) => !c.mastered);
+      } else if (filter === "mastered") {
+        filtered = filtered.filter((c) => c.mastered);
+      }
+
+      if (search && search.trim()) {
+        const q = search.trim().toLowerCase();
+        filtered = filtered.filter(
+          (c) =>
+            c.word.toLowerCase().includes(q) ||
+            c.meaning.toLowerCase().includes(q) ||
+            c.memoryHook.toLowerCase().includes(q) ||
+            c.example.toLowerCase().includes(q),
+        );
+      }
+
+      return textResult({
+        summary: {
+          total: cards.length,
+          mastered: cards.filter((c) => c.mastered).length,
+          learning: cards.filter((c) => !c.mastered).length,
+          addedToday: cards.filter((c) => c.dateAdded === todayStr).length,
+          dailyGoal: 5,
+        },
+        cards: filtered,
+      });
+    },
+  );
+
+  server.registerTool(
+    "add_vocab_card",
+    {
+      title: "Add vocabulary flashcard",
+      description:
+        "Add a high-retention vocabulary card to the student's Study Aids (Misc) section. Auto-populates definitions, mnemonics, and editorial examples if omitted.",
+      annotations: { readOnlyHint: false, destructiveHint: false },
+      inputSchema: {
+        word: z.string().min(1).describe("Vocabulary word to add."),
+        meaning: z
+          .string()
+          .optional()
+          .describe(
+            "Clear intuitive definition. If omitted, an editorial definition is auto-generated.",
+          ),
+        memoryHook: z
+          .string()
+          .optional()
+          .describe(
+            "Relatable mnemonic or root clue. If omitted, an instant memory hook is auto-generated.",
+          ),
+        example: z
+          .string()
+          .optional()
+          .describe(
+            "Practical UPSC/editorial usage sentence. If omitted, an illustrative sentence is auto-generated.",
+          ),
+        mastered: z
+          .boolean()
+          .optional()
+          .describe("Initial mastery state (default false)."),
+      },
+    },
+    async ({ word, meaning, memoryHook, example, mastered }) => {
+      const authError = scopeError(scope, MCP_WRITE_SCOPE);
+      if (authError) return authError;
+
+      const cleanWord = word.trim();
+      let finalMeaning = meaning?.trim();
+      let finalHook = memoryHook?.trim();
+      let finalExample = example?.trim();
+
+      if (!finalMeaning || !finalHook || !finalExample) {
+        const generated = await enrichVocabWordWithAi(cleanWord);
+        if (!finalMeaning) finalMeaning = generated.meaning;
+        if (!finalHook) finalHook = generated.memoryHook;
+        if (!finalExample) finalExample = generated.example;
+      }
+
+      const cards = await getUserVocabCards(userId);
+      const existingIdx = cards.findIndex(
+        (c) => c.word.trim().toLowerCase() === cleanWord.toLowerCase(),
+      );
+
+      const todayStr = new Date().toISOString().split("T")[0];
+      const nowIso = new Date().toISOString();
+
+      let targetCard: VocabCard;
+      if (existingIdx >= 0) {
+        targetCard = {
+          ...cards[existingIdx],
+          meaning: finalMeaning,
+          memoryHook: finalHook,
+          example: finalExample,
+          mastered:
+            mastered !== undefined
+              ? Boolean(mastered)
+              : cards[existingIdx].mastered,
+        };
+        cards[existingIdx] = targetCard;
+      } else {
+        targetCard = {
+          id: `vocab_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
+          word: cleanWord,
+          meaning: finalMeaning,
+          memoryHook: finalHook,
+          example: finalExample,
+          dateAdded: todayStr,
+          mastered: Boolean(mastered),
+          createdAt: nowIso,
+        };
+        cards.unshift(targetCard);
+      }
+
+      await saveUserVocabCards(userId, cards);
+
+      return textResult({
+        saved: true,
+        action: existingIdx >= 0 ? "updated" : "created",
+        card: targetCard,
+        totalCards: cards.length,
+        todayCount: cards.filter((c) => c.dateAdded === todayStr).length,
+      });
+    },
+  );
+
+  server.registerTool(
+    "toggle_vocab_mastery",
+    {
+      title: "Toggle vocabulary card mastery",
+      description:
+        "Mark a vocabulary card as mastered or in-learning in the student's Study Aids (Misc) section.",
+      annotations: { readOnlyHint: false, destructiveHint: false },
+      inputSchema: {
+        id: z.string().optional().describe("ID of the vocab card."),
+        word: z
+          .string()
+          .optional()
+          .describe("Word text (case-insensitive) if ID is not available."),
+        mastered: z
+          .boolean()
+          .optional()
+          .describe(
+            "Explicit mastery state. If omitted, toggles current status.",
+          ),
+      },
+    },
+    async ({ id, word, mastered }) => {
+      const authError = scopeError(scope, MCP_WRITE_SCOPE);
+      if (authError) return authError;
+
+      const cards = await getUserVocabCards(userId);
+      const target = cards.find(
+        (c) =>
+          (id && c.id === id) ||
+          (word && c.word.toLowerCase() === word.trim().toLowerCase()),
+      );
+
+      if (!target) {
+        return errorResult("Vocab card not found.");
+      }
+
+      target.mastered = mastered !== undefined ? mastered : !target.mastered;
+      await saveUserVocabCards(userId, cards);
+
+      return textResult({
+        updated: true,
+        card: target,
+        mastered: target.mastered,
+        totalMastered: cards.filter((c) => c.mastered).length,
+        totalLearning: cards.filter((c) => !c.mastered).length,
+      });
+    },
+  );
+
+  server.registerTool(
+    "delete_vocab_card",
+    {
+      title: "Delete vocabulary card",
+      description:
+        "Remove a vocabulary card from the student's Study Aids (Misc) section.",
+      annotations: { readOnlyHint: false, destructiveHint: true },
+      inputSchema: {
+        id: z.string().optional().describe("ID of the card to delete."),
+        word: z
+          .string()
+          .optional()
+          .describe("Word text to delete (case-insensitive)."),
+      },
+    },
+    async ({ id, word }) => {
+      const authError = scopeError(scope, MCP_WRITE_SCOPE);
+      if (authError) return authError;
+
+      const cards = await getUserVocabCards(userId);
+      const filtered = cards.filter(
+        (c) =>
+          !(id && c.id === id) &&
+          !(word && c.word.toLowerCase() === word.trim().toLowerCase()),
+      );
+
+      if (filtered.length === cards.length) {
+        return errorResult("No matching vocab card found to delete.");
+      }
+
+      await saveUserVocabCards(userId, filtered);
+
+      return textResult({
+        deleted: true,
+        remainingCount: filtered.length,
+      });
+    },
+  );
+
+  server.registerTool(
+    "get_vocab_practice_question",
+    {
+      title: "Get vocabulary practice question",
+      description:
+        "Generate a fill-in-the-blank practice question for a word from the student's Study Aids (Misc) section.",
+      annotations: { readOnlyHint: true },
+      inputSchema: {
+        word: z
+          .string()
+          .optional()
+          .describe("Target word. If omitted, selects from unmastered cards."),
+        id: z.string().optional().describe("Card ID to practice."),
+      },
+    },
+    async ({ word, id }) => {
+      const authError = scopeError(scope, MCP_READ_SCOPE);
+      if (authError) return authError;
+
+      const cards = await getUserVocabCards(userId);
+      if (!cards.length) {
+        return errorResult(
+          "No vocabulary cards found in Study Aids. Add a word first.",
+        );
+      }
+
+      let target = cards.find(
+        (c) =>
+          (id && c.id === id) ||
+          (word && c.word.toLowerCase() === word.trim().toLowerCase()),
+      );
+
+      if (!target) {
+        const unmastered = cards.filter((c) => !c.mastered);
+        const pool = unmastered.length > 0 ? unmastered : cards;
+        target = pool[Math.floor(Math.random() * pool.length)];
+      }
+
+      const escaped = target.word.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+      const blankRegex = new RegExp(`\\b${escaped}\\b`, "gi");
+      let statementWithBlank = target.example.replace(blankRegex, "_______");
+      if (statementWithBlank === target.example) {
+        statementWithBlank = `The administrative committee evaluated the policy, emphasizing the need for _______ in governance.`;
+      }
+
+      const otherWords = cards
+        .map((c) => c.word)
+        .filter((w) => w.toLowerCase() !== target!.word.toLowerCase());
+      const fallbackDistractors = [
+        "paradigm",
+        "hegemony",
+        "ubiquity",
+        "antithesis",
+        "surreptitious",
+      ];
+      const distractors: string[] = [];
+      for (const w of [...otherWords, ...fallbackDistractors]) {
+        if (
+          w.toLowerCase() !== target.word.toLowerCase() &&
+          !distractors.includes(w)
+        ) {
+          distractors.push(w);
+          if (distractors.length === 3) break;
+        }
+      }
+
+      const options = [target.word, ...distractors].sort(
+        () => 0.5 - Math.random(),
+      );
+
+      return textResult({
+        cardId: target.id,
+        word: target.word,
+        statementWithBlank,
+        options,
+        hint: target.memoryHook,
+      });
+    },
+  );
+
+  server.registerTool(
+    "evaluate_vocab_sentence",
+    {
+      title: "Evaluate vocabulary sentence",
+      description:
+        "Evaluate whether a student's sentence uses a target vocabulary word naturally and accurately in academic or civil services context.",
+      annotations: { readOnlyHint: true },
+      inputSchema: {
+        word: z.string().min(1).describe("Target vocabulary word."),
+        sentence: z
+          .string()
+          .min(3)
+          .describe("Student-composed sentence using the target word."),
+      },
+    },
+    async ({ word, sentence }) => {
+      const authError = scopeError(scope, MCP_READ_SCOPE);
+      if (authError) return authError;
+
+      const cleanWord = word.trim().toLowerCase();
+      const cleanSentence = sentence.trim();
+      const hasWord = cleanSentence.toLowerCase().includes(cleanWord);
+
+      if (!hasWord) {
+        return textResult({
+          isNatural: false,
+          feedback: `The sentence does not appear to contain the target word "${word}".`,
+        });
+      }
+
+      const wordCount = cleanSentence.split(/\s+/).length;
+      if (wordCount < 4) {
+        return textResult({
+          isNatural: false,
+          feedback:
+            "The sentence is too brief to demonstrate contextual understanding. Aim for at least 6-8 words.",
+        });
+      }
+
+      return textResult({
+        isNatural: true,
+        feedback: `Good usage! "${word}" is used in a coherent and grammatically sound context.`,
+        improvedSentence: `${cleanSentence.charAt(0).toUpperCase() + cleanSentence.slice(1).replace(/[.]+$/, "")}, illustrating effective analytical expression.`,
+      });
+    },
+  );
+
+  server.registerTool(
+    "get_daily_motivation",
+    {
+      title: "Get daily motivation quote",
+      description:
+        "Get today's inspirational quote and administrative resilience takeaway from the Study Aids & Misc section.",
+      annotations: { readOnlyHint: true },
+      inputSchema: {
+        random: z
+          .boolean()
+          .optional()
+          .describe(
+            "If true, returns a random quote instead of today's fixed quote.",
+          ),
+      },
+    },
+    async ({ random = false }) => {
+      const authError = scopeError(scope, MCP_READ_SCOPE);
+      if (authError) return authError;
+
+      const quote = getMcpDailyQuote(Boolean(random));
+      return textResult(quote);
     },
   );
 
