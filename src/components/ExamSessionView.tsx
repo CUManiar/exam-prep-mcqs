@@ -3564,25 +3564,33 @@ export function ExamSessionView({
                   </div>
                 </div>
 
-                <div className="grid grid-cols-5 sm:grid-cols-8 md:grid-cols-10 lg:grid-cols-12 gap-2">
+                <div className="grid grid-cols-5 sm:grid-cols-8 md:grid-cols-10 lg:grid-cols-12 gap-1.5 sm:gap-2">
                   {Array.from(
                     { length: paper.totalQuestions },
                     (_, i) => i + 1,
                   ).map((qNo) => {
                     const qObj = answers[qNo];
-                    const isAtt = !!qObj?.selected;
+                    const isAtt =
+                      !!qObj?.selected && qObj.selected.trim().length > 0;
                     const isFlag = !!qObj?.flagged;
+                    const rawAnswer = isAtt ? qObj.selected.trim() : "";
 
                     return (
                       <button
                         key={qNo}
+                        type="button"
                         disabled={isSubmittingExam}
                         onClick={() => {
                           if (isSubmittingExam) return;
                           setShowFinishConfirm(false);
                           navigateToQuestion(qNo);
                         }}
-                        className={`flex flex-col items-center justify-center rounded-xl p-2 border transition-all text-center shadow-2xs ${
+                        title={
+                          isAtt
+                            ? `Question ${qNo}: ${rawAnswer}${isFlag ? " (Flagged for review)" : ""}`
+                            : `Question ${qNo}: Unattempted${isFlag ? " (Flagged for review)" : ""}`
+                        }
+                        className={`relative flex flex-col items-center justify-center h-13 sm:h-14 w-full rounded-xl px-1 py-1 border transition-all text-center shadow-2xs overflow-hidden cursor-pointer ${
                           isSubmittingExam
                             ? "opacity-50 cursor-not-allowed pointer-events-none"
                             : ""
@@ -3594,15 +3602,21 @@ export function ExamSessionView({
                               : "border-slate-200 bg-slate-50 text-slate-600 hover:border-slate-300 hover:bg-white"
                         }`}
                       >
-                        <span className="text-[11px] font-mono text-slate-500">
+                        {isFlag && (
+                          <span
+                            className="absolute top-1 right-1 h-1.5 w-1.5 sm:h-2 sm:w-2 rounded-full bg-amber-500 ring-1 ring-white"
+                            title="Flagged for review"
+                          />
+                        )}
+                        <span className="text-[10px] sm:text-[11px] font-mono text-slate-500 leading-none">
                           Q{qNo}
                         </span>
-                        <span className="text-xs font-bold mt-0.5">
-                          {isAtt ? qObj.selected : "—"}
+                        <span className="w-full text-xs font-bold mt-1 truncate px-0.5 text-center block leading-tight">
+                          {isAtt ? rawAnswer : "—"}
                         </span>
                         {isFlag && (
-                          <span className="text-[9px] text-amber-700 font-semibold mt-0.5">
-                            ⚑ review
+                          <span className="text-[8px] font-semibold text-amber-700 leading-none truncate max-w-full mt-0.5">
+                            review
                           </span>
                         )}
                       </button>
