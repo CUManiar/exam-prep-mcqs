@@ -47,6 +47,7 @@ import {
 } from "@/lib/revisionAi";
 import { RevisionMarkdownRenderer } from "../revision/RevisionMarkdownRenderer";
 import { RevisionSettingsModal } from "../revision/RevisionSettingsModal";
+import { MainsDiagramRenderer } from "./MainsDiagramRenderer";
 
 const SAMPLE_QUESTIONS = [
   {
@@ -2157,35 +2158,8 @@ To advance constitutional morality and responsive governance, administrative exe
                       ))}
                     </div>
 
-                    {evaluation.diagramIdea &&
-                      evaluation.diagramIdea.trim().length > 30 &&
-                      !["null", "none", "n/a"].includes(
-                        evaluation.diagramIdea.toLowerCase().trim(),
-                      ) && (
-                      <div className="mt-3 p-3.5 rounded-xl bg-white dark:bg-slate-900 border border-indigo-200 dark:border-indigo-900/60 space-y-1.5 text-xs">
-                        <div className="flex items-center justify-between pb-1">
-                          <span className="font-bold text-indigo-600 dark:text-indigo-400 block">
-                            📊 Examiner-Suggested High-Yield Micro-Diagram:
-                          </span>
-                          <button
-                            type="button"
-                            onClick={() => {
-                              if (evaluation.diagramIdea) {
-                                navigator.clipboard.writeText(
-                                  evaluation.diagramIdea,
-                                );
-                              }
-                            }}
-                            className="text-[10px] font-mono font-semibold text-slate-400 hover:text-indigo-600 cursor-pointer"
-                          >
-                            Copy Schema
-                          </button>
-                        </div>
-                        <pre className="p-3 rounded-lg bg-slate-950 text-emerald-400 font-mono text-xs whitespace-pre-wrap overflow-x-auto border border-slate-800 leading-relaxed">
-                          {evaluation.diagramIdea}
-                        </pre>
-                      </div>
-                    )}
+                    {/* Examiner-Approved Micro-Diagram: Visual Flowchart or clean Schema */}
+                    <MainsDiagramRenderer diagramIdea={evaluation.diagramIdea} />
                   </div>
                 </div>
               )}

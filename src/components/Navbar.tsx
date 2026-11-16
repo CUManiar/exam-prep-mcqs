@@ -115,7 +115,7 @@ export function Navbar() {
             aria-label="UPSC Prep Hub overview"
           >
             <span className="app-brand-mark">
-              <img src="/upsc_logo.png" alt="" />
+              <img src="/favicon.svg" alt="UPSC Prep Hub" />
             </span>
             <span className="min-w-0">
               <span className="app-brand-name">UPSC Prep Hub</span>
