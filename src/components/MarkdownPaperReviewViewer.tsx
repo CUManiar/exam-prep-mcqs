@@ -201,12 +201,12 @@ export function MarkdownPaperReviewViewer({
       if (key === "j" || key === "J") {
         if (viewMode === "single") {
           e.preventDefault();
-          handleNextQuestion();
+          handlePrevQuestion();
         }
       } else if (key === "k" || key === "K") {
         if (viewMode === "single") {
           e.preventDefault();
-          handlePrevQuestion();
+          handleNextQuestion();
         }
       } else if (key === "ArrowDown") {
         if (scrollContainerRef.current) {
@@ -723,14 +723,14 @@ export function MarkdownPaperReviewViewer({
             type="button"
             disabled={currentIndex <= 0}
             onClick={handlePrevQuestion}
-            title="Previous Question (shortcut: K)"
+            title="Previous Question (shortcut: J)"
             className="flex items-center gap-1 px-3 py-1.5 rounded-xl border border-slate-200 bg-white text-xs font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-40 disabled:pointer-events-none transition-colors cursor-pointer"
           >
             <ChevronLeft className="h-4 w-4" />
             <span className="hidden sm:inline">Previous</span>
             <span className="sm:hidden">Prev</span>
             <kbd className="hidden sm:inline-block ml-1 px-1.5 py-0.5 text-[10px] font-mono text-slate-500 bg-slate-100 rounded border border-slate-200 shadow-2xs">
-              K
+              J
             </kbd>
           </button>
 
@@ -749,13 +749,13 @@ export function MarkdownPaperReviewViewer({
             type="button"
             disabled={currentIndex >= questions.length - 1}
             onClick={handleNextQuestion}
-            title="Next Question (shortcut: J)"
+            title="Next Question (shortcut: K)"
             className="flex items-center gap-1 px-3.5 py-1.5 rounded-xl bg-indigo-600 text-xs font-semibold text-white hover:bg-indigo-700 disabled:opacity-40 disabled:pointer-events-none transition-colors shadow-xs cursor-pointer"
           >
             <span className="hidden sm:inline">Next Question</span>
             <span className="sm:hidden">Next</span>
             <kbd className="hidden sm:inline-block ml-1 px-1.5 py-0.5 text-[10px] font-mono text-indigo-100 bg-indigo-700/90 rounded border border-indigo-500/60 shadow-2xs">
-              J
+              K
             </kbd>
             <ChevronRight className="h-4 w-4" />
           </button>

@@ -662,13 +662,13 @@ export function QuestionPalette({
               type="button"
               disabled={!canNavigatePrev}
               onClick={onNavigatePrev}
-              title="Previous Question (shortcut: K)"
+              title="Previous Question (shortcut: J)"
               className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 text-xs font-semibold disabled:opacity-30 disabled:pointer-events-none transition-all shadow-2xs cursor-pointer"
             >
               <ChevronLeft className="h-3.5 w-3.5" />
               <span>Previous</span>
               <kbd className="hidden sm:inline-block ml-1 px-1 py-0.2 text-[9px] font-mono text-slate-400 bg-slate-100 rounded border border-slate-200">
-                K
+                J
               </kbd>
             </button>
 
@@ -704,12 +704,12 @@ export function QuestionPalette({
               type="button"
               disabled={!canNavigateNext}
               onClick={onNavigateNext}
-              title="Next Question (shortcut: J)"
+              title="Next Question (shortcut: K)"
               className="inline-flex items-center gap-1 px-3 py-1 rounded-lg bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold disabled:opacity-30 disabled:pointer-events-none transition-all shadow-2xs cursor-pointer"
             >
               <span>Next</span>
               <kbd className="hidden sm:inline-block ml-1 px-1 py-0.2 text-[9px] font-mono text-slate-300 bg-slate-800 rounded border border-slate-700">
-                J
+                K
               </kbd>
               <ChevronRight className="h-3.5 w-3.5" />
             </button>

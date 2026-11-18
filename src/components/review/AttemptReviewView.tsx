@@ -504,17 +504,17 @@ export function AttemptReviewView({
         if (isMarkdownPaper && showPaperSplit && reviewViewMode === "all") {
           return;
         }
-        if (canNavigateNext) {
+        if (canNavigatePrev) {
           e.preventDefault();
-          handleNavigateNext();
+          handleNavigatePrev();
         }
       } else if (key === "k" || key === "K") {
         if (isMarkdownPaper && showPaperSplit && reviewViewMode === "all") {
           return;
         }
-        if (canNavigatePrev) {
+        if (canNavigateNext) {
           e.preventDefault();
-          handleNavigatePrev();
+          handleNavigateNext();
         }
       }
     };
