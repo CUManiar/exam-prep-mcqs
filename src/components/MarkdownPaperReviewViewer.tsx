@@ -23,6 +23,7 @@ import {
   Grid3X3,
   ChevronLeft,
   ChevronRight,
+  Bookmark,
 } from "lucide-react";
 import { HtmlExplanation } from "./HtmlExplanation";
 
@@ -38,6 +39,8 @@ interface MarkdownPaperReviewViewerProps {
   onClose?: () => void;
   hasActiveFilters?: boolean;
   onResetFilters?: () => void;
+  viewMode?: "all" | "single";
+  onViewModeChange?: (mode: "all" | "single") => void;
 }
 
 export function MarkdownPaperReviewViewer({
@@ -52,15 +55,17 @@ export function MarkdownPaperReviewViewer({
   onClose,
   hasActiveFilters,
   onResetFilters,
+  viewMode: propViewMode,
+  onViewModeChange,
 }: MarkdownPaperReviewViewerProps) {
   const router = useRouter();
   const scrollContainerRef = useRef<HTMLDivElement>(null);
-  const [viewMode, setViewMode] = useState<"all" | "single">(() => {
-    if (typeof window !== "undefined" && window.innerWidth < 768) {
-      return "single";
-    }
-    return "all";
-  });
+  const [internalViewMode, setInternalViewMode] = useState<"all" | "single">("single");
+  const viewMode = propViewMode ?? internalViewMode;
+  const setViewMode = (mode: "all" | "single") => {
+    setInternalViewMode(mode);
+    onViewModeChange?.(mode);
+  };
   const [showPaperDetails, setShowPaperDetails] = useState<boolean>(false);
   const [isPaletteOpen, setIsPaletteOpen] = useState<boolean>(false);
 
@@ -157,6 +162,55 @@ export function MarkdownPaperReviewViewer({
       });
     }
   }, [activeQuestionNo]);
+
+  // Keyboard navigation shortcuts: J/K for single questions, Up/Down arrows for scrolling
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      const target = e.target as HTMLElement | null;
+      const activeEl = document.activeElement as HTMLElement | null;
+      const isInput = (el: HTMLElement | null) => {
+        if (!el) return false;
+        const tag = el.tagName?.toUpperCase();
+        return (
+          tag === "INPUT" ||
+          tag === "TEXTAREA" ||
+          tag === "SELECT" ||
+          el.isContentEditable ||
+          el.getAttribute("role") === "textbox"
+        );
+      };
+
+      if (isInput(target) || isInput(activeEl)) return;
+      if (e.metaKey || e.ctrlKey || e.altKey) return;
+
+      const key = e.key;
+
+      if (key === "j" || key === "J") {
+        if (viewMode === "single") {
+          e.preventDefault();
+          handleNextQuestion();
+        }
+      } else if (key === "k" || key === "K") {
+        if (viewMode === "single") {
+          e.preventDefault();
+          handlePrevQuestion();
+        }
+      } else if (key === "ArrowDown") {
+        if (scrollContainerRef.current) {
+          e.preventDefault();
+          scrollContainerRef.current.scrollBy({ top: 120, behavior: "smooth" });
+        }
+      } else if (key === "ArrowUp") {
+        if (scrollContainerRef.current) {
+          e.preventDefault();
+          scrollContainerRef.current.scrollBy({ top: -120, behavior: "smooth" });
+        }
+      }
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [viewMode, currentIndex, questions, onSelectQuestion]);
 
   const displayTitle = getPaperDisplayTitle(paper);
   const visibleQuestions =
@@ -454,6 +508,27 @@ export function MarkdownPaperReviewViewer({
                         <span>PYQ: {q.previousYears || ans?.previousYears}</span>
                       </span>
                     )}
+
+                    {/* Confidence Tag */}
+                    {ans?.confidence && (
+                      <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-slate-700 bg-slate-50 border border-slate-200 px-2 py-0.5 rounded-full shadow-2xs">
+                        {ans.confidence === "sure"
+                          ? "🎯 Sure"
+                          : ans.confidence === "50-50"
+                            ? "⚖️ 50:50"
+                            : ans.confidence === "elimination"
+                              ? "✂️ Elim"
+                              : "🎲 Guess"}
+                      </span>
+                    )}
+
+                    {/* Flagged Tag */}
+                    {ans?.flagged && (
+                      <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-amber-800 bg-amber-50 border border-amber-200 px-2 py-0.5 rounded-full shadow-2xs">
+                        <Bookmark className="h-3 w-3 fill-amber-500 text-amber-500" />
+                        <span>Flagged</span>
+                      </span>
+                    )}
                   </div>
 
                   <div className="flex items-center gap-2 text-xs">
@@ -625,11 +700,15 @@ export function MarkdownPaperReviewViewer({
             type="button"
             disabled={currentIndex <= 0}
             onClick={handlePrevQuestion}
+            title="Previous Question (shortcut: K)"
             className="flex items-center gap-1 px-3 py-1.5 rounded-xl border border-slate-200 bg-white text-xs font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-40 disabled:pointer-events-none transition-colors cursor-pointer"
           >
             <ChevronLeft className="h-4 w-4" />
             <span className="hidden sm:inline">Previous</span>
             <span className="sm:hidden">Prev</span>
+            <kbd className="hidden sm:inline-block ml-1 px-1.5 py-0.5 text-[10px] font-mono text-slate-500 bg-slate-100 rounded border border-slate-200 shadow-2xs">
+              K
+            </kbd>
           </button>
 
           <button
@@ -647,10 +726,14 @@ export function MarkdownPaperReviewViewer({
             type="button"
             disabled={currentIndex >= questions.length - 1}
             onClick={handleNextQuestion}
+            title="Next Question (shortcut: J)"
             className="flex items-center gap-1 px-3.5 py-1.5 rounded-xl bg-indigo-600 text-xs font-semibold text-white hover:bg-indigo-700 disabled:opacity-40 disabled:pointer-events-none transition-colors shadow-xs cursor-pointer"
           >
             <span className="hidden sm:inline">Next Question</span>
             <span className="sm:hidden">Next</span>
+            <kbd className="hidden sm:inline-block ml-1 px-1.5 py-0.5 text-[10px] font-mono text-indigo-100 bg-indigo-700/90 rounded border border-indigo-500/60 shadow-2xs">
+              J
+            </kbd>
             <ChevronRight className="h-4 w-4" />
           </button>
         </div>
