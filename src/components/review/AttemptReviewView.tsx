@@ -148,7 +148,16 @@ export function AttemptReviewView({
     return markdownQuestions.find((mq) => mq.questionNo === activeQuestionNo);
   }, [markdownQuestions, activeQuestionNo]);
 
-  // Auto-heal attempt only if there is a penalty mismatch (e.g. historical default penalty when paper has 0)
+  // Synchronized answers dictionary using evaluated questionList to ensure all review views stay in sync
+  const synchronizedAnswers = useMemo(() => {
+    const map: Record<number, QuestionAnswer> = {};
+    for (const q of questionList) {
+      map[q.questionNo] = q;
+    }
+    return map;
+  }, [questionList]);
+
+  // Auto-heal attempt only if there is a penalty mismatch or invalid partial correctness
   useEffect(() => {
     if (!matchedPaper) return;
     const targetIncorrect =
@@ -162,14 +171,30 @@ export function AttemptReviewView({
       attempt.incorrectMarks !== undefined &&
       Number(attempt.incorrectMarks) !== targetIncorrect;
 
-    if (penaltyMismatch) {
+    const hasCorruptPartial = Object.values(attempt.answers || {}).some(
+      (a) => a.subjectiveAssessment === "partial" && a.isCorrect !== null,
+    );
+
+    if (penaltyMismatch || hasCorruptPartial) {
       const correctMarksPerQ =
         matchedPaper.correctMarks !== undefined && Number(matchedPaper.correctMarks) > 0
           ? Number(matchedPaper.correctMarks)
           : attempt.correctMarks ?? 2.0;
-      const incorrectMarksPerQ = targetIncorrect;
+      const incorrectMarksPerQ = targetIncorrect ?? attempt.incorrectMarks ?? 0;
 
-      const allAnswers = Object.values(attempt.answers || {});
+      const updatedAnswers = { ...attempt.answers };
+      if (hasCorruptPartial) {
+        for (const [key, ans] of Object.entries(updatedAnswers)) {
+          if (ans.subjectiveAssessment === "partial" && ans.isCorrect !== null) {
+            updatedAnswers[Number(key)] = {
+              ...ans,
+              isCorrect: null,
+            };
+          }
+        }
+      }
+
+      const allAnswers = Object.values(updatedAnswers);
       const attemptedAnswers = allAnswers.filter((a) => isQuestionAnswered(a));
       const score =
         Math.round(
@@ -229,6 +254,7 @@ export function AttemptReviewView({
         correctMarks: correctMarksPerQ,
         incorrectMarks: incorrectMarksPerQ,
         totalMarks: matchedPaper.totalMarks ?? attempt.totalMarks,
+        answers: updatedAnswers,
         answered,
         correct,
         partial,
@@ -807,7 +833,7 @@ export function AttemptReviewView({
                   isMarkdownPaper={isMarkdownPaper}
                   markdownQuestions={displayedMarkdownQuestions}
                   markdownHeader={markdownHeader}
-                  answers={attempt.answers || {}}
+                  answers={synchronizedAnswers}
                   activeQuestionNo={activeQuestionNo}
                   onSelectQuestion={jumpToQuestion}
                   onClose={() => {

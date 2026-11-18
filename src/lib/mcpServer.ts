@@ -776,7 +776,14 @@ function recalculateAttemptGrades(
       ? effectiveTotalMarks / attempt.totalQuestions
       : 0;
 
-  const allAnswers = Object.values(attempt.answers || {});
+  const sanitizedAnswers = { ...attempt.answers };
+  for (const [key, ans] of Object.entries(sanitizedAnswers)) {
+    if (ans.subjectiveAssessment === "partial" && ans.isCorrect !== null) {
+      sanitizedAnswers[Number(key)] = { ...ans, isCorrect: null };
+    }
+  }
+
+  const allAnswers = Object.values(sanitizedAnswers);
   const attemptedAnswers = allAnswers.filter((a) =>
     isQuestionAnswered(
       a,
@@ -893,6 +900,7 @@ function recalculateAttemptGrades(
 
   return {
     ...attempt,
+    answers: sanitizedAnswers,
     correctMarks: correctMarksPerQ,
     incorrectMarks: incorrectMarksPerQ,
     totalMarks: effectiveTotalMarks > 0 ? effectiveTotalMarks : attempt.totalMarks,
@@ -1691,13 +1699,15 @@ export function createPortalMcpServer(
                 : "needs-work");
 
         const isCorrect: boolean | null =
-          grade.isCorrect !== undefined
-            ? grade.isCorrect
-            : assessment === "strong"
-              ? true
-              : assessment === "needs-work"
-                ? false
-                : null;
+          assessment === "strong"
+            ? true
+            : assessment === "needs-work"
+              ? false
+              : assessment === "partial" || assessment === "no-attempt"
+                ? null
+                : grade.isCorrect !== undefined
+                  ? grade.isCorrect
+                  : null;
 
         updatedAnswers[qNo] = {
           ...currentAnswer,
