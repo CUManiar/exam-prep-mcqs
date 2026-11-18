@@ -19,7 +19,6 @@ import {
   getSubjectiveAssessmentFraction,
   SUBJECTIVE_ASSESSMENT_META,
   isCsatPaper,
-  evaluateClozeMatch,
 } from "../lib/defaults";
 import {
   saveActiveDraft,
@@ -802,27 +801,14 @@ export function ExamSessionView({
         }
 
         const rawCorrect = getCorrectAnswerForQ(qNo);
-        const explanation =
-          sessionExplanations[qNo] || paper.explanations?.[qNo];
-        const evalRes = evaluateClozeMatch(newSelected, rawCorrect, explanation);
-        const isCorrect = newSelected ? evalRes.isCorrect : null;
-        const subjectiveAssessment: SubjectiveAssessment | undefined =
-          isCorrect === true
-            ? "strong"
-            : evalRes.partial
-              ? "partial"
-              : isCorrect === false
-                ? "needs-work"
-                : undefined;
-
         return {
           ...prev,
           [qNo]: {
             ...current,
             selected: newSelected,
             correctAnswer: rawCorrect,
-            isCorrect,
-            subjectiveAssessment,
+            isCorrect: null,
+            subjectiveAssessment: undefined,
           },
         };
       });
@@ -1358,31 +1344,32 @@ export function ExamSessionView({
           sessionExplanations[i] || paper.explanations?.[i] || qMeta?.explanation;
 
         if (isCloze) {
+          // Cloze questions are subjective free-text responses.
+          // They are not auto-evaluated with heuristics; they remain Pending Evaluation (isCorrect: null)
+          // unless already graded or assessed by evaluator, teacher, or AI.
           if (a.selected && a.selected.trim()) {
-            const evalRes = evaluateClozeMatch(a.selected, rawCorrect, explanation);
-            if (evalRes.isCorrect === true && !evalRes.partial) {
+            if (a.subjectiveAssessment === "strong") {
               correctCount++;
               isCorrect = true;
-              subjectiveAssessment = "strong";
               if (isSubjective) {
-                subjectiveMarks = subjectiveMarksPerQuestion;
-                subjectiveScore += subjectiveMarksPerQuestion;
+                subjectiveMarks =
+                  a.subjectiveMarks ?? subjectiveMarksPerQuestion;
+                subjectiveScore += subjectiveMarks;
                 subjectiveAssessmentPoints += 1;
               }
               timeCorrectSum += spentSecs;
-            } else if (evalRes.partial) {
+            } else if (a.subjectiveAssessment === "partial") {
               partialCount++;
-              isCorrect = false;
-              subjectiveAssessment = "partial";
+              isCorrect = null;
               if (isSubjective) {
-                subjectiveMarks = subjectiveMarksPerQuestion * 0.5;
-                subjectiveScore += subjectiveMarksPerQuestion * 0.5;
+                subjectiveMarks =
+                  a.subjectiveMarks ?? subjectiveMarksPerQuestion * 0.5;
+                subjectiveScore += subjectiveMarks;
                 subjectiveAssessmentPoints += 0.5;
               }
-            } else if (evalRes.isCorrect === false) {
+            } else if (a.subjectiveAssessment === "needs-work") {
               incorrectCount++;
               isCorrect = false;
-              subjectiveAssessment = "needs-work";
               subjectiveMarks = 0;
               timeIncorrectSum += spentSecs;
             } else {

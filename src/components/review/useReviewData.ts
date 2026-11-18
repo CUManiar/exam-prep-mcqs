@@ -10,7 +10,6 @@ import {
   formatTimeSeconds,
   getPaperDisplayTitle,
   formatCustomIdentifier,
-  evaluateClozeMatch,
 } from "../../lib/defaults";
 import {
   parseQuestionnaireMarkdown,
@@ -279,9 +278,7 @@ export function useReviewData(attempt: Attempt, papers: QuestionPaper[]) {
                     : ans.subjectiveAssessment === "needs-work"
                       ? false
                       : null
-                  : ans.isCorrect !== null && ans.isCorrect !== undefined
-                    ? ans.isCorrect
-                    : evaluateClozeMatch(ans.selected, effectiveCorrect, effectiveExp).isCorrect
+                  : null
                 : effectiveCorrect
                   ? ans.selected.trim().toUpperCase() ===
                     effectiveCorrect.trim().toUpperCase()
