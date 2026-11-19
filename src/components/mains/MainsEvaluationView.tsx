@@ -29,6 +29,7 @@ import {
   ArrowRight,
   X,
   Settings2,
+  Pencil,
 } from "lucide-react";
 import {
   MainsEvaluationResult,
@@ -38,7 +39,10 @@ import {
   saveMainsSessions,
   normalizeSessionQuestions,
   isImageBlankOrNegligible,
+  formatMainsDefaultTitle,
 } from "@/lib/mainsEvaluation";
+import { useApp } from "@/context/AppContext";
+import { OptionalSubjectSelect } from "../OptionalSubjectSelect";
 import {
   getRevisionConfig,
   getProviderVault,
@@ -48,6 +52,7 @@ import {
 import { RevisionMarkdownRenderer } from "../revision/RevisionMarkdownRenderer";
 import { RevisionSettingsModal } from "../revision/RevisionSettingsModal";
 import { MainsDiagramRenderer } from "./MainsDiagramRenderer";
+import { MainsDissectionsPanel } from "./MainsDissectionsPanel";
 
 const SAMPLE_QUESTIONS = [
   {
@@ -68,9 +73,20 @@ const SAMPLE_QUESTIONS = [
 ];
 
 export function MainsEvaluationView() {
+  const {
+    optionalSubject: globalOptionalSubject,
+    setOptionalSubject: setGlobalOptionalSubject,
+  } = useApp();
+
   const [sessions, setSessions] = useState<MainsEvaluationSession[]>([]);
   const [currentSessionId, setCurrentSessionId] = useState<string>("");
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
+
+  // Session Chat Renaming State
+  const [editingSessionId, setEditingSessionId] = useState<string | null>(null);
+  const [editingTitleText, setEditingTitleText] = useState<string>("");
+  const [isHeaderRenaming, setIsHeaderRenaming] = useState<boolean>(false);
+  const [headerRenameText, setHeaderRenameText] = useState<string>("");
 
   // Multi-Question State per booklet/session
   const [questions, setQuestions] = useState<MainsQuestionItem[]>([]);
@@ -168,14 +184,18 @@ export function MainsEvaluationView() {
       question: sess.question || "",
       studentAnswer: sess.studentAnswer || "",
       paperType: sess.paperType || "GS-2",
-      optionalSubject: sess.optionalSubject,
+      optionalSubject: sess.optionalSubject || globalOptionalSubject,
       maxMarks: sess.maxMarks || 10,
     };
 
     setQuestion(firstQ.question || "");
     setAnswerText(firstQ.studentAnswer || "");
     setPaperType(firstQ.paperType || sess.paperType || "GS-2");
-    setOptionalSubject(firstQ.optionalSubject || sess.optionalSubject || "");
+    setOptionalSubject(
+      firstQ.paperType === "Optional"
+        ? (firstQ.optionalSubject || sess.optionalSubject || globalOptionalSubject || "")
+        : (sess.optionalSubject || globalOptionalSubject || "")
+    );
     setMaxMarks(firstQ.maxMarks || 10);
     setUploadedImages(firstQ.attachedImages || []);
     setEvaluation(firstQ.evaluation || null);
@@ -189,12 +209,47 @@ export function MainsEvaluationView() {
 
   const selectQuestion = (idx: number) => {
     if (idx < 0 || idx >= questions.length) return;
+
+    // Save current active question changes before switching so no drafts or edits are lost
+    const currentQs = [...questions];
+    if (currentQs[activeQuestionIndex]) {
+      currentQs[activeQuestionIndex] = {
+        ...currentQs[activeQuestionIndex],
+        question,
+        studentAnswer: answerText,
+        paperType,
+        optionalSubject: paperType === "Optional" ? optionalSubject : undefined,
+        maxMarks,
+        attachedImages: uploadedImages,
+        evaluation,
+      };
+      setQuestions(currentQs);
+      setSessions((prev) => {
+        const updated = prev.map((s) => {
+          if (s.id === currentSessionId) {
+            return {
+              ...s,
+              updatedAt: new Date().toISOString(),
+              questions: currentQs,
+            };
+          }
+          return s;
+        });
+        saveMainsSessions(updated);
+        return updated;
+      });
+    }
+
     setActiveQuestionIndex(idx);
-    const q = questions[idx];
+    const q = currentQs[idx];
     setQuestion(q.question || "");
     setAnswerText(q.studentAnswer || "");
-    setPaperType(q.paperType || paperType || "GS-2");
-    setOptionalSubject(q.optionalSubject || "");
+    setPaperType(q.paperType || "GS-2");
+    setOptionalSubject(
+      q.paperType === "Optional"
+        ? (q.optionalSubject || globalOptionalSubject || "")
+        : (globalOptionalSubject || "")
+    );
     setMaxMarks(q.maxMarks || 10);
     setUploadedImages(q.attachedImages || []);
     setEvaluation(q.evaluation || null);
@@ -207,19 +262,40 @@ export function MainsEvaluationView() {
   };
 
   const handleAddNewQuestion = () => {
-    const nextNum = questions.length + 1;
+    // Restrict maximum 5 questions in a single session
+    if (questions.length >= 5) {
+      setErrorMsg("Maximum limit of 5 questions reached for this evaluation session.");
+      return;
+    }
+
+    // Persist current question draft before adding new
+    const currentQs = [...questions];
+    if (currentQs[activeQuestionIndex]) {
+      currentQs[activeQuestionIndex] = {
+        ...currentQs[activeQuestionIndex],
+        question,
+        studentAnswer: answerText,
+        paperType,
+        optionalSubject: paperType === "Optional" ? optionalSubject : undefined,
+        maxMarks,
+        attachedImages: uploadedImages,
+        evaluation,
+      };
+    }
+
+    const nextNum = currentQs.length + 1;
     const newQ: MainsQuestionItem = {
       id: `${currentSessionId}_q${Date.now()}`,
       questionNumber: nextNum,
       question: "",
       studentAnswer: "",
       paperType: paperType || "GS-2",
-      optionalSubject: paperType === "Optional" ? optionalSubject : undefined,
+      optionalSubject: paperType === "Optional" ? (optionalSubject || globalOptionalSubject) : undefined,
       maxMarks: 10,
       attachedImages: [],
       evaluation: undefined,
     };
-    const updatedQs = [...questions, newQ];
+    const updatedQs = [...currentQs, newQ];
     setQuestions(updatedQs);
     setActiveQuestionIndex(updatedQs.length - 1);
     setQuestion("");
@@ -232,16 +308,19 @@ export function MainsEvaluationView() {
     setChatMessages([]);
 
     setSessions((prev) => {
-      const updated = prev.map((s) => {
-        if (s.id === currentSessionId) {
-          return {
-            ...s,
-            updatedAt: new Date().toISOString(),
-            questions: updatedQs,
-          };
-        }
-        return s;
-      });
+      const existing = prev.find((s) => s.id === currentSessionId);
+      const updatedSession: MainsEvaluationSession = {
+        ...(existing || {
+          id: currentSessionId,
+          title: formatMainsDefaultTitle(new Date()),
+          updatedAt: new Date().toISOString(),
+          paperType,
+        }),
+        updatedAt: new Date().toISOString(),
+        questions: updatedQs,
+      };
+      const filtered = prev.filter((s) => s.id !== currentSessionId);
+      const updated = [updatedSession, ...filtered];
       saveMainsSessions(updated);
       return updated;
     });
@@ -284,9 +363,11 @@ export function MainsEvaluationView() {
       maxMarks: 10,
       attachedImages: [],
     };
+    const defaultTitle = formatMainsDefaultTitle(new Date());
     const newSession: MainsEvaluationSession = {
       id: newId,
-      title: "New Evaluation",
+      title: defaultTitle,
+      isCustomTitle: false,
       updatedAt: new Date().toISOString(),
       paperType: "GS-2",
       maxMarks: 10,
@@ -300,7 +381,7 @@ export function MainsEvaluationView() {
     setQuestion("");
     setAnswerText("");
     setPaperType("GS-2");
-    setOptionalSubject("");
+    setOptionalSubject(globalOptionalSubject || "");
     setMaxMarks(10);
     setUploadedImages([]);
     setEvaluation(null);
@@ -314,6 +395,55 @@ export function MainsEvaluationView() {
       saveMainsSessions(updated);
       return updated;
     });
+  };
+
+  // Renaming chat sessions
+  const handleStartRename = (
+    id: string,
+    currentTitle: string,
+    e?: React.MouseEvent,
+  ) => {
+    e?.stopPropagation();
+    setEditingSessionId(id);
+    setEditingTitleText(currentTitle);
+  };
+
+  const handleSaveRename = (
+    id: string,
+    customTitle?: string,
+    e?: React.MouseEvent | React.FormEvent,
+  ) => {
+    e?.stopPropagation();
+    e?.preventDefault();
+    const finalTitle = (customTitle ?? editingTitleText).trim();
+    if (!finalTitle) {
+      setEditingSessionId(null);
+      setIsHeaderRenaming(false);
+      return;
+    }
+    setSessions((prev) => {
+      const updated = prev.map((s) => {
+        if (s.id === id) {
+          return {
+            ...s,
+            title: finalTitle,
+            isCustomTitle: true,
+            updatedAt: new Date().toISOString(),
+          };
+        }
+        return s;
+      });
+      saveMainsSessions(updated);
+      return updated;
+    });
+    setEditingSessionId(null);
+    setIsHeaderRenaming(false);
+  };
+
+  const handleCancelRename = (e?: React.MouseEvent) => {
+    e?.stopPropagation();
+    setEditingSessionId(null);
+    setIsHeaderRenaming(false);
   };
 
   const handleDeleteSession = (id: string, e: React.MouseEvent) => {
@@ -570,18 +700,16 @@ export function MainsEvaluationView() {
       setQuestions(updatedQs);
 
       // Save to sessions
-      const bestTitle =
-        updatedQs[0]?.evaluation?.question ||
-        updatedQs[0]?.question ||
-        evalResult.question ||
-        question ||
-        "Mains Test";
-      const autoTitle =
-        bestTitle.slice(0, 38).trim() + (bestTitle.length > 38 ? "..." : "");
+      const existingSession = sessions.find((s) => s.id === currentSessionId);
+      const sessionTitle =
+        existingSession?.isCustomTitle && existingSession.title
+          ? existingSession.title
+          : formatMainsDefaultTitle(new Date());
 
       const sessionObj: MainsEvaluationSession = {
         id: currentSessionId,
-        title: autoTitle || "Mains Test",
+        title: sessionTitle,
+        isCustomTitle: Boolean(existingSession?.isCustomTitle),
         updatedAt: new Date().toISOString(),
         paperType,
         optionalSubject: paperType === "Optional" ? optionalSubject : undefined,
@@ -775,11 +903,40 @@ To advance constitutional morality and responsive governance, administrative exe
           ) : (
             sessions.map((sess) => {
               const isSelected = sess.id === currentSessionId;
-              const hasScore = sess.evaluation?.marksAwarded !== undefined;
+              const sessionQs =
+                sess.questions && sess.questions.length > 0
+                  ? sess.questions
+                  : sess.evaluation
+                    ? [{ evaluation: sess.evaluation, maxMarks: sess.maxMarks || 10 }]
+                    : [];
+              const evaluatedList = sessionQs.filter(
+                (q) =>
+                  q.evaluation &&
+                  typeof q.evaluation.marksAwarded === "number",
+              );
+              const hasEvaluated = evaluatedList.length > 0;
+              const totalAwarded = evaluatedList.reduce(
+                (sum, q) => sum + (q.evaluation?.marksAwarded || 0),
+                0,
+              );
+              const totalMax = evaluatedList.reduce(
+                (sum, q) => sum + (q.maxMarks || 10),
+                0,
+              );
+              const avgAwarded =
+                evaluatedList.length > 0
+                  ? totalAwarded / evaluatedList.length
+                  : 0;
+              const avgMax =
+                evaluatedList.length > 0
+                  ? totalMax / evaluatedList.length
+                  : 10;
+
               return (
                 <div
                   key={sess.id}
                   onClick={() => {
+                    if (editingSessionId === sess.id) return;
                     loadSession(sess);
                     if (window.innerWidth < 768) setIsSidebarOpen(false);
                   }}
@@ -790,34 +947,88 @@ To advance constitutional morality and responsive governance, administrative exe
                   }`}
                 >
                   <div className="min-w-0 flex-1">
-                    <div className="flex items-center gap-1.5 mb-1">
+                    <div className="flex items-center gap-1.5 mb-1 flex-wrap">
                       <span className="font-mono text-[10px] font-bold px-1.5 py-0.5 rounded bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400">
-                        {sess.paperType}
+                        {sess.paperType === "Optional" && sess.optionalSubject
+                          ? `Optional (${sess.optionalSubject})`
+                          : sess.paperType}
                       </span>
-                      {hasScore && (
-                        <span className="font-bold text-[10px] px-1.5 py-0.5 rounded bg-emerald-50 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800">
-                          {sess.evaluation?.marksAwarded} / {sess.maxMarks}
+                      {hasEvaluated && (
+                        <span className="font-bold text-[10px] px-1.5 py-0.5 rounded bg-emerald-50 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800 font-mono">
+                          {evaluatedList.length > 1
+                            ? `Avg ${Math.round(avgAwarded * 10) / 10} / ${Math.round(avgMax * 10) / 10}`
+                            : `${evaluatedList[0].evaluation?.marksAwarded} / ${evaluatedList[0].maxMarks || 10}`}
                         </span>
                       )}
                     </div>
-                    <p className="text-xs font-semibold truncate leading-snug">
-                      {sess.title || "Untitled Question"}
-                    </p>
-                    <span className="text-[10px] text-slate-400 block mt-0.5 font-mono">
-                      {new Date(sess.updatedAt).toLocaleDateString("en-IN", {
-                        day: "numeric",
-                        month: "short",
-                      })}
-                    </span>
+                    {editingSessionId === sess.id ? (
+                      <form
+                        onSubmit={(e) => handleSaveRename(sess.id, undefined, e)}
+                        onClick={(e) => e.stopPropagation()}
+                        className="flex items-center gap-1 mt-1"
+                      >
+                        <input
+                          type="text"
+                          value={editingTitleText}
+                          onChange={(e) => setEditingTitleText(e.target.value)}
+                          autoFocus
+                          onKeyDown={(e) => {
+                            if (e.key === "Escape") handleCancelRename();
+                          }}
+                          className="flex-1 min-w-0 bg-white dark:bg-slate-800 border border-indigo-500 rounded px-1.5 py-0.5 text-xs text-slate-800 dark:text-slate-100 focus:outline-hidden"
+                        />
+                        <button
+                          type="submit"
+                          className="text-emerald-600 hover:text-emerald-700 p-0.5 rounded hover:bg-emerald-50 dark:hover:bg-emerald-950 cursor-pointer"
+                          title="Save title"
+                        >
+                          <Check className="h-3.5 w-3.5" />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={handleCancelRename}
+                          className="text-slate-400 hover:text-slate-600 p-0.5 rounded hover:bg-slate-100 dark:hover:bg-slate-800 cursor-pointer"
+                          title="Cancel"
+                        >
+                          <X className="h-3.5 w-3.5" />
+                        </button>
+                      </form>
+                    ) : (
+                      <>
+                        <p className="text-xs font-semibold truncate leading-snug">
+                          {sess.title || "Untitled Evaluation"}
+                        </p>
+                        <span className="text-[10px] text-slate-400 block mt-0.5 font-mono">
+                          {sess.questions && sess.questions.length > 1
+                            ? `${sess.questions.length} questions • ${new Date(sess.updatedAt).toLocaleDateString("en-IN", { day: "numeric", month: "short" })}`
+                            : new Date(sess.updatedAt).toLocaleDateString("en-IN", {
+                                day: "numeric",
+                                month: "short",
+                              })}
+                        </span>
+                      </>
+                    )}
                   </div>
-                  <button
-                    type="button"
-                    onClick={(e) => handleDeleteSession(sess.id, e)}
-                    className="opacity-0 group-hover:opacity-100 text-slate-400 hover:text-rose-600 p-1 rounded transition-opacity"
-                    title="Delete evaluation"
-                  >
-                    <Trash2 className="h-3.5 w-3.5" />
-                  </button>
+                  {editingSessionId !== sess.id && (
+                    <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
+                      <button
+                        type="button"
+                        onClick={(e) => handleStartRename(sess.id, sess.title, e)}
+                        className="text-slate-400 hover:text-indigo-600 p-1 rounded transition-colors cursor-pointer"
+                        title="Rename evaluation"
+                      >
+                        <Pencil className="h-3 w-3" />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={(e) => handleDeleteSession(sess.id, e)}
+                        className="text-slate-400 hover:text-rose-600 p-1 rounded transition-colors cursor-pointer"
+                        title="Delete evaluation"
+                      >
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </button>
+                    </div>
+                  )}
                 </div>
               );
             })
@@ -850,14 +1061,67 @@ To advance constitutional morality and responsive governance, administrative exe
                 <PanelLeftOpen className="h-4 w-4" />
               )}
             </button>
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 min-w-0">
               <Award className="h-5 w-5 text-indigo-600 shrink-0" />
-              <h1 className="text-sm sm:text-base font-bold text-slate-900 dark:text-slate-100 truncate">
-                <span className="hidden sm:inline">
-                  UPSC CSE Mains Answer Evaluation
-                </span>
-                <span className="sm:hidden">Mains Evaluation Desk</span>
-              </h1>
+              {isHeaderRenaming ? (
+                <form
+                  onSubmit={(e) => {
+                    e.preventDefault();
+                    if (headerRenameText.trim()) {
+                      handleSaveRename(currentSessionId, headerRenameText.trim());
+                    }
+                    setIsHeaderRenaming(false);
+                  }}
+                  className="flex items-center gap-1.5"
+                >
+                  <input
+                    type="text"
+                    value={headerRenameText}
+                    onChange={(e) => setHeaderRenameText(e.target.value)}
+                    autoFocus
+                    onKeyDown={(e) => {
+                      if (e.key === "Escape") setIsHeaderRenaming(false);
+                    }}
+                    className="bg-white dark:bg-slate-800 border border-indigo-500 rounded-lg px-2 py-0.5 text-xs font-bold text-slate-800 dark:text-slate-100 focus:outline-hidden"
+                  />
+                  <button
+                    type="submit"
+                    className="text-emerald-600 hover:text-emerald-700 p-0.5 cursor-pointer"
+                    title="Save title"
+                  >
+                    <Check className="h-3.5 w-3.5" />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setIsHeaderRenaming(false)}
+                    className="text-slate-400 hover:text-slate-600 p-0.5 cursor-pointer"
+                    title="Cancel"
+                  >
+                    <X className="h-3.5 w-3.5" />
+                  </button>
+                </form>
+              ) : (
+                <div className="flex items-center gap-1.5 min-w-0">
+                  <h1 className="text-xs sm:text-sm font-bold text-slate-900 dark:text-slate-100 truncate">
+                    {sessions.find((s) => s.id === currentSessionId)?.title ||
+                      formatMainsDefaultTitle(new Date())}
+                  </h1>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setHeaderRenameText(
+                        sessions.find((s) => s.id === currentSessionId)?.title ||
+                          formatMainsDefaultTitle(new Date()),
+                      );
+                      setIsHeaderRenaming(true);
+                    }}
+                    className="text-slate-400 hover:text-indigo-600 p-1 rounded transition-colors cursor-pointer"
+                    title="Rename this evaluation session"
+                  >
+                    <Pencil className="h-3 w-3" />
+                  </button>
+                </div>
+              )}
             </div>
           </div>
 
@@ -1011,40 +1275,84 @@ To advance constitutional morality and responsive governance, administrative exe
                 );
               })}
 
-              <button
-                type="button"
-                onClick={handleAddNewQuestion}
-                className="px-3 py-1.5 rounded-xl border border-dashed border-indigo-300 dark:border-indigo-800 text-indigo-600 dark:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-950/50 font-bold text-xs flex items-center gap-1 transition-colors cursor-pointer shrink-0"
-                title="Add next question to this test booklet"
-              >
-                <Plus className="h-3.5 w-3.5" />
-                <span>Add Question</span>
-              </button>
+              {questions.length < 5 ? (
+                <button
+                  type="button"
+                  onClick={handleAddNewQuestion}
+                  className="px-3 py-1.5 rounded-xl border border-dashed border-indigo-300 dark:border-indigo-800 text-indigo-600 dark:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-950/50 font-bold text-xs flex items-center gap-1 transition-colors cursor-pointer shrink-0"
+                  title="Add next question to this test booklet (max 5)"
+                >
+                  <Plus className="h-3.5 w-3.5" />
+                  <span>Add Question</span>
+                </button>
+              ) : (
+                <span
+                  className="px-2.5 py-1 text-[11px] font-mono text-slate-400 bg-slate-100 dark:bg-slate-800 rounded-xl shrink-0"
+                  title="Maximum 5 questions limit reached for this session"
+                >
+                  5/5 Questions Max
+                </span>
+              )}
             </div>
 
-            {/* Aggregated Test Score when multiple evaluated */}
-            {questions.filter((q) => q.evaluation).length > 0 && (
-              <div className="flex items-center gap-2 text-xs font-mono font-bold text-slate-700 dark:text-slate-300 bg-slate-50 dark:bg-slate-800/80 px-2.5 py-1 rounded-xl border border-slate-200/80 dark:border-slate-700/80 shrink-0">
-                <span className="text-[11px] text-slate-400 uppercase font-sans font-semibold">
-                  Test Score:
-                </span>
-                <span className="text-indigo-600 dark:text-indigo-400 font-black">
-                  {questions.reduce(
-                    (sum, q) => sum + (q.evaluation?.marksAwarded || 0),
-                    0,
+            {/* Aggregated Test Score / Average Marks across Available Questions */}
+            {(() => {
+              const evaluatedList = questions.filter(
+                (q) =>
+                  q.evaluation &&
+                  typeof q.evaluation.marksAwarded === "number",
+              );
+              if (evaluatedList.length === 0) return null;
+
+              const totalAwarded = evaluatedList.reduce(
+                (sum, q) => sum + (q.evaluation?.marksAwarded || 0),
+                0,
+              );
+              const totalMax = evaluatedList.reduce(
+                (sum, q) =>
+                  sum + (q.evaluation?.maxMarks || q.maxMarks || 10),
+                0,
+              );
+              const avgAwarded = totalAwarded / evaluatedList.length;
+              const avgMax = totalMax / evaluatedList.length;
+
+              return (
+                <div className="flex items-center gap-2 text-xs font-mono font-bold text-slate-700 dark:text-slate-300 bg-slate-50 dark:bg-slate-800/80 px-2.5 py-1 rounded-xl border border-slate-200/80 dark:border-slate-700/80 shrink-0">
+                  {evaluatedList.length > 1 ? (
+                    <>
+                      <span className="text-[11px] text-indigo-600 dark:text-indigo-400 uppercase font-sans font-bold">
+                        Avg:
+                      </span>
+                      <span className="text-indigo-600 dark:text-indigo-400 font-black">
+                        {Math.round(avgAwarded * 10) / 10} /{" "}
+                        {Math.round(avgMax * 10) / 10}
+                      </span>
+                      <span className="text-slate-300 dark:text-slate-700">
+                        |
+                      </span>
+                      <span className="text-[11px] text-slate-400 uppercase font-sans font-semibold">
+                        Total:
+                      </span>
+                      <span className="text-slate-700 dark:text-slate-300">
+                        {totalAwarded} / {totalMax} Marks
+                      </span>
+                    </>
+                  ) : (
+                    <>
+                      <span className="text-[11px] text-slate-400 uppercase font-sans font-semibold">
+                        Test Score:
+                      </span>
+                      <span className="text-indigo-600 dark:text-indigo-400 font-black">
+                        {totalAwarded}
+                      </span>
+                      <span className="text-slate-400 font-normal">
+                        / {totalMax} Marks
+                      </span>
+                    </>
                   )}
-                </span>
-                <span className="text-slate-400 font-normal">
-                  /{" "}
-                  {questions.reduce(
-                    (sum, q) =>
-                      sum + (q.evaluation?.maxMarks || q.maxMarks || 10),
-                    0,
-                  )}{" "}
-                  Marks
-                </span>
-              </div>
-            )}
+                </div>
+              );
+            })()}
           </div>
 
           {/* ── B. EVALUATED QUESTION SUMMARY CARD (When answer evaluated & form collapsed) ── */}
@@ -1056,7 +1364,10 @@ To advance constitutional morality and responsive governance, administrative exe
                     Question {activeQuestionIndex + 1} of {questions.length}
                   </span>
                   <span className="text-[11px] font-bold text-slate-500 uppercase">
-                    {paperType} {optionalSubject ? `(${optionalSubject})` : ""}{" "}
+                    {paperType}{" "}
+                    {paperType === "Optional" && optionalSubject
+                      ? `(${optionalSubject})`
+                      : ""}{" "}
                     • {maxMarks} Marks ({targetWords} Words)
                   </span>
                 </div>
@@ -1074,15 +1385,17 @@ To advance constitutional morality and responsive governance, administrative exe
                 >
                   <span>✏️ Edit / Re-evaluate</span>
                 </button>
-                <button
-                  type="button"
-                  onClick={handleAddNewQuestion}
-                  className="flex-1 sm:flex-initial inline-flex items-center justify-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 active:bg-indigo-800 text-white text-xs font-bold shadow-xs cursor-pointer transition-colors"
-                  title="Add next question to evaluate"
-                >
-                  <Plus className="h-3.5 w-3.5" />
-                  <span>Add Question</span>
-                </button>
+                {questions.length < 5 && (
+                  <button
+                    type="button"
+                    onClick={handleAddNewQuestion}
+                    className="flex-1 sm:flex-initial inline-flex items-center justify-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 active:bg-indigo-800 text-white text-xs font-bold shadow-xs cursor-pointer transition-colors"
+                    title="Add next question to evaluate (max 5)"
+                  >
+                    <Plus className="h-3.5 w-3.5" />
+                    <span>Add Question</span>
+                  </button>
+                )}
               </div>
             </div>
           )}
@@ -1171,7 +1484,13 @@ To advance constitutional morality and responsive governance, administrative exe
                   </label>
                   <select
                     value={paperType}
-                    onChange={(e) => setPaperType(e.target.value as any)}
+                    onChange={(e) => {
+                      const newType = e.target.value as any;
+                      setPaperType(newType);
+                      if (newType === "Optional" && !optionalSubject) {
+                        setOptionalSubject(globalOptionalSubject || "Sociology");
+                      }
+                    }}
                     className="w-full rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 px-2.5 py-1.5 text-xs font-semibold focus:border-indigo-500 outline-none"
                   >
                     <option value="GS-1">GS-1 (History, Society, Geo)</option>
@@ -1185,16 +1504,17 @@ To advance constitutional morality and responsive governance, administrative exe
                 </div>
 
                 {paperType === "Optional" && (
-                  <div>
+                  <div className="col-span-2 sm:col-span-1">
                     <label className="block text-[11px] font-bold text-slate-500 mb-1">
-                      OPTIONAL SUBJECT
+                      OPTIONAL SUBJECT (SYNCED)
                     </label>
-                    <input
-                      type="text"
-                      value={optionalSubject}
-                      onChange={(e) => setOptionalSubject(e.target.value)}
-                      placeholder="e.g. Sociology, PSIR, Geography"
-                      className="w-full rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 px-2.5 py-1.5 text-xs font-semibold focus:border-indigo-500 outline-none"
+                    <OptionalSubjectSelect
+                      value={optionalSubject || globalOptionalSubject || "Sociology"}
+                      onChange={(sub) => {
+                        setOptionalSubject(sub);
+                        setGlobalOptionalSubject(sub);
+                      }}
+                      placeholder="Select Optional Subject..."
                     />
                   </div>
                 )}
@@ -1693,6 +2013,9 @@ To advance constitutional morality and responsive governance, administrative exe
               {/* Tab 1: Detailed Rubric & Breakdown */}
               {activeTab === "feedback" && (
                 <div className="space-y-4">
+                  {/* UPSC Benchmark & Pacing Dissections */}
+                  <MainsDissectionsPanel evaluation={evaluation} />
+
                   {/* 4 Core Dimensions Scored Strictly /10 */}
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                     {/* Demand */}
