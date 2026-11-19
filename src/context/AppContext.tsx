@@ -19,6 +19,10 @@ import {
 } from "../lib/types";
 import { getNotifications, saveNotifications } from "../lib/notifications";
 import {
+  getStoredOptionalSubject,
+  saveStoredOptionalSubject,
+} from "../lib/optionalSubjects";
+import {
   getAttempts,
   saveAttempt,
   updateAttempt,
@@ -97,6 +101,8 @@ interface AppContextType {
   currentUser: User | null;
   theme: AppTheme;
   setTheme: (theme: AppTheme) => void;
+  optionalSubject: string;
+  setOptionalSubject: (subject: string) => void;
   openProUpgradeModal: (targetPaperLabel?: string) => void;
   openAuthModal: () => void;
   handleSignOut: () => Promise<void>;
@@ -188,6 +194,35 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       document.documentElement.classList.toggle("dark", theme === "dark");
     }
   }, [theme]);
+
+  const [optionalSubject, setOptionalSubjectState] = useState<string>(() => {
+    return getStoredOptionalSubject();
+  });
+
+  const setOptionalSubject = useCallback((subj: string) => {
+    setOptionalSubjectState(subj);
+    saveStoredOptionalSubject(subj);
+  }, []);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const handleOptionalSubjectChanged = (e: Event) => {
+      const customEvent = e as CustomEvent<string>;
+      if (customEvent.detail && typeof customEvent.detail === "string") {
+        setOptionalSubjectState(customEvent.detail);
+      }
+    };
+    window.addEventListener(
+      "optional-subject-changed",
+      handleOptionalSubjectChanged,
+    );
+    return () => {
+      window.removeEventListener(
+        "optional-subject-changed",
+        handleOptionalSubjectChanged,
+      );
+    };
+  }, []);
 
   const notificationUserId = currentUser?.id ?? null;
 
@@ -1008,6 +1043,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         markNotificationRead,
         markAllNotificationsRead,
         clearNotifications,
+        optionalSubject,
+        setOptionalSubject,
       }}
     >
       {children}
