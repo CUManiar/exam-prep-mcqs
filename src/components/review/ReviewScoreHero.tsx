@@ -151,6 +151,20 @@ export function ReviewScoreHero({
                 <span className="text-[11px] text-rose-700">wrong</span>
               </button>
 
+              {(attempt.partial ?? 0) > 0 && (
+                <button
+                  type="button"
+                  onClick={() =>
+                    onSelectFilter("partial", { outcome: "partial" })
+                  }
+                  className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg border border-amber-200 bg-amber-50 text-amber-900 hover:bg-amber-100 text-xs font-semibold cursor-pointer shadow-2xs"
+                >
+                  <span className="h-1.5 w-1.5 rounded-full bg-amber-500" />
+                  <span className="font-mono">{attempt.partial}</span>
+                  <span className="text-[11px] text-amber-700">partial</span>
+                </button>
+              )}
+
               <button
                 type="button"
                 onClick={() =>

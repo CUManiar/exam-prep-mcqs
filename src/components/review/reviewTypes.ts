@@ -5,6 +5,7 @@ export type FilterTabType =
   | "correct"
   | "incorrect"
   | "skipped"
+  | "partial"
   | "flagged"
   | "altered"
   | "slow"
@@ -15,7 +16,7 @@ export type FilterTabType =
   | "non-mcq";
 
 export interface ReviewFilterState {
-  outcome?: "incorrect" | "correct" | "skipped" | null;
+  outcome?: "incorrect" | "correct" | "skipped" | "partial" | null;
   confidence?: "sure" | "50-50" | "guess" | "elimination" | null;
   flagged?: boolean;
   slow?: boolean;

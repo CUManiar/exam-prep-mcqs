@@ -331,7 +331,7 @@ export function AttemptReviewView({
   };
 
   const handleToggleOutcome = (
-    outcome: "incorrect" | "correct" | "skipped",
+    outcome: "incorrect" | "correct" | "skipped" | "partial",
   ) => {
     setFilters((prev) => {
       const next = {
@@ -809,6 +809,7 @@ export function AttemptReviewView({
                 counts={{
                   all: questionList.length,
                   correct: attempt.correct,
+                  partial: attempt.partial ?? 0,
                   incorrect: attempt.incorrect,
                   skipped: attempt.unattempted,
                   flagged: flaggedQuestions.length,

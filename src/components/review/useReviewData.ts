@@ -675,7 +675,8 @@ export function useReviewData(attempt: Attempt, papers: QuestionPaper[]) {
             outcome:
               filters === "correct" ||
               filters === "incorrect" ||
-              filters === "skipped"
+              filters === "skipped" ||
+              filters === "partial"
                 ? filters
                 : null,
             confidence:
@@ -705,6 +706,11 @@ export function useReviewData(attempt: Attempt, papers: QuestionPaper[]) {
             ? q.subjectiveAssessment === "needs-work"
             : q.selected && q.isCorrect === false;
           if (!isIncorrect) return false;
+        } else if (filterState.outcome === "partial") {
+          const isPart = evaluable
+            ? q.subjectiveAssessment === "partial"
+            : q.selected && q.subjectiveAssessment === "partial";
+          if (!isPart) return false;
         } else if (filterState.outcome === "skipped") {
           if (isQuestionAnswered(q)) return false;
         }
