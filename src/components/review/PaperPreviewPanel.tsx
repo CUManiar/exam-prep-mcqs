@@ -19,6 +19,8 @@ interface PaperPreviewPanelProps {
   onClose: () => void;
   hasActiveFilters?: boolean;
   onResetFilters?: () => void;
+  viewMode?: "all" | "single";
+  onViewModeChange?: (mode: "all" | "single") => void;
   attemptFallbackData: {
     paperId: string;
     paperLabel: string;
@@ -41,6 +43,8 @@ export function PaperPreviewPanel({
   onClose,
   hasActiveFilters,
   onResetFilters,
+  viewMode,
+  onViewModeChange,
   attemptFallbackData,
 }: PaperPreviewPanelProps) {
   const [pdfMode, setPdfMode] = useState<"native" | "canvas">(() => {
@@ -88,6 +92,8 @@ export function PaperPreviewPanel({
           onClose={onClose}
           hasActiveFilters={hasActiveFilters}
           onResetFilters={onResetFilters}
+          viewMode={viewMode}
+          onViewModeChange={onViewModeChange}
         />
       ) : (
         <>
@@ -155,6 +161,7 @@ export function PaperPreviewPanel({
               showToolbar={false}
               currentMode={pdfMode}
               onModeChange={setPdfMode}
+              enableScrollShortcuts={true}
             />
           </div>
         </>

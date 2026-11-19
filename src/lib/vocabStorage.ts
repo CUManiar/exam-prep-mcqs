@@ -102,13 +102,34 @@ export function saveStoredVocabCards(
   }
 }
 
+export function isWordDuplicate(word: string, userId?: string): boolean {
+  if (!word || !word.trim()) return false;
+  const cards = getStoredVocabCards(userId);
+  const clean = word.trim().toLowerCase();
+  return cards.some((c) => c.word && c.word.trim().toLowerCase() === clean);
+}
+
 export function addVocabCard(
   card: Omit<VocabCard, "id" | "dateAdded" | "createdAt" | "mastered">,
   userId?: string,
-): VocabCard {
+): { card?: VocabCard; error?: string; ok: boolean } {
+  const cleanWord = card.word.trim();
   const cards = getStoredVocabCards(userId);
+  const existing = cards.find(
+    (c) => c.word && c.word.trim().toLowerCase() === cleanWord.toLowerCase(),
+  );
+
+  if (existing) {
+    return {
+      card: existing,
+      error: `"${cleanWord}" already exists in your vocabulary list. No duplicate words allowed.`,
+      ok: false,
+    };
+  }
+
   const newCard: VocabCard = {
     ...card,
+    word: cleanWord,
     id: `vocab_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
     dateAdded: getTodayString(),
     mastered: false,
@@ -116,12 +137,9 @@ export function addVocabCard(
   };
 
   // Add at beginning so newest appears first
-  const updated = [
-    newCard,
-    ...cards.filter((c) => c.word.toLowerCase() !== card.word.toLowerCase()),
-  ];
+  const updated = [newCard, ...cards];
   saveStoredVocabCards(updated, userId);
-  return newCard;
+  return { card: newCard, ok: true };
 }
 
 export function toggleVocabMastery(id: string, userId?: string): VocabCard[] {

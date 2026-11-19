@@ -28,7 +28,6 @@ import {
 } from "./reviewTypes";
 import {
   SUBJECTIVE_ASSESSMENT_META,
-  evaluateClozeMatch,
 } from "../../lib/defaults";
 import { BarChart3, Columns, RotateCcw } from "lucide-react";
 
@@ -116,6 +115,7 @@ export function AttemptReviewView({
   const [sortOption, setSortOption] = useState<SortOptionType>("qno_asc");
   const [activeQuestionNo, setActiveQuestionNo] = useState<number>(1);
   const [showPaperSplit, setShowPaperSplit] = useState<boolean>(true);
+  const [reviewViewMode, setReviewViewMode] = useState<"all" | "single">("single");
   const [activeMobileView, setActiveMobileView] = useState<"review" | "score">(
     "review",
   );
@@ -148,7 +148,16 @@ export function AttemptReviewView({
     return markdownQuestions.find((mq) => mq.questionNo === activeQuestionNo);
   }, [markdownQuestions, activeQuestionNo]);
 
-  // Auto-heal attempts saved with historical bugs (false default penalty or un-evaluated Cloze)
+  // Synchronized answers dictionary using evaluated questionList to ensure all review views stay in sync
+  const synchronizedAnswers = useMemo(() => {
+    const map: Record<number, QuestionAnswer> = {};
+    for (const q of questionList) {
+      map[q.questionNo] = q;
+    }
+    return map;
+  }, [questionList]);
+
+  // Auto-heal attempt only if there is a penalty mismatch or invalid partial correctness
   useEffect(() => {
     if (!matchedPaper) return;
     const targetIncorrect =
@@ -162,52 +171,24 @@ export function AttemptReviewView({
       attempt.incorrectMarks !== undefined &&
       Number(attempt.incorrectMarks) !== targetIncorrect;
 
-    const hasUnevaluatedCloze = Object.values(attempt.answers || {}).some(
-      (a) =>
-        isClozeQuestion(a.questionNo) &&
-        Boolean(a.selected && a.selected.trim()) &&
-        (a.isCorrect === null || a.correctAnswer === null || a.correctAnswer === undefined),
+    const hasCorruptPartial = Object.values(attempt.answers || {}).some(
+      (a) => a.subjectiveAssessment === "partial" && a.isCorrect !== null,
     );
 
-    if (penaltyMismatch || hasUnevaluatedCloze) {
+    if (penaltyMismatch || hasCorruptPartial) {
       const correctMarksPerQ =
         matchedPaper.correctMarks !== undefined && Number(matchedPaper.correctMarks) > 0
           ? Number(matchedPaper.correctMarks)
           : attempt.correctMarks ?? 2.0;
-      const incorrectMarksPerQ =
-        targetIncorrect !== undefined
-          ? targetIncorrect
-          : attempt.incorrectMarks !== undefined && Number(attempt.incorrectMarks) >= 0
-            ? Number(attempt.incorrectMarks)
-            : 0;
+      const incorrectMarksPerQ = targetIncorrect ?? attempt.incorrectMarks ?? 0;
 
       const updatedAnswers = { ...attempt.answers };
-
-      for (const [key, ans] of Object.entries(updatedAnswers)) {
-        const qNo = Number(key);
-        if (isClozeQuestion(qNo) && ans.selected && ans.selected.trim()) {
-          const paperCorrect =
-            matchedPaper.answerKey?.[qNo] ||
-            markdownQuestions.find((m) => m.questionNo === qNo)?.answer;
-          const paperExp =
-            matchedPaper.explanations?.[qNo] ||
-            markdownQuestions.find((m) => m.questionNo === qNo)?.explanation;
-          const evalRes = evaluateClozeMatch(ans.selected, paperCorrect, paperExp);
-          if (ans.isCorrect === null || ans.isCorrect === undefined) {
-            updatedAnswers[qNo] = {
+      if (hasCorruptPartial) {
+        for (const [key, ans] of Object.entries(updatedAnswers)) {
+          if (ans.subjectiveAssessment === "partial" && ans.isCorrect !== null) {
+            updatedAnswers[Number(key)] = {
               ...ans,
-              correctAnswer: paperCorrect || ans.correctAnswer,
-              explanation: paperExp || ans.explanation,
-              isCorrect: evalRes.isCorrect,
-              subjectiveAssessment:
-                ans.subjectiveAssessment ||
-                (evalRes.isCorrect === true
-                  ? "strong"
-                  : evalRes.partial
-                    ? "partial"
-                    : evalRes.isCorrect === false
-                      ? "needs-work"
-                      : undefined),
+              isCorrect: null,
             };
           }
         }
@@ -350,7 +331,7 @@ export function AttemptReviewView({
   };
 
   const handleToggleOutcome = (
-    outcome: "incorrect" | "correct" | "skipped",
+    outcome: "incorrect" | "correct" | "skipped" | "partial",
   ) => {
     setFilters((prev) => {
       const next = {
@@ -496,6 +477,59 @@ export function AttemptReviewView({
       if (prevQ) jumpToQuestion(prevQ.questionNo);
     }
   };
+
+  // Keyboard navigation shortcuts: J/K for navigating single questions (REVIEW screen only)
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      const target = e.target as HTMLElement | null;
+      const activeEl = document.activeElement as HTMLElement | null;
+      const isInput = (el: HTMLElement | null) => {
+        if (!el) return false;
+        const tag = el.tagName?.toUpperCase();
+        return (
+          tag === "INPUT" ||
+          tag === "TEXTAREA" ||
+          tag === "SELECT" ||
+          el.isContentEditable ||
+          el.getAttribute("role") === "textbox"
+        );
+      };
+
+      if (isInput(target) || isInput(activeEl)) return;
+      if (e.metaKey || e.ctrlKey || e.altKey) return;
+
+      const key = e.key;
+
+      if (key === "j" || key === "J") {
+        if (isMarkdownPaper && showPaperSplit && reviewViewMode === "all") {
+          return;
+        }
+        if (canNavigatePrev) {
+          e.preventDefault();
+          handleNavigatePrev();
+        }
+      } else if (key === "k" || key === "K") {
+        if (isMarkdownPaper && showPaperSplit && reviewViewMode === "all") {
+          return;
+        }
+        if (canNavigateNext) {
+          e.preventDefault();
+          handleNavigateNext();
+        }
+      }
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [
+    canNavigateNext,
+    canNavigatePrev,
+    handleNavigateNext,
+    handleNavigatePrev,
+    isMarkdownPaper,
+    showPaperSplit,
+    reviewViewMode,
+  ]);
 
   // Note update handler
   const handleSaveQuestionNote = (qNo: number, noteText: string) => {
@@ -775,6 +809,7 @@ export function AttemptReviewView({
                 counts={{
                   all: questionList.length,
                   correct: attempt.correct,
+                  partial: attempt.partial ?? 0,
                   incorrect: attempt.incorrect,
                   skipped: attempt.unattempted,
                   flagged: flaggedQuestions.length,
@@ -799,7 +834,7 @@ export function AttemptReviewView({
                   isMarkdownPaper={isMarkdownPaper}
                   markdownQuestions={displayedMarkdownQuestions}
                   markdownHeader={markdownHeader}
-                  answers={attempt.answers || {}}
+                  answers={synchronizedAnswers}
                   activeQuestionNo={activeQuestionNo}
                   onSelectQuestion={jumpToQuestion}
                   onClose={() => {
@@ -807,6 +842,8 @@ export function AttemptReviewView({
                   }}
                   hasActiveFilters={hasActiveFilters}
                   onResetFilters={handleResetFilters}
+                  viewMode={reviewViewMode}
+                  onViewModeChange={setReviewViewMode}
                   attemptFallbackData={{
                     paperId: attempt.paperId,
                     paperLabel: attempt.paperLabel,
@@ -909,6 +946,7 @@ export function AttemptReviewView({
                 onSelectQuestion={jumpToQuestion}
                 isAssessmentQuestion={isAssessmentQuestion}
                 isClozeQuestion={isClozeQuestion}
+                isMarkdownPaper={isMarkdownPaper}
                 markdownQuestions={markdownQuestions}
                 onSaveQuestionNote={handleSaveQuestionNote}
                 onSetSubjectiveAssessment={handleSetSubjectiveAssessment}

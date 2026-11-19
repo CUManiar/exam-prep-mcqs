@@ -23,6 +23,7 @@ import {
   Grid3X3,
   ChevronLeft,
   ChevronRight,
+  Bookmark,
 } from "lucide-react";
 import { HtmlExplanation } from "./HtmlExplanation";
 
@@ -38,6 +39,8 @@ interface MarkdownPaperReviewViewerProps {
   onClose?: () => void;
   hasActiveFilters?: boolean;
   onResetFilters?: () => void;
+  viewMode?: "all" | "single";
+  onViewModeChange?: (mode: "all" | "single") => void;
 }
 
 export function MarkdownPaperReviewViewer({
@@ -52,15 +55,17 @@ export function MarkdownPaperReviewViewer({
   onClose,
   hasActiveFilters,
   onResetFilters,
+  viewMode: propViewMode,
+  onViewModeChange,
 }: MarkdownPaperReviewViewerProps) {
   const router = useRouter();
   const scrollContainerRef = useRef<HTMLDivElement>(null);
-  const [viewMode, setViewMode] = useState<"all" | "single">(() => {
-    if (typeof window !== "undefined" && window.innerWidth < 768) {
-      return "single";
-    }
-    return "all";
-  });
+  const [internalViewMode, setInternalViewMode] = useState<"all" | "single">("single");
+  const viewMode = propViewMode ?? internalViewMode;
+  const setViewMode = (mode: "all" | "single") => {
+    setInternalViewMode(mode);
+    onViewModeChange?.(mode);
+  };
   const [showPaperDetails, setShowPaperDetails] = useState<boolean>(false);
   const [isPaletteOpen, setIsPaletteOpen] = useState<boolean>(false);
 
@@ -128,11 +133,24 @@ export function MarkdownPaperReviewViewer({
     }
   };
 
-  const correctCount = questions.filter(
-    (q) => answers[q.questionNo]?.isCorrect === true,
-  ).length;
-  const wrongCount = questions.filter(
-    (q) => answers[q.questionNo]?.isCorrect === false,
+  const correctCount = questions.filter((q) => {
+    const a = answers[q.questionNo];
+    const isC = Object.keys(q.options || {}).length === 0;
+    return (
+      a?.selected?.trim() &&
+      (isC ? a?.subjectiveAssessment === "strong" : a?.isCorrect === true)
+    );
+  }).length;
+  const wrongCount = questions.filter((q) => {
+    const a = answers[q.questionNo];
+    const isC = Object.keys(q.options || {}).length === 0;
+    return (
+      a?.selected?.trim() &&
+      (isC ? a?.subjectiveAssessment === "needs-work" : a?.isCorrect === false)
+    );
+  }).length;
+  const partialCount = questions.filter(
+    (q) => answers[q.questionNo]?.subjectiveAssessment === "partial",
   ).length;
   const skippedCount = questions.filter(
     (q) => !answers[q.questionNo]?.selected?.trim(),
@@ -157,6 +175,55 @@ export function MarkdownPaperReviewViewer({
       });
     }
   }, [activeQuestionNo]);
+
+  // Keyboard navigation shortcuts: J/K for single questions, Up/Down arrows for scrolling
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      const target = e.target as HTMLElement | null;
+      const activeEl = document.activeElement as HTMLElement | null;
+      const isInput = (el: HTMLElement | null) => {
+        if (!el) return false;
+        const tag = el.tagName?.toUpperCase();
+        return (
+          tag === "INPUT" ||
+          tag === "TEXTAREA" ||
+          tag === "SELECT" ||
+          el.isContentEditable ||
+          el.getAttribute("role") === "textbox"
+        );
+      };
+
+      if (isInput(target) || isInput(activeEl)) return;
+      if (e.metaKey || e.ctrlKey || e.altKey) return;
+
+      const key = e.key;
+
+      if (key === "j" || key === "J") {
+        if (viewMode === "single") {
+          e.preventDefault();
+          handlePrevQuestion();
+        }
+      } else if (key === "k" || key === "K") {
+        if (viewMode === "single") {
+          e.preventDefault();
+          handleNextQuestion();
+        }
+      } else if (key === "ArrowDown") {
+        if (scrollContainerRef.current) {
+          e.preventDefault();
+          scrollContainerRef.current.scrollBy({ top: 120, behavior: "smooth" });
+        }
+      } else if (key === "ArrowUp") {
+        if (scrollContainerRef.current) {
+          e.preventDefault();
+          scrollContainerRef.current.scrollBy({ top: -120, behavior: "smooth" });
+        }
+      }
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [viewMode, currentIndex, questions, onSelectQuestion]);
 
   const displayTitle = getPaperDisplayTitle(paper);
   const visibleQuestions =
@@ -378,10 +445,18 @@ export function MarkdownPaperReviewViewer({
               null;
 
             const isAnswered = Boolean(ans?.selected?.trim());
-            const isCorrect = isAnswered && ans?.isCorrect === true;
-            const isWrong = isAnswered && ans?.isCorrect === false;
             const isPartial =
               isAnswered && ans?.subjectiveAssessment === "partial";
+            const isCorrect =
+              isAnswered &&
+              (isCloze
+                ? ans?.subjectiveAssessment === "strong"
+                : !isPartial && ans?.isCorrect === true);
+            const isWrong =
+              isAnswered &&
+              (isCloze
+                ? ans?.subjectiveAssessment === "needs-work"
+                : !isPartial && ans?.isCorrect === false);
             const isSelectedActive = activeQuestionNo === q.questionNo;
 
             const explanationText =
@@ -413,7 +488,19 @@ export function MarkdownPaperReviewViewer({
                     </span>
 
                     {/* Status Pill */}
-                    {isCorrect ? (
+                    {isPartial ? (
+                      <span className="inline-flex items-center gap-1 text-[11px] font-bold text-amber-800 bg-amber-50 border border-amber-200 px-2 py-0.5 rounded-full shadow-2xs">
+                        <span>
+                          Partial · +
+                          {Number(
+                            (
+                              ans?.subjectiveMarks ?? correctMarksValue * 0.5
+                            ).toFixed(2),
+                          )}{" "}
+                          pts
+                        </span>
+                      </span>
+                    ) : isCorrect ? (
                       <span className="inline-flex items-center gap-1 text-[11px] font-bold text-emerald-800 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-full shadow-2xs">
                         <CheckCircle2 className="h-3 w-3 text-emerald-600" />
                         <span>Correct · +{correctMarksValue}</span>
@@ -422,24 +509,14 @@ export function MarkdownPaperReviewViewer({
                       <span className="inline-flex items-center gap-1 text-[11px] font-bold text-rose-800 bg-rose-50 border border-rose-200 px-2 py-0.5 rounded-full shadow-2xs">
                         <XCircle className="h-3 w-3 text-rose-600" />
                         <span>
-                          Incorrect · -{incorrectMarksValue} · Picked{" "}
-                          {userSelected}
-                        </span>
-                      </span>
-                    ) : isPartial ? (
-                      <span className="inline-flex items-center gap-1 text-[11px] font-bold text-amber-800 bg-amber-50 border border-amber-200 px-2 py-0.5 rounded-full shadow-2xs">
-                        <span>
-                          Partial · +
-                          {(
-                            ans?.subjectiveMarks ?? correctMarksValue * 0.5
-                          ).toFixed(1)}{" "}
-                          pts
+                          Incorrect · -{incorrectMarksValue}
+                          {userSelected && !isCloze ? ` · Picked ${userSelected}` : ""}
                         </span>
                       </span>
                     ) : isCloze && isAnswered ? (
                       <span className="inline-flex items-center gap-1 text-[11px] font-bold text-indigo-800 bg-indigo-50 border border-indigo-200 px-2 py-0.5 rounded-full shadow-2xs">
-                        <CheckCircle2 className="h-3 w-3 text-indigo-600" />
-                        <span>Answer recorded</span>
+                        <HelpCircle className="h-3 w-3 text-indigo-600" />
+                        <span>Pending Evaluation</span>
                       </span>
                     ) : (
                       <span className="inline-flex items-center gap-1 text-[11px] font-medium text-slate-500 bg-slate-100 border border-slate-200 px-2 py-0.5 rounded-full">
@@ -452,6 +529,27 @@ export function MarkdownPaperReviewViewer({
                       <span className="inline-flex items-center gap-1 text-[11px] font-bold text-amber-800 bg-amber-50 border border-amber-200 px-2 py-0.5 rounded-full shadow-2xs">
                         <History className="h-3 w-3 text-amber-600" />
                         <span>PYQ: {q.previousYears || ans?.previousYears}</span>
+                      </span>
+                    )}
+
+                    {/* Confidence Tag */}
+                    {ans?.confidence && (
+                      <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-slate-700 bg-slate-50 border border-slate-200 px-2 py-0.5 rounded-full shadow-2xs">
+                        {ans.confidence === "sure"
+                          ? "🎯 Sure"
+                          : ans.confidence === "50-50"
+                            ? "⚖️ 50:50"
+                            : ans.confidence === "elimination"
+                              ? "✂️ Elim"
+                              : "🎲 Guess"}
+                      </span>
+                    )}
+
+                    {/* Flagged Tag */}
+                    {ans?.flagged && (
+                      <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-amber-800 bg-amber-50 border border-amber-200 px-2 py-0.5 rounded-full shadow-2xs">
+                        <Bookmark className="h-3 w-3 fill-amber-500 text-amber-500" />
+                        <span>Flagged</span>
                       </span>
                     )}
                   </div>
@@ -625,11 +723,15 @@ export function MarkdownPaperReviewViewer({
             type="button"
             disabled={currentIndex <= 0}
             onClick={handlePrevQuestion}
+            title="Previous Question (shortcut: J)"
             className="flex items-center gap-1 px-3 py-1.5 rounded-xl border border-slate-200 bg-white text-xs font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-40 disabled:pointer-events-none transition-colors cursor-pointer"
           >
             <ChevronLeft className="h-4 w-4" />
             <span className="hidden sm:inline">Previous</span>
             <span className="sm:hidden">Prev</span>
+            <kbd className="hidden sm:inline-block ml-1 px-1.5 py-0.5 text-[10px] font-mono text-slate-500 bg-slate-100 rounded border border-slate-200 shadow-2xs">
+              J
+            </kbd>
           </button>
 
           <button
@@ -647,10 +749,14 @@ export function MarkdownPaperReviewViewer({
             type="button"
             disabled={currentIndex >= questions.length - 1}
             onClick={handleNextQuestion}
+            title="Next Question (shortcut: K)"
             className="flex items-center gap-1 px-3.5 py-1.5 rounded-xl bg-indigo-600 text-xs font-semibold text-white hover:bg-indigo-700 disabled:opacity-40 disabled:pointer-events-none transition-colors shadow-xs cursor-pointer"
           >
             <span className="hidden sm:inline">Next Question</span>
             <span className="sm:hidden">Next</span>
+            <kbd className="hidden sm:inline-block ml-1 px-1.5 py-0.5 text-[10px] font-mono text-indigo-100 bg-indigo-700/90 rounded border border-indigo-500/60 shadow-2xs">
+              K
+            </kbd>
             <ChevronRight className="h-4 w-4" />
           </button>
         </div>
@@ -691,6 +797,12 @@ export function MarkdownPaperReviewViewer({
                 <span className="h-2.5 w-2.5 rounded-full bg-emerald-600" />
                 Correct ({correctCount})
               </span>
+              {partialCount > 0 && (
+                <span className="inline-flex items-center gap-1 shrink-0">
+                  <span className="h-2.5 w-2.5 rounded-full bg-amber-500" />
+                  Partial ({partialCount})
+                </span>
+              )}
               <span className="inline-flex items-center gap-1 shrink-0">
                 <span className="h-2.5 w-2.5 rounded-full bg-rose-600" />
                 Mistakes ({wrongCount})
@@ -713,9 +825,20 @@ export function MarkdownPaperReviewViewer({
                 {questions.map((q) => {
                   const ans = answers[q.questionNo];
                   const isCur = activeQuestionNo === q.questionNo;
+                  const isCloze = Object.keys(q.options || {}).length === 0;
                   const isAnswered = Boolean(ans?.selected?.trim());
-                  const isCorrect = isAnswered && ans?.isCorrect === true;
-                  const isWrong = isAnswered && ans?.isCorrect === false;
+                  const isPartial =
+                    isAnswered && ans?.subjectiveAssessment === "partial";
+                  const isCorrect =
+                    isAnswered &&
+                    (isCloze
+                      ? ans?.subjectiveAssessment === "strong"
+                      : !isPartial && ans?.isCorrect === true);
+                  const isWrong =
+                    isAnswered &&
+                    (isCloze
+                      ? ans?.subjectiveAssessment === "needs-work"
+                      : !isPartial && ans?.isCorrect === false);
                   const isFlagged = Boolean(ans?.flagged);
 
                   let badgeColor =
@@ -727,6 +850,9 @@ export function MarkdownPaperReviewViewer({
                   } else if (isWrong) {
                     badgeColor =
                       "bg-rose-600 text-white border-rose-600 font-bold shadow-xs";
+                  } else if (isPartial) {
+                    badgeColor =
+                      "bg-amber-500 text-white border-amber-500 font-bold shadow-xs";
                   } else if (isAnswered) {
                     badgeColor =
                       "bg-indigo-600 text-white border-indigo-600 font-bold";

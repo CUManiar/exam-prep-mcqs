@@ -60,6 +60,7 @@ export interface MainsQuestionItem {
 export interface MainsEvaluationSession {
   id: string;
   title: string;
+  isCustomTitle?: boolean;
   updatedAt: string;
   paperType: "GS-1" | "GS-2" | "GS-3" | "GS-4" | "Optional";
   optionalSubject?: string;
@@ -73,6 +74,20 @@ export interface MainsEvaluationSession {
 }
 
 export const MAINS_STORAGE_KEY = "upsc_mains_evaluations_v1";
+
+/**
+ * Formats a date into the required default title format: `DD MMM YYYY | DAY`
+ * Example: `19 Nov 2026 | THURSDAY`
+ */
+export function formatMainsDefaultTitle(dateInput: Date | string = new Date()): string {
+  const d = typeof dateInput === "string" ? new Date(dateInput) : dateInput;
+  const validDate = isNaN(d.getTime()) ? new Date() : d;
+  const day = validDate.getDate().toString().padStart(2, "0");
+  const month = validDate.toLocaleDateString("en-US", { month: "short" });
+  const year = validDate.getFullYear();
+  const weekday = validDate.toLocaleDateString("en-US", { weekday: "long" }).toUpperCase();
+  return `${day} ${month} ${year} | ${weekday}`;
+}
 
 /**
  * Normalizes a session to ensure it has a valid list of questions.

@@ -21,6 +21,7 @@ interface PdfViewerProps {
   initialMode?: "canvas" | "native";
   currentMode?: "canvas" | "native";
   onModeChange?: (mode: "canvas" | "native") => void;
+  enableScrollShortcuts?: boolean;
 }
 
 export function PdfViewer({
@@ -31,6 +32,7 @@ export function PdfViewer({
   initialMode = "native",
   currentMode,
   onModeChange,
+  enableScrollShortcuts = false,
 }: PdfViewerProps) {
   // Mode: 'canvas' (PDF.js in-browser engine - unlimited size, mobile friendly) or 'native' (browser continuous document)
   const [internalViewMode, setInternalViewMode] = useState<"canvas" | "native">(
@@ -283,6 +285,45 @@ export function PdfViewer({
     if (bytes <= 0) return "0 MB";
     return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
   };
+
+  // Keyboard scroll shortcuts (Up/Down arrow) for PDF preview in Review screen
+  useEffect(() => {
+    if (!enableScrollShortcuts) return;
+
+    const handleKeyDown = (e: KeyboardEvent) => {
+      const target = e.target as HTMLElement | null;
+      const activeEl = document.activeElement as HTMLElement | null;
+      const isInput = (el: HTMLElement | null) => {
+        if (!el) return false;
+        const tag = el.tagName?.toUpperCase();
+        return (
+          tag === "INPUT" ||
+          tag === "TEXTAREA" ||
+          tag === "SELECT" ||
+          el.isContentEditable ||
+          el.getAttribute("role") === "textbox"
+        );
+      };
+
+      if (isInput(target) || isInput(activeEl)) return;
+      if (e.metaKey || e.ctrlKey || e.altKey) return;
+
+      if (e.key === "ArrowDown") {
+        if (containerRef.current) {
+          e.preventDefault();
+          containerRef.current.scrollBy({ top: 120, behavior: "smooth" });
+        }
+      } else if (e.key === "ArrowUp") {
+        if (containerRef.current) {
+          e.preventDefault();
+          containerRef.current.scrollBy({ top: -120, behavior: "smooth" });
+        }
+      }
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [enableScrollShortcuts]);
 
   if (!url) return null;
 

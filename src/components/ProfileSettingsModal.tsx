@@ -6,6 +6,7 @@ import {
   AlertTriangle,
   Award,
   BarChart3,
+  BookOpen,
   Check,
   ChevronRight,
   KeyRound,
@@ -30,6 +31,7 @@ import {
   RevisionProviderConfig,
 } from "../lib/revisionAi";
 import { RevisionSettingsModal } from "./revision/RevisionSettingsModal";
+import { OptionalSubjectSelect } from "./OptionalSubjectSelect";
 
 interface ProfileSettingsModalProps {
   isOpen: boolean;
@@ -53,6 +55,8 @@ export function ProfileSettingsModal({
     handleSetOnlyCustomPapers,
     theme,
     setTheme,
+    optionalSubject,
+    setOptionalSubject,
   } = useApp();
   const [autoAdvance, setAutoAdvance] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
@@ -305,6 +309,26 @@ export function ProfileSettingsModal({
                   aria-label="Automatically advance after answering"
                 />
               </label>
+            </div>
+
+            {/* UPSC Optional Subject Setting */}
+            <div className="rounded-lg border border-slate-200 bg-white">
+              <div className="flex items-center gap-2 border-b border-slate-200 px-4 py-3">
+                <BookOpen className="h-4 w-4 text-slate-500" />
+                <h3 className="text-sm font-semibold text-slate-900">
+                  UPSC CSE Optional Subject
+                </h3>
+              </div>
+              <div className="p-4 space-y-2">
+                <p className="text-xs text-slate-500 leading-relaxed">
+                  Select your Optional subject. This remains synced across Mains answer evaluations and AI study tools.
+                </p>
+                <OptionalSubjectSelect
+                  value={optionalSubject}
+                  onChange={setOptionalSubject}
+                  placeholder="Choose your Optional Subject..."
+                />
+              </div>
             </div>
 
             <div className="rounded-lg border border-indigo-200 bg-indigo-50/60">

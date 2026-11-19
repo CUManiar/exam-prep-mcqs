@@ -10,7 +10,6 @@ import {
   formatTimeSeconds,
   getPaperDisplayTitle,
   formatCustomIdentifier,
-  evaluateClozeMatch,
 } from "../../lib/defaults";
 import {
   parseQuestionnaireMarkdown,
@@ -279,9 +278,7 @@ export function useReviewData(attempt: Attempt, papers: QuestionPaper[]) {
                     : ans.subjectiveAssessment === "needs-work"
                       ? false
                       : null
-                  : ans.isCorrect !== null && ans.isCorrect !== undefined
-                    ? ans.isCorrect
-                    : evaluateClozeMatch(ans.selected, effectiveCorrect, effectiveExp).isCorrect
+                  : null
                 : effectiveCorrect
                   ? ans.selected.trim().toUpperCase() ===
                     effectiveCorrect.trim().toUpperCase()
@@ -678,7 +675,8 @@ export function useReviewData(attempt: Attempt, papers: QuestionPaper[]) {
             outcome:
               filters === "correct" ||
               filters === "incorrect" ||
-              filters === "skipped"
+              filters === "skipped" ||
+              filters === "partial"
                 ? filters
                 : null,
             confidence:
@@ -708,6 +706,11 @@ export function useReviewData(attempt: Attempt, papers: QuestionPaper[]) {
             ? q.subjectiveAssessment === "needs-work"
             : q.selected && q.isCorrect === false;
           if (!isIncorrect) return false;
+        } else if (filterState.outcome === "partial") {
+          const isPart = evaluable
+            ? q.subjectiveAssessment === "partial"
+            : q.selected && q.subjectiveAssessment === "partial";
+          if (!isPart) return false;
         } else if (filterState.outcome === "skipped") {
           if (isQuestionAnswered(q)) return false;
         }

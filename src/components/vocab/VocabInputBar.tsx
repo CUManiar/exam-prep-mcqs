@@ -10,11 +10,16 @@ interface VocabInputBarProps {
     meaning: string;
     memoryHook: string;
     example: string;
-  }) => void;
+  }) => { card?: any; error?: string; ok?: boolean } | void;
   todayCount: number;
+  existingWords?: string[];
 }
 
-export function VocabInputBar({ onWordAdded, todayCount }: VocabInputBarProps) {
+export function VocabInputBar({
+  onWordAdded,
+  todayCount,
+  existingWords = [],
+}: VocabInputBarProps) {
   const [word, setWord] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -23,6 +28,15 @@ export function VocabInputBar({ onWordAdded, todayCount }: VocabInputBarProps) {
     e.preventDefault();
     const cleanWord = word.trim();
     if (!cleanWord || loading) return;
+
+    // Check duplicate words before sending API request
+    const isDuplicate = existingWords.some(
+      (w) => w.trim().toLowerCase() === cleanWord.toLowerCase(),
+    );
+    if (isDuplicate) {
+      setError(`"${cleanWord}" already exists in your vocabulary list. No duplicate words allowed.`);
+      return;
+    }
 
     setLoading(true);
     setError(null);
@@ -35,6 +49,7 @@ export function VocabInputBar({ onWordAdded, todayCount }: VocabInputBarProps) {
         body: JSON.stringify({
           action: "enrich",
           word: cleanWord,
+          wordsList: existingWords,
           providerConfig: config,
         }),
       });
@@ -44,14 +59,29 @@ export function VocabInputBar({ onWordAdded, todayCount }: VocabInputBarProps) {
         throw new Error(json.error || "Failed to generate flashcard.");
       }
 
-      onWordAdded({
-        word: json.data.word || cleanWord,
+      const finalWord = json.data.word || cleanWord;
+      const isFinalDuplicate = existingWords.some(
+        (w) => w.trim().toLowerCase() === finalWord.trim().toLowerCase(),
+      );
+      if (isFinalDuplicate) {
+        setError(`"${finalWord}" already exists in your vocabulary list. No duplicate words allowed.`);
+        return;
+      }
+
+      const resAdd = onWordAdded({
+        word: finalWord,
         meaning: json.data.meaning || "A useful term for academic analysis.",
         memoryHook:
           json.data.memoryHook || "Recall context clues from your reading.",
         example:
           json.data.example || `The term ${cleanWord} was applied effectively.`,
       });
+
+      if (resAdd && resAdd.error) {
+        setError(resAdd.error);
+        return;
+      }
+
       setWord("");
     } catch (err: any) {
       console.error("Vocab add error:", err);

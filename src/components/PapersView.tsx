@@ -42,6 +42,7 @@ import {
   List,
   Filter,
   ChevronDown,
+  Calendar,
 } from "lucide-react";
 
 interface PapersViewProps {
@@ -54,13 +55,149 @@ interface PapersViewProps {
 
 const PAPERS_FILTER_STORAGE_KEY = "upsc_papers_filter_state";
 
+export type DateRangePreset =
+  | "all"
+  | "last-week"
+  | "last-2-weeks"
+  | "last-month"
+  | "last-3-months"
+  | "last-6-months"
+  | "last-9-months"
+  | "last-year"
+  | "ytd"
+  | "custom";
+
+export const DATE_RANGE_LABELS: Record<DateRangePreset, string> = {
+  all: "All Dates",
+  "last-week": "Last week",
+  "last-2-weeks": "Last 2 weeks",
+  "last-month": "Last month",
+  "last-3-months": "Last 3 months",
+  "last-6-months": "Last 6 months",
+  "last-9-months": "Last 9 months",
+  "last-year": "Last Year (date-to-date)",
+  ytd: "YTD",
+  custom: "Custom range",
+};
+
+export function getPaperDate(p: QuestionPaper): Date | null {
+  if (p.createdAt) {
+    const d = new Date(p.createdAt);
+    if (!isNaN(d.getTime())) return d;
+  }
+  const match = p.id.match(/(?:paper|custom|upload|attempt)_(\d{10,13})/);
+  if (match) {
+    const ts = parseInt(match[1], 10);
+    const d = new Date(ts < 1e11 ? ts * 1000 : ts);
+    if (!isNaN(d.getTime())) return d;
+  }
+  if (p.year && /^\d{4}$/.test(p.year.trim())) {
+    return new Date(parseInt(p.year.trim(), 10), 0, 1);
+  }
+  return null;
+}
+
+export function matchesDateRange(
+  p: QuestionPaper,
+  preset: DateRangePreset,
+  customStart?: string,
+  customEnd?: string,
+): boolean {
+  if (preset === "all") return true;
+
+  const pDate = getPaperDate(p);
+  if (!pDate) return false;
+
+  const now = new Date();
+
+  switch (preset) {
+    case "last-week": {
+      const cutoff = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+      return pDate >= cutoff && pDate <= now;
+    }
+    case "last-2-weeks": {
+      const cutoff = new Date(now.getTime() - 14 * 24 * 60 * 60 * 1000);
+      return pDate >= cutoff && pDate <= now;
+    }
+    case "last-month": {
+      const cutoff = new Date(
+        now.getFullYear(),
+        now.getMonth() - 1,
+        now.getDate(),
+        now.getHours(),
+        now.getMinutes(),
+      );
+      return pDate >= cutoff && pDate <= now;
+    }
+    case "last-3-months": {
+      const cutoff = new Date(
+        now.getFullYear(),
+        now.getMonth() - 3,
+        now.getDate(),
+        now.getHours(),
+        now.getMinutes(),
+      );
+      return pDate >= cutoff && pDate <= now;
+    }
+    case "last-6-months": {
+      const cutoff = new Date(
+        now.getFullYear(),
+        now.getMonth() - 6,
+        now.getDate(),
+        now.getHours(),
+        now.getMinutes(),
+      );
+      return pDate >= cutoff && pDate <= now;
+    }
+    case "last-9-months": {
+      const cutoff = new Date(
+        now.getFullYear(),
+        now.getMonth() - 9,
+        now.getDate(),
+        now.getHours(),
+        now.getMinutes(),
+      );
+      return pDate >= cutoff && pDate <= now;
+    }
+    case "last-year": {
+      const cutoff = new Date(
+        now.getFullYear() - 1,
+        now.getMonth(),
+        now.getDate(),
+        now.getHours(),
+        now.getMinutes(),
+      );
+      return pDate >= cutoff && pDate <= now;
+    }
+    case "ytd": {
+      const startOfYear = new Date(now.getFullYear(), 0, 1, 0, 0, 0, 0);
+      return pDate >= startOfYear && pDate <= now;
+    }
+    case "custom": {
+      if (customStart) {
+        const start = new Date(customStart + "T00:00:00");
+        if (pDate < start) return false;
+      }
+      if (customEnd) {
+        const end = new Date(customEnd + "T23:59:59.999");
+        if (pDate > end) return false;
+      }
+      return true;
+    }
+    default:
+      return true;
+  }
+}
+
 interface PapersFilterState {
   searchQuery?: string;
   selectedCategory?: "all" | "prelims" | "mains" | "custom";
   selectedSource?: "all" | "custom" | "predefined";
-  selectedYear?: string;
+  selectedDateRange?: DateRangePreset;
+  customStartDate?: string;
+  customEndDate?: string;
   selectedAttemptFilter?:
-    "all" | "attempted" | "unattempted" | "mock" | "practice";
+    | "all" | "attempted" | "unattempted" | "mock" | "practice";
   paperViewMode?: "grid" | "list";
 }
 
@@ -90,7 +227,10 @@ export function PapersView({
   const [selectedSource, setSelectedSource] = useState<
     "all" | "custom" | "predefined"
   >("all");
-  const [selectedYear, setSelectedYear] = useState<string>("all");
+  const [selectedDateRange, setSelectedDateRange] =
+    useState<DateRangePreset>("all");
+  const [customStartDate, setCustomStartDate] = useState<string>("");
+  const [customEndDate, setCustomEndDate] = useState<string>("");
   const [selectedAttemptFilter, setSelectedAttemptFilter] = useState<
     "all" | "attempted" | "unattempted" | "mock" | "practice"
   >("all");
@@ -127,10 +267,27 @@ export function PapersView({
       );
     }
     if (
-      typeof saved.selectedYear === "string" &&
-      saved.selectedYear !== "all"
+      saved.selectedDateRange &&
+      [
+        "all",
+        "last-week",
+        "last-2-weeks",
+        "last-month",
+        "last-3-months",
+        "last-6-months",
+        "last-9-months",
+        "last-year",
+        "ytd",
+        "custom",
+      ].includes(saved.selectedDateRange)
     ) {
-      setSelectedYear(saved.selectedYear);
+      setSelectedDateRange(saved.selectedDateRange);
+    }
+    if (typeof saved.customStartDate === "string") {
+      setCustomStartDate(saved.customStartDate);
+    }
+    if (typeof saved.customEndDate === "string") {
+      setCustomEndDate(saved.customEndDate);
     }
     if (
       saved.selectedAttemptFilter &&
@@ -156,7 +313,9 @@ export function PapersView({
           searchQuery,
           selectedCategory,
           selectedSource,
-          selectedYear,
+          selectedDateRange,
+          customStartDate,
+          customEndDate,
           selectedAttemptFilter,
           paperViewMode,
         }),
@@ -167,7 +326,9 @@ export function PapersView({
     searchQuery,
     selectedCategory,
     selectedSource,
-    selectedYear,
+    selectedDateRange,
+    customStartDate,
+    customEndDate,
     selectedAttemptFilter,
     paperViewMode,
   ]);
@@ -314,15 +475,6 @@ export function PapersView({
     [papers],
   );
 
-  const availableYears = useMemo(() => {
-    const set = new Set<string>();
-    SUPPORTED_YEARS.forEach((yr) => set.add(yr));
-    papers.forEach((p) => {
-      if (p.year && p.year !== "custom") set.add(p.year);
-    });
-    return Array.from(set).sort((a, b) => b.localeCompare(a));
-  }, [papers]);
-
   const attemptsByPaperId = useMemo(() => {
     const map = new Map<string, Attempt[]>();
     attempts.forEach((a) => {
@@ -367,8 +519,17 @@ export function PapersView({
       return false;
     if (selectedCategory === "mains" && p.category !== "mains") return false;
 
-    // 3. Year filter
-    if (selectedYear !== "all" && p.year !== selectedYear) return false;
+    // 3. Date range filter
+    if (
+      !matchesDateRange(
+        p,
+        selectedDateRange,
+        customStartDate,
+        customEndDate,
+      )
+    ) {
+      return false;
+    }
 
     // 4. Search query
     if (searchQuery.trim()) {
@@ -404,20 +565,22 @@ export function PapersView({
     Boolean(searchQuery.trim()) ||
     selectedCategory !== "all" ||
     selectedSource !== "all" ||
-    selectedYear !== "all" ||
+    selectedDateRange !== "all" ||
     selectedAttemptFilter !== "all";
 
   const activeFiltersCount =
     (selectedAttemptFilter !== "all" ? 1 : 0) +
     (selectedSource !== "all" ? 1 : 0) +
     (selectedCategory !== "all" ? 1 : 0) +
-    (selectedYear !== "all" ? 1 : 0);
+    (selectedDateRange !== "all" ? 1 : 0);
 
   const handleResetFilters = () => {
     setSearchQuery("");
     setSelectedCategory("all");
     setSelectedSource("all");
-    setSelectedYear("all");
+    setSelectedDateRange("all");
+    setCustomStartDate("");
+    setCustomEndDate("");
     setSelectedAttemptFilter("all");
   };
 
@@ -543,7 +706,7 @@ export function PapersView({
                       </span>
                     </>
                   )}
-                  {selectedYear !== "all" && (
+                  {selectedDateRange !== "all" && (
                     <>
                       {(selectedAttemptFilter !== "all" ||
                         selectedSource !== "all" ||
@@ -553,7 +716,10 @@ export function PapersView({
                         </span>
                       )}
                       <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md font-semibold text-[11px] bg-amber-50 text-amber-900 border border-amber-200">
-                        Year {selectedYear}
+                        <Calendar className="h-3 w-3 text-amber-700" />
+                        {selectedDateRange === "custom"
+                          ? `${customStartDate || "Start"} to ${customEndDate || "End"}`
+                          : DATE_RANGE_LABELS[selectedDateRange]}
                       </span>
                     </>
                   )}
@@ -562,7 +728,7 @@ export function PapersView({
                       {(selectedAttemptFilter !== "all" ||
                         selectedSource !== "all" ||
                         selectedCategory !== "all" ||
-                        selectedYear !== "all") && (
+                        selectedDateRange !== "all") && (
                         <span className="text-[10px] font-bold text-slate-400">
                           AND
                         </span>
@@ -817,10 +983,10 @@ export function PapersView({
             <div className="h-px bg-slate-200/80 flex-1" />
           </div>
 
-          {/* Row 3: All, Prelims, Mains, Years */}
+          {/* Row 3: All, Prelims, Mains, Date Range */}
           <div className="flex items-center gap-2 flex-wrap">
             <span className="text-[11px] font-semibold text-slate-500 w-24 shrink-0">
-              Stage &amp; Year:
+              Stage &amp; Date:
             </span>
             <div className="inline-flex items-center gap-1.5 flex-wrap flex-1">
               <button
@@ -888,35 +1054,90 @@ export function PapersView({
               {/* Vertical Divider */}
               <div className="h-4 w-px bg-slate-300 mx-1" />
 
-              {/* Year Chips */}
-              <button
-                type="button"
-                onClick={() => setSelectedYear("all")}
-                className={`cursor-pointer inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1 text-xs font-medium transition-all ${
-                  selectedYear === "all"
-                    ? "bg-amber-600 text-white shadow-2xs font-semibold"
-                    : "border border-slate-200 bg-white text-slate-600 hover:border-amber-200 hover:text-amber-800"
+              {/* Date Range Selector */}
+              <div
+                className={`inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1 text-xs transition-all ${
+                  selectedDateRange !== "all"
+                    ? "border border-amber-500 bg-amber-50 text-amber-900 font-semibold shadow-xs ring-1 ring-amber-500"
+                    : "border border-slate-200 bg-white text-slate-700 hover:border-amber-300 hover:bg-slate-50"
                 }`}
               >
-                All Years
-              </button>
-
-              {availableYears.map((yr) => (
-                <button
-                  key={yr}
-                  type="button"
-                  onClick={() =>
-                    setSelectedYear(selectedYear === yr ? "all" : yr)
-                  }
-                  className={`cursor-pointer inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1 text-xs font-mono font-medium transition-all ${
-                    selectedYear === yr
-                      ? "border border-amber-500 bg-amber-500 text-white font-semibold shadow-xs ring-1 ring-amber-500"
-                      : "border border-slate-200 bg-white text-slate-600 hover:border-amber-300 hover:text-amber-800"
+                <Calendar
+                  className={`h-3.5 w-3.5 shrink-0 ${
+                    selectedDateRange !== "all"
+                      ? "text-amber-700"
+                      : "text-slate-400"
                   }`}
+                />
+                <select
+                  value={selectedDateRange}
+                  onChange={(e) =>
+                    setSelectedDateRange(e.target.value as DateRangePreset)
+                  }
+                  className="bg-transparent font-medium text-xs text-slate-800 focus:outline-hidden cursor-pointer"
+                  title="Filter papers by date range"
                 >
-                  {yr}
-                </button>
-              ))}
+                  <option value="all">All Dates</option>
+                  <option value="last-week">Last week (7 days)</option>
+                  <option value="last-2-weeks">Last 2 weeks</option>
+                  <option value="last-month">Last month</option>
+                  <option value="last-3-months">Last 3 months</option>
+                  <option value="last-6-months">Last 6 months</option>
+                  <option value="last-9-months">Last 9 months</option>
+                  <option value="last-year">Last Year (date-to-date)</option>
+                  <option value="ytd">YTD</option>
+                  <option value="custom">Custom range...</option>
+                </select>
+
+                {selectedDateRange !== "all" && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setSelectedDateRange("all");
+                      setCustomStartDate("");
+                      setCustomEndDate("");
+                    }}
+                    className="text-amber-700 hover:text-amber-900 p-0.5 rounded hover:bg-amber-100 cursor-pointer ml-0.5"
+                    title="Clear date filter"
+                  >
+                    <X className="h-3 w-3" />
+                  </button>
+                )}
+              </div>
+
+              {/* Custom Date Range Inline Inputs */}
+              {selectedDateRange === "custom" && (
+                <div className="inline-flex items-center gap-1.5 bg-amber-50/70 border border-amber-200 rounded-lg px-2 py-0.5 text-xs text-slate-700 shadow-2xs animate-in fade-in duration-150">
+                  <input
+                    type="date"
+                    value={customStartDate}
+                    onChange={(e) => setCustomStartDate(e.target.value)}
+                    className="bg-white border border-slate-200 rounded px-1.5 py-0.5 text-[11px] text-slate-800 font-mono focus:outline-hidden focus:border-amber-500"
+                    title="From date"
+                  />
+                  <span className="text-[10px] text-amber-900 font-bold">to</span>
+                  <input
+                    type="date"
+                    value={customEndDate}
+                    onChange={(e) => setCustomEndDate(e.target.value)}
+                    className="bg-white border border-slate-200 rounded px-1.5 py-0.5 text-[11px] text-slate-800 font-mono focus:outline-hidden focus:border-amber-500"
+                    title="To date"
+                  />
+                  {(customStartDate || customEndDate) && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setCustomStartDate("");
+                        setCustomEndDate("");
+                      }}
+                      className="text-amber-700 hover:text-amber-900 p-0.5 rounded hover:bg-amber-100 cursor-pointer"
+                      title="Clear custom dates"
+                    >
+                      <X className="h-3 w-3" />
+                    </button>
+                  )}
+                </div>
+              )}
             </div>
           </div>
         </div>

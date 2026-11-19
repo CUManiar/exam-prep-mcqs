@@ -29,6 +29,7 @@ interface QuestionPaletteProps {
   onSelectQuestion: (qNo: number) => void;
   isAssessmentQuestion: (qNo: number) => boolean;
   isClozeQuestion?: (qNo: number) => boolean;
+  isMarkdownPaper?: boolean;
   markdownQuestions?: ParsedQuestion[];
   onSaveQuestionNote?: (qNo: number, note: string) => void;
   onSetSubjectiveAssessment?: (
@@ -57,6 +58,7 @@ export function QuestionPalette({
   onSelectQuestion,
   isAssessmentQuestion,
   isClozeQuestion,
+  isMarkdownPaper = false,
   markdownQuestions = [],
   onSaveQuestionNote,
   onSetSubjectiveAssessment,
@@ -339,8 +341,14 @@ export function QuestionPalette({
 
             <div className="flex items-center gap-2 text-xs">
               {expandedQuestion.confidence && (
-                <span className="text-[10px] text-slate-500 font-medium capitalize">
-                  {expandedQuestion.confidence}
+                <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-slate-700 bg-slate-50 border border-slate-200 px-2 py-0.5 rounded-full shadow-2xs">
+                  {expandedQuestion.confidence === "sure"
+                    ? "🎯 Sure"
+                    : expandedQuestion.confidence === "50-50"
+                      ? "⚖️ 50:50"
+                      : expandedQuestion.confidence === "elimination"
+                        ? "✂️ Elim"
+                        : "🎲 Guess"}
                 </span>
               )}
               <span className="font-mono text-xs text-slate-500 flex items-center gap-0.5">
@@ -521,22 +529,24 @@ export function QuestionPalette({
             />
           )}
 
-          {/* Official Solution & Explanation */}
-          {explanationText ? (
-            <div className="rounded-xl border border-indigo-200/90 bg-indigo-50/30 p-3 space-y-1 shadow-2xs overflow-hidden">
-              <div className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wider text-indigo-900">
-                <Lightbulb className="h-3.5 w-3.5 text-indigo-600 shrink-0" />
-                <span>Official Solution</span>
+          {/* Official Solution & Explanation: Shown only for PDF papers; in Markdown papers, solutions are already displayed in the main review center */}
+          {!isMarkdownPaper && (
+            explanationText ? (
+              <div className="rounded-xl border border-indigo-200/90 bg-indigo-50/30 p-3 space-y-1 shadow-2xs overflow-hidden">
+                <div className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wider text-indigo-900">
+                  <Lightbulb className="h-3.5 w-3.5 text-indigo-600 shrink-0" />
+                  <span>Official Solution</span>
+                </div>
+                <HtmlExplanation
+                  text={explanationText}
+                  className="text-xs text-slate-800"
+                />
               </div>
-              <HtmlExplanation
-                text={explanationText}
-                className="text-xs text-slate-800"
-              />
-            </div>
-          ) : (
-            <div className="text-[11px] text-slate-400 italic">
-              No explanation recorded for this question.
-            </div>
+            ) : (
+              <div className="text-[11px] text-slate-400 italic">
+                No explanation recorded for this question.
+              </div>
+            )
           )}
 
           {/* Student Scratchpad Note */}
@@ -652,10 +662,14 @@ export function QuestionPalette({
               type="button"
               disabled={!canNavigatePrev}
               onClick={onNavigatePrev}
+              title="Previous Question (shortcut: J)"
               className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 text-xs font-semibold disabled:opacity-30 disabled:pointer-events-none transition-all shadow-2xs cursor-pointer"
             >
               <ChevronLeft className="h-3.5 w-3.5" />
               <span>Previous</span>
+              <kbd className="hidden sm:inline-block ml-1 px-1 py-0.2 text-[9px] font-mono text-slate-400 bg-slate-100 rounded border border-slate-200">
+                J
+              </kbd>
             </button>
 
             {/* Quick Jump Buttons: Next Mistake & Next Skipped */}
@@ -690,9 +704,13 @@ export function QuestionPalette({
               type="button"
               disabled={!canNavigateNext}
               onClick={onNavigateNext}
+              title="Next Question (shortcut: K)"
               className="inline-flex items-center gap-1 px-3 py-1 rounded-lg bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold disabled:opacity-30 disabled:pointer-events-none transition-all shadow-2xs cursor-pointer"
             >
               <span>Next</span>
+              <kbd className="hidden sm:inline-block ml-1 px-1 py-0.2 text-[9px] font-mono text-slate-300 bg-slate-800 rounded border border-slate-700">
+                K
+              </kbd>
               <ChevronRight className="h-3.5 w-3.5" />
             </button>
           </div>

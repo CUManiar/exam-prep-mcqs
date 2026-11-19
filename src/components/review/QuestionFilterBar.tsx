@@ -17,7 +17,9 @@ import {
 
 interface QuestionFilterBarProps {
   filters: ReviewFilterState;
-  onToggleOutcome: (outcome: "incorrect" | "correct" | "skipped") => void;
+  onToggleOutcome: (
+    outcome: "incorrect" | "correct" | "skipped" | "partial",
+  ) => void;
   onToggleFlagged: () => void;
   onToggleConfidence: (conf: "sure" | "50-50" | "guess") => void;
   onToggleSlow: () => void;
@@ -28,6 +30,7 @@ interface QuestionFilterBarProps {
     correct: number;
     incorrect: number;
     skipped: number;
+    partial?: number;
     flagged: number;
     altered: number;
     slow: number;
@@ -61,6 +64,8 @@ export function QuestionFilterBar({
     if (filters.outcome === "incorrect")
       return `Mistakes (${counts.incorrect})`;
     if (filters.outcome === "correct") return `Correct (${counts.correct})`;
+    if (filters.outcome === "partial")
+      return `Partial (${counts.partial ?? 0})`;
     if (filters.outcome === "skipped") return `Skipped (${counts.skipped})`;
     if (filters.flagged) return `Flagged (${counts.flagged})`;
     if (filters.confidence === "sure") return `Sure (${counts.sure})`;
@@ -114,6 +119,24 @@ export function QuestionFilterBar({
       activeClass:
         "bg-emerald-600 border-emerald-600 text-white shadow-xs font-bold ring-2 ring-emerald-300 ring-offset-1",
     },
+    ...((counts.partial ?? 0) > 0
+      ? [
+          {
+            id: "partial",
+            label: "Partial",
+            count: counts.partial ?? 0,
+            icon: (
+              <span className="h-2.5 w-2.5 rounded-full bg-amber-500 shrink-0" />
+            ),
+            isActive: filters.outcome === "partial",
+            onClick: () => onToggleOutcome("partial"),
+            colorClass:
+              "border-amber-200 bg-amber-50/50 text-amber-800 hover:bg-amber-100/60",
+            activeClass:
+              "bg-amber-600 border-amber-600 text-white shadow-xs font-bold ring-2 ring-amber-300 ring-offset-1",
+          },
+        ]
+      : []),
     {
       id: "skipped",
       label: "Skipped",
