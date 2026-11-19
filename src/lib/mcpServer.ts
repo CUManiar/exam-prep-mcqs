@@ -2238,45 +2238,35 @@ export function createPortalMcpServer(
       }
 
       const cards = await getUserVocabCards(userId);
-      const existingIdx = cards.findIndex(
+      const existing = cards.find(
         (c) => c.word.trim().toLowerCase() === cleanWord.toLowerCase(),
       );
+      if (existing) {
+        return errorResult(
+          `"${cleanWord}" already exists in the vocabulary list. Duplicate words are not allowed.`,
+        );
+      }
 
       const todayStr = new Date().toISOString().split("T")[0];
       const nowIso = new Date().toISOString();
 
-      let targetCard: VocabCard;
-      if (existingIdx >= 0) {
-        targetCard = {
-          ...cards[existingIdx],
-          meaning: finalMeaning,
-          memoryHook: finalHook,
-          example: finalExample,
-          mastered:
-            mastered !== undefined
-              ? Boolean(mastered)
-              : cards[existingIdx].mastered,
-        };
-        cards[existingIdx] = targetCard;
-      } else {
-        targetCard = {
-          id: `vocab_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
-          word: cleanWord,
-          meaning: finalMeaning,
-          memoryHook: finalHook,
-          example: finalExample,
-          dateAdded: todayStr,
-          mastered: Boolean(mastered),
-          createdAt: nowIso,
-        };
-        cards.unshift(targetCard);
-      }
+      const targetCard: VocabCard = {
+        id: `vocab_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
+        word: cleanWord,
+        meaning: finalMeaning,
+        memoryHook: finalHook,
+        example: finalExample,
+        dateAdded: todayStr,
+        mastered: Boolean(mastered),
+        createdAt: nowIso,
+      };
+      cards.unshift(targetCard);
 
       await saveUserVocabCards(userId, cards);
 
       return textResult({
         saved: true,
-        action: existingIdx >= 0 ? "updated" : "created",
+        action: "created",
         card: targetCard,
         totalCards: cards.length,
         todayCount: cards.filter((c) => c.dateAdded === todayStr).length,

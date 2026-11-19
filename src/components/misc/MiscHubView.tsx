@@ -26,6 +26,8 @@ import {
   Zap,
   Cloud,
   Loader2,
+  Search,
+  X,
 } from "lucide-react";
 
 export function MiscHubView() {
@@ -42,6 +44,7 @@ export function MiscHubView() {
   const [filter, setFilter] = useState<
     "all" | "today" | "learning" | "mastered"
   >("all");
+  const [searchQuery, setSearchQuery] = useState<string>("");
   const [practiceWord, setPracticeWord] = useState<string | null>(null);
   const [isSyncing, setIsSyncing] = useState<boolean>(false);
 
@@ -73,10 +76,14 @@ export function MiscHubView() {
     memoryHook: string;
     example: string;
   }) => {
-    addVocabCard(newWordData, currentUser?.id);
+    const result = addVocabCard(newWordData, currentUser?.id);
+    if (!result.ok && result.error) {
+      return result;
+    }
     const updated = getStoredVocabCards(currentUser?.id);
     setCards(updated);
     setTodayCount(getTodayVocabCount(currentUser?.id));
+    return result;
   };
 
   const handleToggleMastery = (id: string) => {
@@ -98,9 +105,23 @@ export function MiscHubView() {
   const todayStr = new Date().toISOString().split("T")[0];
 
   const filteredCards = cards.filter((card) => {
-    if (filter === "today") return card.dateAdded === todayStr;
-    if (filter === "learning") return !card.mastered;
-    if (filter === "mastered") return card.mastered;
+    // 1. Status/Date filter
+    if (filter === "today" && card.dateAdded !== todayStr) return false;
+    if (filter === "learning" && card.mastered) return false;
+    if (filter === "mastered" && !card.mastered) return false;
+
+    // 2. Search query filter across word, meaning, memoryHook, and example
+    if (searchQuery.trim()) {
+      const q = searchQuery.trim().toLowerCase();
+      const matchWord = card.word?.toLowerCase().includes(q);
+      const matchMeaning = card.meaning?.toLowerCase().includes(q);
+      const matchHook = card.memoryHook?.toLowerCase().includes(q);
+      const matchExample = card.example?.toLowerCase().includes(q);
+      if (!matchWord && !matchMeaning && !matchHook && !matchExample) {
+        return false;
+      }
+    }
+
     return true;
   });
 
@@ -188,86 +209,134 @@ export function MiscHubView() {
       {/* TAB 1: VOCAB BUILDER & FLASHCARDS */}
       {activeTab === "cards" && (
         <div className="space-y-4 sm:space-y-5">
-          {/* Quick Input Bar */}
+          {/* Quick Input Bar with duplicate word prevention */}
           <VocabInputBar
             onWordAdded={handleWordAdded}
             todayCount={todayCount}
+            existingWords={cards.map((c) => c.word)}
           />
 
-          {/* Filter Chips and Quick Game Icon */}
+          {/* Search, Filter Chips, and Quick Game Icon */}
           {cards.length > 0 && (
-            <div className="flex items-center justify-between gap-3 pt-1">
-              <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar py-1 flex-1">
-                <span className="text-[11px] font-medium text-slate-400 flex items-center gap-1 shrink-0 mr-1">
-                  <Filter className="w-3 h-3" /> Filter:
-                </span>
-                <button
-                  type="button"
-                  onClick={() => setFilter("all")}
-                  className={`text-xs px-3 py-1.5 rounded-lg whitespace-nowrap transition-colors touch-manipulation cursor-pointer ${
-                    filter === "all"
-                      ? "bg-slate-900 text-white dark:bg-white dark:text-slate-900 font-medium shadow-2xs"
-                      : "bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 hover:bg-slate-200"
-                  }`}
-                >
-                  All ({cards.length})
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setFilter("today")}
-                  className={`text-xs px-3 py-1.5 rounded-lg whitespace-nowrap transition-colors flex items-center gap-1 touch-manipulation cursor-pointer ${
-                    filter === "today"
-                      ? "bg-indigo-600 text-white font-medium shadow-2xs"
-                      : "bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 hover:bg-slate-200"
-                  }`}
-                >
-                  <Calendar className="w-3 h-3" /> Today ({todayCount})
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setFilter("learning")}
-                  className={`text-xs px-3 py-1.5 rounded-lg whitespace-nowrap transition-colors touch-manipulation cursor-pointer ${
-                    filter === "learning"
-                      ? "bg-indigo-600 text-white font-medium shadow-2xs"
-                      : "bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 hover:bg-slate-200"
-                  }`}
-                >
-                  Learning ({cards.filter((c) => !c.mastered).length})
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setFilter("mastered")}
-                  className={`text-xs px-3 py-1.5 rounded-lg whitespace-nowrap transition-colors flex items-center gap-1 touch-manipulation cursor-pointer ${
-                    filter === "mastered"
-                      ? "bg-emerald-600 text-white font-medium shadow-2xs"
-                      : "bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 hover:bg-slate-200"
-                  }`}
-                >
-                  <CheckCircle2 className="w-3 h-3" /> Mastered (
-                  {cards.filter((c) => c.mastered).length})
-                </button>
+            <div className="space-y-2.5 pt-1">
+              <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-2.5">
+                {/* Search Bar in Word List */}
+                <div className="relative flex-1 max-w-md">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400 pointer-events-none" />
+                  <input
+                    type="text"
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    placeholder="Search words, meanings, or examples..."
+                    className="w-full pl-9 pr-8 py-2 text-xs rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-100 placeholder-slate-400 focus:outline-hidden focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500/20 transition-all shadow-2xs"
+                  />
+                  {searchQuery && (
+                    <button
+                      type="button"
+                      onClick={() => setSearchQuery("")}
+                      className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 p-0.5 rounded cursor-pointer"
+                      title="Clear search"
+                    >
+                      <X className="w-3.5 h-3.5" />
+                    </button>
+                  )}
+                </div>
+
+                {/* Status Filter Chips + Blitz Game Icon */}
+                <div className="flex items-center justify-between sm:justify-end gap-2 overflow-x-auto no-scrollbar">
+                  <div className="flex items-center gap-1.5 shrink-0">
+                    <span className="text-[11px] font-medium text-slate-400 flex items-center gap-1 shrink-0 mr-0.5">
+                      <Filter className="w-3 h-3" /> Filter:
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => setFilter("all")}
+                      className={`text-xs px-2.5 py-1.5 rounded-lg whitespace-nowrap transition-colors touch-manipulation cursor-pointer ${
+                        filter === "all"
+                          ? "bg-slate-900 text-white dark:bg-white dark:text-slate-900 font-medium shadow-2xs"
+                          : "bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 hover:bg-slate-200"
+                      }`}
+                    >
+                      All ({cards.length})
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setFilter("today")}
+                      className={`text-xs px-2.5 py-1.5 rounded-lg whitespace-nowrap transition-colors flex items-center gap-1 touch-manipulation cursor-pointer ${
+                        filter === "today"
+                          ? "bg-indigo-600 text-white font-medium shadow-2xs"
+                          : "bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 hover:bg-slate-200"
+                      }`}
+                    >
+                      <Calendar className="w-3 h-3" /> Today ({todayCount})
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setFilter("learning")}
+                      className={`text-xs px-2.5 py-1.5 rounded-lg whitespace-nowrap transition-colors touch-manipulation cursor-pointer ${
+                        filter === "learning"
+                          ? "bg-indigo-600 text-white font-medium shadow-2xs"
+                          : "bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 hover:bg-slate-200"
+                      }`}
+                    >
+                      Learning ({cards.filter((c) => !c.mastered).length})
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setFilter("mastered")}
+                      className={`text-xs px-2.5 py-1.5 rounded-lg whitespace-nowrap transition-colors flex items-center gap-1 touch-manipulation cursor-pointer ${
+                        filter === "mastered"
+                          ? "bg-emerald-600 text-white font-medium shadow-2xs"
+                          : "bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 hover:bg-slate-200"
+                      }`}
+                    >
+                      <CheckCircle2 className="w-3 h-3" /> Mastered (
+                      {cards.filter((c) => c.mastered).length})
+                    </button>
+                  </div>
+
+                  {/* Square Game Icon with Tooltip on Hover */}
+                  {cards.length >= 2 && (
+                    <div className="relative group shrink-0">
+                      <button
+                        type="button"
+                        onClick={() => setActiveTab("game")}
+                        title="2-Minute Blitz Game: Rapid recall under a strict 120s timer"
+                        className="flex h-8 w-8 items-center justify-center rounded-xl bg-amber-500 hover:bg-amber-600 active:scale-95 text-slate-950 shadow-sm transition-all cursor-pointer"
+                        aria-label="2-Minute Blitz Game"
+                      >
+                        <Zap className="w-4 h-4 fill-slate-950" />
+                      </button>
+
+                      {/* Tooltip on Hover */}
+                      <div className="pointer-events-none absolute bottom-full right-0 mb-2 hidden sm:group-hover:flex flex-col items-end z-50">
+                        <div className="whitespace-nowrap rounded-lg bg-slate-900 dark:bg-slate-100 px-2.5 py-1.5 text-xs font-semibold text-white dark:text-slate-900 shadow-xl">
+                          ⚡ 2-Minute Blitz Game
+                        </div>
+                        <div className="h-1 w-2 mr-3 -mt-px border-4 border-transparent border-t-slate-900 dark:border-t-slate-100" />
+                      </div>
+                    </div>
+                  )}
+                </div>
               </div>
 
-              {/* Square Game Icon with Tooltip on Hover */}
-              {cards.length >= 2 && (
-                <div className="relative group shrink-0">
+              {/* Search active results summary chip */}
+              {searchQuery.trim() && (
+                <div className="flex items-center justify-between text-xs text-slate-500 dark:text-slate-400 px-1">
+                  <span>
+                    Found{" "}
+                    <strong className="text-indigo-600 dark:text-indigo-400 font-bold">
+                      {filteredCards.length}
+                    </strong>{" "}
+                    matching word{filteredCards.length === 1 ? "" : "s"} for &ldquo;{searchQuery.trim()}&rdquo;
+                  </span>
                   <button
                     type="button"
-                    onClick={() => setActiveTab("game")}
-                    title="2-Minute Blitz Game: Rapid recall under a strict 120s timer"
-                    className="flex h-9 w-9 items-center justify-center rounded-xl bg-amber-500 hover:bg-amber-600 active:scale-95 text-slate-950 shadow-sm transition-all cursor-pointer"
-                    aria-label="2-Minute Blitz Game"
+                    onClick={() => setSearchQuery("")}
+                    className="text-xs text-indigo-600 dark:text-indigo-400 hover:underline cursor-pointer"
                   >
-                    <Zap className="w-4 h-4 fill-slate-950" />
+                    Clear search
                   </button>
-
-                  {/* Tooltip on Hover */}
-                  <div className="pointer-events-none absolute bottom-full right-0 mb-2 hidden sm:group-hover:flex flex-col items-end z-50">
-                    <div className="whitespace-nowrap rounded-lg bg-slate-900 dark:bg-slate-100 px-2.5 py-1.5 text-xs font-semibold text-white dark:text-slate-900 shadow-xl">
-                      ⚡ 2-Minute Blitz Game
-                    </div>
-                    <div className="h-1 w-2 mr-3 -mt-px border-4 border-transparent border-t-slate-900 dark:border-t-slate-100" />
-                  </div>
                 </div>
               )}
             </div>
@@ -292,13 +361,26 @@ export function MiscHubView() {
               <h4 className="text-sm font-bold text-slate-800 dark:text-slate-200">
                 {cards.length === 0
                   ? "Your wordbook is waiting for its first word"
-                  : "No words match this filter"}
+                  : searchQuery.trim()
+                    ? `No vocabulary words match "${searchQuery.trim()}"`
+                    : "No words match this filter"}
               </h4>
               <p className="text-xs text-slate-500 dark:text-slate-400 max-w-sm mx-auto mt-1 leading-relaxed">
                 {cards.length === 0
                   ? "Enter any tough or unfamiliar word in the input box above. We'll turn it into an actionable memory card."
-                  : "Switch to 'All' to see all your saved vocabulary flashcards."}
+                  : searchQuery.trim()
+                    ? "Try searching for a different term, meaning, or clear the search to view all flashcards."
+                    : "Switch to 'All' to see all your saved vocabulary flashcards."}
               </p>
+              {searchQuery.trim() && (
+                <button
+                  type="button"
+                  onClick={() => setSearchQuery("")}
+                  className="mt-3 px-3.5 py-1.5 rounded-lg bg-indigo-50 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-400 text-xs font-semibold hover:bg-indigo-100 transition-colors cursor-pointer"
+                >
+                  Clear Search Filter
+                </button>
+              )}
             </div>
           )}
         </div>
