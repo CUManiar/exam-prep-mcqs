@@ -5,7 +5,6 @@ import { ActiveSessionDraft, Attempt, QuestionPaper } from "../lib/types";
 import { getAttemptPercentage } from "../lib/defaults";
 import {
   ArrowRight,
-  AlertTriangle,
   BarChart3,
   BookOpen,
   Clock3,
@@ -13,7 +12,6 @@ import {
   Flame,
   RotateCcw,
   Target,
-  Trash2,
 } from "lucide-react";
 import { PageHeader } from "./PageHeader";
 import { DailyMotivationQuote } from "./dashboard/DailyMotivationQuote";
@@ -292,6 +290,9 @@ export function DashboardView({
         )}
       </section>
 
+      {/* Secondary Strategic Diagnostics Row: 4 high-yield metrics placed directly below with hover details */}
+      <StrategicDiagnosticsWidget attempts={attempts} papers={papers} />
+
       {/* Row 1: Solved MCQ Count & Mock Trends (2/3) + Goals & Reminders Board (1/3) */}
       <section className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <div className="lg:col-span-2">
@@ -320,9 +321,6 @@ export function DashboardView({
           />
         </div>
       </section>
-
-      {/* Row 2.5: Strategic Diagnostics & Performance Intelligence (Top 5 Value Additions) */}
-      <StrategicDiagnosticsWidget attempts={attempts} papers={papers} />
 
       {/* Row 3: Last 3 Papers Summary */}
       <LastThreePapersSummary
@@ -364,84 +362,53 @@ export function DashboardView({
             </div>
           ) : (
             <ul className="divide-y divide-slate-100">
-              {completed.slice(0, 5).map((attempt) => {
-                const paperExists = papers.some(
-                  (paper) => paper.id === attempt.paperId,
-                );
-                return (
-                  <li key={attempt.id}>
-                    <div
-                      role="button"
-                      tabIndex={0}
-                      onClick={() => onViewAttempt(attempt)}
-                      onKeyDown={(event) => {
-                        if (event.key === "Enter" || event.key === " ") {
-                          event.preventDefault();
-                          onViewAttempt(attempt);
-                        }
-                      }}
-                      className="flex w-full cursor-pointer flex-col gap-3 px-4 py-3.5 text-left transition hover:bg-slate-50/80 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 sm:flex-row sm:items-center sm:justify-between sm:px-5"
-                    >
-                      <span className="min-w-0">
-                        <span className="flex items-center gap-1.5 truncate text-sm font-semibold text-slate-900">
-                          <span className="truncate">{attempt.paperLabel}</span>
-                          {!paperExists && (
-                            <span
-                              className="shrink-0 text-amber-600"
-                              aria-label="Linked paper deleted"
-                              title="The paper linked to this assessment has been deleted."
-                            >
-                              <AlertTriangle
-                                className="h-3.5 w-3.5"
-                                aria-hidden="true"
-                              />
-                            </span>
-                          )}
-                        </span>
-                        <span className="mt-0.5 block text-xs text-slate-500">
-                          {formatAttemptDate(
-                            attempt.finishedAt || attempt.startedAt,
-                          )}{" "}
-                          <span className="mx-1 text-slate-300">·</span>{" "}
-                          <span className="font-medium text-slate-600 capitalize">
-                            {attempt.mode === "mock" ? "Mock Exam" : "Practice"}
-                          </span>
+              {completed.slice(0, 5).map((attempt) => (
+                <li key={attempt.id}>
+                  <div
+                    role="button"
+                    tabIndex={0}
+                    onClick={() => onViewAttempt(attempt)}
+                    onKeyDown={(event) => {
+                      if (event.key === "Enter" || event.key === " ") {
+                        event.preventDefault();
+                        onViewAttempt(attempt);
+                      }
+                    }}
+                    className="flex w-full cursor-pointer flex-col gap-3 px-4 py-3.5 text-left transition hover:bg-slate-50/80 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 sm:flex-row sm:items-center sm:justify-between sm:px-5"
+                  >
+                    <span className="min-w-0">
+                      <span className="flex items-center gap-1.5 truncate text-sm font-semibold text-slate-900">
+                        <span className="truncate">{attempt.paperLabel}</span>
+                      </span>
+                      <span className="mt-0.5 block text-xs text-slate-500">
+                        {formatAttemptDate(
+                          attempt.finishedAt || attempt.startedAt,
+                        )}{" "}
+                        <span className="mx-1 text-slate-300">·</span>{" "}
+                        <span className="font-medium text-slate-600 capitalize">
+                          {attempt.mode === "mock" ? "Mock Exam" : "Practice"}
                         </span>
                       </span>
+                    </span>
 
-                      <span className="flex items-center gap-4 text-xs sm:justify-end">
-                        <span className="text-slate-600 font-medium">
-                          {attempt.answered}/{attempt.totalQuestions} answered
-                        </span>
-                        <span className="font-bold tabular-nums text-slate-900">
-                          {attempt.score}/{attempt.maxScore}
-                        </span>
-                        <span className="font-bold tabular-nums text-indigo-700 bg-indigo-50 border border-indigo-100 px-2 py-0.5 rounded-md">
-                          {getAttemptPercentage(attempt)}%
-                        </span>
-                        <span className="font-bold tabular-nums text-emerald-700">
-                          {Math.round(attempt.accuracyPct || 0)}% acc
-                        </span>
-                        {!paperExists && onDeleteAttempt && (
-                          <button
-                            type="button"
-                            onClick={(event) => {
-                              event.stopPropagation();
-                              onDeleteAttempt(attempt.id);
-                            }}
-                            className="rounded-md p-1 text-slate-400 transition hover:bg-rose-50 hover:text-rose-600 cursor-pointer"
-                            aria-label="Delete assessment"
-                            title="Delete this assessment"
-                          >
-                            <Trash2 className="h-3.5 w-3.5" />
-                          </button>
-                        )}
-                        <ArrowRight className="hidden h-4 w-4 text-slate-400 sm:block" />
+                    <span className="flex items-center gap-4 text-xs sm:justify-end">
+                      <span className="text-slate-600 font-medium">
+                        {attempt.answered}/{attempt.totalQuestions} answered
                       </span>
-                    </div>
-                  </li>
-                );
-              })}
+                      <span className="font-bold tabular-nums text-slate-900">
+                        {attempt.score}/{attempt.maxScore}
+                      </span>
+                      <span className="font-bold tabular-nums text-indigo-700 bg-indigo-50 border border-indigo-100 px-2 py-0.5 rounded-md">
+                        {getAttemptPercentage(attempt)}%
+                      </span>
+                      <span className="font-bold tabular-nums text-emerald-700">
+                        {Math.round(attempt.accuracyPct || 0)}% acc
+                      </span>
+                      <ArrowRight className="hidden h-4 w-4 text-slate-400 sm:block" />
+                    </span>
+                  </div>
+                </li>
+              ))}
             </ul>
           )}
         </div>

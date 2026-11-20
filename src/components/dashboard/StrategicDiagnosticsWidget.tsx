@@ -2,21 +2,7 @@
 
 import { useMemo } from "react";
 import { Attempt, QuestionPaper } from "../../lib/types";
-import { getAttemptPercentage } from "../../lib/defaults";
-import {
-  AlertTriangle,
-  TrendingUp,
-  Gauge,
-  Zap,
-  CheckCircle2,
-  Scale,
-  Award,
-  Sparkles,
-  ShieldCheck,
-  Target,
-  ArrowUpRight,
-  TrendingDown,
-} from "lucide-react";
+import { AlertTriangle, Target, TrendingDown, Zap, Info } from "lucide-react";
 
 interface StrategicDiagnosticsWidgetProps {
   attempts: Attempt[];
@@ -63,7 +49,7 @@ export function StrategicDiagnosticsWidget({
     [attempts],
   );
 
-  // 1. PROJECTED PRELIMS SCORE (From Recent Mocks on 200-Mark Scale)
+  // 1. PROJECTED PRELIMS SCORE (Weighted from recent mocks on 200-mark UPSC scale)
   const projectedPrelims = useMemo(() => {
     const mocks = completed.filter((a) => a.mode === "mock");
     if (mocks.length === 0) return null;
@@ -75,7 +61,6 @@ export function StrategicDiagnosticsWidget({
 
     recent.forEach((m, idx) => {
       const weight = recent.length - idx;
-      // Normalize to 200-mark UPSC standard scale
       const normalizedScore = m.maxScore > 0 ? (m.score / m.maxScore) * 200 : 0;
       weightedSum += normalizedScore * weight;
       weightTotal += weight;
@@ -83,7 +68,7 @@ export function StrategicDiagnosticsWidget({
 
     const projectedScore =
       Math.round((weightedSum / Math.max(1, weightTotal)) * 10) / 10;
-    const UPSC_CUTOFF_BENCHMARK = 92.0; // Standard general category qualifying benchmark
+    const UPSC_CUTOFF_BENCHMARK = 92.0;
     const margin =
       Math.round((projectedScore - UPSC_CUTOFF_BENCHMARK) * 10) / 10;
     const isQualifying = projectedScore >= UPSC_CUTOFF_BENCHMARK;
@@ -105,7 +90,7 @@ export function StrategicDiagnosticsWidget({
     };
   }, [completed]);
 
-  // 2. WRONG ANSWERS TAGGED "SURE" (The Overconfidence Trap / Blindspot Index)
+  // 2. WRONG ANSWERS TAGGED "SURE" (Overconfidence Trap)
   const sureMistakesAnalysis = useMemo(() => {
     let totalSureAttempts = 0;
     let totalSureMistakes = 0;
@@ -143,7 +128,6 @@ export function StrategicDiagnosticsWidget({
       (a, b) => b[1] - a[1],
     )[0];
 
-    // Penalty marks squandered on high certainty mistakes (approx 0.667 marks penalty + 2.0 marks missed)
     const marksLostToSureMistakes =
       Math.round(totalSureMistakes * 2.667 * 10) / 10;
 
@@ -157,55 +141,26 @@ export function StrategicDiagnosticsWidget({
     };
   }, [completed, papers]);
 
-  // 3. MARKS LOST TO NEGATIVE PENALTIES (Negative Leakage Audit)
+  // 3. MARKS LOST TO NEGATIVES (Negative Leakage Audit)
   const negativeLeakage = useMemo(() => {
     const mocks = completed.filter((a) => a.mode === "mock");
-    if (mocks.length === 0) {
-      // Fallback across all completed if no mocks
-      const totalNegatives = completed.reduce(
-        (sum, a) => sum + (a.incorrect || 0),
-        0,
-      );
-      const penaltyMarks =
-        Math.round(
-          completed.reduce(
-            (sum, a) => sum + (a.incorrect || 0) * (a.incorrectMarks || 0.667),
-            0,
-          ) * 10,
-        ) / 10;
-      return {
-        totalNegatives,
-        penaltyMarks,
-        avgPenaltyPerMock:
-          Math.round((penaltyMarks / Math.max(1, completed.length)) * 10) / 10,
-        realizedScore: Math.round(
-          completed.reduce((sum, a) => sum + a.score, 0),
-        ),
-        cleanPotentialScore: Math.round(
-          completed.reduce(
-            (sum, a) =>
-              sum + a.score + (a.incorrect || 0) * (a.incorrectMarks || 0.667),
-            0,
-          ),
-        ),
-      };
-    }
+    const sourceAttempts = mocks.length > 0 ? mocks : completed;
 
-    const totalNegatives = mocks.reduce(
-      (sum, m) => sum + (m.incorrect || 0),
+    const totalNegatives = sourceAttempts.reduce(
+      (sum, a) => sum + (a.incorrect || 0),
       0,
     );
     const penaltyMarks =
       Math.round(
-        mocks.reduce(
-          (sum, m) => sum + (m.incorrect || 0) * (m.incorrectMarks || 0.667),
+        sourceAttempts.reduce(
+          (sum, a) => sum + (a.incorrect || 0) * (a.incorrectMarks || 0.667),
           0,
         ) * 10,
       ) / 10;
     const avgPenaltyPerMock =
-      Math.round((penaltyMarks / mocks.length) * 10) / 10;
+      Math.round((penaltyMarks / Math.max(1, sourceAttempts.length)) * 10) / 10;
     const realizedScore = Math.round(
-      mocks.reduce((sum, m) => sum + m.score, 0),
+      sourceAttempts.reduce((sum, a) => sum + a.score, 0),
     );
     const cleanPotentialScore = Math.round(realizedScore + penaltyMarks);
 
@@ -215,11 +170,11 @@ export function StrategicDiagnosticsWidget({
       avgPenaltyPerMock,
       realizedScore,
       cleanPotentialScore,
-      mockCount: mocks.length,
+      mockCount: sourceAttempts.length,
     };
   }, [completed]);
 
-  // 4. ACCURACY BY SUBJECT (Rolling 4 Weeks / Last 28 Days)
+  // 4. ACCURACY BY SUBJECT (Rolling 4 Weeks / 28 Days)
   const rollingSubjectAccuracy = useMemo(() => {
     const fourWeeksAgo = new Date();
     fourWeeksAgo.setDate(fourWeeksAgo.getDate() - 28);
@@ -230,488 +185,377 @@ export function StrategicDiagnosticsWidget({
       return !Number.isNaN(t) && t >= minTimestamp;
     });
 
+    const activeAttempts =
+      recentAttempts.length > 0 ? recentAttempts : completed.slice(0, 10);
+    const isUsingAllFallback = recentAttempts.length === 0;
+
+    let totalQs = 0;
+    let totalCorrect = 0;
     const subjectMap: Record<
       string,
-      {
-        subject: string;
-        correct: number;
-        total: number;
-        questionsAttempted: number;
-      }
+      { subject: string; correct: number; total: number }
     > = {};
 
-    recentAttempts.forEach((att) => {
+    activeAttempts.forEach((att) => {
       const matchedPaper = papers.find((p) => p.id === att.paperId);
       const defaultSubj = normalizeSubject(
         matchedPaper?.subject || att.paperLabel || "",
       );
+
+      totalQs += att.answered || 0;
+      totalCorrect += att.correct || 0;
 
       if (att.answers && Object.keys(att.answers).length > 0) {
         Object.values(att.answers).forEach((ans) => {
           if (ans.selected !== null && ans.selected !== undefined) {
             const subj = normalizeSubject(ans.subject || defaultSubj);
             if (!subjectMap[subj]) {
-              subjectMap[subj] = {
-                subject: subj,
-                correct: 0,
-                total: 0,
-                questionsAttempted: 0,
-              };
+              subjectMap[subj] = { subject: subj, correct: 0, total: 0 };
             }
-            subjectMap[subj].questionsAttempted++;
             subjectMap[subj].total++;
             if (ans.isCorrect) subjectMap[subj].correct++;
           }
         });
       } else {
-        // Fallback to paper-level stats
         if (!subjectMap[defaultSubj]) {
           subjectMap[defaultSubj] = {
             subject: defaultSubj,
             correct: 0,
             total: 0,
-            questionsAttempted: 0,
           };
         }
-        subjectMap[defaultSubj].questionsAttempted += att.answered || 0;
         subjectMap[defaultSubj].total += att.answered || 0;
         subjectMap[defaultSubj].correct += att.correct || 0;
       }
     });
 
-    return Object.values(subjectMap)
-      .filter((s) => s.total >= 5)
+    const overallAccuracyPct =
+      totalQs > 0 ? Math.round((totalCorrect / totalQs) * 100) : 0;
+
+    const subjectsList = Object.values(subjectMap)
+      .filter((s) => s.total >= 3)
       .map((s) => ({
         ...s,
         accuracyPct: Math.round((s.correct / s.total) * 100),
       }))
       .sort((a, b) => b.accuracyPct - a.accuracyPct);
-  }, [completed, papers]);
-
-  // 5. CSAT SPEED VS ACCURACY (The 33% Qualifying Safety Valve)
-  const csatDiagnostic = useMemo(() => {
-    const csatAttempts = completed.filter((a) => {
-      const label = (a.paperLabel || "").toLowerCase();
-      const matched = papers.find((p) => p.id === a.paperId);
-      const subj = (matched?.subject || "").toLowerCase();
-      return (
-        label.includes("csat") ||
-        subj.includes("csat") ||
-        label.includes("paper 2") ||
-        label.includes("paper ii")
-      );
-    });
-
-    if (csatAttempts.length === 0) return null;
-
-    let totalDurationSeconds = 0;
-    let totalAnswered = 0;
-    let totalCorrect = 0;
-    let totalScore = 0;
-    let totalMaxScore = 0;
-
-    csatAttempts.forEach((a) => {
-      totalDurationSeconds += a.durationSeconds || 0;
-      totalAnswered += a.answered || 0;
-      totalCorrect += a.correct || 0;
-      totalScore += a.score || 0;
-      totalMaxScore += a.maxScore || 200;
-    });
-
-    const avgSecondsPerQ =
-      totalAnswered > 0 ? Math.round(totalDurationSeconds / totalAnswered) : 90;
-    const accuracyPct =
-      totalAnswered > 0 ? Math.round((totalCorrect / totalAnswered) * 100) : 0;
-    const avgScorePct =
-      totalMaxScore > 0 ? Math.round((totalScore / totalMaxScore) * 100) : 0;
-
-    // In CSAT, 33% is the qualifying cut-off (66/200 marks)
-    const isQualifying = avgScorePct >= 33;
-    const isComfortable = avgScorePct >= 45; // 90+ marks is comfortable
 
     return {
-      attemptsCount: csatAttempts.length,
-      avgSecondsPerQ,
-      accuracyPct,
-      avgScorePct,
-      isQualifying,
-      isComfortable,
-      targetPacingSeconds: 90, // 80 questions in 120 mins = 90 sec/q
+      overallAccuracyPct,
+      totalQs,
+      isUsingAllFallback,
+      subjects: subjectsList,
+      topSubject: subjectsList[0] || null,
+      weakestSubject:
+        subjectsList.length > 1 ? subjectsList[subjectsList.length - 1] : null,
     };
   }, [completed, papers]);
 
   return (
-    <section className="space-y-4 pt-1">
-      {/* Section Header */}
-      <div className="flex items-end justify-between gap-4">
-        <div>
-          <div className="flex items-center gap-2">
-            <span className="p-1 rounded-lg bg-indigo-50 text-indigo-600 border border-indigo-200 shadow-2xs">
-              <Sparkles className="h-3.5 w-3.5" />
-            </span>
-            <p className="page-eyebrow">Strategic Examination Diagnostics</p>
-          </div>
-          <h2 className="mt-1 text-base sm:text-lg font-bold text-slate-900 tracking-tight">
-            Performance Intelligence &amp; UPSC Readiness
-          </h2>
-        </div>
-        <span className="text-xs font-mono text-slate-500 font-medium hidden sm:inline">
-          {completed.length} Total Assessments Analyzed
+    <section className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+      {/* ── CARD 1: Projected Prelims Score ── */}
+      <div className="group relative surface-card flex items-start gap-3 p-4 sm:p-5 rounded-2xl border border-slate-200/90 hover:border-indigo-300 hover:shadow-sm transition-all cursor-default">
+        <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl ring-1 bg-indigo-50 ring-indigo-200/70 text-indigo-600">
+          <Target className="h-5 w-5" />
         </span>
-      </div>
+        <div className="min-w-0 flex-1">
+          <div className="flex items-center justify-between gap-1">
+            <span className="block truncate text-xs font-semibold uppercase tracking-wider text-slate-400">
+              Projected Score
+            </span>
+            <Info className="h-3 w-3 text-slate-300 group-hover:text-indigo-500 shrink-0 transition-colors" />
+          </div>
+          <span className="mt-0.5 block text-xl sm:text-2xl font-black tracking-tight text-slate-900 tabular-nums">
+            {projectedPrelims ? `${projectedPrelims.projectedScore}` : "—"}
+            <span className="text-xs font-normal text-slate-400 ml-1">
+              / 200
+            </span>
+          </span>
+          <span className="mt-0.5 block truncate text-[11px] font-medium">
+            {projectedPrelims ? (
+              projectedPrelims.margin >= 0 ? (
+                <span className="text-emerald-700 font-semibold">
+                  +{projectedPrelims.margin} pts buffer
+                </span>
+              ) : (
+                <span className="text-rose-700 font-semibold">
+                  {projectedPrelims.margin} pts to cutoff
+                </span>
+              )
+            ) : (
+              <span className="text-slate-500">Need ≥1 mock exam</span>
+            )}
+          </span>
+        </div>
 
-      {/* 5 High-Yield Diagnostic Panels */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-        {/* ── CARD 1: Projected Prelims Score (Benchmark & Buffer) ── */}
-        <div className="surface-card p-4 sm:p-5 rounded-2xl border border-slate-200/90 shadow-2xs flex flex-col justify-between space-y-3.5 bg-gradient-to-b from-white to-slate-50/50">
+        {/* Hover Popover */}
+        <div className="pointer-events-none invisible opacity-0 group-hover:visible group-hover:opacity-100 group-hover:pointer-events-auto transition-all duration-200 ease-out absolute z-40 top-full mt-2.5 left-0 w-72 sm:w-80 rounded-2xl bg-slate-900/95 text-slate-100 p-4 shadow-2xl backdrop-blur-md border border-slate-800 text-xs">
+          <div className="absolute -top-1.5 left-8 w-3 h-3 bg-slate-900 border-t border-l border-slate-800 rotate-45" />
           <div className="space-y-2">
-            <div className="flex items-center justify-between">
-              <span className="text-[10px] font-bold uppercase tracking-wider text-indigo-700 bg-indigo-50 border border-indigo-200/60 px-2 py-0.5 rounded-md flex items-center gap-1 font-mono">
-                <Target className="h-3 w-3" />
-                <span>UPSC GS-1 Scale</span>
-              </span>
-              <span className="text-[11px] font-semibold text-slate-400 font-mono">
-                Cutoff: 92.0
-              </span>
-            </div>
-
-            <div>
-              <span className="text-xs text-slate-500 font-semibold block">
+            <div className="flex items-center justify-between border-b border-slate-800 pb-2">
+              <span className="font-bold text-white text-xs flex items-center gap-1.5">
+                <Target className="h-3.5 w-3.5 text-indigo-400" />
                 Projected Prelims Score
               </span>
-              <div className="flex items-baseline gap-2 mt-0.5">
-                <span className="text-2xl sm:text-3xl font-black text-slate-900 font-mono tracking-tight">
-                  {projectedPrelims ? projectedPrelims.projectedScore : "—"}
+              <span className="font-mono text-[10px] text-slate-400">
+                UPSC Benchmark: 92.0
+              </span>
+            </div>
+            <p className="text-[11px] text-slate-300 leading-relaxed">
+              Recency-weighted projection scaled to the 200-mark GS-1 standard
+              across your recent mocks.
+            </p>
+            <div className="space-y-1.5 pt-1 font-mono text-[11px]">
+              <div className="flex justify-between text-slate-400">
+                <span>Qualifying Status:</span>
+                <span
+                  className={
+                    projectedPrelims?.isQualifying
+                      ? "text-emerald-400 font-bold"
+                      : "text-rose-400 font-bold"
+                  }
+                >
+                  {projectedPrelims?.isSafeBuffer
+                    ? "Safe Buffer Zone"
+                    : projectedPrelims?.isQualifying
+                      ? "Qualifying"
+                      : "Below Benchmark"}
                 </span>
-                <span className="text-xs font-semibold text-slate-400">
-                  / 200 Marks
+              </div>
+              <div className="flex justify-between text-slate-400">
+                <span>Buffer over Cutoff:</span>
+                <span className="text-white font-bold">
+                  {projectedPrelims && projectedPrelims.margin >= 0 ? "+" : ""}
+                  {projectedPrelims?.margin ?? 0} pts
                 </span>
-                {projectedPrelims && (
+              </div>
+              <div className="flex justify-between text-slate-400">
+                <span>Recent Mock Accuracy:</span>
+                <span className="text-white font-bold">
+                  {projectedPrelims?.averageMockAccuracy ?? 0}%
+                </span>
+              </div>
+            </div>
+            <div className="pt-2 border-t border-slate-800 text-[10px] text-indigo-300">
+              💡 Tip: Maintain +15 pts safety buffer over 92.0 to account for
+              unpredictable Prelims scaling.
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* ── CARD 2: Overconfidence Trap ── */}
+      <div className="group relative surface-card flex items-start gap-3 p-4 sm:p-5 rounded-2xl border border-slate-200/90 hover:border-amber-300 hover:shadow-sm transition-all cursor-default">
+        <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl ring-1 bg-amber-50 ring-amber-200/70 text-amber-600">
+          <AlertTriangle className="h-5 w-5" />
+        </span>
+        <div className="min-w-0 flex-1">
+          <div className="flex items-center justify-between gap-1">
+            <span className="block truncate text-xs font-semibold uppercase tracking-wider text-slate-400">
+              Overconfidence
+            </span>
+            <Info className="h-3 w-3 text-slate-300 group-hover:text-amber-500 shrink-0 transition-colors" />
+          </div>
+          <span className="mt-0.5 block text-xl sm:text-2xl font-black tracking-tight text-slate-900 tabular-nums">
+            {sureMistakesAnalysis.totalSureMistakes}
+            <span className="text-xs font-normal text-slate-400 ml-1">
+              blunders
+            </span>
+          </span>
+          <span className="mt-0.5 block truncate text-[11px] font-medium text-amber-800">
+            {sureMistakesAnalysis.overconfidenceRate}% of errors tagged
+            &ldquo;Sure&rdquo;
+          </span>
+        </div>
+
+        {/* Hover Popover */}
+        <div className="pointer-events-none invisible opacity-0 group-hover:visible group-hover:opacity-100 group-hover:pointer-events-auto transition-all duration-200 ease-out absolute z-40 top-full mt-2.5 right-0 sm:left-1/2 sm:-translate-x-1/2 w-72 sm:w-80 rounded-2xl bg-slate-900/95 text-slate-100 p-4 shadow-2xl backdrop-blur-md border border-slate-800 text-xs">
+          <div className="absolute -top-1.5 right-8 sm:left-1/2 sm:-translate-x-1/2 w-3 h-3 bg-slate-900 border-t border-l border-slate-800 rotate-45" />
+          <div className="space-y-2">
+            <div className="flex items-center justify-between border-b border-slate-800 pb-2">
+              <span className="font-bold text-white text-xs flex items-center gap-1.5">
+                <AlertTriangle className="h-3.5 w-3.5 text-amber-400" />
+                Overconfidence &amp; Blindspots
+              </span>
+              <span className="font-mono text-[10px] text-amber-400 font-bold">
+                {sureMistakesAnalysis.totalSureMistakes} False Positives
+              </span>
+            </div>
+            <p className="text-[11px] text-slate-300 leading-relaxed">
+              Questions marked with 100% certainty (&ldquo;Sure&rdquo;) that
+              were answered incorrectly in your assessments.
+            </p>
+            <div className="space-y-1.5 pt-1 font-mono text-[11px]">
+              <div className="flex justify-between text-slate-400">
+                <span>Estimated Marks Lost:</span>
+                <span className="text-rose-400 font-bold">
+                  ~{sureMistakesAnalysis.marksLostToSureMistakes} marks
+                </span>
+              </div>
+              <div className="flex justify-between text-slate-400">
+                <span>Top Blindspot Area:</span>
+                <span className="text-white font-bold">
+                  {sureMistakesAnalysis.topSubject
+                    ? `${sureMistakesAnalysis.topSubject} (${sureMistakesAnalysis.topSubjectCount})`
+                    : "No major blindspot"}
+                </span>
+              </div>
+              <div className="flex justify-between text-slate-400">
+                <span>Certainty Accuracy:</span>
+                <span className="text-amber-300 font-bold">
+                  {sureMistakesAnalysis.totalSureAttempts > 0
+                    ? Math.round(
+                        ((sureMistakesAnalysis.totalSureAttempts -
+                          sureMistakesAnalysis.totalSureMistakes) /
+                          sureMistakesAnalysis.totalSureAttempts) *
+                          100,
+                      )
+                    : 100}
+                  %
+                </span>
+              </div>
+            </div>
+            <div className="pt-2 border-t border-slate-800 text-[10px] text-amber-300">
+              💡 Tip: Review &ldquo;Sure&rdquo; mistakes first — eliminate false
+              preconceptions before cramming new data.
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* ── CARD 3: Negative Mark Leakage ── */}
+      <div className="group relative surface-card flex items-start gap-3 p-4 sm:p-5 rounded-2xl border border-slate-200/90 hover:border-rose-300 hover:shadow-sm transition-all cursor-default">
+        <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl ring-1 bg-rose-50 ring-rose-200/70 text-rose-600">
+          <TrendingDown className="h-5 w-5" />
+        </span>
+        <div className="min-w-0 flex-1">
+          <div className="flex items-center justify-between gap-1">
+            <span className="block truncate text-xs font-semibold uppercase tracking-wider text-slate-400">
+              Negative Leakage
+            </span>
+            <Info className="h-3 w-3 text-slate-300 group-hover:text-rose-500 shrink-0 transition-colors" />
+          </div>
+          <span className="mt-0.5 block text-xl sm:text-2xl font-black tracking-tight text-slate-900 tabular-nums">
+            -{negativeLeakage.penaltyMarks}
+            <span className="text-xs font-normal text-slate-400 ml-1">pts</span>
+          </span>
+          <span className="mt-0.5 block truncate text-[11px] font-medium text-rose-700">
+            ~{negativeLeakage.avgPenaltyPerMock} pts lost per mock
+          </span>
+        </div>
+
+        {/* Hover Popover */}
+        <div className="pointer-events-none invisible opacity-0 group-hover:visible group-hover:opacity-100 group-hover:pointer-events-auto transition-all duration-200 ease-out absolute z-40 top-full mt-2.5 left-0 sm:left-1/2 sm:-translate-x-1/2 w-72 sm:w-80 rounded-2xl bg-slate-900/95 text-slate-100 p-4 shadow-2xl backdrop-blur-md border border-slate-800 text-xs">
+          <div className="absolute -top-1.5 left-8 sm:left-1/2 sm:-translate-x-1/2 w-3 h-3 bg-slate-900 border-t border-l border-slate-800 rotate-45" />
+          <div className="space-y-2">
+            <div className="flex items-center justify-between border-b border-slate-800 pb-2">
+              <span className="font-bold text-white text-xs flex items-center gap-1.5">
+                <TrendingDown className="h-3.5 w-3.5 text-rose-400" />
+                Negative Penalty Leakage
+              </span>
+              <span className="font-mono text-[10px] text-rose-400 font-bold">
+                -{negativeLeakage.penaltyMarks} Marks
+              </span>
+            </div>
+            <p className="text-[11px] text-slate-300 leading-relaxed">
+              Marks deducted due to negative penalty (-0.667) across your
+              attempts.
+            </p>
+            <div className="space-y-1.5 pt-1 font-mono text-[11px]">
+              <div className="flex justify-between text-slate-400">
+                <span>Realized Score:</span>
+                <span className="text-white font-bold">
+                  {negativeLeakage.realizedScore} marks
+                </span>
+              </div>
+              <div className="flex justify-between text-slate-400">
+                <span>Clean Potential Score:</span>
+                <span className="text-emerald-400 font-bold">
+                  {negativeLeakage.cleanPotentialScore} marks
+                </span>
+              </div>
+              <div className="flex justify-between text-slate-400">
+                <span>Recoverable Marks:</span>
+                <span className="text-rose-400 font-bold">
+                  +{negativeLeakage.penaltyMarks} pts
+                </span>
+              </div>
+            </div>
+            <div className="pt-2 border-t border-slate-800 text-[10px] text-rose-300">
+              💡 Tip: In tight Prelims margins, eliminating blind 1/4 guesses
+              alone recovers 8–15 marks.
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* ── CARD 4: Rolling 4-Week Accuracy ── */}
+      <div className="group relative surface-card flex items-start gap-3 p-4 sm:p-5 rounded-2xl border border-slate-200/90 hover:border-emerald-300 hover:shadow-sm transition-all cursor-default">
+        <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl ring-1 bg-emerald-50 ring-emerald-200/70 text-emerald-600">
+          <Zap className="h-5 w-5" />
+        </span>
+        <div className="min-w-0 flex-1">
+          <div className="flex items-center justify-between gap-1">
+            <span className="block truncate text-xs font-semibold uppercase tracking-wider text-slate-400">
+              Rolling 4W Acc
+            </span>
+            <Info className="h-3 w-3 text-slate-300 group-hover:text-emerald-500 shrink-0 transition-colors" />
+          </div>
+          <span className="mt-0.5 block text-xl sm:text-2xl font-black tracking-tight text-slate-900 tabular-nums">
+            {rollingSubjectAccuracy.overallAccuracyPct}%
+          </span>
+          <span className="mt-0.5 block truncate text-[11px] font-medium text-emerald-700">
+            Last 28 days ({rollingSubjectAccuracy.totalQs} Qs)
+          </span>
+        </div>
+
+        {/* Hover Popover */}
+        <div className="pointer-events-none invisible opacity-0 group-hover:visible group-hover:opacity-100 group-hover:pointer-events-auto transition-all duration-200 ease-out absolute z-40 top-full mt-2.5 right-0 w-72 sm:w-80 rounded-2xl bg-slate-900/95 text-slate-100 p-4 shadow-2xl backdrop-blur-md border border-slate-800 text-xs">
+          <div className="absolute -top-1.5 right-8 w-3 h-3 bg-slate-900 border-t border-l border-slate-800 rotate-45" />
+          <div className="space-y-2">
+            <div className="flex items-center justify-between border-b border-slate-800 pb-2">
+              <span className="font-bold text-white text-xs flex items-center gap-1.5">
+                <Zap className="h-3.5 w-3.5 text-emerald-400" />
+                Rolling 4-Week Subject Accuracy
+              </span>
+              <span className="font-mono text-[10px] text-emerald-400 font-bold">
+                {rollingSubjectAccuracy.overallAccuracyPct}% avg
+              </span>
+            </div>
+            <p className="text-[11px] text-slate-300 leading-relaxed">
+              Subject-wise accuracy breakdown for recent attempts over the last
+              28 days.
+            </p>
+            <div className="space-y-1 pt-1 font-mono text-[11px]">
+              {rollingSubjectAccuracy.subjects.slice(0, 4).map((subj) => (
+                <div
+                  key={subj.subject}
+                  className="flex items-center justify-between text-slate-300"
+                >
+                  <span className="truncate">{subj.subject}:</span>
                   <span
-                    className={`text-xs font-bold font-mono px-2 py-0.5 rounded-md flex items-center gap-0.5 ${
-                      projectedPrelims.isQualifying
-                        ? "bg-emerald-50 text-emerald-700 border border-emerald-200"
-                        : "bg-rose-50 text-rose-700 border border-rose-200"
+                    className={`font-bold ${
+                      subj.accuracyPct >= 70
+                        ? "text-emerald-400"
+                        : subj.accuracyPct >= 50
+                          ? "text-amber-400"
+                          : "text-rose-400"
                     }`}
                   >
-                    {projectedPrelims.margin >= 0 ? "+" : ""}
-                    {projectedPrelims.margin} pts
+                    {subj.accuracyPct}% ({subj.total} Qs)
                   </span>
-                )}
-              </div>
-            </div>
-
-            <p className="text-xs text-slate-600 leading-relaxed">
-              {projectedPrelims ? (
-                projectedPrelims.isSafeBuffer ? (
-                  <span className="text-emerald-700 font-semibold flex items-center gap-1">
-                    <ShieldCheck className="h-3.5 w-3.5 shrink-0" />
-                    Safely in qualifying zone (+{projectedPrelims.margin} pts
-                    margin over 92.0 cutoff).
-                  </span>
-                ) : projectedPrelims.isQualifying ? (
-                  <span className="text-indigo-700 font-semibold flex items-center gap-1">
-                    <CheckCircle2 className="h-3.5 w-3.5 shrink-0" />
-                    Qualifying buffer achieved across last{" "}
-                    {projectedPrelims.mockCount} mocks.
-                  </span>
-                ) : (
-                  <span className="text-rose-700 font-semibold flex items-center gap-1">
-                    <TrendingDown className="h-3.5 w-3.5 shrink-0" />
-                    Needs +{Math.abs(projectedPrelims.margin)} pts to cross
-                    standard 92.0 cutoff.
-                  </span>
-                )
-              ) : (
-                "Attempt at least 1 mock exam to compute your weighted projected score."
+                </div>
+              ))}
+              {rollingSubjectAccuracy.subjects.length === 0 && (
+                <div className="text-slate-400 italic">
+                  Complete more assessments to populate subject trends.
+                </div>
               )}
-            </p>
-          </div>
-
-          <div className="pt-2.5 border-t border-slate-100 flex items-center justify-between text-xs text-slate-500">
-            <span>Recent Mocks Acc:</span>
-            <span className="font-mono font-bold text-slate-800">
-              {projectedPrelims
-                ? `${projectedPrelims.averageMockAccuracy}%`
-                : "—"}
-            </span>
-          </div>
-        </div>
-
-        {/* ── CARD 2: Wrong Answers Tagged "Sure" (Overconfidence Trap) ── */}
-        <div className="surface-card p-4 sm:p-5 rounded-2xl border border-slate-200/90 shadow-2xs flex flex-col justify-between space-y-3.5 bg-gradient-to-b from-white to-amber-50/20">
-          <div className="space-y-2">
-            <div className="flex items-center justify-between">
-              <span className="text-[10px] font-bold uppercase tracking-wider text-amber-700 bg-amber-50 border border-amber-200/60 px-2 py-0.5 rounded-md flex items-center gap-1 font-mono">
-                <AlertTriangle className="h-3 w-3" />
-                <span>Overconfidence Trap</span>
-              </span>
-              <span className="text-[11px] font-semibold text-slate-400 font-mono">
-                Blindspot Index
-              </span>
             </div>
-
-            <div>
-              <span className="text-xs text-slate-500 font-semibold block">
-                Wrong Answers Tagged &quot;Sure&quot;
-              </span>
-              <div className="flex items-baseline gap-2 mt-0.5">
-                <span className="text-2xl sm:text-3xl font-black text-amber-600 font-mono tracking-tight">
-                  {sureMistakesAnalysis.totalSureMistakes}
-                </span>
-                <span className="text-xs font-semibold text-slate-400">
-                  / {sureMistakesAnalysis.totalSureAttempts} &quot;Sure&quot;
-                  attempts
-                </span>
-                {sureMistakesAnalysis.overconfidenceRate > 0 && (
-                  <span className="text-xs font-bold font-mono px-2 py-0.5 rounded-md bg-amber-100/70 text-amber-800 border border-amber-200">
-                    {sureMistakesAnalysis.overconfidenceRate}% of errors
-                  </span>
-                )}
-              </div>
+            <div className="pt-2 border-t border-slate-800 text-[10px] text-emerald-300">
+              💡 Tip: Maintain ≥65% accuracy across high-yield subjects (Polity
+              &amp; Economy).
             </div>
-
-            <p className="text-xs text-slate-600 leading-relaxed">
-              {sureMistakesAnalysis.totalSureMistakes > 0 ? (
-                <>
-                  Lost approx{" "}
-                  <strong>
-                    -{sureMistakesAnalysis.marksLostToSureMistakes} marks
-                  </strong>{" "}
-                  on questions thought to be 100% safe.{" "}
-                  {sureMistakesAnalysis.topSubject && (
-                    <span className="text-amber-800 font-medium">
-                      Primary vulnerability:{" "}
-                      <strong>{sureMistakesAnalysis.topSubject}</strong> (
-                      {sureMistakesAnalysis.topSubjectCount} blunders).
-                    </span>
-                  )}
-                </>
-              ) : (
-                "Zero overconfidence errors detected. Your high-certainty tagging matches your accuracy."
-              )}
-            </p>
-          </div>
-
-          <div className="pt-2.5 border-t border-slate-100 flex items-center justify-between text-xs text-slate-500">
-            <span>Blindspot Risk:</span>
-            <span
-              className={`font-semibold ${
-                sureMistakesAnalysis.overconfidenceRate > 25
-                  ? "text-rose-600 font-bold"
-                  : sureMistakesAnalysis.overconfidenceRate > 15
-                    ? "text-amber-600"
-                    : "text-emerald-600"
-              }`}
-            >
-              {sureMistakesAnalysis.overconfidenceRate > 25
-                ? "High Vulnerability"
-                : sureMistakesAnalysis.overconfidenceRate > 15
-                  ? "Moderate Hazard"
-                  : "Well-Calibrated"}
-            </span>
-          </div>
-        </div>
-
-        {/* ── CARD 3: Marks Lost to Negative Penalties (Leakage Audit) ── */}
-        <div className="surface-card p-4 sm:p-5 rounded-2xl border border-slate-200/90 shadow-2xs flex flex-col justify-between space-y-3.5 bg-gradient-to-b from-white to-rose-50/20">
-          <div className="space-y-2">
-            <div className="flex items-center justify-between">
-              <span className="text-[10px] font-bold uppercase tracking-wider text-rose-700 bg-rose-50 border border-rose-200/60 px-2 py-0.5 rounded-md flex items-center gap-1 font-mono">
-                <Scale className="h-3 w-3" />
-                <span>Negative Leakage</span>
-              </span>
-              <span className="text-[11px] font-semibold text-slate-400 font-mono">
-                Penalty Audit
-              </span>
-            </div>
-
-            <div>
-              <span className="text-xs text-slate-500 font-semibold block">
-                Marks Lost to Penalties
-              </span>
-              <div className="flex items-baseline gap-2 mt-0.5">
-                <span className="text-2xl sm:text-3xl font-black text-rose-600 font-mono tracking-tight">
-                  -{negativeLeakage.penaltyMarks}
-                </span>
-                <span className="text-xs font-semibold text-slate-400">
-                  Total Marks
-                </span>
-                <span className="text-xs font-bold font-mono px-2 py-0.5 rounded-md bg-rose-100/70 text-rose-800 border border-rose-200">
-                  ~{negativeLeakage.avgPenaltyPerMock} pts/test
-                </span>
-              </div>
-            </div>
-
-            <p className="text-xs text-slate-600 leading-relaxed">
-              Total{" "}
-              <strong>
-                {negativeLeakage.totalNegatives} incorrect questions
-              </strong>{" "}
-              deducted penalties. Without reckless guesses, your clean potential
-              score is{" "}
-              <strong className="text-emerald-700 font-bold">
-                {negativeLeakage.cleanPotentialScore} pts
-              </strong>{" "}
-              (vs {negativeLeakage.realizedScore} realized).
-            </p>
-          </div>
-
-          <div className="pt-2.5 border-t border-slate-100 flex items-center justify-between text-xs text-slate-500">
-            <span>Score Recovery Potential:</span>
-            <span className="font-mono font-bold text-emerald-600">
-              +{negativeLeakage.penaltyMarks} pts gain
-            </span>
-          </div>
-        </div>
-
-        {/* ── CARD 4: Rolling 4-Week Accuracy by Subject ── */}
-        <div className="surface-card p-4 sm:p-5 rounded-2xl border border-slate-200/90 shadow-2xs space-y-3 md:col-span-2 bg-white">
-          <div className="flex items-center justify-between border-b border-slate-100 pb-2.5">
-            <div className="flex items-center gap-2">
-              <span className="text-[10px] font-bold uppercase tracking-wider text-indigo-700 bg-indigo-50 border border-indigo-200/60 px-2 py-0.5 rounded-md flex items-center gap-1 font-mono">
-                <Gauge className="h-3 w-3" />
-                <span>Rolling 4 Weeks</span>
-              </span>
-              <h3 className="text-xs sm:text-sm font-bold text-slate-900">
-                Subject Accuracy &amp; Domain Mastery
-              </h3>
-            </div>
-            <span className="text-[11px] text-slate-400 font-medium hidden sm:inline">
-              Last 28 Days Performance
-            </span>
-          </div>
-
-          {rollingSubjectAccuracy.length === 0 ? (
-            <div className="py-6 text-center text-xs text-slate-500">
-              Not enough questions recorded across subjects in the last 4 weeks.
-            </div>
-          ) : (
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
-              {rollingSubjectAccuracy.slice(0, 6).map((item) => {
-                const isDominant = item.accuracyPct >= 70;
-                const isPriority = item.accuracyPct < 55;
-                return (
-                  <div
-                    key={item.subject}
-                    className="p-3 rounded-xl border border-slate-200/70 bg-slate-50/50 space-y-1.5"
-                  >
-                    <div className="flex items-center justify-between text-xs">
-                      <span className="font-bold text-slate-800">
-                        {item.subject}
-                      </span>
-                      <div className="flex items-center gap-1.5">
-                        <span className="font-mono font-bold text-slate-900">
-                          {item.accuracyPct}%
-                        </span>
-                        <span
-                          className={`text-[9px] font-bold px-1.5 py-0.2 rounded ${
-                            isDominant
-                              ? "bg-emerald-50 text-emerald-700 border border-emerald-200"
-                              : isPriority
-                                ? "bg-rose-50 text-rose-700 border border-rose-200"
-                                : "bg-blue-50 text-blue-700 border border-blue-200"
-                          }`}
-                        >
-                          {isDominant
-                            ? "Dominant"
-                            : isPriority
-                              ? "Priority"
-                              : "Stable"}
-                        </span>
-                      </div>
-                    </div>
-
-                    <div className="w-full bg-slate-200 h-1.5 rounded-full overflow-hidden">
-                      <div
-                        className={`h-full rounded-full transition-all ${
-                          isDominant
-                            ? "bg-emerald-500"
-                            : isPriority
-                              ? "bg-rose-500"
-                              : "bg-indigo-600"
-                        }`}
-                        style={{ width: `${item.accuracyPct}%` }}
-                      />
-                    </div>
-
-                    <div className="flex items-center justify-between text-[10px] text-slate-400 font-mono">
-                      <span>
-                        {item.correct} / {item.total} correct
-                      </span>
-                      <span>{item.questionsAttempted} Qs in 28d</span>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          )}
-        </div>
-
-        {/* ── CARD 5: CSAT Speed vs Accuracy (Qualifying Safety Valve) ── */}
-        <div className="surface-card p-4 sm:p-5 rounded-2xl border border-slate-200/90 shadow-2xs flex flex-col justify-between space-y-3.5 bg-gradient-to-b from-white to-sky-50/20">
-          <div className="space-y-2">
-            <div className="flex items-center justify-between">
-              <span className="text-[10px] font-bold uppercase tracking-wider text-sky-700 bg-sky-50 border border-sky-200/60 px-2 py-0.5 rounded-md flex items-center gap-1 font-mono">
-                <Zap className="h-3 w-3" />
-                <span>CSAT Paper II</span>
-              </span>
-              <span className="text-[11px] font-semibold text-slate-400 font-mono">
-                33% Floor Target
-              </span>
-            </div>
-
-            <div>
-              <span className="text-xs text-slate-500 font-semibold block">
-                CSAT Pacing vs. Accuracy
-              </span>
-              <div className="flex items-baseline gap-2 mt-0.5">
-                <span className="text-2xl sm:text-3xl font-black text-sky-700 font-mono tracking-tight">
-                  {csatDiagnostic ? `${csatDiagnostic.avgSecondsPerQ}s` : "—"}
-                </span>
-                <span className="text-xs font-semibold text-slate-400">
-                  / question pace
-                </span>
-                {csatDiagnostic && (
-                  <span className="text-xs font-bold font-mono px-2 py-0.5 rounded-md bg-sky-100 text-sky-800 border border-sky-200">
-                    {csatDiagnostic.accuracyPct}% Acc
-                  </span>
-                )}
-              </div>
-            </div>
-
-            <p className="text-xs text-slate-600 leading-relaxed">
-              {csatDiagnostic ? (
-                csatDiagnostic.isComfortable ? (
-                  <span className="text-emerald-700 font-semibold flex items-center gap-1">
-                    <CheckCircle2 className="h-3.5 w-3.5 shrink-0" />
-                    Comfortable qualifying margin ({csatDiagnostic.avgScorePct}%
-                    average vs 33% cutoff).
-                  </span>
-                ) : csatDiagnostic.isQualifying ? (
-                  <span className="text-amber-700 font-semibold flex items-center gap-1">
-                    <AlertTriangle className="h-3.5 w-3.5 shrink-0" />
-                    Borderline qualifying ({csatDiagnostic.avgScorePct}% vs
-                    33%). Accelerate Reading Comprehension.
-                  </span>
-                ) : (
-                  <span className="text-rose-700 font-semibold flex items-center gap-1">
-                    <TrendingDown className="h-3.5 w-3.5 shrink-0" />
-                    At-Risk: Below 33% qualifying floor (
-                    {csatDiagnostic.avgScorePct}% score).
-                  </span>
-                )
-              ) : (
-                "Attempt a CSAT Paper II mock to benchmark pacing against the 66-mark (33%) UPSC qualifying threshold."
-              )}
-            </p>
-          </div>
-
-          <div className="pt-2.5 border-t border-slate-100 flex items-center justify-between text-xs text-slate-500">
-            <span>Ideal Exam Pace:</span>
-            <span className="font-mono font-bold text-slate-800">
-              90s/q (80 Qs in 120m)
-            </span>
           </div>
         </div>
       </div>
