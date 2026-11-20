@@ -784,11 +784,17 @@ export function MainsEvaluationView() {
       const evalResult: MainsEvaluationResult = data.evaluation;
       const computedActualWords = trimmedAnswer
         ? trimmedAnswer.split(/\s+/).filter(Boolean).length
-        : evalResult.actualWordCount || 0;
+        : evalResult.actualWordCount ||
+          (evalResult.transcribedAnswer
+            ? evalResult.transcribedAnswer.trim().split(/\s+/).filter(Boolean)
+                .length
+            : 0);
 
       evalResult.actualWordCount = computedActualWords;
       if (trimmedAnswer) {
         evalResult.studentAnswer = trimmedAnswer;
+      } else if (evalResult.transcribedAnswer) {
+        evalResult.studentAnswer = evalResult.transcribedAnswer;
       }
 
       setEvaluation(evalResult);
@@ -1154,6 +1160,16 @@ EXAMINER RESPONSE REQUIREMENTS:
   const actualWordCount = useMemo(() => {
     if (evaluation?.actualWordCount && evaluation.actualWordCount > 0) {
       return evaluation.actualWordCount;
+    }
+    if (
+      evaluation?.transcribedAnswer &&
+      !evaluation.transcribedAnswer.startsWith("(Answer submitted via")
+    ) {
+      const words = evaluation.transcribedAnswer
+        .trim()
+        .split(/\s+/)
+        .filter(Boolean).length;
+      if (words > 0) return words;
     }
     const rawAnswer =
       answerText.trim() ||

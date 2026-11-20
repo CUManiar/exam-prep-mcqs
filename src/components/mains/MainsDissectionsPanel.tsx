@@ -86,16 +86,23 @@ export function MainsDissectionsPanel({
 
     const actualWords =
       evaluation.actualWordCount ||
+      (evaluation.transcribedAnswer
+        ? evaluation.transcribedAnswer.trim().split(/\s+/).filter(Boolean)
+            .length
+        : 0) ||
       (evaluation.studentAnswer &&
       !evaluation.studentAnswer.startsWith("(Answer submitted via")
         ? evaluation.studentAnswer.trim().split(/\s+/).filter(Boolean).length
         : 0);
 
+    const hasAttempt = actualWords > 0;
     const compliance =
-      targetWords > 0 ? Math.round((actualWords / targetWords) * 100) : 100;
-    const isUnder = actualWords > 0 && compliance < 75;
-    const isOver = actualWords > 0 && compliance > 125;
-    const isOptimal = actualWords > 0 && !isUnder && !isOver;
+      targetWords > 0 && hasAttempt
+        ? Math.round((actualWords / targetWords) * 100)
+        : 0;
+    const isUnder = hasAttempt && compliance < 75;
+    const isOver = hasAttempt && compliance > 125;
+    const isOptimal = hasAttempt && !isUnder && !isOver;
 
     const wordsPerMin =
       actualWords > 0 ? Math.round((actualWords / targetTime) * 10) / 10 : 0;
@@ -104,6 +111,7 @@ export function MainsDissectionsPanel({
       targetWords,
       targetTime,
       actualWords,
+      hasAttempt,
       compliance,
       isUnder,
       isOver,
@@ -424,7 +432,18 @@ export function MainsDissectionsPanel({
                   words)
                 </span>
               </span>
-              {pacingInfo.isUnder ? (
+              {!pacingInfo.hasAttempt ? (
+                <p className="text-[11px] text-slate-600 dark:text-slate-400 leading-relaxed">
+                  <strong>Handwritten Submission:</strong> Word count could not
+                  be extracted from the uploaded sheet. Target is{" "}
+                  {pacingInfo.targetWords} words in {pacingInfo.targetTime}{" "}
+                  minutes (~
+                  {Math.round(
+                    pacingInfo.targetWords / pacingInfo.targetTime,
+                  )}{" "}
+                  wpm).
+                </p>
+              ) : pacingInfo.isUnder ? (
                 <p className="text-[11px] text-amber-700 dark:text-amber-300 leading-relaxed">
                   <strong>Under-Density Penalty:</strong> At{" "}
                   {pacingInfo.actualWords} words, you utilized only{" "}
@@ -450,8 +469,7 @@ export function MainsDissectionsPanel({
                   <strong>Well-Calibrated Pacing:</strong> Your word count is in
                   the sweet spot ({pacingInfo.compliance}%). This leaves 45–60
                   seconds for initial brainstorming, structural headings, and
-                  drawing a high-yield value-addition box without running out of
-                  time.
+                  concluding synthesis without running out of time.
                 </p>
               )}
               <div className="pt-1 flex items-center justify-between text-[10px] text-slate-500 font-mono">

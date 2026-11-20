@@ -57,6 +57,7 @@ export interface MainsEvaluationResult {
   modelAnswer: string;
   approachBreakdown?: MainsApproachBreakdown;
   evaluatedAt: string;
+  transcribedAnswer?: string;
   // Backward compatibility
   rubric?: Record<string, any>;
   strengths?: string[];
@@ -310,6 +311,13 @@ Provide a detailed pedagogical breakdown explaining what earns marks and why for
   * "conclusionStrategy": Forward-looking synthesis line.
 - "sampleValueAdditions": 2 to 3 specific Articles, Reports, Judgments, or Thinkers with brief explanation of why each boosts marks.
 
+ACCURATE CANDIDATE WORD COUNT & TRANSCRIPTION (CRITICAL FOR UPLOADED HANDWRITTEN IMAGES/PDFS):
+- "actualWordCount": (INTEGER, MANDATORY).
+  * If typed text is provided: count its exact words.
+  * If the candidate submitted a handwritten answer via uploaded image(s) or PDF pages: carefully read the handwriting across all attached pages, and count the total number of words written by the candidate (excluding the printed question prompt).
+  * NEVER return 0 if the candidate has written an attempt on the sheet. Return the genuine word count (e.g., 145, 172, 220).
+- "transcribedAnswer": If the candidate submitted a handwritten answer via uploaded sheet/images, provide the clean transcript of their written answer text here. If typed text was already provided, this can match the text.
+
 STYLE REQUIREMENTS:
 - Blunt, concise, strictly ≤6 words per weakness pointer.
 - One witty or sharp examiner line allowed in verdict; never at accuracy's cost.
@@ -329,7 +337,8 @@ Return ONLY a valid, parsable JSON object matching this schema exactly (replace 
   "question": "${trimmedQ ? trimmedQ.replace(/"/g, '\\"') : "Exact UPSC question transcribed from submission"}",
   "marksAwarded": 0.0,
   "maxMarks": ${maxMarks},
-  "actualWordCount": 0,
+  "actualWordCount": 150,
+  "transcribedAnswer": "Clean verbatim or faithful transcription of the candidate's handwritten answer from the uploaded sheet(s)...",
   "verdict": "One-line blunt examiner verdict on this attempt.",
   "directive": "Directive found in question (e.g. Discuss, Give Reasons, Critically Analyse)",
   "directiveAnalysis": "1-2 sentences on how candidate addressed or missed the directive.",

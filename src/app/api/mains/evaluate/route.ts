@@ -802,11 +802,40 @@ export async function POST(req: NextRequest) {
     const finalMarks = safeMarks;
     const targetWordCount = maxMarks === 10 ? 150 : maxMarks === 15 ? 250 : 300;
     const timeLimitMinutes = maxMarks === 10 ? 7 : maxMarks === 15 ? 11 : 20;
-    const actualWordCount = trimmedAnswer
-      ? trimmedAnswer.trim().split(/\s+/).filter(Boolean).length
-      : typeof parsed.actualWordCount === "number" && parsed.actualWordCount > 0
-        ? parsed.actualWordCount
-        : 0;
+
+    const transcribedText =
+      typeof parsed.transcribedAnswer === "string" &&
+      parsed.transcribedAnswer.trim().length > 10 &&
+      !parsed.transcribedAnswer.startsWith("Clean verbatim or faithful")
+        ? parsed.transcribedAnswer.trim()
+        : "";
+
+    let actualWordCount = 0;
+    if (trimmedAnswer) {
+      actualWordCount = trimmedAnswer
+        .trim()
+        .split(/\s+/)
+        .filter(Boolean).length;
+    } else if (
+      typeof parsed.actualWordCount === "number" &&
+      parsed.actualWordCount > 0
+    ) {
+      actualWordCount = parsed.actualWordCount;
+    } else if (transcribedText) {
+      actualWordCount = transcribedText.split(/\s+/).filter(Boolean).length;
+    } else if (
+      Array.isArray(parsed.markedCopy) &&
+      parsed.markedCopy.length > 0
+    ) {
+      // Estimate based on the quotes extracted by examiner from the student copy
+      const quoteWords = parsed.markedCopy
+        .map(
+          (m: any) =>
+            (m.quote || "").trim().split(/\s+/).filter(Boolean).length,
+        )
+        .reduce((sum: number, count: number) => sum + count, 0);
+      actualWordCount = Math.max(quoteWords, Math.round(targetWordCount * 0.9));
+    }
     const percentage = Math.round((finalMarks / maxMarks) * 100);
 
     // Compute 4 Core Dimensions (/10 each)
@@ -996,9 +1025,11 @@ export async function POST(req: NextRequest) {
       question: resolvedQuestion,
       studentAnswer:
         trimmedAnswer ||
+        transcribedText ||
         (hasValidImages
           ? "(Answer submitted via uploaded document/images)"
           : ""),
+      transcribedAnswer: transcribedText || undefined,
       paperType,
       optionalSubject: optionalSubject?.trim() || undefined,
       maxMarks,
