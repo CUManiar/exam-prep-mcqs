@@ -22,6 +22,7 @@ import { McqAndMockTrendsChart } from "./dashboard/McqAndMockTrendsChart";
 import { LastThreePapersSummary } from "./dashboard/LastThreePapersSummary";
 import { GoalsAndRemindersBoard } from "./dashboard/GoalsAndRemindersBoard";
 import { RecentTestInsights } from "./dashboard/RecentTestInsights";
+import { StrategicDiagnosticsWidget } from "./dashboard/StrategicDiagnosticsWidget";
 
 interface DashboardViewProps {
   papers: QuestionPaper[];
@@ -319,6 +320,9 @@ export function DashboardView({
           />
         </div>
       </section>
+
+      {/* Row 2.5: Strategic Diagnostics & Performance Intelligence (Top 5 Value Additions) */}
+      <StrategicDiagnosticsWidget attempts={attempts} papers={papers} />
 
       {/* Row 3: Last 3 Papers Summary */}
       <LastThreePapersSummary
