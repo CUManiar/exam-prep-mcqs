@@ -786,8 +786,10 @@ export async function POST(req: NextRequest) {
     const targetWordCount = maxMarks === 10 ? 150 : maxMarks === 15 ? 250 : 300;
     const timeLimitMinutes = maxMarks === 10 ? 7 : maxMarks === 15 ? 11 : 20;
     const actualWordCount = trimmedAnswer
-      ? trimmedAnswer.split(/\s+/).length
-      : 0;
+      ? trimmedAnswer.trim().split(/\s+/).filter(Boolean).length
+      : typeof parsed.actualWordCount === "number" && parsed.actualWordCount > 0
+        ? parsed.actualWordCount
+        : 0;
     const percentage = Math.round((finalMarks / maxMarks) * 100);
 
     // Compute 4 Core Dimensions (/10 each)

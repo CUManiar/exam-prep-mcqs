@@ -229,9 +229,18 @@ EXAM SCALE & PARAMETERS:
 - Paper: ${paperType}${optionalSubject ? ` (${optionalSubject})` : ""}
 - Question Weightage: ${maxMarks} Marks
 - Word Limit: ${wordLimit} Words (Must be realistically writable in ${timeLimit} minutes)
-- Realistic Scaling: 3.0–4.0/10 is typical average; 5.0+/10 is topper-level. Never inflate marks. Never invent facts; flag uncertain ones with ⚠️ VERIFY.
 
-EVALUATE AND SCORE FOUR CORE DIMENSIONS (Score each strictly /10, numbers only):
+UPSC CSE EXAMINER GRADING STANDARD (REALISTIC & RIGOROUS - NO ARTIFICIAL FLOOR):
+Evaluate the candidate's actual answer strictly on its merits as an authentic UPSC CSE examiner. There is NO artificial lower floor or baseline score:
+- 0.0 to 1.5 / 10 (or 0.0 to 2.5 / 15): Irrelevant, nonsensical, off-topic, buzzword soup, generic waffle, or garbage attempt. If an answer fails to address the question's core subject or lacks substance, score strictly between 0.0 and 1.5. Never award sympathy marks.
+- 1.5 to 2.5 / 10 (or 2.5 to 4.0 / 15): Rudimentary / very poor attempt. Only tangentially touches the topic, fragmented points, lacks structured arguments, or contains severe conceptual errors.
+- 3.0 to 4.0 / 10 (or 4.5 to 6.0 / 15): Average / Mediocre attempt. Shows basic understanding and answers parts of the question, but lacks analytical depth, authentic committee/case citations, crisp subheadings, or balanced counterviews.
+- 4.5 to 5.5 / 10 (or 6.5 to 8.5 / 15): Good / Competent attempt. Addresses the full core demand, multi-dimensional (constitutional, socio-economic, administrative, global), authentic examples, solid structure, and synthesis conclusion.
+- 6.0+ / 10 (or 9.0+ / 15): Exceptional / Topper attempt. Outstanding precision, specific reports/articles/thinkers cited seamlessly, insightful synthesis, excellent time-manageable presentation.
+
+Never inflate marks. Never invent facts; flag uncertain ones with ⚠️ VERIFY.
+
+EVALUATE AND SCORE FOUR CORE DIMENSIONS (Score each strictly from 0 to 10 based on actual merit):
 1. Demand (/10): Operational directive compliance (e.g. Critically Examine, Discuss, Give Reasons), every sub-part answered, limits observed.
 2. Content (/10): Accuracy, depth, authentic citations (Articles, Judgments, Committees, Reports, Data, Examples).
 ${
@@ -267,7 +276,8 @@ DIAGRAM & VISUALS QUALITY GATING (STRICT):
 STYLE REQUIREMENTS:
 - Blunt, concise, strictly ≤6 words per weakness pointer.
 - One witty or sharp examiner line allowed in verdict; never at accuracy's cost.
-- If the attached sheet is completely blank, illegible, or contains no student attempt, do NOT simulate an answer. Set "marksAwarded": 0, "verdict": "Below Average", and set "directiveAnalysis": "The submitted sheet was blank, unreadable, or did not contain an answer to evaluate."
+- If the attached sheet is completely blank, illegible, or contains no student attempt, do NOT simulate an answer. Set "marksAwarded": 0, "verdict": "Unsatisfactory / No Attempt", and set "directiveAnalysis": "The submitted sheet was blank, unreadable, or did not contain an answer to evaluate."
+- If the answer is completely off-topic, superficial, or garbage, bluntly state why in the verdict and award strictly ≤1.5 marks.
 
 CANDIDATE SUBMISSION TO EVALUATE:
 [QUESTION]:
@@ -277,19 +287,20 @@ ${trimmedQ || "(Question is written at the top of the attached answer sheet or d
 ${answerText || "(Handwritten / Typed answer provided in attached image or document)"}
 
 OUTPUT FORMAT:
-Return ONLY a valid, parsable JSON object matching this schema exactly:
+Return ONLY a valid, parsable JSON object matching this schema exactly (replace 0.0 with actual evaluated scores based strictly on merit):
 {
   "question": "${trimmedQ ? trimmedQ.replace(/"/g, '\\"') : "Exact UPSC question transcribed from submission"}",
-  "marksAwarded": 4.0,
+  "marksAwarded": 0.0,
   "maxMarks": ${maxMarks},
+  "actualWordCount": 0,
   "verdict": "One-line blunt examiner verdict on this attempt.",
   "directive": "Directive found in question (e.g. Discuss, Give Reasons, Critically Analyse)",
   "directiveAnalysis": "1-2 sentences on how candidate addressed or missed the directive.",
   "dimensions": {
-    "demand": { "score": 4.5, "max": 10, "comment": "Directive and question sub-parts addressed." },
-    "content": { "score": 4.0, "max": 10, "comment": "Depth, accuracy, citations, and empirical evidence." },
-    "structure": { "score": 5.0, "max": 10, "comment": "Intro, keyword headings, numbering, counterview." },
-    "presentation": { "score": 4.5, "max": 10, "comment": "Word count compliance and ${timeLimit}-min time writability." }
+    "demand": { "score": 0.0, "max": 10, "comment": "Directive and question sub-parts addressed." },
+    "content": { "score": 0.0, "max": 10, "comment": "Depth, accuracy, citations, and empirical evidence." },
+    "structure": { "score": 0.0, "max": 10, "comment": "Intro, keyword headings, numbering, counterview." },
+    "presentation": { "score": 0.0, "max": 10, "comment": "Word count compliance and ${timeLimit}-min time writability." }
   },
   "markedCopy": [
     {

@@ -79,8 +79,10 @@ export function MainsDissectionsPanel({
 
     const actualWords =
       evaluation.actualWordCount ||
-      evaluation.studentAnswer?.trim().split(/\s+/).filter(Boolean).length ||
-      0;
+      (evaluation.studentAnswer &&
+      !evaluation.studentAnswer.startsWith("(Answer submitted via")
+        ? evaluation.studentAnswer.trim().split(/\s+/).filter(Boolean).length
+        : 0);
 
     const compliance =
       targetWords > 0 ? Math.round((actualWords / targetWords) * 100) : 100;

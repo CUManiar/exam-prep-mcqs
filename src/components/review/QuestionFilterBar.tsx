@@ -69,6 +69,7 @@ export function QuestionFilterBar({
     const chips: {
       id: string;
       label: string;
+      count?: number;
       icon?: React.ReactNode;
       badgeStyle: string;
       onRemove: () => void;
