@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo } from "react";
+import { useState, useMemo } from "react";
 import {
   BarChart3,
   CheckCircle2,
@@ -11,6 +11,12 @@ import {
   TrendingUp,
   Award,
   Zap,
+  ChevronDown,
+  ChevronUp,
+  Gauge,
+  Timer,
+  AlertTriangle,
+  Lightbulb,
 } from "lucide-react";
 import { MainsEvaluationResult } from "@/lib/mainsEvaluation";
 
@@ -21,6 +27,7 @@ interface MainsDissectionsPanelProps {
 export function MainsDissectionsPanel({
   evaluation,
 }: MainsDissectionsPanelProps) {
+  const [showPacingGuide, setShowPacingGuide] = useState(false);
   const marks = evaluation.marksAwarded;
   const max = evaluation.maxMarks;
   const pct = evaluation.percentage;
@@ -219,19 +226,37 @@ export function MainsDissectionsPanel({
         <div className="p-3.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50/60 dark:bg-slate-800/40 flex flex-col justify-between space-y-2">
           <div className="space-y-1.5">
             <div className="flex items-center justify-between">
-              <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
-                Pacing & Economy
+              <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 flex items-center gap-1">
+                <Gauge className="h-3 w-3 text-indigo-500" />
+                <span>Pacing & Economy</span>
               </span>
-              <span className="text-[10px] font-mono text-slate-500 font-bold">
-                {pacingInfo.targetTime} Mins Limit
-              </span>
+              <button
+                type="button"
+                onClick={() => setShowPacingGuide((prev) => !prev)}
+                className="text-[10px] font-bold text-indigo-600 dark:text-indigo-400 hover:text-indigo-700 flex items-center gap-0.5 cursor-pointer transition-colors"
+                title="Toggle in-depth pacing and word economy strategy"
+              >
+                <span>
+                  {showPacingGuide ? "Hide Guide" : "Explain Strategy"}
+                </span>
+                {showPacingGuide ? (
+                  <ChevronUp className="h-3 w-3" />
+                ) : (
+                  <ChevronDown className="h-3 w-3" />
+                )}
+              </button>
             </div>
-            <div className="flex items-baseline gap-1.5">
-              <span className="text-lg font-black text-slate-900 dark:text-slate-100 font-mono">
-                {pacingInfo.actualWords || "~"}
-              </span>
-              <span className="text-xs text-slate-500">
-                / {pacingInfo.targetWords} Words Target
+            <div className="flex items-baseline justify-between">
+              <div className="flex items-baseline gap-1.5">
+                <span className="text-lg font-black text-slate-900 dark:text-slate-100 font-mono">
+                  {pacingInfo.actualWords || "~"}
+                </span>
+                <span className="text-xs text-slate-500">
+                  / {pacingInfo.targetWords} Words Target
+                </span>
+              </div>
+              <span className="text-[10px] font-mono text-slate-500 font-bold bg-slate-200/60 dark:bg-slate-700/60 px-1.5 py-0.5 rounded">
+                {pacingInfo.targetTime}m limit
               </span>
             </div>
 
@@ -250,23 +275,25 @@ export function MainsDissectionsPanel({
               />
             </div>
 
-            <p className="text-[11px] text-slate-600 dark:text-slate-400">
+            <p className="text-[11px] text-slate-600 dark:text-slate-400 leading-relaxed">
               {pacingInfo.isOptimal && (
                 <span className="text-emerald-600 dark:text-emerald-400 font-semibold">
-                  ✓ Ideal word density for {pacingInfo.targetTime}-minute
-                  exam-hall slot.
+                  ✓ Ideal word density ({pacingInfo.compliance}%). Calibrated
+                  for the {pacingInfo.targetTime}-minute exam-hall slot.
                 </span>
               )}
               {pacingInfo.isUnder && (
                 <span className="text-amber-600 dark:text-amber-400 font-semibold">
-                  ⚠️ Under-attempted ({pacingInfo.compliance}%). Add 1 more
-                  empirical case.
+                  ⚠️ Under-attempted ({pacingInfo.compliance}%). Left ~
+                  {pacingInfo.targetWords - pacingInfo.actualWords} words
+                  unused. Risk of missing dimensions.
                 </span>
               )}
               {pacingInfo.isOver && (
                 <span className="text-rose-600 dark:text-rose-400 font-semibold">
-                  ⚠️ Over-extended ({pacingInfo.compliance}%). Risk of writing
-                  overrun in GS papers.
+                  ⚠️ Over-extended ({pacingInfo.compliance}%). Exceeds limit by
+                  +{pacingInfo.actualWords - pacingInfo.targetWords} words. Risk
+                  of paper incompletion.
                 </span>
               )}
               {!pacingInfo.isOptimal &&
@@ -278,10 +305,11 @@ export function MainsDissectionsPanel({
           </div>
 
           <div className="pt-2 border-t border-slate-200 dark:border-slate-700 flex items-center justify-between text-[11px] text-slate-600 dark:text-slate-400">
-            <span>Required Handwriting Speed:</span>
+            <span>Handwriting Rate:</span>
             <span className="font-mono font-bold text-slate-800 dark:text-slate-200">
-              ~{Math.round(pacingInfo.targetWords / pacingInfo.targetTime)}{" "}
-              words/min
+              {pacingInfo.wordsPerMin > 0
+                ? `~${pacingInfo.wordsPerMin} wpm`
+                : `~${Math.round(pacingInfo.targetWords / pacingInfo.targetTime)} wpm target`}
             </span>
           </div>
         </div>
@@ -324,6 +352,155 @@ export function MainsDissectionsPanel({
           </div>
         </div>
       </div>
+
+      {/* Expanded Pacing & Word Economy Strategy Guide */}
+      {showPacingGuide && (
+        <div className="p-4 rounded-xl border border-indigo-200 dark:border-indigo-900/60 bg-gradient-to-br from-indigo-50/70 via-white to-purple-50/40 dark:from-indigo-950/40 dark:via-slate-900 dark:to-purple-950/20 shadow-xs space-y-3.5 transition-all animate-in fade-in duration-200">
+          <div className="flex items-start justify-between gap-3 border-b border-indigo-100 dark:border-indigo-900/40 pb-2.5">
+            <div className="flex items-center gap-2">
+              <div className="p-1.5 rounded-lg bg-indigo-600 text-white shadow-2xs">
+                <Timer className="h-4 w-4" />
+              </div>
+              <div>
+                <h5 className="text-xs font-bold text-slate-900 dark:text-slate-100 flex items-center gap-1.5">
+                  <span>UPSC CSE Exam-Hall Pacing & Word Economy Guide</span>
+                </h5>
+                <p className="text-[11px] text-slate-500 dark:text-slate-400">
+                  Why writing speed and word density dictate marks in the 3-hour
+                  exam
+                </p>
+              </div>
+            </div>
+            <button
+              type="button"
+              onClick={() => setShowPacingGuide(false)}
+              className="text-[11px] font-bold text-slate-500 hover:text-slate-800 dark:hover:text-slate-200 cursor-pointer"
+            >
+              Close
+            </button>
+          </div>
+
+          {/* 1. Exam Reality & Specific Diagnosis */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+            {/* Real Exam Hall Dynamics */}
+            <div className="p-3 rounded-lg border border-slate-200/80 dark:border-slate-800 bg-white/80 dark:bg-slate-900/80 space-y-1.5">
+              <span className="text-[10px] font-bold uppercase tracking-wider text-indigo-700 dark:text-indigo-400 flex items-center gap-1">
+                <Clock className="h-3 w-3" />
+                <span>The 180-Minute Exam Hall Reality</span>
+              </span>
+              <p className="text-[11px] text-slate-600 dark:text-slate-300 leading-relaxed">
+                In UPSC Mains, you must write{" "}
+                <strong>20 questions (~4,000 words)</strong> in 180 minutes:
+              </p>
+              <ul className="text-[11px] text-slate-600 dark:text-slate-300 space-y-1 list-disc list-inside">
+                <li>
+                  <strong>
+                    10-Markers ({max === 10 ? "Current" : "150 Words"}):
+                  </strong>{" "}
+                  Strictly <strong>7 minutes</strong> (~21 wpm). 2 pages
+                  provided.
+                </li>
+                <li>
+                  <strong>
+                    15-Markers ({max === 15 ? "Current" : "250 Words"}):
+                  </strong>{" "}
+                  Strictly <strong>11 minutes</strong> (~22-23 wpm). 3 pages
+                  provided.
+                </li>
+              </ul>
+              <p className="text-[10px] text-rose-600 dark:text-rose-400 font-semibold pt-1">
+                ⚠️ Overrunning by just 2 minutes on each question steals 40
+                minutes, guaranteeing 2-3 questions left completely unattempted
+                (loss of 20-30 marks).
+              </p>
+            </div>
+
+            {/* Candidate Diagnostic */}
+            <div className="p-3 rounded-lg border border-slate-200/80 dark:border-slate-800 bg-white/80 dark:bg-slate-900/80 space-y-1.5">
+              <span className="text-[10px] font-bold uppercase tracking-wider text-slate-800 dark:text-slate-200 flex items-center gap-1">
+                <Target className="h-3 w-3 text-indigo-600" />
+                <span>
+                  Diagnostic for Your Attempt ({pacingInfo.actualWords || 0}{" "}
+                  words)
+                </span>
+              </span>
+              {pacingInfo.isUnder ? (
+                <p className="text-[11px] text-amber-700 dark:text-amber-300 leading-relaxed">
+                  <strong>Under-Density Penalty:</strong> At{" "}
+                  {pacingInfo.actualWords} words, you utilized only{" "}
+                  {pacingInfo.compliance}% of the space. In UPSC answer sheets,
+                  blank margins signal to examiners that key dimensions
+                  (counterview, institutional reports, or case studies) were
+                  missed, directly capping marks at 2.5–3.5.
+                </p>
+              ) : pacingInfo.isOver ? (
+                <p className="text-[11px] text-rose-700 dark:text-rose-300 leading-relaxed">
+                  <strong>Over-Length Risk:</strong> At {pacingInfo.actualWords}{" "}
+                  words ({pacingInfo.compliance}% of limit), writing this by
+                  hand would consume ~
+                  {Math.round(
+                    ((pacingInfo.actualWords || pacingInfo.targetWords) / 20) *
+                      10,
+                  ) / 10}{" "}
+                  minutes under pressure. This pace is unsustainable across 20
+                  questions and risks incomplete answer papers.
+                </p>
+              ) : (
+                <p className="text-[11px] text-emerald-700 dark:text-emerald-300 leading-relaxed">
+                  <strong>Well-Calibrated Pacing:</strong> Your word count is in
+                  the sweet spot ({pacingInfo.compliance}%). This leaves 45–60
+                  seconds for initial brainstorming, structural headings, and
+                  drawing a high-yield value-addition box without running out of
+                  time.
+                </p>
+              )}
+              <div className="pt-1 flex items-center justify-between text-[10px] text-slate-500 font-mono">
+                <span>Attempted: {pacingInfo.actualWords || 0} words</span>
+                <span>Target: {pacingInfo.targetWords} words</span>
+              </div>
+            </div>
+          </div>
+
+          {/* 2. High-Yield Word Economy Tactics */}
+          <div className="p-3 rounded-lg border border-indigo-100 dark:border-indigo-900/50 bg-indigo-50/50 dark:bg-indigo-950/20 space-y-2">
+            <h6 className="text-[11px] font-bold text-indigo-950 dark:text-indigo-200 flex items-center gap-1.5">
+              <Lightbulb className="h-3.5 w-3.5 text-amber-500" />
+              <span>3 Golden Rules of Word Economy in UPSC Mains</span>
+            </h6>
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 text-[11px] text-slate-700 dark:text-slate-300">
+              <div className="p-2 rounded bg-white dark:bg-slate-900 border border-slate-200/60 dark:border-slate-800 space-y-1">
+                <span className="font-bold text-slate-900 dark:text-slate-100 flex items-center gap-1">
+                  <span>1. Anchor-Led Bullets</span>
+                </span>
+                <p className="text-[10px] text-slate-500 dark:text-slate-400 leading-tight">
+                  Never write narrative prose. Use bold 2-word anchor headings:{" "}
+                  <em>* Fiscal Strain:* States shoulder...</em> Saves 25% words
+                  and speeds examiner reading.
+                </p>
+              </div>
+              <div className="p-2 rounded bg-white dark:bg-slate-900 border border-slate-200/60 dark:border-slate-800 space-y-1">
+                <span className="font-bold text-slate-900 dark:text-slate-100 flex items-center gap-1">
+                  <span>2. Diagrammatic Compression</span>
+                </span>
+                <p className="text-[10px] text-slate-500 dark:text-slate-400 leading-tight">
+                  Replace 35 words of structural mechanism with a 2-branch
+                  flowchart or 2x2 matrix. Takes 15 seconds, saves space, and
+                  fetches visual bonus marks.
+                </p>
+              </div>
+              <div className="p-2 rounded bg-white dark:bg-slate-900 border border-slate-200/60 dark:border-slate-800 space-y-1">
+                <span className="font-bold text-slate-900 dark:text-slate-100 flex items-center gap-1">
+                  <span>3. Zero-Preamble Intro</span>
+                </span>
+                <p className="text-[10px] text-slate-500 dark:text-slate-400 leading-tight">
+                  Skip 'Since ancient times...' filler. Jump straight into the
+                  core definition or empirical context in strictly ≤20 words.
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

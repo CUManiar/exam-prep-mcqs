@@ -12,6 +12,22 @@ export interface MainsMarkedCopyItem {
   type?: "correct" | "incorrect" | "flawed" | "verify" | string;
 }
 
+export interface MainsApproachBreakdown {
+  whatEarnsMarks: string[];
+  structuralApproach: {
+    demandDeconstruction?: string;
+    introductionStrategy: string;
+    bodyDimensions: Array<{ dimension: string; samplePoints: string[] }>;
+    counterviewStrategy?: string;
+    conclusionStrategy: string;
+  };
+  sampleValueAdditions?: Array<{
+    type: string;
+    content: string;
+    whyItEarnsMarks: string;
+  }>;
+}
+
 export interface MainsEvaluationResult {
   id: string;
   question: string;
@@ -39,6 +55,7 @@ export interface MainsEvaluationResult {
   actionableRoadmap: string[];
   diagramIdea?: string;
   modelAnswer: string;
+  approachBreakdown?: MainsApproachBreakdown;
   evaluatedAt: string;
   // Backward compatibility
   rubric?: Record<string, any>;
@@ -273,6 +290,22 @@ DIAGRAM & VISUALS QUALITY GATING (STRICT):
 - Only provide "diagramIdea" if a substantive, exam-practical multi-branch flowchart, 2x2 conceptual matrix, or drawn diagram genuinely adds value and earns +1 to +2 marks under exam-hall time constraints.
 - If no diagram is genuinely useful or high-yield for this specific question, set "diagramIdea": null. Strictly refrain from placeholder schemas.
 
+TOPPER MODEL ANSWER (STRICT REQUIREMENT: PURE EXAM SCRIPT ONLY):
+- Provide ONLY the exact answer text that a candidate must write on the UPSC Mains answer booklet.
+- Do NOT include ANY meta-commentary, introductory headers like "### Topper Model Answer...", word count tags like "(150 Words | 7 Mins)", section annotations like "(Introduction 20 words)", tips, or explanations.
+- Write pure exam markdown: start directly with the Introduction sentence -> Question Keyword Subheadings -> Numbered Points with Case/Article Citations -> Counterview / Balance -> Synthesis Conclusion.
+
+BREAKDOWN OF APPROACH TO ANSWER (IN-DEPTH SCORING & STRATEGY GUIDE):
+Provide a detailed pedagogical breakdown explaining what earns marks and why for this specific question:
+- "whatEarnsMarks": 3 to 4 concrete examiner insights explaining why specific elements (citations, sub-heading clarity, counterview balance) fetch marks for this question.
+- "structuralApproach":
+  * "demandDeconstruction": Breakdown of question's directive & explicit/implicit demands.
+  * "introductionStrategy": 20-word crisp hook/definition strategy with sample opening line.
+  * "bodyDimensions": 3 to 4 multi-dimensional angles (Constitutional, Socio-Economic, Administrative, Global) with 2-3 sample points each.
+  * "counterviewStrategy": Core counter-argument or tension to address.
+  * "conclusionStrategy": Forward-looking synthesis line.
+- "sampleValueAdditions": 2 to 3 specific Articles, Reports, Judgments, or Thinkers with brief explanation of why each boosts marks.
+
 STYLE REQUIREMENTS:
 - Blunt, concise, strictly ≤6 words per weakness pointer.
 - One witty or sharp examiner line allowed in verdict; never at accuracy's cost.
@@ -341,8 +374,28 @@ Return ONLY a valid, parsable JSON object matching this schema exactly (replace 
     "Concrete exam-hall action to improve quality",
     "Second practical improvement step"
   ],
+  "approachBreakdown": {
+    "whatEarnsMarks": [
+      "Specific factor 1 that earns marks and why",
+      "Specific factor 2 that earns marks and why",
+      "Specific factor 3 that earns marks and why"
+    ],
+    "structuralApproach": {
+      "demandDeconstruction": "Breakdown of the directive and sub-parts",
+      "introductionStrategy": "Sample 20-word intro hook and strategy",
+      "bodyDimensions": [
+        { "dimension": "Constitutional & Institutional", "samplePoints": ["Point A with Article", "Point B"] },
+        { "dimension": "Socio-Economic Realities", "samplePoints": ["Empirical evidence A", "Data point B"] }
+      ],
+      "counterviewStrategy": "Key counter-argument and critical angle",
+      "conclusionStrategy": "Way forward synthesis line"
+    },
+    "sampleValueAdditions": [
+      { "type": "Committee / Case / Article", "content": "Specific report or judgment", "whyItEarnsMarks": "Provides authoritative backing" }
+    ]
+  },
   "diagramIdea": null,
-  "modelAnswer": "### Topper Model Answer (${wordLimit} Words | ${timeLimit} Mins)\\n**Word Count:** ${wordLimit} words | Writable in ${timeLimit} min\\n\\n**Introduction (20 words)**\\n...\\n\\n**[Heading Using Question Keywords]**\\n* Point 1: Claim + specific case/citation\\n* Point 2: Claim + empirical data\\n\\n**Counterview & Synthesis**\\n...\\n\\n**Way Forward / Conclusion**\\n...\\n\\n> **Value-Addition Box**\\n> * Key Article/Thinker: ...\\n> * Landmark Case / Committee: ..."
+  "modelAnswer": "Direct exam answer starting with introduction immediately without any meta headers..."
 }
 `;
 }

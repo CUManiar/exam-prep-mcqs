@@ -140,7 +140,15 @@ export function formatCleanModelAnswer(
     return "A topper model answer was not provided in this evaluation. You can request a complete model answer in the 'Ask Examiner' tab.";
   }
 
-  return trimmed.replace(/\\n/g, "\n").replace(/\\"/g, '"');
+  let cleaned = trimmed.replace(/\\n/g, "\n").replace(/\\"/g, '"');
+  // Strip meta-commentary headers so it remains strictly a pure exam script
+  cleaned = cleaned
+    .replace(/^#+\s*(?:Topper\s+)?Model\s+Answer[^\n]*\n+/i, "")
+    .replace(/^\*\*(?:Word\s+Count|Words?|Time Limit|Target)[^\n]*\n+/gim, "")
+    .replace(/^\*(?:Word\s+Count|Words?|Time Limit|Target)[^\n]*\n+/gim, "")
+    .trim();
+
+  return cleaned;
 }
 
 function parseJsonFromText(raw: string): any {
@@ -1040,6 +1048,7 @@ export async function POST(req: NextRequest) {
         maxMarks,
         directive: parsed.directive || "Examine",
       }),
+      approachBreakdown: parsed.approachBreakdown || undefined,
       evaluatedAt: new Date().toISOString(),
     };
 

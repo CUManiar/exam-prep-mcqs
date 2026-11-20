@@ -31,6 +31,11 @@ import {
   Settings2,
   Pencil,
   PenLine,
+  Lightbulb,
+  Compass,
+  Target,
+  RotateCcw,
+  CheckCheck,
 } from "lucide-react";
 import {
   MainsEvaluationResult,
@@ -113,7 +118,7 @@ export function MainsEvaluationView() {
   const [isLoading, setIsLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<
-    "feedback" | "attempt" | "model" | "chat"
+    "feedback" | "approach" | "model" | "attempt" | "chat"
   >("feedback");
   const [evaluation, setEvaluation] = useState<MainsEvaluationResult | null>(
     null,
@@ -754,10 +759,13 @@ export function MainsEvaluationView() {
   };
 
   // Follow-up examiner chat
-  const handleSendFollowUp = async () => {
-    if (!followUpPrompt.trim() || isChatLoading || !evaluation) return;
+  const handleSendFollowUp = async (customPrompt?: string) => {
+    const textToSend = (
+      typeof customPrompt === "string" ? customPrompt : followUpPrompt
+    ).trim();
+    if (!textToSend || isChatLoading || !evaluation) return;
 
-    const userMessage = followUpPrompt.trim();
+    const userMessage = textToSend;
     setFollowUpPrompt("");
     setChatMessages((prev) => [
       ...prev,
@@ -767,13 +775,33 @@ export function MainsEvaluationView() {
 
     try {
       const config = getRevisionConfig();
-      const promptContext = `You are evaluating this candidate's UPSC Mains Answer.
-Question: "${evaluation.question}"
-Student Score: ${evaluation.marksAwarded} / ${evaluation.maxMarks} (${evaluation.verdict})
-Directive: ${evaluation.directive}
-Candidate Follow-up query: "${userMessage}"
+      const studentAttemptExcerpt = (
+        evaluation.studentAnswer ||
+        answerText ||
+        ""
+      ).slice(0, 800);
 
-Answer strictly as an expert UPSC CSE examiner. Give concrete examples, model points, or constitutional citations as requested.`;
+      const promptContext = `You are an expert, senior UPSC Civil Services Examination (CSE) Mains Examiner providing personalized consultation on a candidate's answer.
+
+QUESTION BEING EVALUATED:
+"${evaluation.question}" (${evaluation.paperType}${evaluation.optionalSubject ? ` - ${evaluation.optionalSubject}` : ""}, Weightage: ${evaluation.maxMarks} Marks)
+
+EXAMINER EVALUATION CONTEXT:
+- Marks Awarded: ${evaluation.marksAwarded} / ${evaluation.maxMarks} (${evaluation.verdict})
+- Operative Directive: ${evaluation.directive}
+- Key Identified Weaknesses: ${(evaluation.weaknesses || []).slice(0, 4).join("; ") || "General lack of depth and citations"}
+- Missing Core Dimensions: ${(evaluation.missingDimensions || []).slice(0, 3).join("; ") || "Omitted counterview / empirical data"}
+${studentAttemptExcerpt ? `- Candidate's Submitted Excerpt: "${studentAttemptExcerpt.replace(/\n+/g, " ")}"` : ""}
+
+CANDIDATE'S CONSULTATION QUERY:
+"${userMessage}"
+
+EXAMINER RESPONSE REQUIREMENTS:
+1. Speak bluntly and constructively with standard UPSC Mains examiner rigor.
+2. If the candidate asks for an introduction: write an exact, punchy model opening of ≤20 words.
+3. If they ask for value additions: provide exact Articles, Supreme Court cases (with year/doctrine), or Committee names (e.g. 2nd ARC, Sarkaria).
+4. If they ask about marks: explain the precise delta between their attempt and a 60%+ topper benchmark.
+5. Keep explanations crisp, actionable, and formatted with clean markdown bullet points.`;
 
       const res = await fetch("/api/revision/chat", {
         method: "POST",
@@ -806,6 +834,38 @@ Answer strictly as an expert UPSC CSE examiner. Give concrete examples, model po
     }
   };
 
+  const handleClearChat = () => {
+    setChatMessages([]);
+  };
+
+  const quickExaminerPrompts = [
+    {
+      label: "Intro Rewrite (≤20w)",
+      query:
+        "Rewrite my introduction in strictly under 20 words with an authoritative constitutional or empirical hook.",
+    },
+    {
+      label: "Top 3 Citations & Cases",
+      query:
+        "Suggest 3 specific landmark Supreme Court judgments, Articles, or Committee reports directly relevant to this question.",
+    },
+    {
+      label: "Score Diagnostic",
+      query:
+        "Where did I lose the most marks in this attempt and what is the single biggest fix to cross 50%?",
+    },
+    {
+      label: "Counterview Synthesis",
+      query:
+        "Give me an exam-ready 2-sentence counterview and synthesis line for this specific question.",
+    },
+    {
+      label: "30-sec Diagram Idea",
+      query:
+        "Describe a practical 30-second diagram or flowchart I could draw in the exam hall to earn +1 mark.",
+    },
+  ];
+
   const sanitizeModelAnswerText = (raw: string): string => {
     if (!raw) return "";
     let text = raw.trim();
@@ -830,44 +890,132 @@ Answer strictly as an expert UPSC CSE examiner. Give concrete examples, model po
           .replace(/\\"/g, '"')
           .replace(/\\t/g, "\t")
           .trim();
-        if (clean && !clean.startsWith("{") && clean.length > 40) {
-          return clean;
+        if (clean && !clean.startsWith("{") && clean.length > 20) {
+          text = clean;
         }
       }
-
-      // If text is raw JSON and we cannot extract modelAnswer, return clean topper structure
-      const currentQ = evaluation?.question || question || "UPSC Question";
-      const targetWordCount = maxMarks === 10 ? 150 : 250;
-      return `### Topper-Grade Model Answer (${targetWordCount} Words)
-
-#### 1. Introduction & Context (20 Words)
-The question engages with a foundational theme under **${paperType}${optionalSubject ? ` (${optionalSubject})` : ""}**. Addressing this requires examining institutional frameworks, core principles, and pragmatic dimensions.
-
-#### 2. Core Arguments & Multi-Dimensional Analysis
-* **Structural & Substantive Dimensions:**
-  * Fundamental principles, statutory benchmarks, and institutional responsibilities.
-  * Inter-relationship between policy directives, executive mandates, and socio-economic outcomes.
-* **Operational Challenges & Institutional Friction:**
-  * Procedural delays, resource asymmetries, and federal/administrative bottlenecks.
-  * Checks and balances required to uphold accountability and rule-of-law principles.
-* **Judicial Precedents & Empirical Insights:**
-  * Landmark rulings and committee doctrines emphasize transparency, equity, and institutional resilience.
-
-#### 3. Balanced Conclusion & Forward Path (25 Words)
-To advance constitutional morality and responsive governance, administrative execution must align statutory fidelity with progressive jurisprudence, safeguarding democratic equilibrium.
-
----
-> **Topper Value-Addition Box**
-> * **Landmark Reference:** Supreme Court directives, constitutional articles, and statutory safeguards.
-> * **2nd ARC / Committee Recommendation:** Strengthen independent institutional oversight to eliminate discretion-driven ambiguity.`;
     }
 
     if (text.startsWith("{") || text.endsWith("}")) {
-      return text.replace(/^\{+/, "").replace(/\}+$/, "").trim();
+      text = text.replace(/^\{+/, "").replace(/\}+$/, "").trim();
     }
 
-    return text.replace(/\\n/g, "\n").replace(/\\"/g, '"');
+    let clean = text.replace(/\\n/g, "\n").replace(/\\"/g, '"');
+
+    // Strict Pure Exam Script: Strip all meta commentary, word counts, headers, and instructional notes
+    clean = clean
+      .replace(/^#+\s*(?:Topper(?:-Grade)?\s+)?Model\s+Answer[^\n]*\n+/gim, "")
+      .replace(/^\*\*(?:Word\s+Count|Words?|Time Limit|Target)[^\n]*\n+/gim, "")
+      .replace(/^\*(?:Word\s+Count|Words?|Time Limit|Target)[^\n]*\n+/gim, "")
+      .replace(/\(Must be realistically writable in \d+ minutes\)/gim, "")
+      .replace(/\(\d+\s*Words\s*\|\s*\d+\s*Mins\)/gim, "")
+      .replace(/####\s*1\.\s*Introduction[^\n]*\n+/gim, "### Introduction\n")
+      .replace(/####\s*2\.\s*Core Arguments[^\n]*\n+/gim, "### Key Arguments\n")
+      .replace(
+        /####\s*3\.\s*Balanced Conclusion[^\n]*\n+/gim,
+        "### Way Forward & Conclusion\n",
+      )
+      .replace(/\s*\(\d+\s*words?\)/gim, "")
+      .trim();
+
+    return clean;
   };
+
+  const modelAnswerWordCount = useMemo(() => {
+    if (!evaluation?.modelAnswer) return 0;
+    const clean = sanitizeModelAnswerText(evaluation.modelAnswer);
+    return clean.split(/\s+/).filter(Boolean).length;
+  }, [evaluation?.modelAnswer]);
+
+  // Pedagogical approach breakdown synthesis (combines AI response with intelligent fallback)
+  const approachData = useMemo(() => {
+    if (!evaluation) return null;
+    if (evaluation.approachBreakdown) {
+      return evaluation.approachBreakdown;
+    }
+
+    const directive = evaluation.directive || "Discuss";
+    const dirLower = directive.toLowerCase();
+
+    const whatEarnsMarks = [
+      `Directive Compliance: "${directive}" mandates ${
+        dirLower.includes("critical")
+          ? "presenting substantiated arguments on both sides before formulating a synthesis verdict."
+          : dirLower.includes("discuss")
+            ? "exploring multi-stakeholder facets, underlying causes, and institutional impacts thoroughly."
+            : dirLower.includes("examine")
+              ? "investigating structural bottlenecks, legal/constitutional framework, and factual evidence."
+              : "direct, crisp point-by-point responses addressing every explicit sub-clause."
+      }`,
+      "Keyword-Led Subheadings: Structuring arguments under subheadings directly derived from the question's operative words immediately signals complete command to the examiner.",
+      "Empirical & Institutional Authority: Grounding points with named Articles, landmark Judgments, or Commission reports (e.g., 2nd ARC, NITI Aayog) lifts marks from ordinary (3.0-3.5) to topper-grade (5.5+).",
+      "Balanced Counterview: Dedicating 1-2 points to counter-arguments, federal friction, or fiscal trade-offs proves maturity and prevents negative bias penalties.",
+    ];
+
+    const introIdea = `Start immediately with an authoritative 15-20 word definition of the core concept or cite an active constitutional Article / official survey statistic. Avoid historical filler.`;
+
+    const bodyDims = [
+      {
+        dimension: "Constitutional, Statutory & Institutional Framework",
+        samplePoints: [
+          "Relevant Articles, governing legislation, and institutional separation of powers.",
+          "Statutory checks, federal machinery, and executive mandates.",
+        ],
+      },
+      {
+        dimension: "Socio-Economic & Empirical Realities",
+        samplePoints: [
+          "Ground-level delivery challenges, socio-economic disparities, and vulnerable groups.",
+          "Data-backed outcomes, resource allocation asymmetries, and scheme effectiveness.",
+        ],
+      },
+      {
+        dimension: "Administrative Friction & Governance Challenges",
+        samplePoints: [
+          "Operational bottlenecks, bureaucratic discretion, and coordination deficits.",
+          "Accountability gaps, federal friction, and systemic reform imperatives.",
+        ],
+      },
+    ];
+
+    const counterviewIdea = `Acknowledge structural limitations, economic trade-offs, or stakeholder pushbacks before stating the conclusion.`;
+    const conclusionIdea = `End with a visionary 20-word synthesis line grounded in Constitutional Morality, Directive Principles, or sustainable long-term governance.`;
+
+    const sampleValueAdditions = [
+      {
+        type: "Commission / Doctrine",
+        content:
+          evaluation.paperType === "GS-4"
+            ? "Nolan Principles & 2nd ARC Report on Ethics in Governance"
+            : evaluation.paperType === "GS-2"
+              ? "Sarkaria & Punchhi Commission doctrines on Cooperative Federalism"
+              : "NITI Aayog Strategy for New India & relevant Law Commission reports",
+        whyItEarnsMarks:
+          "Provides official empirical credibility, eliminating subjective opinion.",
+      },
+      {
+        type: "Empirical Reference",
+        content:
+          "State-level best practice model or verified government committee metric",
+        whyItEarnsMarks:
+          "Demonstrates practical policy grasp beyond rote textbook reproduction.",
+      },
+    ];
+
+    return {
+      whatEarnsMarks,
+      structuralApproach: {
+        demandDeconstruction:
+          evaluation.directiveAnalysis ||
+          `Divide the question into 3 components: Core definition/context, multidimensional analysis with citations, and constructive way forward.`,
+        introductionStrategy: introIdea,
+        bodyDimensions: bodyDims,
+        counterviewStrategy: counterviewIdea,
+        conclusionStrategy: conclusionIdea,
+      },
+      sampleValueAdditions,
+    };
+  }, [evaluation]);
 
   const [copiedAttempt, setCopiedAttempt] = useState(false);
 
@@ -2117,6 +2265,32 @@ To advance constitutional morality and responsive governance, administrative exe
 
                 <button
                   type="button"
+                  onClick={() => setActiveTab("approach")}
+                  className={`flex-1 min-w-[125px] py-2 px-3 rounded-lg font-bold text-xs transition-colors cursor-pointer flex items-center justify-center gap-1.5 ${
+                    activeTab === "approach"
+                      ? "bg-slate-900 text-white shadow-xs"
+                      : "text-slate-600 dark:text-slate-400 hover:text-slate-900"
+                  }`}
+                >
+                  <Layers className="h-3.5 w-3.5 text-indigo-400" />
+                  <span>Approach Breakdown</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setActiveTab("model")}
+                  className={`flex-1 min-w-[120px] py-2 px-3 rounded-lg font-bold text-xs transition-colors cursor-pointer flex items-center justify-center gap-1.5 ${
+                    activeTab === "model"
+                      ? "bg-slate-900 text-white shadow-xs"
+                      : "text-slate-600 dark:text-slate-400 hover:text-slate-900"
+                  }`}
+                >
+                  <Sparkles className="h-3.5 w-3.5 text-amber-400" />
+                  <span>Pure Model Answer</span>
+                </button>
+
+                <button
+                  type="button"
                   onClick={() => setActiveTab("attempt")}
                   className={`flex-1 min-w-[120px] py-2 px-3 rounded-lg font-bold text-xs transition-colors cursor-pointer flex items-center justify-center gap-1.5 ${
                     activeTab === "attempt"
@@ -2124,7 +2298,7 @@ To advance constitutional morality and responsive governance, administrative exe
                       : "text-slate-600 dark:text-slate-400 hover:text-slate-900"
                   }`}
                 >
-                  <PenLine className="h-3.5 w-3.5 text-indigo-400" />
+                  <PenLine className="h-3.5 w-3.5 text-emerald-400" />
                   <span>Your Attempt</span>
                   {actualWordCount > 0 && (
                     <span
@@ -2141,19 +2315,6 @@ To advance constitutional morality and responsive governance, administrative exe
 
                 <button
                   type="button"
-                  onClick={() => setActiveTab("model")}
-                  className={`flex-1 min-w-[120px] py-2 px-3 rounded-lg font-bold text-xs transition-colors cursor-pointer flex items-center justify-center gap-1.5 ${
-                    activeTab === "model"
-                      ? "bg-slate-900 text-white shadow-xs"
-                      : "text-slate-600 dark:text-slate-400 hover:text-slate-900"
-                  }`}
-                >
-                  <Sparkles className="h-3.5 w-3.5 text-indigo-400" />
-                  <span>Topper Model Answer</span>
-                </button>
-
-                <button
-                  type="button"
                   onClick={() => setActiveTab("chat")}
                   className={`flex-1 min-w-[120px] py-2 px-3 rounded-lg font-bold text-xs transition-colors cursor-pointer flex items-center justify-center gap-1.5 ${
                     activeTab === "chat"
@@ -2161,7 +2322,7 @@ To advance constitutional morality and responsive governance, administrative exe
                       : "text-slate-600 dark:text-slate-400 hover:text-slate-900"
                   }`}
                 >
-                  <MessageSquare className="h-3.5 w-3.5" />
+                  <MessageSquare className="h-3.5 w-3.5 text-sky-400" />
                   <span>Ask Examiner</span>
                 </button>
               </div>
@@ -2775,75 +2936,361 @@ To advance constitutional morality and responsive governance, administrative exe
                 </div>
               )}
 
-              {/* Tab 3: Model Answer */}
-              {activeTab === "model" && (
-                <div className="p-5 sm:p-7 rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-sm space-y-4">
-                  <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-800">
-                    <div className="flex items-center gap-2">
-                      <Sparkles className="h-4 w-4 text-indigo-600" />
-                      <h4 className="text-xs font-bold uppercase tracking-wider text-slate-900 dark:text-slate-100">
-                        Topper-Grade Model Answer ({targetWords} words)
-                      </h4>
+              {/* Tab: Approach Breakdown (What Earns Marks & Why) */}
+              {activeTab === "approach" && approachData && (
+                <div className="space-y-4 animate-in fade-in duration-200">
+                  {/* Top Header Card */}
+                  <div className="p-4 sm:p-5 rounded-2xl border border-indigo-200 dark:border-indigo-900/60 bg-gradient-to-r from-indigo-50/70 via-white to-purple-50/40 dark:from-indigo-950/40 dark:via-slate-900 dark:to-purple-950/20 shadow-xs flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+                    <div className="space-y-1">
+                      <div className="flex items-center gap-2">
+                        <span className="p-1.5 rounded-lg bg-indigo-600 text-white">
+                          <Layers className="h-4 w-4" />
+                        </span>
+                        <h4 className="text-sm font-bold text-slate-900 dark:text-slate-100">
+                          Examiner's Approach Breakdown: What Earns Marks & Why
+                        </h4>
+                      </div>
+                      <p className="text-xs text-slate-600 dark:text-slate-400">
+                        Pedagogical guide: operative directive dissection,
+                        dimensional angles, scoring secrets, and high-yield
+                        citations.
+                      </p>
                     </div>
-                    <button
-                      type="button"
-                      onClick={handleCopyModelAnswer}
-                      className="inline-flex items-center gap-1.5 px-3 py-1 rounded-lg border border-slate-200 dark:border-slate-800 text-xs font-semibold hover:bg-slate-50 transition-colors cursor-pointer"
-                    >
-                      {copiedModel ? (
-                        <>
-                          <Check className="h-3.5 w-3.5 text-emerald-600" />
-                          <span>Copied</span>
-                        </>
-                      ) : (
-                        <>
-                          <Copy className="h-3.5 w-3.5" />
-                          <span>Copy Model Answer</span>
-                        </>
-                      )}
-                    </button>
+
+                    <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg bg-white dark:bg-slate-800 border border-indigo-200 dark:border-indigo-800 text-xs font-semibold shrink-0">
+                      <Compass className="h-3.5 w-3.5 text-indigo-600 dark:text-indigo-400" />
+                      <span>
+                        Directive:{" "}
+                        <strong className="text-indigo-700 dark:text-indigo-300 font-bold">
+                          {evaluation.directive || "Standard Demand"}
+                        </strong>
+                      </span>
+                    </div>
                   </div>
 
-                  <div className="prose dark:prose-invert max-w-none text-xs sm:text-sm">
-                    <RevisionMarkdownRenderer
-                      content={sanitizeModelAnswerText(evaluation.modelAnswer)}
-                    />
+                  {/* 1. What Earns Marks and Why */}
+                  <div className="p-5 rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-2xs space-y-3">
+                    <div className="flex items-center gap-2 border-b border-slate-100 dark:border-slate-800 pb-2.5">
+                      <Lightbulb className="h-4 w-4 text-amber-500" />
+                      <h5 className="text-xs font-bold uppercase tracking-wider text-slate-900 dark:text-slate-100">
+                        What Earns Marks in This Question & Why (Examiner
+                        Scoring Levers)
+                      </h5>
+                    </div>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3 pt-1">
+                      {approachData.whatEarnsMarks.map((item, i) => (
+                        <div
+                          key={i}
+                          className="p-3.5 rounded-xl border border-slate-200/80 dark:border-slate-800 bg-slate-50/60 dark:bg-slate-800/40 flex items-start gap-2.5"
+                        >
+                          <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-emerald-100 dark:bg-emerald-950/80 text-[10px] font-bold text-emerald-700 dark:text-emerald-300 mt-0.5 font-mono">
+                            {i + 1}
+                          </span>
+                          <p className="text-xs leading-relaxed text-slate-700 dark:text-slate-300">
+                            {item}
+                          </p>
+                        </div>
+                      ))}
+                    </div>
                   </div>
+
+                  {/* 2. Step-by-Step Structural Blueprint */}
+                  <div className="p-5 rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-2xs space-y-4">
+                    <div className="flex items-center gap-2 border-b border-slate-100 dark:border-slate-800 pb-2.5">
+                      <Target className="h-4 w-4 text-indigo-600" />
+                      <h5 className="text-xs font-bold uppercase tracking-wider text-slate-900 dark:text-slate-100">
+                        Structural Blueprint & Sample Approach
+                      </h5>
+                    </div>
+
+                    {/* Intro Strategy */}
+                    <div className="p-4 rounded-xl border border-indigo-100 dark:border-indigo-900/50 bg-indigo-50/40 dark:bg-indigo-950/20 space-y-1.5">
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs font-bold text-indigo-950 dark:text-indigo-200 flex items-center gap-1.5">
+                          <span>1. Introduction Strategy (≤20 Words)</span>
+                        </span>
+                        <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-white dark:bg-slate-800 font-bold text-indigo-600 border border-indigo-200 dark:border-indigo-800">
+                          Hook & Context
+                        </span>
+                      </div>
+                      <p className="text-xs text-slate-700 dark:text-slate-300 leading-relaxed">
+                        {approachData.structuralApproach.introductionStrategy}
+                      </p>
+                    </div>
+
+                    {/* Multidimensional Body Dimensions */}
+                    <div className="space-y-2.5">
+                      <span className="text-xs font-bold text-slate-900 dark:text-slate-100 block">
+                        2. Multi-Dimensional Body Analysis (Sample Angles &
+                        Arguments)
+                      </span>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                        {approachData.structuralApproach.bodyDimensions.map(
+                          (dim, i) => (
+                            <div
+                              key={i}
+                              className="p-3.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50/60 dark:bg-slate-800/40 space-y-2 flex flex-col justify-between"
+                            >
+                              <span className="text-xs font-bold text-slate-900 dark:text-slate-100 border-b border-slate-200 dark:border-slate-700/60 pb-1.5 block">
+                                {dim.dimension}
+                              </span>
+                              <ul className="text-xs text-slate-600 dark:text-slate-300 space-y-1.5 list-disc list-inside flex-1">
+                                {(dim.samplePoints || []).map((pt, pIdx) => (
+                                  <li key={pIdx} className="leading-relaxed">
+                                    {pt}
+                                  </li>
+                                ))}
+                              </ul>
+                            </div>
+                          ),
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Counterview & Synthesis */}
+                    {approachData.structuralApproach.counterviewStrategy && (
+                      <div className="p-3.5 rounded-xl border border-amber-200 dark:border-amber-900/60 bg-amber-50/40 dark:bg-amber-950/20 space-y-1">
+                        <span className="text-xs font-bold text-amber-900 dark:text-amber-200 flex items-center gap-1.5">
+                          <span>3. Counter-Perspective & Critical Balance</span>
+                        </span>
+                        <p className="text-xs text-slate-700 dark:text-slate-300 leading-relaxed">
+                          {approachData.structuralApproach.counterviewStrategy}
+                        </p>
+                      </div>
+                    )}
+
+                    {/* Conclusion Strategy */}
+                    <div className="p-3.5 rounded-xl border border-emerald-200 dark:border-emerald-900/60 bg-emerald-50/40 dark:bg-emerald-950/20 space-y-1">
+                      <span className="text-xs font-bold text-emerald-900 dark:text-emerald-200 flex items-center gap-1.5">
+                        <span>4. Way Forward & Visionary Conclusion</span>
+                      </span>
+                      <p className="text-xs text-slate-700 dark:text-slate-300 leading-relaxed">
+                        {approachData.structuralApproach.conclusionStrategy}
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* 3. High-Yield Value Additions (Citations & Evidence) */}
+                  {approachData.sampleValueAdditions &&
+                    approachData.sampleValueAdditions.length > 0 && (
+                      <div className="p-5 rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-2xs space-y-3">
+                        <div className="flex items-center gap-2 border-b border-slate-100 dark:border-slate-800 pb-2.5">
+                          <Award className="h-4 w-4 text-indigo-600" />
+                          <h5 className="text-xs font-bold uppercase tracking-wider text-slate-900 dark:text-slate-100">
+                            High-Yield Citations & Value Additions for This
+                            Question
+                          </h5>
+                        </div>
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
+                          {approachData.sampleValueAdditions.map((val, idx) => (
+                            <div
+                              key={idx}
+                              className="p-3.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50/60 dark:bg-slate-800/40 space-y-1.5"
+                            >
+                              <div className="flex items-center justify-between">
+                                <span className="text-[10px] font-mono font-bold uppercase tracking-wider text-indigo-600 dark:text-indigo-400">
+                                  {val.type}
+                                </span>
+                                <span className="text-[10px] font-bold text-emerald-600">
+                                  +1.0 to 1.5 Marks
+                                </span>
+                              </div>
+                              <h6 className="text-xs font-bold text-slate-900 dark:text-slate-100">
+                                {val.content}
+                              </h6>
+                              <p className="text-[11px] text-slate-600 dark:text-slate-400 leading-relaxed">
+                                <em>Why it earns marks:</em>{" "}
+                                {val.whyItEarnsMarks}
+                              </p>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                  {/* 4. Visual / Diagram Idea if present */}
+                  {evaluation.diagramIdea && (
+                    <div className="p-5 rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-2xs space-y-2.5">
+                      <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-2">
+                        <div className="flex items-center gap-2">
+                          <Sparkles className="h-4 w-4 text-amber-500" />
+                          <h5 className="text-xs font-bold uppercase tracking-wider text-slate-900 dark:text-slate-100">
+                            30-Second Exam Hall Diagram / Conceptual Matrix
+                          </h5>
+                        </div>
+                        <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-amber-50 dark:bg-amber-950 text-amber-700 dark:text-amber-300 border border-amber-200 dark:border-amber-800 font-bold">
+                          Quick Visual
+                        </span>
+                      </div>
+                      <pre className="font-mono text-xs bg-slate-950 text-emerald-400 p-4 rounded-xl overflow-x-auto leading-relaxed border border-slate-800">
+                        {evaluation.diagramIdea}
+                      </pre>
+                    </div>
+                  )}
                 </div>
               )}
 
-              {/* Tab 4: Interactive Follow-up Chat with Examiner */}
+              {/* Tab: Pure Model Answer (Exam Script Only) */}
+              {activeTab === "model" && (
+                <div className="p-5 sm:p-7 rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-sm space-y-4 animate-in fade-in duration-200">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between pb-3.5 border-b border-slate-100 dark:border-slate-800 gap-2">
+                    <div className="flex items-center gap-2.5">
+                      <div className="p-1.5 rounded-lg bg-amber-500 text-white shadow-2xs">
+                        <Sparkles className="h-4 w-4" />
+                      </div>
+                      <div>
+                        <div className="flex items-center gap-2">
+                          <h4 className="text-xs font-bold uppercase tracking-wider text-slate-900 dark:text-slate-100">
+                            Pure Model Answer (Exam Script Only)
+                          </h4>
+                          <span className="text-[10px] px-2 py-0.5 rounded bg-emerald-50 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800 font-bold">
+                            Pure Answer
+                          </span>
+                        </div>
+                        <p className="text-[11px] text-slate-500 dark:text-slate-400">
+                          Exact answer text to write in the exam hall. No
+                          meta-commentary, tips, or explanations.
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center gap-2">
+                      <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-slate-100 dark:bg-slate-800 text-xs font-semibold text-slate-700 dark:text-slate-300 font-mono">
+                        <span>{modelAnswerWordCount} words</span>
+                        <span className="text-slate-400">
+                          / {targetWords} target
+                        </span>
+                      </div>
+
+                      <button
+                        type="button"
+                        onClick={handleCopyModelAnswer}
+                        className="inline-flex items-center gap-1.5 px-3 py-1 rounded-lg border border-slate-200 dark:border-slate-800 text-xs font-semibold hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors cursor-pointer"
+                      >
+                        {copiedModel ? (
+                          <>
+                            <Check className="h-3.5 w-3.5 text-emerald-600" />
+                            <span>Copied</span>
+                          </>
+                        ) : (
+                          <>
+                            <Copy className="h-3.5 w-3.5" />
+                            <span>Copy Exam Script</span>
+                          </>
+                        )}
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* UPSC Answer Script Simulation Container */}
+                  <div className="rounded-xl border border-slate-200/80 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-950/40 p-4 sm:p-6 pl-5 sm:pl-8 border-l-4 border-l-indigo-500 shadow-2xs">
+                    <div className="prose dark:prose-invert max-w-none text-xs sm:text-sm leading-relaxed font-sans">
+                      <RevisionMarkdownRenderer
+                        content={sanitizeModelAnswerText(
+                          evaluation.modelAnswer,
+                        )}
+                      />
+                    </div>
+                  </div>
+
+                  <p className="text-[10px] text-slate-400 dark:text-slate-500 italic text-center">
+                    💡 Explanations of what earns marks, dimensional strategy,
+                    and citations are located in the "Approach Breakdown" tab.
+                  </p>
+                </div>
+              )}
+
+              {/* Tab: Interactive Follow-up Chat with Examiner */}
               {activeTab === "chat" && (
-                <div className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-4 sm:p-6 shadow-sm space-y-4">
-                  <div className="space-y-1">
-                    <h4 className="text-xs font-bold uppercase tracking-wider text-slate-800 dark:text-slate-200">
-                      Examiner Consultation (Ask Questions About Your
-                      Evaluation)
-                    </h4>
-                    <p className="text-xs text-slate-500">
-                      Ask the evaluator for alternative introductions, specific
-                      committee cites, or how to address the directive better.
-                    </p>
+                <div className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-4 sm:p-6 shadow-sm space-y-4 animate-in fade-in duration-200">
+                  {/* Examiner Consultation Header */}
+                  <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-800 gap-2">
+                    <div className="flex items-center gap-2.5">
+                      <div className="p-1.5 rounded-lg bg-sky-600 text-white shadow-2xs">
+                        <MessageSquare className="h-4 w-4" />
+                      </div>
+                      <div>
+                        <h4 className="text-xs font-bold uppercase tracking-wider text-slate-800 dark:text-slate-200 flex items-center gap-2">
+                          <span>Examiner Consultation & Guidance</span>
+                          <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-sky-50 dark:bg-sky-950 text-sky-700 dark:text-sky-300 border border-sky-200 dark:border-sky-800 font-bold">
+                            Active
+                          </span>
+                        </h4>
+                        <p className="text-[11px] text-slate-500">
+                          Ask for alternative introductions, specific committee
+                          cites, or how to address the directive better.
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center gap-2">
+                      <span className="text-[11px] font-mono font-bold text-slate-600 dark:text-slate-400 bg-slate-100 dark:bg-slate-800 px-2 py-1 rounded-md">
+                        Score: {evaluation.marksAwarded} / {evaluation.maxMarks}
+                      </span>
+                      {chatMessages.length > 0 && (
+                        <button
+                          type="button"
+                          onClick={handleClearChat}
+                          className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-[11px] font-semibold text-slate-600 dark:text-slate-400 hover:text-rose-600 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer"
+                          title="Clear chat history"
+                        >
+                          <RotateCcw className="h-3 w-3" />
+                          <span>Clear Chat</span>
+                        </button>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Interactive Quick-Prompt Suggestion Pills */}
+                  <div className="space-y-1.5">
+                    <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
+                      Quick Questions for Examiner:
+                    </span>
+                    <div className="flex flex-wrap gap-1.5">
+                      {quickExaminerPrompts.map((item, idx) => (
+                        <button
+                          key={idx}
+                          type="button"
+                          disabled={isChatLoading}
+                          onClick={() => handleSendFollowUp(item.query)}
+                          className="px-2.5 py-1 rounded-lg text-[11px] font-medium bg-slate-100 dark:bg-slate-800/80 hover:bg-indigo-50 dark:hover:bg-indigo-950 hover:text-indigo-600 text-slate-700 dark:text-slate-300 border border-slate-200/80 dark:border-slate-700/60 transition-colors cursor-pointer disabled:opacity-50 text-left"
+                        >
+                          {item.label}
+                        </button>
+                      ))}
+                    </div>
                   </div>
 
                   {/* Chat Messages */}
                   <div className="space-y-3 max-h-96 overflow-y-auto pr-1">
-                    {chatMessages.map((msg, idx) => (
-                      <div
-                        key={idx}
-                        className={`p-3.5 rounded-2xl text-xs sm:text-sm leading-relaxed ${
-                          msg.role === "user"
-                            ? "bg-indigo-600 text-white ml-auto max-w-xl"
-                            : "bg-slate-100 dark:bg-slate-800 text-slate-800 dark:text-slate-200 mr-auto max-w-2xl border border-slate-200 dark:border-slate-700"
-                        }`}
-                      >
-                        <RevisionMarkdownRenderer content={msg.content} />
+                    {chatMessages.length === 0 ? (
+                      <div className="p-4 rounded-xl border border-dashed border-slate-200 dark:border-slate-800 text-center space-y-1.5 text-xs text-slate-500">
+                        <p className="font-semibold text-slate-700 dark:text-slate-300">
+                          No questions asked yet.
+                        </p>
+                        <p>
+                          Click any quick suggestion above or type below to
+                          consult the examiner on how to improve this answer.
+                        </p>
                       </div>
-                    ))}
+                    ) : (
+                      chatMessages.map((msg, idx) => (
+                        <div
+                          key={idx}
+                          className={`p-3.5 rounded-2xl text-xs sm:text-sm leading-relaxed ${
+                            msg.role === "user"
+                              ? "bg-indigo-600 text-white ml-auto max-w-xl"
+                              : "bg-slate-100 dark:bg-slate-800 text-slate-800 dark:text-slate-200 mr-auto max-w-2xl border border-slate-200 dark:border-slate-700"
+                          }`}
+                        >
+                          <RevisionMarkdownRenderer content={msg.content} />
+                        </div>
+                      ))
+                    )}
                     {isChatLoading && (
-                      <div className="flex items-center gap-2 text-xs text-slate-500">
+                      <div className="flex items-center gap-2 text-xs text-slate-500 p-2">
                         <Loader2 className="h-4 w-4 animate-spin text-indigo-600" />
-                        <span>Examiner is reviewing...</span>
+                        <span>Examiner is reviewing your query...</span>
                       </div>
                     )}
                   </div>
@@ -2863,7 +3310,7 @@ To advance constitutional morality and responsive governance, administrative exe
                     <button
                       type="button"
                       disabled={isChatLoading || !followUpPrompt.trim()}
-                      onClick={handleSendFollowUp}
+                      onClick={() => handleSendFollowUp()}
                       className="p-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white disabled:opacity-40 cursor-pointer transition-colors"
                     >
                       <Send className="h-4 w-4" />
