@@ -35,7 +35,8 @@ const promptExamples = [
 
 const faqItems = [
   {
-    question: "Can an AI assistant manage my Study Aids, Vocabulary, and Daily Quotes?",
+    question:
+      "Can an AI assistant manage my Study Aids, Vocabulary, and Daily Quotes?",
     answer:
       "Yes. The MCP server includes dedicated tools for the Study Aids & Misc section: list_vocab_cards, add_vocab_card, toggle_vocab_mastery, delete_vocab_card, get_vocab_practice_question, evaluate_vocab_sentence, and get_daily_motivation. An assistant can quiz you on unmastered terms, auto-generate editorial memory hooks, and evaluate your sentence usage.",
   },

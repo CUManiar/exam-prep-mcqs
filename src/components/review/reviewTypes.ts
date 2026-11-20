@@ -17,24 +17,32 @@ export type FilterTabType =
 
 export interface ReviewFilterState {
   outcome?: "incorrect" | "correct" | "skipped" | "partial" | null;
+  outcomes?: ("incorrect" | "correct" | "skipped" | "partial")[];
   confidence?: "sure" | "50-50" | "guess" | "elimination" | null;
+  confidences?: ("sure" | "50-50" | "guess" | "elimination")[];
   flagged?: boolean;
   slow?: boolean;
   altered?: boolean;
+  logic?: "AND" | "OR";
 }
 
 export const EMPTY_FILTER_STATE: ReviewFilterState = {
   outcome: null,
+  outcomes: [],
   confidence: null,
+  confidences: [],
   flagged: false,
   slow: false,
   altered: false,
+  logic: "AND",
 };
 
 export function isFilterActive(filters: ReviewFilterState): boolean {
   return Boolean(
     filters.outcome ||
+    (filters.outcomes && filters.outcomes.length > 0) ||
     filters.confidence ||
+    (filters.confidences && filters.confidences.length > 0) ||
     filters.flagged ||
     filters.slow ||
     filters.altered,

@@ -72,7 +72,7 @@ export function saveStoredOptionalSubject(subject: string): void {
   try {
     localStorage.setItem(OPTIONAL_SUBJECT_STORAGE_KEY, subject.trim());
     window.dispatchEvent(
-      new CustomEvent("optional-subject-changed", { detail: subject.trim() })
+      new CustomEvent("optional-subject-changed", { detail: subject.trim() }),
     );
   } catch {
     // Ignore storage errors in restricted contexts

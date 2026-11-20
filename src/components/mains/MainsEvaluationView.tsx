@@ -193,8 +193,11 @@ export function MainsEvaluationView() {
     setPaperType(firstQ.paperType || sess.paperType || "GS-2");
     setOptionalSubject(
       firstQ.paperType === "Optional"
-        ? (firstQ.optionalSubject || sess.optionalSubject || globalOptionalSubject || "")
-        : (sess.optionalSubject || globalOptionalSubject || "")
+        ? firstQ.optionalSubject ||
+            sess.optionalSubject ||
+            globalOptionalSubject ||
+            ""
+        : sess.optionalSubject || globalOptionalSubject || "",
     );
     setMaxMarks(firstQ.maxMarks || 10);
     setUploadedImages(firstQ.attachedImages || []);
@@ -247,8 +250,8 @@ export function MainsEvaluationView() {
     setPaperType(q.paperType || "GS-2");
     setOptionalSubject(
       q.paperType === "Optional"
-        ? (q.optionalSubject || globalOptionalSubject || "")
-        : (globalOptionalSubject || "")
+        ? q.optionalSubject || globalOptionalSubject || ""
+        : globalOptionalSubject || "",
     );
     setMaxMarks(q.maxMarks || 10);
     setUploadedImages(q.attachedImages || []);
@@ -264,7 +267,9 @@ export function MainsEvaluationView() {
   const handleAddNewQuestion = () => {
     // Restrict maximum 5 questions in a single session
     if (questions.length >= 5) {
-      setErrorMsg("Maximum limit of 5 questions reached for this evaluation session.");
+      setErrorMsg(
+        "Maximum limit of 5 questions reached for this evaluation session.",
+      );
       return;
     }
 
@@ -290,7 +295,10 @@ export function MainsEvaluationView() {
       question: "",
       studentAnswer: "",
       paperType: paperType || "GS-2",
-      optionalSubject: paperType === "Optional" ? (optionalSubject || globalOptionalSubject) : undefined,
+      optionalSubject:
+        paperType === "Optional"
+          ? optionalSubject || globalOptionalSubject
+          : undefined,
       maxMarks: 10,
       attachedImages: [],
       evaluation: undefined,
@@ -907,12 +915,16 @@ To advance constitutional morality and responsive governance, administrative exe
                 sess.questions && sess.questions.length > 0
                   ? sess.questions
                   : sess.evaluation
-                    ? [{ evaluation: sess.evaluation, maxMarks: sess.maxMarks || 10 }]
+                    ? [
+                        {
+                          evaluation: sess.evaluation,
+                          maxMarks: sess.maxMarks || 10,
+                        },
+                      ]
                     : [];
               const evaluatedList = sessionQs.filter(
                 (q) =>
-                  q.evaluation &&
-                  typeof q.evaluation.marksAwarded === "number",
+                  q.evaluation && typeof q.evaluation.marksAwarded === "number",
               );
               const hasEvaluated = evaluatedList.length > 0;
               const totalAwarded = evaluatedList.reduce(
@@ -928,9 +940,7 @@ To advance constitutional morality and responsive governance, administrative exe
                   ? totalAwarded / evaluatedList.length
                   : 0;
               const avgMax =
-                evaluatedList.length > 0
-                  ? totalMax / evaluatedList.length
-                  : 10;
+                evaluatedList.length > 0 ? totalMax / evaluatedList.length : 10;
 
               return (
                 <div
@@ -963,7 +973,9 @@ To advance constitutional morality and responsive governance, administrative exe
                     </div>
                     {editingSessionId === sess.id ? (
                       <form
-                        onSubmit={(e) => handleSaveRename(sess.id, undefined, e)}
+                        onSubmit={(e) =>
+                          handleSaveRename(sess.id, undefined, e)
+                        }
                         onClick={(e) => e.stopPropagation()}
                         className="flex items-center gap-1 mt-1"
                       >
@@ -1001,10 +1013,13 @@ To advance constitutional morality and responsive governance, administrative exe
                         <span className="text-[10px] text-slate-400 block mt-0.5 font-mono">
                           {sess.questions && sess.questions.length > 1
                             ? `${sess.questions.length} questions • ${new Date(sess.updatedAt).toLocaleDateString("en-IN", { day: "numeric", month: "short" })}`
-                            : new Date(sess.updatedAt).toLocaleDateString("en-IN", {
-                                day: "numeric",
-                                month: "short",
-                              })}
+                            : new Date(sess.updatedAt).toLocaleDateString(
+                                "en-IN",
+                                {
+                                  day: "numeric",
+                                  month: "short",
+                                },
+                              )}
                         </span>
                       </>
                     )}
@@ -1013,7 +1028,9 @@ To advance constitutional morality and responsive governance, administrative exe
                     <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
                       <button
                         type="button"
-                        onClick={(e) => handleStartRename(sess.id, sess.title, e)}
+                        onClick={(e) =>
+                          handleStartRename(sess.id, sess.title, e)
+                        }
                         className="text-slate-400 hover:text-indigo-600 p-1 rounded transition-colors cursor-pointer"
                         title="Rename evaluation"
                       >
@@ -1068,7 +1085,10 @@ To advance constitutional morality and responsive governance, administrative exe
                   onSubmit={(e) => {
                     e.preventDefault();
                     if (headerRenameText.trim()) {
-                      handleSaveRename(currentSessionId, headerRenameText.trim());
+                      handleSaveRename(
+                        currentSessionId,
+                        headerRenameText.trim(),
+                      );
                     }
                     setIsHeaderRenaming(false);
                   }}
@@ -1110,8 +1130,8 @@ To advance constitutional morality and responsive governance, administrative exe
                     type="button"
                     onClick={() => {
                       setHeaderRenameText(
-                        sessions.find((s) => s.id === currentSessionId)?.title ||
-                          formatMainsDefaultTitle(new Date()),
+                        sessions.find((s) => s.id === currentSessionId)
+                          ?.title || formatMainsDefaultTitle(new Date()),
                       );
                       setIsHeaderRenaming(true);
                     }}
@@ -1299,8 +1319,7 @@ To advance constitutional morality and responsive governance, administrative exe
             {(() => {
               const evaluatedList = questions.filter(
                 (q) =>
-                  q.evaluation &&
-                  typeof q.evaluation.marksAwarded === "number",
+                  q.evaluation && typeof q.evaluation.marksAwarded === "number",
               );
               if (evaluatedList.length === 0) return null;
 
@@ -1309,8 +1328,7 @@ To advance constitutional morality and responsive governance, administrative exe
                 0,
               );
               const totalMax = evaluatedList.reduce(
-                (sum, q) =>
-                  sum + (q.evaluation?.maxMarks || q.maxMarks || 10),
+                (sum, q) => sum + (q.evaluation?.maxMarks || q.maxMarks || 10),
                 0,
               );
               const avgAwarded = totalAwarded / evaluatedList.length;
@@ -1488,7 +1506,9 @@ To advance constitutional morality and responsive governance, administrative exe
                       const newType = e.target.value as any;
                       setPaperType(newType);
                       if (newType === "Optional" && !optionalSubject) {
-                        setOptionalSubject(globalOptionalSubject || "Sociology");
+                        setOptionalSubject(
+                          globalOptionalSubject || "Sociology",
+                        );
                       }
                     }}
                     className="w-full rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 px-2.5 py-1.5 text-xs font-semibold focus:border-indigo-500 outline-none"
@@ -1509,7 +1529,9 @@ To advance constitutional morality and responsive governance, administrative exe
                       OPTIONAL SUBJECT (SYNCED)
                     </label>
                     <OptionalSubjectSelect
-                      value={optionalSubject || globalOptionalSubject || "Sociology"}
+                      value={
+                        optionalSubject || globalOptionalSubject || "Sociology"
+                      }
                       onChange={(sub) => {
                         setOptionalSubject(sub);
                         setGlobalOptionalSubject(sub);
@@ -2272,9 +2294,10 @@ To advance constitutional morality and responsive governance, administrative exe
                               const correctCount = evaluation.markedCopy.filter(
                                 (m) => m.type === "correct",
                               ).length;
-                              const incorrectCount = evaluation.markedCopy.filter(
-                                (m) => m.type === "incorrect",
-                              ).length;
+                              const incorrectCount =
+                                evaluation.markedCopy.filter(
+                                  (m) => m.type === "incorrect",
+                                ).length;
                               const verifyCount = evaluation.markedCopy.filter(
                                 (m) => m.type === "verify",
                               ).length;
@@ -2362,7 +2385,9 @@ To advance constitutional morality and responsive governance, administrative exe
                                   >
                                     {badgeText}
                                   </span>
-                                  <span className={`leading-relaxed ${noteColor}`}>
+                                  <span
+                                    className={`leading-relaxed ${noteColor}`}
+                                  >
                                     {item.note}
                                   </span>
                                 </div>
@@ -2378,7 +2403,9 @@ To advance constitutional morality and responsive governance, administrative exe
                     const validStrengths = (evaluation.strengths || []).filter(
                       (str) =>
                         Boolean(str && str.trim()) &&
-                        !str.toLowerCase().includes("directly attempted the core prompt"),
+                        !str
+                          .toLowerCase()
+                          .includes("directly attempted the core prompt"),
                     );
                     const hasStrengths = validStrengths.length > 0;
 
@@ -2396,7 +2423,10 @@ To advance constitutional morality and responsive governance, administrative exe
                               </h4>
                               <ul className="text-xs text-slate-700 dark:text-slate-300 space-y-1.5 list-disc pl-4">
                                 {validStrengths.map((str, idx) => (
-                                  <li key={idx} className="leading-relaxed font-medium">
+                                  <li
+                                    key={idx}
+                                    className="leading-relaxed font-medium"
+                                  >
                                     {str}
                                   </li>
                                 ))}
@@ -2427,7 +2457,9 @@ To advance constitutional morality and responsive governance, administrative exe
                                   </li>
                                 ))
                               ) : (
-                                <li className="text-slate-400">None flagged.</li>
+                                <li className="text-slate-400">
+                                  None flagged.
+                                </li>
                               )}
                             </ul>
                           </div>
@@ -2452,7 +2484,9 @@ To advance constitutional morality and responsive governance, administrative exe
                                   </li>
                                 ))
                               ) : (
-                                <li className="text-slate-400">None flagged.</li>
+                                <li className="text-slate-400">
+                                  None flagged.
+                                </li>
                               )}
                             </ul>
                           </div>
@@ -2482,7 +2516,9 @@ To advance constitutional morality and responsive governance, administrative exe
                     </div>
 
                     {/* Examiner-Approved Micro-Diagram: Visual Flowchart or clean Schema */}
-                    <MainsDiagramRenderer diagramIdea={evaluation.diagramIdea} />
+                    <MainsDiagramRenderer
+                      diagramIdea={evaluation.diagramIdea}
+                    />
                   </div>
                 </div>
               )}

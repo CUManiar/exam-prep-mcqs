@@ -105,7 +105,9 @@ export function cleanHeaderValue(value: string): string {
  */
 export function cleanPreviousYears(val: string): string {
   if (!val) return "";
-  const cleaned = stripMarkdownFormatting(val).replace(/[\u2212]/g, "-").trim();
+  const cleaned = stripMarkdownFormatting(val)
+    .replace(/[\u2212]/g, "-")
+    .trim();
   const years = cleaned
     .split(/[,;/]+/)
     .map((y) => y.trim())
@@ -377,7 +379,9 @@ export function parseMarkdownHeader(
         instruction.match(
           /(?:negative\s+marking|penalty)\s*:\s*[-−]?\s*([\d.]+)/i,
         ) ||
-        instruction.match(/[-−]([\d.]+)\s*marks?\s*(?:per|for\s+each)\s+wrong/i);
+        instruction.match(
+          /[-−]([\d.]+)\s*marks?\s*(?:per|for\s+each)\s+wrong/i,
+        );
       if (!result.positiveMarks && positiveMatch) {
         result.positiveMarks = parseFloat(positiveMatch[1]) || undefined;
       }
@@ -807,8 +811,7 @@ export function updateQuestionPreviousYearsInMarkdown(
     /^\s*(?:\*\*|__)?(?:Previous\s*Years?|Previously\s*Asked|Years?|PYQ|Repeated)(?:\*\*|__)?\s*:\s*[^\n]+$/gim;
 
   // Multi-part bracket tag check: [Subject: ... | Year: ...]
-  const multipartRegex =
-    /\[\s*([^\]]*(?:Subject|Chapter|Topic)\s*:[^\]]*)\]/gi;
+  const multipartRegex = /\[\s*([^\]]*(?:Subject|Chapter|Topic)\s*:[^\]]*)\]/gi;
 
   let replaced = false;
 

@@ -34,7 +34,9 @@ export function VocabInputBar({
       (w) => w.trim().toLowerCase() === cleanWord.toLowerCase(),
     );
     if (isDuplicate) {
-      setError(`"${cleanWord}" already exists in your vocabulary list. No duplicate words allowed.`);
+      setError(
+        `"${cleanWord}" already exists in your vocabulary list. No duplicate words allowed.`,
+      );
       return;
     }
 
@@ -64,7 +66,9 @@ export function VocabInputBar({
         (w) => w.trim().toLowerCase() === finalWord.trim().toLowerCase(),
       );
       if (isFinalDuplicate) {
-        setError(`"${finalWord}" already exists in your vocabulary list. No duplicate words allowed.`);
+        setError(
+          `"${finalWord}" already exists in your vocabulary list. No duplicate words allowed.`,
+        );
         return;
       }
 

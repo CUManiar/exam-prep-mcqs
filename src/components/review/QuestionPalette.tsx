@@ -193,7 +193,7 @@ export function QuestionPalette({
           {(hasActiveFilters || (filterTab && filterTab !== "all")) &&
             filteredQuestionNos && (
               <span className="text-[10px] font-semibold text-indigo-700 bg-indigo-50 border border-indigo-200 px-1.5 py-0.5 rounded-md">
-                {filteredQuestionNos.size} match
+                Match count: {filteredQuestionNos.size}
               </span>
             )}
         </div>
@@ -530,8 +530,8 @@ export function QuestionPalette({
           )}
 
           {/* Official Solution & Explanation: Shown only for PDF papers; in Markdown papers, solutions are already displayed in the main review center */}
-          {!isMarkdownPaper && (
-            explanationText ? (
+          {!isMarkdownPaper &&
+            (explanationText ? (
               <div className="rounded-xl border border-indigo-200/90 bg-indigo-50/30 p-3 space-y-1 shadow-2xs overflow-hidden">
                 <div className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wider text-indigo-900">
                   <Lightbulb className="h-3.5 w-3.5 text-indigo-600 shrink-0" />
@@ -546,8 +546,7 @@ export function QuestionPalette({
               <div className="text-[11px] text-slate-400 italic">
                 No explanation recorded for this question.
               </div>
-            )
-          )}
+            ))}
 
           {/* Student Scratchpad Note */}
           {expandedQuestion.note && expandedQuestion.note.trim() ? (

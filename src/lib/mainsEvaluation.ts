@@ -79,20 +79,26 @@ export const MAINS_STORAGE_KEY = "upsc_mains_evaluations_v1";
  * Formats a date into the required default title format: `DD MMM YYYY | DAY`
  * Example: `19 Nov 2026 | THURSDAY`
  */
-export function formatMainsDefaultTitle(dateInput: Date | string = new Date()): string {
+export function formatMainsDefaultTitle(
+  dateInput: Date | string = new Date(),
+): string {
   const d = typeof dateInput === "string" ? new Date(dateInput) : dateInput;
   const validDate = isNaN(d.getTime()) ? new Date() : d;
   const day = validDate.getDate().toString().padStart(2, "0");
   const month = validDate.toLocaleDateString("en-US", { month: "short" });
   const year = validDate.getFullYear();
-  const weekday = validDate.toLocaleDateString("en-US", { weekday: "long" }).toUpperCase();
+  const weekday = validDate
+    .toLocaleDateString("en-US", { weekday: "long" })
+    .toUpperCase();
   return `${day} ${month} ${year} | ${weekday}`;
 }
 
 /**
  * Normalizes a session to ensure it has a valid list of questions.
  */
-export function normalizeSessionQuestions(sess: MainsEvaluationSession): MainsQuestionItem[] {
+export function normalizeSessionQuestions(
+  sess: MainsEvaluationSession,
+): MainsQuestionItem[] {
   if (Array.isArray(sess.questions) && sess.questions.length > 0) {
     return sess.questions;
   }
@@ -108,7 +114,7 @@ export function normalizeSessionQuestions(sess: MainsEvaluationSession): MainsQu
       ? sess.attachedImages.map((img: any, i: number) =>
           typeof img === "string"
             ? { mimeType: "image/jpeg", data: img, name: `Page ${i + 1}` }
-            : img
+            : img,
         )
       : [],
     evaluation: sess.evaluation,
@@ -119,7 +125,9 @@ export function normalizeSessionQuestions(sess: MainsEvaluationSession): MainsQu
 /**
  * Fast client-side check to detect if an uploaded page image is completely blank or contains negligible ink.
  */
-export async function isImageBlankOrNegligible(dataUrl: string): Promise<boolean> {
+export async function isImageBlankOrNegligible(
+  dataUrl: string,
+): Promise<boolean> {
   if (typeof window === "undefined" || !dataUrl) return false;
   return new Promise((resolve) => {
     const img = new Image();

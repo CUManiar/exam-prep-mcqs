@@ -613,8 +613,13 @@ export function HistoryView({
 
                         <div className="flex items-center justify-between pt-1.5 border-t border-slate-100 text-[11px]">
                           <div className="font-mono text-slate-500">
-                            <span className="text-emerald-600 font-semibold">{att.correct}C</span>{" "}
-                            / <span className="text-rose-600 font-semibold">{att.incorrect}W</span>{" "}
+                            <span className="text-emerald-600 font-semibold">
+                              {att.correct}C
+                            </span>{" "}
+                            /{" "}
+                            <span className="text-rose-600 font-semibold">
+                              {att.incorrect}W
+                            </span>{" "}
                             / <span>{att.unattempted}S</span>
                           </div>
                           <span className="font-semibold text-indigo-600 flex items-center gap-0.5">

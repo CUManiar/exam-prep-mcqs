@@ -265,7 +265,10 @@ function MermaidDiagram({ code }: { code: string }) {
     if (!cleanCode) return;
 
     // Inject global suppression CSS for Mermaid error bomb icons
-    if (typeof document !== "undefined" && !document.getElementById("mermaid-suppress-css")) {
+    if (
+      typeof document !== "undefined" &&
+      !document.getElementById("mermaid-suppress-css")
+    ) {
       const style = document.createElement("style");
       style.id = "mermaid-suppress-css";
       style.textContent = `

@@ -641,8 +641,7 @@ export function UploadView({
           isCustom: true,
           userId: currentUser?.id,
           instructions: mdHeader.instructions,
-          cutoffEnabled:
-            customCutoffEnabled || Boolean(mdHeader.cutoffEnabled),
+          cutoffEnabled: customCutoffEnabled || Boolean(mdHeader.cutoffEnabled),
           cutoffType: mdHeader.cutoffType || customCutoffType,
           cutoffValue:
             customCutoffEnabled && customCutoffValue !== ""

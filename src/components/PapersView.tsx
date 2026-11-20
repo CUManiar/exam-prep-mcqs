@@ -197,7 +197,7 @@ interface PapersFilterState {
   customStartDate?: string;
   customEndDate?: string;
   selectedAttemptFilter?:
-    | "all" | "attempted" | "unattempted" | "mock" | "practice";
+    "all" | "attempted" | "unattempted" | "mock" | "practice";
   paperViewMode?: "grid" | "list";
 }
 
@@ -521,12 +521,7 @@ export function PapersView({
 
     // 3. Date range filter
     if (
-      !matchesDateRange(
-        p,
-        selectedDateRange,
-        customStartDate,
-        customEndDate,
-      )
+      !matchesDateRange(p, selectedDateRange, customStartDate, customEndDate)
     ) {
       return false;
     }
@@ -1115,7 +1110,9 @@ export function PapersView({
                     className="bg-white border border-slate-200 rounded px-1.5 py-0.5 text-[11px] text-slate-800 font-mono focus:outline-hidden focus:border-amber-500"
                     title="From date"
                   />
-                  <span className="text-[10px] text-amber-900 font-bold">to</span>
+                  <span className="text-[10px] text-amber-900 font-bold">
+                    to
+                  </span>
                   <input
                     type="date"
                     value={customEndDate}

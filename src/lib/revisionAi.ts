@@ -267,7 +267,9 @@ export function saveRevisionConfig(config: RevisionProviderConfig): void {
     const secured = obfuscateConfig(config);
     localStorage.setItem(REVISION_CONFIG_KEY, secured);
     saveProviderKey(config.provider, config.apiKey);
-    window.dispatchEvent(new CustomEvent("upsc-ai-config-changed", { detail: config }));
+    window.dispatchEvent(
+      new CustomEvent("upsc-ai-config-changed", { detail: config }),
+    );
   } catch (e) {
     console.warn("Failed to securely store revision config:", e);
   }
@@ -279,7 +281,9 @@ export function clearRevisionConfig(providerToClear?: string): void {
   if (providerToClear) {
     removeProviderKey(providerToClear);
   }
-  window.dispatchEvent(new CustomEvent("upsc-ai-config-changed", { detail: null }));
+  window.dispatchEvent(
+    new CustomEvent("upsc-ai-config-changed", { detail: null }),
+  );
 }
 
 export function getUpscRevisionSystemPrompt(context?: RevisionContext): string {

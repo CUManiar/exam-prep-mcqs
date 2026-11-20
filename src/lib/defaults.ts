@@ -64,12 +64,10 @@ export function evaluateClozeMatch(
   const targets: string[] = [];
   if (refAnswer && refAnswer.trim()) {
     targets.push(refAnswer.trim());
-    refAnswer
-      .split(/\s*(?:\/|;|\bor\b)\s*/i)
-      .forEach((t) => {
-        const trimmed = t.trim();
-        if (trimmed && !targets.includes(trimmed)) targets.push(trimmed);
-      });
+    refAnswer.split(/\s*(?:\/|;|\bor\b)\s*/i).forEach((t) => {
+      const trimmed = t.trim();
+      if (trimmed && !targets.includes(trimmed)) targets.push(trimmed);
+    });
   }
 
   // 1. Direct or substring match on reference answer variants

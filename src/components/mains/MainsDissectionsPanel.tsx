@@ -79,10 +79,7 @@ export function MainsDissectionsPanel({
 
     const actualWords =
       evaluation.actualWordCount ||
-      evaluation.studentAnswer
-        ?.trim()
-        .split(/\s+/)
-        .filter(Boolean).length ||
+      evaluation.studentAnswer?.trim().split(/\s+/).filter(Boolean).length ||
       0;
 
     const compliance =
@@ -109,10 +106,15 @@ export function MainsDissectionsPanel({
   // Detected Citations, Articles, Thinkers & Case Laws from Marked Copy & Answer
   const detectedCitations = useMemo(() => {
     const fullText = `${evaluation.studentAnswer || ""} ${JSON.stringify(evaluation.markedCopy || [])}`;
-    const citations: Array<{ label: string; type: "article" | "case" | "thinker" | "stat" }> = [];
+    const citations: Array<{
+      label: string;
+      type: "article" | "case" | "thinker" | "stat";
+    }> = [];
 
     // Articles & Constitutional provisions
-    const artMatches = fullText.match(/\b(?:Art(?:icle|\.)?\s*\d+(?:\(\w+\))*)/gi);
+    const artMatches = fullText.match(
+      /\b(?:Art(?:icle|\.)?\s*\d+(?:\(\w+\))*)/gi,
+    );
     if (artMatches) {
       const unique = Array.from(new Set(artMatches.map((m) => m.trim())));
       unique.slice(0, 4).forEach((m) => {
@@ -173,17 +175,23 @@ export function MainsDissectionsPanel({
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
         {/* 1. UPSC Scaling Curve Dissection */}
-        <div className={`p-3.5 rounded-xl border ${tierInfo.bg} flex flex-col justify-between space-y-2`}>
+        <div
+          className={`p-3.5 rounded-xl border ${tierInfo.bg} flex flex-col justify-between space-y-2`}
+        >
           <div className="space-y-1.5">
             <div className="flex items-center justify-between">
               <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
                 UPSC Bell Curve Standard
               </span>
-              <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded ${tierInfo.color} font-mono`}>
+              <span
+                className={`text-[10px] font-bold px-1.5 py-0.5 rounded ${tierInfo.color} font-mono`}
+              >
                 {pct}%
               </span>
             </div>
-            <h5 className={`text-xs font-bold ${tierInfo.color} flex items-center gap-1`}>
+            <h5
+              className={`text-xs font-bold ${tierInfo.color} flex items-center gap-1`}
+            >
               <Award className="h-3.5 w-3.5" />
               <span>{tierInfo.name}</span>
             </h5>
@@ -243,29 +251,35 @@ export function MainsDissectionsPanel({
             <p className="text-[11px] text-slate-600 dark:text-slate-400">
               {pacingInfo.isOptimal && (
                 <span className="text-emerald-600 dark:text-emerald-400 font-semibold">
-                  ✓ Ideal word density for {pacingInfo.targetTime}-minute exam-hall slot.
+                  ✓ Ideal word density for {pacingInfo.targetTime}-minute
+                  exam-hall slot.
                 </span>
               )}
               {pacingInfo.isUnder && (
                 <span className="text-amber-600 dark:text-amber-400 font-semibold">
-                  ⚠️ Under-attempted ({pacingInfo.compliance}%). Add 1 more empirical case.
+                  ⚠️ Under-attempted ({pacingInfo.compliance}%). Add 1 more
+                  empirical case.
                 </span>
               )}
               {pacingInfo.isOver && (
                 <span className="text-rose-600 dark:text-rose-400 font-semibold">
-                  ⚠️ Over-extended ({pacingInfo.compliance}%). Risk of writing overrun in GS papers.
+                  ⚠️ Over-extended ({pacingInfo.compliance}%). Risk of writing
+                  overrun in GS papers.
                 </span>
               )}
-              {!pacingInfo.isOptimal && !pacingInfo.isUnder && !pacingInfo.isOver && (
-                <span>Evaluated from submission sheet.</span>
-              )}
+              {!pacingInfo.isOptimal &&
+                !pacingInfo.isUnder &&
+                !pacingInfo.isOver && (
+                  <span>Evaluated from submission sheet.</span>
+                )}
             </p>
           </div>
 
           <div className="pt-2 border-t border-slate-200 dark:border-slate-700 flex items-center justify-between text-[11px] text-slate-600 dark:text-slate-400">
             <span>Required Handwriting Speed:</span>
             <span className="font-mono font-bold text-slate-800 dark:text-slate-200">
-              ~{Math.round(pacingInfo.targetWords / pacingInfo.targetTime)} words/min
+              ~{Math.round(pacingInfo.targetWords / pacingInfo.targetTime)}{" "}
+              words/min
             </span>
           </div>
         </div>
@@ -295,7 +309,8 @@ export function MainsDissectionsPanel({
               </div>
             ) : (
               <p className="text-[11px] text-slate-500 dark:text-slate-400 leading-relaxed pt-1">
-                No constitutional Articles, Case Laws, or Thinkers explicitly cited. Value additions directly elevate marks from 3.5 to 5.0+.
+                No constitutional Articles, Case Laws, or Thinkers explicitly
+                cited. Value additions directly elevate marks from 3.5 to 5.0+.
               </p>
             )}
           </div>

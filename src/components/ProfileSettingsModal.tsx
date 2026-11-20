@@ -321,7 +321,8 @@ export function ProfileSettingsModal({
               </div>
               <div className="p-4 space-y-2">
                 <p className="text-xs text-slate-500 leading-relaxed">
-                  Select your Optional subject. This remains synced across Mains answer evaluations and AI study tools.
+                  Select your Optional subject. This remains synced across Mains
+                  answer evaluations and AI study tools.
                 </p>
                 <OptionalSubjectSelect
                   value={optionalSubject}

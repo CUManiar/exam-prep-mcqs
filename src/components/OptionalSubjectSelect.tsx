@@ -73,7 +73,11 @@ export function OptionalSubjectSelect({
         }`}
       >
         <span className="truncate">
-          {value ? value : <span className="text-slate-400 font-normal">{placeholder}</span>}
+          {value ? (
+            value
+          ) : (
+            <span className="text-slate-400 font-normal">{placeholder}</span>
+          )}
         </span>
         <ChevronDown
           className={`h-4 w-4 text-slate-400 shrink-0 transition-transform duration-150 ${
@@ -115,7 +119,8 @@ export function OptionalSubjectSelect({
               </div>
             ) : (
               filtered.map((subject) => {
-                const isSelected = value?.toLowerCase() === subject.toLowerCase();
+                const isSelected =
+                  value?.toLowerCase() === subject.toLowerCase();
                 return (
                   <button
                     key={subject}
@@ -132,7 +137,9 @@ export function OptionalSubjectSelect({
                     }`}
                   >
                     <span>{subject}</span>
-                    {isSelected && <Check className="h-3.5 w-3.5 text-indigo-600 shrink-0" />}
+                    {isSelected && (
+                      <Check className="h-3.5 w-3.5 text-indigo-600 shrink-0" />
+                    )}
                   </button>
                 );
               })
