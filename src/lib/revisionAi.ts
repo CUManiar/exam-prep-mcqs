@@ -193,9 +193,47 @@ function deobfuscateConfig(data: string): RevisionProviderConfig | null {
 export function getRevisionConfig(): RevisionProviderConfig | null {
   if (typeof window === "undefined") return null;
   try {
+    let config: RevisionProviderConfig | null = null;
     const raw = localStorage.getItem(REVISION_CONFIG_KEY);
-    if (!raw) return null;
-    return deobfuscateConfig(raw);
+    if (raw) {
+      config = deobfuscateConfig(raw);
+    }
+
+    // If active config is valid and has an apiKey, return it immediately
+    if (config?.apiKey?.trim() && config?.provider) {
+      return config;
+    }
+
+    // Fallback: Check provider vault if active config has no key or is missing
+    const rawVault = localStorage.getItem(REVISION_VAULT_KEY);
+    if (rawVault) {
+      try {
+        const vault = JSON.parse(atob(rawVault));
+        if (vault && typeof vault === "object") {
+          const preferred = config?.provider || "gemini";
+          if (vault[preferred]?.trim()) {
+            return {
+              provider: preferred as RevisionProvider,
+              apiKey: vault[preferred].trim(),
+            };
+          }
+          if (vault.gemini?.trim()) {
+            return { provider: "gemini", apiKey: vault.gemini.trim() };
+          }
+          if (vault.openai?.trim()) {
+            return { provider: "openai", apiKey: vault.openai.trim() };
+          }
+          if (vault.anthropic?.trim()) {
+            return { provider: "anthropic", apiKey: vault.anthropic.trim() };
+          }
+          if (vault.groq?.trim()) {
+            return { provider: "groq", apiKey: vault.groq.trim() };
+          }
+        }
+      } catch {}
+    }
+
+    return config;
   } catch {
     return null;
   }
@@ -205,7 +243,6 @@ export function getProviderVault(): Record<string, string> {
   if (typeof window === "undefined") return {};
   try {
     const raw = localStorage.getItem(REVISION_VAULT_KEY);
-    const active = getRevisionConfig();
     const vault: Record<string, string> = {};
     if (raw) {
       try {
@@ -215,8 +252,12 @@ export function getProviderVault(): Record<string, string> {
         }
       } catch {}
     }
-    if (active?.provider && active?.apiKey) {
-      vault[active.provider] = active.apiKey;
+    const rawConfig = localStorage.getItem(REVISION_CONFIG_KEY);
+    if (rawConfig) {
+      const active = deobfuscateConfig(rawConfig);
+      if (active?.provider && active?.apiKey) {
+        vault[active.provider] = active.apiKey;
+      }
     }
     return vault;
   } catch {
@@ -267,7 +308,9 @@ export function saveRevisionConfig(config: RevisionProviderConfig): void {
     const secured = obfuscateConfig(config);
     localStorage.setItem(REVISION_CONFIG_KEY, secured);
     saveProviderKey(config.provider, config.apiKey);
-    window.dispatchEvent(new CustomEvent("upsc-ai-config-changed", { detail: config }));
+    window.dispatchEvent(
+      new CustomEvent("upsc-ai-config-changed", { detail: config }),
+    );
   } catch (e) {
     console.warn("Failed to securely store revision config:", e);
   }
@@ -279,7 +322,9 @@ export function clearRevisionConfig(providerToClear?: string): void {
   if (providerToClear) {
     removeProviderKey(providerToClear);
   }
-  window.dispatchEvent(new CustomEvent("upsc-ai-config-changed", { detail: null }));
+  window.dispatchEvent(
+    new CustomEvent("upsc-ai-config-changed", { detail: null }),
+  );
 }
 
 export function getUpscRevisionSystemPrompt(context?: RevisionContext): string {

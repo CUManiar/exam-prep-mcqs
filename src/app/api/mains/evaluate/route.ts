@@ -1,5 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
-import { buildMainsEvaluationPrompt, MainsEvaluationResult } from "@/lib/mainsEvaluation";
+import {
+  buildMainsEvaluationPrompt,
+  MainsEvaluationResult,
+} from "@/lib/mainsEvaluation";
 import { RevisionProviderConfig } from "@/lib/types";
 
 export const runtime = "nodejs";
@@ -95,7 +98,7 @@ export function formatCleanModelAnswer(
     optionalSubject?: string;
     maxMarks?: number;
     directive?: string;
-  }
+  },
 ): string {
   if (!text || !text.trim()) {
     return "A topper model answer was not provided in this evaluation. You can request a complete model answer in the 'Ask Examiner' tab.";
@@ -110,8 +113,9 @@ export function formatCleanModelAnswer(
     trimmed.includes('"marksAwarded":')
   ) {
     const match =
-      trimmed.match(/"modelAnswer"\s*:\s*"([\s\S]*?)(?:",\s*"[a-zA-Z]+"|"\s*\}|$)/i) ||
-      trimmed.match(/"modelAnswer"\s*:\s*"([\s\S]*)/i);
+      trimmed.match(
+        /"modelAnswer"\s*:\s*"([\s\S]*?)(?:",\s*"[a-zA-Z]+"|"\s*\}|$)/i,
+      ) || trimmed.match(/"modelAnswer"\s*:\s*"([\s\S]*)/i);
     if (match) {
       let clean = match[1];
       clean = clean
@@ -136,7 +140,24 @@ export function formatCleanModelAnswer(
     return "A topper model answer was not provided in this evaluation. You can request a complete model answer in the 'Ask Examiner' tab.";
   }
 
-  return trimmed.replace(/\\n/g, "\n").replace(/\\"/g, '"');
+  let cleaned = trimmed.replace(/\\n/g, "\n").replace(/\\"/g, '"');
+  // Strip meta-commentary headers so it remains strictly a clean model answer
+  cleaned = cleaned
+    .replace(/^#+\s*(?:Topper\s+)?Model\s+Answer[^\n]*\n+/i, "")
+    .replace(/^\*\*(?:Word\s+Count|Words?|Time Limit|Target)[^\n]*\n+/gim, "")
+    .replace(/^\*(?:Word\s+Count|Words?|Time Limit|Target)[^\n]*\n+/gim, "")
+    // Strip artificial Value-Addition Box callouts from model answers
+    .replace(
+      /^>\s*\*{0,2}(?:Topper\s+)?(?:Value[- ]Addition|Value Add|Examiner Note)(?: Box)?\*{0,2}:?[\s\S]*?(?=\n\n\S|\n#{1,6}\s|$)/gim,
+      "",
+    )
+    .replace(
+      /^\*{1,2}(?:Topper\s+)?(?:Value[- ]Addition|Value Add)(?: Box)?\*{1,2}:?[\s\S]*?(?=\n\n\S|\n#{1,6}\s|$)/gim,
+      "",
+    )
+    .trim();
+
+  return cleaned;
 }
 
 function parseJsonFromText(raw: string): any {
@@ -190,13 +211,13 @@ async function discoverGeminiModels(apiKey: string): Promise<string[]> {
   try {
     const listRes = await fetch(
       `https://generativelanguage.googleapis.com/v1beta/models?key=${apiKey}`,
-      { signal: AbortSignal.timeout(8000) }
+      { signal: AbortSignal.timeout(8000) },
     );
     if (listRes.ok) {
       const data = await listRes.json();
       const models = (data.models || [])
         .filter((m: any) =>
-          m.supportedGenerationMethods?.includes("generateContent")
+          m.supportedGenerationMethods?.includes("generateContent"),
         )
         .map((m: any) => m.name.replace(/^models\//, "") as string);
 
@@ -230,17 +251,22 @@ async function discoverGeminiModels(apiKey: string): Promise<string[]> {
 async function callGeminiEvaluation(
   apiKey: string,
   prompt: string,
-  images: Array<{ mimeType: string; data: string }> = []
+  images: Array<{ mimeType: string; data: string }> = [],
 ): Promise<string> {
   const discovered = await discoverGeminiModels(apiKey);
-  const models = discovered.length > 0 ? discovered : ["gemini-1.5-flash", "gemini-2.0-flash"];
+  const models =
+    discovered.length > 0
+      ? discovered
+      : ["gemini-1.5-flash", "gemini-2.0-flash"];
   let lastError = "";
 
   const preparedParts: any[] = [{ text: prompt }];
   for (const img of images) {
     let mime = (img.mimeType || "image/jpeg").toLowerCase().trim();
     if (mime === "image/jpg") mime = "image/jpeg";
-    const cleanData = img.data.replace(/^data:[^;]+;base64,/, "").replace(/\s+/g, "");
+    const cleanData = img.data
+      .replace(/^data:[^;]+;base64,/, "")
+      .replace(/\s+/g, "");
     preparedParts.push({
       inlineData: {
         mimeType: mime,
@@ -280,7 +306,10 @@ async function callGeminiEvaluation(
           const errJson = await res.json().catch(() => ({}));
           lastError = errJson.error?.message || `HTTP ${res.status}`;
           // If responseMimeType is rejected with 400 Bad Request, retry without it
-          if (res.status === 400 && lastError.toLowerCase().includes("responsemimetype")) {
+          if (
+            res.status === 400 &&
+            lastError.toLowerCase().includes("responsemimetype")
+          ) {
             const retryRes = await fetch(url, {
               method: "POST",
               headers: { "Content-Type": "application/json" },
@@ -295,7 +324,8 @@ async function callGeminiEvaluation(
             });
             if (retryRes.ok) {
               const retryData = await retryRes.json();
-              const retryText = retryData.candidates?.[0]?.content?.parts?.[0]?.text || "";
+              const retryText =
+                retryData.candidates?.[0]?.content?.parts?.[0]?.text || "";
               if (retryText) return retryText;
             }
           }
@@ -313,7 +343,7 @@ async function callGeminiEvaluation(
 async function callOpenAIEvaluation(
   apiKey: string,
   prompt: string,
-  images: Array<{ mimeType: string; data: string }> = []
+  images: Array<{ mimeType: string; data: string }> = [],
 ): Promise<string> {
   const models = ["gpt-4o-mini", "gpt-4o"];
   let lastError = "";
@@ -367,7 +397,7 @@ async function callOpenAIEvaluation(
 async function callAnthropicEvaluation(
   apiKey: string,
   prompt: string,
-  images: Array<{ mimeType: string; data: string }> = []
+  images: Array<{ mimeType: string; data: string }> = [],
 ): Promise<string> {
   const models = ["claude-3-5-sonnet-latest", "claude-3-5-haiku-latest"];
   let lastError = "";
@@ -437,14 +467,14 @@ async function callGroqEvaluation(
   apiKey: string,
   prompt: string,
   images: Array<{ mimeType: string; data: string }> = [],
-  answerText: string = ""
+  answerText: string = "",
 ): Promise<string> {
   const isVision = images.length > 0;
 
   // If candidate submitted only images and NO typed text, Groq cannot evaluate it
   if (isVision && !answerText.trim()) {
     throw new Error(
-      "Groq Cloud currently only supports text-based models and does not support image or handwritten OCR. Please select Google Gemini (free at aistudio.google.com) in AI Revision Settings, or type/paste your answer directly in the text tab."
+      "Groq Cloud currently only supports text-based models and does not support image or handwritten OCR. Please select Google Gemini (free at aistudio.google.com) in AI Revision Settings, or type/paste your answer directly in the text tab.",
     );
   }
 
@@ -461,15 +491,18 @@ async function callGroqEvaluation(
         response_format: { type: "json_object" },
       };
 
-      const res = await fetch("https://api.groq.com/openai/v1/chat/completions", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${apiKey}`,
+      const res = await fetch(
+        "https://api.groq.com/openai/v1/chat/completions",
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${apiKey}`,
+          },
+          body: JSON.stringify(payload),
+          signal: AbortSignal.timeout(45000),
         },
-        body: JSON.stringify(payload),
-        signal: AbortSignal.timeout(45000),
-      });
+      );
 
       if (res.ok) {
         const data = await res.json();
@@ -496,7 +529,8 @@ async function callFreeTier(prompt: string): Promise<string> {
       messages: [
         {
           role: "system",
-          content: "You are a senior UPSC CSE Mains examiner. Output ONLY valid JSON according to the schema requested.",
+          content:
+            "You are a senior UPSC CSE Mains examiner. Output ONLY valid JSON according to the schema requested.",
         },
         { role: "user", content: prompt },
       ],
@@ -556,7 +590,7 @@ export async function POST(req: NextRequest) {
             error:
               "Answer text is too short to evaluate (minimum 20 characters required). Please provide your complete answer.",
           },
-          { status: 400 }
+          { status: 400 },
         );
       }
       return NextResponse.json(
@@ -564,7 +598,7 @@ export async function POST(req: NextRequest) {
           error:
             "No answer content found. Please type or paste your written answer, or upload a clear answer sheet photo/PDF.",
         },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
@@ -579,7 +613,7 @@ export async function POST(req: NextRequest) {
           error:
             "Groq Cloud currently only supports text models and does not support image or handwritten OCR. Please select Google Gemini (free at aistudio.google.com) in AI Revision Settings, or type/paste your answer directly in the text tab.",
         },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
@@ -598,16 +632,36 @@ export async function POST(req: NextRequest) {
     if (userApiKey && provider) {
       try {
         if (provider === "gemini") {
-          rawOutput = await callGeminiEvaluation(userApiKey, evaluationPrompt, validImages);
+          rawOutput = await callGeminiEvaluation(
+            userApiKey,
+            evaluationPrompt,
+            validImages,
+          );
         } else if (provider === "openai") {
-          rawOutput = await callOpenAIEvaluation(userApiKey, evaluationPrompt, validImages);
+          rawOutput = await callOpenAIEvaluation(
+            userApiKey,
+            evaluationPrompt,
+            validImages,
+          );
         } else if (provider === "anthropic") {
-          rawOutput = await callAnthropicEvaluation(userApiKey, evaluationPrompt, validImages);
+          rawOutput = await callAnthropicEvaluation(
+            userApiKey,
+            evaluationPrompt,
+            validImages,
+          );
         } else if (provider === "groq") {
-          rawOutput = await callGroqEvaluation(userApiKey, evaluationPrompt, validImages, trimmedAnswer);
+          rawOutput = await callGroqEvaluation(
+            userApiKey,
+            evaluationPrompt,
+            validImages,
+            trimmedAnswer,
+          );
         }
       } catch (err: any) {
-        console.warn(`User-configured ${provider} evaluation failed:`, err?.message);
+        console.warn(
+          `User-configured ${provider} evaluation failed:`,
+          err?.message,
+        );
         if (hasValidImages && !trimmedAnswer) {
           throw err;
         }
@@ -617,7 +671,11 @@ export async function POST(req: NextRequest) {
     // 2. Server-side Gemini Key fallback
     if (!rawOutput && serverGeminiKey) {
       try {
-        rawOutput = await callGeminiEvaluation(serverGeminiKey, evaluationPrompt, validImages);
+        rawOutput = await callGeminiEvaluation(
+          serverGeminiKey,
+          evaluationPrompt,
+          validImages,
+        );
       } catch (err: any) {
         console.warn("Server Gemini evaluation failed:", err?.message);
       }
@@ -631,7 +689,7 @@ export async function POST(req: NextRequest) {
             error:
               "To evaluate handwritten answer sheets or uploaded images/PDFs, please configure a Google Gemini API Key (free at aistudio.google.com) in AI Revision Settings, or type/paste your answer directly in the text tab.",
           },
-          { status: 400 }
+          { status: 400 },
         );
       }
       rawOutput = await callFreeTier(evaluationPrompt);
@@ -644,15 +702,22 @@ export async function POST(req: NextRequest) {
       (typeof parsed.marksAwarded !== "number" &&
         typeof parsed.marks !== "number" &&
         typeof parsed.score !== "number" &&
-        isNaN(parseFloat(String(parsed.marksAwarded || parsed.marks || parsed.score))))
+        isNaN(
+          parseFloat(
+            String(parsed.marksAwarded || parsed.marks || parsed.score),
+          ),
+        ))
     ) {
-      console.warn("Structured JSON parse failed on rawOutput:", rawOutput.slice(0, 300));
+      console.warn(
+        "Structured JSON parse failed on rawOutput:",
+        rawOutput.slice(0, 300),
+      );
       return NextResponse.json(
         {
           error:
             "The AI evaluator returned an unformatted assessment. Please retry the evaluation.",
         },
-        { status: 502 }
+        { status: 502 },
       );
     }
 
@@ -660,10 +725,20 @@ export async function POST(req: NextRequest) {
     const isAnswerMissingOrUnreadable = (data: any): boolean => {
       if (!data) return false;
       const directiveAnalysis = (data.directiveAnalysis || "").toLowerCase();
-      const bodyComment = (data.rubric?.bodyContent?.comment || "").toLowerCase();
-      const introComment = (data.rubric?.introduction?.comment || "").toLowerCase();
-      const weaknesses = (Array.isArray(data.weaknesses) ? data.weaknesses.join(" ") : "").toLowerCase();
-      const missingDims = (Array.isArray(data.missingDimensions) ? data.missingDimensions.join(" ") : "").toLowerCase();
+      const bodyComment = (
+        data.rubric?.bodyContent?.comment || ""
+      ).toLowerCase();
+      const introComment = (
+        data.rubric?.introduction?.comment || ""
+      ).toLowerCase();
+      const weaknesses = (
+        Array.isArray(data.weaknesses) ? data.weaknesses.join(" ") : ""
+      ).toLowerCase();
+      const missingDims = (
+        Array.isArray(data.missingDimensions)
+          ? data.missingDimensions.join(" ")
+          : ""
+      ).toLowerCase();
 
       const missingKeywords = [
         "answer text is missing",
@@ -685,20 +760,26 @@ export async function POST(req: NextRequest) {
           bodyComment.includes(kw) ||
           introComment.includes(kw) ||
           weaknesses.includes(kw) ||
-          missingDims.includes(kw)
+          missingDims.includes(kw),
       );
 
-      const bodyScore = Number(data.dimensions?.content?.score ?? data.rubric?.bodyContent?.score ?? 0);
+      const bodyScore = Number(
+        data.dimensions?.content?.score ?? data.rubric?.bodyContent?.score ?? 0,
+      );
       return matchesKeyword && bodyScore <= 1.0;
     };
 
-    if (hasValidImages && !trimmedAnswer && isAnswerMissingOrUnreadable(parsed)) {
+    if (
+      hasValidImages &&
+      !trimmedAnswer &&
+      isAnswerMissingOrUnreadable(parsed)
+    ) {
       return NextResponse.json(
         {
           error:
             "The AI evaluator could not detect or read any handwritten answer from your uploaded file. Please ensure the image is clear and well-lit, or type/paste your answer directly in the text tab.",
         },
-        { status: 422 }
+        { status: 422 },
       );
     }
 
@@ -710,18 +791,58 @@ export async function POST(req: NextRequest) {
     const marksNum =
       typeof parsed.marksAwarded === "number"
         ? parsed.marksAwarded
-        : parseFloat(String(parsed.marksAwarded || parsed.marks || parsed.score || 0));
-    const safeMarks = isNaN(marksNum) ? 0 : Math.min(Math.max(marksNum, 0), maxMarks);
+        : parseFloat(
+            String(parsed.marksAwarded || parsed.marks || parsed.score || 0),
+          );
+    const safeMarks = isNaN(marksNum)
+      ? 0
+      : Math.min(Math.max(marksNum, 0), maxMarks);
 
     // Honest scoring: do not inflate 0 marks or invent random numbers
     const finalMarks = safeMarks;
     const targetWordCount = maxMarks === 10 ? 150 : maxMarks === 15 ? 250 : 300;
     const timeLimitMinutes = maxMarks === 10 ? 7 : maxMarks === 15 ? 11 : 20;
-    const actualWordCount = trimmedAnswer ? trimmedAnswer.split(/\s+/).length : 0;
+
+    const transcribedText =
+      typeof parsed.transcribedAnswer === "string" &&
+      parsed.transcribedAnswer.trim().length > 10 &&
+      !parsed.transcribedAnswer.startsWith("Clean verbatim or faithful")
+        ? parsed.transcribedAnswer.trim()
+        : "";
+
+    let actualWordCount = 0;
+    if (trimmedAnswer) {
+      actualWordCount = trimmedAnswer
+        .trim()
+        .split(/\s+/)
+        .filter(Boolean).length;
+    } else if (
+      typeof parsed.actualWordCount === "number" &&
+      parsed.actualWordCount > 0
+    ) {
+      actualWordCount = parsed.actualWordCount;
+    } else if (transcribedText) {
+      actualWordCount = transcribedText.split(/\s+/).filter(Boolean).length;
+    } else if (
+      Array.isArray(parsed.markedCopy) &&
+      parsed.markedCopy.length > 0
+    ) {
+      // Estimate based on the quotes extracted by examiner from the student copy
+      const quoteWords = parsed.markedCopy
+        .map(
+          (m: any) =>
+            (m.quote || "").trim().split(/\s+/).filter(Boolean).length,
+        )
+        .reduce((sum: number, count: number) => sum + count, 0);
+      actualWordCount = Math.max(quoteWords, Math.round(targetWordCount * 0.9));
+    }
     const percentage = Math.round((finalMarks / maxMarks) * 100);
 
     // Compute 4 Core Dimensions (/10 each)
-    const baseDimScore = Math.min(10, Math.max(0, Math.round((finalMarks / maxMarks) * 10 * 10) / 10));
+    const baseDimScore = Math.min(
+      10,
+      Math.max(0, Math.round((finalMarks / maxMarks) * 10 * 10) / 10),
+    );
 
     const parseDim = (dim: any, fallbackComment: string) => {
       const score =
@@ -733,26 +854,31 @@ export async function POST(req: NextRequest) {
       return {
         score,
         max: 10,
-        comment: typeof dim?.comment === "string" && dim.comment.trim() ? dim.comment.trim() : fallbackComment,
+        comment:
+          typeof dim?.comment === "string" && dim.comment.trim()
+            ? dim.comment.trim()
+            : fallbackComment,
       };
     };
 
     const dimensions = {
       demand: parseDim(
         parsed.dimensions?.demand,
-        parsed.directiveAnalysis || "Demand and sub-parts compliance."
+        parsed.directiveAnalysis || "Demand and sub-parts compliance.",
       ),
       content: parseDim(
         parsed.dimensions?.content,
-        parsed.rubric?.bodyContent?.comment || "Content depth, empirical evidence, and authentic citations."
+        parsed.rubric?.bodyContent?.comment ||
+          "Content depth, empirical evidence, and authentic citations.",
       ),
       structure: parseDim(
         parsed.dimensions?.structure,
-        parsed.rubric?.structurePresentation?.comment || "Intro, keyword headings, numbered points, and synthesis."
+        parsed.rubric?.structurePresentation?.comment ||
+          "Intro, keyword headings, numbered points, and synthesis.",
       ),
       presentation: parseDim(
         parsed.dimensions?.presentation,
-        `Word limit compliance and ${timeLimitMinutes}-minute time writability.`
+        `Word limit compliance and ${timeLimitMinutes}-minute time writability.`,
       ),
     };
 
@@ -762,9 +888,12 @@ export async function POST(req: NextRequest) {
           .map((item: any) => {
             const quote = String(item.quote || "").trim();
             const note = String(item.note || "").trim();
-            let rawType = String(item.type || "").toLowerCase().trim();
+            let rawType = String(item.type || "")
+              .toLowerCase()
+              .trim();
 
-            let inferredType: "correct" | "incorrect" | "flawed" | "verify" = "flawed";
+            let inferredType: "correct" | "incorrect" | "flawed" | "verify" =
+              "flawed";
             if (
               rawType.includes("correct") ||
               rawType.includes("accurate") ||
@@ -797,7 +926,11 @@ export async function POST(req: NextRequest) {
               inferredType = "flawed";
             } else {
               const noteLower = note.toLowerCase();
-              if (note.includes("⚠️") || noteLower.includes("verify") || noteLower.includes("unverified")) {
+              if (
+                note.includes("⚠️") ||
+                noteLower.includes("verify") ||
+                noteLower.includes("unverified")
+              ) {
                 inferredType = "verify";
               } else if (
                 noteLower.includes("wrong") ||
@@ -835,11 +968,15 @@ export async function POST(req: NextRequest) {
       : [];
 
     const missingDimensions = Array.isArray(parsed.missingDimensions)
-      ? parsed.missingDimensions.map((m: any) => String(m).trim()).filter(Boolean)
+      ? parsed.missingDimensions
+          .map((m: any) => String(m).trim())
+          .filter(Boolean)
       : [];
 
     const actionableRoadmap = Array.isArray(parsed.actionableRoadmap)
-      ? parsed.actionableRoadmap.map((a: any) => String(a).trim()).filter(Boolean)
+      ? parsed.actionableRoadmap
+          .map((a: any) => String(a).trim())
+          .filter(Boolean)
       : [];
 
     const sanitizeDiagramIdea = (rawDiagram: any): string | undefined => {
@@ -857,7 +994,11 @@ export async function POST(req: NextRequest) {
         return undefined;
       }
       const lines = trimmed.split("\n").filter((l) => l.trim().length > 0);
-      if (lines.length <= 1 && trimmed.length < 50 && (trimmed.includes("-->") || trimmed.includes("->"))) {
+      if (
+        lines.length <= 1 &&
+        trimmed.length < 50 &&
+        (trimmed.includes("-->") || trimmed.includes("->"))
+      ) {
         return undefined;
       }
       if (
@@ -882,7 +1023,13 @@ export async function POST(req: NextRequest) {
     const result: MainsEvaluationResult = {
       id: `eval_${Date.now()}`,
       question: resolvedQuestion,
-      studentAnswer: trimmedAnswer || (hasValidImages ? "(Answer submitted via uploaded document/images)" : ""),
+      studentAnswer:
+        trimmedAnswer ||
+        transcribedText ||
+        (hasValidImages
+          ? "(Answer submitted via uploaded document/images)"
+          : ""),
+      transcribedAnswer: transcribedText || undefined,
       paperType,
       optionalSubject: optionalSubject?.trim() || undefined,
       maxMarks,
@@ -891,21 +1038,43 @@ export async function POST(req: NextRequest) {
       timeLimitMinutes,
       marksAwarded: finalMarks,
       percentage,
-      verdict: parsed.verdict || (percentage >= 50 ? "Topper Tier" : percentage >= 35 ? "Average Attempt" : "Below Average"),
+      verdict:
+        parsed.verdict ||
+        (percentage >= 50
+          ? "Topper Tier"
+          : percentage >= 35
+            ? "Average Attempt"
+            : "Below Average"),
       directive: parsed.directive || "General",
       directiveAnalysis: parsed.directiveAnalysis || "",
       dimensions,
       markedCopy,
       rubric: {
-        introduction: parsed.rubric?.introduction || { score: 0, max: maxMarks === 10 ? 2 : 3, comment: "" },
+        introduction: parsed.rubric?.introduction || {
+          score: 0,
+          max: maxMarks === 10 ? 2 : 3,
+          comment: "",
+        },
         bodyContent: {
           score: bodyScore,
           max: parsed.rubric?.bodyContent?.max || (maxMarks === 10 ? 4.5 : 6.5),
           comment: parsed.rubric?.bodyContent?.comment || "",
         },
-        structurePresentation: parsed.rubric?.structurePresentation || { score: 0, max: 1.5, comment: "" },
-        valueAddition: parsed.rubric?.valueAddition || { score: 0, max: 1.5, comment: "" },
-        conclusion: parsed.rubric?.conclusion || { score: 0, max: maxMarks === 10 ? 1.5 : 2.5, comment: "" },
+        structurePresentation: parsed.rubric?.structurePresentation || {
+          score: 0,
+          max: 1.5,
+          comment: "",
+        },
+        valueAddition: parsed.rubric?.valueAddition || {
+          score: 0,
+          max: 1.5,
+          comment: "",
+        },
+        conclusion: parsed.rubric?.conclusion || {
+          score: 0,
+          max: maxMarks === 10 ? 1.5 : 2.5,
+          comment: "",
+        },
       },
       strengths,
       weaknesses,
@@ -919,6 +1088,7 @@ export async function POST(req: NextRequest) {
         maxMarks,
         directive: parsed.directive || "Examine",
       }),
+      approachBreakdown: parsed.approachBreakdown || undefined,
       evaluatedAt: new Date().toISOString(),
     };
 
@@ -926,8 +1096,10 @@ export async function POST(req: NextRequest) {
   } catch (err: any) {
     console.error("Mains evaluation error:", err);
     return NextResponse.json(
-      { error: err?.message || "Failed to evaluate Mains answer. Please retry." },
-      { status: 500 }
+      {
+        error: err?.message || "Failed to evaluate Mains answer. Please retry.",
+      },
+      { status: 500 },
     );
   }
 }

@@ -500,11 +500,11 @@ export async function getAllPapers(
               ? serverPaper.explanations
               : cp.explanations || {},
           parsedQuestions:
-            serverPaper.parsedQuestions && serverPaper.parsedQuestions.length > 0
+            serverPaper.parsedQuestions &&
+            serverPaper.parsedQuestions.length > 0
               ? serverPaper.parsedQuestions
               : cp.parsedQuestions,
-          markdownContent:
-            serverPaper.markdownContent || cp.markdownContent,
+          markdownContent: serverPaper.markdownContent || cp.markdownContent,
           instructions:
             serverPaper.instructions && serverPaper.instructions.length > 0
               ? serverPaper.instructions

@@ -60,7 +60,9 @@ export function MarkdownPaperReviewViewer({
 }: MarkdownPaperReviewViewerProps) {
   const router = useRouter();
   const scrollContainerRef = useRef<HTMLDivElement>(null);
-  const [internalViewMode, setInternalViewMode] = useState<"all" | "single">("single");
+  const [internalViewMode, setInternalViewMode] = useState<"all" | "single">(
+    "single",
+  );
   const viewMode = propViewMode ?? internalViewMode;
   const setViewMode = (mode: "all" | "single") => {
     setInternalViewMode(mode);
@@ -155,8 +157,8 @@ export function MarkdownPaperReviewViewer({
   const skippedCount = questions.filter(
     (q) => !answers[q.questionNo]?.selected?.trim(),
   ).length;
-  const flaggedCount = questions.filter(
-    (q) => Boolean(answers[q.questionNo]?.flagged),
+  const flaggedCount = questions.filter((q) =>
+    Boolean(answers[q.questionNo]?.flagged),
   ).length;
 
   // Auto-scroll to selected question inside the paper container only (never scrolling the window)
@@ -216,7 +218,10 @@ export function MarkdownPaperReviewViewer({
       } else if (key === "ArrowUp") {
         if (scrollContainerRef.current) {
           e.preventDefault();
-          scrollContainerRef.current.scrollBy({ top: -120, behavior: "smooth" });
+          scrollContainerRef.current.scrollBy({
+            top: -120,
+            behavior: "smooth",
+          });
         }
       }
     };
@@ -243,7 +248,8 @@ export function MarkdownPaperReviewViewer({
             {displayTitle}
           </span>
           <span className="text-[11px] text-slate-400 font-normal">
-            · {questions.length} questions
+            · {questions.length}{" "}
+            {questions.length === 1 ? "question" : "questions"}
           </span>
         </div>
 
@@ -510,7 +516,9 @@ export function MarkdownPaperReviewViewer({
                         <XCircle className="h-3 w-3 text-rose-600" />
                         <span>
                           Incorrect · -{incorrectMarksValue}
-                          {userSelected && !isCloze ? ` · Picked ${userSelected}` : ""}
+                          {userSelected && !isCloze
+                            ? ` · Picked ${userSelected}`
+                            : ""}
                         </span>
                       </span>
                     ) : isCloze && isAnswered ? (
@@ -528,7 +536,9 @@ export function MarkdownPaperReviewViewer({
                     {(q.previousYears || ans?.previousYears) && (
                       <span className="inline-flex items-center gap-1 text-[11px] font-bold text-amber-800 bg-amber-50 border border-amber-200 px-2 py-0.5 rounded-full shadow-2xs">
                         <History className="h-3 w-3 text-amber-600" />
-                        <span>PYQ: {q.previousYears || ans?.previousYears}</span>
+                        <span>
+                          PYQ: {q.previousYears || ans?.previousYears}
+                        </span>
                       </span>
                     )}
 
@@ -713,7 +723,6 @@ export function MarkdownPaperReviewViewer({
             );
           })
         )}
-
       </div>
 
       {/* Sticky Bottom Navigator - hovering and docked at bottom while card scrolls freely behind */}

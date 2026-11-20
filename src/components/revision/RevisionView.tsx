@@ -749,8 +749,8 @@ export function RevisionView() {
                   Revision workspace
                 </h1>
                 <p className="text-[11px] text-slate-500 dark:text-slate-400 hidden sm:block">
-                  Syllabus-focused study, landmark SC judgements, PIB updates, and
-                  question dissection.
+                  Syllabus-focused study, landmark SC judgements, PIB updates,
+                  and question dissection.
                 </p>
               </div>
             </div>
@@ -765,7 +765,9 @@ export function RevisionView() {
               >
                 <span
                   className={`h-2 w-2 rounded-full shrink-0 ${
-                    config?.apiKey ? "bg-emerald-500 animate-pulse" : "bg-amber-500"
+                    config?.apiKey
+                      ? "bg-emerald-500 animate-pulse"
+                      : "bg-amber-500"
                   }`}
                 />
                 <span className="text-[11px] font-semibold">
@@ -901,7 +903,8 @@ export function RevisionView() {
         {mode === "paper" && (
           <div className="shrink-0 px-3 sm:px-6 py-2 bg-slate-50 dark:bg-slate-950/60 border-b border-slate-200 dark:border-slate-800 flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-2.5 text-xs">
             <span className="text-slate-600 dark:text-slate-300 font-semibold flex items-center gap-1.5 shrink-0">
-              <Paperclip className="h-4 w-4 text-indigo-500" /> Select Paper & Question:
+              <Paperclip className="h-4 w-4 text-indigo-500" /> Select Paper &
+              Question:
             </span>
 
             <div className="flex flex-col sm:flex-row sm:items-center gap-2 flex-1 min-w-0">
@@ -921,24 +924,25 @@ export function RevisionView() {
                 ))}
               </select>
 
-              {activePaper && (activePaper.parsedQuestions?.length ?? 0) > 0 && (
-                <select
-                  value={selectedQuestionNo || ""}
-                  onChange={(e) =>
-                    setSelectedQuestionNo(
-                      e.target.value ? Number(e.target.value) : null,
-                    )
-                  }
-                  className="px-3 py-1.5 text-xs rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white font-medium w-full sm:w-auto sm:max-w-[280px] max-w-full"
-                >
-                  <option value="">All Paper Questions (General)</option>
-                  {activePaper.parsedQuestions?.map((q) => (
-                    <option key={q.questionNo} value={q.questionNo}>
-                      Q#{q.questionNo}: {q.text.slice(0, 48)}...
-                    </option>
-                  ))}
-                </select>
-              )}
+              {activePaper &&
+                (activePaper.parsedQuestions?.length ?? 0) > 0 && (
+                  <select
+                    value={selectedQuestionNo || ""}
+                    onChange={(e) =>
+                      setSelectedQuestionNo(
+                        e.target.value ? Number(e.target.value) : null,
+                      )
+                    }
+                    className="px-3 py-1.5 text-xs rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white font-medium w-full sm:w-auto sm:max-w-[280px] max-w-full"
+                  >
+                    <option value="">All Paper Questions (General)</option>
+                    {activePaper.parsedQuestions?.map((q) => (
+                      <option key={q.questionNo} value={q.questionNo}>
+                        Q#{q.questionNo}: {q.text.slice(0, 48)}...
+                      </option>
+                    ))}
+                  </select>
+                )}
 
               {activeQuestion && (
                 <span className="text-[11px] text-indigo-600 dark:text-indigo-400 font-semibold bg-indigo-50 dark:bg-indigo-950/60 px-2.5 py-1 rounded-md border border-indigo-100 dark:border-indigo-900 self-start sm:self-auto shrink-0">
@@ -971,7 +975,8 @@ export function RevisionView() {
                 </select>
               ) : (
                 <span className="text-slate-500 italic text-[11px]">
-                  No syllabus outline saved yet. Go to Syllabus tab to paste an outline.
+                  No syllabus outline saved yet. Go to Syllabus tab to paste an
+                  outline.
                 </span>
               )}
 
@@ -1242,7 +1247,9 @@ export function RevisionView() {
 
             <div className="flex items-center justify-between gap-2">
               <div className="text-[11px] text-slate-500 dark:text-slate-400 flex items-center gap-1.5 min-w-0">
-                <span className="hidden sm:inline">Press Enter to send, Shift+Enter for newline</span>
+                <span className="hidden sm:inline">
+                  Press Enter to send, Shift+Enter for newline
+                </span>
                 {mode === "syllabus" && selectedTopic && (
                   <span className="inline-flex items-center gap-1.5 text-[10px] sm:text-[11px] bg-indigo-50 dark:bg-indigo-950/60 border border-indigo-200 dark:border-indigo-800 px-2 py-0.5 rounded text-indigo-700 dark:text-indigo-300 font-medium truncate max-w-[200px] sm:max-w-none">
                     <span className="truncate">Topic: {selectedTopic}</span>

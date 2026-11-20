@@ -147,8 +147,7 @@ export function generateAttemptSummaryMarkdown(attempt: Attempt): string {
   const defaultIncorrect = isCsatPaper(null, attempt) ? 0.833 : 0.667;
   const correctMarksPerQ = attempt.correctMarks || defaultCorrect;
   const incorrectMarksPerQ =
-    attempt.incorrectMarks !== undefined &&
-    Number(attempt.incorrectMarks) >= 0
+    attempt.incorrectMarks !== undefined && Number(attempt.incorrectMarks) >= 0
       ? Number(attempt.incorrectMarks)
       : defaultIncorrect;
   const grossMarks = ((attempt.correct || 0) * correctMarksPerQ).toFixed(2);
@@ -403,8 +402,7 @@ export function generateAttemptReportMarkdown(attempt: Attempt): string {
   const defaultIncorrect = isCsatPaper(null, attempt) ? 0.833 : 0.667;
   const correctMarksPerQ = attempt.correctMarks || defaultCorrect;
   const incorrectMarksPerQ =
-    attempt.incorrectMarks !== undefined &&
-    Number(attempt.incorrectMarks) >= 0
+    attempt.incorrectMarks !== undefined && Number(attempt.incorrectMarks) >= 0
       ? Number(attempt.incorrectMarks)
       : defaultIncorrect;
 
@@ -492,8 +490,7 @@ export function exportAttemptAsPrintPDF(
   const defaultIncorrect = isCsatPaper(null, attempt) ? 0.833 : 0.667;
   const correctMarksPerQ = attempt.correctMarks || defaultCorrect;
   const incorrectMarksPerQ =
-    attempt.incorrectMarks !== undefined &&
-    Number(attempt.incorrectMarks) >= 0
+    attempt.incorrectMarks !== undefined && Number(attempt.incorrectMarks) >= 0
       ? Number(attempt.incorrectMarks)
       : defaultIncorrect;
   const grossCorrectMarks =

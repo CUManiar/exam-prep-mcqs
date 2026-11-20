@@ -26,9 +26,7 @@ import {
   EMPTY_FILTER_STATE,
   isFilterActive,
 } from "./reviewTypes";
-import {
-  SUBJECTIVE_ASSESSMENT_META,
-} from "../../lib/defaults";
+import { SUBJECTIVE_ASSESSMENT_META } from "../../lib/defaults";
 import { BarChart3, Columns, RotateCcw } from "lucide-react";
 
 interface AttemptReviewViewProps {
@@ -115,7 +113,9 @@ export function AttemptReviewView({
   const [sortOption, setSortOption] = useState<SortOptionType>("qno_asc");
   const [activeQuestionNo, setActiveQuestionNo] = useState<number>(1);
   const [showPaperSplit, setShowPaperSplit] = useState<boolean>(true);
-  const [reviewViewMode, setReviewViewMode] = useState<"all" | "single">("single");
+  const [reviewViewMode, setReviewViewMode] = useState<"all" | "single">(
+    "single",
+  );
   const [activeMobileView, setActiveMobileView] = useState<"review" | "score">(
     "review",
   );
@@ -177,15 +177,19 @@ export function AttemptReviewView({
 
     if (penaltyMismatch || hasCorruptPartial) {
       const correctMarksPerQ =
-        matchedPaper.correctMarks !== undefined && Number(matchedPaper.correctMarks) > 0
+        matchedPaper.correctMarks !== undefined &&
+        Number(matchedPaper.correctMarks) > 0
           ? Number(matchedPaper.correctMarks)
-          : attempt.correctMarks ?? 2.0;
+          : (attempt.correctMarks ?? 2.0);
       const incorrectMarksPerQ = targetIncorrect ?? attempt.incorrectMarks ?? 0;
 
       const updatedAnswers = { ...attempt.answers };
       if (hasCorruptPartial) {
         for (const [key, ans] of Object.entries(updatedAnswers)) {
-          if (ans.subjectiveAssessment === "partial" && ans.isCorrect !== null) {
+          if (
+            ans.subjectiveAssessment === "partial" &&
+            ans.isCorrect !== null
+          ) {
             updatedAnswers[Number(key)] = {
               ...ans,
               isCorrect: null,
@@ -330,13 +334,44 @@ export function AttemptReviewView({
     }
   };
 
+  const handleChangeLogic = (logic: "AND" | "OR") => {
+    setFilters((prev) => {
+      const next = { ...prev, logic };
+      syncActiveQuestionToMatches(getFilteredQuestions(next, sortOption));
+      return next;
+    });
+  };
+
   const handleToggleOutcome = (
     outcome: "incorrect" | "correct" | "skipped" | "partial",
   ) => {
     setFilters((prev) => {
+      const currentOutcomes =
+        prev.outcomes && prev.outcomes.length > 0
+          ? prev.outcomes
+          : prev.outcome
+            ? [prev.outcome]
+            : [];
+      let nextOutcomes: ("incorrect" | "correct" | "skipped" | "partial")[];
+
+      if (prev.logic === "OR") {
+        if (currentOutcomes.includes(outcome)) {
+          nextOutcomes = currentOutcomes.filter((o) => o !== outcome);
+        } else {
+          nextOutcomes = [...currentOutcomes, outcome];
+        }
+      } else {
+        if (currentOutcomes.includes(outcome)) {
+          nextOutcomes = [];
+        } else {
+          nextOutcomes = [outcome];
+        }
+      }
+
       const next = {
         ...prev,
-        outcome: prev.outcome === outcome ? null : outcome,
+        outcome: nextOutcomes[0] || null,
+        outcomes: nextOutcomes,
       };
       syncActiveQuestionToMatches(getFilteredQuestions(next, sortOption));
       return next;
@@ -345,9 +380,32 @@ export function AttemptReviewView({
 
   const handleToggleConfidence = (confidence: "sure" | "50-50" | "guess") => {
     setFilters((prev) => {
+      const currentConfidences =
+        prev.confidences && prev.confidences.length > 0
+          ? prev.confidences
+          : prev.confidence
+            ? [prev.confidence]
+            : [];
+      let nextConfidences: ("sure" | "50-50" | "guess" | "elimination")[];
+
+      if (prev.logic === "OR") {
+        if (currentConfidences.includes(confidence)) {
+          nextConfidences = currentConfidences.filter((c) => c !== confidence);
+        } else {
+          nextConfidences = [...currentConfidences, confidence];
+        }
+      } else {
+        if (currentConfidences.includes(confidence)) {
+          nextConfidences = [];
+        } else {
+          nextConfidences = [confidence];
+        }
+      }
+
       const next = {
         ...prev,
-        confidence: prev.confidence === confidence ? null : confidence,
+        confidence: (nextConfidences[0] as "sure" | "50-50" | "guess") || null,
+        confidences: nextConfidences,
       };
       syncActiveQuestionToMatches(getFilteredQuestions(next, sortOption));
       return next;
@@ -558,13 +616,16 @@ export function AttemptReviewView({
     subjectiveMarks?: number,
   ) => {
     const correctMarksPerQ =
-      matchedPaper?.correctMarks !== undefined && Number(matchedPaper.correctMarks) > 0
+      matchedPaper?.correctMarks !== undefined &&
+      Number(matchedPaper.correctMarks) > 0
         ? Number(matchedPaper.correctMarks)
-        : attempt.correctMarks ?? 2.0;
+        : (attempt.correctMarks ?? 2.0);
     const incorrectMarksPerQ =
-      matchedPaper?.incorrectMarks !== undefined && Number(matchedPaper.incorrectMarks) >= 0
+      matchedPaper?.incorrectMarks !== undefined &&
+      Number(matchedPaper.incorrectMarks) >= 0
         ? Number(matchedPaper.incorrectMarks)
-        : attempt.incorrectMarks !== undefined && Number(attempt.incorrectMarks) >= 0
+        : attempt.incorrectMarks !== undefined &&
+            Number(attempt.incorrectMarks) >= 0
           ? Number(attempt.incorrectMarks)
           : 0.667;
     const updatedAnswers = { ...attempt.answers };
@@ -713,7 +774,9 @@ export function AttemptReviewView({
               {currentAttemptIndex >= 0 ? currentAttemptIndex + 1 : "?"}
             </span>
             <span className="text-xs font-semibold text-slate-800 truncate">
-              <span className="hidden sm:inline">Attempt </span>#{currentAttemptIndex >= 0 ? currentAttemptIndex + 1 : 1} of {totalRelatedAttempts}
+              <span className="hidden sm:inline">Attempt </span>#
+              {currentAttemptIndex >= 0 ? currentAttemptIndex + 1 : 1} of{" "}
+              {totalRelatedAttempts}
             </span>
           </div>
 
@@ -778,7 +841,8 @@ export function AttemptReviewView({
           >
             <BarChart3 className="h-3.5 w-3.5" />
             <span>
-              Scorecard ({formatReviewNumber(attempt.score)}/{effectiveMaxScore})
+              Scorecard ({formatReviewNumber(attempt.score)}/{effectiveMaxScore}
+              )
             </span>
           </button>
         </div>
@@ -823,6 +887,7 @@ export function AttemptReviewView({
                 sortOption={sortOption}
                 onChangeSort={handleSortChange}
                 filteredCount={filteredQuestions.length}
+                onChangeLogic={handleChangeLogic}
               />
             </div>
 

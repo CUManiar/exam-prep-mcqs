@@ -148,41 +148,124 @@ async function discoverAnthropicModels(apiKey: string): Promise<string[]> {
   ];
 }
 
-/** Low-level caller for Gemini */
-async function callGeminiRaw(apiKey: string, prompt: string): Promise<string> {
-  const models = ["gemini-2.0-flash", "gemini-1.5-flash", "gemini-1.5-pro"];
-  let lastError = "";
+/** Dynamically discover active models from a Gemini key */
+async function discoverGeminiModels(apiKey: string): Promise<string[]> {
+  try {
+    const listRes = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models?key=${apiKey}`,
+      { signal: AbortSignal.timeout(10000) },
+    );
+    if (listRes.ok) {
+      const data = await listRes.json();
+      const models = (data.models || [])
+        .filter((m: any) =>
+          m.supportedGenerationMethods?.includes("generateContent"),
+        )
+        .map((m: any) => m.name.replace(/^models\//, "") as string);
 
-  for (const model of models) {
-    try {
-      const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
-      const res = await fetch(url, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          contents: [{ role: "user", parts: [{ text: prompt }] }],
-          generationConfig: {
-            temperature: 0.4,
-            maxOutputTokens: 1000,
-            responseMimeType: "application/json",
-          },
-        }),
-        signal: AbortSignal.timeout(20000),
+      models.sort((a, b) => {
+        const score = (id: string) => {
+          let s = 0;
+          if (id.includes("2.0-flash")) s += 20;
+          if (id.includes("1.5-flash")) s += 10;
+          if (id.includes("flash")) s += 5;
+          return s;
+        };
+        return score(b) - score(a);
       });
 
-      if (res.ok) {
-        const data = await res.json();
-        const text = data.candidates?.[0]?.content?.parts?.[0]?.text || "";
-        if (text.trim()) return text;
-      } else {
-        const errJson = await res.json().catch(() => ({}));
-        lastError = errJson.error?.message || `HTTP ${res.status}`;
+      if (models.length > 0) return models;
+    }
+  } catch (e: any) {
+    console.warn("Gemini model discovery failed:", e?.message);
+  }
+  return ["gemini-1.5-flash", "gemini-2.0-flash", "gemini-1.5-pro"];
+}
+
+/** Low-level caller for Gemini */
+async function callGeminiRaw(
+  apiKey: string,
+  prompt: string,
+  temperature: number = 0.4,
+): Promise<string> {
+  const discovered = await discoverGeminiModels(apiKey);
+  const candidateModels = Array.from(
+    new Set([
+      ...discovered,
+      "gemini-1.5-flash",
+      "gemini-2.0-flash",
+      "gemini-1.5-pro",
+    ]),
+  );
+
+  let lastError = "";
+
+  for (const rawModel of candidateModels.slice(0, 4)) {
+    const cleanModel = rawModel.replace(/^models\//, "");
+    const endpoints = [
+      `https://generativelanguage.googleapis.com/v1beta/models/${cleanModel}:generateContent?key=${apiKey}`,
+      `https://generativelanguage.googleapis.com/v1/models/${cleanModel}:generateContent?key=${apiKey}`,
+    ];
+
+    for (const url of endpoints) {
+      try {
+        const res = await fetch(url, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            contents: [{ role: "user", parts: [{ text: prompt }] }],
+            generationConfig: {
+              temperature,
+              maxOutputTokens: 1000,
+              responseMimeType: "application/json",
+            },
+          }),
+          signal: AbortSignal.timeout(30000),
+        });
+
+        if (res.ok) {
+          const data = await res.json();
+          const text = data.candidates?.[0]?.content?.parts?.[0]?.text || "";
+          if (text.trim()) return text;
+        } else {
+          const errJson = await res.json().catch(() => ({}));
+          lastError = errJson.error?.message || `HTTP ${res.status}`;
+
+          // If responseMimeType is rejected with 400 Bad Request, retry without it
+          if (
+            res.status === 400 &&
+            (lastError.toLowerCase().includes("responsemimetype") ||
+              lastError.toLowerCase().includes("json"))
+          ) {
+            const retryRes = await fetch(url, {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                contents: [{ role: "user", parts: [{ text: prompt }] }],
+                generationConfig: {
+                  temperature,
+                  maxOutputTokens: 1000,
+                },
+              }),
+              signal: AbortSignal.timeout(30000),
+            });
+            if (retryRes.ok) {
+              const retryData = await retryRes.json();
+              const retryText =
+                retryData.candidates?.[0]?.content?.parts?.[0]?.text || "";
+              if (retryText.trim()) return retryText;
+            }
+          }
+        }
+      } catch (e: any) {
+        lastError = e?.message || "Gemini connection error";
       }
-    } catch (e: any) {
-      lastError = e?.message || "Gemini connection error";
     }
   }
-  throw new Error(lastError || "Gemini failed to respond");
+
+  throw new Error(
+    `Google Gemini Error: ${lastError || "Failed to generate response"}`,
+  );
 }
 
 /** Low-level caller for OpenAI-compatible providers (Groq, OpenAI) with candidate model fallback */
@@ -191,6 +274,7 @@ async function callOpenAICompatibleWithFallback(
   apiKey: string,
   candidateModels: string[],
   prompt: string,
+  temperature: number = 0.4,
 ): Promise<string> {
   let lastError = "";
 
@@ -206,7 +290,7 @@ async function callOpenAICompatibleWithFallback(
         body: JSON.stringify({
           model,
           messages: [{ role: "user", content: prompt }],
-          temperature: 0.4,
+          temperature,
           max_tokens: 1000,
           response_format: { type: "json_object" },
         }),
@@ -234,7 +318,7 @@ async function callOpenAICompatibleWithFallback(
             body: JSON.stringify({
               model,
               messages: [{ role: "user", content: prompt }],
-              temperature: 0.4,
+              temperature,
               max_tokens: 1000,
             }),
             signal: AbortSignal.timeout(20000),
@@ -264,6 +348,7 @@ async function callAnthropicRaw(
   apiKey: string,
   candidateModels: string[],
   prompt: string,
+  temperature: number = 0.4,
 ): Promise<string> {
   let lastError = "";
   for (const model of candidateModels.slice(0, 3)) {
@@ -279,7 +364,7 @@ async function callAnthropicRaw(
           model,
           messages: [{ role: "user", content: prompt }],
           max_tokens: 1000,
-          temperature: 0.4,
+          temperature,
         }),
         signal: AbortSignal.timeout(25000),
       });
@@ -300,7 +385,10 @@ async function callAnthropicRaw(
 }
 
 /** Free Pollinations fallback */
-async function callFreePollinations(prompt: string): Promise<string> {
+async function callFreePollinations(
+  prompt: string,
+  temperature: number = 0.4,
+): Promise<string> {
   const res = await fetch("https://text.pollinations.ai/", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -314,7 +402,7 @@ async function callFreePollinations(prompt: string): Promise<string> {
         { role: "user", content: prompt },
       ],
       model: "openai-fast",
-      temperature: 0.3,
+      temperature,
     }),
     signal: AbortSignal.timeout(45000),
   });
@@ -329,89 +417,98 @@ async function callFreePollinations(prompt: string): Promise<string> {
 async function executePrompt(
   prompt: string,
   providerConfig?: RevisionProviderConfig | null,
+  temperature: number = 0.4,
 ): Promise<string> {
   const userApiKey = providerConfig?.apiKey?.trim();
   const provider = providerConfig?.provider;
 
-  // 1. Try user-configured provider first
+  // 1. If user has a configured provider with an API key, use it directly.
+  // DO NOT fall back to free/busy AI if the user's connected provider is set!
   if (userApiKey && provider) {
-    try {
-      if (provider === "gemini") {
-        return await callGeminiRaw(userApiKey, prompt);
-      }
-      if (provider === "groq") {
-        const discovered = await discoverGroqModels(userApiKey);
-        const candidates = Array.from(
-          new Set(
-            [
-              providerConfig?.model,
-              ...discovered,
-              "llama-3.1-8b-instant",
-              "llama-3.3-70b-versatile",
-              "mixtral-8x7b-32768",
-              "gemma2-9b-it",
-            ].filter(Boolean) as string[],
-          ),
-        );
-        return await callOpenAICompatibleWithFallback(
-          "https://api.groq.com/openai/v1",
-          userApiKey,
-          candidates,
-          prompt,
-        );
-      }
-      if (provider === "openai") {
-        const discovered = await discoverOpenAIModels(userApiKey);
-        const candidates = Array.from(
-          new Set(
-            [
-              providerConfig?.model,
-              ...discovered,
-              "gpt-4o-mini",
-              "gpt-4o",
-            ].filter(Boolean) as string[],
-          ),
-        );
-        return await callOpenAICompatibleWithFallback(
-          "https://api.openai.com/v1",
-          userApiKey,
-          candidates,
-          prompt,
-        );
-      }
-      if (provider === "anthropic") {
-        const discovered = await discoverAnthropicModels(userApiKey);
-        const candidates = Array.from(
-          new Set(
-            [
-              providerConfig?.model,
-              ...discovered,
-              "claude-3-5-haiku-latest",
-              "claude-3-haiku-20240307",
-            ].filter(Boolean) as string[],
-          ),
-        );
-        return await callAnthropicRaw(userApiKey, candidates, prompt);
-      }
-    } catch (userErr: any) {
-      console.warn(
-        `User ${provider} provider failed (${userErr?.message}). Falling back to server/free AI...`,
+    if (provider === "gemini") {
+      return await callGeminiRaw(userApiKey, prompt, temperature);
+    }
+    if (provider === "groq") {
+      const discovered = await discoverGroqModels(userApiKey);
+      const candidates = Array.from(
+        new Set(
+          [
+            providerConfig?.model,
+            ...discovered,
+            "llama-3.1-8b-instant",
+            "llama-3.3-70b-versatile",
+            "mixtral-8x7b-32768",
+            "gemma2-9b-it",
+          ].filter(Boolean) as string[],
+        ),
+      );
+      return await callOpenAICompatibleWithFallback(
+        "https://api.groq.com/openai/v1",
+        userApiKey,
+        candidates,
+        prompt,
+        temperature,
+      );
+    }
+    if (provider === "openai") {
+      const discovered = await discoverOpenAIModels(userApiKey);
+      const candidates = Array.from(
+        new Set(
+          [
+            providerConfig?.model,
+            ...discovered,
+            "gpt-4o-mini",
+            "gpt-4o",
+          ].filter(Boolean) as string[],
+        ),
+      );
+      return await callOpenAICompatibleWithFallback(
+        "https://api.openai.com/v1",
+        userApiKey,
+        candidates,
+        prompt,
+        temperature,
+      );
+    }
+    if (provider === "anthropic") {
+      const discovered = await discoverAnthropicModels(userApiKey);
+      const candidates = Array.from(
+        new Set(
+          [
+            providerConfig?.model,
+            ...discovered,
+            "claude-3-5-haiku-latest",
+            "claude-3-haiku-20240307",
+          ].filter(Boolean) as string[],
+        ),
+      );
+      return await callAnthropicRaw(
+        userApiKey,
+        candidates,
+        prompt,
+        temperature,
       );
     }
   }
 
-  // 2. Fallback to Server Gemini Key
-  const serverGeminiKey = process.env.GEMINI_API_KEY?.trim();
+  // 2. Server-side Google/Gemini Key
+  const serverGeminiKey =
+    process.env.GEMINI_API_KEY?.trim() ||
+    process.env.GOOGLE_API_KEY?.trim() ||
+    process.env.GOOGLE_AI_KEY?.trim();
   if (serverGeminiKey) {
-    try {
-      return await callGeminiRaw(serverGeminiKey, prompt);
-    } catch (e) {
-      console.warn("Server gemini key failed, falling back to free AI:", e);
-    }
+    return await callGeminiRaw(serverGeminiKey, prompt, temperature);
   }
 
-  // 3. Fallback to Free Live Service
-  return await callFreePollinations(prompt);
+  // 3. If user selected a custom provider but no API key was provided
+  if (provider && !userApiKey) {
+    throw new Error(
+      `Your ${provider === "gemini" ? "Google Gemini" : provider.toUpperCase()} API key is missing or not active. Please open Profile & Settings to configure your key.`,
+    );
+  }
+
+  // 4. Free AI Service (only for guest users with no custom provider or key)
+  return await callFreePollinations(prompt, temperature);
 }
 
 export async function GET(req: NextRequest) {
@@ -439,7 +536,17 @@ export async function GET(req: NextRequest) {
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
-    const { action, word, wordsList = [], sentence, providerConfig } = body;
+    const {
+      action,
+      word,
+      wordsList = [],
+      sentence,
+      providerConfig,
+      meaning = "",
+      avoidSentence = "",
+      avoidSentences = [],
+      theme = "",
+    } = body;
 
     if (!action) {
       return NextResponse.json({ error: "Missing action." }, { status: 400 });
@@ -497,31 +604,114 @@ Respond ONLY with a JSON object in this exact format:
         );
       }
 
-      const prompt = `You are creating a quick vocabulary practice question.
-Target word: "${word.trim()}"
-Pool of student's other words (if available): ${JSON.stringify(wordsList)}
+      const DOMAINS = [
+        "Public Policy, Bureaucracy & Governance",
+        "Judicial Precedents & Constitutional Rulings",
+        "Geopolitical Strategy, Bilateral Diplomacy & Treaties",
+        "Macroeconomic Reforms, Fiscal Policy & Markets",
+        "Societal Transformation, Civil Rights & Ethical Debates",
+        "Environmental Governance, Biodiversity & Climate Crises",
+        "Scientific Innovation, Research Rigor & Bioethics",
+        "Historical Statecraft, Reform Movements & Independence",
+        "Philosophical Ethics, Epistemology & Public Morality",
+        "Editorial Commentary, Investigative Journalism & Analysis",
+      ];
 
-Create a high-quality sentence with a blank (represented as "_____") where the target word fits naturally.
-Provide 4 multiple choice options: 1 correct answer (the target word) and 3 believable distractors.
+      const STYLES = [
+        "analytical editorial critique",
+        "academic and scholarly prose",
+        "civil services policy briefing style",
+        "parliamentary debate discourse",
+        "socio-historical inquiry",
+      ];
+
+      const selectedDomain =
+        theme && theme.trim()
+          ? theme.trim()
+          : DOMAINS[Math.floor(Math.random() * DOMAINS.length)];
+      const selectedStyle = STYLES[Math.floor(Math.random() * STYLES.length)];
+
+      const allAvoidSentences = Array.from(
+        new Set([avoidSentence, ...avoidSentences].filter(Boolean)),
+      );
+
+      const avoidBlock =
+        allAvoidSentences.length > 0
+          ? `\nCRITICAL VARIATION MANDATE:\nDo NOT use, repeat, or paraphrase any of these previously generated sentences or their specific scenarios:\n${allAvoidSentences
+              .map((s) => `- "${s}"`)
+              .join(
+                "\n",
+              )}\nYou MUST generate an entirely fresh, original, and distinct scenario.`
+          : "";
+
+      const prompt = `You are a distinguished vocabulary test examiner for competitive examinations (UPSC CSE, GRE, Advanced English).
+Target word: "${word.trim()}"
+${meaning ? `Meaning: "${meaning.trim()}"` : ""}
+Context Domain: ${selectedDomain}
+Stylistic Tone: ${selectedStyle}
+Pool of student's other vocabulary words: ${JSON.stringify(wordsList.slice(0, 20))}
+${avoidBlock}
+
+TASK REQUIREMENTS:
+1. Compose a sophisticated, context-rich sentence set in "${selectedDomain}" (${selectedStyle}).
+2. The sentence MUST have a single blank represented as "_____" where "${word.trim()}" fits naturally, accurately, and uniquely.
+3. The sentence must provide subtle, intelligent contextual clues (such as contrasting ideas, causality, or descriptive precision) allowing a sharp student to deduce the correct word.
+4. Provide 4 multiple choice options: exactly 1 correct answer ("${word.trim()}") and 3 believable, high-level distractors of the same part of speech.
+5. Provide a subtle 1-sentence hint pointing to the tonal or thematic nuance required without stating the word itself.
 
 Respond ONLY with a JSON object in this exact format:
 {
   "word": "${word.trim()}",
-  "statementWithBlank": "A natural sentence with _____ where the word belongs.",
+  "statementWithBlank": "A sophisticated sentence with _____ where the target word belongs.",
   "options": ["Option 1", "Option 2", "Option 3", "Option 4"],
-  "hint": "A subtle context hint about the tone or meaning needed."
+  "hint": "A subtle context hint about the tone or nuance needed."
 }`;
 
-      const raw = await executePrompt(prompt, providerConfig);
+      const raw = await executePrompt(prompt, providerConfig, 0.85);
       const parsed = parseJsonFromText(raw);
-      if (
-        Array.isArray(parsed.options) &&
-        !parsed.options.some(
+
+      if (Array.isArray(parsed.options)) {
+        // Ensure the target word is included
+        const hasWord = parsed.options.some(
           (o: string) => o.toLowerCase() === word.toLowerCase(),
-        )
-      ) {
-        parsed.options[0] = word;
+        );
+        let finalOptions = [...parsed.options];
+        if (!hasWord) {
+          finalOptions[0] = word;
+        }
+
+        // Deduplicate case-insensitively
+        const seenWords = new Set<string>();
+        finalOptions = finalOptions.filter((opt: string) => {
+          const lower = opt.toLowerCase();
+          if (seenWords.has(lower)) return false;
+          seenWords.add(lower);
+          return true;
+        });
+
+        // Fill up to 4 options from wordsList if needed
+        const pool = wordsList.filter(
+          (w: string) =>
+            w.toLowerCase() !== word.toLowerCase() &&
+            !seenWords.has(w.toLowerCase()),
+        );
+        for (const distractor of pool) {
+          if (finalOptions.length >= 4) break;
+          finalOptions.push(distractor);
+          seenWords.add(distractor.toLowerCase());
+        }
+
+        // Shuffle options with Fisher-Yates so target word is not predictably positioned
+        for (let i = finalOptions.length - 1; i > 0; i--) {
+          const j = Math.floor(Math.random() * (i + 1));
+          [finalOptions[i], finalOptions[j]] = [
+            finalOptions[j],
+            finalOptions[i],
+          ];
+        }
+        parsed.options = finalOptions.slice(0, 4);
       }
+
       return NextResponse.json({ success: true, data: parsed });
     }
 

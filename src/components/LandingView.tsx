@@ -66,9 +66,9 @@ export function LandingView({
             The complete workspace for serious civil services preparation.
           </h1>
           <p className="public-intro">
-            From simulated Prelims mocks with psychological decision analytics to
-            line-by-line Mains answer evaluation, free AI revision dossiers, dynamic
-            syllabus pacing, and Claude MCP integration.
+            From simulated Prelims mocks with psychological decision analytics
+            to line-by-line Mains answer evaluation, free AI revision dossiers,
+            dynamic syllabus pacing, and Claude MCP integration.
           </p>
           <div className="public-actions">
             {featuredPaper && (
@@ -82,7 +82,10 @@ export function LandingView({
               </button>
             )}
             <Link href="/mains" className="button-secondary cursor-pointer">
-              <FileCheck aria-hidden="true" className="h-4 w-4 text-indigo-600" />
+              <FileCheck
+                aria-hidden="true"
+                className="h-4 w-4 text-indigo-600"
+              />
               Evaluate Mains Answer
             </Link>
           </div>
@@ -141,14 +144,16 @@ export function LandingView({
             </div>
             <div className="p-2.5 rounded-lg bg-white dark:bg-slate-900 border border-slate-200/60 dark:border-slate-700/40 text-xs space-y-1.5">
               <p className="font-serif italic text-slate-700 dark:text-slate-300 border-l-2 border-indigo-500 pl-2 text-[11px] leading-relaxed">
-                &ldquo;Durkheim established social facts as external sui generis realities...&rdquo;
+                &ldquo;Durkheim established social facts as external sui generis
+                realities...&rdquo;
               </p>
               <div className="flex items-center gap-1.5 text-[10px]">
                 <span className="px-1.5 py-0.2 rounded bg-emerald-100 text-emerald-800 font-bold uppercase font-mono">
                   ✓ Accurate
                 </span>
                 <span className="text-emerald-700 font-medium">
-                  Conceptually precise sociological attribution that earned marks.
+                  Conceptually precise sociological attribution that earned
+                  marks.
                 </span>
               </div>
             </div>
@@ -177,7 +182,8 @@ export function LandingView({
               </span>
             </div>
             <p className="text-xs text-slate-500 mt-1">
-              Diagnostic metrics isolating alteration gains, traps, and negative mark erosion.
+              Diagnostic metrics isolating alteration gains, traps, and negative
+              mark erosion.
             </p>
           </div>
 
@@ -206,8 +212,8 @@ export function LandingView({
           <p className="page-eyebrow">Comprehensive Platform Capabilities</p>
           <h2>Six purpose-built pillars for every stage of UPSC.</h2>
           <p>
-            Eliminate guesswork. Every test, question, and revision note feeds an
-            evidence-based record of your actual preparation readiness.
+            Eliminate guesswork. Every test, question, and revision note feeds
+            an evidence-based record of your actual preparation readiness.
           </p>
         </div>
 
@@ -220,9 +226,10 @@ export function LandingView({
               </span>
               <h3>UPSC Mains AI Examiner</h3>
               <p>
-                Strict, uncompromising evaluation across 4 core dimensions: Directive Compliance,
-                Citation Depth, Keyword Structure, and Exam-Time Writability. Includes full line-by-line
-                script audits, factual error corrections, and topper model answers.
+                Strict, uncompromising evaluation across 4 core dimensions:
+                Directive Compliance, Citation Depth, Keyword Structure, and
+                Exam-Time Writability. Includes full line-by-line script audits,
+                factual error corrections, and topper model answers.
               </p>
             </div>
             <Link
@@ -242,9 +249,10 @@ export function LandingView({
               </span>
               <h3>Prelims Mocks &amp; Practice</h3>
               <p>
-                Experience genuine exam conditions with simulated timers, negative marks (1/3rd penalty),
-                and CSAT qualification bars, or switch to stress-free untimed practice with instant
-                solution keys and detailed explanations.
+                Experience genuine exam conditions with simulated timers,
+                negative marks (1/3rd penalty), and CSAT qualification bars, or
+                switch to stress-free untimed practice with instant solution
+                keys and detailed explanations.
               </p>
             </div>
             <Link
@@ -264,9 +272,10 @@ export function LandingView({
               </span>
               <h3>Free AI Revision Tutor</h3>
               <p>
-                Zero-cost BYOK integration with Google Gemini Flash. Generate structured revision dossiers
-                with Constitutional Articles, landmark Supreme Court rulings, committee reports, and PIB updates.
-                Chat directly with your test performance.
+                Zero-cost BYOK integration with Google Gemini Flash. Generate
+                structured revision dossiers with Constitutional Articles,
+                landmark Supreme Court rulings, committee reports, and PIB
+                updates. Chat directly with your test performance.
               </p>
             </div>
             <Link
@@ -286,9 +295,10 @@ export function LandingView({
               </span>
               <h3>Cross-Attempt Analytics</h3>
               <p>
-                Multi-tier hierarchy (Subject &gt; Chapter &gt; Topic) automatically aggregates every question
-                you answer. Pinpoint critical weak spots (&lt;50% accuracy) and track mastered topics across
-                all completed tests in a single view.
+                Multi-tier hierarchy (Subject &gt; Chapter &gt; Topic)
+                automatically aggregates every question you answer. Pinpoint
+                critical weak spots (&lt;50% accuracy) and track mastered topics
+                across all completed tests in a single view.
               </p>
             </div>
             <Link
@@ -308,8 +318,9 @@ export function LandingView({
               </span>
               <h3>Study Aids &amp; Vocabulary</h3>
               <p>
-                Build high-retention editorial vocabulary with a 4–5 words a day habit. Enter any word to
-                automatically receive intuitive mnemonics, UPSC editorial usage sentences, fill-in-the-blank
+                Build high-retention editorial vocabulary with a 4–5 words a day
+                habit. Enter any word to automatically receive intuitive
+                mnemonics, UPSC editorial usage sentences, fill-in-the-blank
                 recall quizzes, and daily civil services inspiration.
               </p>
             </div>
@@ -330,8 +341,9 @@ export function LandingView({
               </span>
               <h3>Claude &amp; ChatGPT MCP Server</h3>
               <p>
-                Connect Claude Desktop, ChatGPT, or autonomous agents directly to your UPSC Prep Hub via MCP.
-                Assistants can inspect past test history, re-grade answers with current paper marks, quiz you on
+                Connect Claude Desktop, ChatGPT, or autonomous agents directly
+                to your UPSC Prep Hub via MCP. Assistants can inspect past test
+                history, re-grade answers with current paper marks, quiz you on
                 unmastered vocabulary, and generate targeted revision plans.
               </p>
             </div>
@@ -357,22 +369,33 @@ export function LandingView({
               Honest Mains evaluations. No inflated praise.
             </h2>
             <p className="text-sm text-slate-600 dark:text-slate-300 leading-relaxed">
-              Most online evaluation engines give vague, 7/10 grades to every generic attempt.
-              Our examiner engine is calibrated strictly against UPSC CSE benchmarks: 3.0–4.0/10 is typical average,
+              Most online evaluation engines give vague, 7/10 grades to every
+              generic attempt. Our examiner engine is calibrated strictly
+              against UPSC CSE benchmarks: 3.0–4.0/10 is typical average,
               5.0+/10 is reserved for genuine topper-level execution.
             </p>
             <div className="space-y-2.5 pt-2">
               <div className="flex items-start gap-2.5 text-xs text-slate-700 dark:text-slate-300">
                 <CheckCircle2 className="h-4 w-4 text-emerald-600 shrink-0 mt-0.5" />
-                <span><strong>Line-by-line Script Audit:</strong> 5–10+ substantive excerpts analyzed across Intro, Body, and Conclusion.</span>
+                <span>
+                  <strong>Line-by-line Script Audit:</strong> 5–10+ substantive
+                  excerpts analyzed across Intro, Body, and Conclusion.
+                </span>
               </div>
               <div className="flex items-start gap-2.5 text-xs text-slate-700 dark:text-slate-300">
                 <CheckCircle2 className="h-4 w-4 text-emerald-600 shrink-0 mt-0.5" />
-                <span><strong>Factual Misattribution Checks:</strong> Catch wrong articles, erroneous thinkers, or fabricated statistics with ⚠️ VERIFY flags.</span>
+                <span>
+                  <strong>Factual Misattribution Checks:</strong> Catch wrong
+                  articles, erroneous thinkers, or fabricated statistics with ⚠️
+                  VERIFY flags.
+                </span>
               </div>
               <div className="flex items-start gap-2.5 text-xs text-slate-700 dark:text-slate-300">
                 <CheckCircle2 className="h-4 w-4 text-emerald-600 shrink-0 mt-0.5" />
-                <span><strong>Topper Model Answer:</strong> Clean, writable model answer matching exact word counts and 7–11 minute time limits.</span>
+                <span>
+                  <strong>Topper Model Answer:</strong> Clean, writable model
+                  answer matching exact word counts and 7–11 minute time limits.
+                </span>
               </div>
             </div>
             <div className="pt-2">
@@ -395,19 +418,34 @@ export function LandingView({
                   Examiner Scorecard &amp; Rubric
                 </h4>
               </div>
-              <span className="text-[11px] font-mono font-bold text-slate-400">GS-2 Polity (10M / 150W)</span>
+              <span className="text-[11px] font-mono font-bold text-slate-400">
+                GS-2 Polity (10M / 150W)
+              </span>
             </div>
 
             <div className="grid grid-cols-2 gap-2 text-xs">
               <div className="p-3 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200/60 dark:border-slate-700/40">
-                <span className="text-[10px] text-slate-400 uppercase font-mono font-bold block">1. Demand Compliance</span>
-                <span className="font-bold text-slate-900 dark:text-white">4.5 / 10</span>
-                <p className="text-[11px] text-slate-500 mt-0.5">Directive &apos;Give Reasons&apos; satisfied with pros and cons.</p>
+                <span className="text-[10px] text-slate-400 uppercase font-mono font-bold block">
+                  1. Demand Compliance
+                </span>
+                <span className="font-bold text-slate-900 dark:text-white">
+                  4.5 / 10
+                </span>
+                <p className="text-[11px] text-slate-500 mt-0.5">
+                  Directive &apos;Give Reasons&apos; satisfied with pros and
+                  cons.
+                </p>
               </div>
               <div className="p-3 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200/60 dark:border-slate-700/40">
-                <span className="text-[10px] text-slate-400 uppercase font-mono font-bold block">2. Citation Depth</span>
-                <span className="font-bold text-slate-900 dark:text-white">4.0 / 10</span>
-                <p className="text-[11px] text-slate-500 mt-0.5">Missing key empirical studies &amp; landmark cases.</p>
+                <span className="text-[10px] text-slate-400 uppercase font-mono font-bold block">
+                  2. Citation Depth
+                </span>
+                <span className="font-bold text-slate-900 dark:text-white">
+                  4.0 / 10
+                </span>
+                <p className="text-[11px] text-slate-500 mt-0.5">
+                  Missing key empirical studies &amp; landmark cases.
+                </p>
               </div>
             </div>
 
@@ -417,10 +455,12 @@ export function LandingView({
                 <span>Identified Factual Error</span>
               </span>
               <p className="text-[11px] text-slate-700 dark:text-slate-300">
-                &ldquo;Auguste Comte formulated social facts as objective things...&rdquo;
+                &ldquo;Auguste Comte formulated social facts as objective
+                things...&rdquo;
               </p>
               <p className="text-[10px] font-semibold text-rose-600 dark:text-rose-400">
-                Correction: Émile Durkheim coined and formulated social facts in Rules of Sociological Method (1895), not Comte.
+                Correction: Émile Durkheim coined and formulated social facts in
+                Rules of Sociological Method (1895), not Comte.
               </p>
             </div>
           </div>
@@ -435,8 +475,9 @@ export function LandingView({
               <p className="page-eyebrow">Clear &amp; Accessible</p>
               <h2>Start free. Upgrade when you need full history.</h2>
               <p>
-                Experience the complete practice, evaluation, and AI revision loop with free sample assessments.
-                Unlock unlimited custom uploads and perpetual progress tracking with Pro.
+                Experience the complete practice, evaluation, and AI revision
+                loop with free sample assessments. Unlock unlimited custom
+                uploads and perpetual progress tracking with Pro.
               </p>
             </div>
             <div className="public-pricing-board-note">
@@ -457,7 +498,8 @@ export function LandingView({
                 ₹0 <span>free forever</span>
               </div>
               <p>
-                Test-drive the full platform workflow: take timed mocks, evaluate Mains answers, and explore AI revision.
+                Test-drive the full platform workflow: take timed mocks,
+                evaluate Mains answers, and explore AI revision.
               </p>
               <ul className="public-plan-features">
                 <li>
@@ -467,10 +509,12 @@ export function LandingView({
                   <Check aria-hidden="true" /> Mains answer evaluation demo
                 </li>
                 <li>
-                  <Check aria-hidden="true" /> AI Revision tutor with free Gemini key
+                  <Check aria-hidden="true" /> AI Revision tutor with free
+                  Gemini key
                 </li>
                 <li>
-                  <Check aria-hidden="true" /> Full Claude / ChatGPT MCP integration
+                  <Check aria-hidden="true" /> Full Claude / ChatGPT MCP
+                  integration
                 </li>
               </ul>
               {featuredPaper && (
@@ -496,23 +540,29 @@ export function LandingView({
                 ₹999 <span>/ 1 full year</span>
               </div>
               <p>
-                Unlimited paper imports, unlimited Mains script audits, cross-attempt diagnostic trends, and cloud synchronization.
+                Unlimited paper imports, unlimited Mains script audits,
+                cross-attempt diagnostic trends, and cloud synchronization.
               </p>
               <ul className="public-plan-features">
                 <li>
-                  <Check aria-hidden="true" /> Unlimited PDF &amp; Markdown test uploads
+                  <Check aria-hidden="true" /> Unlimited PDF &amp; Markdown test
+                  uploads
                 </li>
                 <li>
-                  <Check aria-hidden="true" /> Unlimited Mains evaluations &amp; booklets
+                  <Check aria-hidden="true" /> Unlimited Mains evaluations &amp;
+                  booklets
                 </li>
                 <li>
-                  <Check aria-hidden="true" /> Cross-attempt 3-tier topic diagnostics
+                  <Check aria-hidden="true" /> Cross-attempt 3-tier topic
+                  diagnostics
                 </li>
                 <li>
-                  <Check aria-hidden="true" /> Synced cloud storage for attempts &amp; notes
+                  <Check aria-hidden="true" /> Synced cloud storage for attempts
+                  &amp; notes
                 </li>
                 <li>
-                  <Check aria-hidden="true" /> Remote MCP write &amp; re-grading permissions
+                  <Check aria-hidden="true" /> Remote MCP write &amp; re-grading
+                  permissions
                 </li>
               </ul>
               <button
@@ -538,14 +588,17 @@ export function LandingView({
                 Custom cohorts
               </div>
               <p>
-                Deploy standardized test sets, answer evaluation rubrics, and cohort diagnostic benchmarks across your students.
+                Deploy standardized test sets, answer evaluation rubrics, and
+                cohort diagnostic benchmarks across your students.
               </p>
               <ul className="public-plan-features">
                 <li>
-                  <Check aria-hidden="true" /> Batch student performance oversight
+                  <Check aria-hidden="true" /> Batch student performance
+                  oversight
                 </li>
                 <li>
-                  <Check aria-hidden="true" /> Custom question paper distribution
+                  <Check aria-hidden="true" /> Custom question paper
+                  distribution
                 </li>
                 <li>
                   <Check aria-hidden="true" /> Tailored Mains evaluation rubrics
@@ -579,8 +632,10 @@ export function LandingView({
                 <h3>Self-Directed Aspirants</h3>
               </div>
               <p>
-                Eliminate coaching dependency. Upload test series from any institute, simulate genuine exam pressure,
-                diagnose psychological trap tendencies, and evaluate your handwritten answers anytime.
+                Eliminate coaching dependency. Upload test series from any
+                institute, simulate genuine exam pressure, diagnose
+                psychological trap tendencies, and evaluate your handwritten
+                answers anytime.
               </p>
               <button
                 type="button"
@@ -599,8 +654,9 @@ export function LandingView({
                 <h3>AI-Powered Learners (MCP)</h3>
               </div>
               <p>
-                Use Claude Desktop or ChatGPT as your personal 24/7 UPSC mentor. Connect our MCP server to let
-                your AI tutor grade your papers, generate targeted recall quizzes, and update study flashcards.
+                Use Claude Desktop or ChatGPT as your personal 24/7 UPSC mentor.
+                Connect our MCP server to let your AI tutor grade your papers,
+                generate targeted recall quizzes, and update study flashcards.
               </p>
               <Link href="/help/mcp" className="public-text-link">
                 View MCP Setup Guide{" "}
@@ -621,41 +677,55 @@ export function LandingView({
           <details>
             <summary>How does the UPSC Mains Answer Evaluation work?</summary>
             <p>
-              You can type your answer or upload handwritten answer sheets (photos or multi-page PDFs).
-              Our evaluation engine checks the operational directive, performs a line-by-line script audit,
-              scores 4 dimensions (Demand, Content, Structure, Presentation) without mark inflation, flags
-              factual inaccuracies, and provides a topper-grade model answer with value-addition citations.
+              You can type your answer or upload handwritten answer sheets
+              (photos or multi-page PDFs). Our evaluation engine checks the
+              operational directive, performs a line-by-line script audit,
+              scores 4 dimensions (Demand, Content, Structure, Presentation)
+              without mark inflation, flags factual inaccuracies, and provides a
+              topper-grade model answer with value-addition citations.
             </p>
           </details>
           <details>
-            <summary>Is the AI Revision Tutor really 100% free with no hidden charges?</summary>
+            <summary>
+              Is the AI Revision Tutor really 100% free with no hidden charges?
+            </summary>
             <p>
-              Yes. The AI Revision feature (/revision) uses a Bring-Your-Own-Key (BYOK) model directly in your browser.
-              Google AI Studio provides a free tier for Gemini Flash with no credit card required. Your key connects
-              directly to Google, so neither you nor the platform incurs any server or API charges.
+              Yes. The AI Revision feature (/revision) uses a Bring-Your-Own-Key
+              (BYOK) model directly in your browser. Google AI Studio provides a
+              free tier for Gemini Flash with no credit card required. Your key
+              connects directly to Google, so neither you nor the platform
+              incurs any server or API charges.
             </p>
           </details>
           <details>
             <summary>Can I upload my own institute question papers?</summary>
             <p>
-              Yes! You can upload custom question papers using standard PDFs along with an answer key, or import
-              papers formatted in Markdown. Both Prelims MCQs, Cloze free-text questions, and Mains subjective questions
-              are supported.
+              Yes! You can upload custom question papers using standard PDFs
+              along with an answer key, or import papers formatted in Markdown.
+              Both Prelims MCQs, Cloze free-text questions, and Mains subjective
+              questions are supported.
             </p>
           </details>
           <details>
-            <summary>How does the Claude / ChatGPT MCP integration work?</summary>
+            <summary>
+              How does the Claude / ChatGPT MCP integration work?
+            </summary>
             <p>
-              The platform exposes a native Model Context Protocol (MCP) server. You simply copy your unique remote MCP URL,
-              add it to Claude Desktop or ChatGPT, and sign in. Your AI assistant can then read your past test results,
-              grade subjective answers using the paper&apos;s current marks, quiz you on unmastered vocabulary, and diagnose weak topics.
+              The platform exposes a native Model Context Protocol (MCP) server.
+              You simply copy your unique remote MCP URL, add it to Claude
+              Desktop or ChatGPT, and sign in. Your AI assistant can then read
+              your past test results, grade subjective answers using the
+              paper&apos;s current marks, quiz you on unmastered vocabulary, and
+              diagnose weak topics.
             </p>
           </details>
           <details>
             <summary>Can I try tests before creating an account?</summary>
             <p>
-              Yes. You can immediately attempt free practice or mock papers and explore the Mains evaluation desk.
-              Your result opens for review immediately; create an account only when you want to save attempts to your cloud history.
+              Yes. You can immediately attempt free practice or mock papers and
+              explore the Mains evaluation desk. Your result opens for review
+              immediately; create an account only when you want to save attempts
+              to your cloud history.
             </p>
           </details>
         </div>
@@ -679,11 +749,13 @@ export function LandingView({
                 onClick={() => onStartExam(featuredPaper, "practice")}
                 className="button-light cursor-pointer"
               >
-                <Play aria-hidden="true" className="h-4 w-4" /> Try free practice
+                <Play aria-hidden="true" className="h-4 w-4" /> Try free
+                practice
               </button>
             )}
             <Link href="/mains" className="button-outline-light cursor-pointer">
-              <FileCheck aria-hidden="true" className="h-4 w-4" /> Evaluate Mains
+              <FileCheck aria-hidden="true" className="h-4 w-4" /> Evaluate
+              Mains
             </Link>
             <button
               type="button"
@@ -703,12 +775,19 @@ export function LandingView({
             <div className="public-footer-brand-block">
               <div className="public-footer-brand">
                 <span className="app-brand-mark flex items-center justify-center p-0.5">
-                  <img src="/favicon.svg" alt="UPSC Prep Hub" className="w-5 h-5" />
+                  <img
+                    src="/favicon.svg"
+                    alt="UPSC Prep Hub"
+                    className="w-5 h-5"
+                  />
                 </span>
-                <span className="font-bold text-slate-900 dark:text-white">UPSC Prep Hub</span>
+                <span className="font-bold text-slate-900 dark:text-white">
+                  UPSC Prep Hub
+                </span>
               </div>
               <p>
-                An executive assessment &amp; revision workspace for serious UPSC CSE preparation.
+                An executive assessment &amp; revision workspace for serious
+                UPSC CSE preparation.
               </p>
               <a
                 href="https://chikoochi.com"

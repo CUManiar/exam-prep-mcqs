@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo, useCallback } from "react";
 import {
   VocabCard,
   PracticeQuestion,
@@ -17,12 +17,77 @@ import {
   Loader2,
   RotateCcw,
   Lightbulb,
+  Shuffle,
 } from "lucide-react";
 
 interface WordPracticeViewProps {
   cards: VocabCard[];
   initialWord?: string | null;
   onClearInitialWord?: () => void;
+}
+
+// Fisher-Yates shuffle helper
+function shuffleArray<T>(array: T[]): T[] {
+  const arr = [...array];
+  for (let i = arr.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [arr[i], arr[j]] = [arr[j], arr[i]];
+  }
+  return arr;
+}
+
+// Generates varied, diverse fallback questions so offline or backup mode never repeats the same sentence
+function generateFallbackQuestion(
+  targetCard: VocabCard,
+  allCards: VocabCard[],
+  avoidList: string[] = [],
+): PracticeQuestion {
+  const templates = [
+    `In contemporary debates on public governance, adopting a _____ stance often alienates constructive consensus.`,
+    `The editorial criticized the administration's _____ refusal to reassess outdated assumptions despite contrary evidence.`,
+    `Rather than engaging with empirical data, the committee adhered to a surprisingly _____ interpretation of the charter.`,
+    `Scholars argued that a less _____ and more empirical methodology was essential to resolve the regulatory standoff.`,
+    `His _____ insistence on procedural orthodoxy overlooked practical realities observed on the ground.`,
+    `Diplomats warned that adopting an overtly _____ posture during bilateral negotiations would dismantle years of mutual goodwill.`,
+    `The report cautioned policymakers against _____ reasoning, urging them to remain receptive to alternative economic models.`,
+    `Throughout the constitutional deliberations, such _____ assertions drew pushback from reform-oriented jurists.`,
+    `The minister underscored that tackling institutional inertia requires moving beyond _____ adherence to status-quo guidelines.`,
+    `Faced with fast-evolving technological challenges, a _____ mindset risks stifling innovation across key sectors.`,
+  ];
+
+  // Exclude previously seen sentences or example sentences
+  const normalizedAvoid = avoidList.map((s) => s.toLowerCase().trim());
+  let candidateTemplates = templates.filter(
+    (t) =>
+      !normalizedAvoid.some((a) => a.includes(t.slice(0, 25).toLowerCase())),
+  );
+
+  if (candidateTemplates.length === 0) {
+    candidateTemplates = templates;
+  }
+
+  // Pick random template
+  const chosenTemplate =
+    candidateTemplates[Math.floor(Math.random() * candidateTemplates.length)];
+
+  // Options pool: target word + 3 random distractors from student deck
+  const distractors = shuffleArray(
+    allCards.filter(
+      (c) => c.word.toLowerCase() !== targetCard.word.toLowerCase(),
+    ),
+  )
+    .slice(0, 3)
+    .map((c) => c.word);
+
+  const fallbackOptions = shuffleArray([targetCard.word, ...distractors]);
+
+  return {
+    cardId: targetCard.id,
+    word: targetCard.word,
+    statementWithBlank: chosenTemplate,
+    options: fallbackOptions,
+    hint: targetCard.meaning,
+  };
 }
 
 export function WordPracticeView({
@@ -32,14 +97,22 @@ export function WordPracticeView({
 }: WordPracticeViewProps) {
   const [mode, setMode] = useState<"identify" | "form">("identify");
 
-  // State for Mode 1: Identify Word
-  const [currentCardIndex, setCurrentCardIndex] = useState(0);
+  // Shuffled practice queue for Mode 1
+  const [queue, setQueue] = useState<VocabCard[]>([]);
+  const [queueIndex, setQueueIndex] = useState(0);
+
+  // Mode 1 Question state
   const [practiceQuestion, setPracticeQuestion] =
     useState<PracticeQuestion | null>(null);
   const [selectedOption, setSelectedOption] = useState<string | null>(null);
   const [isAnswerRevealed, setIsAnswerRevealed] = useState(false);
   const [loadingQuestion, setLoadingQuestion] = useState(false);
   const [showHint, setShowHint] = useState(false);
+
+  // History of generated sentences per word to prevent repetition across attempts
+  const [seenSentencesMap, setSeenSentencesMap] = useState<
+    Record<string, string[]>
+  >({});
 
   // State for Mode 2: Form a Statement
   const [formWordCard, setFormWordCard] = useState<VocabCard | null>(null);
@@ -48,92 +121,144 @@ export function WordPracticeView({
   const [sentenceEvalResult, setSentenceEvalResult] =
     useState<SentenceEvaluationResponse | null>(null);
 
-  // Select initial word if passed
+  // Initialize or re-shuffle the practice queue
+  const initializeQueue = useCallback(
+    (targetInitialWord?: string | null) => {
+      if (cards.length === 0) {
+        setQueue([]);
+        setQueueIndex(0);
+        return;
+      }
+
+      const wordToFocus = targetInitialWord || initialWord;
+
+      if (wordToFocus) {
+        const foundIdx = cards.findIndex(
+          (c) => c.word.toLowerCase() === wordToFocus.toLowerCase(),
+        );
+        if (foundIdx !== -1) {
+          const target = cards[foundIdx];
+          const remaining = shuffleArray(
+            cards.filter((_, i) => i !== foundIdx),
+          );
+          setQueue([target, ...remaining]);
+          setQueueIndex(0);
+          setFormWordCard(target);
+          if (onClearInitialWord) onClearInitialWord();
+          return;
+        }
+      }
+
+      // Default: Shuffle all cards randomly
+      const shuffled = shuffleArray(cards);
+      setQueue(shuffled);
+      setQueueIndex(0);
+      if (!formWordCard && shuffled.length > 0) {
+        setFormWordCard(shuffled[0]);
+      }
+    },
+    [cards, initialWord, onClearInitialWord, formWordCard],
+  );
+
+  // Initialize on load or cards update
   useEffect(() => {
-    if (initialWord && cards.length > 0) {
-      const foundIdx = cards.findIndex(
-        (c) => c.word.toLowerCase() === initialWord.toLowerCase(),
+    initializeQueue();
+  }, [cards, initialWord]);
+
+  const activeCard = queue[queueIndex] || null;
+
+  // Load a practice question with anti-repetition guards
+  const loadQuestionForActiveCard = useCallback(
+    async (targetCard: VocabCard, forceFresh: boolean = false) => {
+      setLoadingQuestion(true);
+      setSelectedOption(null);
+      setIsAnswerRevealed(false);
+      setShowHint(false);
+
+      const wordKey = targetCard.word.toLowerCase().trim();
+      const existingSeen = seenSentencesMap[wordKey] || [];
+      const avoidList = Array.from(
+        new Set([...existingSeen, targetCard.example].filter(Boolean)),
       );
-      if (foundIdx !== -1) {
-        setCurrentCardIndex(foundIdx);
-        setFormWordCard(cards[foundIdx]);
-        if (onClearInitialWord) onClearInitialWord();
-      }
-    } else if (cards.length > 0 && !formWordCard) {
-      setFormWordCard(cards[0]);
-    }
-  }, [initialWord, cards]);
 
-  const activeCard = cards[currentCardIndex] || null;
+      try {
+        const config = getRevisionConfig();
+        const allWords = cards.map((c) => c.word);
 
-  const loadQuestionForActiveCard = async (targetCard: VocabCard) => {
-    setLoadingQuestion(true);
-    setSelectedOption(null);
-    setIsAnswerRevealed(false);
-    setShowHint(false);
-
-    try {
-      const config = getRevisionConfig();
-      const allWords = cards.map((c) => c.word);
-
-      const res = await fetch("/api/vocab", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          action: "generate_practice",
-          word: targetCard.word,
-          wordsList: allWords,
-          providerConfig: config,
-        }),
-      });
-
-      const json = await res.json();
-      if (res.ok && json.data) {
-        setPracticeQuestion({
-          cardId: targetCard.id,
-          word: targetCard.word,
-          statementWithBlank:
-            json.data.statementWithBlank ||
-            `The concept of _____ plays a key role here.`,
-          options: json.data.options || [targetCard.word],
-          hint: json.data.hint || targetCard.meaning,
+        const res = await fetch("/api/vocab", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            action: "generate_practice",
+            word: targetCard.word,
+            meaning: targetCard.meaning,
+            wordsList: allWords,
+            avoidSentence: avoidList[avoidList.length - 1] || "",
+            avoidSentences: avoidList,
+            providerConfig: config,
+          }),
         });
+
+        const json = await res.json();
+        if (res.ok && json.data && json.data.statementWithBlank) {
+          const generatedSentence = json.data.statementWithBlank;
+
+          // Record in seen sentences map
+          setSeenSentencesMap((prev) => ({
+            ...prev,
+            [wordKey]: [...(prev[wordKey] || []), generatedSentence],
+          }));
+
+          setPracticeQuestion({
+            cardId: targetCard.id,
+            word: targetCard.word,
+            statementWithBlank: generatedSentence,
+            options: json.data.options || [targetCard.word],
+            hint: json.data.hint || targetCard.meaning,
+          });
+          return;
+        }
+        throw new Error("No sentence returned from API");
+      } catch (e) {
+        console.warn("Using diverse fallback question generator:", e);
+        const fallback = generateFallbackQuestion(targetCard, cards, avoidList);
+
+        setSeenSentencesMap((prev) => ({
+          ...prev,
+          [wordKey]: [...(prev[wordKey] || []), fallback.statementWithBlank],
+        }));
+
+        setPracticeQuestion(fallback);
+      } finally {
+        setLoadingQuestion(false);
       }
-    } catch (e) {
-      console.error("Practice question error:", e);
-      setPracticeQuestion({
-        cardId: targetCard.id,
-        word: targetCard.word,
-        statementWithBlank: targetCard.example
-          ? targetCard.example.replace(
-              new RegExp(targetCard.word, "gi"),
-              "_____",
-            )
-          : `The concept of _____ is relevant to: ${targetCard.meaning}`,
-        options: [
-          targetCard.word,
-          ...cards
-            .filter((c) => c.id !== targetCard.id)
-            .slice(0, 3)
-            .map((c) => c.word),
-        ].sort(() => Math.random() - 0.5),
-        hint: targetCard.meaning,
-      });
-    } finally {
-      setLoadingQuestion(false);
-    }
-  };
+    },
+    [cards, seenSentencesMap],
+  );
 
   useEffect(() => {
     if (activeCard && mode === "identify") {
       loadQuestionForActiveCard(activeCard);
     }
-  }, [currentCardIndex, mode]);
+  }, [queueIndex, activeCard?.id, mode]);
 
   const handleNextIdentify = () => {
+    if (queue.length === 0) return;
+    if (queueIndex + 1 < queue.length) {
+      setQueueIndex((prev) => prev + 1);
+    } else {
+      // Completed full queue: re-shuffle deck for continuous varied practice
+      const reShuffled = shuffleArray(queue);
+      setQueue(reShuffled);
+      setQueueIndex(0);
+    }
+  };
+
+  const handleShuffleQueue = () => {
     if (cards.length === 0) return;
-    const nextIdx = (currentCardIndex + 1) % cards.length;
-    setCurrentCardIndex(nextIdx);
+    const reShuffled = shuffleArray(cards);
+    setQueue(reShuffled);
+    setQueueIndex(0);
   };
 
   const handleEvaluateSentence = async (e: React.FormEvent) => {
@@ -178,6 +303,16 @@ export function WordPracticeView({
     const nextIdx =
       (cards.findIndex((c) => c.id === formWordCard?.id) + 1) % cards.length;
     setFormWordCard(cards[nextIdx]);
+    setStudentSentence("");
+    setSentenceEvalResult(null);
+  };
+
+  const handleRandomFormWord = () => {
+    if (cards.length === 0) return;
+    const otherCards = cards.filter((c) => c.id !== formWordCard?.id);
+    const pool = otherCards.length > 0 ? otherCards : cards;
+    const randomCard = pool[Math.floor(Math.random() * pool.length)];
+    setFormWordCard(randomCard);
     setStudentSentence("");
     setSentenceEvalResult(null);
   };
@@ -231,25 +366,55 @@ export function WordPracticeView({
       {/* ── MODE 1: IDENTIFY WORD FROM STATEMENT ── */}
       {mode === "identify" && (
         <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-4 sm:p-6 shadow-sm space-y-4">
-          <div className="flex items-center justify-between text-xs text-slate-500 border-b border-slate-100 dark:border-slate-800 pb-2.5">
-            <span className="font-medium text-slate-600 dark:text-slate-400">
-              Word {currentCardIndex + 1} of {cards.length}
-            </span>
-            <button
-              type="button"
-              onClick={() => setShowHint(!showHint)}
-              className="min-h-[32px] px-2 text-amber-700 dark:text-amber-400 hover:underline flex items-center gap-1 font-medium touch-manipulation cursor-pointer text-xs"
-            >
-              <Lightbulb className="w-3.5 h-3.5" />
-              <span>{showHint ? "Hide Hint" : "Hint"}</span>
-            </button>
+          <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-slate-500 border-b border-slate-100 dark:border-slate-800 pb-2.5">
+            <div className="flex items-center gap-2">
+              <span className="font-semibold text-slate-700 dark:text-slate-300">
+                Word {queueIndex + 1} of {queue.length || cards.length}
+              </span>
+              <span className="text-slate-300 dark:text-slate-700">·</span>
+              <button
+                type="button"
+                onClick={handleShuffleQueue}
+                className="text-xs text-indigo-600 dark:text-indigo-400 hover:text-indigo-800 dark:hover:text-indigo-300 flex items-center gap-1 font-medium cursor-pointer transition-colors"
+                title="Shuffle word queue randomly"
+              >
+                <Shuffle className="w-3.5 h-3.5" />
+                <span>Shuffle Order</span>
+              </button>
+            </div>
+
+            <div className="flex items-center gap-3">
+              <button
+                type="button"
+                onClick={() =>
+                  activeCard && loadQuestionForActiveCard(activeCard, true)
+                }
+                disabled={loadingQuestion}
+                className="text-slate-600 dark:text-slate-400 hover:text-indigo-600 dark:hover:text-indigo-400 flex items-center gap-1 font-medium touch-manipulation cursor-pointer text-xs transition-colors"
+                title="Generate another sentence for this word"
+              >
+                <RotateCcw
+                  className={`w-3.5 h-3.5 ${loadingQuestion ? "animate-spin" : ""}`}
+                />
+                <span>New Sentence</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setShowHint(!showHint)}
+                className="text-amber-700 dark:text-amber-400 hover:underline flex items-center gap-1 font-medium touch-manipulation cursor-pointer text-xs"
+              >
+                <Lightbulb className="w-3.5 h-3.5" />
+                <span>{showHint ? "Hide Hint" : "Hint"}</span>
+              </button>
+            </div>
           </div>
 
           {loadingQuestion ? (
             <div className="py-10 flex flex-col items-center justify-center text-slate-400">
               <Loader2 className="w-6 h-6 animate-spin text-indigo-600 mb-2" />
               <p className="text-xs font-normal">
-                Generating context sentence...
+                Generating fresh context sentence...
               </p>
             </div>
           ) : practiceQuestion ? (
@@ -322,14 +487,28 @@ export function WordPracticeView({
                       ? "🎉 Spot on! Great context recognition."
                       : `The correct word was "${practiceQuestion.word}".`}
                   </span>
-                  <button
-                    type="button"
-                    onClick={handleNextIdentify}
-                    className="w-full sm:w-auto min-h-[38px] inline-flex items-center justify-center gap-1.5 px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 active:scale-[0.98] text-white text-xs font-medium transition-all shadow-2xs touch-manipulation cursor-pointer"
-                  >
-                    <span>Next Word</span>
-                    <ArrowRight className="w-3.5 h-3.5" />
-                  </button>
+                  <div className="flex items-center gap-2 w-full sm:w-auto">
+                    <button
+                      type="button"
+                      onClick={() =>
+                        activeCard &&
+                        loadQuestionForActiveCard(activeCard, true)
+                      }
+                      className="flex-1 sm:flex-initial min-h-[38px] inline-flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300 text-xs font-medium transition-all touch-manipulation cursor-pointer"
+                    >
+                      <RotateCcw className="w-3.5 h-3.5" />
+                      <span>Try Another</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={handleNextIdentify}
+                      className="flex-1 sm:flex-initial min-h-[38px] inline-flex items-center justify-center gap-1.5 px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 active:scale-[0.98] text-white text-xs font-medium transition-all shadow-2xs touch-manipulation cursor-pointer"
+                    >
+                      <span>Next Word</span>
+                      <ArrowRight className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
                 </div>
               )}
             </div>
@@ -349,14 +528,26 @@ export function WordPracticeView({
                 {formWordCard.word}
               </h4>
             </div>
-            <button
-              type="button"
-              onClick={handleNextFormWord}
-              className="min-h-[32px] px-2 text-xs font-medium text-indigo-600 dark:text-indigo-400 hover:underline flex items-center gap-1 touch-manipulation cursor-pointer shrink-0"
-            >
-              <RotateCcw className="w-3 h-3" />
-              <span>Next word</span>
-            </button>
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={handleRandomFormWord}
+                className="min-h-[32px] px-2 text-xs font-medium text-slate-600 dark:text-slate-400 hover:text-indigo-600 dark:hover:text-indigo-300 flex items-center gap-1 touch-manipulation cursor-pointer shrink-0 transition-colors"
+                title="Randomize word"
+              >
+                <Shuffle className="w-3 h-3" />
+                <span>Random</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={handleNextFormWord}
+                className="min-h-[32px] px-2 text-xs font-medium text-indigo-600 dark:text-indigo-400 hover:underline flex items-center gap-1 touch-manipulation cursor-pointer shrink-0"
+              >
+                <RotateCcw className="w-3 h-3" />
+                <span>Next word</span>
+              </button>
+            </div>
           </div>
 
           <div className="p-3 rounded-xl bg-indigo-50/60 dark:bg-indigo-950/30 border border-indigo-100/80 dark:border-indigo-900/40">

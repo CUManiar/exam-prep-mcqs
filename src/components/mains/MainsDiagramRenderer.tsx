@@ -1,7 +1,16 @@
 "use client";
 
 import React, { useState } from "react";
-import { Workflow, ArrowRight, ArrowDown, GitBranch, Copy, Check, Eye, Code } from "lucide-react";
+import {
+  Workflow,
+  ArrowRight,
+  ArrowDown,
+  GitBranch,
+  Copy,
+  Check,
+  Eye,
+  Code,
+} from "lucide-react";
 
 interface MainsDiagramRendererProps {
   diagramIdea?: string | null;
@@ -93,7 +102,9 @@ function parseDiagram(raw?: string | null): ParsedDiagram | null {
   return null;
 }
 
-export function MainsDiagramRenderer({ diagramIdea }: MainsDiagramRendererProps) {
+export function MainsDiagramRenderer({
+  diagramIdea,
+}: MainsDiagramRendererProps) {
   const [viewMode, setViewMode] = useState<"visual" | "schema">("visual");
   const [copied, setCopied] = useState(false);
 
@@ -232,7 +243,8 @@ export function MainsDiagramRenderer({ diagramIdea }: MainsDiagramRendererProps)
               ✍️ Exam Sheet Implementation:
             </span>
             <span>
-              Draw this clear micro-diagram in the margin or box for quick examiner recognition (+1 to +2 marks).
+              Draw this clear micro-diagram in the margin or box for quick
+              examiner recognition (+1 to +2 marks).
             </span>
           </div>
         </div>

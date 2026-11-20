@@ -90,7 +90,7 @@ export const paperImportSchema = z
       .string()
       .optional()
       .describe(
-        "Documented raw answer key text: MCQs '<number>. <letter> \"\"\" explanation \"\"\"', Cloze '<number>. <answer> \"\"\" explanation \"\"\"' or '<number>. \"\"\" reference answer \"\"\"'",
+        'Documented raw answer key text: MCQs \'<number>. <letter> """ explanation """\', Cloze \'<number>. <answer> """ explanation """\' or \'<number>. """ reference answer """\'',
       ),
     answerKey: z
       .union([z.record(z.string(), z.string()), z.string()])
@@ -474,9 +474,9 @@ function createImportedPaper(
     instructions,
     cutoffEnabled: Boolean(
       input.cutoffEnabled ||
-        header.cutoffEnabled ||
-        (input.cutoffValue !== undefined && Number(input.cutoffValue) > 0) ||
-        (header.cutoffValue !== undefined && Number(header.cutoffValue) > 0),
+      header.cutoffEnabled ||
+      (input.cutoffValue !== undefined && Number(input.cutoffValue) > 0) ||
+      (header.cutoffValue !== undefined && Number(header.cutoffValue) > 0),
     ),
     cutoffType:
       input.cutoffType === "marks" || header.cutoffType === "marks"
@@ -762,7 +762,8 @@ function recalculateAttemptGrades(
   const incorrectMarksPerQ =
     paper?.incorrectMarks !== undefined && Number(paper.incorrectMarks) >= 0
       ? Number(paper.incorrectMarks)
-      : attempt.incorrectMarks !== undefined && Number(attempt.incorrectMarks) >= 0
+      : attempt.incorrectMarks !== undefined &&
+          Number(attempt.incorrectMarks) >= 0
         ? Number(attempt.incorrectMarks)
         : isCsatPaper(paper, attempt)
           ? 0.833
@@ -903,7 +904,8 @@ function recalculateAttemptGrades(
     answers: sanitizedAnswers,
     correctMarks: correctMarksPerQ,
     incorrectMarks: incorrectMarksPerQ,
-    totalMarks: effectiveTotalMarks > 0 ? effectiveTotalMarks : attempt.totalMarks,
+    totalMarks:
+      effectiveTotalMarks > 0 ? effectiveTotalMarks : attempt.totalMarks,
     answered,
     correct,
     partial,
@@ -963,7 +965,8 @@ export function createPortalMcpServer(
         vocabTotal: vocabCards.length,
         vocabMastered: vocabCards.filter((c) => c.mastered).length,
         vocabLearning: vocabCards.filter((c) => !c.mastered).length,
-        vocabAddedToday: vocabCards.filter((c) => c.dateAdded === todayStr).length,
+        vocabAddedToday: vocabCards.filter((c) => c.dateAdded === todayStr)
+          .length,
         dailyGoal: 5,
         dailyGoalAchieved:
           vocabCards.filter((c) => c.dateAdded === todayStr).length >= 5,

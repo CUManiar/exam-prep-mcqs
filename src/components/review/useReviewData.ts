@@ -188,19 +188,24 @@ export function useReviewData(attempt: Attempt, papers: QuestionPaper[]) {
   // Classification flags
   const isSubjectiveAttempt = attempt.examType === "subjective";
   const correctMarksPerQ =
-    matchedPaper?.correctMarks !== undefined && Number(matchedPaper.correctMarks) > 0
+    matchedPaper?.correctMarks !== undefined &&
+    Number(matchedPaper.correctMarks) > 0
       ? Number(matchedPaper.correctMarks)
-      : attempt.correctMarks ?? 2.0;
+      : (attempt.correctMarks ?? 2.0);
   const incorrectMarksPerQ =
-    matchedPaper?.incorrectMarks !== undefined && Number(matchedPaper.incorrectMarks) >= 0
+    matchedPaper?.incorrectMarks !== undefined &&
+    Number(matchedPaper.incorrectMarks) >= 0
       ? Number(matchedPaper.incorrectMarks)
-      : attempt.incorrectMarks !== undefined && Number(attempt.incorrectMarks) >= 0
+      : attempt.incorrectMarks !== undefined &&
+          Number(attempt.incorrectMarks) >= 0
         ? Number(attempt.incorrectMarks)
         : 0.667;
   const subjectiveMarksPerQ =
     attempt.totalQuestions > 0
-      ? (matchedPaper?.totalMarks ?? attempt.totalMarks ?? attempt.maxScore ?? 0) /
-        attempt.totalQuestions
+      ? (matchedPaper?.totalMarks ??
+          attempt.totalMarks ??
+          attempt.maxScore ??
+          0) / attempt.totalQuestions
       : 0;
 
   // Helper functions (stable per render, depend on markdownQuestions / attempt)
@@ -663,7 +668,7 @@ export function useReviewData(attempt: Attempt, papers: QuestionPaper[]) {
     avgTimePerQ,
   ]);
 
-  // AND Filter function: Supports composite AND filtering
+  // AND + OR Filter function: Supports composite AND & OR filtering
   const getFilteredQuestions = (
     filters: ReviewFilterState | FilterTabType,
     sortOption: SortOptionType,
@@ -679,6 +684,13 @@ export function useReviewData(attempt: Attempt, papers: QuestionPaper[]) {
               filters === "partial"
                 ? filters
                 : null,
+            outcomes:
+              filters === "correct" ||
+              filters === "incorrect" ||
+              filters === "skipped" ||
+              filters === "partial"
+                ? [filters]
+                : [],
             confidence:
               filters === "sure" ||
               filters === "50-50" ||
@@ -686,61 +698,116 @@ export function useReviewData(attempt: Attempt, papers: QuestionPaper[]) {
               filters === "elimination"
                 ? filters
                 : null,
+            confidences:
+              filters === "sure" ||
+              filters === "50-50" ||
+              filters === "guess" ||
+              filters === "elimination"
+                ? [filters]
+                : [],
             flagged: filters === "flagged",
             slow: filters === "slow",
             altered: filters === "altered",
+            logic: "AND",
           }
         : filters;
 
+    const selectedOutcomes: (
+      "incorrect" | "correct" | "skipped" | "partial"
+    )[] =
+      filterState.outcomes && filterState.outcomes.length > 0
+        ? filterState.outcomes
+        : filterState.outcome
+          ? [filterState.outcome]
+          : [];
+
+    const selectedConfidences: ("sure" | "50-50" | "guess" | "elimination")[] =
+      filterState.confidences && filterState.confidences.length > 0
+        ? filterState.confidences
+        : filterState.confidence
+          ? [filterState.confidence]
+          : [];
+
+    const isFlaggedActive = Boolean(filterState.flagged);
+    const isSlowActive = Boolean(filterState.slow);
+    const isAlteredActive = Boolean(filterState.altered);
+    const logic = filterState.logic || "AND";
+
+    const hasAnyActiveFilter =
+      selectedOutcomes.length > 0 ||
+      selectedConfidences.length > 0 ||
+      isFlaggedActive ||
+      isSlowActive ||
+      isAlteredActive;
+
     let list = questionList.filter((q) => {
-      // 1. Outcome filter
-      if (filterState.outcome) {
-        const evaluable = isAssessmentQuestion(q.questionNo);
-        if (filterState.outcome === "correct") {
-          const isCorrect = evaluable
-            ? q.subjectiveAssessment === "strong"
-            : q.selected && q.isCorrect === true;
-          if (!isCorrect) return false;
-        } else if (filterState.outcome === "incorrect") {
-          const isIncorrect = evaluable
-            ? q.subjectiveAssessment === "needs-work"
-            : q.selected && q.isCorrect === false;
-          if (!isIncorrect) return false;
-        } else if (filterState.outcome === "partial") {
-          const isPart = evaluable
-            ? q.subjectiveAssessment === "partial"
-            : q.selected && q.subjectiveAssessment === "partial";
-          if (!isPart) return false;
-        } else if (filterState.outcome === "skipped") {
-          if (isQuestionAnswered(q)) return false;
-        }
+      if (!hasAnyActiveFilter) return true;
+
+      const evaluable = isAssessmentQuestion(q.questionNo);
+
+      // Outcome match check
+      const matchesOutcome =
+        selectedOutcomes.length > 0 &&
+        selectedOutcomes.some((outcome) => {
+          if (outcome === "correct") {
+            return evaluable
+              ? q.subjectiveAssessment === "strong"
+              : Boolean(q.selected && q.isCorrect === true);
+          }
+          if (outcome === "incorrect") {
+            return evaluable
+              ? q.subjectiveAssessment === "needs-work"
+              : Boolean(q.selected && q.isCorrect === false);
+          }
+          if (outcome === "partial") {
+            return evaluable
+              ? q.subjectiveAssessment === "partial"
+              : Boolean(q.selected && q.subjectiveAssessment === "partial");
+          }
+          if (outcome === "skipped") {
+            return !isQuestionAnswered(q);
+          }
+          return false;
+        });
+
+      // Confidence match check
+      const matchesConfidence =
+        selectedConfidences.length > 0 &&
+        selectedConfidences.some((conf) => {
+          if (conf === "guess") {
+            return q.confidence === "guess" || q.confidence === "elimination";
+          }
+          return q.confidence === conf;
+        });
+
+      // Flagged match check
+      const matchesFlagged = isFlaggedActive && Boolean(q.flagged);
+
+      // Slow (>90s) match check
+      const matchesSlow = isSlowActive && (q.timeSpentSeconds || 0) >= 90;
+
+      // Altered match check
+      const matchesAltered =
+        isAlteredActive &&
+        !isClozeQuestion(q.questionNo) &&
+        Boolean(q.changesCount && q.changesCount > 0);
+
+      if (logic === "OR") {
+        return (
+          matchesOutcome ||
+          matchesConfidence ||
+          matchesFlagged ||
+          matchesSlow ||
+          matchesAltered
+        );
       }
 
-      // 2. Confidence filter
-      if (filterState.confidence) {
-        if (filterState.confidence === "guess") {
-          if (q.confidence !== "guess" && q.confidence !== "elimination")
-            return false;
-        } else {
-          if (q.confidence !== filterState.confidence) return false;
-        }
-      }
-
-      // 3. Flagged filter
-      if (filterState.flagged && !q.flagged) return false;
-
-      // 4. Slow (>90s) filter
-      if (filterState.slow && (q.timeSpentSeconds || 0) < 90) return false;
-
-      // 5. Altered filter
-      if (
-        filterState.altered &&
-        (isClozeQuestion(q.questionNo) ||
-          !q.changesCount ||
-          q.changesCount <= 0)
-      ) {
-        return false;
-      }
+      // logic === "AND"
+      if (selectedOutcomes.length > 0 && !matchesOutcome) return false;
+      if (selectedConfidences.length > 0 && !matchesConfidence) return false;
+      if (isFlaggedActive && !matchesFlagged) return false;
+      if (isSlowActive && !matchesSlow) return false;
+      if (isAlteredActive && !matchesAltered) return false;
 
       return true;
     });

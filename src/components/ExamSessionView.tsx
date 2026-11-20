@@ -474,7 +474,9 @@ export function ExamSessionView({
       const k = paper.answerKey;
       let val = k ? k[qNo] || k[String(qNo)] : undefined;
       if (!val && effectivePaper.parsedQuestions) {
-        val = effectivePaper.parsedQuestions.find((q) => q.questionNo === qNo)?.answer;
+        val = effectivePaper.parsedQuestions.find(
+          (q) => q.questionNo === qNo,
+        )?.answer;
       }
       if (!val && answersRef.current[qNo]?.correctAnswer) {
         val = answersRef.current[qNo].correctAnswer;
@@ -484,7 +486,8 @@ export function ExamSessionView({
         val = parsed.answers[qNo];
       }
       if (!val && (paper.explanations?.[qNo] || sessionExplanations[qNo])) {
-        const exp = (paper.explanations?.[qNo] || sessionExplanations[qNo])!.trim();
+        const exp = (paper.explanations?.[qNo] ||
+          sessionExplanations[qNo])!.trim();
         const ansMatch = exp.match(
           /^(?:Answer|Ans|Key|Reference|Correct\s*Answer)\s*[:\-]\s*([^\n\.]+)/i,
         );
@@ -682,7 +685,8 @@ export function ExamSessionView({
       const question = effectivePaper.parsedQuestions?.find(
         (parsedQuestion) => parsedQuestion.questionNo === questionNo,
       );
-      if (question && Object.keys(question.options || {}).length === 0) return true;
+      if (question && Object.keys(question.options || {}).length === 0)
+        return true;
       const ans = answers[questionNo];
       if (
         ans?.selected &&
@@ -813,7 +817,12 @@ export function ExamSessionView({
         };
       });
     },
-    [isClozeQuestion, getCorrectAnswerForQ, sessionExplanations, paper.explanations],
+    [
+      isClozeQuestion,
+      getCorrectAnswerForQ,
+      sessionExplanations,
+      paper.explanations,
+    ],
   );
 
   const handleSetConfidence = (qNo: number, confidence: ConfidenceLevel) => {
@@ -1249,7 +1258,8 @@ export function ExamSessionView({
     if (isClozeQuestion(q.questionNo)) {
       return Boolean(q.selected?.trim() && q.selected !== "attempted");
     }
-    if (!isSubjective) return Boolean(q.selected && q.selected.trim().length > 0);
+    if (!isSubjective)
+      return Boolean(q.selected && q.selected.trim().length > 0);
     return q.selected === "attempted";
   };
 
@@ -1341,7 +1351,9 @@ export function ExamSessionView({
           (pq) => pq.questionNo === i,
         );
         const explanation =
-          sessionExplanations[i] || paper.explanations?.[i] || qMeta?.explanation;
+          sessionExplanations[i] ||
+          paper.explanations?.[i] ||
+          qMeta?.explanation;
 
         if (isCloze) {
           // Cloze questions are subjective free-text responses.
@@ -1449,7 +1461,9 @@ export function ExamSessionView({
         Number(paper.correctMarks) > 0
           ? Number(paper.correctMarks)
           : paper.totalQuestions > 0 && Number(paper.totalMarks) > 0
-            ? Math.round((Number(paper.totalMarks) / paper.totalQuestions) * 1000) / 1000
+            ? Math.round(
+                (Number(paper.totalMarks) / paper.totalQuestions) * 1000,
+              ) / 1000
             : isCsatPaper(paper)
               ? 2.5
               : 2.0;
@@ -1562,7 +1576,7 @@ export function ExamSessionView({
     !currentQuestionIsCloze &&
     Boolean(
       currentQuestionData?.options &&
-        Object.keys(currentQuestionData.options).length > 0,
+      Object.keys(currentQuestionData.options).length > 0,
     );
   const currentQuestionExplanation =
     currentQuestion !== null
@@ -2819,7 +2833,8 @@ export function ExamSessionView({
                             </span>
                           </h4>
                           <p className="text-[11px] text-slate-500">
-                            Type your answer in the text box below. No options are provided.
+                            Type your answer in the text box below. No options
+                            are provided.
                           </p>
                         </div>
                         <div className="flex items-center gap-1.5">
@@ -2827,7 +2842,8 @@ export function ExamSessionView({
                           currentQObj.selected.trim().length > 0 &&
                           currentQObj.selected !== "attempted" ? (
                             <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 border border-emerald-200 px-2.5 py-0.5 text-[10px] font-bold text-emerald-800">
-                              <CheckCircle2 className="h-3 w-3 text-emerald-600" /> Answer Provided
+                              <CheckCircle2 className="h-3 w-3 text-emerald-600" />{" "}
+                              Answer Provided
                             </span>
                           ) : (
                             <span className="inline-flex items-center gap-1 rounded-full bg-slate-100 border border-slate-200 px-2.5 py-0.5 text-[10px] font-medium text-slate-500">
@@ -2871,13 +2887,16 @@ export function ExamSessionView({
 
                       <div className="flex items-center justify-between gap-2 pt-1">
                         <span className="text-[11px] text-slate-400">
-                          Answer is recorded automatically. Press ⌘+S to finish editing.
+                          Answer is recorded automatically. Press ⌘+S to finish
+                          editing.
                         </span>
                         {currentQObj.selected &&
                           currentQObj.selected.trim().length > 0 && (
                             <button
                               type="button"
-                              onClick={() => handleClearSelection(currentQuestion)}
+                              onClick={() =>
+                                handleClearSelection(currentQuestion)
+                              }
                               className="rounded-lg border border-slate-200 bg-white px-2.5 py-1 text-xs font-semibold text-slate-600 hover:text-rose-600 hover:bg-slate-50 transition-colors shadow-2xs"
                             >
                               Clear Answer
@@ -3270,7 +3289,7 @@ export function ExamSessionView({
                   !isQNoCloze &&
                   Boolean(
                     paletteQuestionData?.options &&
-                      Object.keys(paletteQuestionData.options).length > 0,
+                    Object.keys(paletteQuestionData.options).length > 0,
                   );
 
                 let badgeColor =

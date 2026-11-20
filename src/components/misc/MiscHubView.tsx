@@ -328,7 +328,8 @@ export function MiscHubView() {
                     <strong className="text-indigo-600 dark:text-indigo-400 font-bold">
                       {filteredCards.length}
                     </strong>{" "}
-                    matching word{filteredCards.length === 1 ? "" : "s"} for &ldquo;{searchQuery.trim()}&rdquo;
+                    matching word{filteredCards.length === 1 ? "" : "s"} for
+                    &ldquo;{searchQuery.trim()}&rdquo;
                   </span>
                   <button
                     type="button"

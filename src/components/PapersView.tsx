@@ -43,6 +43,8 @@ import {
   Filter,
   ChevronDown,
   Calendar,
+  Check,
+  Scale,
 } from "lucide-react";
 
 interface PapersViewProps {
@@ -197,7 +199,7 @@ interface PapersFilterState {
   customStartDate?: string;
   customEndDate?: string;
   selectedAttemptFilter?:
-    | "all" | "attempted" | "unattempted" | "mock" | "practice";
+    "all" | "attempted" | "unattempted" | "mock" | "practice";
   paperViewMode?: "grid" | "list";
 }
 
@@ -344,6 +346,8 @@ export function PapersView({
   const [editCutoffType, setEditCutoffType] =
     useState<CutoffType>("percentage");
   const [editCutoffValue, setEditCutoffValue] = useState<number | "">("");
+  const [viewingSummaryPaper, setViewingSummaryPaper] =
+    useState<QuestionPaper | null>(null);
 
   // Dedicated Attach Modal (supports opening directly to 'key' or 'solution')
   const [attachingPaper, setAttachingPaper] = useState<QuestionPaper | null>(
@@ -521,12 +525,7 @@ export function PapersView({
 
     // 3. Date range filter
     if (
-      !matchesDateRange(
-        p,
-        selectedDateRange,
-        customStartDate,
-        customEndDate,
-      )
+      !matchesDateRange(p, selectedDateRange, customStartDate, customEndDate)
     ) {
       return false;
     }
@@ -1115,7 +1114,9 @@ export function PapersView({
                     className="bg-white border border-slate-200 rounded px-1.5 py-0.5 text-[11px] text-slate-800 font-mono focus:outline-hidden focus:border-amber-500"
                     title="From date"
                   />
-                  <span className="text-[10px] text-amber-900 font-bold">to</span>
+                  <span className="text-[10px] text-amber-900 font-bold">
+                    to
+                  </span>
                   <input
                     type="date"
                     value={customEndDate}
@@ -1319,8 +1320,9 @@ export function PapersView({
                   {/* Clean Title Container - strictly 44px (h-11) across every card */}
                   <div className="mt-2.5 h-11 flex items-start overflow-hidden">
                     <h3
-                      className="text-sm font-semibold text-slate-900 group-hover:text-indigo-600 transition-colors leading-snug line-clamp-2"
-                      title={getPaperDisplayTitle(paper)}
+                      onClick={() => setViewingSummaryPaper(paper)}
+                      className="text-sm font-semibold text-slate-900 group-hover:text-indigo-600 transition-colors leading-snug line-clamp-2 cursor-pointer hover:underline underline-offset-2"
+                      title={`Click to view paper summary & rules for ${getPaperDisplayTitle(paper)}`}
                     >
                       {getPaperDisplayTitle(paper)}
                     </h3>
@@ -1909,6 +1911,222 @@ export function PapersView({
                 >
                   Save Changes
                 </button>
+              </div>
+            </div>
+          </div>,
+          document.body,
+        )}
+
+      {/* Paper Summary & Examination Rules Modal */}
+      {viewingSummaryPaper &&
+        mounted &&
+        createPortal(
+          <div className="fixed inset-0 z-[9999] overflow-y-auto flex min-h-full items-start sm:items-center justify-center p-3 sm:p-6 py-8 sm:py-12 bg-slate-900/60 backdrop-blur-xs animate-in fade-in">
+            <div className="relative my-auto w-full max-w-lg rounded-2xl border border-slate-200 bg-white p-5 sm:p-6 shadow-2xl space-y-4">
+              {/* Modal Header */}
+              <div className="flex items-start justify-between gap-3 border-b border-slate-100 pb-3">
+                <div className="space-y-1">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className="text-[11px] font-bold px-2 py-0.5 rounded-md bg-indigo-50 text-indigo-700 border border-indigo-200 font-mono">
+                      {viewingSummaryPaper.year || "2026"}
+                    </span>
+                    <span className="text-[11px] font-bold px-2 py-0.5 rounded-md bg-slate-100 text-slate-600 border border-slate-200 uppercase font-sans">
+                      {viewingSummaryPaper.category === "prelims"
+                        ? "Prelims"
+                        : "Mains"}{" "}
+                      · {viewingSummaryPaper.subject}
+                    </span>
+                    {viewingSummaryPaper.examType === "objective" ? (
+                      <span className="text-[11px] font-bold px-2 py-0.5 rounded-md bg-emerald-50 text-emerald-700 border border-emerald-200">
+                        Objective (MCQ)
+                      </span>
+                    ) : (
+                      <span className="text-[11px] font-bold px-2 py-0.5 rounded-md bg-violet-50 text-violet-700 border border-violet-200">
+                        Subjective
+                      </span>
+                    )}
+                  </div>
+                  <h3 className="text-base font-bold text-slate-900 leading-snug">
+                    {getPaperDisplayTitle(viewingSummaryPaper)}
+                  </h3>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setViewingSummaryPaper(null)}
+                  className="p-1 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors cursor-pointer"
+                >
+                  <X className="h-5 w-5" />
+                </button>
+              </div>
+
+              {/* Paper Metrics Grid */}
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-center p-3 rounded-xl bg-slate-50 border border-slate-200/80">
+                <div className="p-2 bg-white rounded-lg border border-slate-200/60 shadow-2xs">
+                  <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
+                    Questions
+                  </span>
+                  <span className="text-sm font-black text-slate-900 font-mono mt-0.5 block">
+                    {viewingSummaryPaper.totalQuestions}
+                  </span>
+                </div>
+                <div className="p-2 bg-white rounded-lg border border-slate-200/60 shadow-2xs">
+                  <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
+                    Time Limit
+                  </span>
+                  <span className="text-sm font-black text-indigo-600 font-mono mt-0.5 block">
+                    {viewingSummaryPaper.timeMinutes} mins
+                  </span>
+                </div>
+                <div className="p-2 bg-white rounded-lg border border-slate-200/60 shadow-2xs">
+                  <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
+                    Total Marks
+                  </span>
+                  <span className="text-sm font-black text-slate-900 font-mono mt-0.5 block">
+                    {viewingSummaryPaper.totalMarks}
+                  </span>
+                </div>
+                <div className="p-2 bg-white rounded-lg border border-slate-200/60 shadow-2xs">
+                  <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
+                    Pacing Target
+                  </span>
+                  <span className="text-sm font-black text-slate-700 font-mono mt-0.5 block">
+                    ~
+                    {Math.round(
+                      (viewingSummaryPaper.timeMinutes * 60) /
+                        Math.max(1, viewingSummaryPaper.totalQuestions),
+                    )}
+                    s/q
+                  </span>
+                </div>
+              </div>
+
+              {/* Marking Rules Card */}
+              <div className="p-3.5 rounded-xl border border-slate-200 bg-white space-y-2">
+                <h4 className="text-xs font-bold text-slate-800 uppercase tracking-wider flex items-center gap-1.5">
+                  <Scale className="h-3.5 w-3.5 text-indigo-600" />
+                  <span>Marking Scheme & Negative Penalty</span>
+                </h4>
+                <div className="grid grid-cols-2 gap-2 text-xs">
+                  <div className="p-2.5 rounded-lg bg-emerald-50/70 border border-emerald-200/80 flex items-center justify-between">
+                    <span className="text-emerald-800 font-medium">
+                      Correct Answer:
+                    </span>
+                    <span className="font-mono font-bold text-emerald-700">
+                      +{viewingSummaryPaper.correctMarks || 2.0} Marks
+                    </span>
+                  </div>
+                  <div className="p-2.5 rounded-lg bg-rose-50/70 border border-rose-200/80 flex items-center justify-between">
+                    <span className="text-rose-800 font-medium">
+                      Incorrect Penalty:
+                    </span>
+                    <span className="font-mono font-bold text-rose-700">
+                      -{viewingSummaryPaper.incorrectMarks || 0.667} Marks
+                    </span>
+                  </div>
+                </div>
+
+                {/* Cutoff Target if enabled */}
+                {viewingSummaryPaper.cutoffEnabled &&
+                  viewingSummaryPaper.cutoffValue !== undefined && (
+                    <div className="p-2.5 rounded-lg bg-amber-50/70 border border-amber-200/80 text-xs text-amber-900 flex items-center justify-between">
+                      <span className="font-medium">
+                        Target Qualifying Cutoff:
+                      </span>
+                      <span className="font-mono font-bold text-amber-700">
+                        {viewingSummaryPaper.cutoffValue}
+                        {viewingSummaryPaper.cutoffType === "percentage"
+                          ? "%"
+                          : " Marks"}
+                      </span>
+                    </div>
+                  )}
+              </div>
+
+              {/* Instructions & Examination Rules */}
+              <div className="p-3.5 rounded-xl border border-slate-200 bg-slate-50/50 space-y-2">
+                <h4 className="text-xs font-bold text-slate-800 uppercase tracking-wider flex items-center gap-1.5">
+                  <BookOpen className="h-3.5 w-3.5 text-indigo-600" />
+                  <span>Paper Rules & Candidate Instructions</span>
+                </h4>
+                <ul className="space-y-1.5 text-xs text-slate-700 leading-relaxed max-h-48 overflow-y-auto pr-1">
+                  {viewingSummaryPaper.instructions &&
+                  viewingSummaryPaper.instructions.length > 0 ? (
+                    viewingSummaryPaper.instructions.map((inst, i) => (
+                      <li key={i} className="flex items-start gap-2">
+                        <Check className="h-3.5 w-3.5 text-emerald-600 shrink-0 mt-0.5" />
+                        <span>{inst}</span>
+                      </li>
+                    ))
+                  ) : (
+                    <>
+                      <li className="flex items-start gap-2">
+                        <Check className="h-3.5 w-3.5 text-emerald-600 shrink-0 mt-0.5" />
+                        <span>
+                          Each objective question carries multiple choice
+                          options with only one correct response.
+                        </span>
+                      </li>
+                      <li className="flex items-start gap-2">
+                        <Check className="h-3.5 w-3.5 text-emerald-600 shrink-0 mt-0.5" />
+                        <span>
+                          For every incorrect response, one-third (or designated
+                          penalty) of the assigned marks will be deducted.
+                        </span>
+                      </li>
+                      <li className="flex items-start gap-2">
+                        <Check className="h-3.5 w-3.5 text-emerald-600 shrink-0 mt-0.5" />
+                        <span>
+                          Unattempted questions carry zero penalty and zero
+                          marks.
+                        </span>
+                      </li>
+                      <li className="flex items-start gap-2">
+                        <Check className="h-3.5 w-3.5 text-emerald-600 shrink-0 mt-0.5" />
+                        <span>
+                          In Mock Exam mode, strict exam timing is enforced to
+                          benchmark pacing and qualifying cutoffs.
+                        </span>
+                      </li>
+                    </>
+                  )}
+                </ul>
+              </div>
+
+              {/* Actions */}
+              <div className="flex items-center justify-between pt-2 border-t border-slate-100 gap-2">
+                <button
+                  type="button"
+                  onClick={() => setViewingSummaryPaper(null)}
+                  className="px-4 py-2 rounded-xl border border-slate-200 text-xs font-semibold text-slate-600 hover:bg-slate-50 transition-colors cursor-pointer"
+                >
+                  Close
+                </button>
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const p = viewingSummaryPaper;
+                      setViewingSummaryPaper(null);
+                      onStartExam(p, "practice");
+                    }}
+                    className="px-4 py-2 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-xs font-bold text-slate-700 transition-colors shadow-2xs flex items-center gap-1.5 cursor-pointer"
+                  >
+                    <Play className="h-3.5 w-3.5 text-slate-500" />
+                    <span>Practice</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const p = viewingSummaryPaper;
+                      setViewingSummaryPaper(null);
+                      onStartExam(p, "mock");
+                    }}
+                    className="px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-xs font-bold text-white transition-all shadow-xs flex items-center gap-1.5 cursor-pointer"
+                  >
+                    <Clock className="h-3.5 w-3.5" />
+                    <span>Mock Exam</span>
+                  </button>
+                </div>
               </div>
             </div>
           </div>,

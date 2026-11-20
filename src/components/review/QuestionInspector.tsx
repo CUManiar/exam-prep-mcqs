@@ -100,15 +100,11 @@ export function QuestionInspector({
   ).trim();
   const expectedAnswer = isCloze
     ? rawExpected
-    : rawExpected
-        .replace(/[\(\)\[\]\.\s]/g, "")
-        .toUpperCase();
+    : rawExpected.replace(/[\(\)\[\]\.\s]/g, "").toUpperCase();
   const rawCandidate = (question.selected || "").trim();
   const candidateAnswer = isCloze
     ? rawCandidate
-    : rawCandidate
-        .replace(/[\(\)\[\]\.\s]/g, "")
-        .toUpperCase();
+    : rawCandidate.replace(/[\(\)\[\]\.\s]/g, "").toUpperCase();
   const officialExplanation =
     parsedQuestion?.explanation || question.explanation;
 
