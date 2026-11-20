@@ -141,11 +141,20 @@ export function formatCleanModelAnswer(
   }
 
   let cleaned = trimmed.replace(/\\n/g, "\n").replace(/\\"/g, '"');
-  // Strip meta-commentary headers so it remains strictly a pure exam script
+  // Strip meta-commentary headers so it remains strictly a clean model answer
   cleaned = cleaned
     .replace(/^#+\s*(?:Topper\s+)?Model\s+Answer[^\n]*\n+/i, "")
     .replace(/^\*\*(?:Word\s+Count|Words?|Time Limit|Target)[^\n]*\n+/gim, "")
     .replace(/^\*(?:Word\s+Count|Words?|Time Limit|Target)[^\n]*\n+/gim, "")
+    // Strip artificial Value-Addition Box callouts from model answers
+    .replace(
+      /^>\s*\*{0,2}(?:Topper\s+)?(?:Value[- ]Addition|Value Add|Examiner Note)(?: Box)?\*{0,2}:?[\s\S]*?(?=\n\n\S|\n#{1,6}\s|$)/gim,
+      "",
+    )
+    .replace(
+      /^\*{1,2}(?:Topper\s+)?(?:Value[- ]Addition|Value Add)(?: Box)?\*{1,2}:?[\s\S]*?(?=\n\n\S|\n#{1,6}\s|$)/gim,
+      "",
+    )
     .trim();
 
   return cleaned;

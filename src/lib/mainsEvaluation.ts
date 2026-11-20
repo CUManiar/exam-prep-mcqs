@@ -290,10 +290,14 @@ DIAGRAM & VISUALS QUALITY GATING (STRICT):
 - Only provide "diagramIdea" if a substantive, exam-practical multi-branch flowchart, 2x2 conceptual matrix, or drawn diagram genuinely adds value and earns +1 to +2 marks under exam-hall time constraints.
 - If no diagram is genuinely useful or high-yield for this specific question, set "diagramIdea": null. Strictly refrain from placeholder schemas.
 
-TOPPER MODEL ANSWER (STRICT REQUIREMENT: PURE EXAM SCRIPT ONLY):
-- Provide ONLY the exact answer text that a candidate must write on the UPSC Mains answer booklet.
-- Do NOT include ANY meta-commentary, introductory headers like "### Topper Model Answer...", word count tags like "(150 Words | 7 Mins)", section annotations like "(Introduction 20 words)", tips, or explanations.
-- Write pure exam markdown: start directly with the Introduction sentence -> Question Keyword Subheadings -> Numbered Points with Case/Article Citations -> Counterview / Balance -> Synthesis Conclusion.
+MODEL ANSWER (STRICT REQUIREMENT: COMPLETE EXAM ANSWER ONLY):
+- Provide the complete, authentic model answer that a candidate should write on the UPSC Mains answer booklet.
+- Do NOT include labels like "Pure Model Answer", "Impure", "Topper Model Answer", or introductory meta-headers like "### Model Answer...". Start directly with the answer.
+- NEVER include artificial meta-boxes such as "> **Value-Addition Box**", "> **Box:**", or separate coaching-style value-addition callout boxes. Real UPSC exam copies do not have meta callout boxes. Any case laws, committee names, constitutional articles, or data points must be integrated directly and naturally into the sentences and arguments of the answer itself.
+- Visual & Infographic Data:
+  * If comparing multi-dimensional variables, data points, or differences, represent them appropriately using clean Markdown tables (e.g. | Parameter | Perspective A | Perspective B |).
+  * If presenting institutional frameworks, chronological stages, or causal linkages, format them cleanly using structured bullet workflows or concise visual markdown representations (e.g., A → B → C).
+- Structure: Start directly with the Introduction sentence -> Question Keyword Subheadings -> Numbered Points with Case/Article Citations -> Counterview / Balance -> Synthesis Conclusion.
 
 BREAKDOWN OF APPROACH TO ANSWER (IN-DEPTH SCORING & STRATEGY GUIDE):
 Provide a detailed pedagogical breakdown explaining what earns marks and why for this specific question:
