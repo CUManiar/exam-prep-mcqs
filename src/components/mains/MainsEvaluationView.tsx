@@ -36,6 +36,7 @@ import {
   Target,
   RotateCcw,
   CheckCheck,
+  Cloud,
 } from "lucide-react";
 import {
   MainsEvaluationResult,
@@ -47,6 +48,11 @@ import {
   isImageBlankOrNegligible,
   formatMainsDefaultTitle,
 } from "@/lib/mainsEvaluation";
+import {
+  saveUserMainsSessionsToSupabase,
+  fetchUserMainsSessionsFromSupabase,
+  deleteUserMainsSessionFromSupabase,
+} from "@/lib/supabase";
 import { useApp } from "@/context/AppContext";
 import { OptionalSubjectSelect } from "../OptionalSubjectSelect";
 import {
@@ -80,6 +86,7 @@ const SAMPLE_QUESTIONS = [
 
 export function MainsEvaluationView() {
   const {
+    currentUser,
     optionalSubject: globalOptionalSubject,
     setOptionalSubject: setGlobalOptionalSubject,
   } = useApp();
@@ -87,6 +94,7 @@ export function MainsEvaluationView() {
   const [sessions, setSessions] = useState<MainsEvaluationSession[]>([]);
   const [currentSessionId, setCurrentSessionId] = useState<string>("");
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
+  const [isSyncingWithCloud, setIsSyncingWithCloud] = useState(false);
 
   // Session Chat Renaming State
   const [editingSessionId, setEditingSessionId] = useState<string | null>(null);
@@ -167,16 +175,103 @@ export function MainsEvaluationView() {
     };
   }, []);
 
-  // Load saved sessions on mount
-  useEffect(() => {
-    const loaded = loadMainsSessions();
-    if (loaded.length > 0) {
-      setSessions(loaded);
-      loadSession(loaded[0]);
-    } else {
-      handleNewEvaluation();
+  // Centralized session persistence (local cache + Supabase sync when signed in)
+  const persistSessions = (
+    updated: MainsEvaluationSession[],
+    deletedId?: string,
+  ) => {
+    saveMainsSessions(updated);
+    if (currentUser?.id) {
+      if (deletedId) {
+        deleteUserMainsSessionFromSupabase(currentUser.id, deletedId, updated);
+      } else {
+        saveUserMainsSessionsToSupabase(currentUser.id, updated);
+      }
     }
-  }, []);
+  };
+
+  // Load saved sessions on mount and synchronize with Supabase for authenticated accounts
+  useEffect(() => {
+    let isMounted = true;
+    const initialLocal = loadMainsSessions();
+
+    if (!currentUser) {
+      if (initialLocal.length > 0) {
+        setSessions(initialLocal);
+        loadSession(initialLocal[0]);
+      } else {
+        handleNewEvaluation();
+      }
+      return;
+    }
+
+    // Authenticated user: immediately render local cache for speed
+    if (initialLocal.length > 0) {
+      setSessions(initialLocal);
+      loadSession(initialLocal[0]);
+    }
+
+    setIsSyncingWithCloud(true);
+    fetchUserMainsSessionsFromSupabase(currentUser.id)
+      .then((dbSessions) => {
+        if (!isMounted) return;
+        if (Array.isArray(dbSessions) && dbSessions.length > 0) {
+          // Merge dbSessions with local sessions:
+          const sessionMap = new Map<string, MainsEvaluationSession>();
+
+          dbSessions.forEach((s) => {
+            if (s && s.id) sessionMap.set(s.id, s);
+          });
+
+          initialLocal.forEach((ls) => {
+            if (!sessionMap.has(ls.id)) {
+              sessionMap.set(ls.id, ls);
+            } else {
+              const dbS = sessionMap.get(ls.id)!;
+              const dbQs = dbS.questions || [];
+              const localQs = ls.questions || [];
+              const dbEvalCount = dbQs.filter((q) => q.evaluation).length;
+              const localEvalCount = localQs.filter((q) => q.evaluation).length;
+
+              if (
+                localEvalCount > dbEvalCount ||
+                (ls.updatedAt && ls.updatedAt > (dbS.updatedAt || ""))
+              ) {
+                sessionMap.set(ls.id, ls);
+              }
+            }
+          });
+
+          const merged = Array.from(sessionMap.values()).sort(
+            (a, b) =>
+              new Date(b.updatedAt || 0).getTime() -
+              new Date(a.updatedAt || 0).getTime(),
+          );
+
+          setSessions(merged);
+          saveMainsSessions(merged);
+          saveUserMainsSessionsToSupabase(currentUser.id, merged);
+
+          if (!currentSessionId || !sessionMap.has(currentSessionId)) {
+            loadSession(merged[0]);
+          }
+        } else if (initialLocal.length > 0) {
+          saveUserMainsSessionsToSupabase(currentUser.id, initialLocal);
+        } else {
+          handleNewEvaluation();
+        }
+      })
+      .catch((err) => {
+        console.warn("Failed syncing mains sessions with Supabase:", err);
+      })
+      .finally(() => {
+        if (isMounted) setIsSyncingWithCloud(false);
+      });
+
+    return () => {
+      isMounted = false;
+    };
+  }, [currentUser?.id]);
 
   const loadSession = (sess: MainsEvaluationSession) => {
     setCurrentSessionId(sess.id);
@@ -244,7 +339,7 @@ export function MainsEvaluationView() {
           }
           return s;
         });
-        saveMainsSessions(updated);
+        persistSessions(updated);
         return updated;
       });
     }
@@ -335,7 +430,7 @@ export function MainsEvaluationView() {
       };
       const filtered = prev.filter((s) => s.id !== currentSessionId);
       const updated = [updatedSession, ...filtered];
-      saveMainsSessions(updated);
+      persistSessions(updated);
       return updated;
     });
   };
@@ -361,7 +456,7 @@ export function MainsEvaluationView() {
         }
         return s;
       });
-      saveMainsSessions(updated);
+      persistSessions(updated);
       return updated;
     });
   };
@@ -406,7 +501,7 @@ export function MainsEvaluationView() {
 
     setSessions((prev) => {
       const updated = [newSession, ...prev.filter((s) => s.id !== newId)];
-      saveMainsSessions(updated);
+      persistSessions(updated);
       return updated;
     });
   };
@@ -447,7 +542,7 @@ export function MainsEvaluationView() {
         }
         return s;
       });
-      saveMainsSessions(updated);
+      persistSessions(updated);
       return updated;
     });
     setEditingSessionId(null);
@@ -464,7 +559,7 @@ export function MainsEvaluationView() {
     e.stopPropagation();
     const updated = sessions.filter((s) => s.id !== id);
     setSessions(updated);
-    saveMainsSessions(updated);
+    persistSessions(updated, id);
     if (currentSessionId === id) {
       if (updated.length > 0) {
         loadSession(updated[0]);
@@ -747,7 +842,7 @@ export function MainsEvaluationView() {
       setSessions((prev) => {
         const filtered = prev.filter((s) => s.id !== currentSessionId);
         const updated = [sessionObj, ...filtered];
-        saveMainsSessions(updated);
+        persistSessions(updated);
         return updated;
       });
     } catch (err: any) {
@@ -1094,6 +1189,15 @@ EXAMINER RESPONSE REQUIREMENTS:
             <h2 className="text-xs font-bold uppercase tracking-wider text-slate-800 dark:text-slate-200">
               Evaluations ({sessions.length})
             </h2>
+            {currentUser && (
+              <span
+                className="text-[10px] text-emerald-600 dark:text-emerald-400 font-semibold flex items-center gap-1"
+                title="Synchronized with your account database"
+              >
+                <Cloud className="h-3 w-3" />
+                {isSyncingWithCloud ? "Syncing..." : "Synced"}
+              </span>
+            )}
           </div>
           <button
             type="button"

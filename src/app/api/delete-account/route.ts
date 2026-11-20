@@ -42,6 +42,9 @@ export async function POST(req: NextRequest) {
     // 3. Delete user custom papers from public.custom_papers
     await adminSupabase.from("custom_papers").delete().eq("user_id", userId);
 
+    // 3.2 Delete user mains evaluations from public.mains_sessions
+    await adminSupabase.from("mains_sessions").delete().eq("user_id", userId);
+
     // 3.5 Clean up user custom files in storage
     try {
       const { data: userFiles } = await adminSupabase.storage

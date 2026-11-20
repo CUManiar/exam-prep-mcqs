@@ -36,6 +36,7 @@ export interface UserProfile {
   custom_syllabus?: SyllabusItem[];
   custom_syllabus_markdown?: string;
   vocab_cards?: VocabCard[];
+  mains_sessions?: any[];
 }
 
 // Check current authenticated user
@@ -350,6 +351,118 @@ export async function saveUserVocabCardsToSupabase(
       })
       .eq("id", userId);
     return !error;
+  } catch {
+    return false;
+  }
+}
+
+// Save user's Mains evaluation sessions to Supabase
+export async function saveUserMainsSessionsToSupabase(
+  userId: string,
+  sessions: any[],
+): Promise<boolean> {
+  const supabase = getSupabaseClient();
+  if (!supabase || !userId) return false;
+  try {
+    // 1. Update in profiles as JSONB
+    const { error: profileError } = await supabase
+      .from("profiles")
+      .update({
+        mains_sessions: sessions,
+        updated_at: new Date().toISOString(),
+      })
+      .eq("id", userId);
+
+    // 2. Also upsert individual sessions into mains_sessions table
+    if (Array.isArray(sessions) && sessions.length > 0) {
+      const rows = sessions.map((s) => ({
+        id: s.id,
+        user_id: userId,
+        title: s.title || "Untitled Evaluation",
+        paper_type: s.paperType || "GS-2",
+        optional_subject: s.optionalSubject || null,
+        updated_at: s.updatedAt || new Date().toISOString(),
+        questions: s.questions || [],
+      }));
+
+      await supabase.from("mains_sessions").upsert(rows, { onConflict: "id" });
+    }
+
+    return !profileError;
+  } catch (err) {
+    console.warn("Failed saving mains sessions to Supabase:", err);
+    return false;
+  }
+}
+
+// Fetch user's Mains evaluation sessions from Supabase
+export async function fetchUserMainsSessionsFromSupabase(
+  userId: string,
+): Promise<any[]> {
+  const supabase = getSupabaseClient();
+  if (!supabase || !userId) return [];
+  try {
+    // Try dedicated mains_sessions table first
+    const { data: tableData, error: tableError } = await supabase
+      .from("mains_sessions")
+      .select("*")
+      .eq("user_id", userId)
+      .order("updated_at", { ascending: false });
+
+    if (!tableError && Array.isArray(tableData) && tableData.length > 0) {
+      return tableData.map((row) => ({
+        id: row.id,
+        title: row.title,
+        paperType: row.paper_type,
+        optionalSubject: row.optional_subject,
+        updatedAt: row.updated_at,
+        questions: row.questions || [],
+      }));
+    }
+
+    // Fallback: check profile.mains_sessions
+    const { data: profileData } = await supabase
+      .from("profiles")
+      .select("mains_sessions")
+      .eq("id", userId)
+      .maybeSingle();
+
+    if (profileData && Array.isArray(profileData.mains_sessions)) {
+      return profileData.mains_sessions;
+    }
+
+    return [];
+  } catch (err) {
+    console.warn("Failed fetching mains sessions from Supabase:", err);
+    return [];
+  }
+}
+
+// Delete a user's Mains evaluation session from Supabase
+export async function deleteUserMainsSessionFromSupabase(
+  userId: string,
+  sessionId: string,
+  remainingSessions?: any[],
+): Promise<boolean> {
+  const supabase = getSupabaseClient();
+  if (!supabase || !userId) return false;
+  try {
+    await supabase
+      .from("mains_sessions")
+      .delete()
+      .eq("id", sessionId)
+      .eq("user_id", userId);
+
+    if (Array.isArray(remainingSessions)) {
+      await supabase
+        .from("profiles")
+        .update({
+          mains_sessions: remainingSessions,
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", userId);
+    }
+    return true;
   } catch {
     return false;
   }
