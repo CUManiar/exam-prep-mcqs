@@ -148,45 +148,124 @@ async function discoverAnthropicModels(apiKey: string): Promise<string[]> {
   ];
 }
 
+/** Dynamically discover active models from a Gemini key */
+async function discoverGeminiModels(apiKey: string): Promise<string[]> {
+  try {
+    const listRes = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models?key=${apiKey}`,
+      { signal: AbortSignal.timeout(10000) },
+    );
+    if (listRes.ok) {
+      const data = await listRes.json();
+      const models = (data.models || [])
+        .filter((m: any) =>
+          m.supportedGenerationMethods?.includes("generateContent"),
+        )
+        .map((m: any) => m.name.replace(/^models\//, "") as string);
+
+      models.sort((a, b) => {
+        const score = (id: string) => {
+          let s = 0;
+          if (id.includes("2.0-flash")) s += 20;
+          if (id.includes("1.5-flash")) s += 10;
+          if (id.includes("flash")) s += 5;
+          return s;
+        };
+        return score(b) - score(a);
+      });
+
+      if (models.length > 0) return models;
+    }
+  } catch (e: any) {
+    console.warn("Gemini model discovery failed:", e?.message);
+  }
+  return ["gemini-1.5-flash", "gemini-2.0-flash", "gemini-1.5-pro"];
+}
+
 /** Low-level caller for Gemini */
 async function callGeminiRaw(
   apiKey: string,
   prompt: string,
   temperature: number = 0.4,
 ): Promise<string> {
-  const models = ["gemini-2.0-flash", "gemini-1.5-flash", "gemini-1.5-pro"];
+  const discovered = await discoverGeminiModels(apiKey);
+  const candidateModels = Array.from(
+    new Set([
+      ...discovered,
+      "gemini-1.5-flash",
+      "gemini-2.0-flash",
+      "gemini-1.5-pro",
+    ]),
+  );
+
   let lastError = "";
 
-  for (const model of models) {
-    try {
-      const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
-      const res = await fetch(url, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          contents: [{ role: "user", parts: [{ text: prompt }] }],
-          generationConfig: {
-            temperature,
-            maxOutputTokens: 1000,
-            responseMimeType: "application/json",
-          },
-        }),
-        signal: AbortSignal.timeout(20000),
-      });
+  for (const rawModel of candidateModels.slice(0, 4)) {
+    const cleanModel = rawModel.replace(/^models\//, "");
+    const endpoints = [
+      `https://generativelanguage.googleapis.com/v1beta/models/${cleanModel}:generateContent?key=${apiKey}`,
+      `https://generativelanguage.googleapis.com/v1/models/${cleanModel}:generateContent?key=${apiKey}`,
+    ];
 
-      if (res.ok) {
-        const data = await res.json();
-        const text = data.candidates?.[0]?.content?.parts?.[0]?.text || "";
-        if (text.trim()) return text;
-      } else {
-        const errJson = await res.json().catch(() => ({}));
-        lastError = errJson.error?.message || `HTTP ${res.status}`;
+    for (const url of endpoints) {
+      try {
+        const res = await fetch(url, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            contents: [{ role: "user", parts: [{ text: prompt }] }],
+            generationConfig: {
+              temperature,
+              maxOutputTokens: 1000,
+              responseMimeType: "application/json",
+            },
+          }),
+          signal: AbortSignal.timeout(30000),
+        });
+
+        if (res.ok) {
+          const data = await res.json();
+          const text = data.candidates?.[0]?.content?.parts?.[0]?.text || "";
+          if (text.trim()) return text;
+        } else {
+          const errJson = await res.json().catch(() => ({}));
+          lastError = errJson.error?.message || `HTTP ${res.status}`;
+
+          // If responseMimeType is rejected with 400 Bad Request, retry without it
+          if (
+            res.status === 400 &&
+            (lastError.toLowerCase().includes("responsemimetype") ||
+              lastError.toLowerCase().includes("json"))
+          ) {
+            const retryRes = await fetch(url, {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                contents: [{ role: "user", parts: [{ text: prompt }] }],
+                generationConfig: {
+                  temperature,
+                  maxOutputTokens: 1000,
+                },
+              }),
+              signal: AbortSignal.timeout(30000),
+            });
+            if (retryRes.ok) {
+              const retryData = await retryRes.json();
+              const retryText =
+                retryData.candidates?.[0]?.content?.parts?.[0]?.text || "";
+              if (retryText.trim()) return retryText;
+            }
+          }
+        }
+      } catch (e: any) {
+        lastError = e?.message || "Gemini connection error";
       }
-    } catch (e: any) {
-      lastError = e?.message || "Gemini connection error";
     }
   }
-  throw new Error(lastError || "Gemini failed to respond");
+
+  throw new Error(
+    `Google Gemini Error: ${lastError || "Failed to generate response"}`,
+  );
 }
 
 /** Low-level caller for OpenAI-compatible providers (Groq, OpenAI) with candidate model fallback */
@@ -343,91 +422,92 @@ async function executePrompt(
   const userApiKey = providerConfig?.apiKey?.trim();
   const provider = providerConfig?.provider;
 
-  // 1. Try user-configured provider first
+  // 1. If user has a configured provider with an API key, use it directly.
+  // DO NOT fall back to free/busy AI if the user's connected provider is set!
   if (userApiKey && provider) {
-    try {
-      if (provider === "gemini") {
-        return await callGeminiRaw(userApiKey, prompt, temperature);
-      }
-      if (provider === "groq") {
-        const discovered = await discoverGroqModels(userApiKey);
-        const candidates = Array.from(
-          new Set(
-            [
-              providerConfig?.model,
-              ...discovered,
-              "llama-3.1-8b-instant",
-              "llama-3.3-70b-versatile",
-              "mixtral-8x7b-32768",
-              "gemma2-9b-it",
-            ].filter(Boolean) as string[],
-          ),
-        );
-        return await callOpenAICompatibleWithFallback(
-          "https://api.groq.com/openai/v1",
-          userApiKey,
-          candidates,
-          prompt,
-          temperature,
-        );
-      }
-      if (provider === "openai") {
-        const discovered = await discoverOpenAIModels(userApiKey);
-        const candidates = Array.from(
-          new Set(
-            [
-              providerConfig?.model,
-              ...discovered,
-              "gpt-4o-mini",
-              "gpt-4o",
-            ].filter(Boolean) as string[],
-          ),
-        );
-        return await callOpenAICompatibleWithFallback(
-          "https://api.openai.com/v1",
-          userApiKey,
-          candidates,
-          prompt,
-          temperature,
-        );
-      }
-      if (provider === "anthropic") {
-        const discovered = await discoverAnthropicModels(userApiKey);
-        const candidates = Array.from(
-          new Set(
-            [
-              providerConfig?.model,
-              ...discovered,
-              "claude-3-5-haiku-latest",
-              "claude-3-haiku-20240307",
-            ].filter(Boolean) as string[],
-          ),
-        );
-        return await callAnthropicRaw(
-          userApiKey,
-          candidates,
-          prompt,
-          temperature,
-        );
-      }
-    } catch (userErr: any) {
-      console.warn(
-        `User ${provider} provider failed (${userErr?.message}). Falling back to server/free AI...`,
+    if (provider === "gemini") {
+      return await callGeminiRaw(userApiKey, prompt, temperature);
+    }
+    if (provider === "groq") {
+      const discovered = await discoverGroqModels(userApiKey);
+      const candidates = Array.from(
+        new Set(
+          [
+            providerConfig?.model,
+            ...discovered,
+            "llama-3.1-8b-instant",
+            "llama-3.3-70b-versatile",
+            "mixtral-8x7b-32768",
+            "gemma2-9b-it",
+          ].filter(Boolean) as string[],
+        ),
+      );
+      return await callOpenAICompatibleWithFallback(
+        "https://api.groq.com/openai/v1",
+        userApiKey,
+        candidates,
+        prompt,
+        temperature,
+      );
+    }
+    if (provider === "openai") {
+      const discovered = await discoverOpenAIModels(userApiKey);
+      const candidates = Array.from(
+        new Set(
+          [
+            providerConfig?.model,
+            ...discovered,
+            "gpt-4o-mini",
+            "gpt-4o",
+          ].filter(Boolean) as string[],
+        ),
+      );
+      return await callOpenAICompatibleWithFallback(
+        "https://api.openai.com/v1",
+        userApiKey,
+        candidates,
+        prompt,
+        temperature,
+      );
+    }
+    if (provider === "anthropic") {
+      const discovered = await discoverAnthropicModels(userApiKey);
+      const candidates = Array.from(
+        new Set(
+          [
+            providerConfig?.model,
+            ...discovered,
+            "claude-3-5-haiku-latest",
+            "claude-3-haiku-20240307",
+          ].filter(Boolean) as string[],
+        ),
+      );
+      return await callAnthropicRaw(
+        userApiKey,
+        candidates,
+        prompt,
+        temperature,
       );
     }
   }
 
-  // 2. Fallback to Server Gemini Key
-  const serverGeminiKey = process.env.GEMINI_API_KEY?.trim();
+  // 2. Server-side Google/Gemini Key
+  const serverGeminiKey =
+    process.env.GEMINI_API_KEY?.trim() ||
+    process.env.GOOGLE_API_KEY?.trim() ||
+    process.env.GOOGLE_AI_KEY?.trim();
   if (serverGeminiKey) {
-    try {
-      return await callGeminiRaw(serverGeminiKey, prompt, temperature);
-    } catch (e) {
-      console.warn("Server gemini key failed, falling back to free AI:", e);
-    }
+    return await callGeminiRaw(serverGeminiKey, prompt, temperature);
   }
 
-  // 3. Fallback to Free Live Service
+  // 3. If user selected a custom provider but no API key was provided
+  if (provider && !userApiKey) {
+    throw new Error(
+      `Your ${provider === "gemini" ? "Google Gemini" : provider.toUpperCase()} API key is missing or not active. Please open Profile & Settings to configure your key.`,
+    );
+  }
+
+  // 4. Free AI Service (only for guest users with no custom provider or key)
   return await callFreePollinations(prompt, temperature);
 }
 
