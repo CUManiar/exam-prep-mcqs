@@ -301,7 +301,13 @@ export function MainsEvaluationView() {
         : sess.optionalSubject || globalOptionalSubject || "",
     );
     setMaxMarks(firstQ.maxMarks || 10);
-    setUploadedImages(firstQ.attachedImages || []);
+    const firstQImages = firstQ.attachedImages || [];
+    setUploadedImages(firstQImages);
+    if (firstQImages.length > 0 && !firstQ.studentAnswer?.trim()) {
+      setInputMode("upload");
+    } else if (firstQ.studentAnswer?.trim()) {
+      setInputMode("text");
+    }
     setEvaluation(firstQ.evaluation || null);
     setIsFormExpanded(!firstQ.evaluation); // Collapse input form if answer already evaluated
     setChatMessages([]);
@@ -355,7 +361,13 @@ export function MainsEvaluationView() {
         : globalOptionalSubject || "",
     );
     setMaxMarks(q.maxMarks || 10);
-    setUploadedImages(q.attachedImages || []);
+    const qImages = q.attachedImages || [];
+    setUploadedImages(qImages);
+    if (qImages.length > 0 && !q.studentAnswer?.trim()) {
+      setInputMode("upload");
+    } else if (q.studentAnswer?.trim()) {
+      setInputMode("text");
+    }
     setEvaluation(q.evaluation || null);
     setIsFormExpanded(!q.evaluation);
     setChatMessages([]);
@@ -712,10 +724,14 @@ export function MainsEvaluationView() {
 
     // Pre-flight check: Text mode minimum length
     if (inputMode === "text" && trimmedAnswer.length < 20) {
-      setErrorMsg(
-        "Answer text is too short (minimum 20 characters required). Please enter your complete answer before evaluating.",
-      );
-      return;
+      if (hasUploads) {
+        setInputMode("upload");
+      } else {
+        setErrorMsg(
+          "Answer text is too short (minimum 20 characters required). Please enter your complete answer before evaluating.",
+        );
+        return;
+      }
     }
 
     // Pre-flight check: Upload mode blank sheet detection
@@ -1160,6 +1176,16 @@ EXAMINER RESPONSE REQUIREMENTS:
   const actualWordCount = useMemo(() => {
     if (evaluation?.actualWordCount && evaluation.actualWordCount > 0) {
       return evaluation.actualWordCount;
+    }
+    if (
+      evaluation?.transcribedAnswer &&
+      !evaluation.transcribedAnswer.startsWith("(Answer submitted via")
+    ) {
+      const words = evaluation.transcribedAnswer
+        .trim()
+        .split(/\s+/)
+        .filter(Boolean).length;
+      if (words > 0) return words;
     }
     if (
       evaluation?.transcribedAnswer &&
@@ -1761,7 +1787,17 @@ EXAMINER RESPONSE REQUIREMENTS:
                 <div className="flex items-center gap-2 shrink-0 w-full sm:w-auto">
                   <button
                     type="button"
-                    onClick={() => setIsFormExpanded(true)}
+                    onClick={() => {
+                      setIsFormExpanded(true);
+                      const activeImages =
+                        uploadedImages.length > 0
+                          ? uploadedImages
+                          : questions[activeQuestionIndex]?.attachedImages ||
+                            [];
+                      if (activeImages.length > 0 && !answerText.trim()) {
+                        setInputMode("upload");
+                      }
+                    }}
                     className="flex-1 sm:flex-initial inline-flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-xl border border-slate-300 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-200 text-xs font-semibold cursor-pointer transition-colors"
                     title="Edit answer or re-evaluate"
                   >
@@ -1991,12 +2027,39 @@ EXAMINER RESPONSE REQUIREMENTS:
                     >
                       <Upload className="h-3.5 w-3.5" />
                       <span>Upload Image / PDF</span>
+                      {uploadedImages.length > 0 && (
+                        <span className="px-1.5 py-0.2 rounded-full bg-indigo-100 dark:bg-indigo-950 text-indigo-700 dark:text-indigo-300 text-[10px] font-mono font-bold">
+                          {uploadedImages.length}
+                        </span>
+                      )}
                     </button>
                   </div>
                 </div>
 
                 {inputMode === "text" ? (
-                  <div className="space-y-1.5">
+                  <div className="space-y-2">
+                    {uploadedImages.length > 0 && (
+                      <div className="p-2.5 rounded-xl bg-indigo-50/70 dark:bg-indigo-950/40 border border-indigo-200/60 dark:border-indigo-800/60 text-xs text-indigo-900 dark:text-indigo-200 flex items-center justify-between gap-2">
+                        <div className="flex items-center gap-2">
+                          <Upload className="h-4 w-4 text-indigo-600 shrink-0" />
+                          <span>
+                            You have{" "}
+                            <strong>
+                              {uploadedImages.length} attached answer sheet
+                              page(s)
+                            </strong>{" "}
+                            saved in &quot;Upload Image / PDF&quot;.
+                          </span>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => setInputMode("upload")}
+                          className="text-xs font-bold text-indigo-600 dark:text-indigo-400 hover:underline shrink-0 cursor-pointer"
+                        >
+                          Switch to Uploads →
+                        </button>
+                      </div>
+                    )}
                     <textarea
                       value={answerText}
                       onChange={(e) => setAnswerText(e.target.value)}
