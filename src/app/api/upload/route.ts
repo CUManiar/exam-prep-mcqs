@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { uploadFile, readJsonStore, writeJsonStore } from "@/lib/cloudStorage";
 import { parseAnswerKeyDetailed } from "@/lib/defaults";
 import { parseMarkdownHeader } from "@/lib/markdownPaperParser";
+import { normalizePaperToQuestions, saveQuestionsToBank } from "@/lib/questionBank";
 import {
   checkRateLimit,
   getAuthenticatedUser,
@@ -305,6 +306,16 @@ export async function POST(req: NextRequest) {
       );
       papersMeta[paperId] = paperObj;
       await writeJsonStore("papers.json", papersMeta);
+    }
+
+    // Ingest into normalized question bank
+    try {
+      const qbEntities = normalizePaperToQuestions(paperObj as any, user.id);
+      if (qbEntities.length > 0) {
+        await saveQuestionsToBank(qbEntities, user.id);
+      }
+    } catch (qbErr) {
+      console.warn("Notice: Question bank background sync:", qbErr);
     }
 
     return NextResponse.json({ ok: true, paper: paperObj });
