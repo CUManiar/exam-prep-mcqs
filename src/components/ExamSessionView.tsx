@@ -191,6 +191,11 @@ export function ExamSessionView({
     useState<boolean>(false);
   const [isMobileScratchpadOpen, setIsMobileScratchpadOpen] =
     useState<boolean>(false);
+  const [scratchpadDragOffsetY, setScratchpadDragOffsetY] =
+    useState<number>(0);
+  const [isScratchpadDragging, setIsScratchpadDragging] =
+    useState<boolean>(false);
+  const scratchpadDragStartYRef = useRef<number | null>(null);
   const [isPaused, setIsPaused] = useState<boolean>(false);
   const [revealedAnswers, setRevealedAnswers] = useState<
     Record<number, boolean>
@@ -4052,13 +4057,76 @@ export function ExamSessionView({
             onClick={() => {
               flushNoteDraftForQ(currentQuestion);
               setIsMobileScratchpadOpen(false);
+              setScratchpadDragOffsetY(0);
             }}
           />
 
-          {/* Sheet Container */}
-          <div className="relative z-10 flex max-h-[85vh] flex-col rounded-t-3xl bg-white shadow-2xl animate-in slide-in-from-bottom duration-200 p-4 space-y-3">
+          {/* Sheet Container with Pull-Down Gesture Dismissal */}
+          <div
+            style={{
+              transform:
+                scratchpadDragOffsetY > 0
+                  ? `translateY(${scratchpadDragOffsetY}px)`
+                  : undefined,
+              transition: isScratchpadDragging
+                ? "none"
+                : "transform 0.22s cubic-bezier(0.25, 1, 0.5, 1)",
+            }}
+            className="relative z-10 flex max-h-[85vh] flex-col rounded-t-3xl bg-white shadow-2xl animate-in slide-in-from-bottom duration-200 p-4 pt-2.5 space-y-3 touch-pan-y"
+          >
+            {/* Gesture Handle Bar */}
+            <div
+              className="py-1 flex items-center justify-center cursor-grab active:cursor-grabbing w-full"
+              onTouchStart={(e) => {
+                scratchpadDragStartYRef.current = e.touches[0].clientY;
+                setIsScratchpadDragging(true);
+              }}
+              onTouchMove={(e) => {
+                if (scratchpadDragStartYRef.current === null) return;
+                const diff =
+                  e.touches[0].clientY - scratchpadDragStartYRef.current;
+                if (diff > 0) {
+                  setScratchpadDragOffsetY(diff);
+                }
+              }}
+              onTouchEnd={() => {
+                if (scratchpadDragOffsetY > 65) {
+                  flushNoteDraftForQ(currentQuestion);
+                  setIsMobileScratchpadOpen(false);
+                }
+                setScratchpadDragOffsetY(0);
+                setIsScratchpadDragging(false);
+                scratchpadDragStartYRef.current = null;
+              }}
+            >
+              <div className="w-12 h-1.5 rounded-full bg-slate-300 hover:bg-slate-400 transition-colors" />
+            </div>
+
             {/* Header */}
-            <div className="flex items-center justify-between border-b border-slate-100 pb-2.5">
+            <div
+              className="flex items-center justify-between border-b border-slate-100 pb-2.5"
+              onTouchStart={(e) => {
+                scratchpadDragStartYRef.current = e.touches[0].clientY;
+                setIsScratchpadDragging(true);
+              }}
+              onTouchMove={(e) => {
+                if (scratchpadDragStartYRef.current === null) return;
+                const diff =
+                  e.touches[0].clientY - scratchpadDragStartYRef.current;
+                if (diff > 0) {
+                  setScratchpadDragOffsetY(diff);
+                }
+              }}
+              onTouchEnd={() => {
+                if (scratchpadDragOffsetY > 65) {
+                  flushNoteDraftForQ(currentQuestion);
+                  setIsMobileScratchpadOpen(false);
+                }
+                setScratchpadDragOffsetY(0);
+                setIsScratchpadDragging(false);
+                scratchpadDragStartYRef.current = null;
+              }}
+            >
               <div className="flex items-center gap-2">
                 <Edit3 className="h-4 w-4 text-indigo-600" />
                 <h3 className="text-sm font-bold text-slate-900">
@@ -4070,8 +4138,9 @@ export function ExamSessionView({
                 onClick={() => {
                   flushNoteDraftForQ(currentQuestion);
                   setIsMobileScratchpadOpen(false);
+                  setScratchpadDragOffsetY(0);
                 }}
-                className="rounded-full p-1.5 text-slate-400 hover:bg-slate-100 hover:text-slate-600"
+                className="rounded-full p-1.5 text-slate-400 hover:bg-slate-100 hover:text-slate-600 cursor-pointer"
                 aria-label="Close notes"
               >
                 <X className="h-5 w-5" />
@@ -4102,7 +4171,7 @@ export function ExamSessionView({
                   noteDraftRef.current = "";
                   flushNoteDraftForQ(currentQuestion);
                 }}
-                className="text-xs font-semibold text-rose-600 hover:underline px-2 py-1"
+                className="text-xs font-semibold text-rose-600 hover:underline px-2 py-1 cursor-pointer"
               >
                 Clear note
               </button>
@@ -4111,8 +4180,9 @@ export function ExamSessionView({
                 onClick={() => {
                   flushNoteDraftForQ(currentQuestion);
                   setIsMobileScratchpadOpen(false);
+                  setScratchpadDragOffsetY(0);
                 }}
-                className="rounded-xl bg-indigo-600 px-5 py-2 text-xs font-bold text-white shadow-xs hover:bg-indigo-700"
+                className="rounded-xl bg-indigo-600 px-5 py-2 text-xs font-bold text-white shadow-xs hover:bg-indigo-700 cursor-pointer"
               >
                 Done
               </button>
