@@ -105,7 +105,7 @@ interface AppContextType {
   openProUpgradeModal: (targetPaperLabel?: string) => void;
   openAuthModal: () => void;
   handleSignOut: () => Promise<void>;
-  loadAllData: () => Promise<void>;
+  loadAllData: (options?: { forceLoading?: boolean }) => Promise<void>;
   handleStartExam: (paper: QuestionPaper, mode: "practice" | "mock") => void;
   handleResumeDraft: (draft: ActiveSessionDraft) => void;
   handleDiscardDraft: () => void;
@@ -357,10 +357,25 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     onConfirm: () => {},
   });
 
-  const loadAllData = useCallback(async () => {
-    setIsLoading(true);
-    const user = await getCurrentUser();
-    setCurrentUser(user);
+  const isInitialLoadDoneRef = useRef(false);
+  const inFlightLoadAllDataRef = useRef<Promise<void> | null>(null);
+  const lastAuthUserIdRef = useRef<string | null | undefined>(undefined);
+
+  const loadAllData = useCallback(
+    async (options?: { forceLoading?: boolean }) => {
+      if (inFlightLoadAllDataRef.current) {
+        return inFlightLoadAllDataRef.current;
+      }
+
+      const run = async () => {
+        // Only trigger full-screen loading spinner on initial app boot or when explicitly forced
+        if (!isInitialLoadDoneRef.current || options?.forceLoading) {
+          setIsLoading(true);
+        }
+        try {
+          const user = await getCurrentUser();
+          lastAuthUserIdRef.current = user?.id ?? null;
+          setCurrentUser(user);
 
     if (user) {
       // Authenticated User: Load their isolated attempts, drafts, custom papers, and profile from Supabase
@@ -556,8 +571,6 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         }
       } catch (err) {
         console.warn("Failed loading user data from Supabase:", err);
-      } finally {
-        setIsLoading(false);
       }
       return;
     }
@@ -609,10 +622,22 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       );
     } catch (err) {
       console.warn("Failed loading papers from server:", err);
-    } finally {
-      setIsLoading(false);
     }
-  }, []);
+        } finally {
+          isInitialLoadDoneRef.current = true;
+          setIsLoading(false);
+        }
+      };
+
+      inFlightLoadAllDataRef.current = run();
+      try {
+        await inFlightLoadAllDataRef.current;
+      } finally {
+        inFlightLoadAllDataRef.current = null;
+      }
+    },
+    [],
+  );
 
   useEffect(() => {
     loadAllData();
@@ -623,10 +648,25 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange(async (_event, session) => {
-      // Ignore INITIAL_SESSION to avoid duplicate full reload on initial page load
+      // 1. Ignore INITIAL_SESSION to avoid duplicate full reload on initial page load
       if (_event === "INITIAL_SESSION") {
         return;
       }
+      // 2. Ignore background token refresh events - user session and identity have not changed
+      if (_event === "TOKEN_REFRESHED") {
+        return;
+      }
+
+      const newUserId = session?.user?.id ?? null;
+      // 3. Prevent duplicate full reloads when window/tab focus triggers auth events for the same user
+      if (
+        lastAuthUserIdRef.current !== undefined &&
+        lastAuthUserIdRef.current === newUserId
+      ) {
+        return;
+      }
+      lastAuthUserIdRef.current = newUserId;
+
       const user = session?.user || null;
       setCurrentUser(user);
       if (user) {
@@ -634,12 +674,15 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         if (profile?.is_pro) {
           setUserPro(true);
           setIsPro(true);
+        } else {
+          setUserPro(false);
+          setIsPro(false);
         }
       } else {
         setUserPro(false);
         setIsPro(false);
       }
-      loadAllData();
+      await loadAllData({ forceLoading: true });
     });
 
     return () => {

@@ -331,6 +331,7 @@ export function GoalsAndRemindersBoard({
               <Link
                 key={item.id}
                 href={`/syllabus#syllabus-item-${item.id}`}
+                prefetch={false}
                 className="flex items-center justify-between gap-2.5 rounded-xl border border-emerald-100 bg-emerald-50/40 hover:bg-emerald-100/70 p-2.5 text-xs transition-colors group cursor-pointer"
                 title={`Jump to ${item.title} in syllabus tracker`}
               >
