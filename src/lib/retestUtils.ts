@@ -5,6 +5,18 @@ export interface CreateMistakePaperOptions {
 }
 
 /**
+ * Checks whether a given question paper is a targeted mistake re-test paper.
+ */
+export function isRetestPaper(paper?: QuestionPaper | null): boolean {
+  if (!paper) return false;
+  return (
+    paper.id.startsWith("retest-") ||
+    paper.label.startsWith("[Re-Test]") ||
+    Boolean(paper.title && paper.title.includes("Re-Test"))
+  );
+}
+
+/**
  * Creates a focused virtual re-test paper containing only questions
  * where the candidate made mistakes (or skipped), re-indexed from 1 to N.
  */
