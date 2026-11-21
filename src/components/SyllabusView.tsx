@@ -238,6 +238,27 @@ export function SyllabusView() {
     setCollapsedIds(new Set(parentIds));
   }, [parentIdsKey, syllabusMarkdown]);
 
+  // Deep-linking: auto-expand ancestors and scroll to target when navigating with #syllabus-item-${id}
+  useEffect(() => {
+    if (typeof window === "undefined" || activeItems.length === 0) return;
+    const handleHashNavigation = () => {
+      const hash = window.location.hash;
+      if (!hash) return;
+      const targetId = hash.replace(/^#syllabus-item-/, "").replace(/^#/, "");
+      if (targetId && activeItems.some((it) => it.id === targetId)) {
+        expandAndScrollToItem(targetId, true);
+      }
+    };
+
+    const timer = setTimeout(handleHashNavigation, 150);
+    window.addEventListener("hashchange", handleHashNavigation);
+
+    return () => {
+      clearTimeout(timer);
+      window.removeEventListener("hashchange", handleHashNavigation);
+    };
+  }, [activeItems, parentIdsKey]);
+
   const [forceVisibleIds, setForceVisibleIds] = useState<Set<string>>(
     new Set(),
   );
