@@ -395,57 +395,6 @@ export function InteractiveQuestionCard({
               </span>
             )}
 
-            {/* Counts of Sure, 50:50, Eliminated, Guess, Flagged beside selected option */}
-            {confidenceCounts && (
-              <div className="flex flex-wrap items-center gap-1">
-                <span
-                  className="inline-flex items-center gap-1 rounded-md bg-emerald-50 border border-emerald-200/80 px-1.5 py-0.5 text-[10px] font-semibold text-emerald-800"
-                  title={`${confidenceCounts.sure} questions marked Sure`}
-                >
-                  <span>🎯</span>
-                  <span className="font-bold font-mono">
-                    {confidenceCounts.sure}
-                  </span>
-                </span>
-                <span
-                  className="inline-flex items-center gap-1 rounded-md bg-amber-50 border border-amber-200/80 px-1.5 py-0.5 text-[10px] font-semibold text-amber-800"
-                  title={`${confidenceCounts.fiftyFifty} questions marked 50:50`}
-                >
-                  <span>⚖️</span>
-                  <span className="font-bold font-mono">
-                    {confidenceCounts.fiftyFifty}
-                  </span>
-                </span>
-                <span
-                  className="inline-flex items-center gap-1 rounded-md bg-sky-50 border border-sky-200/80 px-1.5 py-0.5 text-[10px] font-semibold text-sky-800"
-                  title={`${confidenceCounts.elimination} questions marked Eliminated`}
-                >
-                  <span>✂️</span>
-                  <span className="font-bold font-mono">
-                    {confidenceCounts.elimination}
-                  </span>
-                </span>
-                <span
-                  className="inline-flex items-center gap-1 rounded-md bg-purple-50 border border-purple-200/80 px-1.5 py-0.5 text-[10px] font-semibold text-purple-800"
-                  title={`${confidenceCounts.guess} questions marked Guess`}
-                >
-                  <span>🎲</span>
-                  <span className="font-bold font-mono">
-                    {confidenceCounts.guess}
-                  </span>
-                </span>
-                <span
-                  className="inline-flex items-center gap-1 rounded-md bg-amber-100/70 border border-amber-300 px-1.5 py-0.5 text-[10px] font-semibold text-amber-900"
-                  title={`${confidenceCounts.flagged} questions Flagged`}
-                >
-                  <Bookmark className="h-3 w-3 fill-amber-600 text-amber-600" />
-                  <span className="font-bold font-mono">
-                    {confidenceCounts.flagged}
-                  </span>
-                </span>
-              </div>
-            )}
-
             {mode === "practice" && explanation && !hasAnswered && (
               <button
                 type="button"
