@@ -27,6 +27,8 @@ import {
   MessageSquare,
   Loader2,
   AlertCircle,
+  ChevronDown,
+  ChevronUp,
 } from "lucide-react";
 import { HtmlExplanation } from "../HtmlExplanation";
 
@@ -86,6 +88,7 @@ export function QuestionInspector({
   );
   const [isGeneratingEval, setIsGeneratingEval] = useState(false);
   const [evalError, setEvalError] = useState<string | null>(null);
+  const [isExplanationExpanded, setIsExplanationExpanded] = useState(false);
 
   useEffect(() => {
     setNoteText(question.note || "");
@@ -93,6 +96,7 @@ export function QuestionInspector({
     setEvalCommentText(question.evaluationComment || "");
     setIsEditingEvalComment(false);
     setEvalError(null);
+    setIsExplanationExpanded(false);
   }, [question.questionNo, question.note, question.evaluationComment]);
 
   const qNo = question.questionNo;
@@ -128,6 +132,15 @@ export function QuestionInspector({
     : rawCandidate.replace(/[\(\)\[\]\.\s]/g, "").toUpperCase();
   const officialExplanation =
     parsedQuestion?.explanation || question.explanation;
+
+  const isExplanationLong = Boolean(
+    officialExplanation &&
+      (officialExplanation.length > 320 ||
+        officialExplanation.includes("\n\n") ||
+        officialExplanation.includes("<table") ||
+        officialExplanation.includes("<ul>") ||
+        officialExplanation.includes("<ol>")),
+  );
 
   let displayClozeAnswer = rawExpected;
   if (isCloze && !displayClozeAnswer && officialExplanation) {
@@ -813,15 +826,51 @@ export function QuestionInspector({
 
         {/* 5. Official Solution & Conceptual Breakdown */}
         {officialExplanation && (
-          <div className="rounded-xl border border-indigo-200/90 bg-gradient-to-br from-indigo-50/40 via-white to-slate-50 p-4 sm:p-5 shadow-2xs space-y-2">
-            <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-slate-800">
-              <Lightbulb className="h-4 w-4 text-indigo-600" />
-              <span>Official Explanation & Solution</span>
+          <div className="rounded-xl border border-indigo-200/90 bg-gradient-to-br from-indigo-50/40 via-white to-slate-50 p-4 sm:p-5 shadow-2xs space-y-2.5 transition-all">
+            <div className="flex items-center justify-between gap-2">
+              <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-slate-800">
+                <Lightbulb className="h-4 w-4 text-indigo-600 shrink-0" />
+                <span>Official Explanation & Solution</span>
+              </div>
+              {isExplanationLong && (
+                <button
+                  type="button"
+                  onClick={() => setIsExplanationExpanded(!isExplanationExpanded)}
+                  className="inline-flex items-center gap-1 text-[11px] font-semibold text-indigo-700 hover:text-indigo-900 bg-white hover:bg-indigo-50/80 px-2 py-0.5 rounded-lg border border-indigo-200 shadow-2xs cursor-pointer transition-colors"
+                >
+                  <span>{isExplanationExpanded ? "Collapse" : "Expand"}</span>
+                  {isExplanationExpanded ? (
+                    <ChevronUp className="h-3 w-3" />
+                  ) : (
+                    <ChevronDown className="h-3 w-3" />
+                  )}
+                </button>
+              )}
             </div>
-            <HtmlExplanation
-              text={officialExplanation}
-              className="text-xs sm:text-sm text-slate-800"
-            />
+            <div
+              className={
+                isExplanationLong && !isExplanationExpanded
+                  ? "relative max-h-40 overflow-hidden"
+                  : ""
+              }
+            >
+              <HtmlExplanation
+                text={officialExplanation}
+                className="text-xs sm:text-sm text-slate-800 leading-relaxed"
+              />
+              {isExplanationLong && !isExplanationExpanded && (
+                <div className="absolute inset-x-0 bottom-0 h-16 bg-gradient-to-t from-slate-50 via-slate-50/85 to-transparent flex items-end justify-center pb-0.5">
+                  <button
+                    type="button"
+                    onClick={() => setIsExplanationExpanded(true)}
+                    className="inline-flex items-center gap-1 text-xs font-bold text-indigo-700 bg-white/95 hover:bg-white px-3 py-1 rounded-full border border-indigo-200 shadow-xs cursor-pointer transition-all"
+                  >
+                    <span>Read Full Solution</span>
+                    <ChevronDown className="h-3.5 w-3.5 text-indigo-600" />
+                  </button>
+                </div>
+              )}
+            </div>
           </div>
         )}
       </div>
