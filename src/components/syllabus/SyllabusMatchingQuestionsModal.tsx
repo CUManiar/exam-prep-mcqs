@@ -294,11 +294,11 @@ export function SyllabusMatchingQuestionsModal({
               const pyqYears = q.previousYears
                 ? cleanPreviousYears(q.previousYears)
                 : q.paperYear &&
-                  /^(19[89]\d|20[0-2]\d)$/.test(q.paperYear) &&
-                  q.paperYear !== "2026" &&
-                  !q.paperTitle.toLowerCase().includes("mock")
-                ? cleanPreviousYears(q.paperYear)
-                : undefined;
+                    /^(19[89]\d|20[0-2]\d)$/.test(q.paperYear) &&
+                    q.paperYear !== "2026" &&
+                    !q.paperTitle.toLowerCase().includes("mock")
+                  ? cleanPreviousYears(q.paperYear)
+                  : undefined;
 
               const optionKeys = Object.keys(q.options || {}).sort();
 
@@ -471,7 +471,8 @@ export function SyllabusMatchingQuestionsModal({
                       <div className="font-bold text-emerald-900 dark:text-emerald-300 flex items-center gap-1.5 text-xs sm:text-sm">
                         <CheckCircle2 className="h-4 w-4 text-emerald-600 dark:text-emerald-400 shrink-0" />
                         <span>
-                          Official Answer: ({q.correctAnswer || "Not specified"})
+                          Official Answer: ({q.correctAnswer || "Not specified"}
+                          )
                         </span>
                       </div>
                       {q.explanation && (

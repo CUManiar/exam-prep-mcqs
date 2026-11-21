@@ -198,7 +198,9 @@ function getOrBuildInvertedIndex(papers: QuestionPaper[]): MemoryQuestionIndex {
         const titleMatch = paperTitle.match(
           /(?:UPSC|CSE|PYQ|Prelims)[^\d\n]{0,10}\b(19[89]\d|20[0-2]\d)\b|\b(19[89]\d|20[0-2]\d)\b[^\d\n]{0,10}(?:UPSC|CSE|PYQ|Prelims)/i,
         );
-        const yearCandidate = titleMatch ? titleMatch[1] || titleMatch[2] : null;
+        const yearCandidate = titleMatch
+          ? titleMatch[1] || titleMatch[2]
+          : null;
         if (yearCandidate && yearCandidate !== "2026") {
           const cleaned = cleanPreviousYears(yearCandidate);
           if (cleaned) resolvedPYQ = cleaned;
@@ -256,9 +258,7 @@ export function findQuestionsForSyllabusTopic(
   maxLimit = 30,
 ): IndexedQuestionMatch[] {
   const rawQueries = Array.isArray(topicQuery) ? topicQuery : [topicQuery];
-  const queries = rawQueries
-    .map((q) => q.trim())
-    .filter((q) => q.length > 0);
+  const queries = rawQueries.map((q) => q.trim()).filter((q) => q.length > 0);
 
   if (queries.length === 0 || papers.length === 0) {
     return [];
