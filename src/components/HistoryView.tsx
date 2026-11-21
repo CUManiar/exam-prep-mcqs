@@ -27,6 +27,7 @@ import {
   getPaperCutoffStatus,
 } from "../lib/defaults";
 import { Attempt } from "../lib/types";
+import { LongitudinalTrendChart } from "./history/LongitudinalTrendChart";
 
 interface HistoryViewProps {
   attempts: Attempt[];
@@ -388,6 +389,15 @@ export function HistoryView({
             </div>
           </div>
         </div>
+      )}
+
+      {/* Longitudinal Performance Trajectory Chart */}
+      {totalMocks > 0 && !search && (
+        <LongitudinalTrendChart
+          attempts={mockAttempts}
+          papers={papers}
+          onSelectAttempt={onViewAttempt}
+        />
       )}
 
       {/* =========================================================================

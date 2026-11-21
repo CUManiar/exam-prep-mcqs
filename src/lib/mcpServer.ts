@@ -286,6 +286,9 @@ function normalizeQuestions(input: Record<string, any>): ParsedQuestion[] {
         question.wordLimit !== undefined && question.wordLimit !== null
           ? Number(question.wordLimit)
           : undefined,
+      previousYears: question.previousYears
+        ? String(question.previousYears).trim()
+        : undefined,
     }))
     .filter((question) => question.text);
 }

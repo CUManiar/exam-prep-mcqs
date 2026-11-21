@@ -348,17 +348,6 @@ export function QuestionPalette({
             </div>
 
             <div className="flex items-center gap-2 text-xs">
-              {expandedQuestion.confidence && (
-                <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-slate-700 bg-slate-50 border border-slate-200 px-2 py-0.5 rounded-full shadow-2xs">
-                  {expandedQuestion.confidence === "sure"
-                    ? "🎯 Sure"
-                    : expandedQuestion.confidence === "50-50"
-                      ? "⚖️ 50:50"
-                      : expandedQuestion.confidence === "elimination"
-                        ? "✂️ Elim"
-                        : "🎲 Guess"}
-                </span>
-              )}
               <span className="font-mono text-xs text-slate-500 flex items-center gap-0.5">
                 <Clock className="h-3 w-3 text-slate-400" />
                 {expandedQuestion.timeSpentSeconds || 0}s

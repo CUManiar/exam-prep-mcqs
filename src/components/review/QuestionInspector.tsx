@@ -27,6 +27,8 @@ import {
   MessageSquare,
   Loader2,
   AlertCircle,
+  ChevronDown,
+  ChevronUp,
 } from "lucide-react";
 import { HtmlExplanation } from "../HtmlExplanation";
 
@@ -86,6 +88,7 @@ export function QuestionInspector({
   );
   const [isGeneratingEval, setIsGeneratingEval] = useState(false);
   const [evalError, setEvalError] = useState<string | null>(null);
+  const [isExplanationExpanded, setIsExplanationExpanded] = useState(false);
 
   useEffect(() => {
     setNoteText(question.note || "");
@@ -93,6 +96,7 @@ export function QuestionInspector({
     setEvalCommentText(question.evaluationComment || "");
     setIsEditingEvalComment(false);
     setEvalError(null);
+    setIsExplanationExpanded(false);
   }, [question.questionNo, question.note, question.evaluationComment]);
 
   const qNo = question.questionNo;
@@ -128,6 +132,15 @@ export function QuestionInspector({
     : rawCandidate.replace(/[\(\)\[\]\.\s]/g, "").toUpperCase();
   const officialExplanation =
     parsedQuestion?.explanation || question.explanation;
+
+  const isExplanationLong = Boolean(
+    officialExplanation &&
+    (officialExplanation.length > 320 ||
+      officialExplanation.includes("\n\n") ||
+      officialExplanation.includes("<table") ||
+      officialExplanation.includes("<ul>") ||
+      officialExplanation.includes("<ol>")),
+  );
 
   let displayClozeAnswer = rawExpected;
   if (isCloze && !displayClozeAnswer && officialExplanation) {
@@ -211,11 +224,11 @@ export function QuestionInspector({
 
   return (
     <div
-      className="rounded-2xl border border-slate-200/90 bg-white shadow-xs overflow-hidden flex flex-col justify-between min-h-[580px] touch-pan-y"
+      className="rounded-2xl border border-slate-200/90 bg-white shadow-xs overflow-hidden flex flex-col flex-1 min-h-0 touch-pan-y"
       style={{ touchAction: "pan-y" }}
     >
       {/* 1. Header Bar: Q.No, Outcome, Marks, Time, Confidence */}
-      <div className="border-b border-slate-200/90 bg-slate-50/70 p-4 sm:p-5 flex flex-wrap items-center justify-between gap-3">
+      <div className="border-b border-slate-200/90 bg-slate-50/70 p-4 sm:p-5 flex flex-wrap items-center justify-between gap-3 shrink-0">
         {/* Left: Question No & Badges */}
         <div className="flex items-center gap-2.5 flex-wrap">
           <span className="inline-flex items-center justify-center px-3 py-1 rounded-xl bg-slate-900 text-white font-mono font-bold text-xs shadow-2xs">
@@ -278,6 +291,26 @@ export function QuestionInspector({
             </span>
           )}
 
+          {/* Compact altered indicator */}
+          {!isCloze &&
+            Boolean(question.changesCount && question.changesCount > 0) && (
+              <span
+                className={`inline-flex items-center gap-1 font-mono text-[11px] px-2 py-1 rounded-lg border ${
+                  isCorrect
+                    ? "border-emerald-200 bg-emerald-50 text-emerald-800"
+                    : "border-rose-200 bg-rose-50 text-rose-800"
+                }`}
+                title={`Selection altered ${question.changesCount} time(s): ${
+                  question.answerHistory?.length
+                    ? `${question.answerHistory.join(" → ")} → ${question.selected || ""}`
+                    : ""
+                }`}
+              >
+                <RotateCcw className="h-3 w-3" />
+                <span>{question.changesCount}x altered</span>
+              </span>
+            )}
+
           <div
             className={`inline-flex items-center gap-1 font-mono text-xs px-2.5 py-1 rounded-lg border ${
               isSlow
@@ -293,38 +326,7 @@ export function QuestionInspector({
       </div>
 
       {/* 2. Main Question Statement & Options Area */}
-      <div className="p-4 sm:p-6 space-y-5 overflow-y-auto max-h-[calc(100vh-22rem)]">
-        {/* Altered Response Nuance Alert Banner (Mock Mode) - Fixed Boolean guard against 0 */}
-        {!isCloze &&
-          Boolean(question.changesCount && question.changesCount > 0) && (
-            <div className="rounded-xl border border-indigo-200 bg-indigo-50/60 p-3 text-xs text-indigo-950 flex items-center justify-between gap-2 shadow-2xs">
-              <div className="flex items-center gap-2">
-                <RotateCcw className="h-4 w-4 text-indigo-600 shrink-0" />
-                <span>
-                  <strong>Response altered during test:</strong> Candidate
-                  changed their selection {question.changesCount} time(s).
-                  {Boolean(
-                    question.answerHistory && question.answerHistory.length > 0,
-                  ) && (
-                    <span className="ml-1 font-mono">
-                      ({question.answerHistory.join(" → ")} →{" "}
-                      {question.selected})
-                    </span>
-                  )}
-                </span>
-              </div>
-              <span
-                className={`font-mono font-bold px-2 py-0.5 rounded text-[10px] ${
-                  isCorrect
-                    ? "bg-emerald-100 text-emerald-800"
-                    : "bg-rose-100 text-rose-800"
-                }`}
-              >
-                {isCorrect ? "Beneficial revision" : "Harmful revision"}
-              </span>
-            </div>
-          )}
-
+      <div className="p-4 sm:p-6 space-y-5 flex-1 min-h-0 overflow-y-auto overscroll-contain">
         {/* 3-Tier Topic Hierarchy, PYQ Year & Word Limit Badge */}
         {(parsedQuestion?.subject ||
           question.subject ||
@@ -813,21 +815,59 @@ export function QuestionInspector({
 
         {/* 5. Official Solution & Conceptual Breakdown */}
         {officialExplanation && (
-          <div className="rounded-xl border border-indigo-200/90 bg-gradient-to-br from-indigo-50/40 via-white to-slate-50 p-4 sm:p-5 shadow-2xs space-y-2">
-            <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-slate-800">
-              <Lightbulb className="h-4 w-4 text-indigo-600" />
-              <span>Official Explanation & Solution</span>
+          <div className="rounded-xl border border-indigo-200/90 bg-gradient-to-br from-indigo-50/40 via-white to-slate-50 p-4 sm:p-5 shadow-2xs space-y-2.5 transition-all">
+            <div className="flex items-center justify-between gap-2">
+              <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-slate-800">
+                <Lightbulb className="h-4 w-4 text-indigo-600 shrink-0" />
+                <span>Official Explanation & Solution</span>
+              </div>
+              {isExplanationLong && (
+                <button
+                  type="button"
+                  onClick={() =>
+                    setIsExplanationExpanded(!isExplanationExpanded)
+                  }
+                  className="inline-flex items-center gap-1 text-[11px] font-semibold text-indigo-700 hover:text-indigo-900 bg-white hover:bg-indigo-50/80 px-2 py-0.5 rounded-lg border border-indigo-200 shadow-2xs cursor-pointer transition-colors"
+                >
+                  <span>{isExplanationExpanded ? "Collapse" : "Expand"}</span>
+                  {isExplanationExpanded ? (
+                    <ChevronUp className="h-3 w-3" />
+                  ) : (
+                    <ChevronDown className="h-3 w-3" />
+                  )}
+                </button>
+              )}
             </div>
-            <HtmlExplanation
-              text={officialExplanation}
-              className="text-xs sm:text-sm text-slate-800"
-            />
+            <div
+              className={
+                isExplanationLong && !isExplanationExpanded
+                  ? "relative max-h-40 overflow-hidden"
+                  : ""
+              }
+            >
+              <HtmlExplanation
+                text={officialExplanation}
+                className="text-xs sm:text-sm text-slate-800 leading-relaxed"
+              />
+              {isExplanationLong && !isExplanationExpanded && (
+                <div className="absolute inset-x-0 bottom-0 h-16 bg-gradient-to-t from-slate-50 via-slate-50/85 to-transparent flex items-end justify-center pb-0.5">
+                  <button
+                    type="button"
+                    onClick={() => setIsExplanationExpanded(true)}
+                    className="inline-flex items-center gap-1 text-xs font-bold text-indigo-700 bg-white/95 hover:bg-white px-3 py-1 rounded-full border border-indigo-200 shadow-xs cursor-pointer transition-all"
+                  >
+                    <span>Read Full Solution</span>
+                    <ChevronDown className="h-3.5 w-3.5 text-indigo-600" />
+                  </button>
+                </div>
+              )}
+            </div>
           </div>
         )}
       </div>
 
       {/* 3. Navigation Bar (Footer) */}
-      <div className="border-t border-slate-200/90 bg-white p-3.5 sm:px-6 flex items-center justify-between gap-3">
+      <div className="border-t border-slate-200/90 bg-white p-3.5 sm:px-6 flex items-center justify-between gap-3 shrink-0">
         <button
           type="button"
           disabled={qNo <= 1}

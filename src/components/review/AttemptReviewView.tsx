@@ -18,6 +18,10 @@ import { QuestionInspector } from "./QuestionInspector";
 import { PaperPreviewPanel } from "./PaperPreviewPanel";
 import { GeneralNotesCard } from "./GeneralNotesCard";
 import { DetailedSolutionModal } from "../DetailedSolutionModal";
+import { BatchEvaluationModal } from "./BatchEvaluationModal";
+import { MistakeReTestModal } from "./MistakeReTestModal";
+import { createMistakeReTestPaper } from "../../lib/retestUtils";
+import { saveCustomPaper } from "../../lib/storage";
 import { useApp } from "../../context/AppContext";
 import {
   FilterTabType,
@@ -123,6 +127,8 @@ export function AttemptReviewView({
   // Modals
   const [solutionModalOpen, setSolutionModalOpen] = useState(false);
   const [submissionModalOpen, setSubmissionModalOpen] = useState(false);
+  const [batchEvalModalOpen, setBatchEvalModalOpen] = useState(false);
+  const [retestModalOpen, setRetestModalOpen] = useState(false);
 
   // Filtered questions using AND interaction
   const filteredQuestions = useMemo(
@@ -627,6 +633,47 @@ export function AttemptReviewView({
     onUpdate({ ...attempt, answers: updatedAnswers });
   };
 
+  // Batch evaluation comments handler
+  const handleApplyBatchEvaluations = (
+    results: Array<{ questionNo: number; comment: string }>,
+  ) => {
+    const updatedAnswers = { ...attempt.answers };
+    const timestamp = new Date().toISOString();
+    for (const { questionNo, comment } of results) {
+      if (updatedAnswers[questionNo]) {
+        updatedAnswers[questionNo] = {
+          ...updatedAnswers[questionNo],
+          evaluationComment: comment,
+          evaluationSource: "ai",
+          evaluationUpdatedAt: timestamp,
+        };
+      } else {
+        updatedAnswers[questionNo] = {
+          questionNo,
+          selected: null,
+          evaluationComment: comment,
+          evaluationSource: "ai",
+          evaluationUpdatedAt: timestamp,
+        };
+      }
+    }
+    onUpdate({ ...attempt, answers: updatedAnswers });
+  };
+
+  // Launch targeted mistake re-test session
+  const handleStartMistakeReTest = (
+    selectedQuestions: QuestionAnswer[],
+    mode: "practice" | "mock",
+  ) => {
+    if (!matchedPaper || selectedQuestions.length === 0) return;
+    const retestPaper = createMistakeReTestPaper(
+      matchedPaper,
+      selectedQuestions,
+    );
+    saveCustomPaper(retestPaper);
+    handleStartExam(retestPaper, mode);
+  };
+
   // General note handler
   const handleSaveGeneralNote = (generalNotes: string) => {
     onUpdate({ ...attempt, generalNotes });
@@ -778,6 +825,13 @@ export function AttemptReviewView({
         onReattempt={
           matchedPaper ? () => handleStartExam(matchedPaper, "mock") : undefined
         }
+        onOpenMistakeReTest={
+          matchedPaper && incorrectQuestionsList.length > 0
+            ? () => setRetestModalOpen(true)
+            : undefined
+        }
+        mistakeCount={incorrectQuestionsList.length}
+        onOpenBatchEvaluation={() => setBatchEvalModalOpen(true)}
         onOpenSolutionModal={
           matchedPaper?.exsUrl ? () => setSolutionModalOpen(true) : undefined
         }
@@ -966,7 +1020,7 @@ export function AttemptReviewView({
               </div>
             ) : (
               /* Question Inspector (When paper preview is toggled off) */
-              <div className="w-full flex-1 min-h-0 overflow-y-auto">
+              <div className="w-full flex-1 min-h-0 flex flex-col">
                 <QuestionInspector
                   question={currentQuestionAnswer}
                   parsedQuestion={currentParsedQuestion}
@@ -1085,6 +1139,29 @@ export function AttemptReviewView({
         pdfUrl={attempt.userSubmissionPdfUrl}
         paperTitle={`${displayPaperTitle} - Handwritten Answer Copy`}
       />
+
+      {/* Batch AI Evaluation Modal */}
+      <BatchEvaluationModal
+        isOpen={batchEvalModalOpen}
+        onClose={() => setBatchEvalModalOpen(false)}
+        attempt={attempt}
+        questions={questionList}
+        parsedQuestions={markdownQuestions}
+        paperExplanations={matchedPaper?.explanations}
+        onApplyBatchEvaluations={handleApplyBatchEvaluations}
+      />
+
+      {/* Mistake Re-Test Modal */}
+      {matchedPaper && (
+        <MistakeReTestModal
+          isOpen={retestModalOpen}
+          onClose={() => setRetestModalOpen(false)}
+          matchedPaper={matchedPaper}
+          incorrectQuestions={incorrectQuestionsList}
+          skippedQuestions={skippedQuestionsList}
+          onStartReTest={handleStartMistakeReTest}
+        />
+      )}
     </div>
   );
 }

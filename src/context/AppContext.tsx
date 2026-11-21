@@ -54,7 +54,6 @@ import {
 import { ConfirmationModal } from "../components/ConfirmationModal";
 import { ProUpgradeModal } from "../components/ProUpgradeModal";
 import { AuthModal } from "../components/AuthModal";
-import { GuestCompletionModal } from "../components/GuestCompletionModal";
 import { syncVocabCardsWithSupabase } from "../lib/vocabStorage";
 import {
   isPaperFree,
@@ -166,10 +165,6 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const [proModalTarget, setProModalTarget] = useState<string | undefined>(
     undefined,
   );
-  const [guestCompletionAttempt, setGuestCompletionAttempt] =
-    useState<Attempt | null>(null);
-  const [guestCompletionModalOpen, setGuestCompletionModalOpen] =
-    useState<boolean>(false);
 
   const [theme, setThemeState] = useState<AppTheme>(() => {
     if (typeof window === "undefined") return "light";
@@ -741,13 +736,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       href: `/history/${encodeURIComponent(attempt.id)}`,
     });
 
-    // Guests can review either mode immediately; signing in only adds the result to their account.
-    if (!currentUser) {
-      setGuestCompletionAttempt(attempt);
-      setGuestCompletionModalOpen(true);
-      return;
-    }
-
+    // Direct seamless transition to assessment review for both guest and authenticated users
     router.push(`/history/${encodeURIComponent(attempt.id)}`);
   };
 
@@ -1090,47 +1079,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         isOpen={authModalOpen}
         onClose={() => setAuthModalOpen(false)}
         onSuccess={async () => {
-          if (guestCompletionAttempt) {
-            const completedGuestAttempt = guestCompletionAttempt;
-            const user = await getCurrentUser();
-            if (user) {
-              await saveUserAttemptToSupabase(completedGuestAttempt, user.id);
-            }
-
-            // Load the account first, then retain the just-completed result in
-            // memory before navigating to its detail route. Without this, the
-            // route can render between the auth refresh and the Supabase write.
-            await loadAllData();
-            setAttempts((previous) => [
-              completedGuestAttempt,
-              ...previous.filter(
-                (attempt) => attempt.id !== completedGuestAttempt.id,
-              ),
-            ]);
-            setGuestCompletionModalOpen(false);
-            const targetId = completedGuestAttempt.id;
-            setGuestCompletionAttempt(null);
-            router.push(`/history/${encodeURIComponent(targetId)}`);
-            return;
-          }
           await loadAllData();
-        }}
-      />
-
-      <GuestCompletionModal
-        isOpen={guestCompletionModalOpen}
-        attempt={guestCompletionAttempt}
-        onOpenAuth={() => {
-          setGuestCompletionModalOpen(false);
-          setAuthModalOpen(true);
-        }}
-        onProceedAsGuest={() => {
-          setGuestCompletionModalOpen(false);
-          if (guestCompletionAttempt) {
-            const targetId = guestCompletionAttempt.id;
-            setGuestCompletionAttempt(null);
-            router.push(`/history/${encodeURIComponent(targetId)}`);
-          }
         }}
       />
     </AppContext.Provider>

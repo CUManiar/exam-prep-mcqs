@@ -16,9 +16,12 @@ import {
   Trash2,
   AlertTriangle,
   Check,
+  Sparkles,
+  Target,
 } from "lucide-react";
 import {
   exportAttemptAsPrintPDF,
+  exportMistakesAsPrintPDF,
   exportAttemptWithQuestionPaperAsPrintPDF,
   exportAttemptAsMarkdown,
   exportAttemptAsJSON,
@@ -36,6 +39,9 @@ interface ReviewHeaderProps {
   onBack: () => void;
   onDelete: (id: string) => void;
   onReattempt?: () => void;
+  onOpenBatchEvaluation?: () => void;
+  onOpenMistakeReTest?: () => void;
+  mistakeCount?: number;
   onOpenSolutionModal?: () => void;
   onOpenSubmissionModal?: () => void;
   effectiveMaxScore: number;
@@ -52,6 +58,9 @@ export function ReviewHeader({
   onBack,
   onDelete,
   onReattempt,
+  onOpenBatchEvaluation,
+  onOpenMistakeReTest,
+  mistakeCount = 0,
   onOpenSolutionModal,
   onOpenSubmissionModal,
   effectiveMaxScore,
@@ -100,6 +109,15 @@ export function ReviewHeader({
       attempt,
       matchedPaper?.explanations,
       displayPaperTitle,
+      effectiveMaxScore,
+    );
+  };
+
+  const handlePrintMistakesOnly = () => {
+    exportMistakesAsPrintPDF(
+      attempt,
+      matchedPaper?.explanations,
+      `Mistakes & Review: ${displayPaperTitle}`,
       effectiveMaxScore,
     );
   };
@@ -197,6 +215,30 @@ export function ReviewHeader({
           </button>
         )}
 
+        {/* Batch AI Evaluation button */}
+        {onOpenBatchEvaluation && (
+          <button
+            onClick={onOpenBatchEvaluation}
+            className="flex items-center gap-1.5 rounded-xl border border-indigo-200 bg-white hover:bg-indigo-50 px-2.5 sm:px-3 py-1.5 text-xs font-semibold text-indigo-700 transition-all cursor-pointer shadow-2xs shrink-0"
+            title="Batch evaluate questions and audit scratchpad calculations with AI"
+          >
+            <Sparkles className="h-3.5 w-3.5 text-indigo-600" />
+            <span>AI Audit</span>
+          </button>
+        )}
+
+        {/* Re-Test Mistakes button */}
+        {onOpenMistakeReTest && mistakeCount > 0 && (
+          <button
+            onClick={onOpenMistakeReTest}
+            className="flex items-center gap-1.5 rounded-xl border border-rose-200 bg-rose-50/80 px-2.5 sm:px-3 py-1.5 text-xs font-semibold text-rose-700 hover:bg-rose-600 hover:text-white transition-all cursor-pointer shadow-2xs shrink-0"
+            title={`Launch targeted practice session for the ${mistakeCount} questions missed in this attempt`}
+          >
+            <Target className="h-3.5 w-3.5 text-rose-600" />
+            <span>Re-Test Mistakes ({mistakeCount})</span>
+          </button>
+        )}
+
         {/* Re-attempt test button */}
         {onReattempt && (
           <button
@@ -256,6 +298,17 @@ export function ReviewHeader({
                 >
                   <Printer className="h-4 w-4 text-slate-500 shrink-0" />
                   <span>Download assessment summary (PDF)</span>
+                </button>
+
+                <button
+                  onClick={() => {
+                    handlePrintMistakesOnly();
+                    setShowExportMenu(false);
+                  }}
+                  className="flex w-full items-center gap-2.5 rounded-xl px-3 py-2 text-xs font-semibold text-rose-700 hover:bg-rose-50 transition-colors cursor-pointer whitespace-nowrap"
+                >
+                  <Target className="h-4 w-4 text-rose-600 shrink-0" />
+                  <span>Mistakes &amp; flagged questions only (PDF)</span>
                 </button>
 
                 <button

@@ -469,9 +469,16 @@ export function generateAttemptReportMarkdown(attempt: Attempt): string {
   return lines.join("\n");
 }
 
+export interface ExportPrintPDFOptions {
+  filteredQuestionNos?: number[];
+  subtitle?: string;
+  reportCategory?: string;
+}
+
 /**
  * Generates a clean standalone HTML string for the print/PDF report.
  * Opened in a new window and auto-printed — bypasses CSS media query conflicts.
+ * Optionally focuses on filtered questions (mistakes, flagged) for revision booklets.
  */
 export function exportAttemptAsPrintPDF(
   attempt: Attempt,
@@ -479,7 +486,11 @@ export function exportAttemptAsPrintPDF(
   displayTitleOverride?: string,
   maxScoreOverride?: number,
   questionPaperHtml = "",
+  options?: ExportPrintPDFOptions,
 ): void {
+  const isFiltered = Boolean(
+    options?.filteredQuestionNos && options.filteredQuestionNos.length > 0,
+  );
   const paperTitle =
     displayTitleOverride || attempt.paperLabel || "Assessment Report";
   const maxScore =
@@ -542,8 +553,13 @@ export function exportAttemptAsPrintPDF(
       ? Math.round((negativePenaltyMarks / grossCorrectMarks) * 100)
       : 0;
 
+  const targetQNos =
+    options?.filteredQuestionNos && options.filteredQuestionNos.length > 0
+      ? options.filteredQuestionNos
+      : Array.from({ length: attempt.totalQuestions }, (_, i) => i + 1);
+
   // Build question rows
-  const rows = Array.from({ length: attempt.totalQuestions }, (_, i) => i + 1)
+  const rows = targetQNos
     .map((qNo) => {
       const q = attempt.answers[qNo];
       const isAnswered = q?.selected !== null && q?.selected !== undefined;
@@ -679,9 +695,9 @@ export function exportAttemptAsPrintPDF(
 </head>
 <body>
   <div class="header">
-    <div class="label">Candidate Assessment Report</div>
+    <div class="label">${options?.reportCategory || (isFiltered ? "Targeted Mistakes & Flagged Review Booklet" : "Candidate Assessment Report")}</div>
     <div class="subtitle">${paperTitle}</div>
-    <div style="font-size:11px;color:#64748b;font-weight:600;margin-top:2px;">${attempt.mode === "mock" ? "Timed Mock Examination" : "Practice Assessment Session"} · Objective Evaluated Record</div>
+    <div style="font-size:11px;color:#64748b;font-weight:600;margin-top:2px;">${options?.subtitle || `${attempt.mode === "mock" ? "Timed Mock Examination" : "Practice Assessment Session"} · Objective Evaluated Record`}</div>
     <div class="meta">
       <span><strong>Attempted:</strong> ${formatDateTime(attempt.startedAt)}</span>
       <span>•</span>
@@ -779,8 +795,17 @@ export function exportAttemptAsPrintPDF(
 
   ${attempt.generalNotes?.trim() ? `<div class="general-note"><strong>Candidate Notes:</strong> ${attempt.generalNotes.trim()}</div>` : ""}
 
+  ${
+    isFiltered
+      ? `
+  <div style="background:#fff1f2;border:1px solid #fecdd3;border-radius:8px;padding:8px 12px;margin-bottom:10px;font-size:10px;color:#9f1239;">
+    <strong>🎯 Targeted Review Selection (${targetQNos.length} Questions):</strong> Showing questions marked incorrect or flagged for revision. Includes candidate scratchpad workings and examiner AI evaluation comments.
+  </div>`
+      : ""
+  }
+
   <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
-    <div class="section-title" style="margin-bottom:0;">Question-by-Question Evaluation Sheet (${attempt.totalQuestions} Questions)</div>
+    <div class="section-title" style="margin-bottom:0;">${isFiltered ? `Filtered Question Evaluation Sheet (${targetQNos.length} Questions)` : `Question-by-Question Evaluation Sheet (${attempt.totalQuestions} Questions)`}</div>
     <div style="font-size:9.5px;color:#64748b;font-weight:600;">Correct: +${correctMarksPerQ}m | Negative: -${incorrectMarksPerQ}m</div>
   </div>
   <table>
@@ -905,6 +930,41 @@ export function exportAttemptAsPrintPDF(
       window.print();
     }
   }
+}
+
+/**
+ * Convenience exporter for mistake and flagged questions PDF booklet.
+ */
+export function exportMistakesAsPrintPDF(
+  attempt: Attempt,
+  paperExplanations?: Record<number, string>,
+  displayTitleOverride?: string,
+  maxScoreOverride?: number,
+  filteredQuestionNos?: number[],
+): void {
+  const targetNos =
+    filteredQuestionNos && filteredQuestionNos.length > 0
+      ? filteredQuestionNos
+      : Object.keys(attempt.answers)
+          .map(Number)
+          .filter((qNo) => {
+            const a = attempt.answers[qNo];
+            return a && (a.isCorrect === false || a.flagged);
+          })
+          .sort((a, b) => a - b);
+
+  exportAttemptAsPrintPDF(
+    attempt,
+    paperExplanations,
+    displayTitleOverride || `Mistakes & Review: ${attempt.paperLabel}`,
+    maxScoreOverride,
+    "",
+    {
+      filteredQuestionNos: targetNos,
+      subtitle: `Targeted Review Packet (${targetNos.length} Questions)`,
+      reportCategory: "Targeted Mistakes & Flagged Review Booklet",
+    },
+  );
 }
 
 /**

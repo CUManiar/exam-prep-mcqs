@@ -66,9 +66,10 @@ export function LandingView({
             The complete workspace for serious civil services preparation.
           </h1>
           <p className="public-intro">
-            From simulated Prelims mocks with psychological decision analytics
-            to line-by-line Mains answer evaluation, free AI revision dossiers,
-            dynamic syllabus pacing, and Claude MCP integration.
+            From simulated Prelims mocks with question-by-question AI scratchpad
+            auditing, targeted mistake re-tests, and longitudinal score
+            trajectories, to line-by-line Mains answer evaluation, free AI
+            revision dossiers, and Claude &amp; ChatGPT MCP integration.
           </p>
           <div className="public-actions">
             {featuredPaper && (
@@ -99,13 +100,16 @@ export function LandingView({
               <Check aria-hidden="true" /> Prelims &amp; Mains
             </span>
             <span>
-              <Check aria-hidden="true" /> Line-by-Line Script Audit
+              <Check aria-hidden="true" /> AI Scratchpad Audit
             </span>
             <span>
-              <Check aria-hidden="true" /> Free AI Revision
+              <Check aria-hidden="true" /> Mistake Re-Test Mode
             </span>
             <span>
-              <Check aria-hidden="true" /> Claude MCP Ready
+              <Check aria-hidden="true" /> Score Trajectories
+            </span>
+            <span>
+              <Check aria-hidden="true" /> Claude &amp; ChatGPT MCP
             </span>
           </div>
         </div>
@@ -159,11 +163,11 @@ export function LandingView({
             </div>
           </div>
 
-          {/* Snapshot 2: Prelims Psychological Review */}
+          {/* Snapshot 2: Prelims Decision Metrics & AI Question Evaluation */}
           <div className="public-review-preview pt-1">
             <div className="flex items-center justify-between gap-3">
               <span className="public-review-preview-label">
-                Prelims Decision Metrics
+                AI Scratchpad Audit &amp; Decision Metrics
               </span>
               <Target aria-hidden="true" className="h-4 w-4 text-blue-600" />
             </div>
@@ -177,13 +181,13 @@ export function LandingView({
                 <small>74% across 88 Qs</small>
               </span>
               <span>
-                <strong>Pace / Trap</strong>
-                <small>58s avg · 2 traps flagged</small>
+                <strong>Mistake Re-Test</strong>
+                <small>1-Click Practice</small>
               </span>
             </div>
             <p className="text-xs text-slate-500 mt-1">
-              Diagnostic metrics isolating alteration gains, traps, and negative
-              mark erosion.
+              AI audits candidate scratchpad math, checks elimination logic, and
+              generates instant re-test practice sessions from errors.
             </p>
           </div>
 
@@ -241,18 +245,19 @@ export function LandingView({
             </Link>
           </article>
 
-          {/* Pillar 2: Prelims Simulated Mocks */}
+          {/* Pillar 2: Prelims Simulated Mocks, AI Audits & Re-Tests */}
           <article className="public-benefit-card flex flex-col justify-between">
             <div>
               <span className="public-benefit-icon">
                 <Clock3 aria-hidden="true" className="text-blue-600" />
               </span>
-              <h3>Prelims Mocks &amp; Practice</h3>
+              <h3>Prelims Mocks, AI Audits &amp; Re-Tests</h3>
               <p>
                 Experience genuine exam conditions with simulated timers,
-                negative marks (1/3rd penalty), and CSAT qualification bars, or
-                switch to stress-free untimed practice with instant solution
-                keys and detailed explanations.
+                negative marks (1/3rd penalty), and CSAT qualification bars. Run
+                batch AI audits on your calculations and rough scratchpads, or
+                launch 1-click mistake re-tests to immediately master questions
+                you got wrong.
               </p>
             </div>
             <Link
@@ -287,18 +292,19 @@ export function LandingView({
             </Link>
           </article>
 
-          {/* Pillar 4: 3-Tier Topic Diagnostics */}
+          {/* Pillar 4: Longitudinal Trends & 3-Tier Topic Diagnostics */}
           <article className="public-benefit-card flex flex-col justify-between">
             <div>
               <span className="public-benefit-icon">
                 <BarChart3 aria-hidden="true" className="text-emerald-600" />
               </span>
-              <h3>Cross-Attempt Analytics</h3>
+              <h3>Longitudinal Trends &amp; Diagnostics</h3>
               <p>
+                Track your score progression and accuracy curves over time with
+                statutory CSAT (66.67) and GS-1 benchmark cutoff lines.
                 Multi-tier hierarchy (Subject &gt; Chapter &gt; Topic)
-                automatically aggregates every question you answer. Pinpoint
-                critical weak spots (&lt;50% accuracy) and track mastered topics
-                across all completed tests in a single view.
+                automatically aggregates weak spots, and lets you export
+                filtered mistake booklets to print-ready PDF.
               </p>
             </div>
             <Link
@@ -503,7 +509,12 @@ export function LandingView({
               </p>
               <ul className="public-plan-features">
                 <li>
-                  <Check aria-hidden="true" /> Complete practice test workflow
+                  <Check aria-hidden="true" /> Complete practice test &amp;
+                  mistake re-test
+                </li>
+                <li>
+                  <Check aria-hidden="true" /> Question AI audit &amp;
+                  scratchpad evaluation
                 </li>
                 <li>
                   <Check aria-hidden="true" /> Mains answer evaluation demo
@@ -513,7 +524,7 @@ export function LandingView({
                   Gemini key
                 </li>
                 <li>
-                  <Check aria-hidden="true" /> Full Claude / ChatGPT MCP
+                  <Check aria-hidden="true" /> Full Claude &amp; ChatGPT MCP
                   integration
                 </li>
               </ul>
@@ -553,8 +564,12 @@ export function LandingView({
                   booklets
                 </li>
                 <li>
-                  <Check aria-hidden="true" /> Cross-attempt 3-tier topic
-                  diagnostics
+                  <Check aria-hidden="true" /> Longitudinal score trends &amp;
+                  cutoff tracking
+                </li>
+                <li>
+                  <Check aria-hidden="true" /> Print-ready mistake review PDF
+                  booklets
                 </li>
                 <li>
                   <Check aria-hidden="true" /> Synced cloud storage for attempts
