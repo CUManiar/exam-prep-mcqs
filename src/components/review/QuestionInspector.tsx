@@ -291,6 +291,25 @@ export function QuestionInspector({
             </span>
           )}
 
+          {/* Compact altered indicator */}
+          {!isCloze && Boolean(question.changesCount && question.changesCount > 0) && (
+            <span
+              className={`inline-flex items-center gap-1 font-mono text-[11px] px-2 py-1 rounded-lg border ${
+                isCorrect
+                  ? "border-emerald-200 bg-emerald-50 text-emerald-800"
+                  : "border-rose-200 bg-rose-50 text-rose-800"
+              }`}
+              title={`Selection altered ${question.changesCount} time(s): ${
+                question.answerHistory?.length
+                  ? `${question.answerHistory.join(" → ")} → ${question.selected || ""}`
+                  : ""
+              }`}
+            >
+              <RotateCcw className="h-3 w-3" />
+              <span>{question.changesCount}x altered</span>
+            </span>
+          )}
+
           <div
             className={`inline-flex items-center gap-1 font-mono text-xs px-2.5 py-1 rounded-lg border ${
               isSlow
@@ -307,37 +326,6 @@ export function QuestionInspector({
 
       {/* 2. Main Question Statement & Options Area */}
       <div className="p-4 sm:p-6 space-y-5 flex-1 min-h-0 overflow-y-auto overscroll-contain">
-        {/* Altered Response Nuance Alert Banner (Mock Mode) - Fixed Boolean guard against 0 */}
-        {!isCloze &&
-          Boolean(question.changesCount && question.changesCount > 0) && (
-            <div className="rounded-xl border border-indigo-200 bg-indigo-50/60 p-3 text-xs text-indigo-950 flex items-center justify-between gap-2 shadow-2xs">
-              <div className="flex items-center gap-2">
-                <RotateCcw className="h-4 w-4 text-indigo-600 shrink-0" />
-                <span>
-                  <strong>Response altered during test:</strong> Candidate
-                  changed their selection {question.changesCount} time(s).
-                  {Boolean(
-                    question.answerHistory && question.answerHistory.length > 0,
-                  ) && (
-                    <span className="ml-1 font-mono">
-                      ({question.answerHistory.join(" → ")} →{" "}
-                      {question.selected})
-                    </span>
-                  )}
-                </span>
-              </div>
-              <span
-                className={`font-mono font-bold px-2 py-0.5 rounded text-[10px] ${
-                  isCorrect
-                    ? "bg-emerald-100 text-emerald-800"
-                    : "bg-rose-100 text-rose-800"
-                }`}
-              >
-                {isCorrect ? "Beneficial revision" : "Harmful revision"}
-              </span>
-            </div>
-          )}
-
         {/* 3-Tier Topic Hierarchy, PYQ Year & Word Limit Badge */}
         {(parsedQuestion?.subject ||
           question.subject ||
