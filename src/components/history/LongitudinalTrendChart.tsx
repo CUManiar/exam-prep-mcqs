@@ -23,6 +23,7 @@ interface LongitudinalTrendChartProps {
 
 type SubjectFilter = "all" | "gs1" | "csat" | "mains";
 type MetricType = "score" | "accuracy";
+type HorizonType = "10" | "20" | "all";
 
 export function LongitudinalTrendChart({
   attempts,
@@ -31,6 +32,7 @@ export function LongitudinalTrendChart({
 }: LongitudinalTrendChartProps) {
   const [subjectFilter, setSubjectFilter] = useState<SubjectFilter>("all");
   const [metric, setMetric] = useState<MetricType>("score");
+  const [horizon, setHorizon] = useState<HorizonType>("all");
   const [hoveredIndex, setHoveredIndex] = useState<number | null>(null);
 
   // Filter and sort attempts chronologically
@@ -78,16 +80,23 @@ export function LongitudinalTrendChart({
     });
   }, [attempts, subjectFilter, papers]);
 
+  // Windowed attempts respecting selected horizon
+  const displayedAttempts = useMemo(() => {
+    if (horizon === "10") return chronologicalAttempts.slice(-10);
+    if (horizon === "20") return chronologicalAttempts.slice(-20);
+    return chronologicalAttempts;
+  }, [chronologicalAttempts, horizon]);
+
   // Trajectory stats
   const stats = useMemo(() => {
-    if (chronologicalAttempts.length < 2) return null;
-    const first = chronologicalAttempts[0];
-    const last = chronologicalAttempts[chronologicalAttempts.length - 1];
+    if (displayedAttempts.length < 2) return null;
+    const first = displayedAttempts[0];
+    const last = displayedAttempts[displayedAttempts.length - 1];
     const scoreDelta = Math.round((last.score - first.score) * 10) / 10;
     const accuracyDelta =
       Math.round((last.accuracyPct - first.accuracyPct) * 10) / 10;
 
-    const recentWindow = chronologicalAttempts.slice(-5);
+    const recentWindow = displayedAttempts.slice(-5);
     const recentAvgScore =
       Math.round(
         (recentWindow.reduce((s, a) => s + a.score, 0) / recentWindow.length) *
@@ -106,9 +115,10 @@ export function LongitudinalTrendChart({
       recentAvgScore,
       recentAvgAcc,
       isImproving: metric === "score" ? scoreDelta > 0 : accuracyDelta > 0,
-      totalTracked: chronologicalAttempts.length,
+      totalTracked: displayedAttempts.length,
+      allTotalTracked: chronologicalAttempts.length,
     };
-  }, [chronologicalAttempts, metric]);
+  }, [displayedAttempts, chronologicalAttempts.length, metric]);
 
   // Chart layout dimensions
   const width = 680;
@@ -119,10 +129,10 @@ export function LongitudinalTrendChart({
 
   // Metric range calculation
   const values = useMemo(() => {
-    return chronologicalAttempts.map((a) =>
+    return displayedAttempts.map((a) =>
       metric === "score" ? a.score : a.accuracyPct,
     );
-  }, [chronologicalAttempts, metric]);
+  }, [displayedAttempts, metric]);
 
   const { minVal, maxVal, cutoffVal } = useMemo(() => {
     if (values.length === 0) {
@@ -154,10 +164,10 @@ export function LongitudinalTrendChart({
 
   // Points mapping for SVG
   const points = useMemo(() => {
-    if (chronologicalAttempts.length === 0) return [];
-    const len = chronologicalAttempts.length;
+    if (displayedAttempts.length === 0) return [];
+    const len = displayedAttempts.length;
 
-    return chronologicalAttempts.map((att, i) => {
+    return displayedAttempts.map((att, i) => {
       const val = metric === "score" ? att.score : att.accuracyPct;
       const x =
         len === 1
@@ -168,7 +178,7 @@ export function LongitudinalTrendChart({
       return { x, y, val, attempt: att, index: i };
     });
   }, [
-    chronologicalAttempts,
+    displayedAttempts,
     metric,
     minVal,
     maxVal,
@@ -255,12 +265,52 @@ export function LongitudinalTrendChart({
             )}
           </div>
           <p className="text-[11px] text-slate-500">
-            Chronological trend across {chronologicalAttempts.length} completed
+            Showing {displayedAttempts.length} of {chronologicalAttempts.length} completed
             exam mocks
           </p>
         </div>
 
         <div className="flex items-center gap-2 flex-wrap sm:flex-nowrap">
+          {/* Horizon Selector Toggle */}
+          <div className="inline-flex rounded-xl bg-slate-100 p-0.5 text-xs font-semibold text-slate-600">
+            <button
+              type="button"
+              onClick={() => setHorizon("10")}
+              className={`px-2 py-1 rounded-lg transition-all cursor-pointer ${
+                horizon === "10"
+                  ? "bg-white text-indigo-700 shadow-2xs font-bold"
+                  : "hover:text-slate-900"
+              }`}
+              title="Show last 10 mock attempts"
+            >
+              Last 10
+            </button>
+            <button
+              type="button"
+              onClick={() => setHorizon("20")}
+              className={`px-2 py-1 rounded-lg transition-all cursor-pointer ${
+                horizon === "20"
+                  ? "bg-white text-indigo-700 shadow-2xs font-bold"
+                  : "hover:text-slate-900"
+              }`}
+              title="Show last 20 mock attempts"
+            >
+              Last 20
+            </button>
+            <button
+              type="button"
+              onClick={() => setHorizon("all")}
+              className={`px-2 py-1 rounded-lg transition-all cursor-pointer ${
+                horizon === "all"
+                  ? "bg-white text-indigo-700 shadow-2xs font-bold"
+                  : "hover:text-slate-900"
+              }`}
+              title="Show all historical mock attempts"
+            >
+              All
+            </button>
+          </div>
+
           {/* Subject Scope Filter */}
           <div className="inline-flex rounded-xl bg-slate-100 p-0.5 text-xs font-semibold text-slate-600">
             <button
@@ -327,11 +377,11 @@ export function LongitudinalTrendChart({
       </div>
 
       {/* Chart Canvas Area */}
-      {chronologicalAttempts.length < 2 ? (
+      {displayedAttempts.length < 2 ? (
         <div className="py-8 text-center space-y-1.5 border border-dashed border-slate-200 rounded-xl bg-slate-50/50">
           <Layers className="h-6 w-6 text-slate-400 mx-auto" />
           <p className="text-xs font-semibold text-slate-700">
-            Need at least 2 attempts in this category to generate trend
+            Need at least 2 attempts in this horizon to generate trend
             trajectory
           </p>
           <p className="text-[11px] text-slate-500">
@@ -500,8 +550,8 @@ export function LongitudinalTrendChart({
             </span>
             <div className="font-mono font-bold text-slate-700">
               {metric === "score"
-                ? `${chronologicalAttempts[0].score} pts`
-                : `${chronologicalAttempts[0].accuracyPct}%`}
+                ? `${displayedAttempts[0].score} pts`
+                : `${displayedAttempts[0].accuracyPct}%`}
             </div>
           </div>
 
@@ -511,8 +561,8 @@ export function LongitudinalTrendChart({
             </span>
             <div className="font-mono font-bold text-slate-900">
               {metric === "score"
-                ? `${chronologicalAttempts[chronologicalAttempts.length - 1].score} pts`
-                : `${chronologicalAttempts[chronologicalAttempts.length - 1].accuracyPct}%`}
+                ? `${displayedAttempts[displayedAttempts.length - 1].score} pts`
+                : `${displayedAttempts[displayedAttempts.length - 1].accuracyPct}%`}
             </div>
           </div>
 
