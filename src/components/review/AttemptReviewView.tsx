@@ -442,6 +442,22 @@ export function AttemptReviewView({
     });
   };
 
+  const handleToggleScratchpad = () => {
+    setFilters((prev) => {
+      const next = { ...prev, hasScratchpad: !prev.hasScratchpad };
+      syncActiveQuestionToMatches(getFilteredQuestions(next, sortOption));
+      return next;
+    });
+  };
+
+  const handleToggleEvaluated = () => {
+    setFilters((prev) => {
+      const next = { ...prev, hasEvaluation: !prev.hasEvaluation };
+      syncActiveQuestionToMatches(getFilteredQuestions(next, sortOption));
+      return next;
+    });
+  };
+
   const handleResetFilters = () => {
     setFilters(EMPTY_FILTER_STATE);
     setSortOption("qno_asc");
@@ -946,6 +962,8 @@ export function AttemptReviewView({
                 onToggleConfidence={handleToggleConfidence}
                 onToggleSlow={handleToggleSlow}
                 onToggleAltered={handleToggleAltered}
+                onToggleScratchpad={handleToggleScratchpad}
+                onToggleEvaluated={handleToggleEvaluated}
                 onResetFilters={handleResetFilters}
                 counts={{
                   all: questionList.length,
@@ -960,6 +978,17 @@ export function AttemptReviewView({
                   fiftyFifty: fiftyFiftyQuestions.length,
                   elimination: eliminationQuestions.length,
                   guess: guessQuestions.length,
+                  hasScratchpad: questionList.filter((q) =>
+                    Boolean(q.note && q.note.trim().length > 0),
+                  ).length,
+                  hasEvaluation: questionList.filter((q) =>
+                    Boolean(
+                      (q.evaluationComment &&
+                        q.evaluationComment.trim().length > 0) ||
+                        q.evaluationSource ||
+                        q.evaluationUpdatedAt,
+                    ),
+                  ).length,
                 }}
                 sortOption={sortOption}
                 onChangeSort={handleSortChange}

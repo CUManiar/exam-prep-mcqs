@@ -14,6 +14,8 @@ import {
   RotateCcw,
   X,
   ChevronDown,
+  PenTool,
+  Sparkles,
 } from "lucide-react";
 
 interface QuestionFilterBarProps {
@@ -25,6 +27,8 @@ interface QuestionFilterBarProps {
   onToggleConfidence: (conf: "sure" | "50-50" | "guess") => void;
   onToggleSlow: () => void;
   onToggleAltered: () => void;
+  onToggleScratchpad?: () => void;
+  onToggleEvaluated?: () => void;
   onResetFilters: () => void;
   counts: {
     all: number;
@@ -39,6 +43,8 @@ interface QuestionFilterBarProps {
     fiftyFifty: number;
     elimination: number;
     guess: number;
+    hasScratchpad?: number;
+    hasEvaluation?: number;
   };
   sortOption: SortOptionType;
   onChangeSort: (sort: SortOptionType) => void;
@@ -53,6 +59,8 @@ export function QuestionFilterBar({
   onToggleConfidence,
   onToggleSlow,
   onToggleAltered,
+  onToggleScratchpad,
+  onToggleEvaluated,
   onResetFilters,
   counts,
   sortOption,
@@ -193,14 +201,40 @@ export function QuestionFilterBar({
       });
     }
 
+    if (filters.hasScratchpad && onToggleScratchpad) {
+      chips.push({
+        id: "scratchpad",
+        label: "Scratchpad",
+        count: counts.hasScratchpad ?? 0,
+        icon: <PenTool className="h-3 w-3 text-indigo-600" />,
+        badgeStyle: "bg-indigo-50 text-indigo-800 border-indigo-200",
+        onRemove: onToggleScratchpad,
+      });
+    }
+
+    if (filters.hasEvaluation && onToggleEvaluated) {
+      chips.push({
+        id: "evaluated",
+        label: "Evaluated",
+        count: counts.hasEvaluation ?? 0,
+        icon: <Sparkles className="h-3 w-3 text-purple-600" />,
+        badgeStyle: "bg-purple-50 text-purple-800 border-purple-200",
+        onRemove: onToggleEvaluated,
+      });
+    }
+
     return chips;
   }, [
     filters,
+    counts.hasScratchpad,
+    counts.hasEvaluation,
     onToggleOutcome,
     onToggleConfidence,
     onToggleSlow,
     onToggleFlagged,
     onToggleAltered,
+    onToggleScratchpad,
+    onToggleEvaluated,
   ]);
 
   const toggleLogic = () => {
@@ -335,6 +369,34 @@ export function QuestionFilterBar({
       isActive: Boolean(filters.altered),
       onClick: onToggleAltered,
     },
+    ...(onToggleScratchpad
+      ? [
+          {
+            id: "scratchpad",
+            label: "Scratchpad",
+            icon: (
+              <PenTool className="h-3.5 w-3.5 text-indigo-500 shrink-0" />
+            ),
+            count: counts.hasScratchpad ?? 0,
+            isActive: Boolean(filters.hasScratchpad),
+            onClick: onToggleScratchpad,
+          },
+        ]
+      : []),
+    ...(onToggleEvaluated
+      ? [
+          {
+            id: "evaluated",
+            label: "Evaluated",
+            icon: (
+              <Sparkles className="h-3.5 w-3.5 text-purple-500 shrink-0" />
+            ),
+            count: counts.hasEvaluation ?? 0,
+            isActive: Boolean(filters.hasEvaluation),
+            onClick: onToggleEvaluated,
+          },
+        ]
+      : []),
   ];
 
   return (
@@ -381,6 +443,34 @@ export function QuestionFilterBar({
                 <Bookmark className="h-3 w-3 fill-current" />
                 <span>Flagged ({counts.flagged})</span>
               </button>
+              {onToggleScratchpad && (counts.hasScratchpad ?? 0) > 0 && (
+                <button
+                  type="button"
+                  onClick={onToggleScratchpad}
+                  className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-semibold shrink-0 transition-all cursor-pointer border ${
+                    filters.hasScratchpad
+                      ? "bg-indigo-600 text-white border-indigo-600 shadow-2xs font-bold"
+                      : "bg-indigo-50 text-indigo-900 border-indigo-200 hover:bg-indigo-100"
+                  }`}
+                >
+                  <PenTool className="h-3 w-3" />
+                  <span>Notes ({counts.hasScratchpad})</span>
+                </button>
+              )}
+              {onToggleEvaluated && (counts.hasEvaluation ?? 0) > 0 && (
+                <button
+                  type="button"
+                  onClick={onToggleEvaluated}
+                  className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-semibold shrink-0 transition-all cursor-pointer border ${
+                    filters.hasEvaluation
+                      ? "bg-purple-600 text-white border-purple-600 shadow-2xs font-bold"
+                      : "bg-purple-50 text-purple-900 border-purple-200 hover:bg-purple-100"
+                  }`}
+                >
+                  <Sparkles className="h-3 w-3" />
+                  <span>Evaluated ({counts.hasEvaluation})</span>
+                </button>
+              )}
             </div>
 
             {/* Mobile Filter Toggle & Sort */}
