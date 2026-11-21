@@ -24,7 +24,9 @@ interface QuestionFilterBarProps {
     outcome: "incorrect" | "correct" | "skipped" | "partial",
   ) => void;
   onToggleFlagged: () => void;
-  onToggleConfidence: (conf: "sure" | "50-50" | "guess") => void;
+  onToggleConfidence: (
+    conf: "sure" | "50-50" | "guess" | "elimination",
+  ) => void;
   onToggleSlow: () => void;
   onToggleAltered: () => void;
   onToggleScratchpad?: () => void;
@@ -156,6 +158,15 @@ export function QuestionFilterBar({
           badgeStyle: "bg-blue-50 text-blue-800 border-blue-200",
           onRemove: () => onToggleConfidence("50-50"),
         });
+      } else if (conf === "elimination") {
+        chips.push({
+          id: "elimination",
+          label: "Elim",
+          count: counts.elimination,
+          icon: <span className="text-[11px]">✂️</span>,
+          badgeStyle: "bg-teal-50 text-teal-800 border-teal-200",
+          onRemove: () => onToggleConfidence("elimination"),
+        });
       } else if (conf === "guess") {
         chips.push({
           id: "guess",
@@ -247,7 +258,7 @@ export function QuestionFilterBar({
     id: "incorrect" | "correct" | "partial" | "skipped",
   ) => filters.outcome === id || Boolean(filters.outcomes?.includes(id));
 
-  const isConfActive = (id: "sure" | "50-50" | "guess") =>
+  const isConfActive = (id: "sure" | "50-50" | "guess" | "elimination") =>
     filters.confidence === id || Boolean(filters.confidences?.includes(id));
 
   const primaryOutcomeButtons: {
@@ -338,6 +349,17 @@ export function QuestionFilterBar({
       isActive: isConfActive("50-50"),
       onClick: () => onToggleConfidence("50-50"),
     },
+    ...((counts.elimination ?? 0) > 0
+      ? [
+          {
+            id: "elimination",
+            label: "✂️ Elim",
+            count: counts.elimination,
+            isActive: isConfActive("elimination"),
+            onClick: () => onToggleConfidence("elimination"),
+          },
+        ]
+      : []),
     {
       id: "guess",
       label: "🎲 Guess",

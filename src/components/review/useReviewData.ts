@@ -780,12 +780,7 @@ export function useReviewData(attempt: Attempt, papers: QuestionPaper[]) {
       // Confidence match check
       const matchesConfidence =
         selectedConfidences.length > 0 &&
-        selectedConfidences.some((conf) => {
-          if (conf === "guess") {
-            return q.confidence === "guess" || q.confidence === "elimination";
-          }
-          return q.confidence === conf;
-        });
+        selectedConfidences.some((conf) => q.confidence === conf);
 
       // Flagged match check
       const matchesFlagged = isFlaggedActive && Boolean(q.flagged);

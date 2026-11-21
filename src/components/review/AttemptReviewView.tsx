@@ -384,7 +384,9 @@ export function AttemptReviewView({
     });
   };
 
-  const handleToggleConfidence = (confidence: "sure" | "50-50" | "guess") => {
+  const handleToggleConfidence = (
+    confidence: "sure" | "50-50" | "guess" | "elimination",
+  ) => {
     setFilters((prev) => {
       const currentConfidences =
         prev.confidences && prev.confidences.length > 0
@@ -410,7 +412,12 @@ export function AttemptReviewView({
 
       const next = {
         ...prev,
-        confidence: (nextConfidences[0] as "sure" | "50-50" | "guess") || null,
+        confidence:
+          (nextConfidences[0] as
+            | "sure"
+            | "50-50"
+            | "guess"
+            | "elimination") || null,
         confidences: nextConfidences,
       };
       syncActiveQuestionToMatches(getFilteredQuestions(next, sortOption));

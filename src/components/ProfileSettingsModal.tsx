@@ -10,6 +10,7 @@ import {
   Check,
   ChevronRight,
   KeyRound,
+  Layers,
   ListChecks,
   Loader2,
   LogOut,
@@ -217,6 +218,26 @@ export function ProfileSettingsModal({
                   <span className="flex items-center gap-2.5">
                     <ListChecks className="w-4 h-4 text-indigo-600" />
                     <span>Syllabus Tracker</span>
+                  </span>
+                  <ChevronRight className="w-4 h-4 text-slate-400" />
+                </Link>
+
+                <Link
+                  href="/misc"
+                  onClick={(e) => {
+                    if (!currentUser) {
+                      e.preventDefault();
+                      onClose();
+                      openAuthModal();
+                    } else {
+                      onClose();
+                    }
+                  }}
+                  className="flex items-center justify-between p-3.5 text-sm font-medium text-slate-700 hover:bg-slate-100 transition-colors"
+                >
+                  <span className="flex items-center gap-2.5">
+                    <Layers className="w-4 h-4 text-amber-600" />
+                    <span>Vocabulary & Study Aids</span>
                   </span>
                   <ChevronRight className="w-4 h-4 text-slate-400" />
                 </Link>
