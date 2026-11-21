@@ -14,7 +14,6 @@ import {
   Target,
 } from "lucide-react";
 import { PageHeader } from "./PageHeader";
-import { DailyMotivationQuote } from "./dashboard/DailyMotivationQuote";
 import { StrikeCalendar } from "./dashboard/StrikeCalendar";
 import { McqAndMockTrendsChart } from "./dashboard/McqAndMockTrendsChart";
 import { LastThreePapersSummary } from "./dashboard/LastThreePapersSummary";
@@ -215,9 +214,6 @@ export function DashboardView({
           </button>
         }
       />
-
-      {/* Daily Motivation Quote Banner */}
-      <DailyMotivationQuote />
 
       {/* Active Assessment Draft Alert Banner */}
       {activeDraft && (
