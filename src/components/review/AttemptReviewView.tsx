@@ -18,6 +18,7 @@ import { QuestionInspector } from "./QuestionInspector";
 import { PaperPreviewPanel } from "./PaperPreviewPanel";
 import { GeneralNotesCard } from "./GeneralNotesCard";
 import { DetailedSolutionModal } from "../DetailedSolutionModal";
+import { BatchEvaluationModal } from "./BatchEvaluationModal";
 import { useApp } from "../../context/AppContext";
 import {
   FilterTabType,
@@ -123,6 +124,7 @@ export function AttemptReviewView({
   // Modals
   const [solutionModalOpen, setSolutionModalOpen] = useState(false);
   const [submissionModalOpen, setSubmissionModalOpen] = useState(false);
+  const [batchEvalModalOpen, setBatchEvalModalOpen] = useState(false);
 
   // Filtered questions using AND interaction
   const filteredQuestions = useMemo(
@@ -627,6 +629,33 @@ export function AttemptReviewView({
     onUpdate({ ...attempt, answers: updatedAnswers });
   };
 
+  // Batch evaluation comments handler
+  const handleApplyBatchEvaluations = (
+    results: Array<{ questionNo: number; comment: string }>,
+  ) => {
+    const updatedAnswers = { ...attempt.answers };
+    const timestamp = new Date().toISOString();
+    for (const { questionNo, comment } of results) {
+      if (updatedAnswers[questionNo]) {
+        updatedAnswers[questionNo] = {
+          ...updatedAnswers[questionNo],
+          evaluationComment: comment,
+          evaluationSource: "ai",
+          evaluationUpdatedAt: timestamp,
+        };
+      } else {
+        updatedAnswers[questionNo] = {
+          questionNo,
+          selected: null,
+          evaluationComment: comment,
+          evaluationSource: "ai",
+          evaluationUpdatedAt: timestamp,
+        };
+      }
+    }
+    onUpdate({ ...attempt, answers: updatedAnswers });
+  };
+
   // General note handler
   const handleSaveGeneralNote = (generalNotes: string) => {
     onUpdate({ ...attempt, generalNotes });
@@ -778,6 +807,7 @@ export function AttemptReviewView({
         onReattempt={
           matchedPaper ? () => handleStartExam(matchedPaper, "mock") : undefined
         }
+        onOpenBatchEvaluation={() => setBatchEvalModalOpen(true)}
         onOpenSolutionModal={
           matchedPaper?.exsUrl ? () => setSolutionModalOpen(true) : undefined
         }
@@ -1084,6 +1114,17 @@ export function AttemptReviewView({
         onClose={() => setSubmissionModalOpen(false)}
         pdfUrl={attempt.userSubmissionPdfUrl}
         paperTitle={`${displayPaperTitle} - Handwritten Answer Copy`}
+      />
+
+      {/* Batch AI Evaluation Modal */}
+      <BatchEvaluationModal
+        isOpen={batchEvalModalOpen}
+        onClose={() => setBatchEvalModalOpen(false)}
+        attempt={attempt}
+        questions={questionList}
+        parsedQuestions={markdownQuestions}
+        paperExplanations={matchedPaper?.explanations}
+        onApplyBatchEvaluations={handleApplyBatchEvaluations}
       />
     </div>
   );

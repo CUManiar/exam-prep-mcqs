@@ -16,6 +16,7 @@ import {
   Trash2,
   AlertTriangle,
   Check,
+  Sparkles,
 } from "lucide-react";
 import {
   exportAttemptAsPrintPDF,
@@ -36,6 +37,7 @@ interface ReviewHeaderProps {
   onBack: () => void;
   onDelete: (id: string) => void;
   onReattempt?: () => void;
+  onOpenBatchEvaluation?: () => void;
   onOpenSolutionModal?: () => void;
   onOpenSubmissionModal?: () => void;
   effectiveMaxScore: number;
@@ -52,6 +54,7 @@ export function ReviewHeader({
   onBack,
   onDelete,
   onReattempt,
+  onOpenBatchEvaluation,
   onOpenSolutionModal,
   onOpenSubmissionModal,
   effectiveMaxScore,
@@ -194,6 +197,18 @@ export function ReviewHeader({
           >
             <FileText className="h-3.5 w-3.5 text-violet-600" />
             <span>Answer Copy</span>
+          </button>
+        )}
+
+        {/* Batch AI Evaluation button */}
+        {onOpenBatchEvaluation && (
+          <button
+            onClick={onOpenBatchEvaluation}
+            className="flex items-center gap-1.5 rounded-xl border border-indigo-200 bg-white hover:bg-indigo-50 px-2.5 sm:px-3 py-1.5 text-xs font-semibold text-indigo-700 transition-all cursor-pointer shadow-2xs shrink-0"
+            title="Batch evaluate questions and audit scratchpad calculations with AI"
+          >
+            <Sparkles className="h-3.5 w-3.5 text-indigo-600" />
+            <span>AI Audit</span>
           </button>
         )}
 
