@@ -143,6 +143,32 @@ function getOrBuildInvertedIndex(papers: QuestionPaper[]): MemoryQuestionIndex {
       const questionTokens = tokenizeString(qText);
       const allTokens = new Set<string>([...subjectTokens, ...questionTokens]);
 
+      // Resolve previous years:
+      // 1. Direct tag on question (e.g. q.previousYears = "2017, 2021")
+      // 2. Inline annotation in question text or explanation (e.g. "(UPSC 2018)" or "[PYQ 2020]")
+      // 3. Historical paper year (e.g. "2024", "2023", "2021")
+      let resolvedPYQ = q.previousYears ? String(q.previousYears).trim() : undefined;
+      if (!resolvedPYQ) {
+        const textToScan = `${qText} ${paper.explanations?.[q.questionNo] || q.explanation || ""}`;
+        const inlineMatch = textToScan.match(
+          /(?:\[|\()\s*(?:UPSC\s+|CSE\s+|PYQ\s+)?((?:19\d\d|20[0-2]\d)(?:\s*,\s*(?:19\d\d|20[0-2]\d))*)\s*(?:\]|\))/i,
+        );
+        if (inlineMatch && inlineMatch[1]) {
+          resolvedPYQ = inlineMatch[1].trim();
+        } else if (
+          paper.year &&
+          /^(19\d\d|20[0-2]\d)$/.test(paper.year.trim()) &&
+          paper.year !== "2026"
+        ) {
+          resolvedPYQ = paper.year.trim();
+        } else if (paperTitle) {
+          const titleMatch = paperTitle.match(/\b(19\d\d|20[0-2]\d)\b/);
+          if (titleMatch && titleMatch[1]) {
+            resolvedPYQ = titleMatch[1];
+          }
+        }
+      }
+
       const qIndex = questions.length;
       questions.push({
         paperId: paper.id,
@@ -154,7 +180,7 @@ function getOrBuildInvertedIndex(papers: QuestionPaper[]): MemoryQuestionIndex {
         options: q.options || {},
         correctAnswer: paper.answerKey?.[q.questionNo],
         explanation: paper.explanations?.[q.questionNo],
-        previousYears: q.previousYears,
+        previousYears: resolvedPYQ,
         tokens: allTokens,
         rawNormalizedText,
       });
