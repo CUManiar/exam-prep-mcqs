@@ -966,7 +966,7 @@ export function AttemptReviewView({
               </div>
             ) : (
               /* Question Inspector (When paper preview is toggled off) */
-              <div className="w-full flex-1 min-h-0 overflow-y-auto">
+              <div className="w-full flex-1 min-h-0 flex flex-col">
                 <QuestionInspector
                   question={currentQuestionAnswer}
                   parsedQuestion={currentParsedQuestion}

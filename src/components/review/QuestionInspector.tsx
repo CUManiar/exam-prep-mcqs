@@ -211,11 +211,11 @@ export function QuestionInspector({
 
   return (
     <div
-      className="rounded-2xl border border-slate-200/90 bg-white shadow-xs overflow-hidden flex flex-col justify-between min-h-[580px] touch-pan-y"
+      className="rounded-2xl border border-slate-200/90 bg-white shadow-xs overflow-hidden flex flex-col flex-1 min-h-0 touch-pan-y"
       style={{ touchAction: "pan-y" }}
     >
       {/* 1. Header Bar: Q.No, Outcome, Marks, Time, Confidence */}
-      <div className="border-b border-slate-200/90 bg-slate-50/70 p-4 sm:p-5 flex flex-wrap items-center justify-between gap-3">
+      <div className="border-b border-slate-200/90 bg-slate-50/70 p-4 sm:p-5 flex flex-wrap items-center justify-between gap-3 shrink-0">
         {/* Left: Question No & Badges */}
         <div className="flex items-center gap-2.5 flex-wrap">
           <span className="inline-flex items-center justify-center px-3 py-1 rounded-xl bg-slate-900 text-white font-mono font-bold text-xs shadow-2xs">
@@ -293,7 +293,7 @@ export function QuestionInspector({
       </div>
 
       {/* 2. Main Question Statement & Options Area */}
-      <div className="p-4 sm:p-6 space-y-5 overflow-y-auto max-h-[calc(100vh-22rem)]">
+      <div className="p-4 sm:p-6 space-y-5 flex-1 min-h-0 overflow-y-auto overscroll-contain">
         {/* Altered Response Nuance Alert Banner (Mock Mode) - Fixed Boolean guard against 0 */}
         {!isCloze &&
           Boolean(question.changesCount && question.changesCount > 0) && (
@@ -827,7 +827,7 @@ export function QuestionInspector({
       </div>
 
       {/* 3. Navigation Bar (Footer) */}
-      <div className="border-t border-slate-200/90 bg-white p-3.5 sm:px-6 flex items-center justify-between gap-3">
+      <div className="border-t border-slate-200/90 bg-white p-3.5 sm:px-6 flex items-center justify-between gap-3 shrink-0">
         <button
           type="button"
           disabled={qNo <= 1}
