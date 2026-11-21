@@ -173,7 +173,9 @@ function getOrBuildInvertedIndex(papers: QuestionPaper[]): MemoryQuestionIndex {
           !paper.isCustom &&
           paper.category === "prelims" &&
           paper.label &&
-          /\bupsc\b|\bcse\b|prelims\s+(?:19[89]\d|20[0-2]\d)/i.test(paper.label);
+          /\bupsc\b|\bcse\b|prelims\s+(?:19[89]\d|20[0-2]\d)/i.test(
+            paper.label,
+          );
         if (isOfficialPYQPaper) {
           resolvedPYQ = cleanPreviousYears(paper.year.trim());
         }

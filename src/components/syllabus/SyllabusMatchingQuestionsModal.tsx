@@ -37,9 +37,9 @@ export function SyllabusMatchingQuestionsModal({
   const { handleStartExam } = useApp();
 
   // Selected option per question for interactive practice: question index -> selected option key ('A', 'B', etc.)
-  const [selectedOptions, setSelectedOptions] = useState<Record<number, string>>(
-    {},
-  );
+  const [selectedOptions, setSelectedOptions] = useState<
+    Record<number, string>
+  >({});
   const [revealedAnswers, setRevealedAnswers] = useState<Set<number>>(
     new Set(),
   );
@@ -184,7 +184,8 @@ export function SyllabusMatchingQuestionsModal({
               </span>
               <span className="text-xs text-slate-500 font-mono">
                 {matchingQuestions.length}{" "}
-                {matchingQuestions.length === 1 ? "question" : "questions"} found
+                {matchingQuestions.length === 1 ? "question" : "questions"}{" "}
+                found
               </span>
             </div>
             <h3
@@ -227,8 +228,8 @@ export function SyllabusMatchingQuestionsModal({
                 No matching questions found in current papers
               </p>
               <p className="text-xs text-slate-500 max-w-sm mx-auto">
-                Upload mock papers or PYQs covering &ldquo;{topic.title}&rdquo; to
-                practice topic-targeted questions here.
+                Upload mock papers or PYQs covering &ldquo;{topic.title}&rdquo;
+                to practice topic-targeted questions here.
               </p>
             </div>
           ) : (
@@ -411,7 +412,8 @@ export function SyllabusMatchingQuestionsModal({
                       <div className="font-bold text-emerald-900 dark:text-emerald-300 flex items-center gap-1.5">
                         <CheckCircle2 className="h-3.5 w-3.5 text-emerald-600 dark:text-emerald-400 shrink-0" />
                         <span>
-                          Official Answer: ({q.correctAnswer || "Not specified"})
+                          Official Answer: ({q.correctAnswer || "Not specified"}
+                          )
                         </span>
                       </div>
                       {q.explanation && (
@@ -447,7 +449,9 @@ export function SyllabusMatchingQuestionsModal({
                 className="inline-flex items-center gap-1.5 px-4 py-1.5 rounded-lg font-bold bg-indigo-600 hover:bg-indigo-700 text-white transition-colors shadow-xs cursor-pointer"
               >
                 <Play className="h-3.5 w-3.5 fill-white" />
-                <span>Practice in Exam Simulator ({matchingQuestions.length} Qs)</span>
+                <span>
+                  Practice in Exam Simulator ({matchingQuestions.length} Qs)
+                </span>
               </button>
             )}
           </div>
