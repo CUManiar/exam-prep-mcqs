@@ -339,9 +339,120 @@ export function QuestionFilterBar({
 
   return (
     <div className="bg-white border border-slate-200/90 rounded-2xl shadow-xs overflow-hidden w-full">
-      {/* Top Header: Current Filtered Criteria + Mobile Collapse + Logic Mode + Sort */}
-      <div className="p-2.5 sm:px-3 sm:py-2 border-b border-slate-100 bg-white">
-        <div className="flex flex-wrap items-center justify-between gap-1.5 text-[11px]">
+      {/* Top Header: Desktop Rich Criteria + Mobile Clean Compact Bar */}
+      <div className="p-2 sm:px-3 sm:py-2 border-b border-slate-100 bg-white">
+        {/* Mobile-Only Compact Bar (Prevents Crowding) */}
+        <div className="sm:hidden space-y-2">
+          <div className="flex items-center justify-between gap-1.5">
+            {/* Quick Triage Pills (Horizontal Scroll) */}
+            <div className="flex items-center gap-1 overflow-x-auto no-scrollbar py-0.5 min-w-0 flex-1">
+              <button
+                type="button"
+                onClick={onResetFilters}
+                className={`px-2.5 py-1 rounded-lg text-xs font-semibold shrink-0 transition-all cursor-pointer ${
+                  !hasActive
+                    ? "bg-slate-900 text-white shadow-2xs"
+                    : "bg-slate-100 text-slate-700 hover:bg-slate-200"
+                }`}
+              >
+                All ({counts.all})
+              </button>
+              <button
+                type="button"
+                onClick={() => onToggleOutcome("incorrect")}
+                className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-semibold shrink-0 transition-all cursor-pointer border ${
+                  isOutcomeActive("incorrect")
+                    ? "bg-rose-600 text-white border-rose-600 shadow-2xs font-bold"
+                    : "bg-rose-50 text-rose-800 border-rose-200 hover:bg-rose-100"
+                }`}
+              >
+                <XCircle className="h-3 w-3" />
+                <span>Mistakes ({counts.incorrect})</span>
+              </button>
+              <button
+                type="button"
+                onClick={onToggleFlagged}
+                className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-semibold shrink-0 transition-all cursor-pointer border ${
+                  filters.flagged
+                    ? "bg-amber-500 text-white border-amber-500 shadow-2xs font-bold"
+                    : "bg-amber-50 text-amber-900 border-amber-200 hover:bg-amber-100"
+                }`}
+              >
+                <Bookmark className="h-3 w-3 fill-current" />
+                <span>Flagged ({counts.flagged})</span>
+              </button>
+            </div>
+
+            {/* Mobile Filter Toggle & Sort */}
+            <div className="flex items-center gap-1 shrink-0">
+              <select
+                value={sortOption}
+                onChange={(e) => onChangeSort(e.target.value as SortOptionType)}
+                aria-label="Sort questions"
+                className="rounded-lg border border-slate-200 bg-white px-1.5 py-1 text-[11px] font-semibold text-slate-700 shadow-2xs outline-none cursor-pointer"
+              >
+                <option value="qno_asc">Q1 → {counts.all}</option>
+                <option value="qno_desc">Q{counts.all} → 1</option>
+                <option value="time_desc">Slowest</option>
+                <option value="time_asc">Fastest</option>
+              </select>
+
+              <button
+                type="button"
+                onClick={() => setIsMobileFiltersOpen(!isMobileFiltersOpen)}
+                className={`cursor-pointer inline-flex items-center gap-1 px-2 py-1 rounded-lg text-xs font-semibold transition-colors shadow-2xs shrink-0 border ${
+                  isMobileFiltersOpen || activeChips.length > 0
+                    ? "bg-indigo-600 text-white border-indigo-600 font-bold"
+                    : "bg-slate-50 text-slate-700 border-slate-200 hover:bg-slate-100"
+                }`}
+              >
+                <Filter className="h-3 w-3" />
+                <span>Filter</span>
+                {activeChips.length > 0 && (
+                  <span
+                    className={`h-3.5 w-3.5 rounded-full font-mono text-[9px] flex items-center justify-center font-bold ${
+                      isMobileFiltersOpen || activeChips.length > 0
+                        ? "bg-white text-indigo-700"
+                        : "bg-indigo-600 text-white"
+                    }`}
+                  >
+                    {activeChips.length}
+                  </span>
+                )}
+                <ChevronDown
+                  className={`h-3 w-3 transition-transform ${
+                    isMobileFiltersOpen ? "rotate-180" : ""
+                  }`}
+                />
+              </button>
+            </div>
+          </div>
+
+          {/* Mobile Active Filter Badge Strip */}
+          {hasActive && (
+            <div className="flex items-center justify-between gap-1.5 bg-indigo-50/70 border border-indigo-100 px-2.5 py-1 rounded-lg text-[11px]">
+              <div className="flex items-center gap-1.5 min-w-0 truncate text-indigo-900 font-medium">
+                <span className="font-bold text-indigo-950 font-mono">
+                  {filteredCount} of {counts.all}
+                </span>
+                <span className="text-slate-400">&bull;</span>
+                <span className="truncate">
+                  {activeChips.map((c) => c.label).join(", ")}
+                </span>
+              </div>
+              <button
+                type="button"
+                onClick={onResetFilters}
+                className="font-bold text-indigo-700 hover:text-indigo-900 shrink-0 text-[11px] underline cursor-pointer"
+              >
+                Reset
+              </button>
+            </div>
+          )}
+        </div>
+
+        {/* Desktop-Only Full Rich Header */}
+        <div className="hidden sm:flex flex-wrap items-center justify-between gap-1.5 text-[11px]">
           {/* Current filters breadcrumb / summary */}
           <div className="flex items-center gap-1.5 flex-wrap min-w-0">
             <span className="font-semibold text-slate-400 shrink-0">
@@ -412,30 +523,8 @@ export function QuestionFilterBar({
             )}
           </div>
 
-          {/* Right Controls: Mobile collapse toggle, AND/OR logic, Sort selector */}
-          <div className="flex items-center gap-2 w-full sm:w-auto justify-between sm:justify-end pt-1 sm:pt-0">
-            {/* Mobile Collapse Button */}
-            <button
-              type="button"
-              onClick={() => setIsMobileFiltersOpen(!isMobileFiltersOpen)}
-              className="sm:hidden cursor-pointer inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-semibold bg-white text-indigo-700 hover:bg-slate-50 border border-indigo-200 transition-colors shadow-2xs shrink-0"
-            >
-              <Filter className="h-3 w-3 text-indigo-600" />
-              <span>
-                {isMobileFiltersOpen ? "Collapse filters" : "Filter options"}
-              </span>
-              {activeChips.length > 0 && (
-                <span className="h-4 w-4 rounded-full bg-indigo-600 text-white font-mono text-[10px] flex items-center justify-center font-bold">
-                  {activeChips.length}
-                </span>
-              )}
-              <ChevronDown
-                className={`h-3 w-3 transition-transform ${
-                  isMobileFiltersOpen ? "rotate-180" : ""
-                }`}
-              />
-            </button>
-
+          {/* Right Controls: AND/OR logic, Sort selector */}
+          <div className="flex items-center gap-2">
             {/* AND / OR Combination Logic Switch */}
             <div className="inline-flex items-center gap-1 text-[11px] text-slate-500">
               <span className="hidden sm:inline text-slate-400 font-medium">
