@@ -933,7 +933,7 @@ export function createPortalMcpServer(
     { name: "UPSC Prep Hub", version: "1.0.0" },
     {
       instructions:
-        "You are connected to a student's UPSC Prep Hub account. Read the student's data before making assumptions. Use get_attempt_history for attempt questions: it is newest-first and defaults to one latest attempt per distinct paper. When evaluating or re-grading attempts, use get_attempt_detail to inspect candidate responses and use grade_attempt_questions to update marks, tags, or feedback—this automatically recalculates the attempt's score, percentage, and accuracy using the paper's current marks. For vocabulary and Study Aids, use list_vocab_cards, add_vocab_card, toggle_vocab_mastery, delete_vocab_card, get_vocab_practice_question, evaluate_vocab_sentence, and get_daily_motivation. Ask for confirmation before calling write tools, especially imports, score changes, or visibility changes.",
+        "You are connected to a student's UPSC Prep Hub account. Read the student's data before making assumptions. Use get_attempt_history for attempt questions: it is newest-first and defaults to one latest attempt per distinct paper. When evaluating or re-grading attempts, use get_attempt_detail to inspect candidate responses alongside their rough scratchpad notes (note: calculations, formulas, elimination steps) and existing feedback (evaluationComment). Use attach_question_evaluations to attach question-specific evaluator feedback (e.g., verifying whether calculations were sound or calling out flawed arithmetic/lucky guesses that happened to match the correct option), and use grade_attempt_questions to update marks, tags, or feedback—this automatically recalculates the attempt's score, percentage, and accuracy using the paper's current marks. For overall post-exam strategy notes, use attach_attempt_reflection. For vocabulary and Study Aids, use list_vocab_cards, add_vocab_card, toggle_vocab_mastery, delete_vocab_card, get_vocab_practice_question, evaluate_vocab_sentence, and get_daily_motivation. Ask for confirmation before calling write tools, especially imports, score changes, or visibility changes.",
       maxToolInputElements: 5000,
     },
   );
@@ -1202,7 +1202,7 @@ export function createPortalMcpServer(
     {
       title: "Get attempt details",
       description:
-        "Read one completed attempt's full per-question details including question prompt, options, student's selected choice or written cloze/one-liner answer, answer key, correctness, confidence tag, time spent, notes, and explanations. Defaults to the latest attempt if attemptId or paperId is omitted.",
+        "Read one completed attempt's full per-question details including question prompt, options, student's selected choice or written cloze/one-liner answer, answer key, correctness, confidence tag, time spent, candidate scratchpad notes (note: rough work & calculations), evaluator feedback (evaluationComment), and explanations. Defaults to the latest attempt if attemptId or paperId is omitted.",
       annotations: { readOnlyHint: true },
       inputSchema: {
         attemptId: z
@@ -2002,7 +2002,9 @@ export function createPortalMcpServer(
         saved: true,
         attemptId: updatedAttempt.id,
         paperLabel: updatedAttempt.paperLabel,
+        notesUpdatedCount: updatedList.length,
         itemsUpdatedCount: updatedList.length,
+        notes: updatedList.map((i) => ({ questionNo: i.questionNo, note: i.text })),
         items: updatedList,
       });
     },

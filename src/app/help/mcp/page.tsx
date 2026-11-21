@@ -31,6 +31,7 @@ const promptExamples = [
   "Replace my custom syllabus with this Markdown tree: [paste your .md outline]",
   "Search my papers for questions about federalism.",
   "Explain why option B was a trap on Question 14 of GS-1 2024 and save key takeaways to my notes.",
+  "Audit Question 6 on my latest attempt: check if my scratchpad calculation was correct or if I got the right answer by fluke, and attach evaluation feedback.",
 ];
 
 const faqItems = [
@@ -116,6 +117,12 @@ const faqItems = [
     question: "Can MCP attach strategy notes and reflections to test attempts?",
     answer:
       "Yes. The attach_attempt_reflection tool allows your AI assistant to attach or append post-exam reflections directly to the 'Attempt Strategy Notes & Reflections' section of your latest (or any specific) attempt.",
+  },
+  {
+    question:
+      "Can an AI mentor evaluate my test question-by-question, including scratchpad calculations?",
+    answer:
+      "Yes. The get_attempt_detail tool surfaces candidate responses alongside rough scratchpad notes (formulas, calculations, elimination reasoning). The AI mentor can use attach_question_evaluations to post question-specific evaluation comments—such as verifying whether an answer was arrived at through sound logic or calling out flawed arithmetic/lucky guesses that happened to match the correct option. These evaluation comments appear prominently in your Question Inspector and review palette.",
   },
 ];
 
