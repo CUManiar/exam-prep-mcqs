@@ -1,24 +1,18 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useMemo } from "react";
+import Link from "next/link";
 import {
   CheckCircle2,
-  Circle,
   Clock,
   Edit2,
   Flame,
-  ListTodo,
-  Plus,
+  Sparkles,
   Target,
-  Trash2,
+  ChevronRight,
+  ArrowRight,
 } from "lucide-react";
-
-interface ReminderItem {
-  id: string;
-  text: string;
-  completed: boolean;
-  createdAt: string;
-}
+import { useApp } from "../../context/AppContext";
 
 interface GoalsAndRemindersBoardProps {
   todayAnsweredCount: number;
@@ -26,39 +20,33 @@ interface GoalsAndRemindersBoardProps {
   onNavigatePapers: () => void;
 }
 
-const DEFAULT_REMINDERS: ReminderItem[] = [
-  {
-    id: "rem-1",
-    text: "Analyze incorrect questions from last GS Paper 1 mock",
-    completed: false,
-    createdAt: new Date().toISOString(),
-  },
-  {
-    id: "rem-2",
-    text: "Practice 1 CSAT Reading Comprehension passage",
-    completed: false,
-    createdAt: new Date().toISOString(),
-  },
-  {
-    id: "rem-3",
-    text: "Revise Constitutional Bodies (Articles 324-329)",
-    completed: true,
-    createdAt: new Date().toISOString(),
-  },
-];
-
-const QUICK_ADD_TEMPLATES = [
-  "Revise Modern History Spectrum",
-  "CSAT Speed Math Practice",
-  "Economy PYQs Analysis",
-  "Environment & Biodiversity notes",
-];
+function formatCompletionDate(iso: string): string {
+  try {
+    const d = new Date(iso);
+    if (isNaN(d.getTime())) return "Recently";
+    const now = new Date();
+    const isToday =
+      d.getDate() === now.getDate() &&
+      d.getMonth() === now.getMonth() &&
+      d.getFullYear() === now.getFullYear();
+    if (isToday) return "Today";
+    return d.toLocaleDateString("en-US", {
+      month: "short",
+      day: "numeric",
+      year: "numeric",
+    });
+  } catch {
+    return "Recently";
+  }
+}
 
 export function GoalsAndRemindersBoard({
   todayAnsweredCount,
   weekMocksCount,
   onNavigatePapers,
 }: GoalsAndRemindersBoardProps) {
+  const { syllabusItems = [] } = useApp();
+
   // 1. Daily MCQ Target
   const [dailyTarget, setDailyTarget] = useState<number>(() => {
     if (typeof window === "undefined") return 50;
@@ -77,20 +65,44 @@ export function GoalsAndRemindersBoard({
   const [isEditingWeekly, setIsEditingWeekly] = useState(false);
   const [tempWeeklyGoal, setTempWeeklyGoal] = useState(weeklyMockGoal);
 
-  // 3. Reminders / To-Do Checklist
-  const [reminders, setReminders] = useState<ReminderItem[]>(() => {
-    if (typeof window === "undefined") return DEFAULT_REMINDERS;
-    try {
-      const saved = localStorage.getItem("exam_prep_aspirant_reminders_v1");
-      if (saved) {
-        const parsed = JSON.parse(saved);
-        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
-      }
-    } catch {}
-    return DEFAULT_REMINDERS;
-  });
+  // 3. Recently completed syllabus leaf items (no sections, no duplicates)
+  const completedSyllabusItems = useMemo(() => {
+    // Identify all parent IDs to exclude entire parent sections
+    const parentIdSet = new Set(
+      syllabusItems.map((s) => s.parentId).filter(Boolean),
+    );
 
-  const [newReminderText, setNewReminderText] = useState("");
+    // Only keep completed leaf items
+    const leaves = syllabusItems.filter(
+      (item) => item.completed && !parentIdSet.has(item.id),
+    );
+
+    // Sort by newest updatedAt or createdAt first
+    const sorted = [...leaves].sort((a, b) => {
+      const timeA = new Date(a.updatedAt || a.createdAt || 0).getTime();
+      const timeB = new Date(b.updatedAt || b.createdAt || 0).getTime();
+      return timeB - timeA;
+    });
+
+    // Deduplicate by clean title
+    const seenTitles = new Set<string>();
+    const unique: Array<{ id: string; title: string; completedAt: string }> = [];
+
+    for (const item of sorted) {
+      const norm = item.title.trim().toLowerCase();
+      if (!seenTitles.has(norm)) {
+        seenTitles.add(norm);
+        unique.push({
+          id: item.id,
+          title: item.title.trim(),
+          completedAt:
+            item.updatedAt || item.createdAt || new Date().toISOString(),
+        });
+      }
+    }
+
+    return unique;
+  }, [syllabusItems]);
 
   // Persist daily target
   const handleSaveDailyTarget = (val: number) => {
@@ -112,41 +124,6 @@ export function GoalsAndRemindersBoard({
     setIsEditingWeekly(false);
   };
 
-  // Persist reminders to localStorage
-  useEffect(() => {
-    if (typeof window !== "undefined") {
-      localStorage.setItem(
-        "exam_prep_aspirant_reminders_v1",
-        JSON.stringify(reminders),
-      );
-    }
-  }, [reminders]);
-
-  const handleAddReminder = (textToAdd?: string) => {
-    const text = (textToAdd || newReminderText).trim();
-    if (!text) return;
-
-    const newItem: ReminderItem = {
-      id: `rem_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
-      text,
-      completed: false,
-      createdAt: new Date().toISOString(),
-    };
-
-    setReminders((prev) => [newItem, ...prev]);
-    if (!textToAdd) setNewReminderText("");
-  };
-
-  const handleToggleReminder = (id: string) => {
-    setReminders((prev) =>
-      prev.map((r) => (r.id === id ? { ...r, completed: !r.completed } : r)),
-    );
-  };
-
-  const handleDeleteReminder = (id: string) => {
-    setReminders((prev) => prev.filter((r) => r.id !== id));
-  };
-
   const dailyProgressPct = Math.min(
     100,
     Math.round((todayAnsweredCount / dailyTarget) * 100),
@@ -155,8 +132,6 @@ export function GoalsAndRemindersBoard({
     100,
     Math.round((weekMocksCount / weeklyMockGoal) * 100),
   );
-
-  const completedRemindersCount = reminders.filter((r) => r.completed).length;
 
   return (
     <div className="surface-card flex flex-col justify-between p-5 sm:p-6 space-y-6">
@@ -168,10 +143,10 @@ export function GoalsAndRemindersBoard({
           </span>
           <div>
             <h2 className="text-base font-semibold text-slate-900">
-              Goals &amp; Study Reminders
+              Goals &amp; Syllabus Progress
             </h2>
             <p className="text-[11px] text-slate-500">
-              Set actionable study quotas and keep track of revision goals.
+              Daily practice quotas and milestones finished.
             </p>
           </div>
         </div>
@@ -201,7 +176,7 @@ export function GoalsAndRemindersBoard({
                 <button
                   type="button"
                   onClick={() => handleSaveDailyTarget(tempDailyTarget)}
-                  className="rounded bg-blue-600 px-2 py-0.5 text-[10px] font-bold text-white hover:bg-blue-700"
+                  className="rounded bg-blue-600 px-2 py-0.5 text-[10px] font-bold text-white hover:bg-blue-700 cursor-pointer"
                 >
                   Save
                 </button>
@@ -267,7 +242,7 @@ export function GoalsAndRemindersBoard({
                 <button
                   type="button"
                   onClick={() => handleSaveWeeklyGoal(tempWeeklyGoal)}
-                  className="rounded bg-indigo-600 px-2 py-0.5 text-[10px] font-bold text-white hover:bg-indigo-700"
+                  className="rounded bg-indigo-600 px-2 py-0.5 text-[10px] font-bold text-white hover:bg-indigo-700 cursor-pointer"
                 >
                   Save
                 </button>
@@ -312,106 +287,62 @@ export function GoalsAndRemindersBoard({
         </div>
       </div>
 
-      {/* Reminders / To-Do Checklist */}
+      {/* What I Just Finished: Recently completed syllabus topics */}
       <div className="space-y-3 pt-2 border-t border-slate-100">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-1.5">
-            <ListTodo className="h-4 w-4 text-slate-600" />
+            <Sparkles className="h-4 w-4 text-emerald-600" />
             <h3 className="text-xs font-bold uppercase tracking-wider text-slate-800">
-              Reminders &amp; Revision To-Dos
+              What I Just Finished
             </h3>
           </div>
-          <span className="text-[11px] text-slate-400">
-            {completedRemindersCount}/{reminders.length} done
-          </span>
-        </div>
-
-        {/* Input to add reminder */}
-        <form
-          onSubmit={(e) => {
-            e.preventDefault();
-            handleAddReminder();
-          }}
-          className="flex items-center gap-1.5"
-        >
-          <input
-            type="text"
-            value={newReminderText}
-            onChange={(e) => setNewReminderText(e.target.value)}
-            placeholder="Add revision task or topic..."
-            className="flex-1 rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-xs text-slate-900 placeholder:text-slate-400 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-200"
-          />
-          <button
-            type="submit"
-            disabled={!newReminderText.trim()}
-            className="rounded-lg bg-blue-600 p-1.5 text-white hover:bg-blue-700 disabled:opacity-40 transition-colors cursor-pointer"
-            title="Add reminder"
+          <Link
+            href="/syllabus"
+            className="text-[11px] font-semibold text-indigo-600 hover:text-indigo-800 inline-flex items-center gap-0.5 transition-colors cursor-pointer"
           >
-            <Plus className="h-4 w-4" />
-          </button>
-        </form>
-
-        {/* Quick Suggestion Chips */}
-        <div className="flex flex-wrap gap-1 pt-0.5">
-          {QUICK_ADD_TEMPLATES.map((tmpl) => (
-            <button
-              key={tmpl}
-              type="button"
-              onClick={() => handleAddReminder(tmpl)}
-              className="text-[10px] font-medium text-slate-500 bg-slate-100 hover:bg-blue-50 hover:text-blue-700 px-2 py-0.5 rounded-md border border-slate-200/60 transition-colors cursor-pointer"
-            >
-              + {tmpl}
-            </button>
-          ))}
+            <span>{completedSyllabusItems.length} finished</span>
+            <ChevronRight className="h-3 w-3" />
+          </Link>
         </div>
 
-        {/* Reminder Items List */}
-        <div className="space-y-1.5 max-h-[13rem] overflow-y-auto pr-1">
-          {reminders.length === 0 ? (
-            <p className="text-center text-xs text-slate-400 py-3">
-              No pending reminders. Add topics to revise above!
-            </p>
-          ) : (
-            reminders.map((r) => (
-              <div
-                key={r.id}
-                className={`group flex items-start justify-between gap-2 rounded-lg border p-2 text-xs transition-colors ${
-                  r.completed
-                    ? "border-slate-100 bg-slate-50/50 text-slate-400"
-                    : "border-slate-200/80 bg-white text-slate-800 hover:border-slate-300"
-                }`}
+        {/* Completed Syllabus Items List */}
+        <div className="space-y-1.5 max-h-[14rem] overflow-y-auto pr-1">
+          {completedSyllabusItems.length === 0 ? (
+            <div className="rounded-xl border border-dashed border-slate-200 bg-slate-50/60 p-4 text-center space-y-2">
+              <CheckCircle2 className="h-6 w-6 text-slate-300 mx-auto" />
+              <p className="text-xs font-semibold text-slate-700">
+                Ready to conquer your syllabus!
+              </p>
+              <p className="text-[11px] text-slate-500 max-w-xs mx-auto leading-relaxed">
+                Check off topics in your personal Syllabus Tracker as you complete
+                them to celebrate your progress here.
+              </p>
+              <Link
+                href="/syllabus"
+                className="inline-flex items-center gap-1 text-xs font-bold text-indigo-600 hover:text-indigo-800 pt-1 cursor-pointer"
               >
-                <button
-                  type="button"
-                  onClick={() => handleToggleReminder(r.id)}
-                  className="flex items-start gap-2 min-w-0 text-left flex-1 cursor-pointer"
-                >
-                  <span className="mt-0.5 shrink-0">
-                    {r.completed ? (
-                      <CheckCircle2 className="h-3.5 w-3.5 text-emerald-600" />
-                    ) : (
-                      <Circle className="h-3.5 w-3.5 text-slate-300 group-hover:text-slate-400" />
-                    )}
-                  </span>
+                <span>Open Syllabus Tracker</span>
+                <ArrowRight className="h-3 w-3" />
+              </Link>
+            </div>
+          ) : (
+            completedSyllabusItems.slice(0, 10).map((item) => (
+              <div
+                key={item.id}
+                className="flex items-center justify-between gap-2.5 rounded-xl border border-emerald-100 bg-emerald-50/40 hover:bg-emerald-50/70 p-2.5 text-xs transition-colors"
+              >
+                <div className="flex items-center gap-2 min-w-0 flex-1">
+                  <CheckCircle2 className="h-4 w-4 text-emerald-600 shrink-0" />
                   <span
-                    className={`min-w-0 truncate text-xs ${
-                      r.completed
-                        ? "line-through text-slate-400"
-                        : "font-medium"
-                    }`}
+                    className="min-w-0 truncate font-semibold text-slate-800 block text-xs"
+                    title={item.title}
                   >
-                    {r.text}
+                    {item.title}
                   </span>
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => handleDeleteReminder(r.id)}
-                  className="opacity-0 group-hover:opacity-100 p-0.5 text-slate-400 hover:text-rose-600 transition-opacity cursor-pointer"
-                  title="Delete reminder"
-                >
-                  <Trash2 className="h-3 w-3" />
-                </button>
+                </div>
+                <span className="shrink-0 font-mono text-[10px] font-medium text-emerald-800 bg-emerald-100/70 border border-emerald-200/60 px-2 py-0.5 rounded-md whitespace-nowrap">
+                  {formatCompletionDate(item.completedAt)}
+                </span>
               </div>
             ))
           )}
