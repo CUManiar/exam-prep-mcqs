@@ -72,6 +72,9 @@ export interface QuestionAnswer {
   subjectiveAssessment?: SubjectiveAssessment;
   subjectiveMarks?: number;
   note?: string;
+  evaluationComment?: string;
+  evaluationSource?: "mcp" | "ai" | "manual";
+  evaluationUpdatedAt?: string;
   explanation?: string;
   timeSpentSeconds?: number;
   changesCount?: number;
