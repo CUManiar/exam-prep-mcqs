@@ -372,9 +372,14 @@ export function DashboardView({
                     }}
                     className="flex w-full cursor-pointer flex-col gap-3 px-4 py-3.5 text-left transition hover:bg-slate-50/80 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 sm:flex-row sm:items-center sm:justify-between sm:px-5"
                   >
-                    <span className="min-w-0">
-                      <span className="flex items-center gap-1.5 truncate text-sm font-semibold text-slate-900">
-                        <span className="truncate">{attempt.paperLabel}</span>
+                    <span className="min-w-0 flex-1 pr-2 sm:pr-4">
+                      <span className="flex items-center gap-1.5 text-sm font-semibold text-slate-900">
+                        <span
+                          className="truncate block"
+                          title={attempt.paperLabel}
+                        >
+                          {attempt.paperLabel}
+                        </span>
                       </span>
                       <span className="mt-0.5 block text-xs text-slate-500">
                         {formatAttemptDate(
@@ -387,20 +392,20 @@ export function DashboardView({
                       </span>
                     </span>
 
-                    <span className="flex items-center gap-4 text-xs sm:justify-end">
-                      <span className="text-slate-600 font-medium">
+                    <span className="flex items-center gap-3 sm:gap-4 text-xs shrink-0 whitespace-nowrap sm:justify-end">
+                      <span className="text-slate-600 font-medium whitespace-nowrap">
                         {attempt.answered}/{attempt.totalQuestions} answered
                       </span>
-                      <span className="font-bold tabular-nums text-slate-900">
+                      <span className="font-bold tabular-nums text-slate-900 whitespace-nowrap">
                         {attempt.score}/{attempt.maxScore}
                       </span>
-                      <span className="font-bold tabular-nums text-indigo-700 bg-indigo-50 border border-indigo-100 px-2 py-0.5 rounded-md">
+                      <span className="font-bold tabular-nums text-indigo-700 bg-indigo-50 border border-indigo-100 px-2 py-0.5 rounded-md whitespace-nowrap">
                         {getAttemptPercentage(attempt)}%
                       </span>
-                      <span className="font-bold tabular-nums text-emerald-700">
+                      <span className="font-bold tabular-nums text-emerald-700 whitespace-nowrap">
                         {Math.round(attempt.accuracyPct || 0)}% acc
                       </span>
-                      <ArrowRight className="hidden h-4 w-4 text-slate-400 sm:block" />
+                      <ArrowRight className="hidden h-4 w-4 text-slate-400 sm:block shrink-0" />
                     </span>
                   </div>
                 </li>
