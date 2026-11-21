@@ -709,6 +709,8 @@ export function useReviewData(attempt: Attempt, papers: QuestionPaper[]) {
             flagged: filters === "flagged",
             slow: filters === "slow",
             altered: filters === "altered",
+            hasScratchpad: false,
+            hasEvaluation: false,
             logic: "AND",
           }
         : filters;
@@ -732,6 +734,8 @@ export function useReviewData(attempt: Attempt, papers: QuestionPaper[]) {
     const isFlaggedActive = Boolean(filterState.flagged);
     const isSlowActive = Boolean(filterState.slow);
     const isAlteredActive = Boolean(filterState.altered);
+    const isScratchpadActive = Boolean(filterState.hasScratchpad);
+    const isEvaluatedActive = Boolean(filterState.hasEvaluation);
     const logic = filterState.logic || "AND";
 
     const hasAnyActiveFilter =
@@ -739,7 +743,9 @@ export function useReviewData(attempt: Attempt, papers: QuestionPaper[]) {
       selectedConfidences.length > 0 ||
       isFlaggedActive ||
       isSlowActive ||
-      isAlteredActive;
+      isAlteredActive ||
+      isScratchpadActive ||
+      isEvaluatedActive;
 
     let list = questionList.filter((q) => {
       if (!hasAnyActiveFilter) return true;
@@ -774,12 +780,7 @@ export function useReviewData(attempt: Attempt, papers: QuestionPaper[]) {
       // Confidence match check
       const matchesConfidence =
         selectedConfidences.length > 0 &&
-        selectedConfidences.some((conf) => {
-          if (conf === "guess") {
-            return q.confidence === "guess" || q.confidence === "elimination";
-          }
-          return q.confidence === conf;
-        });
+        selectedConfidences.some((conf) => q.confidence === conf);
 
       // Flagged match check
       const matchesFlagged = isFlaggedActive && Boolean(q.flagged);
@@ -793,13 +794,28 @@ export function useReviewData(attempt: Attempt, papers: QuestionPaper[]) {
         !isClozeQuestion(q.questionNo) &&
         Boolean(q.changesCount && q.changesCount > 0);
 
+      // Scratchpad match check (candidate wrote notes/calculations)
+      const matchesScratchpad =
+        isScratchpadActive && Boolean(q.note && q.note.trim().length > 0);
+
+      // Evaluated match check (has AI/mentor evaluation comments or source)
+      const matchesEvaluated =
+        isEvaluatedActive &&
+        Boolean(
+          (q.evaluationComment && q.evaluationComment.trim().length > 0) ||
+          q.evaluationSource ||
+          q.evaluationUpdatedAt,
+        );
+
       if (logic === "OR") {
         return (
           matchesOutcome ||
           matchesConfidence ||
           matchesFlagged ||
           matchesSlow ||
-          matchesAltered
+          matchesAltered ||
+          matchesScratchpad ||
+          matchesEvaluated
         );
       }
 
@@ -809,6 +825,8 @@ export function useReviewData(attempt: Attempt, papers: QuestionPaper[]) {
       if (isFlaggedActive && !matchesFlagged) return false;
       if (isSlowActive && !matchesSlow) return false;
       if (isAlteredActive && !matchesAltered) return false;
+      if (isScratchpadActive && !matchesScratchpad) return false;
+      if (isEvaluatedActive && !matchesEvaluated) return false;
 
       return true;
     });

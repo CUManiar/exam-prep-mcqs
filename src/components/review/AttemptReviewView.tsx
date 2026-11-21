@@ -384,7 +384,9 @@ export function AttemptReviewView({
     });
   };
 
-  const handleToggleConfidence = (confidence: "sure" | "50-50" | "guess") => {
+  const handleToggleConfidence = (
+    confidence: "sure" | "50-50" | "guess" | "elimination",
+  ) => {
     setFilters((prev) => {
       const currentConfidences =
         prev.confidences && prev.confidences.length > 0
@@ -410,7 +412,9 @@ export function AttemptReviewView({
 
       const next = {
         ...prev,
-        confidence: (nextConfidences[0] as "sure" | "50-50" | "guess") || null,
+        confidence:
+          (nextConfidences[0] as "sure" | "50-50" | "guess" | "elimination") ||
+          null,
         confidences: nextConfidences,
       };
       syncActiveQuestionToMatches(getFilteredQuestions(next, sortOption));
@@ -437,6 +441,22 @@ export function AttemptReviewView({
   const handleToggleAltered = () => {
     setFilters((prev) => {
       const next = { ...prev, altered: !prev.altered };
+      syncActiveQuestionToMatches(getFilteredQuestions(next, sortOption));
+      return next;
+    });
+  };
+
+  const handleToggleScratchpad = () => {
+    setFilters((prev) => {
+      const next = { ...prev, hasScratchpad: !prev.hasScratchpad };
+      syncActiveQuestionToMatches(getFilteredQuestions(next, sortOption));
+      return next;
+    });
+  };
+
+  const handleToggleEvaluated = () => {
+    setFilters((prev) => {
+      const next = { ...prev, hasEvaluation: !prev.hasEvaluation };
       syncActiveQuestionToMatches(getFilteredQuestions(next, sortOption));
       return next;
     });
@@ -946,6 +966,8 @@ export function AttemptReviewView({
                 onToggleConfidence={handleToggleConfidence}
                 onToggleSlow={handleToggleSlow}
                 onToggleAltered={handleToggleAltered}
+                onToggleScratchpad={handleToggleScratchpad}
+                onToggleEvaluated={handleToggleEvaluated}
                 onResetFilters={handleResetFilters}
                 counts={{
                   all: questionList.length,
@@ -960,6 +982,17 @@ export function AttemptReviewView({
                   fiftyFifty: fiftyFiftyQuestions.length,
                   elimination: eliminationQuestions.length,
                   guess: guessQuestions.length,
+                  hasScratchpad: questionList.filter((q) =>
+                    Boolean(q.note && q.note.trim().length > 0),
+                  ).length,
+                  hasEvaluation: questionList.filter((q) =>
+                    Boolean(
+                      (q.evaluationComment &&
+                        q.evaluationComment.trim().length > 0) ||
+                      q.evaluationSource ||
+                      q.evaluationUpdatedAt,
+                    ),
+                  ).length,
                 }}
                 sortOption={sortOption}
                 onChangeSort={handleSortChange}

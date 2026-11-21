@@ -54,6 +54,11 @@ import {
   getSyllabusProgress,
   parseSyllabusMarkdown,
 } from "./syllabusMarkdown";
+import {
+  normalizePaperToQuestions,
+  saveQuestionsToBank,
+  queryQuestionBank,
+} from "./questionBank";
 
 const looseObject = z.record(z.string(), z.any());
 
@@ -1417,7 +1422,81 @@ export function createPortalMcpServer(
         );
       }
       await saveMcpPaper(userId, imported);
+      // Ingest normalized questions into question bank
+      try {
+        const qEntities = normalizePaperToQuestions(imported, userId);
+        if (qEntities.length > 0) {
+          await saveQuestionsToBank(qEntities, userId);
+        }
+      } catch (qbErr) {
+        console.warn("Notice: Question bank background sync:", qbErr);
+      }
       return textResult({ saved: true, paper: paperSummary(imported) });
+    },
+  );
+
+  server.registerTool(
+    "query_question_bank",
+    {
+      title: "Query Question Bank",
+      description:
+        "Search or retrieve individual questions from the student's normalized question bank across papers by subject, topic, exam stage (prelims/mains), or keyword search. Returns question stems, options, and model solutions.",
+      annotations: { readOnlyHint: true },
+      inputSchema: {
+        subject: z
+          .string()
+          .optional()
+          .describe("Subject filter, e.g. Polity, Economy, History."),
+        topic: z
+          .string()
+          .optional()
+          .describe(
+            "Topical filter, e.g. Preamble, Fundamental Rights, Monetary Policy.",
+          ),
+        stage: z
+          .enum(["prelims", "mains", "optional"])
+          .optional()
+          .describe("Exam stage filter."),
+        searchQuery: z
+          .string()
+          .optional()
+          .describe("Keyword search within question text."),
+        limit: z
+          .number()
+          .int()
+          .min(1)
+          .max(50)
+          .default(10)
+          .describe("Maximum questions to retrieve (default 10, max 50)."),
+      },
+    },
+    async ({ subject, topic, stage, searchQuery, limit }) => {
+      const questions = await queryQuestionBank({
+        userId,
+        subject,
+        topic,
+        examStage: stage,
+        searchQuery,
+        limit,
+      });
+
+      return textResult({
+        totalFound: questions.length,
+        questions: questions.map((q) => ({
+          id: q.id,
+          sourcePaper: q.sourcePaperTitle,
+          questionNo: q.questionNo,
+          stage: q.examStage,
+          type: q.questionType,
+          subject: q.subject,
+          topic: q.topic,
+          content: q.contentMarkdown,
+          options: q.options,
+          correctAnswer: q.correctAnswer,
+          explanation: q.explanationMarkdown,
+          previousYears: q.previousYears,
+        })),
+      });
     },
   );
 

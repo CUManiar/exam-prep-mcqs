@@ -23,6 +23,8 @@ export interface ReviewFilterState {
   flagged?: boolean;
   slow?: boolean;
   altered?: boolean;
+  hasScratchpad?: boolean;
+  hasEvaluation?: boolean;
   logic?: "AND" | "OR";
 }
 
@@ -34,6 +36,8 @@ export const EMPTY_FILTER_STATE: ReviewFilterState = {
   flagged: false,
   slow: false,
   altered: false,
+  hasScratchpad: false,
+  hasEvaluation: false,
   logic: "AND",
 };
 
@@ -45,7 +49,9 @@ export function isFilterActive(filters: ReviewFilterState): boolean {
     (filters.confidences && filters.confidences.length > 0) ||
     filters.flagged ||
     filters.slow ||
-    filters.altered,
+    filters.altered ||
+    filters.hasScratchpad ||
+    filters.hasEvaluation,
   );
 }
 

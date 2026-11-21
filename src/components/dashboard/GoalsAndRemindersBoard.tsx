@@ -328,23 +328,29 @@ export function GoalsAndRemindersBoard({
             </div>
           ) : (
             completedSyllabusItems.slice(0, 10).map((item) => (
-              <div
+              <Link
                 key={item.id}
-                className="flex items-center justify-between gap-2.5 rounded-xl border border-emerald-100 bg-emerald-50/40 hover:bg-emerald-50/70 p-2.5 text-xs transition-colors"
+                href={`/syllabus#syllabus-item-${item.id}`}
+                prefetch={false}
+                className="flex items-center justify-between gap-2.5 rounded-xl border border-emerald-100 bg-emerald-50/40 hover:bg-emerald-100/70 p-2.5 text-xs transition-colors group cursor-pointer"
+                title={`Jump to ${item.title} in syllabus tracker`}
               >
                 <div className="flex items-center gap-2 min-w-0 flex-1">
                   <CheckCircle2 className="h-4 w-4 text-emerald-600 shrink-0" />
                   <span
-                    className="min-w-0 truncate font-semibold text-slate-800 block text-xs"
+                    className="min-w-0 truncate font-semibold text-slate-800 block text-xs group-hover:text-emerald-900"
                     title={item.title}
                   >
                     {item.title}
                   </span>
                 </div>
-                <span className="shrink-0 font-mono text-[10px] font-medium text-emerald-800 bg-emerald-100/70 border border-emerald-200/60 px-2 py-0.5 rounded-md whitespace-nowrap">
-                  {formatCompletionDate(item.completedAt)}
-                </span>
-              </div>
+                <div className="flex items-center gap-1.5 shrink-0">
+                  <span className="font-mono text-[10px] font-medium text-emerald-800 bg-emerald-100/70 border border-emerald-200/60 px-2 py-0.5 rounded-md whitespace-nowrap">
+                    {formatCompletionDate(item.completedAt)}
+                  </span>
+                  <ArrowRight className="h-3 w-3 text-emerald-500 opacity-0 group-hover:opacity-100 transition-opacity" />
+                </div>
+              </Link>
             ))
           )}
         </div>

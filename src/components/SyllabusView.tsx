@@ -5,6 +5,7 @@ import type { ReactNode } from "react";
 import Link from "next/link";
 import {
   AlertTriangle,
+  BookOpen,
   BookOpenCheck,
   CalendarDays,
   Check,
@@ -40,6 +41,7 @@ import {
   exportSyllabusAsPrintPDF,
 } from "../lib/exportUtils";
 import { PageHeader } from "./PageHeader";
+import { SyllabusMatchingQuestionsModal } from "./syllabus/SyllabusMatchingQuestionsModal";
 
 const SAMPLE_MARKDOWN = `# GS Paper 1
 ## History [30 Nov 2026]
@@ -116,8 +118,11 @@ export function SyllabusView() {
     handleImportSyllabusMarkdown,
     handleClearSyllabus,
     handleToggleSyllabusItem,
+    papers = [],
   } = useApp();
   const activeItems = syllabusMarkdown.trim() ? syllabusItems : [];
+  const [selectedTopicForQuestions, setSelectedTopicForQuestions] =
+    useState<SyllabusItem | null>(null);
   const [draft, setDraft] = useState(syllabusMarkdown);
   const [isEditing, setIsEditing] = useState(!syllabusMarkdown.trim());
   const [collapsedIds, setCollapsedIds] = useState<Set<string>>(
@@ -237,6 +242,27 @@ export function SyllabusView() {
   useEffect(() => {
     setCollapsedIds(new Set(parentIds));
   }, [parentIdsKey, syllabusMarkdown]);
+
+  // Deep-linking: auto-expand ancestors and scroll to target when navigating with #syllabus-item-${id}
+  useEffect(() => {
+    if (typeof window === "undefined" || activeItems.length === 0) return;
+    const handleHashNavigation = () => {
+      const hash = window.location.hash;
+      if (!hash) return;
+      const targetId = hash.replace(/^#syllabus-item-/, "").replace(/^#/, "");
+      if (targetId && activeItems.some((it) => it.id === targetId)) {
+        expandAndScrollToItem(targetId, true);
+      }
+    };
+
+    const timer = setTimeout(handleHashNavigation, 150);
+    window.addEventListener("hashchange", handleHashNavigation);
+
+    return () => {
+      clearTimeout(timer);
+      window.removeEventListener("hashchange", handleHashNavigation);
+    };
+  }, [activeItems, parentIdsKey]);
 
   const [forceVisibleIds, setForceVisibleIds] = useState<Set<string>>(
     new Set(),
@@ -675,12 +701,25 @@ export function SyllabusView() {
                   </span>
                   <Link
                     href={`/revision?topic=${encodeURIComponent(item.title)}`}
+                    prefetch={false}
                     className="inline-flex items-center gap-1 rounded-full border border-indigo-200 bg-indigo-50/70 dark:bg-indigo-950/40 dark:border-indigo-800 px-2.5 py-0.5 text-[10px] font-semibold text-indigo-700 dark:text-indigo-300 hover:bg-indigo-100 dark:hover:bg-indigo-900/60 hover:border-indigo-300 transition-colors shadow-2xs"
                     title={`Revise ${item.title} with AI Mentor`}
                   >
                     <Sparkles className="h-2.5 w-2.5 text-indigo-600 dark:text-indigo-400" />
                     <span>Revise AI</span>
                   </Link>
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setSelectedTopicForQuestions(item);
+                    }}
+                    className="inline-flex items-center gap-1 rounded-full border border-blue-200 bg-blue-50/70 dark:bg-blue-950/40 dark:border-blue-800 px-2.5 py-0.5 text-[10px] font-semibold text-blue-700 dark:text-blue-300 hover:bg-blue-100 dark:hover:bg-blue-900/60 hover:border-blue-300 transition-colors shadow-2xs cursor-pointer"
+                    title={`View matching mock questions on ${item.title}`}
+                  >
+                    <BookOpen className="h-2.5 w-2.5 text-blue-600 dark:text-blue-400" />
+                    <span>Practice Questions</span>
+                  </button>
                 </div>
               </div>
             </div>
@@ -1081,6 +1120,16 @@ export function SyllabusView() {
           )}
         </aside>
       </div>
+
+      {/* Matching Questions Drawer Modal */}
+      {selectedTopicForQuestions && (
+        <SyllabusMatchingQuestionsModal
+          topic={selectedTopicForQuestions}
+          papers={papers}
+          allTopics={activeItems}
+          onClose={() => setSelectedTopicForQuestions(null)}
+        />
+      )}
     </div>
   );
 }

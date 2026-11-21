@@ -108,11 +108,21 @@ export function cleanPreviousYears(val: string): string {
   const cleaned = stripMarkdownFormatting(val)
     .replace(/[\u2212]/g, "-")
     .trim();
-  const years = cleaned
+  const currentYear = new Date().getFullYear();
+  // Real PYQs are strictly past UPSC exams (1979 to 2025; current/future test years like 2026 are mocks)
+  const maxPYQYear = Math.min(currentYear, 2025);
+  const validYears = cleaned
     .split(/[,;/]+/)
-    .map((y) => y.trim())
-    .filter(Boolean);
-  return years.join(", ");
+    .map((y) => {
+      const match = y.trim().match(/\b(19[89]\d|20[0-2]\d)\b/);
+      return match ? match[1] : null;
+    })
+    .filter((y): y is string => {
+      if (!y) return false;
+      const num = parseInt(y, 10);
+      return num >= 1979 && num <= maxPYQYear;
+    });
+  return validYears.join(", ");
 }
 
 /**
@@ -569,8 +579,9 @@ function parseQuestionBlock(
       }
 
       // Standalone [UPSC 2017, 2021] or [CSE 2018] or [PYQ 2017, 2021] without colon
+      // Requires explicit UPSC / CSE / PYQ prefix to prevent matching historical years or citations like [1944]
       const directYearTag = lineText.match(
-        /\[\s*(?:UPSC\s+|CSE\s+|PYQ\s+)?((?:19\d\d|20\d\d)(?:\s*,\s*(?:19\d\d|20\d\d))*)\s*\]/i,
+        /\[\s*(?:UPSC\s*(?:CSE\s*)?|CSE\s+|PYQ\s+)((?:19[89]\d|20[0-2]\d)(?:\s*,\s*(?:19[89]\d|20[0-2]\d))*)\s*\]/i,
       );
       if (directYearTag) {
         if (!questionPreviousYears) {
@@ -580,8 +591,9 @@ function parseQuestionBlock(
       }
 
       // Optional trailing annotation like "(UPSC 2017, 2021)" or "[UPSC 2017, 2021]"
+      // Requires explicit UPSC / CSE / PYQ prefix to prevent matching historical dates like (1975) or (1944)
       const trailingYearMatch = lineText.match(
-        /(?:\[|\()\s*(?:UPSC\s+|CSE\s+|PYQ\s+)?((?:19\d\d|20\d\d)(?:\s*,\s*(?:19\d\d|20\d\d))*)\s*(?:\]|\))\s*$/i,
+        /(?:\[|\()\s*(?:UPSC\s*(?:CSE\s*)?|CSE\s+|PYQ\s+)((?:19[89]\d|20[0-2]\d)(?:\s*,\s*(?:19[89]\d|20[0-2]\d))*)\s*(?:\]|\))\s*$/i,
       );
       if (trailingYearMatch && !questionPreviousYears) {
         questionPreviousYears = cleanPreviousYears(trailingYearMatch[1]);

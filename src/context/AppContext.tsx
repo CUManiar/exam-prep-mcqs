@@ -105,7 +105,7 @@ interface AppContextType {
   openProUpgradeModal: (targetPaperLabel?: string) => void;
   openAuthModal: () => void;
   handleSignOut: () => Promise<void>;
-  loadAllData: () => Promise<void>;
+  loadAllData: (options?: { forceLoading?: boolean }) => Promise<void>;
   handleStartExam: (paper: QuestionPaper, mode: "practice" | "mock") => void;
   handleResumeDraft: (draft: ActiveSessionDraft) => void;
   handleDiscardDraft: () => void;
@@ -357,262 +357,296 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     onConfirm: () => {},
   });
 
-  const loadAllData = useCallback(async () => {
-    setIsLoading(true);
-    const user = await getCurrentUser();
-    setCurrentUser(user);
+  const isInitialLoadDoneRef = useRef(false);
+  const inFlightLoadAllDataRef = useRef<Promise<void> | null>(null);
+  const lastAuthUserIdRef = useRef<string | null | undefined>(undefined);
 
-    if (user) {
-      // Authenticated User: Load their isolated attempts, drafts, custom papers, and profile from Supabase
-      try {
-        const [
-          userAttempts,
-          userDraft,
-          loadedPapers,
-          userCustomPapers,
-          profile,
-        ] = await Promise.all([
-          fetchUserAttemptsFromSupabase(user.id),
-          fetchUserDraftFromSupabase(user.id),
-          getAllPapers(),
-          fetchUserCustomPapersFromSupabase(user.id),
-          getUserProfile(user.id),
-        ]);
-        setAttempts(userAttempts);
+  const loadAllData = useCallback(
+    async (options?: { forceLoading?: boolean }) => {
+      if (inFlightLoadAllDataRef.current) {
+        return inFlightLoadAllDataRef.current;
+      }
 
-        // Intelligently merge Supabase draft with local draft:
-        // Never wipe out active in-progress local exam work if Supabase is stale or null
-        const localDraft = getActiveDraft();
-        let bestDraft = userDraft;
-        if (localDraft && localDraft.paperId) {
-          if (!userDraft) {
-            bestDraft = localDraft;
-            saveUserDraftToSupabase(localDraft, user.id);
-          } else {
-            const localAnswersCount = Object.values(
-              localDraft.answers || {},
-            ).filter(
-              (a) => a.selected !== null || (a.note && a.note.trim()),
-            ).length;
-            const userAnswersCount = Object.values(
-              userDraft.answers || {},
-            ).filter(
-              (a) => a.selected !== null || (a.note && a.note.trim()),
-            ).length;
-
-            if (
-              localAnswersCount >= userAnswersCount ||
-              (localDraft.elapsedSeconds || 0) >=
-                (userDraft.elapsedSeconds || 0)
-            ) {
-              bestDraft = localDraft;
-              saveUserDraftToSupabase(localDraft, user.id);
-            }
-          }
+      const run = async () => {
+        // Only trigger full-screen loading spinner on initial app boot or when explicitly forced
+        if (!isInitialLoadDoneRef.current || options?.forceLoading) {
+          setIsLoading(true);
         }
-        setActiveDraft(bestDraft);
+        try {
+          const user = await getCurrentUser();
+          lastAuthUserIdRef.current = user?.id ?? null;
+          setCurrentUser(user);
 
-        const hidden = Array.isArray(profile?.hidden_paper_ids)
-          ? profile.hidden_paper_ids
-          : getLocalHiddenPaperIds(user.id);
-        setHiddenPaperIds(hidden);
-        const customOnly =
-          profile?.only_custom_papers ?? getOnlyCustomPapers(user.id);
-        setOnlyCustomPapers(customOnly);
-        setSyllabusItems(
-          Array.isArray(profile?.custom_syllabus)
-            ? profile.custom_syllabus
-            : getCustomSyllabus(user.id),
-        );
-        setSyllabusMarkdown(
-          profile?.custom_syllabus_markdown ??
-            getCustomSyllabusMarkdown(user.id),
-        );
+          if (user) {
+            // Authenticated User: Load their isolated attempts, drafts, custom papers, and profile from Supabase
+            try {
+              const [
+                userAttempts,
+                userDraft,
+                loadedPapers,
+                userCustomPapers,
+                profile,
+              ] = await Promise.all([
+                fetchUserAttemptsFromSupabase(user.id),
+                fetchUserDraftFromSupabase(user.id),
+                getAllPapers(),
+                fetchUserCustomPapersFromSupabase(user.id),
+                getUserProfile(user.id),
+              ]);
+              setAttempts(userAttempts);
 
-        // Sync vocab cards between local storage and Supabase cloud profile
-        syncVocabCardsWithSupabase(user.id).catch((err) =>
-          console.warn("Background vocab sync on auth load failed:", err),
-        );
+              // Intelligently merge Supabase draft with local draft:
+              // Never wipe out active in-progress local exam work if Supabase is stale or null
+              const localDraft = getActiveDraft();
+              let bestDraft = userDraft;
+              if (localDraft && localDraft.paperId) {
+                if (!userDraft) {
+                  bestDraft = localDraft;
+                  saveUserDraftToSupabase(localDraft, user.id);
+                } else {
+                  const localAnswersCount = Object.values(
+                    localDraft.answers || {},
+                  ).filter(
+                    (a) => a.selected !== null || (a.note && a.note.trim()),
+                  ).length;
+                  const userAnswersCount = Object.values(
+                    userDraft.answers || {},
+                  ).filter(
+                    (a) => a.selected !== null || (a.note && a.note.trim()),
+                  ).length;
 
-        const localCustom = getCustomPapers();
-        // Backfill Markdown papers created before remote content fields existed.
-        // This is the recovery path for the original browser's local copy.
-        const remoteCustomById = new Map(
-          userCustomPapers.map((paper) => [paper.id, paper]),
-        );
-        const localMarkdownToSync = localCustom.filter((localPaper) => {
-          if (!localPaper.markdownContent) return false;
-          const remotePaper = remoteCustomById.get(localPaper.id);
-          return (
-            !remotePaper?.markdownContent ||
-            !remotePaper.parsedQuestions?.length
-          );
-        });
-        if (localMarkdownToSync.length > 0) {
-          await Promise.all(
-            localMarkdownToSync.map((paper) =>
-              saveUserCustomPaperToSupabase(paper, user.id),
-            ),
-          );
-        }
-
-        // Merge userCustomPapers from Supabase with localCustom so parsedQuestions, markdownContent, and instructions are preserved
-        // NOTE: ucp (server source of truth) takes precedence for answer keys, explanations, and scoring rules so updates reflect immediately.
-        const mergedUserCustom = userCustomPapers.map((ucp) => {
-          const match = localCustom.find((lc) => lc.id === ucp.id);
-          const resolvedAnswerKey =
-            Object.keys(ucp.answerKey || {}).length > 0
-              ? ucp.answerKey
-              : match?.answerKey || {};
-          const resolvedExplanations =
-            Object.keys(ucp.explanations || {}).length > 0
-              ? ucp.explanations
-              : match?.explanations || {};
-          const rawCorrect = ucp.correctMarks ?? match?.correctMarks;
-          const resolvedCorrectMarks =
-            rawCorrect !== undefined &&
-            rawCorrect !== null &&
-            !isNaN(Number(rawCorrect)) &&
-            Number(rawCorrect) > 0
-              ? Number(rawCorrect)
-              : 2.0;
-
-          const rawIncorrect = ucp.incorrectMarks ?? match?.incorrectMarks;
-          const resolvedIncorrectMarks =
-            rawIncorrect !== undefined &&
-            rawIncorrect !== null &&
-            !isNaN(Number(rawIncorrect))
-              ? Number(rawIncorrect)
-              : 0.667;
-
-          const mergedPaper: QuestionPaper = match
-            ? {
-                ...match,
-                ...ucp,
-                parsedQuestions:
-                  match.parsedQuestions && match.parsedQuestions.length > 0
-                    ? match.parsedQuestions
-                    : ucp.parsedQuestions,
-                markdownContent: match.markdownContent || ucp.markdownContent,
-                instructions:
-                  match.instructions && match.instructions.length > 0
-                    ? match.instructions
-                    : ucp.instructions,
-                answerKey: resolvedAnswerKey,
-                explanations: resolvedExplanations,
-                correctMarks: resolvedCorrectMarks,
-                incorrectMarks: resolvedIncorrectMarks,
+                  if (
+                    localAnswersCount >= userAnswersCount ||
+                    (localDraft.elapsedSeconds || 0) >=
+                      (userDraft.elapsedSeconds || 0)
+                  ) {
+                    bestDraft = localDraft;
+                    saveUserDraftToSupabase(localDraft, user.id);
+                  }
+                }
               }
-            : ucp;
+              setActiveDraft(bestDraft);
 
-          // Keep local storage synchronized with fresh server data
-          saveCustomPaper(mergedPaper);
-          return mergedPaper;
-        });
+              const hidden = Array.isArray(profile?.hidden_paper_ids)
+                ? profile.hidden_paper_ids
+                : getLocalHiddenPaperIds(user.id);
+              setHiddenPaperIds(hidden);
+              const customOnly =
+                profile?.only_custom_papers ?? getOnlyCustomPapers(user.id);
+              setOnlyCustomPapers(customOnly);
+              setSyllabusItems(
+                Array.isArray(profile?.custom_syllabus)
+                  ? profile.custom_syllabus
+                  : getCustomSyllabus(user.id),
+              );
+              setSyllabusMarkdown(
+                profile?.custom_syllabus_markdown ??
+                  getCustomSyllabusMarkdown(user.id),
+              );
 
-        // Also add any local custom papers not yet returned by Supabase
-        for (const lc of localCustom) {
-          if (!mergedUserCustom.some((p) => p.id === lc.id)) {
-            mergedUserCustom.push(lc);
-          }
-        }
+              // Sync vocab cards between local storage and Supabase cloud profile
+              syncVocabCardsWithSupabase(user.id).catch((err) =>
+                console.warn("Background vocab sync on auth load failed:", err),
+              );
 
-        // Merge global papers and user's custom papers, deduplicating by ID
-        const merged = [
-          ...mergedUserCustom,
-          ...loadedPapers.filter(
-            (p) => !mergedUserCustom.some((cp) => cp.id === p.id),
-          ),
-        ];
+              const localCustom = getCustomPapers();
+              // Backfill Markdown papers created before remote content fields existed.
+              // This is the recovery path for the original browser's local copy.
+              const remoteCustomById = new Map(
+                userCustomPapers.map((paper) => [paper.id, paper]),
+              );
+              const localMarkdownToSync = localCustom.filter((localPaper) => {
+                if (!localPaper.markdownContent) return false;
+                const remotePaper = remoteCustomById.get(localPaper.id);
+                return (
+                  !remotePaper?.markdownContent ||
+                  !remotePaper.parsedQuestions?.length
+                );
+              });
+              if (localMarkdownToSync.length > 0) {
+                await Promise.all(
+                  localMarkdownToSync.map((paper) =>
+                    saveUserCustomPaperToSupabase(paper, user.id),
+                  ),
+                );
+              }
 
-        // Ensure all markdown papers have their parsed questions & rules enriched
-        const enriched = merged.map((p) => {
-          if (p.markdownContent) {
-            if (!p.parsedQuestions || p.parsedQuestions.length === 0) {
-              p.parsedQuestions = parseQuestionnaireMarkdown(p.markdownContent);
+              // Merge userCustomPapers from Supabase with localCustom so parsedQuestions, markdownContent, and instructions are preserved
+              // NOTE: ucp (server source of truth) takes precedence for answer keys, explanations, and scoring rules so updates reflect immediately.
+              const mergedUserCustom = userCustomPapers.map((ucp) => {
+                const match = localCustom.find((lc) => lc.id === ucp.id);
+                const resolvedAnswerKey =
+                  Object.keys(ucp.answerKey || {}).length > 0
+                    ? ucp.answerKey
+                    : match?.answerKey || {};
+                const resolvedExplanations =
+                  Object.keys(ucp.explanations || {}).length > 0
+                    ? ucp.explanations
+                    : match?.explanations || {};
+                const rawCorrect = ucp.correctMarks ?? match?.correctMarks;
+                const resolvedCorrectMarks =
+                  rawCorrect !== undefined &&
+                  rawCorrect !== null &&
+                  !isNaN(Number(rawCorrect)) &&
+                  Number(rawCorrect) > 0
+                    ? Number(rawCorrect)
+                    : 2.0;
+
+                const rawIncorrect =
+                  ucp.incorrectMarks ?? match?.incorrectMarks;
+                const resolvedIncorrectMarks =
+                  rawIncorrect !== undefined &&
+                  rawIncorrect !== null &&
+                  !isNaN(Number(rawIncorrect))
+                    ? Number(rawIncorrect)
+                    : 0.667;
+
+                const mergedPaper: QuestionPaper = match
+                  ? {
+                      ...match,
+                      ...ucp,
+                      parsedQuestions:
+                        match.parsedQuestions &&
+                        match.parsedQuestions.length > 0
+                          ? match.parsedQuestions
+                          : ucp.parsedQuestions,
+                      markdownContent:
+                        match.markdownContent || ucp.markdownContent,
+                      instructions:
+                        match.instructions && match.instructions.length > 0
+                          ? match.instructions
+                          : ucp.instructions,
+                      answerKey: resolvedAnswerKey,
+                      explanations: resolvedExplanations,
+                      correctMarks: resolvedCorrectMarks,
+                      incorrectMarks: resolvedIncorrectMarks,
+                    }
+                  : ucp;
+
+                // Keep local storage synchronized with fresh server data
+                saveCustomPaper(mergedPaper);
+                return mergedPaper;
+              });
+
+              // Also add any local custom papers not yet returned by Supabase
+              for (const lc of localCustom) {
+                if (!mergedUserCustom.some((p) => p.id === lc.id)) {
+                  mergedUserCustom.push(lc);
+                }
+              }
+
+              // Merge global papers and user's custom papers, deduplicating by ID
+              const merged = [
+                ...mergedUserCustom,
+                ...loadedPapers.filter(
+                  (p) => !mergedUserCustom.some((cp) => cp.id === p.id),
+                ),
+              ];
+
+              // Ensure all markdown papers have their parsed questions & rules enriched
+              const enriched = merged.map((p) => {
+                if (p.markdownContent) {
+                  if (!p.parsedQuestions || p.parsedQuestions.length === 0) {
+                    p.parsedQuestions = parseQuestionnaireMarkdown(
+                      p.markdownContent,
+                    );
+                  }
+                  if (!p.instructions || p.instructions.length === 0) {
+                    p.instructions = parseMarkdownHeader(
+                      p.markdownContent,
+                    ).instructions;
+                  }
+                }
+                return p;
+              });
+
+              // Filter out papers hidden by this specific user
+              const visiblePapers = enriched.filter(
+                (p) =>
+                  !hidden.includes(p.id) &&
+                  (!customOnly || isUserUploadedPaper(p)),
+              );
+              setPapers(visiblePapers);
+
+              if (profile?.is_pro) {
+                setUserPro(true);
+                setIsPro(true);
+              } else {
+                setUserPro(false);
+                setIsPro(false);
+              }
+            } catch (err) {
+              console.warn("Failed loading user data from Supabase:", err);
             }
-            if (!p.instructions || p.instructions.length === 0) {
-              p.instructions = parseMarkdownHeader(
-                p.markdownContent,
-              ).instructions;
-            }
+            return;
           }
-          return p;
-        });
 
-        // Filter out papers hidden by this specific user
-        const visiblePapers = enriched.filter(
-          (p) =>
-            !hidden.includes(p.id) && (!customOnly || isUserUploadedPaper(p)),
-        );
-        setPapers(visiblePapers);
-
-        if (profile?.is_pro) {
-          setUserPro(true);
-          setIsPro(true);
-        } else {
+          // Guest / Anonymous User: Isolated local browser storage only
           setUserPro(false);
           setIsPro(false);
+          const cachedAttempts = getAttempts();
+          const guestReviewAttempt = getGuestReviewAttempt();
+          setAttempts(
+            guestReviewAttempt
+              ? [
+                  guestReviewAttempt,
+                  ...cachedAttempts.filter(
+                    (attempt) => attempt.id !== guestReviewAttempt.id,
+                  ),
+                ]
+              : cachedAttempts,
+          );
+          const localDraft = getActiveDraft();
+          setActiveDraft(localDraft);
+
+          try {
+            const hidden = getLocalHiddenPaperIds();
+            setHiddenPaperIds(hidden);
+            const customOnly = getOnlyCustomPapers();
+            setOnlyCustomPapers(customOnly);
+            setSyllabusItems(getCustomSyllabus());
+            setSyllabusMarkdown(getCustomSyllabusMarkdown());
+            const loadedPapers = await getAllPapers();
+            const enriched = loadedPapers.map((p) => {
+              if (p.markdownContent) {
+                if (!p.parsedQuestions || p.parsedQuestions.length === 0) {
+                  p.parsedQuestions = parseQuestionnaireMarkdown(
+                    p.markdownContent,
+                  );
+                }
+                if (!p.instructions || p.instructions.length === 0) {
+                  p.instructions = parseMarkdownHeader(
+                    p.markdownContent,
+                  ).instructions;
+                }
+              }
+              return p;
+            });
+            setPapers(
+              enriched.filter(
+                (p) =>
+                  !hidden.includes(p.id) &&
+                  (!customOnly || isUserUploadedPaper(p)),
+              ),
+            );
+          } catch (err) {
+            console.warn("Failed loading papers from server:", err);
+          }
+        } finally {
+          isInitialLoadDoneRef.current = true;
+          setIsLoading(false);
         }
-      } catch (err) {
-        console.warn("Failed loading user data from Supabase:", err);
+      };
+
+      inFlightLoadAllDataRef.current = run();
+      try {
+        await inFlightLoadAllDataRef.current;
       } finally {
-        setIsLoading(false);
+        inFlightLoadAllDataRef.current = null;
       }
-      return;
-    }
-
-    // Guest / Anonymous User: Isolated local browser storage only
-    setUserPro(false);
-    setIsPro(false);
-    const cachedAttempts = getAttempts();
-    const guestReviewAttempt = getGuestReviewAttempt();
-    setAttempts(
-      guestReviewAttempt
-        ? [
-            guestReviewAttempt,
-            ...cachedAttempts.filter(
-              (attempt) => attempt.id !== guestReviewAttempt.id,
-            ),
-          ]
-        : cachedAttempts,
-    );
-    const localDraft = getActiveDraft();
-    setActiveDraft(localDraft);
-
-    try {
-      const hidden = getLocalHiddenPaperIds();
-      setHiddenPaperIds(hidden);
-      const customOnly = getOnlyCustomPapers();
-      setOnlyCustomPapers(customOnly);
-      setSyllabusItems(getCustomSyllabus());
-      setSyllabusMarkdown(getCustomSyllabusMarkdown());
-      const loadedPapers = await getAllPapers();
-      const enriched = loadedPapers.map((p) => {
-        if (p.markdownContent) {
-          if (!p.parsedQuestions || p.parsedQuestions.length === 0) {
-            p.parsedQuestions = parseQuestionnaireMarkdown(p.markdownContent);
-          }
-          if (!p.instructions || p.instructions.length === 0) {
-            p.instructions = parseMarkdownHeader(
-              p.markdownContent,
-            ).instructions;
-          }
-        }
-        return p;
-      });
-      setPapers(
-        enriched.filter(
-          (p) =>
-            !hidden.includes(p.id) && (!customOnly || isUserUploadedPaper(p)),
-        ),
-      );
-    } catch (err) {
-      console.warn("Failed loading papers from server:", err);
-    } finally {
-      setIsLoading(false);
-    }
-  }, []);
+    },
+    [],
+  );
 
   useEffect(() => {
     loadAllData();
@@ -623,10 +657,25 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange(async (_event, session) => {
-      // Ignore INITIAL_SESSION to avoid duplicate full reload on initial page load
+      // 1. Ignore INITIAL_SESSION to avoid duplicate full reload on initial page load
       if (_event === "INITIAL_SESSION") {
         return;
       }
+      // 2. Ignore background token refresh events - user session and identity have not changed
+      if (_event === "TOKEN_REFRESHED") {
+        return;
+      }
+
+      const newUserId = session?.user?.id ?? null;
+      // 3. Prevent duplicate full reloads when window/tab focus triggers auth events for the same user
+      if (
+        lastAuthUserIdRef.current !== undefined &&
+        lastAuthUserIdRef.current === newUserId
+      ) {
+        return;
+      }
+      lastAuthUserIdRef.current = newUserId;
+
       const user = session?.user || null;
       setCurrentUser(user);
       if (user) {
@@ -634,12 +683,15 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         if (profile?.is_pro) {
           setUserPro(true);
           setIsPro(true);
+        } else {
+          setUserPro(false);
+          setIsPro(false);
         }
       } else {
         setUserPro(false);
         setIsPro(false);
       }
-      loadAllData();
+      await loadAllData({ forceLoading: true });
     });
 
     return () => {

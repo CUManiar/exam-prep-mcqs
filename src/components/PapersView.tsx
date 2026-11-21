@@ -20,6 +20,7 @@ import { exportQuestionPaperAsPDF } from "../lib/exportUtils";
 import { DetailedSolutionModal } from "./DetailedSolutionModal";
 import { useApp } from "../context/AppContext";
 import { PageHeader } from "./PageHeader";
+import { isRetestPaper } from "../lib/retestUtils";
 import {
   BookOpen,
   Search,
@@ -45,6 +46,7 @@ import {
   Calendar,
   Check,
   Scale,
+  RotateCcw,
 } from "lucide-react";
 
 interface PapersViewProps {
@@ -194,7 +196,7 @@ export function matchesDateRange(
 interface PapersFilterState {
   searchQuery?: string;
   selectedCategory?: "all" | "prelims" | "mains" | "custom";
-  selectedSource?: "all" | "custom" | "predefined";
+  selectedSource?: "all" | "custom" | "predefined" | "retest";
   selectedDateRange?: DateRangePreset;
   customStartDate?: string;
   customEndDate?: string;
@@ -220,14 +222,14 @@ export function PapersView({
   onDeletePaper,
   onUpdatePaper,
 }: PapersViewProps) {
-  const { isPro, openProUpgradeModal, attempts = [] } = useApp();
+  const { isPro, openProUpgradeModal, attempts = [], isLoading } = useApp();
   const searchParams = useSearchParams();
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedCategory, setSelectedCategory] = useState<
     "all" | "prelims" | "mains"
   >("all");
   const [selectedSource, setSelectedSource] = useState<
-    "all" | "custom" | "predefined"
+    "all" | "custom" | "predefined" | "retest"
   >("all");
   const [selectedDateRange, setSelectedDateRange] =
     useState<DateRangePreset>("all");
@@ -252,6 +254,8 @@ export function PapersView({
     const tab = searchParams?.get("tab");
     if (tab === "custom") {
       setSelectedSource("custom");
+    } else if (tab === "retest" || tab === "retests") {
+      setSelectedSource("retest");
     } else if (
       saved.selectedCategory &&
       ["all", "prelims", "mains"].includes(saved.selectedCategory)
@@ -262,10 +266,10 @@ export function PapersView({
     }
     if (
       saved.selectedSource &&
-      ["all", "custom", "predefined"].includes(saved.selectedSource)
+      ["all", "custom", "predefined", "retest"].includes(saved.selectedSource)
     ) {
       setSelectedSource(
-        saved.selectedSource as "all" | "custom" | "predefined",
+        saved.selectedSource as "all" | "custom" | "predefined" | "retest",
       );
     }
     if (
@@ -462,14 +466,30 @@ export function PapersView({
     }
   };
 
+  const retestPapers = useMemo(() => papers.filter(isRetestPaper), [papers]);
+  const retestPapersCount = retestPapers.length;
+
   const customPapersCount = useMemo(
-    () => papers.filter(isUserUploadedPaper).length,
+    () =>
+      papers.filter((p) => isUserUploadedPaper(p) && !isRetestPaper(p)).length,
     [papers],
   );
   const predefinedPapersCount = useMemo(
-    () => papers.length - customPapersCount,
-    [papers, customPapersCount],
+    () =>
+      papers.filter((p) => !isUserUploadedPaper(p) && !isRetestPaper(p)).length,
+    [papers],
   );
+
+  const handleCleanupRetests = () => {
+    if (!onDeletePaper || retestPapersCount === 0) return;
+    const confirmed = window.confirm(
+      `Delete all ${retestPapersCount} generated mistake re-test papers? This keeps your paper repository clean.`,
+    );
+    if (!confirmed) return;
+    retestPapers.forEach((p) => {
+      onDeletePaper(p.id);
+    });
+  };
   const prelimsCount = useMemo(
     () => papers.filter((p) => p.category === "prelims").length,
     [papers],
@@ -513,10 +533,20 @@ export function PapersView({
   }, [papers, attemptsByPaperId]);
 
   const filteredPapers = papers.filter((p) => {
-    // 1. Source filter: Uploaded vs Pre-defined
+    // 1. Source filter: Uploaded vs Pre-defined vs Re-Test
     const isUploaded = isUserUploadedPaper(p);
-    if (selectedSource === "custom" && !isUploaded) return false;
-    if (selectedSource === "predefined" && isUploaded) return false;
+    const isRetest = isRetestPaper(p);
+
+    if (selectedSource === "retest") {
+      if (!isRetest) return false;
+    } else {
+      // In standard repository views, keep generated re-tests in their dedicated tab unless searching
+      if (isRetest && !searchQuery.trim()) return false;
+      if (selectedSource === "custom" && (!isUploaded || isRetest))
+        return false;
+      if (selectedSource === "predefined" && (isUploaded || isRetest))
+        return false;
+    }
 
     // 2. Category filter: Prelims vs Mains vs All
     if (selectedCategory === "prelims" && p.category !== "prelims")
@@ -686,9 +716,11 @@ export function PapersView({
                         </span>
                       )}
                       <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md font-semibold text-[11px] bg-purple-50 text-purple-800 border border-purple-200">
-                        {selectedSource === "custom"
-                          ? "Uploaded"
-                          : "Pre-Defined"}
+                        {selectedSource === "retest"
+                          ? "Re-Tests"
+                          : selectedSource === "custom"
+                            ? "Uploaded"
+                            : "Pre-Defined"}
                       </span>
                     </>
                   )}
@@ -971,6 +1003,46 @@ export function PapersView({
                   {predefinedPapersCount}
                 </span>
               </button>
+
+              <button
+                type="button"
+                onClick={() =>
+                  setSelectedSource(
+                    selectedSource === "retest" ? "all" : "retest",
+                  )
+                }
+                className={`cursor-pointer inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1 text-xs font-medium transition-all ${
+                  selectedSource === "retest"
+                    ? "border border-amber-600 bg-amber-600 text-white font-semibold shadow-xs ring-1 ring-amber-600"
+                    : "border border-slate-200 bg-white text-slate-600 hover:border-amber-300 hover:text-amber-700"
+                }`}
+              >
+                <RotateCcw className="h-3 w-3" />
+                Re-Tests
+                <span
+                  className={`text-[10px] font-mono rounded px-1 ${
+                    selectedSource === "retest"
+                      ? "bg-amber-700 text-white"
+                      : "text-amber-700 bg-amber-50"
+                  }`}
+                >
+                  {retestPapersCount}
+                </span>
+              </button>
+
+              {selectedSource === "retest" &&
+                retestPapersCount > 0 &&
+                onDeletePaper && (
+                  <button
+                    type="button"
+                    onClick={handleCleanupRetests}
+                    className="cursor-pointer ml-auto inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1 text-xs font-bold text-rose-600 hover:text-rose-700 hover:bg-rose-50 border border-rose-200 transition-colors shadow-2xs"
+                    title="Purge all generated mistake re-test sessions"
+                  >
+                    <Trash2 className="h-3 w-3" />
+                    <span>Clean Up All Re-Tests ({retestPapersCount})</span>
+                  </button>
+                )}
             </div>
           </div>
 
@@ -1145,7 +1217,19 @@ export function PapersView({
       </div>
 
       {/* Papers Grid */}
-      {filteredPapers.length === 0 ? (
+      {isLoading && papers.length === 0 ? (
+        <div className="bi-card rounded-2xl p-16 text-center border border-slate-200 bg-white space-y-4 shadow-sm animate-in fade-in duration-200">
+          <div className="h-10 w-10 border-3 border-indigo-200 border-t-indigo-600 rounded-full animate-spin mx-auto" />
+          <div className="space-y-1">
+            <h3 className="text-sm font-bold text-slate-800">
+              Loading Question Papers...
+            </h3>
+            <p className="text-xs text-slate-500 max-w-sm mx-auto">
+              Fetching paper library, mock tests, and question banks.
+            </p>
+          </div>
+        </div>
+      ) : filteredPapers.length === 0 ? (
         <div className="bi-card rounded-2xl p-12 text-center border-dashed border-slate-300">
           {selectedSource === "custom" ? (
             <>
