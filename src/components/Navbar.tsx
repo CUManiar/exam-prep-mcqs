@@ -212,7 +212,9 @@ export function Navbar() {
             {/* 1. Overview */}
             <Link
               href="/"
-              aria-current={pathname === "/" && currentUser ? "page" : undefined}
+              aria-current={
+                pathname === "/" && currentUser ? "page" : undefined
+              }
               className={`app-nav-link ${
                 pathname === "/" && currentUser ? "is-active" : ""
               }`}
@@ -256,16 +258,16 @@ export function Navbar() {
                     <span>{group.label}</span>
                     <ChevronDown
                       className={`h-3 w-3 text-slate-400 transition-transform duration-200 ${
-                        isOpen ? "rotate-180 text-slate-700 dark:text-slate-200" : ""
+                        isOpen
+                          ? "rotate-180 text-slate-700 dark:text-slate-200"
+                          : ""
                       }`}
                     />
                   </button>
 
                   {/* Dropdown Menu Popover */}
                   {isOpen && (
-                    <div
-                      className="absolute top-full left-0 mt-1 w-80 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-xl p-2 z-50 flex flex-col gap-1 animate-in fade-in zoom-in-95 duration-150"
-                    >
+                    <div className="absolute top-full left-0 mt-1 w-80 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-xl p-2 z-50 flex flex-col gap-1 animate-in fade-in zoom-in-95 duration-150">
                       <div className="px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider text-slate-400 dark:text-slate-500">
                         {group.label} Tools
                       </div>

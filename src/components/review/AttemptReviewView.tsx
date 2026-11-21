@@ -413,11 +413,8 @@ export function AttemptReviewView({
       const next = {
         ...prev,
         confidence:
-          (nextConfidences[0] as
-            | "sure"
-            | "50-50"
-            | "guess"
-            | "elimination") || null,
+          (nextConfidences[0] as "sure" | "50-50" | "guess" | "elimination") ||
+          null,
         confidences: nextConfidences,
       };
       syncActiveQuestionToMatches(getFilteredQuestions(next, sortOption));

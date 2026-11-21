@@ -336,7 +336,10 @@ function MermaidDiagram({ code }: { code: string }) {
             }, 0);
 
             // Attempt fallback rendering without edge labels if dagre distance calculation failed
-            const simplifiedCode = sanitizedCode.replace(/-->\|[^|]+\|/g, "-->");
+            const simplifiedCode = sanitizedCode.replace(
+              /-->\|[^|]+\|/g,
+              "-->",
+            );
             if (simplifiedCode !== sanitizedCode) {
               const fallbackId = `mermaid_${Math.random().toString(36).slice(2, 9)}`;
               w.mermaid
