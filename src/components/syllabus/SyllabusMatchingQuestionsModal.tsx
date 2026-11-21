@@ -17,6 +17,7 @@ import {
   findQuestionsForSyllabusTopic,
   IndexedQuestionMatch,
 } from "../../lib/syllabusQuestionIndex";
+import { cleanPreviousYears } from "../../lib/markdownPaperParser";
 import { useApp } from "../../context/AppContext";
 import { saveCustomPaper } from "../../lib/storage";
 
@@ -241,14 +242,10 @@ export function SyllabusMatchingQuestionsModal({
                 userSelected.trim().toUpperCase() ===
                   q.correctAnswer.trim().toUpperCase();
 
-              // Resolve PYQ year label: either explicit q.previousYears or paperYear
-              const pyqYears =
-                q.previousYears ||
-                (q.paperYear &&
-                /^(19\d\d|20[0-2]\d)$/.test(q.paperYear) &&
-                q.paperYear !== "2026"
-                  ? q.paperYear
-                  : undefined);
+              // Resolve PYQ year label: only genuine UPSC exam years (>= 1979)
+              const pyqYears = q.previousYears
+                ? cleanPreviousYears(q.previousYears)
+                : undefined;
 
               const optionKeys = Object.keys(q.options || {}).sort();
 

@@ -1,5 +1,8 @@
 import { QuestionPaper, ParsedQuestion } from "./types";
-import { parseQuestionnaireMarkdown } from "./markdownPaperParser";
+import {
+  parseQuestionnaireMarkdown,
+  cleanPreviousYears,
+} from "./markdownPaperParser";
 
 export interface IndexedQuestionMatch {
   paperId: string;
@@ -144,29 +147,40 @@ function getOrBuildInvertedIndex(papers: QuestionPaper[]): MemoryQuestionIndex {
       const allTokens = new Set<string>([...subjectTokens, ...questionTokens]);
 
       // Resolve previous years:
-      // 1. Direct tag on question (e.g. q.previousYears = "2017, 2021")
-      // 2. Inline annotation in question text or explanation (e.g. "(UPSC 2018)" or "[PYQ 2020]")
-      // 3. Historical paper year (e.g. "2024", "2023", "2021")
-      let resolvedPYQ = q.previousYears ? String(q.previousYears).trim() : undefined;
+      // Resolve previous years:
+      // Only valid if question has an explicit PYQ tag or official UPSC year (>= 1979)
+      let resolvedPYQ: string | undefined = q.previousYears
+        ? cleanPreviousYears(String(q.previousYears))
+        : undefined;
+
       if (!resolvedPYQ) {
         const textToScan = `${qText} ${paper.explanations?.[q.questionNo] || q.explanation || ""}`;
-        const inlineMatch = textToScan.match(
-          /(?:\[|\()\s*(?:UPSC\s+|CSE\s+|PYQ\s+)?((?:19\d\d|20[0-2]\d)(?:\s*,\s*(?:19\d\d|20[0-2]\d))*)\s*(?:\]|\))/i,
+        const explicitPYQMatch = textToScan.match(
+          /(?:\[|\()\s*(?:UPSC\s*(?:CSE\s*)?|CSE\s+|PYQ\s+)((?:19[89]\d|20[0-2]\d)(?:\s*,\s*(?:19[89]\d|20[0-2]\d))*)\s*(?:\]|\))/i,
         );
-        if (inlineMatch && inlineMatch[1]) {
-          resolvedPYQ = inlineMatch[1].trim();
-        } else if (
-          paper.year &&
-          /^(19\d\d|20[0-2]\d)$/.test(paper.year.trim()) &&
-          paper.year !== "2026"
-        ) {
-          resolvedPYQ = paper.year.trim();
-        } else if (paperTitle) {
-          const titleMatch = paperTitle.match(/\b(19\d\d|20[0-2]\d)\b/);
-          if (titleMatch && titleMatch[1]) {
-            resolvedPYQ = titleMatch[1];
-          }
+        if (explicitPYQMatch && explicitPYQMatch[1]) {
+          resolvedPYQ = cleanPreviousYears(explicitPYQMatch[1]);
         }
+      }
+
+      if (
+        !resolvedPYQ &&
+        paper.year &&
+        /^(19[89]\d|20[0-2]\d)$/.test(paper.year.trim()) &&
+        paper.year !== "2026"
+      ) {
+        const isOfficialPYQPaper =
+          !paper.isCustom &&
+          paper.category === "prelims" &&
+          paper.label &&
+          /\bupsc\b|\bcse\b|prelims\s+(?:19[89]\d|20[0-2]\d)/i.test(paper.label);
+        if (isOfficialPYQPaper) {
+          resolvedPYQ = cleanPreviousYears(paper.year.trim());
+        }
+      }
+
+      if (!resolvedPYQ) {
+        resolvedPYQ = undefined;
       }
 
       const qIndex = questions.length;
