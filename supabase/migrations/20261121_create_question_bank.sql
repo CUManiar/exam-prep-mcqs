@@ -49,21 +49,25 @@ CREATE INDEX IF NOT EXISTS idx_qb_tags ON public.question_bank USING GIN(tags);
 ALTER TABLE public.question_bank ENABLE ROW LEVEL SECURITY;
 
 -- 1. Read: Users can read public questions (user_id IS NULL) or their own private questions
+DROP POLICY IF EXISTS "Users can read public and own questions" ON public.question_bank;
 CREATE POLICY "Users can read public and own questions" ON public.question_bank
   FOR SELECT
   USING (user_id IS NULL OR auth.uid() = user_id);
 
 -- 2. Insert: Authenticated users can insert their own custom questions
+DROP POLICY IF EXISTS "Users can insert own questions" ON public.question_bank;
 CREATE POLICY "Users can insert own questions" ON public.question_bank
   FOR INSERT
   WITH CHECK (auth.uid() = user_id);
 
 -- 3. Update: Authenticated users can update their own questions
+DROP POLICY IF EXISTS "Users can update own questions" ON public.question_bank;
 CREATE POLICY "Users can update own questions" ON public.question_bank
   FOR UPDATE
   USING (auth.uid() = user_id);
 
 -- 4. Delete: Authenticated users can delete their own questions
+DROP POLICY IF EXISTS "Users can delete own questions" ON public.question_bank;
 CREATE POLICY "Users can delete own questions" ON public.question_bank
   FOR DELETE
   USING (auth.uid() = user_id);
