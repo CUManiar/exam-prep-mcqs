@@ -138,7 +138,8 @@ export function LongitudinalTrendChart({
     const dataMin = Math.min(...values);
     const dataMax = Math.max(...values);
 
-    let min = metric === "accuracy" ? Math.min(20, dataMin) : Math.min(0, dataMin);
+    let min =
+      metric === "accuracy" ? Math.min(20, dataMin) : Math.min(0, dataMin);
     let max =
       metric === "accuracy"
         ? Math.max(100, dataMax)
@@ -166,7 +167,15 @@ export function LongitudinalTrendChart({
       const y = padding.top + chartHeight - normalizedY * chartHeight;
       return { x, y, val, attempt: att, index: i };
     });
-  }, [chronologicalAttempts, metric, minVal, maxVal, chartWidth, chartHeight, padding]);
+  }, [
+    chronologicalAttempts,
+    metric,
+    minVal,
+    maxVal,
+    chartWidth,
+    chartHeight,
+    padding,
+  ]);
 
   // Generate SVG path strings
   const { linePath, areaPath } = useMemo(() => {
@@ -238,7 +247,9 @@ export function LongitudinalTrendChart({
                 ) : (
                   <Minus className="h-2.5 w-2.5" />
                 )}
-                {stats.scoreDelta > 0 ? `+${stats.scoreDelta}` : stats.scoreDelta}{" "}
+                {stats.scoreDelta > 0
+                  ? `+${stats.scoreDelta}`
+                  : stats.scoreDelta}{" "}
                 pts net
               </span>
             )}
@@ -320,10 +331,12 @@ export function LongitudinalTrendChart({
         <div className="py-8 text-center space-y-1.5 border border-dashed border-slate-200 rounded-xl bg-slate-50/50">
           <Layers className="h-6 w-6 text-slate-400 mx-auto" />
           <p className="text-xs font-semibold text-slate-700">
-            Need at least 2 attempts in this category to generate trend trajectory
+            Need at least 2 attempts in this category to generate trend
+            trajectory
           </p>
           <p className="text-[11px] text-slate-500">
-            Complete another paper mock to visualize your score progression curve.
+            Complete another paper mock to visualize your score progression
+            curve.
           </p>
         </div>
       ) : (
@@ -398,9 +411,7 @@ export function LongitudinalTrendChart({
               )}
 
               {/* Shaded Area */}
-              {areaPath && (
-                <path d={areaPath} fill="url(#trendAreaGradient)" />
-              )}
+              {areaPath && <path d={areaPath} fill="url(#trendAreaGradient)" />}
 
               {/* Curve Line */}
               {linePath && (
@@ -447,10 +458,7 @@ export function LongitudinalTrendChart({
               style={{
                 left: `${Math.min(
                   85,
-                  Math.max(
-                    15,
-                    (activeHoverPoint.x / width) * 100,
-                  ),
+                  Math.max(15, (activeHoverPoint.x / width) * 100),
                 )}%`,
                 top: `${Math.max(5, (activeHoverPoint.y / height) * 60)}%`,
                 transform: "translate(-50%, -100%)",
@@ -475,8 +483,8 @@ export function LongitudinalTrendChart({
                 </span>
               </div>
               <div className="text-[10px] text-slate-400">
-                {formatDateTime(activeHoverPoint.attempt.startedAt)} &bull; Click
-                to view review
+                {formatDateTime(activeHoverPoint.attempt.startedAt)} &bull;
+                Click to view review
               </div>
             </div>
           )}

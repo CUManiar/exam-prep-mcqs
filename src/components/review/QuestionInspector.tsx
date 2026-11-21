@@ -135,11 +135,11 @@ export function QuestionInspector({
 
   const isExplanationLong = Boolean(
     officialExplanation &&
-      (officialExplanation.length > 320 ||
-        officialExplanation.includes("\n\n") ||
-        officialExplanation.includes("<table") ||
-        officialExplanation.includes("<ul>") ||
-        officialExplanation.includes("<ol>")),
+    (officialExplanation.length > 320 ||
+      officialExplanation.includes("\n\n") ||
+      officialExplanation.includes("<table") ||
+      officialExplanation.includes("<ul>") ||
+      officialExplanation.includes("<ol>")),
   );
 
   let displayClozeAnswer = rawExpected;
@@ -292,23 +292,24 @@ export function QuestionInspector({
           )}
 
           {/* Compact altered indicator */}
-          {!isCloze && Boolean(question.changesCount && question.changesCount > 0) && (
-            <span
-              className={`inline-flex items-center gap-1 font-mono text-[11px] px-2 py-1 rounded-lg border ${
-                isCorrect
-                  ? "border-emerald-200 bg-emerald-50 text-emerald-800"
-                  : "border-rose-200 bg-rose-50 text-rose-800"
-              }`}
-              title={`Selection altered ${question.changesCount} time(s): ${
-                question.answerHistory?.length
-                  ? `${question.answerHistory.join(" → ")} → ${question.selected || ""}`
-                  : ""
-              }`}
-            >
-              <RotateCcw className="h-3 w-3" />
-              <span>{question.changesCount}x altered</span>
-            </span>
-          )}
+          {!isCloze &&
+            Boolean(question.changesCount && question.changesCount > 0) && (
+              <span
+                className={`inline-flex items-center gap-1 font-mono text-[11px] px-2 py-1 rounded-lg border ${
+                  isCorrect
+                    ? "border-emerald-200 bg-emerald-50 text-emerald-800"
+                    : "border-rose-200 bg-rose-50 text-rose-800"
+                }`}
+                title={`Selection altered ${question.changesCount} time(s): ${
+                  question.answerHistory?.length
+                    ? `${question.answerHistory.join(" → ")} → ${question.selected || ""}`
+                    : ""
+                }`}
+              >
+                <RotateCcw className="h-3 w-3" />
+                <span>{question.changesCount}x altered</span>
+              </span>
+            )}
 
           <div
             className={`inline-flex items-center gap-1 font-mono text-xs px-2.5 py-1 rounded-lg border ${
@@ -823,7 +824,9 @@ export function QuestionInspector({
               {isExplanationLong && (
                 <button
                   type="button"
-                  onClick={() => setIsExplanationExpanded(!isExplanationExpanded)}
+                  onClick={() =>
+                    setIsExplanationExpanded(!isExplanationExpanded)
+                  }
                   className="inline-flex items-center gap-1 text-[11px] font-semibold text-indigo-700 hover:text-indigo-900 bg-white hover:bg-indigo-50/80 px-2 py-0.5 rounded-lg border border-indigo-200 shadow-2xs cursor-pointer transition-colors"
                 >
                   <span>{isExplanationExpanded ? "Collapse" : "Expand"}</span>

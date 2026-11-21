@@ -666,7 +666,10 @@ export function AttemptReviewView({
     mode: "practice" | "mock",
   ) => {
     if (!matchedPaper || selectedQuestions.length === 0) return;
-    const retestPaper = createMistakeReTestPaper(matchedPaper, selectedQuestions);
+    const retestPaper = createMistakeReTestPaper(
+      matchedPaper,
+      selectedQuestions,
+    );
     saveCustomPaper(retestPaper);
     handleStartExam(retestPaper, mode);
   };

@@ -86,7 +86,8 @@ export function GoalsAndRemindersBoard({
 
     // Deduplicate by clean title
     const seenTitles = new Set<string>();
-    const unique: Array<{ id: string; title: string; completedAt: string }> = [];
+    const unique: Array<{ id: string; title: string; completedAt: string }> =
+      [];
 
     for (const item of sorted) {
       const norm = item.title.trim().toLowerCase();
@@ -314,8 +315,8 @@ export function GoalsAndRemindersBoard({
                 Ready to conquer your syllabus!
               </p>
               <p className="text-[11px] text-slate-500 max-w-xs mx-auto leading-relaxed">
-                Check off topics in your personal Syllabus Tracker as you complete
-                them to celebrate your progress here.
+                Check off topics in your personal Syllabus Tracker as you
+                complete them to celebrate your progress here.
               </p>
               <Link
                 href="/syllabus"

@@ -191,8 +191,7 @@ export function ExamSessionView({
     useState<boolean>(false);
   const [isMobileScratchpadOpen, setIsMobileScratchpadOpen] =
     useState<boolean>(false);
-  const [scratchpadDragOffsetY, setScratchpadDragOffsetY] =
-    useState<number>(0);
+  const [scratchpadDragOffsetY, setScratchpadDragOffsetY] = useState<number>(0);
   const [isScratchpadDragging, setIsScratchpadDragging] =
     useState<boolean>(false);
   const scratchpadDragStartYRef = useRef<number | null>(null);

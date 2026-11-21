@@ -32,8 +32,7 @@ export function createMistakeReTestPaper(
 
     const correctAns =
       ans.correctAnswer || originalPaper.answerKey?.[origQNo] || "";
-    const expl =
-      ans.explanation || originalPaper.explanations?.[origQNo] || "";
+    const expl = ans.explanation || originalPaper.explanations?.[origQNo] || "";
 
     if (correctAns) {
       filteredAnswerKey[newQNo] = correctAns;
@@ -105,9 +104,7 @@ export function createMistakeReTestPaper(
     answerKey: filteredAnswerKey,
     explanations: filteredExplanations,
     parsedQuestions:
-      remappedParsedQuestions.length > 0
-        ? remappedParsedQuestions
-        : undefined,
+      remappedParsedQuestions.length > 0 ? remappedParsedQuestions : undefined,
     markdownContent:
       remappedParsedQuestions.length > 0
         ? markdownLines.join("\n")

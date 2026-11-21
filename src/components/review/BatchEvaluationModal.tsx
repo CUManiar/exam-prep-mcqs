@@ -44,9 +44,10 @@ export function BatchEvaluationModal({
     total: number;
     currentQNo: number | null;
   }>({ current: 0, total: 0, currentQNo: null });
-  const [completedResults, setCompletedResults] = useState<
-    Array<{ questionNo: number; comment: string }> | null
-  >(null);
+  const [completedResults, setCompletedResults] = useState<Array<{
+    questionNo: number;
+    comment: string;
+  }> | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   if (!isOpen) return null;
@@ -170,7 +171,8 @@ export function BatchEvaluationModal({
                 Batch AI Attempt Evaluation
               </h3>
               <p className="text-xs text-slate-500">
-                Attach question-by-question examiner feedback across this attempt
+                Attach question-by-question examiner feedback across this
+                attempt
               </p>
             </div>
           </div>
@@ -197,8 +199,8 @@ export function BatchEvaluationModal({
                 <p className="text-xs text-emerald-800 leading-relaxed">
                   Generated and attached personalized evaluation comments to{" "}
                   <strong>{completedResults.length} questions</strong>.
-                  Scratchpad calculations and elimination steps have been audited
-                  against the official solutions.
+                  Scratchpad calculations and elimination steps have been
+                  audited against the official solutions.
                 </p>
               </div>
             </div>

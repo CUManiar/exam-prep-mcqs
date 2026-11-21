@@ -67,9 +67,9 @@ export function LandingView({
           </h1>
           <p className="public-intro">
             From simulated Prelims mocks with question-by-question AI scratchpad
-            auditing, targeted mistake re-tests, and longitudinal score trajectories,
-            to line-by-line Mains answer evaluation, free AI revision dossiers,
-            and Claude &amp; ChatGPT MCP integration.
+            auditing, targeted mistake re-tests, and longitudinal score
+            trajectories, to line-by-line Mains answer evaluation, free AI
+            revision dossiers, and Claude &amp; ChatGPT MCP integration.
           </p>
           <div className="public-actions">
             {featuredPaper && (
@@ -186,8 +186,8 @@ export function LandingView({
               </span>
             </div>
             <p className="text-xs text-slate-500 mt-1">
-              AI audits candidate scratchpad math, checks elimination logic,
-              and generates instant re-test practice sessions from errors.
+              AI audits candidate scratchpad math, checks elimination logic, and
+              generates instant re-test practice sessions from errors.
             </p>
           </div>
 
@@ -254,9 +254,9 @@ export function LandingView({
               <h3>Prelims Mocks, AI Audits &amp; Re-Tests</h3>
               <p>
                 Experience genuine exam conditions with simulated timers,
-                negative marks (1/3rd penalty), and CSAT qualification bars.
-                Run batch AI audits on your calculations and rough scratchpads,
-                or launch 1-click mistake re-tests to immediately master questions
+                negative marks (1/3rd penalty), and CSAT qualification bars. Run
+                batch AI audits on your calculations and rough scratchpads, or
+                launch 1-click mistake re-tests to immediately master questions
                 you got wrong.
               </p>
             </div>
@@ -301,9 +301,10 @@ export function LandingView({
               <h3>Longitudinal Trends &amp; Diagnostics</h3>
               <p>
                 Track your score progression and accuracy curves over time with
-                statutory CSAT (66.67) and GS-1 benchmark cutoff lines. Multi-tier
-                hierarchy (Subject &gt; Chapter &gt; Topic) automatically aggregates
-                weak spots, and lets you export filtered mistake booklets to print-ready PDF.
+                statutory CSAT (66.67) and GS-1 benchmark cutoff lines.
+                Multi-tier hierarchy (Subject &gt; Chapter &gt; Topic)
+                automatically aggregates weak spots, and lets you export
+                filtered mistake booklets to print-ready PDF.
               </p>
             </div>
             <Link
@@ -508,10 +509,12 @@ export function LandingView({
               </p>
               <ul className="public-plan-features">
                 <li>
-                  <Check aria-hidden="true" /> Complete practice test &amp; mistake re-test
+                  <Check aria-hidden="true" /> Complete practice test &amp;
+                  mistake re-test
                 </li>
                 <li>
-                  <Check aria-hidden="true" /> Question AI audit &amp; scratchpad evaluation
+                  <Check aria-hidden="true" /> Question AI audit &amp;
+                  scratchpad evaluation
                 </li>
                 <li>
                   <Check aria-hidden="true" /> Mains answer evaluation demo

@@ -12,8 +12,7 @@ export async function POST(req: NextRequest) {
     const body = await req.json().catch(() => ({}));
     const questions = body.questions as QuestionEvaluationParams[] | undefined;
     const providerConfig = body.providerConfig as
-      | RevisionProviderConfig
-      | undefined;
+      RevisionProviderConfig | undefined;
 
     if (!Array.isArray(questions) || questions.length === 0) {
       return NextResponse.json(
