@@ -443,13 +443,16 @@ export function generateAttemptReportMarkdown(attempt: Attempt): string {
     else if (q?.confidence === "guess") confTag = "🎲 Guess";
 
     const expl = q?.explanation || "";
+    const evalComment = q?.evaluationComment?.trim() || "";
     let explOrNote = "—";
-    if (expl && q?.note) {
-      explOrNote = `**Expl:** ${expl.replace(/\|/g, "\\|")} | *Note:* ${q.note.replace(/\|/g, "\\|")}`;
-    } else if (expl) {
-      explOrNote = `**Expl:** ${expl.replace(/\|/g, "\\|")}`;
-    } else if (q?.note) {
-      explOrNote = q.note.replace(/\|/g, "\\|");
+    const parts: string[] = [];
+    if (expl) parts.push(`**Expl:** ${expl.replace(/\|/g, "\\|")}`);
+    if (q?.note)
+      parts.push(`*Scratchpad Note:* ${q.note.replace(/\|/g, "\\|")}`);
+    if (evalComment)
+      parts.push(`*Evaluation Comment:* ${evalComment.replace(/\|/g, "\\|")}`);
+    if (parts.length > 0) {
+      explOrNote = parts.join(" | ");
     }
 
     lines.push(
@@ -584,11 +587,21 @@ export function exportAttemptAsPrintPDF(
 
       const expl = q?.explanation || paperExplanations?.[qNo] || "";
       const note = q?.note?.trim() || "";
+      const evalComment = q?.evaluationComment?.trim() || "";
       let noteCell = "—";
-      if (expl && note)
-        noteCell = `<strong>Expl:</strong> ${expl}<br/><span style="color:#475569;"><em>Note:</em> ${note}</span>`;
-      else if (expl) noteCell = `<strong>Expl:</strong> ${expl}`;
-      else if (note) noteCell = `<em>Note:</em> ${note}`;
+      const cellParts: string[] = [];
+      if (expl) cellParts.push(`<strong>Expl:</strong> ${expl}`);
+      if (note)
+        cellParts.push(
+          `<span style="color:#475569;"><em>Scratchpad:</em> ${note}</span>`,
+        );
+      if (evalComment)
+        cellParts.push(
+          `<span style="color:#4f46e5;font-weight:600;"><em>Evaluation:</em> ${evalComment}</span>`,
+        );
+      if (cellParts.length > 0) {
+        noteCell = cellParts.join("<br/>");
+      }
 
       return `<tr>
       <td style="text-align:center;font-weight:700;font-family:monospace;">Q${qNo}</td>

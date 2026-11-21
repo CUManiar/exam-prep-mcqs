@@ -45,6 +45,7 @@ Vercel.
 Start a new Claude conversation and ask:
 
 > List my UPSC papers.
+> Inspect question 6 on my latest attempt, check my scratchpad calculations, and attach evaluation feedback.
 
 The response should contain only the papers belonging to the account used in
 the browser authorization. To stop using the workaround, remove the entry

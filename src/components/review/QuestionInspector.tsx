@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import {
   QuestionAnswer,
   ParsedQuestion,
@@ -23,6 +23,10 @@ import {
   ArrowRight,
   Eye,
   History,
+  Sparkles,
+  MessageSquare,
+  Loader2,
+  AlertCircle,
 } from "lucide-react";
 import { HtmlExplanation } from "../HtmlExplanation";
 
@@ -35,6 +39,7 @@ interface QuestionInspectorProps {
   getFullMarks: (qNo: number) => number;
   incorrectMarksPerQ: number;
   onSaveQuestionNote: (qNo: number, note: string) => void;
+  onSaveEvaluationComment?: (qNo: number, comment: string) => void;
   onSetSubjectiveAssessment: (
     qNo: number,
     assessment: SubjectiveAssessment,
@@ -60,6 +65,7 @@ export function QuestionInspector({
   getFullMarks,
   incorrectMarksPerQ,
   onSaveQuestionNote,
+  onSaveEvaluationComment,
   onSetSubjectiveAssessment,
   onNavigatePrev,
   onNavigateNext,
@@ -73,6 +79,21 @@ export function QuestionInspector({
 }: QuestionInspectorProps) {
   const [isEditingNote, setIsEditingNote] = useState(false);
   const [noteText, setNoteText] = useState(question.note || "");
+
+  const [isEditingEvalComment, setIsEditingEvalComment] = useState(false);
+  const [evalCommentText, setEvalCommentText] = useState(
+    question.evaluationComment || "",
+  );
+  const [isGeneratingEval, setIsGeneratingEval] = useState(false);
+  const [evalError, setEvalError] = useState<string | null>(null);
+
+  useEffect(() => {
+    setNoteText(question.note || "");
+    setIsEditingNote(false);
+    setEvalCommentText(question.evaluationComment || "");
+    setIsEditingEvalComment(false);
+    setEvalError(null);
+  }, [question.questionNo, question.note, question.evaluationComment]);
 
   const qNo = question.questionNo;
   const isEvaluable = isAssessmentQuestion(qNo);
@@ -129,6 +150,59 @@ export function QuestionInspector({
   const handleCancelNote = () => {
     setNoteText(question.note || "");
     setIsEditingNote(false);
+  };
+
+  const handleSaveEvalComment = () => {
+    onSaveEvaluationComment?.(qNo, evalCommentText.trim());
+    setIsEditingEvalComment(false);
+  };
+
+  const handleCancelEvalComment = () => {
+    setEvalCommentText(question.evaluationComment || "");
+    setIsEditingEvalComment(false);
+  };
+
+  const handleGenerateAiEvaluation = async () => {
+    setIsGeneratingEval(true);
+    setEvalError(null);
+    try {
+      const { getRevisionConfig } = await import("../../lib/revisionAi");
+      const providerConfig = getRevisionConfig();
+
+      const res = await fetch("/api/attempts/evaluate-question", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          question: {
+            questionNo: qNo,
+            questionText: parsedQuestion?.text || `Question ${qNo}`,
+            options: parsedQuestion?.options,
+            correctAnswer: expectedAnswer,
+            explanation: officialExplanation,
+            selectedAnswer: question.selected,
+            isCorrect: question.isCorrect,
+            scratchpadNote: question.note,
+            timeSpentSeconds: question.timeSpentSeconds,
+            confidence: question.confidence,
+          },
+          providerConfig,
+        }),
+      });
+
+      const data = await res.json();
+      if (!res.ok || !data.ok) {
+        throw new Error(data.error || "Failed to evaluate question attempt.");
+      }
+
+      const generatedComment = String(data.comment || "").trim();
+      onSaveEvaluationComment?.(qNo, generatedComment);
+      setEvalCommentText(generatedComment);
+      setIsEditingEvalComment(false);
+    } catch (err: any) {
+      setEvalError(err?.message || "Failed to generate evaluation feedback.");
+    } finally {
+      setIsGeneratingEval(false);
+    }
   };
 
   const hasParsedOptions = Boolean(
@@ -604,6 +678,136 @@ export function QuestionInspector({
               <FileText className="h-3.5 w-3.5 text-slate-400" />
               <span>+ Add note for this question</span>
             </button>
+          </div>
+        )}
+
+        {/* 4b. Evaluator / AI Attempt Assessment & Feedback */}
+        {isEditingEvalComment ? (
+          <div className="rounded-xl border border-indigo-300 bg-indigo-50/70 p-3.5 space-y-2 shadow-2xs">
+            <div className="flex items-center justify-between">
+              <span className="text-[10px] font-bold uppercase tracking-wider text-indigo-950 flex items-center gap-1.5">
+                <Edit3 className="h-3.5 w-3.5 text-indigo-700" />
+                Edit Evaluator / Mentor Feedback Note
+              </span>
+            </div>
+            <textarea
+              value={evalCommentText}
+              onChange={(e) => setEvalCommentText(e.target.value)}
+              placeholder="Mentor comments on student's attempt, scratchpad reasoning, arithmetic blunders, or elimination traps..."
+              rows={3}
+              className="w-full rounded-lg border border-indigo-300 bg-white p-2.5 text-xs text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-200"
+            />
+            <div className="flex items-center justify-end gap-2">
+              <button
+                type="button"
+                onClick={handleCancelEvalComment}
+                className="px-2.5 py-1 rounded-md border border-slate-200 text-xs text-slate-600 hover:bg-slate-50 cursor-pointer"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleSaveEvalComment}
+                className="inline-flex items-center gap-1 px-3 py-1 rounded-md bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold shadow-2xs cursor-pointer"
+              >
+                <Check className="h-3 w-3" />
+                Save Feedback
+              </button>
+            </div>
+          </div>
+        ) : question.evaluationComment && question.evaluationComment.trim() ? (
+          <div className="rounded-xl border border-indigo-200/90 bg-indigo-50/70 p-3.5 shadow-2xs space-y-2">
+            <div className="flex items-start justify-between gap-3">
+              <div className="flex items-start gap-2.5 min-w-0">
+                <Sparkles className="h-4 w-4 text-indigo-600 mt-0.5 shrink-0" />
+                <div className="text-xs text-slate-900 leading-relaxed whitespace-pre-wrap break-words">
+                  <div className="flex items-center gap-2 mb-1">
+                    <strong className="text-indigo-950 font-bold text-[10px] uppercase tracking-wider">
+                      Evaluator & AI Attempt Feedback
+                    </strong>
+                    {question.evaluationSource && (
+                      <span className="text-[9px] uppercase px-1.5 py-0.5 rounded font-mono font-bold bg-indigo-100 text-indigo-800 border border-indigo-200">
+                        {question.evaluationSource === "mcp"
+                          ? "MCP Mentor"
+                          : question.evaluationSource === "ai"
+                            ? "AI Evaluator"
+                            : "Examiner Note"}
+                      </span>
+                    )}
+                  </div>
+                  {question.evaluationComment}
+                </div>
+              </div>
+              <div className="flex items-center gap-1.5 shrink-0">
+                <button
+                  type="button"
+                  onClick={handleGenerateAiEvaluation}
+                  disabled={isGeneratingEval}
+                  className="inline-flex items-center gap-1 text-[11px] font-semibold text-indigo-700 bg-white hover:bg-indigo-50 px-2.5 py-1 rounded-lg border border-indigo-200 transition-colors shadow-2xs cursor-pointer disabled:opacity-50"
+                  title="Re-run AI evaluation for this question attempt"
+                >
+                  {isGeneratingEval ? (
+                    <Loader2 className="h-3 w-3 animate-spin text-indigo-600" />
+                  ) : (
+                    <Sparkles className="h-3 w-3 text-indigo-600" />
+                  )}
+                  <span>Re-evaluate</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setEvalCommentText(question.evaluationComment || "");
+                    setIsEditingEvalComment(true);
+                  }}
+                  className="text-xs font-semibold text-indigo-900 bg-indigo-100 hover:bg-indigo-200 px-2.5 py-1 rounded-lg border border-indigo-200 shrink-0 transition-colors cursor-pointer"
+                >
+                  Edit
+                </button>
+              </div>
+            </div>
+            {evalError && (
+              <div className="text-[11px] text-rose-600 bg-rose-50 border border-rose-200 p-2 rounded-lg flex items-center gap-1.5">
+                <AlertCircle className="h-3.5 w-3.5 shrink-0 text-rose-500" />
+                <span>{evalError}</span>
+              </div>
+            )}
+          </div>
+        ) : (
+          <div className="pt-0.5 flex flex-wrap items-center gap-2">
+            <button
+              type="button"
+              onClick={handleGenerateAiEvaluation}
+              disabled={isGeneratingEval}
+              className="inline-flex items-center gap-1.5 text-xs text-indigo-700 bg-indigo-50/80 hover:bg-indigo-100/80 border border-indigo-200 px-3 py-1 rounded-lg transition-colors font-semibold shadow-2xs cursor-pointer disabled:opacity-60"
+            >
+              {isGeneratingEval ? (
+                <Loader2 className="h-3.5 w-3.5 animate-spin text-indigo-600" />
+              ) : (
+                <Sparkles className="h-3.5 w-3.5 text-indigo-600" />
+              )}
+              <span>
+                {isGeneratingEval
+                  ? "Evaluating attempt & scratchpad..."
+                  : "AI Evaluate Attempt"}
+              </span>
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setEvalCommentText("");
+                setIsEditingEvalComment(true);
+              }}
+              className="inline-flex items-center gap-1 text-xs text-slate-500 hover:text-indigo-600 transition-colors font-medium cursor-pointer"
+            >
+              <MessageSquare className="h-3.5 w-3.5 text-slate-400" />
+              <span>+ Add evaluator comment</span>
+            </button>
+            {evalError && (
+              <span className="text-[11px] text-rose-600 flex items-center gap-1">
+                <AlertCircle className="h-3.5 w-3.5 shrink-0" />
+                {evalError}
+              </span>
+            )}
           </div>
         )}
 

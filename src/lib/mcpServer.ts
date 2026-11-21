@@ -630,6 +630,9 @@ function buildAttemptDetails(attempt: Attempt, paper?: QuestionPaper | null) {
       confidence: ans?.confidence ?? null,
       timeSpentSeconds: ans?.timeSpentSeconds ?? 0,
       note: ans?.note ?? null,
+      evaluationComment: ans?.evaluationComment ?? null,
+      evaluationSource: ans?.evaluationSource ?? null,
+      evaluationUpdatedAt: ans?.evaluationUpdatedAt ?? null,
       subjectiveAssessment: ans?.subjectiveAssessment ?? null,
       subjectiveMarks: ans?.subjectiveMarks ?? null,
       explanation,
@@ -930,7 +933,7 @@ export function createPortalMcpServer(
     { name: "UPSC Prep Hub", version: "1.0.0" },
     {
       instructions:
-        "You are connected to a student's UPSC Prep Hub account. Read the student's data before making assumptions. Use get_attempt_history for attempt questions: it is newest-first and defaults to one latest attempt per distinct paper. When evaluating or re-grading attempts, use get_attempt_detail to inspect candidate responses and use grade_attempt_questions to update marks, tags, or feedback—this automatically recalculates the attempt's score, percentage, and accuracy using the paper's current marks. For vocabulary and Study Aids, use list_vocab_cards, add_vocab_card, toggle_vocab_mastery, delete_vocab_card, get_vocab_practice_question, evaluate_vocab_sentence, and get_daily_motivation. Ask for confirmation before calling write tools, especially imports, score changes, or visibility changes.",
+        "You are connected to a student's UPSC Prep Hub account. Read the student's data before making assumptions. Use get_attempt_history for attempt questions: it is newest-first and defaults to one latest attempt per distinct paper. When evaluating or re-grading attempts, use get_attempt_detail to inspect candidate responses alongside their rough scratchpad notes (note: calculations, formulas, elimination steps) and existing feedback (evaluationComment). Use attach_question_evaluations to attach question-specific evaluator feedback (e.g., verifying whether calculations were sound or calling out flawed arithmetic/lucky guesses that happened to match the correct option), and use grade_attempt_questions to update marks, tags, or feedback—this automatically recalculates the attempt's score, percentage, and accuracy using the paper's current marks. For overall post-exam strategy notes, use attach_attempt_reflection. For vocabulary and Study Aids, use list_vocab_cards, add_vocab_card, toggle_vocab_mastery, delete_vocab_card, get_vocab_practice_question, evaluate_vocab_sentence, and get_daily_motivation. Ask for confirmation before calling write tools, especially imports, score changes, or visibility changes.",
       maxToolInputElements: 5000,
     },
   );
@@ -1199,7 +1202,7 @@ export function createPortalMcpServer(
     {
       title: "Get attempt details",
       description:
-        "Read one completed attempt's full per-question details including question prompt, options, student's selected choice or written cloze/one-liner answer, answer key, correctness, confidence tag, time spent, notes, and explanations. Defaults to the latest attempt if attemptId or paperId is omitted.",
+        "Read one completed attempt's full per-question details including question prompt, options, student's selected choice or written cloze/one-liner answer, answer key, correctness, confidence tag, time spent, candidate scratchpad notes (note: rough work & calculations), evaluator feedback (evaluationComment), and explanations. Defaults to the latest attempt if attemptId or paperId is omitted.",
       annotations: { readOnlyHint: true },
       inputSchema: {
         attemptId: z
@@ -1753,11 +1756,11 @@ export function createPortalMcpServer(
   );
 
   server.registerTool(
-    "update_question_notes",
+    "attach_question_evaluations",
     {
-      title: "Attach evaluation notes per question",
+      title: "Attach question-wise evaluation comments",
       description:
-        "Attach or update mentor feedback and evaluation notes to specific questions inside an attempt. Notes are visible directly under each question in the student's review screen. Defaults to the latest attempt if attemptId or paperId is omitted.",
+        "Attach or update mentor or AI evaluation comments on specific question attempts. Evaluates candidate's selected answer, scratchpad notes (e.g. calculation steps, elimination logic, flawed arithmetic despite correct choice), accuracy, and time spent. Comments are displayed prominently in the student's question review inspector.",
       annotations: { readOnlyHint: false, destructiveHint: false },
       inputSchema: {
         attemptId: z
@@ -1768,27 +1771,29 @@ export function createPortalMcpServer(
           .string()
           .optional()
           .describe("Match latest attempt for this paper ID."),
-        notes: z
+        evaluations: z
           .array(
             z.object({
               questionNo: z.number().int().min(1),
-              note: z
+              comment: z
                 .string()
                 .min(1)
-                .describe("The evaluation or mentor feedback note."),
+                .describe(
+                  "Evaluation feedback comment analyzing the candidate's attempt and scratchpad notes (e.g., calculation errors, elimination quality, lucky guesses).",
+                ),
               append: z
                 .boolean()
                 .optional()
                 .describe(
-                  "Append to existing question note instead of replacing. Defaults to false.",
+                  "Append to existing evaluation comment instead of replacing. Defaults to false.",
                 ),
             }),
           )
           .min(1)
-          .describe("List of questions and their evaluation notes."),
+          .describe("List of questions and their evaluation comments."),
       },
     },
-    async ({ attemptId, paperId, notes }) => {
+    async ({ attemptId, paperId, evaluations }) => {
       const authError = scopeError(scope, MCP_WRITE_SCOPE);
       if (authError) return authError;
 
@@ -1812,32 +1817,190 @@ export function createPortalMcpServer(
       }
 
       const updatedAnswers = { ...targetAttempt.answers };
-      const updatedList: Array<{ questionNo: number; note: string }> = [];
+      const updatedList: Array<{ questionNo: number; comment: string }> = [];
+      const timestamp = new Date().toISOString();
 
-      for (const item of notes) {
+      for (const item of evaluations) {
         const qNo = item.questionNo;
         const currentAnswer = updatedAnswers[qNo];
-        const trimmed = item.note.trim();
+        const trimmed = item.comment.trim();
 
-        const updatedNote =
-          item.append && currentAnswer?.note?.trim()
-            ? `${currentAnswer.note.trim()}\n\n${trimmed}`
+        const updatedComment =
+          item.append && currentAnswer?.evaluationComment?.trim()
+            ? `${currentAnswer.evaluationComment.trim()}\n\n${trimmed}`
             : trimmed;
 
         if (currentAnswer) {
           updatedAnswers[qNo] = {
             ...currentAnswer,
-            note: updatedNote,
+            evaluationComment: updatedComment,
+            evaluationSource: "mcp",
+            evaluationUpdatedAt: timestamp,
           };
         } else {
           updatedAnswers[qNo] = {
             questionNo: qNo,
             selected: null,
-            note: updatedNote,
+            evaluationComment: updatedComment,
+            evaluationSource: "mcp",
+            evaluationUpdatedAt: timestamp,
           };
         }
 
-        updatedList.push({ questionNo: qNo, note: updatedNote });
+        updatedList.push({ questionNo: qNo, comment: updatedComment });
+      }
+
+      const updatedAttempt: Attempt = {
+        ...targetAttempt,
+        answers: updatedAnswers,
+      };
+
+      await saveMcpAttempt(userId, updatedAttempt);
+
+      return textResult({
+        saved: true,
+        attemptId: updatedAttempt.id,
+        paperLabel: updatedAttempt.paperLabel,
+        evaluationsUpdatedCount: updatedList.length,
+        evaluations: updatedList,
+      });
+    },
+  );
+
+  server.registerTool(
+    "update_question_notes",
+    {
+      title: "Attach evaluation notes per question",
+      description:
+        "Attach or update mentor feedback and evaluation comments to specific questions inside an attempt. Feedback is visible directly in the student's question inspector in review mode. Defaults to latest attempt if attemptId or paperId is omitted.",
+      annotations: { readOnlyHint: false, destructiveHint: false },
+      inputSchema: {
+        attemptId: z
+          .string()
+          .optional()
+          .describe("Specific attempt ID. Defaults to latest attempt."),
+        paperId: z
+          .string()
+          .optional()
+          .describe("Match latest attempt for this paper ID."),
+        target: z
+          .enum(["evaluation", "scratchpad"])
+          .optional()
+          .describe(
+            "Whether to save as an evaluation feedback comment (default) or student scratchpad note.",
+          ),
+        notes: z
+          .array(
+            z.object({
+              questionNo: z.number().int().min(1),
+              note: z
+                .string()
+                .optional()
+                .describe("The evaluation or mentor feedback note."),
+              comment: z
+                .string()
+                .optional()
+                .describe("Alternative field for evaluation feedback comment."),
+              append: z
+                .boolean()
+                .optional()
+                .describe(
+                  "Append to existing note/comment instead of replacing. Defaults to false.",
+                ),
+            }),
+          )
+          .min(1)
+          .describe("List of questions and their evaluation notes."),
+      },
+    },
+    async ({ attemptId, paperId, target = "evaluation", notes }) => {
+      const authError = scopeError(scope, MCP_WRITE_SCOPE);
+      if (authError) return authError;
+
+      const attempts = sortAttemptsLatestFirst(await getUserAttempts(userId));
+      if (!attempts.length) {
+        return errorResult("No exam attempts found for this student.");
+      }
+
+      const targetAttempt = attemptId
+        ? attempts.find((a) => a.id === attemptId)
+        : paperId
+          ? attempts.find((a) => a.paperId === paperId)
+          : attempts[0];
+
+      if (!targetAttempt) {
+        return errorResult(
+          attemptId
+            ? `Attempt ${attemptId} not found.`
+            : `No attempt found for paper ${paperId}.`,
+        );
+      }
+
+      const updatedAnswers = { ...targetAttempt.answers };
+      const updatedList: Array<{
+        questionNo: number;
+        text: string;
+        target: string;
+      }> = [];
+      const timestamp = new Date().toISOString();
+
+      for (const item of notes) {
+        const qNo = item.questionNo;
+        const currentAnswer = updatedAnswers[qNo];
+        const rawText = (item.comment || item.note || "").trim();
+        if (!rawText) continue;
+
+        if (target === "scratchpad") {
+          const updatedNote =
+            item.append && currentAnswer?.note?.trim()
+              ? `${currentAnswer.note.trim()}\n\n${rawText}`
+              : rawText;
+
+          if (currentAnswer) {
+            updatedAnswers[qNo] = {
+              ...currentAnswer,
+              note: updatedNote,
+            };
+          } else {
+            updatedAnswers[qNo] = {
+              questionNo: qNo,
+              selected: null,
+              note: updatedNote,
+            };
+          }
+          updatedList.push({
+            questionNo: qNo,
+            text: updatedNote,
+            target: "scratchpad",
+          });
+        } else {
+          const updatedComment =
+            item.append && currentAnswer?.evaluationComment?.trim()
+              ? `${currentAnswer.evaluationComment.trim()}\n\n${rawText}`
+              : rawText;
+
+          if (currentAnswer) {
+            updatedAnswers[qNo] = {
+              ...currentAnswer,
+              evaluationComment: updatedComment,
+              evaluationSource: "mcp",
+              evaluationUpdatedAt: timestamp,
+            };
+          } else {
+            updatedAnswers[qNo] = {
+              questionNo: qNo,
+              selected: null,
+              evaluationComment: updatedComment,
+              evaluationSource: "mcp",
+              evaluationUpdatedAt: timestamp,
+            };
+          }
+          updatedList.push({
+            questionNo: qNo,
+            text: updatedComment,
+            target: "evaluation",
+          });
+        }
       }
 
       const updatedAttempt: Attempt = {
@@ -1852,7 +2015,12 @@ export function createPortalMcpServer(
         attemptId: updatedAttempt.id,
         paperLabel: updatedAttempt.paperLabel,
         notesUpdatedCount: updatedList.length,
-        notes: updatedList,
+        itemsUpdatedCount: updatedList.length,
+        notes: updatedList.map((i) => ({
+          questionNo: i.questionNo,
+          note: i.text,
+        })),
+        items: updatedList,
       });
     },
   );

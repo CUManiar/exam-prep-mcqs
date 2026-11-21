@@ -89,10 +89,11 @@ history, diagnose weak areas, grade answers, save paper imports, or record attem
 - **`get_portal_overview`**: Student progress summary, accuracy metrics, and paper library counts.
 - **`list_papers`**: Filter library papers by attempt status (`unattempted`, `attempted`, or `all`).
 - **`get_topic_analytics`**: Cross-attempt weak-area diagnostic engine. Analyzes student accuracy across all past tests aggregated by 3-tier hierarchy (`Subject > Chapter > Topic`), highlighting critical weak topics (<50% accuracy) and mastered topics (>=70%).
-- **`get_attempt_detail`**: Full per-question attempt inspector returning question prompt, word limits, options, candidate answer, answer key, notes, and handwritten booklet PDF URL (`userSubmissionPdfUrl`).
+- **`get_attempt_detail`**: Full per-question attempt inspector returning question prompt, word limits, options, candidate answer, answer key, student scratchpad rough work/notes (`note`), evaluator feedback (`evaluationComment`), and handwritten booklet PDF URL (`userSubmissionPdfUrl`).
 - **`grade_attempt_questions`**: Interactive grading for cloze/free-text and Mains subjective answers. Automatically recalculates score, percentage, and accuracy.
-- **`update_question_notes`**: Attach or update scratchpad notes per question.
-- **`attach_attempt_reflection`**: Post-exam strategy reflections attached directly to the attempt.
+- **`attach_question_evaluations`**: Attach question-by-question mentor or AI evaluation comments analyzing student choices, scratchpad notes, and arithmetic/elimination logic (detects accidental correct answers caused by flawed scratchpad calculations; displayed directly under each question in review).
+- **`update_question_notes`**: Attach or update scratchpad notes or evaluation comments per question.
+- **`attach_attempt_reflection`**: Post-exam overall strategy reflections attached directly to the attempt.
 - **`search_papers`**: Full-text search across parsed questions and markdown content.
 - **`create_paper`**, **`delete_paper`**, **`archive_paper`**: Complete paper lifecycle management.
 - **`replace_syllabus_markdown`** & **`set_syllabus_item_completion`**: Track custom syllabus outlines with automatic parent-child due dates.
