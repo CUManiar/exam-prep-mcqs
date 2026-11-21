@@ -466,10 +466,7 @@ export function PapersView({
     }
   };
 
-  const retestPapers = useMemo(
-    () => papers.filter(isRetestPaper),
-    [papers],
-  );
+  const retestPapers = useMemo(() => papers.filter(isRetestPaper), [papers]);
   const retestPapersCount = retestPapers.length;
 
   const customPapersCount = useMemo(

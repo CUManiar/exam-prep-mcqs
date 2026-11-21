@@ -985,8 +985,8 @@ export function AttemptReviewView({
                     Boolean(
                       (q.evaluationComment &&
                         q.evaluationComment.trim().length > 0) ||
-                        q.evaluationSource ||
-                        q.evaluationUpdatedAt,
+                      q.evaluationSource ||
+                      q.evaluationUpdatedAt,
                     ),
                   ).length,
                 }}

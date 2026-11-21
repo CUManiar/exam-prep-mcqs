@@ -265,8 +265,8 @@ export function LongitudinalTrendChart({
             )}
           </div>
           <p className="text-[11px] text-slate-500">
-            Showing {displayedAttempts.length} of {chronologicalAttempts.length} completed
-            exam mocks
+            Showing {displayedAttempts.length} of {chronologicalAttempts.length}{" "}
+            completed exam mocks
           </p>
         </div>
 

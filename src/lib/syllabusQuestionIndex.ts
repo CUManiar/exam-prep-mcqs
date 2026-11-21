@@ -37,12 +37,55 @@ interface MemoryQuestionIndex {
 }
 
 const COMMON_STOP_WORDS = new Set([
-  "the", "and", "for", "with", "from", "that", "this", "which",
-  "are", "was", "were", "been", "have", "has", "had", "does", "did",
-  "can", "could", "shall", "should", "will", "would", "about", "above",
-  "after", "again", "against", "all", "any", "both", "each", "few",
-  "more", "most", "other", "some", "such", "than", "too", "very",
-  "upsc", "prelims", "mains", "mock", "paper", "test", "set", "question"
+  "the",
+  "and",
+  "for",
+  "with",
+  "from",
+  "that",
+  "this",
+  "which",
+  "are",
+  "was",
+  "were",
+  "been",
+  "have",
+  "has",
+  "had",
+  "does",
+  "did",
+  "can",
+  "could",
+  "shall",
+  "should",
+  "will",
+  "would",
+  "about",
+  "above",
+  "after",
+  "again",
+  "against",
+  "all",
+  "any",
+  "both",
+  "each",
+  "few",
+  "more",
+  "most",
+  "other",
+  "some",
+  "such",
+  "than",
+  "too",
+  "very",
+  "upsc",
+  "prelims",
+  "mains",
+  "mock",
+  "paper",
+  "test",
+  "set",
+  "question",
 ]);
 
 function tokenizeString(input: string): string[] {
@@ -83,7 +126,8 @@ function getOrBuildInvertedIndex(papers: QuestionPaper[]): MemoryQuestionIndex {
   const tokenMap = new Map<string, number[]>();
 
   papers.forEach((paper) => {
-    const paperTitle = paper.label || paper.title || `${paper.year} – ${paper.subject}`;
+    const paperTitle =
+      paper.label || paper.title || `${paper.year} – ${paper.subject}`;
     let qList: ParsedQuestion[] = [];
 
     if (paper.parsedQuestions && paper.parsedQuestions.length > 0) {
@@ -187,7 +231,10 @@ export function findQuestionsForSyllabusTopic(
     }
 
     // Bonus for matching subject
-    if (q.paperSubject && normalizedQuery.includes(q.paperSubject.toLowerCase())) {
+    if (
+      q.paperSubject &&
+      normalizedQuery.includes(q.paperSubject.toLowerCase())
+    ) {
       score += 5;
     }
 

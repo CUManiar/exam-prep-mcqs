@@ -808,8 +808,8 @@ export function useReviewData(attempt: Attempt, papers: QuestionPaper[]) {
         isEvaluatedActive &&
         Boolean(
           (q.evaluationComment && q.evaluationComment.trim().length > 0) ||
-            q.evaluationSource ||
-            q.evaluationUpdatedAt,
+          q.evaluationSource ||
+          q.evaluationUpdatedAt,
         );
 
       if (logic === "OR") {

@@ -1,4 +1,7 @@
-import { QuestionBankEntity, QuestionBankQueryFilter } from "./questionBankTypes";
+import {
+  QuestionBankEntity,
+  QuestionBankQueryFilter,
+} from "./questionBankTypes";
 import { QuestionPaper, ParsedQuestion } from "./types";
 import { parseQuestionnaireMarkdown } from "./markdownPaperParser";
 import { getSupabaseClient } from "./supabase";
@@ -23,7 +26,8 @@ export function normalizePaperToQuestions(
     questions = parseQuestionnaireMarkdown(paper.markdownContent);
   }
 
-  const paperTitle = paper.label || paper.title || `${paper.year} – ${paper.subject}`;
+  const paperTitle =
+    paper.label || paper.title || `${paper.year} – ${paper.subject}`;
   const isSubjective = paper.examType === "subjective";
 
   return questions.map((q) => {
@@ -32,7 +36,8 @@ export function normalizePaperToQuestions(
     const questionId = `qb_${sanitizedPaperId}_q${qNo}`;
 
     const isMatching = Boolean(q.matchingItems && q.matchingItems.length > 0);
-    const isCloze = !isSubjective && (!q.options || Object.keys(q.options).length === 0);
+    const isCloze =
+      !isSubjective && (!q.options || Object.keys(q.options).length === 0);
 
     const questionType = isSubjective
       ? "subjective"
@@ -157,7 +162,10 @@ export async function queryQuestionBank(
         query = query.limit(filter.limit);
       }
       if (filter.offset) {
-        query = query.range(filter.offset, filter.offset + (filter.limit || 20) - 1);
+        query = query.range(
+          filter.offset,
+          filter.offset + (filter.limit || 20) - 1,
+        );
       }
 
       const { data, error } = await query;

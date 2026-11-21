@@ -374,9 +374,7 @@ export function QuestionFilterBar({
           {
             id: "scratchpad",
             label: "Scratchpad",
-            icon: (
-              <PenTool className="h-3.5 w-3.5 text-indigo-500 shrink-0" />
-            ),
+            icon: <PenTool className="h-3.5 w-3.5 text-indigo-500 shrink-0" />,
             count: counts.hasScratchpad ?? 0,
             isActive: Boolean(filters.hasScratchpad),
             onClick: onToggleScratchpad,
@@ -388,9 +386,7 @@ export function QuestionFilterBar({
           {
             id: "evaluated",
             label: "Evaluated",
-            icon: (
-              <Sparkles className="h-3.5 w-3.5 text-purple-500 shrink-0" />
-            ),
+            icon: <Sparkles className="h-3.5 w-3.5 text-purple-500 shrink-0" />,
             count: counts.hasEvaluation ?? 0,
             isActive: Boolean(filters.hasEvaluation),
             onClick: onToggleEvaluated,

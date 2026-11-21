@@ -2,7 +2,10 @@ import { NextRequest, NextResponse } from "next/server";
 import { uploadFile, readJsonStore, writeJsonStore } from "@/lib/cloudStorage";
 import { parseAnswerKeyDetailed } from "@/lib/defaults";
 import { parseMarkdownHeader } from "@/lib/markdownPaperParser";
-import { normalizePaperToQuestions, saveQuestionsToBank } from "@/lib/questionBank";
+import {
+  normalizePaperToQuestions,
+  saveQuestionsToBank,
+} from "@/lib/questionBank";
 import {
   checkRateLimit,
   getAuthenticatedUser,
