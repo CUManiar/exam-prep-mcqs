@@ -21,6 +21,7 @@ import {
 } from "lucide-react";
 import {
   exportAttemptAsPrintPDF,
+  exportMistakesAsPrintPDF,
   exportAttemptWithQuestionPaperAsPrintPDF,
   exportAttemptAsMarkdown,
   exportAttemptAsJSON,
@@ -108,6 +109,15 @@ export function ReviewHeader({
       attempt,
       matchedPaper?.explanations,
       displayPaperTitle,
+      effectiveMaxScore,
+    );
+  };
+
+  const handlePrintMistakesOnly = () => {
+    exportMistakesAsPrintPDF(
+      attempt,
+      matchedPaper?.explanations,
+      `Mistakes & Review: ${displayPaperTitle}`,
       effectiveMaxScore,
     );
   };
@@ -288,6 +298,17 @@ export function ReviewHeader({
                 >
                   <Printer className="h-4 w-4 text-slate-500 shrink-0" />
                   <span>Download assessment summary (PDF)</span>
+                </button>
+
+                <button
+                  onClick={() => {
+                    handlePrintMistakesOnly();
+                    setShowExportMenu(false);
+                  }}
+                  className="flex w-full items-center gap-2.5 rounded-xl px-3 py-2 text-xs font-semibold text-rose-700 hover:bg-rose-50 transition-colors cursor-pointer whitespace-nowrap"
+                >
+                  <Target className="h-4 w-4 text-rose-600 shrink-0" />
+                  <span>Mistakes &amp; flagged questions only (PDF)</span>
                 </button>
 
                 <button
