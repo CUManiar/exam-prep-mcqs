@@ -222,7 +222,7 @@ export function PapersView({
   onDeletePaper,
   onUpdatePaper,
 }: PapersViewProps) {
-  const { isPro, openProUpgradeModal, attempts = [] } = useApp();
+  const { isPro, openProUpgradeModal, attempts = [], isLoading } = useApp();
   const searchParams = useSearchParams();
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedCategory, setSelectedCategory] = useState<
@@ -1217,7 +1217,19 @@ export function PapersView({
       </div>
 
       {/* Papers Grid */}
-      {filteredPapers.length === 0 ? (
+      {isLoading && papers.length === 0 ? (
+        <div className="bi-card rounded-2xl p-16 text-center border border-slate-200 bg-white space-y-4 shadow-sm animate-in fade-in duration-200">
+          <div className="h-10 w-10 border-3 border-indigo-200 border-t-indigo-600 rounded-full animate-spin mx-auto" />
+          <div className="space-y-1">
+            <h3 className="text-sm font-bold text-slate-800">
+              Loading Question Papers...
+            </h3>
+            <p className="text-xs text-slate-500 max-w-sm mx-auto">
+              Fetching paper library, mock tests, and question banks.
+            </p>
+          </div>
+        </div>
+      ) : filteredPapers.length === 0 ? (
         <div className="bi-card rounded-2xl p-12 text-center border-dashed border-slate-300">
           {selectedSource === "custom" ? (
             <>

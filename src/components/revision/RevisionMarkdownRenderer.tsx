@@ -301,7 +301,7 @@ function MermaidDiagram({ code }: { code: string }) {
             document.documentElement.getAttribute("data-theme") === "dark"
               ? "dark"
               : "default",
-          flowchart: { useMaxWidth: true, htmlLabels: true, curve: "basis" },
+          flowchart: { useMaxWidth: true, htmlLabels: true, curve: "linear" },
           securityLevel: "loose",
         });
         if (typeof w.mermaid.parseError === "function") {
@@ -323,8 +323,7 @@ function MermaidDiagram({ code }: { code: string }) {
               setHasError(false);
             }
           })
-          .catch((err: any) => {
-            console.warn("Mermaid validation/render error:", err);
+          .catch(() => {
             // Clean up any stray error element that Mermaid might have inserted into document.body
             setTimeout(() => {
               document
@@ -335,10 +334,30 @@ function MermaidDiagram({ code }: { code: string }) {
                   if (el.parentElement === document.body) el.remove();
                 });
             }, 0);
+
+            // Attempt fallback rendering without edge labels if dagre distance calculation failed
+            const simplifiedCode = sanitizedCode.replace(/-->\|[^|]+\|/g, "-->");
+            if (simplifiedCode !== sanitizedCode) {
+              const fallbackId = `mermaid_${Math.random().toString(36).slice(2, 9)}`;
+              w.mermaid
+                .render(fallbackId, simplifiedCode)
+                .then((res: any) => {
+                  if (isMounted && res?.svg) {
+                    setSvgHtml(res.svg);
+                    setHasError(false);
+                  } else if (isMounted) {
+                    setHasError(true);
+                  }
+                })
+                .catch(() => {
+                  if (isMounted) setHasError(true);
+                });
+              return;
+            }
+
             if (isMounted) setHasError(true);
           });
-      } catch (err) {
-        console.warn("Mermaid initialization error:", err);
+      } catch {
         if (isMounted) setHasError(true);
       }
     };

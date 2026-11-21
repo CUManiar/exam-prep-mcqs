@@ -122,6 +122,16 @@ function ExamSessionContent() {
     }
   }
 
+  const [loadTimedOut, setLoadTimedOut] = useState(false);
+
+  useEffect(() => {
+    if (paper) return;
+    const timer = setTimeout(() => {
+      setLoadTimedOut(true);
+    }, 2500);
+    return () => clearTimeout(timer);
+  }, [paper]);
+
   // Dismiss the "Opening assessment…" overlay once the paper is fully resolved
   // and we're about to render the ExamSessionView. This guarantees the loader
   // stays visible for the entire hydration/data-fetch period.
@@ -131,8 +141,8 @@ function ExamSessionContent() {
     }
   }, [!!paper, mounted, notifyExamReady]);
 
-  if (!mounted || (isLoading && !paper)) {
-    return <ExamSessionLoadingBuffer message="Restoring Exam Session..." />;
+  if (!mounted || (isLoading && !paper) || (!paper && !loadTimedOut)) {
+    return <ExamSessionLoadingBuffer message="Loading Question Paper..." />;
   }
 
   if (!paper) {
