@@ -20,6 +20,7 @@ import {
 import { cleanPreviousYears } from "../../lib/markdownPaperParser";
 import { useApp } from "../../context/AppContext";
 import { saveCustomPaper } from "../../lib/storage";
+import { HtmlExplanation } from "../HtmlExplanation";
 
 interface SyllabusMatchingQuestionsModalProps {
   topic: SyllabusItem;
@@ -171,7 +172,7 @@ export function SyllabusMatchingQuestionsModal({
       className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-6 bg-slate-900/60 backdrop-blur-xs animate-in fade-in duration-200"
     >
       <div
-        className="w-full max-w-2xl max-h-[90vh] flex flex-col bg-white dark:bg-slate-900 rounded-2xl shadow-2xl border border-slate-200 dark:border-slate-800 overflow-hidden"
+        className="w-full max-w-4xl lg:max-w-5xl max-h-[92vh] flex flex-col bg-white dark:bg-slate-900 rounded-2xl shadow-2xl border border-slate-200 dark:border-slate-800 overflow-hidden"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
@@ -408,18 +409,20 @@ export function SyllabusMatchingQuestionsModal({
 
                   {/* Solution & Explanation Disclosure */}
                   {isAnswerRevealed && (
-                    <div className="p-3.5 rounded-xl bg-emerald-50/70 dark:bg-emerald-950/40 border border-emerald-100 dark:border-emerald-800/60 space-y-1.5 text-xs animate-in fade-in duration-150">
-                      <div className="font-bold text-emerald-900 dark:text-emerald-300 flex items-center gap-1.5">
-                        <CheckCircle2 className="h-3.5 w-3.5 text-emerald-600 dark:text-emerald-400 shrink-0" />
+                    <div className="p-3.5 sm:p-4 rounded-xl bg-emerald-50/70 dark:bg-emerald-950/40 border border-emerald-100 dark:border-emerald-800/60 space-y-2 text-xs animate-in fade-in duration-150">
+                      <div className="font-bold text-emerald-900 dark:text-emerald-300 flex items-center gap-1.5 text-xs sm:text-sm">
+                        <CheckCircle2 className="h-4 w-4 text-emerald-600 dark:text-emerald-400 shrink-0" />
                         <span>
-                          Official Answer: ({q.correctAnswer || "Not specified"}
-                          )
+                          Official Answer: ({q.correctAnswer || "Not specified"})
                         </span>
                       </div>
                       {q.explanation && (
-                        <p className="text-slate-700 dark:text-slate-300 leading-relaxed whitespace-pre-wrap text-[11px] pt-1">
-                          {q.explanation}
-                        </p>
+                        <div className="pt-1 border-t border-emerald-200/50 dark:border-emerald-800/40">
+                          <HtmlExplanation
+                            text={q.explanation}
+                            className="text-slate-700 dark:text-slate-300 text-xs sm:text-[13px] leading-relaxed"
+                          />
+                        </div>
                       )}
                     </div>
                   )}
