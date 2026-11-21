@@ -11,7 +11,8 @@ export async function POST(req: NextRequest) {
   try {
     const body = await req.json().catch(() => ({}));
     const question = body.question as QuestionEvaluationParams | undefined;
-    const providerConfig = body.providerConfig as RevisionProviderConfig | undefined;
+    const providerConfig = body.providerConfig as
+      RevisionProviderConfig | undefined;
 
     if (!question || typeof question.questionNo !== "number") {
       return NextResponse.json(

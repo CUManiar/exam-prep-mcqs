@@ -1937,7 +1937,11 @@ export function createPortalMcpServer(
       }
 
       const updatedAnswers = { ...targetAttempt.answers };
-      const updatedList: Array<{ questionNo: number; text: string; target: string }> = [];
+      const updatedList: Array<{
+        questionNo: number;
+        text: string;
+        target: string;
+      }> = [];
       const timestamp = new Date().toISOString();
 
       for (const item of notes) {
@@ -1964,7 +1968,11 @@ export function createPortalMcpServer(
               note: updatedNote,
             };
           }
-          updatedList.push({ questionNo: qNo, text: updatedNote, target: "scratchpad" });
+          updatedList.push({
+            questionNo: qNo,
+            text: updatedNote,
+            target: "scratchpad",
+          });
         } else {
           const updatedComment =
             item.append && currentAnswer?.evaluationComment?.trim()
@@ -1987,7 +1995,11 @@ export function createPortalMcpServer(
               evaluationUpdatedAt: timestamp,
             };
           }
-          updatedList.push({ questionNo: qNo, text: updatedComment, target: "evaluation" });
+          updatedList.push({
+            questionNo: qNo,
+            text: updatedComment,
+            target: "evaluation",
+          });
         }
       }
 
@@ -2004,7 +2016,10 @@ export function createPortalMcpServer(
         paperLabel: updatedAttempt.paperLabel,
         notesUpdatedCount: updatedList.length,
         itemsUpdatedCount: updatedList.length,
-        notes: updatedList.map((i) => ({ questionNo: i.questionNo, note: i.text })),
+        notes: updatedList.map((i) => ({
+          questionNo: i.questionNo,
+          note: i.text,
+        })),
         items: updatedList,
       });
     },

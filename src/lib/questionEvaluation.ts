@@ -253,7 +253,9 @@ async function callAnthropic(
     }
   }
 
-  throw new Error(`Anthropic evaluation failed: ${lastError || "Unknown error"}`);
+  throw new Error(
+    `Anthropic evaluation failed: ${lastError || "Unknown error"}`,
+  );
 }
 
 export async function generateQuestionEvaluationComment(
@@ -283,11 +285,9 @@ export async function generateQuestionEvaluationComment(
       );
     }
     if (provider === "openai") {
-      const models = [
-        providerConfig?.model,
-        "gpt-4o-mini",
-        "gpt-4o",
-      ].filter(Boolean) as string[];
+      const models = [providerConfig?.model, "gpt-4o-mini", "gpt-4o"].filter(
+        Boolean,
+      ) as string[];
       return await callOpenAICompatible(
         "https://api.openai.com/v1",
         userApiKey,
