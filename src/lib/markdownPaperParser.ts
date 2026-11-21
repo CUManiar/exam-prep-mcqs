@@ -109,6 +109,8 @@ export function cleanPreviousYears(val: string): string {
     .replace(/[\u2212]/g, "-")
     .trim();
   const currentYear = new Date().getFullYear();
+  // Real PYQs are strictly past UPSC exams (1979 to 2025; current/future test years like 2026 are mocks)
+  const maxPYQYear = Math.min(currentYear, 2025);
   const validYears = cleaned
     .split(/[,;/]+/)
     .map((y) => {
@@ -118,8 +120,7 @@ export function cleanPreviousYears(val: string): string {
     .filter((y): y is string => {
       if (!y) return false;
       const num = parseInt(y, 10);
-      // UPSC CSE in modern format started in 1979; standard PYQs cover 1979-current
-      return num >= 1979 && num <= currentYear + 1;
+      return num >= 1979 && num <= maxPYQYear;
     });
   return validYears.join(", ");
 }

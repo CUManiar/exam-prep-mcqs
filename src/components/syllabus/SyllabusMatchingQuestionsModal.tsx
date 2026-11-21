@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useEffect } from "react";
 import {
   X,
   BookOpen,
@@ -25,13 +25,38 @@ import { HtmlExplanation } from "../HtmlExplanation";
 interface SyllabusMatchingQuestionsModalProps {
   topic: SyllabusItem;
   papers: QuestionPaper[];
+  allTopics?: SyllabusItem[];
   onClose: () => void;
   onNavigatePaper?: (paperId: string) => void;
+}
+
+function getAllDescendantTopicTitles(
+  rootId: string,
+  allTopics: SyllabusItem[],
+): string[] {
+  const titles: string[] = [];
+  const queue = [rootId];
+  const visited = new Set<string>([rootId]);
+
+  while (queue.length > 0) {
+    const currentId = queue.shift()!;
+    for (const item of allTopics) {
+      if (item.parentId === currentId && !visited.has(item.id)) {
+        visited.add(item.id);
+        if (item.title && item.title.trim()) {
+          titles.push(item.title.trim());
+        }
+        queue.push(item.id);
+      }
+    }
+  }
+  return titles;
 }
 
 export function SyllabusMatchingQuestionsModal({
   topic,
   papers,
+  allTopics,
   onClose,
   onNavigatePaper,
 }: SyllabusMatchingQuestionsModalProps) {
@@ -45,10 +70,28 @@ export function SyllabusMatchingQuestionsModal({
     new Set(),
   );
 
-  // Lazily compute indexed matching questions (O(1) index, max 20 questions)
+  // Close modal when Escape key is pressed
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        onClose();
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [onClose]);
+
+  // Compute all child/descendant subtopics if this is a parent topic
+  const childTitles = useMemo(() => {
+    return allTopics ? getAllDescendantTopicTitles(topic.id, allTopics) : [];
+  }, [topic.id, allTopics]);
+
+  // Lazily compute indexed matching questions (aggregating child topics if parent)
   const matchingQuestions = useMemo(() => {
-    return findQuestionsForSyllabusTopic(topic.title, papers, 20);
-  }, [topic.title, papers]);
+    const searchQueries =
+      childTitles.length > 0 ? [topic.title, ...childTitles] : topic.title;
+    return findQuestionsForSyllabusTopic(searchQueries, papers, 40);
+  }, [topic.title, childTitles, papers]);
 
   const handleSelectOption = (index: number, optionKey: string) => {
     // Record selection and automatically reveal answer & solution
@@ -187,6 +230,9 @@ export function SyllabusMatchingQuestionsModal({
                 {matchingQuestions.length}{" "}
                 {matchingQuestions.length === 1 ? "question" : "questions"}{" "}
                 found
+                {childTitles.length > 0
+                  ? ` (includes ${childTitles.length} subtopics)`
+                  : ""}
               </span>
             </div>
             <h3
@@ -244,9 +290,14 @@ export function SyllabusMatchingQuestionsModal({
                 userSelected.trim().toUpperCase() ===
                   q.correctAnswer.trim().toUpperCase();
 
-              // Resolve PYQ year label: only genuine UPSC exam years (>= 1979)
+              // Resolve PYQ year label: either explicit q.previousYears or official paper year (1979-2025)
               const pyqYears = q.previousYears
                 ? cleanPreviousYears(q.previousYears)
+                : q.paperYear &&
+                  /^(19[89]\d|20[0-2]\d)$/.test(q.paperYear) &&
+                  q.paperYear !== "2026" &&
+                  !q.paperTitle.toLowerCase().includes("mock")
+                ? cleanPreviousYears(q.paperYear)
                 : undefined;
 
               const optionKeys = Object.keys(q.options || {}).sort();
@@ -259,23 +310,30 @@ export function SyllabusMatchingQuestionsModal({
                   {/* Top Metadata */}
                   <div className="flex items-center justify-between gap-2 text-xs">
                     <div className="flex items-center gap-2 min-w-0 flex-wrap">
-                      <span className="font-bold text-slate-900 dark:text-slate-100 bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 px-2 py-0.5 rounded-md font-mono text-[11px]">
-                        Q{q.questionNo}
+                      {/* Practice sequence index: #1, #2, etc. */}
+                      <span className="font-bold text-slate-900 dark:text-slate-100 bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 px-2.5 py-0.5 rounded-md font-mono text-[11px] shrink-0">
+                        #{idx + 1}
                       </span>
 
                       {/* Prominent PYQ Badge */}
                       {pyqYears && (
-                        <span className="inline-flex items-center gap-1 font-mono font-bold text-[10px] text-amber-900 dark:text-amber-200 bg-amber-100/90 dark:bg-amber-950/70 border border-amber-300 dark:border-amber-700 px-2 py-0.5 rounded-md shadow-2xs">
+                        <span className="inline-flex items-center gap-1 font-mono font-bold text-[10px] text-amber-900 dark:text-amber-200 bg-amber-100/90 dark:bg-amber-950/70 border border-amber-300 dark:border-amber-700 px-2 py-0.5 rounded-md shadow-2xs shrink-0">
                           PYQ {pyqYears}
                         </span>
                       )}
 
-                      <span
-                        className="font-semibold text-indigo-700 dark:text-indigo-400 truncate max-w-[200px] sm:max-w-[320px]"
-                        title={q.paperTitle}
+                      {/* Paper source & Paper Question Number */}
+                      <div
+                        className="flex items-center gap-1.5 text-xs truncate max-w-[240px] sm:max-w-[420px]"
+                        title={`${q.paperTitle} (Question ${q.questionNo})`}
                       >
-                        {q.paperTitle}
-                      </span>
+                        <span className="font-semibold text-indigo-700 dark:text-indigo-400 truncate">
+                          {q.paperTitle}
+                        </span>
+                        <span className="text-[11px] font-mono text-slate-400 dark:text-slate-500 shrink-0">
+                          (Q{q.questionNo})
+                        </span>
+                      </div>
                     </div>
 
                     <div className="flex items-center gap-2 shrink-0">

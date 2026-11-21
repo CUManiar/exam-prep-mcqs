@@ -147,37 +147,61 @@ function getOrBuildInvertedIndex(papers: QuestionPaper[]): MemoryQuestionIndex {
       const allTokens = new Set<string>([...subjectTokens, ...questionTokens]);
 
       // Resolve previous years:
-      // Resolve previous years:
-      // Only valid if question has an explicit PYQ tag or official UPSC year (>= 1979)
+      // 1. Direct tag on question (e.g. q.previousYears = "2017, 2021")
       let resolvedPYQ: string | undefined = q.previousYears
         ? cleanPreviousYears(String(q.previousYears))
         : undefined;
 
+      // 2. Explicit tag or inline UPSC / CSE / PYQ reference in text or explanation
       if (!resolvedPYQ) {
         const textToScan = `${qText} ${paper.explanations?.[q.questionNo] || q.explanation || ""}`;
-        const explicitPYQMatch = textToScan.match(
-          /(?:\[|\()\s*(?:UPSC\s*(?:CSE\s*)?|CSE\s+|PYQ\s+)((?:19[89]\d|20[0-2]\d)(?:\s*,\s*(?:19[89]\d|20[0-2]\d))*)\s*(?:\]|\))/i,
+
+        // Matches [Year: 2017, 2021] or [PYQ: 2020]
+        const bracketTagMatch = textToScan.match(
+          /\[\s*(?:(?:UPSC\s+)?PYQ|Previously\s*Asked|Previous\s*Years?|Years?)\s*:\s*([^\]]+)\]/i,
         );
-        if (explicitPYQMatch && explicitPYQMatch[1]) {
-          resolvedPYQ = cleanPreviousYears(explicitPYQMatch[1]);
+        if (bracketTagMatch && bracketTagMatch[1]) {
+          const cleaned = cleanPreviousYears(bracketTagMatch[1]);
+          if (cleaned) resolvedPYQ = cleaned;
+        }
+
+        // Matches (UPSC 2021), [PYQ 2020], PYQ 2019, <i>PYQ 2024</i>, UPSC CSE 2018
+        if (!resolvedPYQ) {
+          const inlinePYQMatch = textToScan.match(
+            /(?:\[|\(|\b)(?:UPSC(?:\s*CSE)?|CSE|PYQ)\s*[:\-–]?\s*((?:19[89]\d|20[0-2]\d)(?:\s*,\s*(?:19[89]\d|20[0-2]\d))*)/i,
+          );
+          if (inlinePYQMatch && inlinePYQMatch[1]) {
+            const cleaned = cleanPreviousYears(inlinePYQMatch[1]);
+            if (cleaned) resolvedPYQ = cleaned;
+          }
         }
       }
 
-      if (
-        !resolvedPYQ &&
-        paper.year &&
-        /^(19[89]\d|20[0-2]\d)$/.test(paper.year.trim()) &&
-        paper.year !== "2026"
-      ) {
-        const isOfficialPYQPaper =
-          !paper.isCustom &&
-          paper.category === "prelims" &&
-          paper.label &&
-          /\bupsc\b|\bcse\b|prelims\s+(?:19[89]\d|20[0-2]\d)/i.test(
-            paper.label,
-          );
-        if (isOfficialPYQPaper) {
-          resolvedPYQ = cleanPreviousYears(paper.year.trim());
+      // 3. Official past UPSC / Prelims paper
+      if (!resolvedPYQ && paper.year) {
+        const pYear = paper.year.trim();
+        const yearNum = parseInt(pYear, 10);
+        if (yearNum >= 1979 && yearNum <= 2025 && pYear !== "2026") {
+          const isPastOfficial =
+            !paper.isCustom ||
+            /prelims|upsc|cse/i.test(paper.label || "") ||
+            /prelims|upsc|cse/i.test(paper.title || "") ||
+            /prelims/i.test(paper.id);
+          if (isPastOfficial) {
+            resolvedPYQ = pYear;
+          }
+        }
+      }
+
+      // 4. Paper title year if tagged with UPSC / CSE / PYQ / Prelims
+      if (!resolvedPYQ && paperTitle) {
+        const titleMatch = paperTitle.match(
+          /(?:UPSC|CSE|PYQ|Prelims)[^\d\n]{0,10}\b(19[89]\d|20[0-2]\d)\b|\b(19[89]\d|20[0-2]\d)\b[^\d\n]{0,10}(?:UPSC|CSE|PYQ|Prelims)/i,
+        );
+        const yearCandidate = titleMatch ? titleMatch[1] || titleMatch[2] : null;
+        if (yearCandidate && yearCandidate !== "2026") {
+          const cleaned = cleanPreviousYears(yearCandidate);
+          if (cleaned) resolvedPYQ = cleaned;
         }
       }
 
@@ -222,37 +246,40 @@ function getOrBuildInvertedIndex(papers: QuestionPaper[]): MemoryQuestionIndex {
 }
 
 /**
- * Scalably finds matching questions for a syllabus topic without full-text scanning.
- * Uses the cached inverted index, scoring exact phrase and token overlap.
- * Result set is strictly bounded by maxLimit (default 20) to prevent DOM or memory bloat.
+ * Scalably finds matching questions for a syllabus topic or an array of topics (e.g. topic + all subtopics)
+ * without full-text scanning. Uses the cached inverted index, scoring exact phrase and token overlap.
+ * Result set is strictly bounded by maxLimit to prevent DOM or memory bloat.
  */
 export function findQuestionsForSyllabusTopic(
-  topicTitle: string,
+  topicQuery: string | string[],
   papers: QuestionPaper[],
-  maxLimit = 20,
+  maxLimit = 30,
 ): IndexedQuestionMatch[] {
-  if (!topicTitle || !topicTitle.trim() || papers.length === 0) {
+  const rawQueries = Array.isArray(topicQuery) ? topicQuery : [topicQuery];
+  const queries = rawQueries
+    .map((q) => q.trim())
+    .filter((q) => q.length > 0);
+
+  if (queries.length === 0 || papers.length === 0) {
     return [];
   }
 
   const index = getOrBuildInvertedIndex(papers);
-  const normalizedQuery = topicTitle.trim().toLowerCase();
-  const queryTokens = tokenizeString(topicTitle);
-
-  if (queryTokens.length === 0 && normalizedQuery.length < 3) {
-    return [];
-  }
-
-  // Gather candidate question indices using inverted index
   const candidateScores = new Map<number, number>();
 
-  queryTokens.forEach((token) => {
-    const matchedIndices = index.tokenMap.get(token);
-    if (!matchedIndices) return;
+  queries.forEach((qStr, qIdx) => {
+    const isPrimary = qIdx === 0;
+    const tokens = tokenizeString(qStr);
 
-    matchedIndices.forEach((qIdx) => {
-      const current = candidateScores.get(qIdx) || 0;
-      candidateScores.set(qIdx, current + 3);
+    tokens.forEach((token) => {
+      const matchedIndices = index.tokenMap.get(token);
+      if (!matchedIndices) return;
+
+      matchedIndices.forEach((questionIdx) => {
+        const current = candidateScores.get(questionIdx) || 0;
+        // Direct topic match gets 3 points per token; child/descendant subtopic gets 2 points
+        candidateScores.set(questionIdx, current + (isPrimary ? 3 : 2));
+      });
     });
   });
 
@@ -262,27 +289,32 @@ export function findQuestionsForSyllabusTopic(
 
   // Score candidate questions with phrase boost
   const results: IndexedQuestionMatch[] = [];
+  const normalizedQueries = queries.map((q) => q.toLowerCase());
 
-  candidateScores.forEach((baseScore, qIdx) => {
-    const q = index.questions[qIdx];
+  candidateScores.forEach((baseScore, questionIdx) => {
+    const q = index.questions[questionIdx];
     let score = baseScore;
 
-    // High bonus for exact phrase match in stem
-    if (q.rawNormalizedText.includes(normalizedQuery)) {
-      score += 20;
+    // High bonus for exact phrase match with any query title (higher for primary topic)
+    for (let i = 0; i < normalizedQueries.length; i++) {
+      const nq = normalizedQueries[i];
+      if (nq.length >= 4 && q.rawNormalizedText.includes(nq)) {
+        score += i === 0 ? 25 : 15;
+        break;
+      }
     }
 
     // Bonus for matching subject
-    if (
-      q.paperSubject &&
-      normalizedQuery.includes(q.paperSubject.toLowerCase())
-    ) {
-      score += 5;
+    if (q.paperSubject) {
+      const sLower = q.paperSubject.toLowerCase();
+      if (normalizedQueries.some((nq) => nq.includes(sLower))) {
+        score += 5;
+      }
     }
 
     // Bonus if PYQ metadata exists
     if (q.previousYears) {
-      score += 2;
+      score += 3;
     }
 
     results.push({

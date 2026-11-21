@@ -1126,6 +1126,7 @@ export function SyllabusView() {
         <SyllabusMatchingQuestionsModal
           topic={selectedTopicForQuestions}
           papers={papers}
+          allTopics={activeItems}
           onClose={() => setSelectedTopicForQuestions(null)}
         />
       )}
