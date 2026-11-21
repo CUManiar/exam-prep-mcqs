@@ -7,6 +7,7 @@ import {
   isUserUploadedPaper,
 } from "./defaults";
 import { readJsonStore, writeJsonStore } from "./cloudStorage";
+import { findQuestionsForSyllabusTopic } from "./syllabusQuestionIndex";
 
 let adminClient: SupabaseClient | null | undefined;
 const memoryHiddenPaperIds = new Map<string, string[]>();
@@ -805,32 +806,26 @@ export async function getRevisionContextData(
     );
   }
 
-  // Find related questions across papers
+  // Find related questions across papers using indexed inverted lookups
   const relatedPaperQuestions: RevisionContextResult["relatedPaperQuestions"] =
     [];
-  if (topicQuery) {
-    for (const paper of papers) {
-      if (relatedPaperQuestions.length >= maxRelated) break;
-      const questions = paper.parsedQuestions || [];
-      for (const q of questions) {
-        if (relatedPaperQuestions.length >= maxRelated) break;
-        const matchesTopic =
-          (q.topic && q.topic.toLowerCase().includes(topicQuery)) ||
-          (q.chapter && q.chapter.toLowerCase().includes(topicQuery)) ||
-          q.text.toLowerCase().includes(topicQuery);
-        if (matchesTopic) {
-          relatedPaperQuestions.push({
-            paperId: paper.id,
-            paperTitle: paper.label || paper.title || paper.subject,
-            questionNo: q.questionNo,
-            text: q.text,
-            options: q.options || {},
-            answer: q.answer,
-            explanation: q.explanation,
-          });
-        }
-      }
-    }
+  if (topicQuery && options.topic) {
+    const indexedMatches = findQuestionsForSyllabusTopic(
+      options.topic,
+      papers,
+      maxRelated,
+    );
+    indexedMatches.forEach((m) => {
+      relatedPaperQuestions.push({
+        paperId: m.paperId,
+        paperTitle: m.paperTitle,
+        questionNo: m.questionNo,
+        text: m.text,
+        options: m.options || {},
+        answer: m.correctAnswer,
+        explanation: m.explanation,
+      });
+    });
   }
 
   // Target specific question if provided
