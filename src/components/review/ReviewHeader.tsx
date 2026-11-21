@@ -17,6 +17,7 @@ import {
   AlertTriangle,
   Check,
   Sparkles,
+  Target,
 } from "lucide-react";
 import {
   exportAttemptAsPrintPDF,
@@ -38,6 +39,8 @@ interface ReviewHeaderProps {
   onDelete: (id: string) => void;
   onReattempt?: () => void;
   onOpenBatchEvaluation?: () => void;
+  onOpenMistakeReTest?: () => void;
+  mistakeCount?: number;
   onOpenSolutionModal?: () => void;
   onOpenSubmissionModal?: () => void;
   effectiveMaxScore: number;
@@ -55,6 +58,8 @@ export function ReviewHeader({
   onDelete,
   onReattempt,
   onOpenBatchEvaluation,
+  onOpenMistakeReTest,
+  mistakeCount = 0,
   onOpenSolutionModal,
   onOpenSubmissionModal,
   effectiveMaxScore,
@@ -209,6 +214,18 @@ export function ReviewHeader({
           >
             <Sparkles className="h-3.5 w-3.5 text-indigo-600" />
             <span>AI Audit</span>
+          </button>
+        )}
+
+        {/* Re-Test Mistakes button */}
+        {onOpenMistakeReTest && mistakeCount > 0 && (
+          <button
+            onClick={onOpenMistakeReTest}
+            className="flex items-center gap-1.5 rounded-xl border border-rose-200 bg-rose-50/80 px-2.5 sm:px-3 py-1.5 text-xs font-semibold text-rose-700 hover:bg-rose-600 hover:text-white transition-all cursor-pointer shadow-2xs shrink-0"
+            title={`Launch targeted practice session for the ${mistakeCount} questions missed in this attempt`}
+          >
+            <Target className="h-3.5 w-3.5 text-rose-600" />
+            <span>Re-Test Mistakes ({mistakeCount})</span>
           </button>
         )}
 
