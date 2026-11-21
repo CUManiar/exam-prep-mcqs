@@ -369,14 +369,17 @@ export function Navbar() {
               <BarChart3 className="h-4 w-4" aria-hidden="true" />
               <span>Analytics</span>
             </Link>
+          </nav>
 
-            {/* 4. AI Help (MCP) */}
+          {/* Action Tools & User Profile */}
+          <div className="app-header-actions">
+            {/* 4. AI Agent (Right-aligned) */}
             <Link
               href="/help/mcp"
               aria-current={
                 pathname.startsWith("/help/mcp") ? "page" : undefined
               }
-              className={`app-nav-link ai-help-link ${
+              className={`app-nav-link ai-help-link hidden sm:inline-flex ${
                 pathname.startsWith("/help/mcp") ? "is-active" : ""
               }`}
               title="Connect Claude, ChatGPT or local agents via MCP"
@@ -384,10 +387,7 @@ export function Navbar() {
               <Sparkles className="h-4 w-4" aria-hidden="true" />
               <span>AI Agent</span>
             </Link>
-          </nav>
 
-          {/* Action Tools & User Profile */}
-          <div className="app-header-actions">
             {/* Quick Reading Theme Toggle: Shown only to logged-in students */}
             {currentUser && (
               <button
