@@ -604,6 +604,29 @@ export function AttemptReviewView({
     onUpdate({ ...attempt, answers: updatedAnswers });
   };
 
+  // Evaluation comment handler
+  const handleSaveEvaluationComment = (qNo: number, comment: string) => {
+    const updatedAnswers = { ...attempt.answers };
+    const timestamp = new Date().toISOString();
+    if (updatedAnswers[qNo]) {
+      updatedAnswers[qNo] = {
+        ...updatedAnswers[qNo],
+        evaluationComment: comment,
+        evaluationSource: updatedAnswers[qNo].evaluationSource || "manual",
+        evaluationUpdatedAt: timestamp,
+      };
+    } else {
+      updatedAnswers[qNo] = {
+        questionNo: qNo,
+        selected: null,
+        evaluationComment: comment,
+        evaluationSource: "manual",
+        evaluationUpdatedAt: timestamp,
+      };
+    }
+    onUpdate({ ...attempt, answers: updatedAnswers });
+  };
+
   // General note handler
   const handleSaveGeneralNote = (generalNotes: string) => {
     onUpdate({ ...attempt, generalNotes });
@@ -953,6 +976,7 @@ export function AttemptReviewView({
                   getFullMarks={getFullMarks}
                   incorrectMarksPerQ={attempt.incorrectMarks ?? 0.667}
                   onSaveQuestionNote={handleSaveQuestionNote}
+                  onSaveEvaluationComment={handleSaveEvaluationComment}
                   onSetSubjectiveAssessment={handleSetSubjectiveAssessment}
                   onNavigatePrev={handleNavigatePrev}
                   onNavigateNext={handleNavigateNext}
@@ -1014,6 +1038,7 @@ export function AttemptReviewView({
                 isMarkdownPaper={isMarkdownPaper}
                 markdownQuestions={markdownQuestions}
                 onSaveQuestionNote={handleSaveQuestionNote}
+                onSaveEvaluationComment={handleSaveEvaluationComment}
                 onSetSubjectiveAssessment={handleSetSubjectiveAssessment}
                 onNavigatePrev={handleNavigatePrev}
                 onNavigateNext={handleNavigateNext}

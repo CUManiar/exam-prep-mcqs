@@ -32,6 +32,7 @@ interface QuestionPaletteProps {
   isMarkdownPaper?: boolean;
   markdownQuestions?: ParsedQuestion[];
   onSaveQuestionNote?: (qNo: number, note: string) => void;
+  onSaveEvaluationComment?: (qNo: number, comment: string) => void;
   onSetSubjectiveAssessment?: (
     qNo: number,
     assessment: SubjectiveAssessment,
@@ -61,6 +62,7 @@ export function QuestionPalette({
   isMarkdownPaper = false,
   markdownQuestions = [],
   onSaveQuestionNote,
+  onSaveEvaluationComment,
   onSetSubjectiveAssessment,
   onNavigatePrev,
   onNavigateNext,
@@ -292,6 +294,12 @@ export function QuestionPalette({
               <span>{q.questionNo}</span>
               {q.flagged && (
                 <span className="absolute -top-1 -right-1 h-2 w-2 rounded-full bg-amber-500 ring-1 ring-white" />
+              )}
+              {q.evaluationComment && (
+                <span
+                  className="absolute -bottom-0.5 -right-0.5 h-2 w-2 rounded-full bg-indigo-600 ring-1 ring-white"
+                  title="Evaluator feedback attached"
+                />
               )}
             </button>
           );
@@ -653,6 +661,29 @@ export function QuestionPalette({
               </button>
             )
           ) : null}
+
+          {/* Evaluator / AI Attempt Feedback */}
+          {expandedQuestion.evaluationComment &&
+            expandedQuestion.evaluationComment.trim() && (
+              <div className="rounded-xl border border-indigo-200 bg-indigo-50/80 p-2.5 shadow-2xs space-y-1">
+                <div className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wider text-indigo-950">
+                  <Sparkles className="h-3 w-3 text-indigo-600 shrink-0" />
+                  <span>Evaluator Feedback</span>
+                  {expandedQuestion.evaluationSource && (
+                    <span className="text-[8px] uppercase px-1 py-0.2 rounded font-mono font-semibold bg-indigo-100 text-indigo-700">
+                      {expandedQuestion.evaluationSource === "mcp"
+                        ? "MCP"
+                        : expandedQuestion.evaluationSource === "ai"
+                          ? "AI"
+                          : "Examiner"}
+                    </span>
+                  )}
+                </div>
+                <p className="text-xs text-slate-800 leading-relaxed whitespace-pre-wrap">
+                  {expandedQuestion.evaluationComment}
+                </p>
+              </div>
+            )}
 
           {/* Card Navigation Footer */}
           <div className="pt-2 border-t border-slate-200 flex items-center justify-between gap-2 flex-wrap">

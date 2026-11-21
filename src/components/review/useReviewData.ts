@@ -310,6 +310,7 @@ export function useReviewData(attempt: Attempt, papers: QuestionPaper[]) {
             isCorrect: null,
             flagged: false,
             note: "",
+            evaluationComment: undefined,
             timeSpentSeconds: 0,
             changesCount: 0,
             answerHistory: [],
