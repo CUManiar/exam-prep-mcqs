@@ -1,8 +1,85 @@
 "use client";
 
+import { Info, Sparkles, CheckCircle2 } from "lucide-react";
 import { PrepStage } from "../../lib/types";
-import { PREP_PERSONAS } from "../../lib/revision/tutorPersonas";
 import { UPSC_OPTIONAL_SUBJECTS } from "../../lib/optionalSubjects";
+
+interface StageMetadata {
+  id: PrepStage;
+  label: string;
+  badge: string;
+  icon: string;
+  valueProvided: string;
+  whenToUse: string;
+  proTip: string;
+}
+
+export const STAGE_METADATA: Record<PrepStage, StageMetadata> = {
+  prelims: {
+    id: "prelims",
+    label: "Prelims Elimination",
+    badge: "GS Paper-I Strategy",
+    icon: "🎯",
+    valueProvided:
+      "Line-by-line statement trap deconstruction. Flags extreme qualifiers (only, all, always, solely) vs nuanced qualifiers (can, may, generally), and calibrates risk against the 1/3rd negative marking penalty.",
+    whenToUse:
+      "When solving test papers, analyzing past wrong attempts, or untangling questions where you are stuck in a 50:50 dilemma between two close options.",
+    proTip:
+      "Generates authentic 'How many statements are correct?' trap drills with elimination rationales.",
+  },
+
+  mains: {
+    id: "mains",
+    label: "Mains Answer",
+    badge: "GS-I to GS-IV Blueprints",
+    icon: "✍️",
+    valueProvided:
+      "Structures high-scoring 10-Mark (150 words) and 15-Mark (250 words) model blueprints: punchy constitutional/data introductions, multi-dimensional PESTLE headings, landmark Supreme Court cases, and forward-looking conclusions.",
+    whenToUse:
+      "When practicing daily answer writing, transforming editorial debates into exam-ready points, or structuring multi-dimensional policy arguments.",
+    proTip:
+      "Includes committee recommendations (Sarkaria, Punchhi, Kelkar) and diagram suggestions for maximum marks.",
+  },
+
+  optional: {
+    id: "optional",
+    label: "Optional Subject",
+    badge: "Scholarly Paper I & II",
+    icon: "🎓",
+    valueProvided:
+      "Injects university-grade scholarly depth, seminal academic theorists, and discipline-specific paradigms across 25+ optionals, bridging Paper-I theoretical frameworks directly to Paper-II contemporary Indian case studies.",
+    whenToUse:
+      "When revising your specific Optional paper where standard General Studies answers fail to achieve competitive 280+ score marks.",
+    proTip:
+      "Select your exact subject from the dropdown to activate tailored scholar personas.",
+  },
+
+  csat: {
+    id: "csat",
+    label: "CSAT Speed & Logic",
+    badge: "Paper-II Qualifying",
+    icon: "⚡",
+    valueProvided:
+      "Delivers 30-second speed calculation shortcuts, standard LaTeX mathematical formula derivations, option elimination by parity/unit-digits, and step-by-step reasoning.",
+    whenToUse:
+      "When tackling Permutations & Combinations, Probability, Number Systems, Time & Work, or securing the statutory 33.3% (66.67 marks) cutoff.",
+    proTip:
+      "Formats all math in clean LaTeX equations with quick-solve hacks alongside textbook methods.",
+  },
+
+  concept: {
+    id: "concept",
+    label: "First-Principles AI",
+    badge: "Zero-Textbook Partner",
+    icon: "💡",
+    valueProvided:
+      "Zero-jargon conceptual scaffolding for aspirants who haven't read 800-page standard textbooks page by page. Explains complex systems using intuitive real-world analogies, mechanical operational flows, and comprehension checks.",
+    whenToUse:
+      "When a topic feels intimidating, abstract, or overly dense, or when starting a fresh syllabus topic without prior background reading.",
+    proTip:
+      "Breaks concepts into 4 steps: Everyday Analogy ➔ Moving Parts ➔ UPSC Tension ➔ Quick Self-Check Quiz.",
+  },
+};
 
 interface PrepStageSelectorProps {
   currentStage: PrepStage;
@@ -29,30 +106,65 @@ export function PrepStageSelector({
     <div className="flex flex-wrap items-center gap-2">
       <div className="flex items-center gap-1 p-1 bg-slate-100 dark:bg-slate-800/80 rounded-xl border border-slate-200/80 dark:border-slate-700/80 shadow-2xs">
         {stages.map((stg) => {
-          const cfg = PREP_PERSONAS[stg];
+          const cfg = STAGE_METADATA[stg];
           const isActive = currentStage === stg;
           return (
-            <button
-              key={stg}
-              type="button"
-              onClick={() => onSelectStage(stg)}
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
-                isActive
-                  ? "bg-white dark:bg-slate-900 text-indigo-600 dark:text-indigo-400 shadow-2xs"
-                  : "text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white"
-              }`}
-            >
-              <span>{cfg.icon}</span>
-              <span className="hidden sm:inline">
-                {cfg.label
-                  .replace(" Specialist", "")
-                  .replace(" Mentor", "")
-                  .replace(" Architect", "")
-                  .replace(" Coach", "")
-                  .replace(" Partner", "")}
-              </span>
-              <span className="sm:hidden">{cfg.badge.split(" ")[0]}</span>
-            </button>
+            <div key={stg} className="relative group">
+              <button
+                type="button"
+                onClick={() => onSelectStage(stg)}
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
+                  isActive
+                    ? "bg-white dark:bg-slate-900 text-indigo-600 dark:text-indigo-400 shadow-2xs"
+                    : "text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white"
+                }`}
+              >
+                <span>{cfg.icon}</span>
+                <span className="hidden sm:inline">{cfg.label}</span>
+                <span className="sm:hidden">{cfg.badge.split(" ")[0]}</span>
+              </button>
+
+              {/* ── Hover Popover (Value Provided & When To Use) ── */}
+              <div className="pointer-events-none invisible opacity-0 group-hover:visible group-hover:opacity-100 group-hover:pointer-events-auto transition-all duration-200 ease-out absolute z-50 top-full mt-2 left-0 sm:left-1/2 sm:-translate-x-1/2 w-72 sm:w-80 rounded-2xl bg-slate-900/95 text-slate-100 p-4 shadow-2xl backdrop-blur-md border border-slate-800 text-xs">
+                {/* Arrow */}
+                <div className="absolute -top-1.5 left-6 sm:left-1/2 sm:-translate-x-1/2 w-3 h-3 bg-slate-900 border-t border-l border-slate-800 rotate-45" />
+
+                <div className="space-y-2.5">
+                  <div className="flex items-center justify-between border-b border-slate-800 pb-2">
+                    <span className="font-bold text-white text-xs flex items-center gap-1.5">
+                      <span>{cfg.icon}</span>
+                      <span>{cfg.label}</span>
+                    </span>
+                    <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-indigo-500/20 text-indigo-300">
+                      {cfg.badge}
+                    </span>
+                  </div>
+
+                  <div>
+                    <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1">
+                      💡 What Value It Provides
+                    </span>
+                    <p className="text-[11px] text-slate-300 leading-relaxed">
+                      {cfg.valueProvided}
+                    </p>
+                  </div>
+
+                  <div className="pt-1 border-t border-slate-800/80">
+                    <span className="text-[10px] font-bold text-indigo-400 uppercase tracking-wider block mb-1">
+                      🎯 When To Use It
+                    </span>
+                    <p className="text-[11px] text-slate-300 leading-relaxed">
+                      {cfg.whenToUse}
+                    </p>
+                  </div>
+
+                  <div className="pt-1.5 flex items-start gap-1.5 text-[10.5px] text-emerald-400 font-medium">
+                    <CheckCircle2 className="h-3.5 w-3.5 shrink-0 mt-0.5 text-emerald-400" />
+                    <span>{cfg.proTip}</span>
+                  </div>
+                </div>
+              </div>
+            </div>
           );
         })}
       </div>

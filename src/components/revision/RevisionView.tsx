@@ -47,6 +47,7 @@ import { RevisionSettingsModal } from "./RevisionSettingsModal";
 import { PrepStageSelector } from "./PrepStageSelector";
 import { OutputFormatSelector } from "./OutputFormatSelector";
 import { MistakeDossierCard } from "./MistakeDossierCard";
+import { FirstPrinciplesGuideCard } from "./FirstPrinciplesGuideCard";
 import { getPaperDisplayTitle } from "../../lib/defaults";
 import { NotesExportModal } from "./NotesExportModal";
 
@@ -745,12 +746,21 @@ export function RevisionView() {
             />
           )}
 
+          {/* First-Principles Guidance Card */}
+          {stage === "concept" && (
+            <div className="max-w-3xl mx-auto w-full">
+              <FirstPrinciplesGuideCard onSelectPrompt={(p) => handleSend(p)} />
+            </div>
+          )}
+
           {/* Empty State / Starters */}
           {messages.length === 0 && (
-            <div className="max-w-3xl mx-auto py-8 sm:py-12 space-y-6 text-center">
-              <div className="w-14 h-14 rounded-2xl bg-indigo-100 dark:bg-indigo-950 text-indigo-600 dark:text-indigo-400 flex items-center justify-center mx-auto shadow-sm">
-                <Brain className="h-7 w-7" />
-              </div>
+            <div className="max-w-3xl mx-auto py-6 sm:py-10 space-y-6 text-center">
+              {stage !== "concept" && (
+                <div className="w-14 h-14 rounded-2xl bg-indigo-100 dark:bg-indigo-950 text-indigo-600 dark:text-indigo-400 flex items-center justify-center mx-auto shadow-sm">
+                  <Brain className="h-7 w-7" />
+                </div>
+              )}
 
               <div className="space-y-1.5">
                 <h2 className="text-xl sm:text-2xl font-bold text-slate-900 dark:text-white">

@@ -22,6 +22,7 @@ import {
 } from "lucide-react";
 import { QuestionPaper } from "../lib/types";
 import { isPaperFree, isUserUploadedPaper } from "../lib/defaults";
+import { InteractiveTutorShowcase } from "./landing/InteractiveTutorShowcase";
 
 interface LandingViewProps {
   papers: QuestionPaper[];
@@ -271,19 +272,19 @@ export function LandingView({
               <span className="public-benefit-icon">
                 <Brain aria-hidden="true" className="text-purple-600" />
               </span>
-              <h3>Free AI Revision Tutor</h3>
+              <h3>Adaptive AI Tutor &amp; Multi-Stage Revision</h3>
               <p>
-                Zero-cost BYOK integration with Google Gemini Flash. Generate
-                structured revision dossiers with Constitutional Articles,
-                landmark Supreme Court rulings, committee reports, and PIB
-                updates. Chat directly with your test performance.
+                Stage-specific mentorship across Prelims (elimination traps),
+                Mains (10M/15M blueprints), 25+ Optionals, CSAT shortcuts, and
+                First-Principles conceptual scaffolding. Plus 1-click single
+                file export for all revision notes.
               </p>
             </div>
             <Link
               href="/revision"
               className="mt-4 inline-flex items-center gap-1 text-xs font-bold text-purple-600 dark:text-purple-400 hover:underline"
             >
-              <span>Open AI Revision</span>
+              <span>Explore AI Revision Tutor</span>
               <ArrowRight className="h-3.5 w-3.5" />
             </Link>
           </article>
@@ -359,6 +360,9 @@ export function LandingView({
           </article>
         </div>
       </section>
+
+      {/* ── INTERACTIVE AI TUTOR & REVISION SHOWCASE (PURE IN-APP FEATURE) ── */}
+      <InteractiveTutorShowcase />
 
       {/* ── 3. FEATURE SPOTLIGHT: MAINS EVALUATION & PSYCHOLOGICAL ANALYTICS ── */}
       <section className="public-section page-container bg-slate-50/60 dark:bg-slate-900/40 rounded-3xl p-6 sm:p-10 border border-slate-200/80 dark:border-slate-800">
