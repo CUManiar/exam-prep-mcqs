@@ -1,13 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import {
-  Target,
-  X,
-  Play,
-  Zap,
-  Clock,
-} from "lucide-react";
+import { Target, X, Play, Zap, Clock } from "lucide-react";
 import { QuestionAnswer, QuestionPaper } from "../../lib/types";
 
 interface MistakeReTestModalProps {

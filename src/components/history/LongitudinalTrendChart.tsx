@@ -1,12 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import {
-  TrendingUp,
-  TrendingDown,
-  Minus,
-  Layers,
-} from "lucide-react";
+import { TrendingUp, TrendingDown, Minus, Layers } from "lucide-react";
 import { Attempt, QuestionPaper } from "../../lib/types";
 import { formatDateTime } from "../../lib/defaults";
 

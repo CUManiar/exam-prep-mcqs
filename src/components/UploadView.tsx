@@ -930,9 +930,7 @@ export function UploadView({
       const displaySubject = subjectPreset;
 
       const userIdentifier = paperIdentifier.trim();
-      const paperTitle =
-        userIdentifier ||
-        `${cleanYear} – ${displaySubject}`;
+      const paperTitle = userIdentifier || `${cleanYear} – ${displaySubject}`;
 
       const formData = new FormData();
       formData.append("year", cleanYear);
