@@ -633,6 +633,7 @@ function MermaidDiagram({ code }: { code: string }) {
 }
 
 import { cleanMarkdownContent } from "../../lib/revisionAi";
+import { SpatialMapCard } from "./visuals/SpatialMapCard";
 import katex from "katex";
 import "katex/dist/katex.min.css";
 export { cleanMarkdownContent };
@@ -734,9 +735,9 @@ export function RevisionMarkdownRenderer({
         continue;
       }
 
-      // 2. Generic Code Block
+      // 2. Generic Code Block or Spatial Map / Vector Block
       if (trimmed.startsWith("```")) {
-        const lang = trimmed.slice(3).trim();
+        const lang = trimmed.slice(3).trim().toLowerCase();
         const codeLines: string[] = [];
         index++;
         while (index < lines.length && !lines[index].trim().startsWith("```")) {
@@ -744,10 +745,18 @@ export function RevisionMarkdownRenderer({
           index++;
         }
         index++;
-        result.push({
-          type: "code",
-          codeData: { lang, code: codeLines.join("\n") },
-        });
+
+        if (lang === "map" || lang === "spatial" || lang === "svg") {
+          result.push({
+            type: "map" as any,
+            codeData: { lang, code: codeLines.join("\n") },
+          });
+        } else {
+          result.push({
+            type: "code",
+            codeData: { lang, code: codeLines.join("\n") },
+          });
+        }
         continue;
       }
 
@@ -1060,6 +1069,15 @@ export function RevisionMarkdownRenderer({
         }
         if (block.type === "mermaid" && block.codeData) {
           return <MermaidDiagram key={idx} code={block.codeData.code} />;
+        }
+        if (block.type === ("map" as any) && block.codeData) {
+          return (
+            <SpatialMapCard
+              key={idx}
+              code={block.codeData.code}
+              lang={block.codeData.lang}
+            />
+          );
         }
         if (block.type === "code" && block.codeData) {
           return (
