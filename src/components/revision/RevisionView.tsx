@@ -8,6 +8,7 @@ import {
   Brain,
   Check,
   ChevronDown,
+  Cloud,
   Copy,
   Download,
   Flame,
@@ -32,6 +33,10 @@ import {
   RevisionProviderConfig,
   sendRevisionQuery,
 } from "../../lib/revisionAi";
+import {
+  loadRevisionSessions,
+  saveRevisionSessions,
+} from "../../lib/revisionStorage";
 import {
   ParsedQuestion,
   PrepStage,
@@ -65,7 +70,6 @@ export interface StoredSession {
 }
 
 const MAX_SAVED_SESSIONS = 25;
-const SESSIONS_STORAGE_KEY = "upsc_revision_sessions_v3";
 
 interface StarterPrompt {
   label: string;
@@ -135,12 +139,13 @@ const STARTER_PROMPTS: StarterPrompt[] = [
 
 export function RevisionView() {
   const searchParams = useSearchParams();
-  const { papers, attempts } = useApp();
+  const { papers, attempts, currentUser } = useApp();
 
   // Settings State
   const [config, setConfig] = useState<RevisionProviderConfig | null>(null);
   const [showSettingsModal, setShowSettingsModal] = useState(false);
   const [showExportModal, setShowExportModal] = useState(false);
+  const [isCloudSyncing, setIsCloudSyncing] = useState(false);
 
   // Stage & Format Selectors
   const [stage, setStage] = useState<PrepStage>("prelims");
@@ -198,15 +203,17 @@ export function RevisionView() {
     setConfig(getRevisionConfig());
   }, []);
 
-  // Restore saved sessions
+  // Restore saved sessions (Cloud synced with local cache fallback)
   useEffect(() => {
-    try {
-      const raw = localStorage.getItem(SESSIONS_STORAGE_KEY);
-      if (raw) {
-        const parsed: StoredSession[] = JSON.parse(raw);
-        if (Array.isArray(parsed) && parsed.length > 0) {
-          setSessions(parsed);
-          const first = parsed[0];
+    let isMounted = true;
+    const initSessions = async () => {
+      setIsCloudSyncing(true);
+      try {
+        const loaded = await loadRevisionSessions(currentUser?.id);
+        if (!isMounted) return;
+        if (Array.isArray(loaded) && loaded.length > 0) {
+          setSessions(loaded);
+          const first = loaded[0];
           setCurrentSessionId(first.id);
           setMessages(first.messages || []);
           if (first.stage) setStage(first.stage);
@@ -217,13 +224,20 @@ export function RevisionView() {
           if (first.questionNo !== undefined)
             setActiveQuestionNo(first.questionNo);
         }
+      } catch (e) {
+        console.warn("Failed to load revision sessions:", e);
+      } finally {
+        if (isMounted) setIsCloudSyncing(false);
       }
-    } catch (e) {
-      console.warn("Failed to load sessions:", e);
-    }
-  }, []);
+    };
 
-  // Auto-persist active session
+    initSessions();
+    return () => {
+      isMounted = false;
+    };
+  }, [currentUser?.id]);
+
+  // Auto-persist active session (Cloud & Local)
   useEffect(() => {
     if (messages.length === 0) return;
 
@@ -261,9 +275,9 @@ export function RevisionView() {
         MAX_SAVED_SESSIONS,
       );
 
-      try {
-        localStorage.setItem(SESSIONS_STORAGE_KEY, JSON.stringify(updated));
-      } catch {}
+      saveRevisionSessions(updated, currentUser?.id).catch((e) =>
+        console.warn("Failed saving revision sessions:", e),
+      );
 
       return updated;
     });
@@ -276,6 +290,7 @@ export function RevisionView() {
     activeTopic,
     activePaperId,
     activeQuestionNo,
+    currentUser?.id,
   ]);
 
   // URL search params linking
@@ -421,9 +436,9 @@ export function RevisionView() {
     e.stopPropagation();
     const updated = sessions.filter((s) => s.id !== id);
     setSessions(updated);
-    try {
-      localStorage.setItem(SESSIONS_STORAGE_KEY, JSON.stringify(updated));
-    } catch {}
+    saveRevisionSessions(updated, currentUser?.id).catch((err) =>
+      console.warn("Failed saving after session deletion:", err),
+    );
     if (id === currentSessionId) {
       if (updated.length > 0) handleSwitchSession(updated[0]);
       else handleCreateNewChat();
@@ -442,9 +457,9 @@ export function RevisionView() {
         const updated = prev.map((s) =>
           s.id === id ? { ...s, title: trimmed } : s,
         );
-        try {
-          localStorage.setItem(SESSIONS_STORAGE_KEY, JSON.stringify(updated));
-        } catch {}
+        saveRevisionSessions(updated, currentUser?.id).catch((err) =>
+          console.warn("Failed saving after session rename:", err),
+        );
         return updated;
       });
     }
@@ -687,6 +702,31 @@ export function RevisionView() {
           </div>
 
           <div className="flex items-center gap-2">
+            {/* Cloud Sync Status Indicator */}
+            <div
+              className="hidden sm:inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 text-xs font-medium text-slate-600 dark:text-slate-300"
+              title={
+                currentUser
+                  ? "Chats and revision notes are automatically synced to your cloud account."
+                  : "Chats are cached locally. Sign in to sync across devices."
+              }
+            >
+              <Cloud
+                className={`h-3.5 w-3.5 ${
+                  isCloudSyncing
+                    ? "text-indigo-500 animate-pulse"
+                    : "text-emerald-500"
+                }`}
+              />
+              <span>
+                {isCloudSyncing
+                  ? "Syncing..."
+                  : currentUser
+                    ? "Cloud Synced"
+                    : "Local"}
+              </span>
+            </div>
+
             <button
               type="button"
               onClick={() => setShowExportModal(true)}

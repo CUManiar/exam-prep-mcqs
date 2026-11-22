@@ -37,6 +37,7 @@ export interface UserProfile {
   custom_syllabus_markdown?: string;
   vocab_cards?: VocabCard[];
   mains_sessions?: any[];
+  revision_sessions?: any[];
 }
 
 // Check current authenticated user
@@ -434,6 +435,52 @@ export async function fetchUserMainsSessionsFromSupabase(
     return [];
   } catch (err) {
     console.warn("Failed fetching mains sessions from Supabase:", err);
+    return [];
+  }
+}
+
+// Save user's AI Revision sessions to Supabase
+export async function saveUserRevisionSessionsToSupabase(
+  userId: string,
+  sessions: any[],
+): Promise<boolean> {
+  const supabase = getSupabaseClient();
+  if (!supabase || !userId) return false;
+  try {
+    const { error } = await supabase
+      .from("profiles")
+      .update({
+        revision_sessions: sessions,
+        updated_at: new Date().toISOString(),
+      })
+      .eq("id", userId);
+
+    return !error;
+  } catch (err) {
+    console.warn("Failed saving revision sessions to Supabase:", err);
+    return false;
+  }
+}
+
+// Fetch user's AI Revision sessions from Supabase
+export async function fetchUserRevisionSessionsFromSupabase(
+  userId: string,
+): Promise<any[]> {
+  const supabase = getSupabaseClient();
+  if (!supabase || !userId) return [];
+  try {
+    const { data: profileData, error } = await supabase
+      .from("profiles")
+      .select("revision_sessions")
+      .eq("id", userId)
+      .maybeSingle();
+
+    if (!error && profileData && Array.isArray(profileData.revision_sessions)) {
+      return profileData.revision_sessions;
+    }
+    return [];
+  } catch (err) {
+    console.warn("Failed fetching revision sessions from Supabase:", err);
     return [];
   }
 }
