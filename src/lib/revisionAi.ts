@@ -57,9 +57,10 @@ export const PROVIDER_INFO: Record<
   },
 };
 
+import { buildAdaptiveSystemPrompt } from "./revision/promptBuilder";
+
 export function getUpscRevisionSystemPrompt(context?: RevisionContext): string {
-  return `You are an expert UPSC Civil Services Examination (CSE) Mentor and Senior Subject Evaluator.
-Provide rigorous, context-specific, and exam-grade analysis tailored to the candidate's active revision context.`;
+  return buildAdaptiveSystemPrompt(context);
 }
 
 const STORAGE_VAULT_SALT = "upsc_candidate_priv_vault_v1";
