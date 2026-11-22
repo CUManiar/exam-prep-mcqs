@@ -52,6 +52,7 @@ import { RevisionSettingsModal } from "./RevisionSettingsModal";
 import { PrepStageSelector } from "./PrepStageSelector";
 import { OutputFormatSelector } from "./OutputFormatSelector";
 import { MistakeDossierCard } from "./MistakeDossierCard";
+import { extractMistakeDiagnostics } from "../../lib/revision/mistakeProfiler";
 import { FirstPrinciplesGuideCard } from "./FirstPrinciplesGuideCard";
 import { getPaperDisplayTitle } from "../../lib/defaults";
 import { NotesExportModal } from "./NotesExportModal";
@@ -157,7 +158,13 @@ export function RevisionView() {
   // Sidebar & Search State
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
-  const [showMistakesBanner, setShowMistakesBanner] = useState(true);
+  const [showMistakesBanner, setShowMistakesBanner] = useState(false);
+
+  // Weak Spots Diagnostics
+  const mistakeDiagnostics = useMemo(
+    () => extractMistakeDiagnostics(attempts, papers),
+    [attempts, papers],
+  );
 
   // Sessions State
   const [sessions, setSessions] = useState<StoredSession[]>([]);
@@ -698,6 +705,9 @@ export function RevisionView() {
               onSelectStage={handleStageChange}
               selectedOptional={optionalSubject}
               onSelectOptional={(s) => setOptionalSubject(s)}
+              mistakeCount={mistakeDiagnostics.totalWrongQuestions}
+              isMistakesOpen={showMistakesBanner}
+              onToggleMistakes={() => setShowMistakesBanner((prev) => !prev)}
             />
           </div>
 
@@ -758,7 +768,7 @@ export function RevisionView() {
             allowedFormats={PREP_PERSONAS[stage]?.supportedFormats}
           />
 
-          {attempts.length > 0 && (
+          {mistakeDiagnostics.totalWrongQuestions > 0 && (
             <button
               type="button"
               onClick={() => setShowMistakesBanner(!showMistakesBanner)}
@@ -766,7 +776,9 @@ export function RevisionView() {
             >
               <Flame className="h-3.5 w-3.5" />
               <span>
-                {showMistakesBanner ? "Hide Weak Spots" : "Show Weak Spots"}
+                {showMistakesBanner
+                  ? "Hide Weak Spots"
+                  : `Show Weak Spots (${mistakeDiagnostics.totalWrongQuestions})`}
               </span>
             </button>
           )}
@@ -776,14 +788,17 @@ export function RevisionView() {
         <div className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-5">
           {/* Diagnostic Mistakes Widget */}
           {showMistakesBanner && attempts.length > 0 && (
-            <MistakeDossierCard
-              attempts={attempts}
-              papers={papers}
-              onSelectRemediation={(prompt, topic) => {
-                setActiveTopic(topic);
-                handleSend(prompt);
-              }}
-            />
+            <div className="max-w-4xl mx-auto w-full transition-all duration-300">
+              <MistakeDossierCard
+                attempts={attempts}
+                papers={papers}
+                onClose={() => setShowMistakesBanner(false)}
+                onSelectRemediation={(prompt, topic) => {
+                  setActiveTopic(topic);
+                  handleSend(prompt);
+                }}
+              />
+            </div>
           )}
 
           {/* First-Principles Guidance Card */}

@@ -8,6 +8,7 @@ import {
   ChevronRight,
   Flame,
   Target,
+  X,
   Zap,
 } from "lucide-react";
 import { Attempt, QuestionPaper } from "../../lib/types";
@@ -21,12 +22,14 @@ interface MistakeDossierCardProps {
   attempts: Attempt[];
   papers: QuestionPaper[];
   onSelectRemediation: (prompt: string, topic: string) => void;
+  onClose?: () => void;
 }
 
 export function MistakeDossierCard({
   attempts,
   papers,
   onSelectRemediation,
+  onClose,
 }: MistakeDossierCardProps) {
   const [selectedClusterKey, setSelectedClusterKey] = useState<string | null>(
     null,
@@ -67,9 +70,23 @@ export function MistakeDossierCard({
           </div>
         </div>
 
-        <div className="flex items-center gap-2 text-xs font-medium text-rose-700 dark:text-rose-300">
-          <Flame className="h-4 w-4" />
-          <span>High-Yield Revision Priority</span>
+        <div className="flex items-center gap-3">
+          <div className="flex items-center gap-1.5 text-xs font-medium text-rose-700 dark:text-rose-300">
+            <Flame className="h-4 w-4" />
+            <span className="hidden sm:inline">High-Yield Priority</span>
+          </div>
+
+          {onClose && (
+            <button
+              type="button"
+              onClick={onClose}
+              className="p-1 rounded-lg text-rose-400 hover:text-rose-700 dark:hover:text-rose-200 hover:bg-rose-100/70 dark:hover:bg-rose-900/50 transition-colors cursor-pointer"
+              title="Collapse diagnostics"
+              aria-label="Collapse diagnostics"
+            >
+              <X className="h-4 w-4" />
+            </button>
+          )}
         </div>
       </div>
 

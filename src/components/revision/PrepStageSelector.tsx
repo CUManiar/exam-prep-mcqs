@@ -86,6 +86,9 @@ interface PrepStageSelectorProps {
   onSelectStage: (stage: PrepStage) => void;
   selectedOptional?: string;
   onSelectOptional?: (optional: string) => void;
+  mistakeCount?: number;
+  isMistakesOpen?: boolean;
+  onToggleMistakes?: () => void;
 }
 
 export function PrepStageSelector({
@@ -93,6 +96,9 @@ export function PrepStageSelector({
   onSelectStage,
   selectedOptional = "Political Science & International Relations (PSIR)",
   onSelectOptional,
+  mistakeCount,
+  isMistakesOpen,
+  onToggleMistakes,
 }: PrepStageSelectorProps) {
   const stages: PrepStage[] = [
     "prelims",
@@ -167,6 +173,82 @@ export function PrepStageSelector({
             </div>
           );
         })}
+
+        {mistakeCount !== undefined && mistakeCount > 0 && onToggleMistakes && (
+          <div className="relative group pl-1 border-l border-slate-200 dark:border-slate-700/80">
+            <button
+              type="button"
+              onClick={onToggleMistakes}
+              className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
+                isMistakesOpen
+                  ? "bg-rose-600 text-white shadow-2xs"
+                  : "text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/40"
+              }`}
+              title="Toggle Weak Spots Diagnostics"
+              aria-expanded={isMistakesOpen}
+            >
+              <span>🔥</span>
+              <span className="hidden sm:inline">Weak Spots</span>
+              <span
+                className={`text-[10px] px-1.5 py-0.2 rounded-full font-bold ${
+                  isMistakesOpen
+                    ? "bg-rose-700 text-white"
+                    : "bg-rose-100 dark:bg-rose-900/60 text-rose-700 dark:text-rose-300"
+                }`}
+              >
+                {mistakeCount}
+              </span>
+            </button>
+
+            {/* Hover Popover */}
+            <div className="pointer-events-none invisible opacity-0 group-hover:visible group-hover:opacity-100 group-hover:pointer-events-auto transition-all duration-200 ease-out absolute z-50 top-full mt-2 right-0 w-72 sm:w-80 rounded-2xl bg-slate-900/95 text-slate-100 p-4 shadow-2xl backdrop-blur-md border border-slate-800 text-xs">
+              <div className="absolute -top-1.5 right-6 w-3 h-3 bg-slate-900 border-t border-l border-slate-800 rotate-45" />
+
+              <div className="space-y-2.5">
+                <div className="flex items-center justify-between border-b border-slate-800 pb-2">
+                  <span className="font-bold text-white text-xs flex items-center gap-1.5">
+                    <span>🔥</span>
+                    <span>Mistake Diagnostics</span>
+                  </span>
+                  <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-rose-500/20 text-rose-300">
+                    {mistakeCount} Weak Spots
+                  </span>
+                </div>
+
+                <div>
+                  <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1">
+                    💡 What Value It Provides
+                  </span>
+                  <p className="text-[11px] text-slate-300 leading-relaxed">
+                    Maps questions you answered incorrectly across mock tests
+                    and PYQs directly to their underlying syllabus concepts,
+                    categorizing them by root causes so you stop repeating the
+                    same traps.
+                  </p>
+                </div>
+
+                <div className="pt-1 border-t border-slate-800/80">
+                  <span className="text-[10px] font-bold text-rose-400 uppercase tracking-wider block mb-1">
+                    🎯 When To Use It
+                  </span>
+                  <p className="text-[11px] text-slate-300 leading-relaxed">
+                    {isMistakesOpen
+                      ? "Currently open. Click to collapse and focus entirely on chat."
+                      : "Click to expand your weakness clusters and drill concepts with AI to recover forfeited marks."}
+                  </p>
+                </div>
+
+                <div className="pt-1.5 flex items-start gap-1.5 text-[10.5px] text-emerald-400 font-medium">
+                  <CheckCircle2 className="h-3.5 w-3.5 shrink-0 mt-0.5 text-emerald-400" />
+                  <span>
+                    Click anytime to toggle open or collapsed without leaving
+                    your chat.
+                  </span>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
 
       {currentStage === "optional" && onSelectOptional && (
