@@ -335,16 +335,39 @@ export function cleanMarkdownContent(raw: string): string {
   return text;
 }
 
+import {
+  getCachedRevisionResponse,
+  setCachedRevisionResponse,
+} from "./revision/cache";
+import { pruneRevisionMessages } from "./revision/promptPruner";
+
 export async function sendRevisionQuery(
   messages: RevisionMessage[],
   context: RevisionContext,
   config?: RevisionProviderConfig | null,
 ): Promise<RevisionQueryResponse> {
+  const lastUserMsg = messages[messages.length - 1]?.content || "";
+
+  // 1. Check cache for quick hit
+  if (messages.length === 1 && lastUserMsg) {
+    const cached = getCachedRevisionResponse(
+      lastUserMsg,
+      context.stage,
+      context.format,
+    );
+    if (cached) {
+      return { text: cached };
+    }
+  }
+
+  // 2. Prune message history to conserve context tokens
+  const pruned = pruneRevisionMessages(messages);
+
   const res = await fetch("/api/revision/chat", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
-      messages,
+      messages: pruned,
       context,
       providerConfig: config,
     }),
@@ -367,6 +390,16 @@ export async function sendRevisionQuery(
 
   if (!data.text || !data.text.trim()) {
     throw new Error("No response generated. Please retry.");
+  }
+
+  // 3. Cache response
+  if (messages.length === 1 && lastUserMsg && data.text) {
+    setCachedRevisionResponse(
+      lastUserMsg,
+      data.text,
+      context.stage,
+      context.format,
+    );
   }
 
   return {
