@@ -181,6 +181,15 @@ export type RevisionProvider = "gemini" | "openai" | "anthropic" | "groq";
 
 export type RevisionContextMode = "topic" | "paper" | "open";
 
+export type PrepStage = "prelims" | "mains" | "optional" | "csat" | "concept";
+
+export type ResponseFormat =
+  | "crisp_notes"
+  | "mains_blueprint"
+  | "prelims_drill"
+  | "mermaid_map"
+  | "first_principles";
+
 export interface RevisionAttemptSummary {
   score: number;
   totalMarks: number;
@@ -199,6 +208,9 @@ export interface RevisionAttemptSummary {
 
 export interface RevisionContext {
   mode: RevisionContextMode;
+  stage?: PrepStage;
+  format?: ResponseFormat;
+  optionalSubject?: string;
   topic?: string;
   subject?: string;
   chapter?: string;
