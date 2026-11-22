@@ -7,7 +7,6 @@
     "build": "next build",
     "start": "next start",
     "format": "prettier --write ./src",
-    "clean": "npx clean-unused-imports src/",
     "mcp:setup": "node scripts/setup-mcp-auth.mjs",
     "mcp:login": "node scripts/mcp-login.mjs",
     "mcp:desktop": "node scripts/mcp-desktop-bridge.mjs"

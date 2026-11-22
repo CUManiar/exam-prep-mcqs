@@ -336,7 +336,6 @@ export function UploadView({
   const [examType, setExamType] = useState<ExamType>("objective");
   const [year, setYear] = useState<string>("2026");
   const [subjectPreset, setSubjectPreset] = useState<string>("GS I");
-  const [customSubject, setCustomSubject] = useState<string>("");
   const [paperIdentifier, setPaperIdentifier] =
     useState<string>("prelims_gs_i");
   const [totalQuestions, setTotalQuestions] = useState<number>(100);
@@ -928,16 +927,10 @@ export function UploadView({
     setStatusMsg(null);
 
     try {
-      const displaySubject =
-        subjectPreset === "Custom"
-          ? customSubject.trim() || "Custom Paper"
-          : subjectPreset;
+      const displaySubject = subjectPreset;
 
       const userIdentifier = paperIdentifier.trim();
-      const paperTitle =
-        userIdentifier ||
-        (subjectPreset === "Custom" ? customSubject.trim() : "") ||
-        `${cleanYear} – ${displaySubject}`;
+      const paperTitle = userIdentifier || `${cleanYear} – ${displaySubject}`;
 
       const formData = new FormData();
       formData.append("year", cleanYear);

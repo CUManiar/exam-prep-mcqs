@@ -8,7 +8,7 @@ import {
   useCallback,
   useRef,
 } from "react";
-import { usePathname, useRouter } from "next/navigation";
+import { useRouter } from "next/navigation";
 import {
   QuestionPaper,
   Attempt,
@@ -142,7 +142,6 @@ const AppContext = createContext<AppContextType | null>(null);
 
 export function AppProvider({ children }: { children: React.ReactNode }) {
   const router = useRouter();
-  const pathname = usePathname();
   const [papers, setPapers] = useState<QuestionPaper[]>([]);
   const [hiddenPaperIds, setHiddenPaperIds] = useState<string[]>([]);
   const [onlyCustomPapers, setOnlyCustomPapers] = useState(false);

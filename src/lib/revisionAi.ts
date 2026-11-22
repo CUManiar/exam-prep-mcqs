@@ -9,7 +9,6 @@ export type { RevisionProvider, RevisionProviderConfig };
 
 const REVISION_CONFIG_KEY = "upsc_revision_llm_config";
 const REVISION_VAULT_KEY = "upsc_revision_keys_vault";
-const REVISION_HISTORY_KEY = "upsc_revision_history";
 
 /** Provider display metadata for the settings UI */
 export const PROVIDER_INFO: Record<

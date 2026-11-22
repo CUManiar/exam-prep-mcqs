@@ -776,7 +776,6 @@ export async function getRevisionContextData(
   ]);
 
   const topicQuery = options.topic?.trim().toLowerCase();
-  const subjectQuery = options.subject?.trim().toLowerCase();
   const maxRelated = options.maxRelatedQuestions ?? 5;
 
   let syllabusMatch: RevisionContextResult["syllabusMatch"];

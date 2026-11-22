@@ -11,7 +11,6 @@ import {
   XCircle,
   HelpCircle,
   Bookmark,
-  RotateCcw,
   X,
   ChevronDown,
   PenTool,

@@ -1,5 +1,3 @@
-import { RevisionProviderConfig } from "./types";
-
 export interface MainsDimensionScore {
   score: number;
   max: number;

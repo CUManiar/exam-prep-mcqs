@@ -94,25 +94,6 @@ export function HistoryView({
     (a) => a.mode === "mock" && Boolean(a.finishedAt),
   );
 
-  const filtered = mockAttempts.filter((a) => {
-    return a.paperLabel.toLowerCase().includes(search.toLowerCase());
-  });
-
-  // Chronological attempt index per paper
-  const paperAttemptsChronological = useMemo(() => {
-    const map = new Map<string, string[]>();
-    const sorted = [...mockAttempts].sort(
-      (a, b) =>
-        new Date(a.startedAt).getTime() - new Date(b.startedAt).getTime(),
-    );
-    sorted.forEach((a) => {
-      const list = map.get(a.paperId) || [];
-      list.push(a.id);
-      map.set(a.paperId, list);
-    });
-    return map;
-  }, [mockAttempts]);
-
   // Group by paper for cumulative tracking
   const groupedByPaper = useMemo(() => {
     const map = new Map<
