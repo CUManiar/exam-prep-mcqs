@@ -5,12 +5,7 @@ import {
   TrendingUp,
   TrendingDown,
   Minus,
-  Sparkles,
-  Target,
-  Zap,
-  Calendar,
   Layers,
-  ChevronRight,
 } from "lucide-react";
 import { Attempt, QuestionPaper } from "../../lib/types";
 import { formatDateTime } from "../../lib/defaults";

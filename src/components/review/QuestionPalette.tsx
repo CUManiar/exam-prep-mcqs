@@ -149,12 +149,6 @@ export function QuestionPalette({
     !expandedQuestion.subjectiveAssessment,
   );
 
-  const expandedIsSkipped = Boolean(
-    expandedQuestion &&
-    !expandedIsAnswered &&
-    !expandedQuestion.subjectiveAssessment,
-  );
-
   const parsedQ = expandedQuestion
     ? markdownQuestions.find(
         (mq) => mq.questionNo === expandedQuestion.questionNo,

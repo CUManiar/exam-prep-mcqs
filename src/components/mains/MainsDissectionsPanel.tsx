@@ -3,19 +3,14 @@
 import { useState, useMemo } from "react";
 import {
   BarChart3,
-  CheckCircle2,
   Clock,
-  FileText,
   Target,
-  Sparkles,
   TrendingUp,
   Award,
-  Zap,
   ChevronDown,
   ChevronUp,
   Gauge,
   Timer,
-  AlertTriangle,
   Lightbulb,
 } from "lucide-react";
 import { MainsEvaluationResult } from "@/lib/mainsEvaluation";

@@ -599,7 +599,6 @@ export function exportAttemptAsPrintPDF(
           : "#94a3b8";
 
       const timeText = q?.timeSpentSeconds ? `${q.timeSpentSeconds}s` : "—";
-      const changesText = q?.changesCount ? `${q.changesCount}x` : "—";
 
       const expl = q?.explanation || paperExplanations?.[qNo] || "";
       const note = q?.note?.trim() || "";

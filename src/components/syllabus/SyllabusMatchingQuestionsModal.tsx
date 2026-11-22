@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useMemo, useEffect } from "react";
+import { useState, useMemo, useEffect } from "react";
 import {
   X,
   BookOpen,
@@ -13,10 +13,7 @@ import {
   Layers,
 } from "lucide-react";
 import { SyllabusItem, QuestionPaper, ParsedQuestion } from "../../lib/types";
-import {
-  findQuestionsForSyllabusTopic,
-  IndexedQuestionMatch,
-} from "../../lib/syllabusQuestionIndex";
+import { findQuestionsForSyllabusTopic } from "../../lib/syllabusQuestionIndex";
 import { cleanPreviousYears } from "../../lib/markdownPaperParser";
 import { useApp } from "../../context/AppContext";
 import { saveCustomPaper } from "../../lib/storage";

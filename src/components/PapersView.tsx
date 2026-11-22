@@ -5,7 +5,6 @@ import { useSearchParams } from "next/navigation";
 import { createPortal } from "react-dom";
 import { CutoffType, QuestionPaper, Attempt } from "../lib/types";
 import {
-  SUPPORTED_YEARS,
   hasAnswerKey,
   hasSolution,
   parseAnswerKeyDetailed,
@@ -517,18 +516,6 @@ export function PapersView({
   const unattemptedCount = useMemo(() => {
     return papers.filter(
       (p) => (attemptsByPaperId.get(p.id) || []).length === 0,
-    ).length;
-  }, [papers, attemptsByPaperId]);
-
-  const mockAttemptedCount = useMemo(() => {
-    return papers.filter((p) =>
-      (attemptsByPaperId.get(p.id) || []).some((a) => a.mode === "mock"),
-    ).length;
-  }, [papers, attemptsByPaperId]);
-
-  const practiceAttemptedCount = useMemo(() => {
-    return papers.filter((p) =>
-      (attemptsByPaperId.get(p.id) || []).some((a) => a.mode === "practice"),
     ).length;
   }, [papers, attemptsByPaperId]);
 

@@ -8,7 +8,6 @@ import {
   Check,
   CheckCircle2,
   Clock3,
-  FileUp,
   Mail,
   Play,
   Sparkles,
@@ -16,13 +15,10 @@ import {
   FileCheck,
   Layers,
   Bot,
-  Compass,
   Brain,
   Award,
-  ShieldCheck,
   ChevronRight,
   AlertTriangle,
-  Lightbulb,
 } from "lucide-react";
 import { QuestionPaper } from "../lib/types";
 import { isPaperFree, isUserUploadedPaper } from "../lib/defaults";

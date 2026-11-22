@@ -60,8 +60,6 @@ import {
   queryQuestionBank,
 } from "./questionBank";
 
-const looseObject = z.record(z.string(), z.any());
-
 export const paperImportSchema = z
   .object({
     title: z

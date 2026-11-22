@@ -5,11 +5,8 @@ import {
   Target,
   X,
   Play,
-  RotateCcw,
   Zap,
   Clock,
-  HelpCircle,
-  AlertTriangle,
 } from "lucide-react";
 import { QuestionAnswer, QuestionPaper } from "../../lib/types";
 

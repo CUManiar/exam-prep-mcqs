@@ -529,9 +529,6 @@ export function SyllabusView() {
 
     return filteredItems.map((item) => {
       const children = childrenByParent.get(item.id) || [];
-      const visibleChildren = visibleItemIds
-        ? children.filter((child) => visibleItemIds.has(child.id))
-        : children;
       const completed = getSyllabusCompletion(item, activeItems);
       const dateStatus = getSyllabusItemDateStatus(item, activeItems);
       const effectiveDueDate = getEffectiveSyllabusDueDate(item, activeItems);
