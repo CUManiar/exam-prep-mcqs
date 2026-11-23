@@ -2371,3 +2371,184 @@ export function exportSyllabusAsPrintPDF(
     window.print();
   }
 }
+
+export interface RevisionSessionExportItem {
+  id: string;
+  title: string;
+  stage: string;
+  format?: string;
+  optionalSubject?: string;
+  updatedAt: string;
+  messages: Array<{
+    role: string;
+    content: string;
+    timestamp?: string;
+  }>;
+}
+
+/**
+ * Compiles all revision sessions into a single, structured Markdown document and triggers download.
+ */
+export function exportRevisionNotesToMarkdown(
+  sessions: RevisionSessionExportItem[],
+  options?: { title?: string },
+): void {
+  if (typeof window === "undefined" || !sessions.length) return;
+
+  const docTitle = options?.title || "UPSC AI Revision Dossier - All Notes";
+  const dateStr = new Date().toLocaleDateString("en-IN", {
+    day: "numeric",
+    month: "short",
+    year: "numeric",
+  });
+
+  let md = `# 🏛️ ${docTitle}\n\n`;
+  md += `> **Generated on**: ${dateStr} • **Total Topics**: ${sessions.length}\n\n`;
+  md += `## 📑 Table of Contents\n`;
+  sessions.forEach((s, idx) => {
+    md += `${idx + 1}. [${s.title} (${s.stage.toUpperCase()})](#${s.title.toLowerCase().replace(/[^a-z0-9]+/g, "-")})\n`;
+  });
+  md += `\n---\n\n`;
+
+  sessions.forEach((s, idx) => {
+    md += `### ${idx + 1}. ${s.title}\n\n`;
+    md += `**Stage**: \`${s.stage.toUpperCase()}\``;
+    if (s.optionalSubject) md += ` | **Subject**: \`${s.optionalSubject}\``;
+    md += ` | **Updated**: ${new Date(s.updatedAt).toLocaleDateString("en-IN")}\n\n`;
+
+    s.messages.forEach((msg) => {
+      if (msg.role === "user") {
+        md += `#### 💬 Question / Focus Prompt:\n> ${msg.content}\n\n`;
+      } else {
+        md += `#### 📚 Evaluator Notes:\n${msg.content}\n\n`;
+      }
+    });
+
+    md += `---\n\n`;
+  });
+
+  const blob = new Blob([md], { type: "text/markdown;charset=utf-8;" });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = `UPSC_All_Revision_Notes_${Date.now()}.md`;
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+  URL.revokeObjectURL(url);
+}
+
+/**
+ * Compiles all revision sessions into a professional, printable PDF document and triggers download.
+ */
+export function exportRevisionNotesToPdf(
+  sessions: RevisionSessionExportItem[],
+  options?: { title?: string },
+): void {
+  if (typeof window === "undefined" || !sessions.length) return;
+
+  const doc = new jsPDF({ unit: "mm", format: "a4" });
+  const pageWidth = doc.internal.pageSize.getWidth();
+  const pageHeight = doc.internal.pageSize.getHeight();
+  const margin = 14;
+  const contentWidth = pageWidth - margin * 2;
+  const contentBottom = pageHeight - margin - 8;
+  let y = margin;
+
+  const checkPage = (heightNeeded: number) => {
+    if (y + heightNeeded > contentBottom) {
+      doc.addPage();
+      y = margin;
+    }
+  };
+
+  // Header Cover
+  doc.setFillColor(30, 41, 59);
+  doc.rect(margin, y, contentWidth, 24, "F");
+
+  doc.setTextColor(255, 255, 255);
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(14);
+  doc.text(
+    options?.title || "UPSC AI REVISION NOTES COMPENDIUM",
+    margin + 6,
+    y + 10,
+  );
+
+  doc.setFont("helvetica", "normal");
+  doc.setFontSize(8.5);
+  doc.text(
+    `Consolidated Revision Dossier · ${sessions.length} Topics Compiled · ${new Date().toLocaleDateString("en-IN")}`,
+    margin + 6,
+    y + 17,
+  );
+
+  y += 32;
+
+  // Render each session
+  sessions.forEach((s, idx) => {
+    checkPage(24);
+
+    // Topic Banner
+    doc.setFillColor(241, 245, 249);
+    doc.roundedRect(margin, y, contentWidth, 10, 2, 2, "F");
+
+    doc.setTextColor(15, 23, 42);
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(10);
+    doc.text(`${idx + 1}. ${s.title.slice(0, 55)}`, margin + 4, y + 6.5);
+
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(7.5);
+    doc.setTextColor(71, 85, 105);
+    doc.text(`[${s.stage.toUpperCase()}]`, pageWidth - margin - 22, y + 6.5);
+
+    y += 14;
+
+    s.messages.forEach((msg) => {
+      checkPage(16);
+      const isUser = msg.role === "user";
+
+      doc.setFont("helvetica", isUser ? "bold" : "normal");
+      doc.setFontSize(isUser ? 8.5 : 8);
+      doc.setTextColor(isUser ? 37 : 51, isUser ? 99 : 65, isUser ? 235 : 85);
+
+      const rolePrefix = isUser ? "Q: " : "Notes: ";
+      const cleanText = stripMarkdownFormatting(msg.content)
+        .replace(/[“”]/g, '"')
+        .replace(/[‘’]/g, "'");
+
+      const lines = doc.splitTextToSize(
+        rolePrefix + cleanText,
+        contentWidth - 4,
+      );
+
+      for (const line of lines) {
+        checkPage(5);
+        doc.text(line, margin + 2, y);
+        y += 4.5;
+      }
+
+      y += 2.5;
+    });
+
+    y += 4;
+  });
+
+  // Footer page numbers
+  const totalPages = doc.getNumberOfPages();
+  for (let i = 1; i <= totalPages; i++) {
+    doc.setPage(i);
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(7.5);
+    doc.setTextColor(148, 163, 184);
+    doc.text(
+      `UPSC Prep AI Revision Notes · Page ${i} of ${totalPages}`,
+      pageWidth / 2,
+      pageHeight - 6,
+      { align: "center" },
+    );
+  }
+
+  doc.save(`UPSC_Revision_Notes_${Date.now()}.pdf`);
+}
