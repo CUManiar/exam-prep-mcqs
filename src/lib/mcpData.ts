@@ -1,6 +1,7 @@
 import { createClient, SupabaseClient } from "@supabase/supabase-js";
 import { Attempt, ParsedQuestion, QuestionPaper, SyllabusItem } from "./types";
 import { VocabCard } from "./vocabTypes";
+import { migrateMainsSessionsToSingleQuestionBooklet } from "./mainsEvaluation";
 import {
   INITIAL_PAPERS,
   getStandardTimeMinutes,
@@ -1068,4 +1069,284 @@ export function getMcpDailyQuote(random = false) {
     ? Math.floor(Math.random() * FALLBACK_UPSC_QUOTES.length)
     : Math.floor(Date.now() / 86400000) % FALLBACK_UPSC_QUOTES.length;
   return FALLBACK_UPSC_QUOTES[idx];
+}
+
+export interface MainsAggregatedFeedback {
+  totalEvaluatedQuestions: number;
+  totalAttempts: number;
+  averageScorePercentage: number;
+  paperDistribution: Record<
+    string,
+    { count: number; avgScore: number; avgPercentage: number }
+  >;
+  dimensionAverages: {
+    demand: number;
+    content: number;
+    structure: number;
+    presentation: number;
+  };
+  recurringWeaknesses: Array<{ weakness: string; count: number }>;
+  recurringMissingDimensions: Array<{ dimension: string; count: number }>;
+  commonDirectivesAnalyzed: Array<{ directive: string; count: number }>;
+  averageWordCountCompliance: number;
+  reAttemptImprovementRate: {
+    reAttemptedQuestionsCount: number;
+    averageMarksDelta: number;
+  };
+  questionsSummary?: Array<{
+    id: string;
+    question: string;
+    paperType: string;
+    optionalSubject?: string;
+    maxMarks: number;
+    attemptsCount: number;
+    latestScore: number;
+    latestPercentage: number;
+    verdict: string;
+    strengths: string[];
+    weaknesses: string[];
+    missingDimensions: string[];
+    submittedAt: string;
+  }>;
+}
+
+export async function getUserMainsSessions(userId: string): Promise<any[]> {
+  const supabase = getAdminClient();
+  if (supabase) {
+    try {
+      const { data: tableData } = await supabase
+        .from("mains_sessions")
+        .select("*")
+        .eq("user_id", userId)
+        .order("updated_at", { ascending: false });
+      if (Array.isArray(tableData) && tableData.length > 0) {
+        return tableData;
+      }
+      const { data: profileData } = await supabase
+        .from("profiles")
+        .select("mains_sessions")
+        .eq("id", userId)
+        .maybeSingle();
+      if (
+        Array.isArray(profileData?.mains_sessions) &&
+        profileData.mains_sessions.length > 0
+      ) {
+        return profileData.mains_sessions;
+      }
+    } catch (e) {
+      console.warn("Failed fetching mains sessions in mcpData:", e);
+    }
+  }
+
+  const stored = await readJsonStore<Record<string, any[]>>("mains.json", {});
+  if (Array.isArray(stored[userId])) {
+    return stored[userId];
+  }
+  return [];
+}
+
+export function aggregateMainsFeedback(
+  rawSessions: any[],
+  paperFilter?: string,
+  includeQuestionList = true,
+): MainsAggregatedFeedback {
+  const sessions = migrateMainsSessionsToSingleQuestionBooklet(rawSessions);
+  const filtered =
+    !paperFilter || paperFilter === "all"
+      ? sessions
+      : sessions.filter((s) => s.paperType === paperFilter);
+
+  let totalEvaluatedQuestions = 0;
+  let totalAttempts = 0;
+  let totalScore = 0;
+  let totalMax = 0;
+
+  const paperStats: Record<
+    string,
+    { totalAwarded: number; totalMax: number; count: number }
+  > = {};
+  const dimensionTotals = {
+    demand: 0,
+    content: 0,
+    structure: 0,
+    presentation: 0,
+    count: 0,
+  };
+  const weaknessFreq = new Map<string, number>();
+  const missingDimFreq = new Map<string, number>();
+  const directiveFreq = new Map<string, number>();
+  let totalWordCompliance = 0;
+  let wordComplianceCount = 0;
+
+  let reAttemptCount = 0;
+  let totalMarksDelta = 0;
+
+  const questionsSummary: any[] = [];
+
+  for (const s of filtered) {
+    const attempts = Array.isArray(s.attempts) ? s.attempts : [];
+    const evaluatedAttempts = attempts.filter(
+      (att) =>
+        att.evaluation && typeof att.evaluation.marksAwarded === "number",
+    );
+
+    if (evaluatedAttempts.length === 0) continue;
+
+    totalEvaluatedQuestions++;
+    totalAttempts += evaluatedAttempts.length;
+
+    // Check re-attempt improvement
+    if (evaluatedAttempts.length > 1) {
+      const firstScore = evaluatedAttempts[0].evaluation!.marksAwarded;
+      const lastScore =
+        evaluatedAttempts[evaluatedAttempts.length - 1].evaluation!
+          .marksAwarded;
+      totalMarksDelta += lastScore - firstScore;
+      reAttemptCount++;
+    }
+
+    const latestAttempt = evaluatedAttempts[evaluatedAttempts.length - 1];
+    const latestEval = latestAttempt.evaluation!;
+
+    const pType = s.paperType || "GS-2";
+    if (!paperStats[pType])
+      paperStats[pType] = { totalAwarded: 0, totalMax: 0, count: 0 };
+    paperStats[pType].totalAwarded += latestEval.marksAwarded;
+    paperStats[pType].totalMax += latestEval.maxMarks || s.maxMarks || 10;
+    paperStats[pType].count++;
+
+    totalScore += latestEval.marksAwarded;
+    totalMax += latestEval.maxMarks || s.maxMarks || 10;
+
+    // Dimension scores
+    if (latestEval.dimensions) {
+      if (latestEval.dimensions.demand)
+        dimensionTotals.demand += latestEval.dimensions.demand.score;
+      if (latestEval.dimensions.content)
+        dimensionTotals.content += latestEval.dimensions.content.score;
+      if (latestEval.dimensions.structure)
+        dimensionTotals.structure += latestEval.dimensions.structure.score;
+      if (latestEval.dimensions.presentation)
+        dimensionTotals.presentation +=
+          latestEval.dimensions.presentation.score;
+      dimensionTotals.count++;
+    }
+
+    // Directive
+    if (latestEval.directive) {
+      const dir = latestEval.directive.trim().toUpperCase();
+      directiveFreq.set(dir, (directiveFreq.get(dir) || 0) + 1);
+    }
+
+    // Word compliance
+    if (latestEval.targetWordCount && latestEval.actualWordCount) {
+      totalWordCompliance += Math.min(
+        150,
+        Math.round(
+          (latestEval.actualWordCount / latestEval.targetWordCount) * 100,
+        ),
+      );
+      wordComplianceCount++;
+    }
+
+    // Weaknesses
+    for (const w of latestEval.weaknesses || []) {
+      const cleanW = w.trim();
+      if (cleanW) weaknessFreq.set(cleanW, (weaknessFreq.get(cleanW) || 0) + 1);
+    }
+
+    // Missing dimensions
+    for (const m of latestEval.missingDimensions || []) {
+      const cleanM = m.trim();
+      if (cleanM)
+        missingDimFreq.set(cleanM, (missingDimFreq.get(cleanM) || 0) + 1);
+    }
+
+    if (includeQuestionList) {
+      questionsSummary.push({
+        id: s.id,
+        question: s.question || latestEval.question || s.title,
+        paperType: s.paperType,
+        optionalSubject: s.optionalSubject,
+        maxMarks: s.maxMarks || 10,
+        attemptsCount: evaluatedAttempts.length,
+        latestScore: latestEval.marksAwarded,
+        latestPercentage:
+          latestEval.percentage ||
+          Math.round(
+            (latestEval.marksAwarded / (latestEval.maxMarks || 10)) * 100,
+          ),
+        verdict: latestEval.verdict,
+        strengths: (latestEval.strengths || []).slice(0, 3),
+        weaknesses: (latestEval.weaknesses || []).slice(0, 4),
+        missingDimensions: (latestEval.missingDimensions || []).slice(0, 3),
+        submittedAt: latestAttempt.submittedAt,
+      });
+    }
+  }
+
+  const paperDistribution: Record<
+    string,
+    { count: number; avgScore: number; avgPercentage: number }
+  > = {};
+  for (const [p, stat] of Object.entries(paperStats)) {
+    paperDistribution[p] = {
+      count: stat.count,
+      avgScore:
+        stat.count > 0
+          ? Math.round((stat.totalAwarded / stat.count) * 10) / 10
+          : 0,
+      avgPercentage:
+        stat.totalMax > 0
+          ? Math.round((stat.totalAwarded / stat.totalMax) * 100)
+          : 0,
+    };
+  }
+
+  const dimCount = dimensionTotals.count || 1;
+  const dimensionAverages = {
+    demand: Math.round((dimensionTotals.demand / dimCount) * 10) / 10,
+    content: Math.round((dimensionTotals.content / dimCount) * 10) / 10,
+    structure: Math.round((dimensionTotals.structure / dimCount) * 10) / 10,
+    presentation:
+      Math.round((dimensionTotals.presentation / dimCount) * 10) / 10,
+  };
+
+  const recurringWeaknesses = Array.from(weaknessFreq.entries())
+    .map(([weakness, count]) => ({ weakness, count }))
+    .sort((a, b) => b.count - a.count)
+    .slice(0, 10);
+
+  const recurringMissingDimensions = Array.from(missingDimFreq.entries())
+    .map(([dimension, count]) => ({ dimension, count }))
+    .sort((a, b) => b.count - a.count)
+    .slice(0, 10);
+
+  const commonDirectivesAnalyzed = Array.from(directiveFreq.entries())
+    .map(([directive, count]) => ({ directive, count }))
+    .sort((a, b) => b.count - a.count);
+
+  return {
+    totalEvaluatedQuestions,
+    totalAttempts,
+    averageScorePercentage:
+      totalMax > 0 ? Math.round((totalScore / totalMax) * 100) : 0,
+    paperDistribution,
+    dimensionAverages,
+    recurringWeaknesses,
+    recurringMissingDimensions,
+    commonDirectivesAnalyzed,
+    averageWordCountCompliance:
+      wordComplianceCount > 0
+        ? Math.round(totalWordCompliance / wordComplianceCount)
+        : 0,
+    reAttemptImprovementRate: {
+      reAttemptedQuestionsCount: reAttemptCount,
+      averageMarksDelta:
+        reAttemptCount > 0
+          ? Math.round((totalMarksDelta / reAttemptCount) * 10) / 10
+          : 0,
+    },
+    ...(includeQuestionList ? { questionsSummary } : {}),
+  };
 }

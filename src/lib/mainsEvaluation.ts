@@ -61,6 +61,15 @@ export interface MainsEvaluationResult {
   strengths?: string[];
 }
 
+export interface MainsAttemptItem {
+  id: string;
+  attemptNumber: number;
+  studentAnswer: string;
+  attachedImages?: Array<{ mimeType: string; data: string; name: string }>;
+  evaluation?: MainsEvaluationResult;
+  submittedAt: string;
+}
+
 export interface MainsQuestionItem {
   id: string;
   questionNumber: number;
@@ -80,11 +89,12 @@ export interface MainsEvaluationSession {
   updatedAt: string;
   paperType: "GS-1" | "GS-2" | "GS-3" | "GS-4" | "Optional";
   optionalSubject?: string;
-  questions?: MainsQuestionItem[];
-  // Legacy / backward-compatibility fields:
   question?: string;
-  studentAnswer?: string;
   maxMarks?: 10 | 15 | 20;
+  attempts?: MainsAttemptItem[];
+  // Legacy / backward-compatibility fields:
+  questions?: MainsQuestionItem[];
+  studentAnswer?: string;
   attachedImages?: any[];
   evaluation?: MainsEvaluationResult;
 }
@@ -192,6 +202,188 @@ export async function isImageBlankOrNegligible(
 }
 
 /**
+ * Normalizes a session to ensure it has a valid list of attempts for its question.
+ */
+export function normalizeSessionAttempts(
+  sess: MainsEvaluationSession,
+): MainsAttemptItem[] {
+  if (Array.isArray(sess.attempts) && sess.attempts.length > 0) {
+    return sess.attempts;
+  }
+
+  const legacyAttempt: MainsAttemptItem = {
+    id: `${sess.id}_att1`,
+    attemptNumber: 1,
+    studentAnswer:
+      sess.studentAnswer ||
+      (Array.isArray(sess.questions) ? sess.questions[0]?.studentAnswer : "") ||
+      "",
+    attachedImages: Array.isArray(sess.attachedImages)
+      ? sess.attachedImages.map((img: any, i: number) =>
+          typeof img === "string"
+            ? { mimeType: "image/jpeg", data: img, name: `Page ${i + 1}` }
+            : img,
+        )
+      : Array.isArray(sess.questions) && sess.questions[0]?.attachedImages
+        ? sess.questions[0].attachedImages
+        : [],
+    evaluation:
+      sess.evaluation ||
+      (Array.isArray(sess.questions)
+        ? sess.questions[0]?.evaluation
+        : undefined),
+    submittedAt:
+      sess.evaluation?.evaluatedAt ||
+      sess.updatedAt ||
+      new Date().toISOString(),
+  };
+
+  return [legacyAttempt];
+}
+
+/**
+ * Migrates legacy multi-question sessions into a clean, single-question practice booklet:
+ * 1 question = 1 chat session with multiple attempts & evaluations.
+ * No student data is lost: multi-question sessions are expanded into separate question sessions.
+ */
+export function migrateMainsSessionsToSingleQuestionBooklet(
+  rawSessions: any[],
+): MainsEvaluationSession[] {
+  if (!Array.isArray(rawSessions)) return [];
+  const result: MainsEvaluationSession[] = [];
+
+  for (const s of rawSessions) {
+    if (!s) continue;
+
+    // Multi-question legacy session: split each question into its own session
+    if (Array.isArray(s.questions) && s.questions.length > 1) {
+      s.questions.forEach((q: MainsQuestionItem, qIdx: number) => {
+        const questionText = (q.question || "").trim();
+        const fallbackTitle = formatMainsDefaultTitle(
+          s.updatedAt || new Date(),
+        );
+        const displayTitle = questionText
+          ? questionText.length > 60
+            ? questionText.slice(0, 57) + "..."
+            : questionText
+          : `${s.title || fallbackTitle} (Q${qIdx + 1})`;
+
+        const singleSession: MainsEvaluationSession = {
+          id:
+            q.id && q.id !== s.id ? q.id : `${s.id}_q${qIdx + 1}_${Date.now()}`,
+          title: displayTitle,
+          isCustomTitle: Boolean(questionText || s.isCustomTitle),
+          updatedAt: s.updatedAt || new Date().toISOString(),
+          paperType: q.paperType || s.paperType || "GS-2",
+          optionalSubject: q.optionalSubject || s.optionalSubject,
+          question: questionText,
+          maxMarks: q.maxMarks || s.maxMarks || 10,
+          attempts: [
+            {
+              id: `${q.id || s.id}_att1`,
+              attemptNumber: 1,
+              studentAnswer: q.studentAnswer || "",
+              attachedImages: q.attachedImages || [],
+              evaluation: q.evaluation,
+              submittedAt:
+                q.evaluation?.evaluatedAt ||
+                s.updatedAt ||
+                new Date().toISOString(),
+            },
+          ],
+          studentAnswer: q.studentAnswer || "",
+          attachedImages: q.attachedImages || [],
+          evaluation: q.evaluation,
+        };
+        result.push(singleSession);
+      });
+      continue;
+    }
+
+    // Single question session
+    const singleQ =
+      Array.isArray(s.questions) && s.questions.length === 1
+        ? s.questions[0]
+        : null;
+
+    const questionText = (
+      singleQ?.question ||
+      s.question ||
+      s.evaluation?.question ||
+      ""
+    ).trim();
+
+    const fallbackTitle = formatMainsDefaultTitle(s.updatedAt || new Date());
+    const displayTitle =
+      s.isCustomTitle && s.title
+        ? s.title
+        : questionText
+          ? questionText.length > 60
+            ? questionText.slice(0, 57) + "..."
+            : questionText
+          : s.title || fallbackTitle;
+
+    let attempts: MainsAttemptItem[] = [];
+    if (Array.isArray(s.attempts) && s.attempts.length > 0) {
+      attempts = s.attempts.map((att: any, idx: number) => ({
+        id: att.id || `${s.id}_att${idx + 1}`,
+        attemptNumber: att.attemptNumber || idx + 1,
+        studentAnswer: att.studentAnswer || "",
+        attachedImages: Array.isArray(att.attachedImages)
+          ? att.attachedImages
+          : [],
+        evaluation: att.evaluation,
+        submittedAt: att.submittedAt || s.updatedAt || new Date().toISOString(),
+      }));
+    } else {
+      const studentAnswer =
+        singleQ?.studentAnswer ||
+        s.studentAnswer ||
+        s.evaluation?.studentAnswer ||
+        "";
+      const attachedImages = singleQ?.attachedImages || s.attachedImages || [];
+      const evaluation = singleQ?.evaluation || s.evaluation;
+
+      attempts = [
+        {
+          id: `${s.id}_att1`,
+          attemptNumber: 1,
+          studentAnswer,
+          attachedImages,
+          evaluation,
+          submittedAt:
+            evaluation?.evaluatedAt || s.updatedAt || new Date().toISOString(),
+        },
+      ];
+    }
+
+    const singleSession: MainsEvaluationSession = {
+      id: s.id || `mains_${Date.now()}`,
+      title: displayTitle,
+      isCustomTitle: Boolean(s.isCustomTitle || questionText),
+      updatedAt: s.updatedAt || new Date().toISOString(),
+      paperType: singleQ?.paperType || s.paperType || "GS-2",
+      optionalSubject: singleQ?.optionalSubject || s.optionalSubject,
+      question: questionText,
+      maxMarks: singleQ?.maxMarks || s.maxMarks || 10,
+      attempts,
+      studentAnswer: attempts[0]?.studentAnswer || "",
+      attachedImages: attempts[0]?.attachedImages || [],
+      evaluation:
+        attempts[attempts.length - 1]?.evaluation || attempts[0]?.evaluation,
+    };
+
+    result.push(singleSession);
+  }
+
+  return result.sort(
+    (a, b) =>
+      new Date(b.updatedAt || 0).getTime() -
+      new Date(a.updatedAt || 0).getTime(),
+  );
+}
+
+/**
  * Loads saved evaluation sessions from localStorage
  */
 export function loadMainsSessions(): MainsEvaluationSession[] {
@@ -200,7 +392,15 @@ export function loadMainsSessions(): MainsEvaluationSession[] {
     const raw = localStorage.getItem(MAINS_STORAGE_KEY);
     if (!raw) return [];
     const parsed = JSON.parse(raw);
-    return Array.isArray(parsed) ? parsed : [];
+    if (!Array.isArray(parsed)) return [];
+    const migrated = migrateMainsSessionsToSingleQuestionBooklet(parsed);
+    if (
+      migrated.length !== parsed.length ||
+      (parsed[0] && !parsed[0].attempts)
+    ) {
+      saveMainsSessions(migrated);
+    }
+    return migrated;
   } catch (e) {
     console.warn("Failed to load saved mains evaluation sessions:", e);
     return [];

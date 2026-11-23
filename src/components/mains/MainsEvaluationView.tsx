@@ -30,17 +30,27 @@ import {
   Target,
   RotateCcw,
   Cloud,
+  Square,
+  Search,
+  TrendingUp,
+  BarChart3,
+  GitCompare,
+  ArrowRight,
 } from "lucide-react";
 import {
   MainsEvaluationResult,
   MainsEvaluationSession,
+  MainsAttemptItem,
   MainsQuestionItem,
   loadMainsSessions,
   saveMainsSessions,
   normalizeSessionQuestions,
+  normalizeSessionAttempts,
+  migrateMainsSessionsToSingleQuestionBooklet,
   isImageBlankOrNegligible,
   formatMainsDefaultTitle,
 } from "@/lib/mainsEvaluation";
+import { MainsAttemptComparisonView } from "./MainsAttemptComparisonView";
 import {
   saveUserMainsSessionsToSupabase,
   fetchUserMainsSessionsFromSupabase,
@@ -89,16 +99,32 @@ export function MainsEvaluationView() {
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
   const [isSyncingWithCloud, setIsSyncingWithCloud] = useState(false);
 
+  // Search & Hover Tooltip State in Left Sidebar
+  const [searchQuery, setSearchQuery] = useState("");
+  const [hoveredSession, setHoveredSession] = useState<{
+    session: MainsEvaluationSession;
+    index: number;
+    top: number;
+    left: number;
+  } | null>(null);
+
   // Session Chat Renaming State
   const [editingSessionId, setEditingSessionId] = useState<string | null>(null);
   const [editingTitleText, setEditingTitleText] = useState<string>("");
   const [isHeaderRenaming, setIsHeaderRenaming] = useState<boolean>(false);
   const [headerRenameText, setHeaderRenameText] = useState<string>("");
 
-  // Multi-Question State per booklet/session
+  // Attempt State per Question (1 chat = 1 question, multiple evaluations & comparison)
+  const [attempts, setAttempts] = useState<MainsAttemptItem[]>([]);
+  const [activeAttemptIndex, setActiveAttemptIndex] = useState<number>(0);
+  const [isComparingAttempts, setIsComparingAttempts] =
+    useState<boolean>(false);
   const [questions, setQuestions] = useState<MainsQuestionItem[]>([]);
   const [activeQuestionIndex, setActiveQuestionIndex] = useState<number>(0);
   const [isFormExpanded, setIsFormExpanded] = useState<boolean>(true);
+
+  // AbortController ref for Stop option
+  const abortControllerRef = useRef<AbortController | null>(null);
 
   // Input states (bound to active question)
   const [inputMode, setInputMode] = useState<"text" | "upload">("text");
@@ -208,50 +234,55 @@ export function MainsEvaluationView() {
     fetchUserMainsSessionsFromSupabase(currentUser.id)
       .then((dbSessions) => {
         if (!isMounted) return;
-        if (Array.isArray(dbSessions) && dbSessions.length > 0) {
-          // Merge dbSessions with local sessions:
-          const sessionMap = new Map<string, MainsEvaluationSession>();
+        const normalizedDb = migrateMainsSessionsToSingleQuestionBooklet(
+          dbSessions || [],
+        );
+        const normalizedLocal = migrateMainsSessionsToSingleQuestionBooklet(
+          initialLocal || [],
+        );
 
-          dbSessions.forEach((s) => {
-            if (s && s.id) sessionMap.set(s.id, s);
-          });
+        // Merge dbSessions with local sessions:
+        const sessionMap = new Map<string, MainsEvaluationSession>();
 
-          initialLocal.forEach((ls) => {
-            if (!sessionMap.has(ls.id)) {
+        normalizedDb.forEach((s) => {
+          if (s && s.id) sessionMap.set(s.id, s);
+        });
+
+        normalizedLocal.forEach((ls) => {
+          if (!sessionMap.has(ls.id)) {
+            sessionMap.set(ls.id, ls);
+          } else {
+            const dbS = sessionMap.get(ls.id)!;
+            const dbAtts = dbS.attempts || [];
+            const localAtts = ls.attempts || [];
+            const dbEvalCount = dbAtts.filter((a) => a.evaluation).length;
+            const localEvalCount = localAtts.filter((a) => a.evaluation).length;
+
+            if (
+              localEvalCount > dbEvalCount ||
+              (ls.updatedAt && ls.updatedAt > (dbS.updatedAt || ""))
+            ) {
               sessionMap.set(ls.id, ls);
-            } else {
-              const dbS = sessionMap.get(ls.id)!;
-              const dbQs = dbS.questions || [];
-              const localQs = ls.questions || [];
-              const dbEvalCount = dbQs.filter((q) => q.evaluation).length;
-              const localEvalCount = localQs.filter((q) => q.evaluation).length;
-
-              if (
-                localEvalCount > dbEvalCount ||
-                (ls.updatedAt && ls.updatedAt > (dbS.updatedAt || ""))
-              ) {
-                sessionMap.set(ls.id, ls);
-              }
             }
-          });
-
-          const merged = Array.from(sessionMap.values()).sort(
-            (a, b) =>
-              new Date(b.updatedAt || 0).getTime() -
-              new Date(a.updatedAt || 0).getTime(),
-          );
-
-          setSessions(merged);
-          saveMainsSessions(merged);
-          saveUserMainsSessionsToSupabase(currentUser.id, merged);
-
-          if (!currentSessionId || !sessionMap.has(currentSessionId)) {
-            loadSession(merged[0]);
           }
-        } else if (initialLocal.length > 0) {
-          saveUserMainsSessionsToSupabase(currentUser.id, initialLocal);
-        } else {
-          handleNewEvaluation();
+        });
+
+        const merged = Array.from(sessionMap.values()).sort(
+          (a, b) =>
+            new Date(b.updatedAt || 0).getTime() -
+            new Date(a.updatedAt || 0).getTime(),
+        );
+
+        setSessions(merged);
+        saveMainsSessions(merged);
+        saveUserMainsSessionsToSupabase(currentUser.id, merged);
+
+        if (!currentSessionId || !sessionMap.has(currentSessionId)) {
+          if (merged.length > 0) {
+            loadSession(merged[0]);
+          } else {
+            handleNewEvaluation();
+          }
         }
       })
       .catch((err) => {
@@ -266,189 +297,117 @@ export function MainsEvaluationView() {
     };
   }, [currentUser?.id]);
 
+  const handleStopEvaluation = () => {
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort();
+      abortControllerRef.current = null;
+    }
+    setIsLoading(false);
+    setErrorMsg(
+      "Evaluation was cancelled. Your draft and uploads are preserved.",
+    );
+  };
+
   const loadSession = (sess: MainsEvaluationSession) => {
     setCurrentSessionId(sess.id);
-    const normalizedQs = normalizeSessionQuestions(sess);
-    setQuestions(normalizedQs);
-    setActiveQuestionIndex(0);
+    const normalizedAtts = normalizeSessionAttempts(sess);
+    setAttempts(normalizedAtts);
+    const latestIdx = Math.max(0, normalizedAtts.length - 1);
+    setActiveAttemptIndex(latestIdx);
+    setIsComparingAttempts(false);
 
-    const firstQ = normalizedQs[0] || {
-      id: `${sess.id}_q1`,
-      questionNumber: 1,
-      question: sess.question || "",
+    const latestAtt = normalizedAtts[latestIdx] || {
+      id: `${sess.id}_att1`,
+      attemptNumber: 1,
       studentAnswer: sess.studentAnswer || "",
-      paperType: sess.paperType || "GS-2",
-      optionalSubject: sess.optionalSubject || globalOptionalSubject,
-      maxMarks: sess.maxMarks || 10,
-    };
-
-    setQuestion(firstQ.question || "");
-    setAnswerText(firstQ.studentAnswer || "");
-    setPaperType(firstQ.paperType || sess.paperType || "GS-2");
-    setOptionalSubject(
-      firstQ.paperType === "Optional"
-        ? firstQ.optionalSubject ||
-            sess.optionalSubject ||
-            globalOptionalSubject ||
-            ""
-        : sess.optionalSubject || globalOptionalSubject || "",
-    );
-    setMaxMarks(firstQ.maxMarks || 10);
-    const firstQImages = firstQ.attachedImages || [];
-    setUploadedImages(firstQImages);
-    if (firstQImages.length > 0 && !firstQ.studentAnswer?.trim()) {
-      setInputMode("upload");
-    } else if (firstQ.studentAnswer?.trim()) {
-      setInputMode("text");
-    }
-    setEvaluation(firstQ.evaluation || null);
-    setIsFormExpanded(!firstQ.evaluation); // Collapse input form if answer already evaluated
-    setChatMessages([]);
-    setErrorMsg(null);
-    if (firstQ.evaluation) {
-      setActiveTab("feedback");
-    }
-  };
-
-  const selectQuestion = (idx: number) => {
-    if (idx < 0 || idx >= questions.length) return;
-
-    // Save current active question changes before switching so no drafts or edits are lost
-    const currentQs = [...questions];
-    if (currentQs[activeQuestionIndex]) {
-      currentQs[activeQuestionIndex] = {
-        ...currentQs[activeQuestionIndex],
-        question,
-        studentAnswer: answerText,
-        paperType,
-        optionalSubject: paperType === "Optional" ? optionalSubject : undefined,
-        maxMarks,
-        attachedImages: uploadedImages,
-        evaluation,
-      };
-      setQuestions(currentQs);
-      setSessions((prev) => {
-        const updated = prev.map((s) => {
-          if (s.id === currentSessionId) {
-            return {
-              ...s,
-              updatedAt: new Date().toISOString(),
-              questions: currentQs,
-            };
-          }
-          return s;
-        });
-        persistSessions(updated);
-        return updated;
-      });
-    }
-
-    setActiveQuestionIndex(idx);
-    const q = currentQs[idx];
-    setQuestion(q.question || "");
-    setAnswerText(q.studentAnswer || "");
-    setPaperType(q.paperType || "GS-2");
-    setOptionalSubject(
-      q.paperType === "Optional"
-        ? q.optionalSubject || globalOptionalSubject || ""
-        : globalOptionalSubject || "",
-    );
-    setMaxMarks(q.maxMarks || 10);
-    const qImages = q.attachedImages || [];
-    setUploadedImages(qImages);
-    if (qImages.length > 0 && !q.studentAnswer?.trim()) {
-      setInputMode("upload");
-    } else if (q.studentAnswer?.trim()) {
-      setInputMode("text");
-    }
-    setEvaluation(q.evaluation || null);
-    setIsFormExpanded(!q.evaluation);
-    setChatMessages([]);
-    setErrorMsg(null);
-    if (q.evaluation) {
-      setActiveTab("feedback");
-    }
-  };
-
-  const handleAddNewQuestion = () => {
-    // Restrict maximum 5 questions in a single session
-    if (questions.length >= 5) {
-      setErrorMsg(
-        "Maximum limit of 5 questions reached for this evaluation session.",
-      );
-      return;
-    }
-
-    // Persist current question draft before adding new
-    const currentQs = [...questions];
-    if (currentQs[activeQuestionIndex]) {
-      currentQs[activeQuestionIndex] = {
-        ...currentQs[activeQuestionIndex],
-        question,
-        studentAnswer: answerText,
-        paperType,
-        optionalSubject: paperType === "Optional" ? optionalSubject : undefined,
-        maxMarks,
-        attachedImages: uploadedImages,
-        evaluation,
-      };
-    }
-
-    const nextNum = currentQs.length + 1;
-    const newQ: MainsQuestionItem = {
-      id: `${currentSessionId}_q${Date.now()}`,
-      questionNumber: nextNum,
-      question: "",
-      studentAnswer: "",
-      paperType: paperType || "GS-2",
-      optionalSubject:
-        paperType === "Optional"
-          ? optionalSubject || globalOptionalSubject
-          : undefined,
-      maxMarks: 10,
       attachedImages: [],
-      evaluation: undefined,
+      submittedAt: new Date().toISOString(),
     };
-    const updatedQs = [...currentQs, newQ];
-    setQuestions(updatedQs);
-    setActiveQuestionIndex(updatedQs.length - 1);
-    setQuestion("");
+
+    const resolvedQ =
+      sess.question || latestAtt.evaluation?.question || sess.title || "";
+    setQuestion(resolvedQ);
+    setAnswerText(latestAtt.studentAnswer || "");
+    setPaperType(sess.paperType || latestAtt.evaluation?.paperType || "GS-2");
+    setOptionalSubject(
+      sess.optionalSubject ||
+        latestAtt.evaluation?.optionalSubject ||
+        globalOptionalSubject ||
+        "",
+    );
+    setMaxMarks(sess.maxMarks || latestAtt.evaluation?.maxMarks || 10);
+    const attImages = latestAtt.attachedImages || [];
+    setUploadedImages(attImages);
+    if (attImages.length > 0 && !latestAtt.studentAnswer?.trim()) {
+      setInputMode("upload");
+    } else if (latestAtt.studentAnswer?.trim()) {
+      setInputMode("text");
+    }
+    setEvaluation(latestAtt.evaluation || null);
+    setIsFormExpanded(!latestAtt.evaluation);
+    setChatMessages([]);
+    setErrorMsg(null);
+    if (latestAtt.evaluation) {
+      setActiveTab("feedback");
+    }
+
+    setQuestions([
+      {
+        id: `${sess.id}_q1`,
+        questionNumber: 1,
+        question: resolvedQ,
+        studentAnswer: latestAtt.studentAnswer || "",
+        paperType: sess.paperType || "GS-2",
+        optionalSubject: sess.optionalSubject,
+        maxMarks: sess.maxMarks || 10,
+        attachedImages: attImages,
+        evaluation: latestAtt.evaluation,
+      },
+    ]);
+  };
+
+  const selectAttempt = (idx: number) => {
+    if (idx < 0 || idx >= attempts.length) return;
+    setActiveAttemptIndex(idx);
+    setIsComparingAttempts(false);
+    const att = attempts[idx];
+    setAnswerText(att.studentAnswer || "");
+    const attImages = att.attachedImages || [];
+    setUploadedImages(attImages);
+    if (attImages.length > 0 && !att.studentAnswer?.trim()) {
+      setInputMode("upload");
+    } else if (att.studentAnswer?.trim()) {
+      setInputMode("text");
+    }
+    setEvaluation(att.evaluation || null);
+    setIsFormExpanded(!att.evaluation);
+    setChatMessages([]);
+    setErrorMsg(null);
+    if (att.evaluation) {
+      setActiveTab("feedback");
+    }
+  };
+
+  const handleStartNewAttempt = () => {
+    const nextNum = attempts.length + 1;
+    const newAtt: MainsAttemptItem = {
+      id: `${currentSessionId}_att${Date.now()}`,
+      attemptNumber: nextNum,
+      studentAnswer: "",
+      attachedImages: [],
+      submittedAt: new Date().toISOString(),
+    };
+    const updatedAttempts = [...attempts, newAtt];
+    setAttempts(updatedAttempts);
+    setActiveAttemptIndex(updatedAttempts.length - 1);
     setAnswerText("");
-    setMaxMarks(10);
     setUploadedImages([]);
     setEvaluation(null);
-    setIsFormExpanded(true); // Open submission form for new question
+    setIsFormExpanded(true); // Open the writing box for new attempt
+    setIsComparingAttempts(false);
+    setActiveTab("feedback");
     setErrorMsg(null);
     setChatMessages([]);
-
-    setSessions((prev) => {
-      const existing = prev.find((s) => s.id === currentSessionId);
-      const updatedSession: MainsEvaluationSession = {
-        ...(existing || {
-          id: currentSessionId,
-          title: formatMainsDefaultTitle(new Date()),
-          updatedAt: new Date().toISOString(),
-          paperType,
-        }),
-        updatedAt: new Date().toISOString(),
-        questions: updatedQs,
-      };
-      const filtered = prev.filter((s) => s.id !== currentSessionId);
-      const updated = [updatedSession, ...filtered];
-      persistSessions(updated);
-      return updated;
-    });
-  };
-
-  const handleDeleteQuestion = (idx: number, e: React.MouseEvent) => {
-    e.stopPropagation();
-    if (questions.length <= 1) return;
-    const updatedQs = questions
-      .filter((_, i) => i !== idx)
-      .map((q, i) => ({ ...q, questionNumber: i + 1 }));
-    setQuestions(updatedQs);
-    const nextIdx = Math.min(activeQuestionIndex, updatedQs.length - 1);
-    selectQuestion(nextIdx);
 
     setSessions((prev) => {
       const updated = prev.map((s) => {
@@ -456,7 +415,33 @@ export function MainsEvaluationView() {
           return {
             ...s,
             updatedAt: new Date().toISOString(),
-            questions: updatedQs,
+            attempts: updatedAttempts,
+          };
+        }
+        return s;
+      });
+      persistSessions(updated);
+      return updated;
+    });
+  };
+
+  const handleDeleteAttempt = (idx: number, e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (attempts.length <= 1) return;
+    const updatedAttempts = attempts
+      .filter((_, i) => i !== idx)
+      .map((att, i) => ({ ...att, attemptNumber: i + 1 }));
+    setAttempts(updatedAttempts);
+    const nextIdx = Math.min(activeAttemptIndex, updatedAttempts.length - 1);
+    selectAttempt(nextIdx);
+
+    setSessions((prev) => {
+      const updated = prev.map((s) => {
+        if (s.id === currentSessionId) {
+          return {
+            ...s,
+            updatedAt: new Date().toISOString(),
+            attempts: updatedAttempts,
           };
         }
         return s;
@@ -468,14 +453,12 @@ export function MainsEvaluationView() {
 
   const handleNewEvaluation = () => {
     const newId = `mains_${Date.now()}`;
-    const initialQ: MainsQuestionItem = {
-      id: `${newId}_q1`,
-      questionNumber: 1,
-      question: "",
+    const initialAtt: MainsAttemptItem = {
+      id: `${newId}_att1`,
+      attemptNumber: 1,
       studentAnswer: "",
-      paperType: "GS-2",
-      maxMarks: 10,
       attachedImages: [],
+      submittedAt: new Date().toISOString(),
     };
     const defaultTitle = formatMainsDefaultTitle(new Date());
     const newSession: MainsEvaluationSession = {
@@ -485,13 +468,15 @@ export function MainsEvaluationView() {
       updatedAt: new Date().toISOString(),
       paperType: "GS-2",
       maxMarks: 10,
-      questions: [initialQ],
       question: "",
+      attempts: [initialAtt],
       studentAnswer: "",
+      attachedImages: [],
     };
     setCurrentSessionId(newId);
-    setQuestions([initialQ]);
-    setActiveQuestionIndex(0);
+    setAttempts([initialAtt]);
+    setActiveAttemptIndex(0);
+    setIsComparingAttempts(false);
     setQuestion("");
     setAnswerText("");
     setPaperType("GS-2");
@@ -760,6 +745,8 @@ export function MainsEvaluationView() {
       return;
     }
 
+    const controller = new AbortController();
+    abortControllerRef.current = controller;
     setIsLoading(true);
     setErrorMsg(null);
 
@@ -767,6 +754,7 @@ export function MainsEvaluationView() {
       const res = await fetch("/api/mains/evaluate", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
+        signal: controller.signal,
         body: JSON.stringify({
           question: question.trim(),
           answerText: trimmedAnswer,
@@ -813,45 +801,50 @@ export function MainsEvaluationView() {
       setIsFormExpanded(false); // Collapse form once evaluated!
       setActiveTab("feedback");
 
-      // Update question in questions array
-      const updatedQs = questions.map((q, idx) => {
-        if (idx === activeQuestionIndex) {
-          return {
-            ...q,
-            question: evalResult.question || question,
-            studentAnswer: answerText,
-            paperType,
-            optionalSubject:
-              paperType === "Optional" ? optionalSubject : undefined,
-            maxMarks,
-            attachedImages: uploadedImages,
-            evaluation: evalResult,
-          };
-        }
-        return q;
-      });
-      setQuestions(updatedQs);
+      // Save as attempt in attempts array (1 question, multiple evaluations)
+      const updatedAttempt: MainsAttemptItem = {
+        id:
+          attempts[activeAttemptIndex]?.id ||
+          `${currentSessionId}_att${Date.now()}`,
+        attemptNumber: activeAttemptIndex + 1,
+        studentAnswer: trimmedAnswer,
+        attachedImages: uploadedImages,
+        evaluation: evalResult,
+        submittedAt: new Date().toISOString(),
+      };
 
-      // Save to sessions
+      const updatedAttempts = [...attempts];
+      if (activeAttemptIndex < updatedAttempts.length) {
+        updatedAttempts[activeAttemptIndex] = updatedAttempt;
+      } else {
+        updatedAttempts.push(updatedAttempt);
+      }
+      setAttempts(updatedAttempts);
+
+      const resolvedQ = evalResult.question || question;
+      const cleanTitle =
+        resolvedQ.length > 60 ? resolvedQ.slice(0, 57) + "..." : resolvedQ;
+
       const existingSession = sessions.find((s) => s.id === currentSessionId);
       const sessionTitle =
         existingSession?.isCustomTitle && existingSession.title
           ? existingSession.title
-          : formatMainsDefaultTitle(new Date());
+          : cleanTitle || formatMainsDefaultTitle(new Date());
 
       const sessionObj: MainsEvaluationSession = {
         id: currentSessionId,
         title: sessionTitle,
-        isCustomTitle: Boolean(existingSession?.isCustomTitle),
+        isCustomTitle: Boolean(existingSession?.isCustomTitle || resolvedQ),
         updatedAt: new Date().toISOString(),
         paperType,
         optionalSubject: paperType === "Optional" ? optionalSubject : undefined,
-        questions: updatedQs,
+        question: resolvedQ,
+        maxMarks,
+        attempts: updatedAttempts,
         // Legacy fallback fields
-        question: updatedQs[0]?.question,
-        studentAnswer: updatedQs[0]?.studentAnswer,
-        maxMarks: updatedQs[0]?.maxMarks,
-        evaluation: updatedQs[0]?.evaluation,
+        evaluation: evalResult,
+        studentAnswer: trimmedAnswer,
+        attachedImages: uploadedImages,
       };
 
       setSessions((prev) => {
@@ -861,10 +854,17 @@ export function MainsEvaluationView() {
         return updated;
       });
     } catch (err: any) {
+      if (err.name === "AbortError" || controller.signal.aborted) {
+        setErrorMsg(
+          "Evaluation was cancelled. Your draft and uploaded pages are preserved.",
+        );
+        return;
+      }
       setEvaluation(null);
       setErrorMsg(err?.message || "An error occurred during evaluation.");
     } finally {
       setIsLoading(false);
+      abortControllerRef.current = null;
     }
   };
 
@@ -1218,9 +1218,29 @@ EXAMINER RESPONSE REQUIREMENTS:
       ? Math.round((actualWordCount / targetWords) * 100)
       : 0;
 
+  const filteredSessions = useMemo(() => {
+    if (!searchQuery.trim()) return sessions;
+    const q = searchQuery.toLowerCase();
+    return sessions.filter((s) => {
+      const qText = (s.question || s.title || "").toLowerCase();
+      const pType = (s.paperType || "").toLowerCase();
+      const opt = (s.optionalSubject || "").toLowerCase();
+      const verdicts = (s.attempts || [])
+        .map((a) => a.evaluation?.verdict || "")
+        .join(" ")
+        .toLowerCase();
+      return (
+        qText.includes(q) ||
+        pType.includes(q) ||
+        opt.includes(q) ||
+        verdicts.includes(q)
+      );
+    });
+  }, [sessions, searchQuery]);
+
   return (
     <div className="flex h-[calc(100vh-4rem)] bg-slate-100/70 dark:bg-slate-950 text-slate-900 dark:text-slate-100 overflow-hidden font-sans">
-      {/* ── 1. SIDEBAR (History of Evaluations) ── */}
+      {/* ── 1. SIDEBAR (Practice Booklet of Questions) ── */}
       <aside
         className={`bg-white dark:bg-slate-900 border-r border-slate-200 dark:border-slate-800 flex flex-col transition-all duration-200 shrink-0 z-20 ${
           isSidebarOpen
@@ -1231,9 +1251,9 @@ EXAMINER RESPONSE REQUIREMENTS:
         {/* Sidebar Header */}
         <div className="p-3.5 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <Award className="h-4 w-4 text-indigo-600" />
+            <BookOpen className="h-4 w-4 text-indigo-600" />
             <h2 className="text-xs font-bold uppercase tracking-wider text-slate-800 dark:text-slate-200">
-              Evaluations ({sessions.length})
+              Practice Booklet ({filteredSessions.length})
             </h2>
             {currentUser && (
               <span
@@ -1249,56 +1269,79 @@ EXAMINER RESPONSE REQUIREMENTS:
             type="button"
             onClick={handleNewEvaluation}
             className="flex items-center gap-1 px-2.5 py-1 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold shadow-xs cursor-pointer transition-colors"
-            title="Start New Evaluation"
+            title="Start New Practice Question"
           >
             <Plus className="h-3.5 w-3.5" />
             <span>New</span>
           </button>
         </div>
 
-        {/* Saved Sessions List */}
+        {/* Search Input Bar (Requirement 3) */}
+        <div className="p-2.5 border-b border-slate-100 dark:border-slate-800/80">
+          <div className="relative">
+            <Search className="h-3.5 w-3.5 absolute left-2.5 top-2.5 text-slate-400" />
+            <input
+              type="text"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder="Search evaluated questions..."
+              className="w-full pl-8 pr-7 py-1.5 text-xs rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/50 text-slate-900 dark:text-slate-100 placeholder:text-slate-400 focus:outline-hidden focus:ring-2 focus:ring-indigo-500"
+            />
+            {searchQuery && (
+              <button
+                type="button"
+                onClick={() => setSearchQuery("")}
+                className="absolute right-2 top-2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 p-0.5 cursor-pointer"
+                title="Clear search"
+              >
+                <X className="h-3 w-3" />
+              </button>
+            )}
+          </div>
+        </div>
+
+        {/* Saved Questions Booklet List */}
         <div className="flex-1 overflow-y-auto p-2 space-y-1">
-          {sessions.length === 0 ? (
+          {filteredSessions.length === 0 ? (
             <div className="p-6 text-center text-xs text-slate-400">
-              No evaluations yet. Start by entering a Mains question and answer!
+              {searchQuery
+                ? "No evaluated questions matching your search."
+                : "No questions in your booklet yet. Start by entering a Mains question!"}
             </div>
           ) : (
-            sessions.map((sess) => {
+            filteredSessions.map((sess, idx) => {
               const isSelected = sess.id === currentSessionId;
-              const sessionQs =
-                sess.questions && sess.questions.length > 0
-                  ? sess.questions
-                  : sess.evaluation
-                    ? [
-                        {
-                          evaluation: sess.evaluation,
-                          maxMarks: sess.maxMarks || 10,
-                        },
-                      ]
-                    : [];
-              const evaluatedList = sessionQs.filter(
-                (q) =>
-                  q.evaluation && typeof q.evaluation.marksAwarded === "number",
+              const normalizedAtts = normalizeSessionAttempts(sess);
+              const evaluatedAtts = normalizedAtts.filter(
+                (a) =>
+                  a.evaluation && typeof a.evaluation.marksAwarded === "number",
               );
-              const hasEvaluated = evaluatedList.length > 0;
-              const totalAwarded = evaluatedList.reduce(
-                (sum, q) => sum + (q.evaluation?.marksAwarded || 0),
-                0,
-              );
-              const totalMax = evaluatedList.reduce(
-                (sum, q) => sum + (q.maxMarks || 10),
-                0,
-              );
-              const avgAwarded =
-                evaluatedList.length > 0
-                  ? totalAwarded / evaluatedList.length
-                  : 0;
-              const avgMax =
-                evaluatedList.length > 0 ? totalMax / evaluatedList.length : 10;
+              const hasEvaluated = evaluatedAtts.length > 0;
+              const latestEval = hasEvaluated
+                ? evaluatedAtts[evaluatedAtts.length - 1].evaluation
+                : null;
+              const qText =
+                sess.question ||
+                latestEval?.question ||
+                sess.title ||
+                "Untitled Question";
 
               return (
                 <div
                   key={sess.id}
+                  onMouseEnter={(e) => {
+                    const rect = e.currentTarget.getBoundingClientRect();
+                    setHoveredSession({
+                      session: sess,
+                      index: idx + 1,
+                      top: Math.max(
+                        16,
+                        Math.min(rect.top, window.innerHeight - 260),
+                      ),
+                      left: rect.right + 12,
+                    });
+                  }}
+                  onMouseLeave={() => setHoveredSession(null)}
                   onClick={() => {
                     if (editingSessionId === sess.id) return;
                     loadSession(sess);
@@ -1306,25 +1349,38 @@ EXAMINER RESPONSE REQUIREMENTS:
                   }}
                   className={`group p-2.5 rounded-xl border text-left cursor-pointer transition-all flex items-start justify-between gap-2 ${
                     isSelected
-                      ? "bg-indigo-50/80 dark:bg-indigo-950/60 border-indigo-200 dark:border-indigo-800 text-indigo-900 dark:text-indigo-200 shadow-2xs"
+                      ? "bg-indigo-50/80 dark:bg-indigo-950/60 border-indigo-200 dark:border-indigo-800 text-indigo-900 dark:text-indigo-200 shadow-2xs font-medium"
                       : "bg-white dark:bg-slate-900/40 border-slate-200 dark:border-slate-800/80 hover:bg-slate-50 dark:hover:bg-slate-800/50 text-slate-700 dark:text-slate-300"
                   }`}
                 >
-                  <div className="min-w-0 flex-1">
-                    <div className="flex items-center gap-1.5 mb-1 flex-wrap">
+                  <div className="min-w-0 flex-1 space-y-1">
+                    {/* Line 1: Q1, Q2 badge + Paper Type + Score + Attempts pill */}
+                    <div className="flex items-center gap-1.5 flex-wrap">
+                      <span className="font-mono text-[10px] font-black px-1.5 py-0.5 rounded-md bg-indigo-100 dark:bg-indigo-900/60 text-indigo-700 dark:text-indigo-300">
+                        Q{idx + 1}
+                      </span>
                       <span className="font-mono text-[10px] font-bold px-1.5 py-0.5 rounded bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400">
                         {sess.paperType === "Optional" && sess.optionalSubject
-                          ? `Optional (${sess.optionalSubject})`
+                          ? `Optional (${sess.optionalSubject.split(" ")[0]})`
                           : sess.paperType}
                       </span>
-                      {hasEvaluated && (
+                      {hasEvaluated ? (
                         <span className="font-bold text-[10px] px-1.5 py-0.5 rounded bg-emerald-50 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800 font-mono">
-                          {evaluatedList.length > 1
-                            ? `Avg ${Math.round(avgAwarded * 10) / 10} / ${Math.round(avgMax * 10) / 10}`
-                            : `${evaluatedList[0].evaluation?.marksAwarded} / ${evaluatedList[0].maxMarks || 10}`}
+                          {latestEval?.marksAwarded} /{" "}
+                          {latestEval?.maxMarks || sess.maxMarks || 10}
+                        </span>
+                      ) : (
+                        <span className="text-[10px] font-semibold text-amber-500 font-mono">
+                          Draft
+                        </span>
+                      )}
+                      {evaluatedAtts.length > 1 && (
+                        <span className="text-[9px] font-semibold px-1.5 py-0.2 rounded-full bg-indigo-50 dark:bg-indigo-950 text-indigo-600 dark:text-indigo-400 border border-indigo-200 dark:border-indigo-800">
+                          {evaluatedAtts.length} att
                         </span>
                       )}
                     </div>
+
                     {editingSessionId === sess.id ? (
                       <form
                         onSubmit={(e) =>
@@ -1361,23 +1417,35 @@ EXAMINER RESPONSE REQUIREMENTS:
                       </form>
                     ) : (
                       <>
-                        <p className="text-xs font-semibold truncate leading-snug">
-                          {sess.title || "Untitled Evaluation"}
+                        {/* Line 2: One line question preview (Requirement 2) */}
+                        <p className="text-xs font-semibold truncate leading-snug text-slate-900 dark:text-slate-100">
+                          {qText}
                         </p>
-                        <span className="text-[10px] text-slate-400 block mt-0.5 font-mono">
-                          {sess.questions && sess.questions.length > 1
-                            ? `${sess.questions.length} questions • ${new Date(sess.updatedAt).toLocaleDateString("en-IN", { day: "numeric", month: "short" })}`
-                            : new Date(sess.updatedAt).toLocaleDateString(
-                                "en-IN",
-                                {
-                                  day: "numeric",
-                                  month: "short",
-                                },
-                              )}
-                        </span>
+
+                        {/* Line 3: Meta (Date & Verdict preview) */}
+                        <div className="flex items-center gap-1.5 text-[10px] text-slate-400 font-mono">
+                          <span>
+                            {new Date(sess.updatedAt).toLocaleDateString(
+                              "en-IN",
+                              {
+                                day: "numeric",
+                                month: "short",
+                              },
+                            )}
+                          </span>
+                          {latestEval?.verdict && (
+                            <>
+                              <span>•</span>
+                              <span className="truncate max-w-[120px] italic font-sans text-slate-500 dark:text-slate-400">
+                                {latestEval.verdict}
+                              </span>
+                            </>
+                          )}
+                        </div>
                       </>
                     )}
                   </div>
+
                   {editingSessionId !== sess.id && (
                     <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
                       <button
@@ -1394,7 +1462,7 @@ EXAMINER RESPONSE REQUIREMENTS:
                         type="button"
                         onClick={(e) => handleDeleteSession(sess.id, e)}
                         className="text-slate-400 hover:text-rose-600 p-1 rounded transition-colors cursor-pointer"
-                        title="Delete evaluation"
+                        title="Delete question from booklet"
                       >
                         <Trash2 className="h-3.5 w-3.5" />
                       </button>
@@ -1405,6 +1473,77 @@ EXAMINER RESPONSE REQUIREMENTS:
             })
           )}
         </div>
+
+        {/* Hover Popover Tooltip for Question (Requirement 2) */}
+        {hoveredSession && (
+          <div
+            style={{ top: hoveredSession.top, left: hoveredSession.left }}
+            className="hidden sm:block fixed z-50 w-84 max-w-sm rounded-2xl bg-slate-900/95 text-slate-100 p-4 shadow-2xl backdrop-blur-md border border-slate-800 text-xs pointer-events-none transition-all duration-150 animate-in fade-in zoom-in-95"
+          >
+            <div className="space-y-2.5">
+              <div className="flex items-center justify-between border-b border-slate-800 pb-2">
+                <div className="flex items-center gap-2">
+                  <span className="font-mono font-bold text-xs px-2 py-0.5 rounded-md bg-indigo-500/20 text-indigo-300">
+                    Q{hoveredSession.index}
+                  </span>
+                  <span className="font-bold text-white text-xs">
+                    {hoveredSession.session.paperType}
+                    {hoveredSession.session.optionalSubject
+                      ? ` (${hoveredSession.session.optionalSubject})`
+                      : ""}
+                  </span>
+                </div>
+                {hoveredSession.session.attempts?.some((a) => a.evaluation) && (
+                  <span className="font-mono font-bold text-emerald-400 text-xs">
+                    {
+                      hoveredSession.session.attempts
+                        .filter((a) => a.evaluation)
+                        .slice(-1)[0]?.evaluation?.marksAwarded
+                    }{" "}
+                    / {hoveredSession.session.maxMarks || 10} Marks
+                  </span>
+                )}
+              </div>
+
+              <div>
+                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1">
+                  Evaluated Question
+                </span>
+                <p className="text-xs text-slate-200 font-medium leading-relaxed italic">
+                  "
+                  {hoveredSession.session.question ||
+                    hoveredSession.session.title}
+                  "
+                </p>
+              </div>
+
+              {hoveredSession.session.attempts?.slice(-1)[0]?.evaluation
+                ?.verdict && (
+                <div className="pt-2 border-t border-slate-800/80">
+                  <span className="text-[10px] font-bold text-indigo-400 uppercase tracking-wider block mb-0.5">
+                    Examiner Verdict
+                  </span>
+                  <p className="text-[11px] text-slate-300 leading-snug">
+                    {
+                      hoveredSession.session.attempts.slice(-1)[0]?.evaluation
+                        ?.verdict
+                    }
+                  </p>
+                </div>
+              )}
+
+              <div className="pt-2 border-t border-slate-800/80 flex items-center justify-between text-[10px] text-slate-400 font-mono">
+                <span>
+                  {hoveredSession.session.attempts?.length || 1} evaluation
+                  attempt(s)
+                </span>
+                <span className="text-indigo-400 font-sans font-semibold">
+                  Click to review & re-evaluate →
+                </span>
+              </div>
+            </div>
+          </div>
+        )}
       </aside>
 
       {/* Mobile Backdrop for Drawer */}
@@ -1596,29 +1735,81 @@ EXAMINER RESPONSE REQUIREMENTS:
         <div className="max-w-5xl w-full mx-auto p-3.5 sm:p-6 space-y-5">
           {/* ── Sticky Top Bar: Question Navigation & Active Question Context ── */}
           <div className="sticky top-0 z-20 bg-slate-50/95 dark:bg-slate-950/95 backdrop-blur-md pt-1 pb-3 -mt-2 space-y-3 transition-all">
-            {/* ── A. MULTI-QUESTION SWITCHER & TEST SCORE BAR ── */}
-            <div className="flex items-center justify-between flex-wrap gap-2.5 bg-white dark:bg-slate-900 p-2.5 sm:p-3 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-2xs">
-              <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar py-0.5 max-w-full">
-                {questions.map((q, idx) => {
-                  const isActive = idx === activeQuestionIndex;
-                  const hasScore = q.evaluation?.marksAwarded !== undefined;
-                  return (
-                    <div
-                      key={q.id || idx}
-                      className="flex items-center gap-0.5 shrink-0"
-                    >
-                      <button
-                        type="button"
-                        onClick={() => selectQuestion(idx)}
-                        className={`px-3 py-1.5 rounded-xl font-bold text-xs flex items-center gap-2 transition-all cursor-pointer ${
-                          isActive
-                            ? "bg-indigo-600 text-white shadow-xs"
-                            : "bg-slate-50 dark:bg-slate-800/80 text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700/80 border border-slate-200/60 dark:border-slate-700/60"
-                        }`}
+            {/* ── PRACTICE QUESTION BOOKLET HEADER & ATTEMPTS SWITCHER ── */}
+            <div className="bg-white dark:bg-slate-900 p-3 sm:p-4 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-2xs space-y-3">
+              {/* Question metadata & text */}
+              <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2.5">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <span className="px-2.5 py-0.5 rounded-lg text-xs font-bold bg-indigo-50 dark:bg-indigo-950 text-indigo-600 dark:text-indigo-400 border border-indigo-200 dark:border-indigo-800 font-mono">
+                    {paperType}{" "}
+                    {paperType === "Optional" && optionalSubject
+                      ? `(${optionalSubject})`
+                      : ""}
+                  </span>
+                  <span className="text-xs font-bold text-slate-500 uppercase">
+                    • {maxMarks} Marks ({targetWords} Words)
+                  </span>
+                  <span className="text-xs text-slate-400 font-medium">
+                    • Practice Booklet
+                  </span>
+                </div>
+
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setIsFormExpanded((prev) => !prev);
+                      setIsComparingAttempts(false);
+                    }}
+                    className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg border border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300 text-xs font-semibold cursor-pointer transition-colors"
+                    title="Toggle editing question details or answer"
+                  >
+                    <Pencil className="h-3 w-3 text-indigo-500" />
+                    <span>
+                      {isFormExpanded ? "Collapse Input" : "Edit / Re-evaluate"}
+                    </span>
+                  </button>
+                </div>
+              </div>
+
+              {/* Question Prompt display */}
+              <div className="p-2.5 sm:p-3 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200/70 dark:border-slate-700/60">
+                <p className="text-xs sm:text-sm font-semibold text-slate-900 dark:text-slate-100 leading-snug">
+                  {question || (
+                    <span className="text-slate-400 italic font-normal">
+                      No question prompt entered yet. Type your Mains question
+                      below or upload your answer booklet!
+                    </span>
+                  )}
+                </p>
+              </div>
+
+              {/* Attempts Switcher & Compare Bar */}
+              <div className="flex items-center justify-between flex-wrap gap-2 pt-1 border-t border-slate-100 dark:border-slate-800/80">
+                <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar py-0.5 max-w-full">
+                  <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider mr-1 hidden sm:inline">
+                    Attempts:
+                  </span>
+                  {attempts.map((att, idx) => {
+                    const isActive =
+                      idx === activeAttemptIndex && !isComparingAttempts;
+                    const hasScore = att.evaluation?.marksAwarded !== undefined;
+                    return (
+                      <div
+                        key={att.id || idx}
+                        className="flex items-center gap-0.5 shrink-0"
                       >
-                        <span>Q{idx + 1}</span>
-                        {hasScore ? (
-                          <div className="flex items-center gap-1">
+                        <button
+                          type="button"
+                          onClick={() => selectAttempt(idx)}
+                          className={`px-3 py-1.5 rounded-xl font-bold text-xs flex items-center gap-2 transition-all cursor-pointer ${
+                            isActive
+                              ? "bg-indigo-600 text-white shadow-xs"
+                              : "bg-slate-50 dark:bg-slate-800/80 text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700/80 border border-slate-200/60 dark:border-slate-700/60"
+                          }`}
+                        >
+                          <span>Attempt {idx + 1}</span>
+                          {hasScore ? (
                             <span
                               className={`px-1.5 py-0.5 rounded-md text-[10px] font-mono font-bold ${
                                 isActive
@@ -1626,183 +1817,90 @@ EXAMINER RESPONSE REQUIREMENTS:
                                   : "bg-indigo-50 dark:bg-indigo-950 text-indigo-600 dark:text-indigo-400 border border-indigo-200 dark:border-indigo-800"
                               }`}
                             >
-                              {q.evaluation?.marksAwarded}/
-                              {q.evaluation?.maxMarks}
+                              {att.evaluation?.marksAwarded}/
+                              {att.evaluation?.maxMarks}
                             </span>
-                            {(q.evaluation?.actualWordCount ||
-                              (q.studentAnswer &&
-                                !q.studentAnswer.startsWith(
-                                  "(Answer submitted via",
-                                ))) && (
-                              <span
-                                className={`text-[9px] font-mono ${
-                                  isActive
-                                    ? "text-indigo-100"
-                                    : "text-slate-400"
-                                }`}
-                              >
-                                {q.evaluation?.actualWordCount ||
-                                  q.studentAnswer
-                                    ?.trim()
-                                    .split(/\s+/)
-                                    .filter(Boolean).length}
-                                w
-                              </span>
-                            )}
-                          </div>
-                        ) : (
-                          <span
-                            className={`text-[10px] font-medium ${
-                              isActive ? "text-indigo-200" : "text-amber-500"
-                            }`}
-                          >
-                            Draft
-                          </span>
-                        )}
-                      </button>
-                      {questions.length > 1 && (
-                        <button
-                          type="button"
-                          onClick={(e) => handleDeleteQuestion(idx, e)}
-                          className="text-slate-300 hover:text-rose-500 p-1 transition-colors cursor-pointer"
-                          title={`Remove Question ${idx + 1}`}
-                        >
-                          <X className="h-3 w-3" />
+                          ) : (
+                            <span
+                              className={`text-[10px] font-medium ${
+                                isActive ? "text-indigo-200" : "text-amber-500"
+                              }`}
+                            >
+                              Draft
+                            </span>
+                          )}
                         </button>
-                      )}
-                    </div>
-                  );
-                })}
+                        {attempts.length > 1 && (
+                          <button
+                            type="button"
+                            onClick={(e) => handleDeleteAttempt(idx, e)}
+                            className="text-slate-300 hover:text-rose-500 p-1 transition-colors cursor-pointer"
+                            title={`Delete Attempt ${idx + 1}`}
+                          >
+                            <X className="h-3 w-3" />
+                          </button>
+                        )}
+                      </div>
+                    );
+                  })}
 
-                {questions.length < 5 ? (
                   <button
                     type="button"
-                    onClick={handleAddNewQuestion}
+                    onClick={handleStartNewAttempt}
                     className="px-3 py-1.5 rounded-xl border border-dashed border-indigo-300 dark:border-indigo-800 text-indigo-600 dark:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-950/50 font-bold text-xs flex items-center gap-1 transition-colors cursor-pointer shrink-0"
-                    title="Add next question to this test booklet (max 5)"
+                    title="Write a new attempt for this question to evaluate and compare improvement"
                   >
                     <Plus className="h-3.5 w-3.5" />
-                    <span>Add Question</span>
+                    <span>New Attempt</span>
                   </button>
-                ) : (
-                  <span
-                    className="px-2.5 py-1 text-[11px] font-mono text-slate-400 bg-slate-100 dark:bg-slate-800 rounded-xl shrink-0"
-                    title="Maximum 5 questions limit reached for this session"
-                  >
-                    5/5 Questions Max
-                  </span>
-                )}
-              </div>
-
-              {/* Aggregated Test Score / Average Marks across Available Questions */}
-              {(() => {
-                const evaluatedList = questions.filter(
-                  (q) =>
-                    q.evaluation &&
-                    typeof q.evaluation.marksAwarded === "number",
-                );
-                if (evaluatedList.length === 0) return null;
-
-                const totalAwarded = evaluatedList.reduce(
-                  (sum, q) => sum + (q.evaluation?.marksAwarded || 0),
-                  0,
-                );
-                const totalMax = evaluatedList.reduce(
-                  (sum, q) =>
-                    sum + (q.evaluation?.maxMarks || q.maxMarks || 10),
-                  0,
-                );
-                const avgAwarded = totalAwarded / evaluatedList.length;
-                const avgMax = totalMax / evaluatedList.length;
-
-                return (
-                  <div className="flex items-center gap-2 text-xs font-mono font-bold text-slate-700 dark:text-slate-300 bg-slate-50 dark:bg-slate-800/80 px-2.5 py-1 rounded-xl border border-slate-200/80 dark:border-slate-700/80 shrink-0">
-                    {evaluatedList.length > 1 ? (
-                      <>
-                        <span className="text-[11px] text-indigo-600 dark:text-indigo-400 uppercase font-sans font-bold">
-                          Avg:
-                        </span>
-                        <span className="text-indigo-600 dark:text-indigo-400 font-black">
-                          {Math.round(avgAwarded * 10) / 10} /{" "}
-                          {Math.round(avgMax * 10) / 10}
-                        </span>
-                        <span className="text-slate-300 dark:text-slate-700">
-                          |
-                        </span>
-                        <span className="text-[11px] text-slate-400 uppercase font-sans font-semibold">
-                          Total:
-                        </span>
-                        <span className="text-slate-700 dark:text-slate-300">
-                          {totalAwarded} / {totalMax} Marks
-                        </span>
-                      </>
-                    ) : (
-                      <>
-                        <span className="text-[11px] text-slate-400 uppercase font-sans font-semibold">
-                          Test Score:
-                        </span>
-                        <span className="text-indigo-600 dark:text-indigo-400 font-black">
-                          {totalAwarded}
-                        </span>
-                        <span className="text-slate-400 font-normal">
-                          / {totalMax} Marks
-                        </span>
-                      </>
-                    )}
-                  </div>
-                );
-              })()}
-            </div>
-
-            {/* ── B. EVALUATED QUESTION SUMMARY CARD (When answer evaluated & form collapsed) ── */}
-            {evaluation && !isFormExpanded && (
-              <div className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-3.5 sm:p-4 shadow-xs flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
-                <div className="space-y-1 max-w-3xl min-w-0">
-                  <div className="flex items-center gap-2 flex-wrap">
-                    <span className="px-2 py-0.5 rounded-md font-bold text-[11px] bg-indigo-50 dark:bg-indigo-950 text-indigo-600 dark:text-indigo-400 border border-indigo-200 dark:border-indigo-800 font-mono">
-                      Question {activeQuestionIndex + 1} of {questions.length}
-                    </span>
-                    <span className="text-[11px] font-bold text-slate-500 uppercase">
-                      {paperType}{" "}
-                      {paperType === "Optional" && optionalSubject
-                        ? `(${optionalSubject})`
-                        : ""}{" "}
-                      • {maxMarks} Marks ({targetWords} Words)
-                    </span>
-                  </div>
-                  <h3 className="text-xs sm:text-sm font-bold text-slate-800 dark:text-slate-200 leading-snug">
-                    {evaluation.question ||
-                      question ||
-                      "UPSC CSE Mains Question"}
-                  </h3>
                 </div>
 
-                <div className="flex items-center gap-2 shrink-0 w-full sm:w-auto">
+                {/* Compare Attempts Button */}
+                {attempts.filter(
+                  (a) =>
+                    a.evaluation &&
+                    typeof a.evaluation.marksAwarded === "number",
+                ).length >= 2 && (
                   <button
                     type="button"
-                    onClick={() => {
-                      setIsFormExpanded(true);
-                      const activeImages =
-                        uploadedImages.length > 0
-                          ? uploadedImages
-                          : questions[activeQuestionIndex]?.attachedImages ||
-                            [];
-                      if (activeImages.length > 0 && !answerText.trim()) {
-                        setInputMode("upload");
-                      }
-                    }}
-                    className="flex-1 sm:flex-initial inline-flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-xl border border-slate-300 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-200 text-xs font-semibold cursor-pointer transition-colors"
-                    title="Edit answer or re-evaluate"
+                    onClick={() => setIsComparingAttempts(!isComparingAttempts)}
+                    className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer shadow-2xs ${
+                      isComparingAttempts
+                        ? "bg-indigo-600 text-white shadow-xs"
+                        : "bg-indigo-50 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-400 border border-indigo-200 dark:border-indigo-800 hover:bg-indigo-100"
+                    }`}
+                    title="Compare evaluations across attempts side-by-side"
                   >
-                    <span>✏️ Edit / Re-evaluate</span>
+                    <GitCompare className="h-3.5 w-3.5" />
+                    <span>
+                      {isComparingAttempts
+                        ? "Close Comparison"
+                        : "Compare Attempts"}
+                    </span>
                   </button>
-                </div>
+                )}
               </div>
-            )}
+            </div>
           </div>
 
+          {/* ── ATTEMPT COMPARISON VIEW (When compare is toggled) ── */}
+          {isComparingAttempts && (
+            <MainsAttemptComparisonView
+              questionText={question}
+              paperType={paperType}
+              optionalSubject={optionalSubject}
+              maxMarks={maxMarks}
+              attempts={attempts}
+              onClose={() => setIsComparingAttempts(false)}
+              onSelectAttemptForDetail={(idx) => {
+                selectAttempt(idx);
+                setIsComparingAttempts(false);
+              }}
+            />
+          )}
+
           {/* ── C. SUBMISSION FORM (Shown when not evaluated or when explicitly expanded) ── */}
-          {(isFormExpanded || !evaluation) && (
+          {!isComparingAttempts && (isFormExpanded || !evaluation) && (
             <div
               onDragOver={(e) => {
                 e.preventDefault();
@@ -1839,10 +1937,7 @@ EXAMINER RESPONSE REQUIREMENTS:
                 <div className="flex items-center gap-2">
                   <span className="text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300 flex items-center gap-1.5">
                     <FileText className="h-4 w-4 text-indigo-600" />
-                    <span>
-                      1. Question & Exam Configuration (Q
-                      {activeQuestionIndex + 1})
-                    </span>
+                    <span>1. Practice Question & Exam Configuration</span>
                   </span>
                   {evaluation && (
                     <button
@@ -2284,16 +2379,37 @@ EXAMINER RESPONSE REQUIREMENTS:
                 )}
               </div>
 
-              {/* Error Message */}
+              {/* Error Message with Retry */}
               {errorMsg && (
-                <div className="p-3 rounded-xl bg-rose-50 dark:bg-rose-950/60 border border-rose-200 dark:border-rose-900 text-xs text-rose-700 dark:text-rose-300 flex items-center gap-2">
-                  <AlertTriangle className="h-4 w-4 shrink-0 text-rose-600" />
-                  <span>{errorMsg}</span>
+                <div className="p-3 rounded-xl bg-rose-50 dark:bg-rose-950/60 border border-rose-200 dark:border-rose-900 text-xs text-rose-700 dark:text-rose-300 flex items-center justify-between gap-3">
+                  <div className="flex items-center gap-2 min-w-0">
+                    <AlertTriangle className="h-4 w-4 shrink-0 text-rose-600" />
+                    <span className="truncate">{errorMsg}</span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={handleEvaluate}
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-rose-600 hover:bg-rose-700 text-white font-bold text-xs shrink-0 cursor-pointer shadow-xs transition-colors"
+                  >
+                    <RotateCcw className="h-3.5 w-3.5" />
+                    <span>Retry</span>
+                  </button>
                 </div>
               )}
 
-              {/* Action Trigger */}
-              <div className="pt-2 flex items-center justify-end">
+              {/* Action Trigger with Stop and Evaluate buttons */}
+              <div className="pt-2 flex items-center justify-end gap-2.5">
+                {isLoading && (
+                  <button
+                    type="button"
+                    onClick={handleStopEvaluation}
+                    className="inline-flex items-center gap-1.5 px-4 py-2.5 rounded-xl border border-rose-300 dark:border-rose-800 bg-rose-50 dark:bg-rose-950/50 text-rose-700 dark:text-rose-300 hover:bg-rose-100 dark:hover:bg-rose-900/60 font-bold text-xs sm:text-sm transition-all cursor-pointer shadow-2xs"
+                    title="Stop and abort evaluation"
+                  >
+                    <Square className="h-3.5 w-3.5 fill-current" />
+                    <span>Stop</span>
+                  </button>
+                )}
                 <button
                   type="button"
                   disabled={isLoading}
@@ -2317,7 +2433,7 @@ EXAMINER RESPONSE REQUIREMENTS:
           )}
 
           {/* ── 3. EVALUATION RESULTS CONTAINER ── */}
-          {evaluation && (
+          {!isComparingAttempts && evaluation && (
             <div className="space-y-5 animate-in fade-in duration-300">
               {/* Score Hero Banner */}
               <div className="rounded-2xl border border-indigo-200 dark:border-indigo-900/60 bg-gradient-to-r from-indigo-50/70 via-white to-indigo-50/40 dark:from-slate-900 dark:via-slate-900 dark:to-indigo-950 p-5 sm:p-6 shadow-sm flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
@@ -2342,7 +2458,7 @@ EXAMINER RESPONSE REQUIREMENTS:
                           : "Below Average"}
                     </span>
                     <span className="text-xs text-slate-400 font-mono">
-                      • Q{activeQuestionIndex + 1}
+                      • Attempt {activeAttemptIndex + 1}
                     </span>
                   </div>
 

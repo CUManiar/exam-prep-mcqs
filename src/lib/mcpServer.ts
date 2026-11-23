@@ -43,6 +43,8 @@ import {
   searchMcpPapers,
   setPreloadedPapersHidden,
   sortAttemptsLatestFirst,
+  getUserMainsSessions,
+  aggregateMainsFeedback,
 } from "./mcpData";
 import { MCP_READ_SCOPE, MCP_WRITE_SCOPE, hasMcpScope } from "./mcpAuth";
 import {
@@ -939,7 +941,7 @@ export function createPortalMcpServer(
     { name: "UPSC Prep Hub", version: "1.0.0" },
     {
       instructions:
-        "You are connected to a student's UPSC Prep Hub account. Read the student's data before making assumptions. Use get_attempt_history for attempt questions: it is newest-first and defaults to one latest attempt per distinct paper. When evaluating or re-grading attempts, use get_attempt_detail to inspect candidate responses alongside their rough scratchpad notes (note: calculations, formulas, elimination steps) and existing feedback (evaluationComment). Use attach_question_evaluations to attach question-specific evaluator feedback (e.g., verifying whether calculations were sound or calling out flawed arithmetic/lucky guesses that happened to match the correct option), and use grade_attempt_questions to update marks, tags, or feedback—this automatically recalculates the attempt's score, percentage, and accuracy using the paper's current marks. For overall post-exam strategy notes, use attach_attempt_reflection. For vocabulary and Study Aids, use list_vocab_cards, add_vocab_card, toggle_vocab_mastery, delete_vocab_card, get_vocab_practice_question, evaluate_vocab_sentence, and get_daily_motivation. Ask for confirmation before calling write tools, especially imports, score changes, or visibility changes.",
+        "You are connected to a student's UPSC Prep Hub account. Read the student's data before making assumptions. Use get_attempt_history for attempt questions: it is newest-first and defaults to one latest attempt per distinct paper. When evaluating or re-grading attempts, use get_attempt_detail to inspect candidate responses alongside their rough scratchpad notes (note: calculations, formulas, elimination steps) and existing feedback (evaluationComment). Use attach_question_evaluations to attach question-specific evaluator feedback (e.g., verifying whether calculations were sound or calling out flawed arithmetic/lucky guesses that happened to match the correct option), and use grade_attempt_questions to update marks, tags, or feedback—this automatically recalculates the attempt's score, percentage, and accuracy using the paper's current marks. For overall post-exam strategy notes, use attach_attempt_reflection. For vocabulary and Study Aids, use list_vocab_cards, add_vocab_card, toggle_vocab_mastery, delete_vocab_card, get_vocab_practice_question, evaluate_vocab_sentence, and get_daily_motivation. For UPSC Mains answer writing evaluations, cumulative feedback analysis, recurring weaknesses, and score patterns across GS-1 through GS-4 and Optionals, use get_mains_evaluation_insights. Ask for confirmation before calling write tools, especially imports, score changes, or visibility changes.",
       maxToolInputElements: 5000,
     },
   );
@@ -2762,6 +2764,41 @@ export function createPortalMcpServer(
 
       const quote = getMcpDailyQuote(Boolean(random));
       return textResult(quote);
+    },
+  );
+
+  server.registerTool(
+    "get_mains_evaluation_insights",
+    {
+      title: "Get Mains evaluation insights & aggregated feedback",
+      description:
+        "Cumulate feedback across all evaluated UPSC Mains questions for the student: common mistakes, recurring weaknesses, missing dimensions (articles, cases, committees, diagrams), average scores per paper type (GS-1 through GS-4, Optional), word count compliance, score progression across multiple attempts, and high-yield remediation patterns.",
+      annotations: { readOnlyHint: true },
+      inputSchema: {
+        paperType: z
+          .enum(["GS-1", "GS-2", "GS-3", "GS-4", "Optional", "all"])
+          .optional()
+          .describe("Filter by specific paper type or 'all' (default)."),
+        includeQuestionList: z
+          .boolean()
+          .optional()
+          .describe(
+            "Whether to include the full list of evaluated questions and examiner quotes (default true).",
+          ),
+      },
+    },
+    async ({ paperType = "all", includeQuestionList = true }) => {
+      const authError = scopeError(scope, MCP_READ_SCOPE);
+      if (authError) return authError;
+
+      const mainsSessions = await getUserMainsSessions(userId);
+      const insights = aggregateMainsFeedback(
+        mainsSessions,
+        paperType,
+        Boolean(includeQuestionList),
+      );
+
+      return textResult(insights);
     },
   );
 
