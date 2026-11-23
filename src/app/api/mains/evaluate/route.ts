@@ -845,15 +845,24 @@ export async function POST(req: NextRequest) {
     );
 
     const parseDim = (dim: any, fallbackComment: string) => {
-      const score =
+      let rawScore =
         typeof dim?.score === "number"
-          ? Math.min(10, Math.max(0, dim.score))
-          : typeof dim === "number"
-            ? Math.min(10, Math.max(0, dim))
-            : baseDimScore;
+          ? dim.score
+          : typeof dim?.percentage === "number"
+            ? dim.percentage
+            : typeof dim === "number"
+              ? dim
+              : baseDimScore;
+
+      // Grade sub-scores as percentages (0-100), never out of 10
+      if (rawScore <= 10 && (dim?.max === 10 || rawScore <= 10)) {
+        rawScore = Math.round(rawScore * 10);
+      }
+      const score = Math.min(100, Math.max(0, Math.round(rawScore)));
       return {
         score,
-        max: 10,
+        max: 100,
+        percentage: score,
         comment:
           typeof dim?.comment === "string" && dim.comment.trim()
             ? dim.comment.trim()
@@ -1047,6 +1056,7 @@ export async function POST(req: NextRequest) {
             : "Below Average"),
       directive: parsed.directive || "General",
       directiveAnalysis: parsed.directiveAnalysis || "",
+      evaluatorVersion: parsed.evaluatorVersion || "v2.5-po-calibrated",
       dimensions,
       markedCopy,
       rubric: {

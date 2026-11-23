@@ -403,7 +403,22 @@ export async function fetchUserMainsSessionsFromSupabase(
   const supabase = getSupabaseClient();
   if (!supabase || !userId) return [];
   try {
-    // Try dedicated mains_sessions table first
+    // 1. Check profile.mains_sessions FIRST (it contains the complete structured session objects with attempts and evaluations)
+    const { data: profileData } = await supabase
+      .from("profiles")
+      .select("mains_sessions")
+      .eq("id", userId)
+      .maybeSingle();
+
+    if (
+      profileData &&
+      Array.isArray(profileData.mains_sessions) &&
+      profileData.mains_sessions.length > 0
+    ) {
+      return profileData.mains_sessions;
+    }
+
+    // 2. Fallback: check dedicated mains_sessions table
     const { data: tableData, error: tableError } = await supabase
       .from("mains_sessions")
       .select("*")
@@ -419,17 +434,6 @@ export async function fetchUserMainsSessionsFromSupabase(
         updatedAt: row.updated_at,
         questions: row.questions || [],
       }));
-    }
-
-    // Fallback: check profile.mains_sessions
-    const { data: profileData } = await supabase
-      .from("profiles")
-      .select("mains_sessions")
-      .eq("id", userId)
-      .maybeSingle();
-
-    if (profileData && Array.isArray(profileData.mains_sessions)) {
-      return profileData.mains_sessions;
     }
 
     return [];
@@ -494,10 +498,15 @@ export async function deleteUserMainsSessionFromSupabase(
   const supabase = getSupabaseClient();
   if (!supabase || !userId) return false;
   try {
+    const idsToDelete = [sessionId];
+    if (sessionId.includes("_q")) idsToDelete.push(sessionId.split("_q")[0]);
+    if (sessionId.includes("_att"))
+      idsToDelete.push(sessionId.split("_att")[0]);
+
     await supabase
       .from("mains_sessions")
       .delete()
-      .eq("id", sessionId)
+      .in("id", idsToDelete)
       .eq("user_id", userId);
 
     if (Array.isArray(remainingSessions)) {

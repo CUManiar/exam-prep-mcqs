@@ -1,6 +1,7 @@
 export interface MainsDimensionScore {
-  score: number;
-  max: number;
+  score: number; // Evaluated percentage (0 - 100)
+  max: number; // 100
+  percentage?: number; // Evaluated percentage (0 - 100)
   comment: string;
 }
 
@@ -56,6 +57,10 @@ export interface MainsEvaluationResult {
   approachBreakdown?: MainsApproachBreakdown;
   evaluatedAt: string;
   transcribedAnswer?: string;
+  // PO & Analytics attributes
+  evaluatorVersion?: string;
+  humanScore?: number;
+  measuredWritingSpeedWpm?: number;
   // Backward compatibility
   rubric?: Record<string, any>;
   strengths?: string[];
@@ -100,23 +105,49 @@ export interface MainsEvaluationSession {
 }
 
 export const MAINS_STORAGE_KEY = "upsc_mains_evaluations_v1";
+export const MAINS_DELETED_SESSIONS_KEY = "upsc_mains_deleted_session_ids_v1";
+
+export function getDeletedMainsSessionIds(): Set<string> {
+  if (typeof window === "undefined") return new Set();
+  try {
+    const raw = localStorage.getItem(MAINS_DELETED_SESSIONS_KEY);
+    return raw ? new Set(JSON.parse(raw)) : new Set();
+  } catch {
+    return new Set();
+  }
+}
+
+export function recordDeletedMainsSessionId(id: string): void {
+  if (typeof window === "undefined" || !id) return;
+  try {
+    const set = getDeletedMainsSessionIds();
+    set.add(id);
+    if (id.includes("_q")) set.add(id.split("_q")[0]);
+    if (id.includes("_att")) set.add(id.split("_att")[0]);
+    localStorage.setItem(
+      MAINS_DELETED_SESSIONS_KEY,
+      JSON.stringify(Array.from(set)),
+    );
+  } catch {}
+}
 
 /**
- * Formats a date into the required default title format: `DD MMM YYYY | DAY`
- * Example: `19 Nov 2026 | THURSDAY`
+ * Formats a question starter into the default session title:
+ * Shows first ~50 chars of the question prompt (no date), or "New Question Draft".
  */
 export function formatMainsDefaultTitle(
-  dateInput: Date | string = new Date(),
+  questionOrPrompt?: string | Date,
 ): string {
-  const d = typeof dateInput === "string" ? new Date(dateInput) : dateInput;
-  const validDate = isNaN(d.getTime()) ? new Date() : d;
-  const day = validDate.getDate().toString().padStart(2, "0");
-  const month = validDate.toLocaleDateString("en-US", { month: "short" });
-  const year = validDate.getFullYear();
-  const weekday = validDate
-    .toLocaleDateString("en-US", { weekday: "long" })
-    .toUpperCase();
-  return `${day} ${month} ${year} | ${weekday}`;
+  if (typeof questionOrPrompt === "string" && questionOrPrompt.trim()) {
+    const trimmed = questionOrPrompt.trim();
+    // Discard legacy date patterns like "23 Nov 2026 | MONDAY"
+    const isDatePattern = /^\d{1,2}\s+[A-Za-z]{3}\s+\d{4}/i.test(trimmed);
+    if (!isDatePattern) {
+      const clean = trimmed.replace(/^["'\s]+|["'\s]+$/g, "");
+      return clean.length > 55 ? clean.slice(0, 52) + "..." : clean;
+    }
+  }
+  return "New Question Draft";
 }
 
 /**
@@ -259,20 +290,15 @@ export function migrateMainsSessionsToSingleQuestionBooklet(
     if (Array.isArray(s.questions) && s.questions.length > 1) {
       s.questions.forEach((q: MainsQuestionItem, qIdx: number) => {
         const questionText = (q.question || "").trim();
-        const fallbackTitle = formatMainsDefaultTitle(
-          s.updatedAt || new Date(),
+        const displayTitle = formatMainsDefaultTitle(
+          questionText || `Question ${qIdx + 1}`,
         );
-        const displayTitle = questionText
-          ? questionText.length > 60
-            ? questionText.slice(0, 57) + "..."
-            : questionText
-          : `${s.title || fallbackTitle} (Q${qIdx + 1})`;
 
         const singleSession: MainsEvaluationSession = {
           id:
             q.id && q.id !== s.id ? q.id : `${s.id}_q${qIdx + 1}_${Date.now()}`,
           title: displayTitle,
-          isCustomTitle: Boolean(questionText || s.isCustomTitle),
+          isCustomTitle: Boolean(questionText),
           updatedAt: s.updatedAt || new Date().toISOString(),
           paperType: q.paperType || s.paperType || "GS-2",
           optionalSubject: q.optionalSubject || s.optionalSubject,
@@ -313,15 +339,13 @@ export function migrateMainsSessionsToSingleQuestionBooklet(
       ""
     ).trim();
 
-    const fallbackTitle = formatMainsDefaultTitle(s.updatedAt || new Date());
+    const isDatePattern = /^\d{1,2}\s+[A-Za-z]{3}\s+\d{4}/i.test(
+      (s.title || "").trim(),
+    );
     const displayTitle =
-      s.isCustomTitle && s.title
+      s.isCustomTitle && s.title && !isDatePattern
         ? s.title
-        : questionText
-          ? questionText.length > 60
-            ? questionText.slice(0, 57) + "..."
-            : questionText
-          : s.title || fallbackTitle;
+        : formatMainsDefaultTitle(questionText);
 
     let attempts: MainsAttemptItem[] = [];
     if (Array.isArray(s.attempts) && s.attempts.length > 0) {
@@ -447,18 +471,20 @@ EXAM SCALE & PARAMETERS:
 - Word Limit: ${wordLimit} Words (Must be realistically writable in ${timeLimit} minutes)
 
 UPSC CSE EXAMINER GRADING STANDARD (REALISTIC & RIGOROUS - NO ARTIFICIAL FLOOR):
-Evaluate the candidate's actual answer strictly on its merits as an authentic UPSC CSE examiner. There is NO artificial lower floor or baseline score:
-- 0.0 to 1.5 / 10 (or 0.0 to 2.5 / 15): Irrelevant, nonsensical, off-topic, buzzword soup, generic waffle, or garbage attempt. If an answer fails to address the question's core subject or lacks substance, score strictly between 0.0 and 1.5. Never award sympathy marks.
-- 1.5 to 2.5 / 10 (or 2.5 to 4.0 / 15): Rudimentary / very poor attempt. Only tangentially touches the topic, fragmented points, lacks structured arguments, or contains severe conceptual errors.
-- 3.0 to 4.0 / 10 (or 4.5 to 6.0 / 15): Average / Mediocre attempt. Shows basic understanding and answers parts of the question, but lacks analytical depth, authentic committee/case citations, crisp subheadings, or balanced counterviews.
-- 4.5 to 5.5 / 10 (or 6.5 to 8.5 / 15): Good / Competent attempt. Addresses the full core demand, multi-dimensional (constitutional, socio-economic, administrative, global), authentic examples, solid structure, and synthesis conclusion.
-- 6.0+ / 10 (or 9.0+ / 15): Exceptional / Topper attempt. Outstanding precision, specific reports/articles/thinkers cited seamlessly, insightful synthesis, excellent time-manageable presentation.
+Evaluate the candidate's actual answer strictly on its merits as an authentic UPSC CSE examiner.
+PO MANDATORY INSTRUCTIONS:
+1. BADGE MUST MATCH THE NOTE'S VERDICT: The "type" ('correct' | 'incorrect' | 'flawed' | 'verify') MUST strictly match the margin note. If a note mentions an error, mistake or inaccuracy, type must be "incorrect"; if it commends an accurate point, type must be "correct"; if stylistic/structure, "flawed"; if dubious fact, "verify".
+2. TAG THE PAPER FROM THE QUESTION SOURCE: Read the question prompt and source to accurately confirm paperType (GS-1, GS-2, GS-3, GS-4, or Optional).
+3. GRADE SUB-SCORES AS PERCENTAGES, NEVER OUT OF 10: All dimension sub-scores (demand, content, structure, presentation) must be graded as percentages from 0 to 100 with max: 100.
+4. READ PRONOUN REFERENCES BEFORE FLAGGING ERRORS: Read pronoun references ('it', 'this', 'they', 'he', 'she') in the context of preceding sentences before flagging an error so valid antecedents are not erroneously flagged.
+5. FLAG EVERY FACTUAL ERROR, NOT SAMPLES: Flag every single factual inaccuracy, misattributed thinker/article, or incorrect claim across the entire script.
+6. CHECK EACH PART OF THE DIRECTIVE IS COVERED: Verify whether every sub-part of the directive is explicitly answered.
+7. CALIBRATE TO UPSC CSE REALITY: 3.0 to 4.9 / 10 (or 30% to 49%) is typical/average candidate level; 5.0+ / 10 (50%+) is Topper Level. Score with strict realism.
+8. EVALUATOR VERSION: Set evaluatorVersion: "v2.5-po-calibrated".
 
-Never inflate marks. Never invent facts; flag uncertain ones with ⚠️ VERIFY.
-
-EVALUATE AND SCORE FOUR CORE DIMENSIONS (Score each strictly from 0 to 10 based on actual merit):
-1. Demand (/10): Operational directive compliance (e.g. Critically Examine, Discuss, Give Reasons), every sub-part answered, limits observed.
-2. Content (/10): Accuracy, depth, authentic citations (Articles, Judgments, Committees, Reports, Data, Examples).
+EVALUATE AND SCORE FOUR CORE DIMENSIONS (Grade each strictly as a PERCENTAGE from 0 to 100, max: 100):
+1. Demand (%): Operational directive compliance (e.g. Critically Examine, Discuss, Give Reasons), every sub-part answered, limits observed.
+2. Content (%): Accuracy, depth, authentic citations (Articles, Judgments, Committees, Reports, Data, Examples).
 ${
   isSociology
     ? "   * Sociology Specifics: Exact sociological terms, thinkers (e.g. Weber, Durkheim, Marx, Parsons, Srinivas, Ghurye), Indian empirical examples, and analytical verdict (no years unless idea-bearing)."
@@ -466,8 +492,8 @@ ${
       ? "   * GS-4 Ethics Specifics: Stakeholders, ethical dilemmas, options evaluated, chosen action justified, moral & constitutional values explicitly named."
       : "   * General Studies Specifics: Multi-dimensional sub-headings (Constitutional, Socio-Economic, Administrative, Global) grounded in empirical policy data."
 }
-3. Structure (/10): Introduction (15-20 words), question keywords used as subheadings, numbered arguments, counterview sentence, and a synthesis verdict line.
-4. Presentation (/10): Within word limit, exam-writable in ${timeLimit} minutes under exam-hall time pressure, table/flowchart where it earns marks.
+3. Structure (%): Introduction (15-20 words), question keywords used as subheadings, numbered arguments, counterview sentence, and a synthesis verdict line.
+4. Presentation (%): Within word limit, exam-writable in ${timeLimit} minutes under exam-hall time pressure, table/flowchart where it earns marks.
 
 CRUCIAL EXAMINER CHECKS:
 - Did the candidate use the question's operational key words as headings?
@@ -530,21 +556,22 @@ ${trimmedQ || "(Question is written at the top of the attached answer sheet or d
 ${answerText || "(Handwritten / Typed answer provided in attached image or document)"}
 
 OUTPUT FORMAT:
-Return ONLY a valid, parsable JSON object matching this schema exactly (replace 0.0 with actual evaluated scores based strictly on merit):
+Return ONLY a valid, parsable JSON object matching this schema exactly (grade dimensions as percentages 0-100):
 {
   "question": "${trimmedQ ? trimmedQ.replace(/"/g, '\\"') : "Exact UPSC question transcribed from submission"}",
   "marksAwarded": 0.0,
   "maxMarks": ${maxMarks},
+  "evaluatorVersion": "v2.5-po-calibrated",
   "actualWordCount": 150,
   "transcribedAnswer": "Clean verbatim or faithful transcription of the candidate's handwritten answer from the uploaded sheet(s)...",
   "verdict": "One-line blunt examiner verdict on this attempt.",
   "directive": "Directive found in question (e.g. Discuss, Give Reasons, Critically Analyse)",
   "directiveAnalysis": "1-2 sentences on how candidate addressed or missed the directive.",
   "dimensions": {
-    "demand": { "score": 0.0, "max": 10, "comment": "Directive and question sub-parts addressed." },
-    "content": { "score": 0.0, "max": 10, "comment": "Depth, accuracy, citations, and empirical evidence." },
-    "structure": { "score": 0.0, "max": 10, "comment": "Intro, keyword headings, numbering, counterview." },
-    "presentation": { "score": 0.0, "max": 10, "comment": "Word count compliance and ${timeLimit}-min time writability." }
+    "demand": { "score": 65, "max": 100, "comment": "Directive and question sub-parts addressed." },
+    "content": { "score": 40, "max": 100, "comment": "Depth, accuracy, citations, and empirical evidence." },
+    "structure": { "score": 55, "max": 100, "comment": "Intro, keyword headings, numbering, counterview." },
+    "presentation": { "score": 70, "max": 100, "comment": "Word count compliance and ${timeLimit}-min time writability." }
   },
   "markedCopy": [
     {
