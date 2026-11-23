@@ -10,34 +10,44 @@ import { VocabCard } from "./vocabTypes";
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || "";
 const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || "";
 
+const globalObj = (typeof window !== "undefined" ? window : globalThis) as any;
+let cachedBrowserClient: SupabaseClient | null =
+  globalObj.__supabase_singleton__ || null;
+
 export function getSupabaseClient(): SupabaseClient | null {
   if (typeof window === "undefined") {
     if (!supabaseUrl || !supabaseAnonKey) return null;
-    return createClient(supabaseUrl, supabaseAnonKey, {
+    if (globalObj.__supabase_server_singleton__) {
+      return globalObj.__supabase_server_singleton__;
+    }
+    const serverClient = createClient(supabaseUrl, supabaseAnonKey, {
       auth: {
         persistSession: false,
         autoRefreshToken: false,
       },
     });
+    globalObj.__supabase_server_singleton__ = serverClient;
+    return serverClient;
   }
 
-  const win = window as any;
-  if (win.__supabase_singleton__) {
-    return win.__supabase_singleton__;
+  if (cachedBrowserClient) return cachedBrowserClient;
+  if (globalObj.__supabase_singleton__) {
+    cachedBrowserClient = globalObj.__supabase_singleton__;
+    return cachedBrowserClient;
   }
 
   if (!supabaseUrl || !supabaseAnonKey) return null;
 
   try {
-    const client = createClient(supabaseUrl, supabaseAnonKey, {
+    cachedBrowserClient = createClient(supabaseUrl, supabaseAnonKey, {
       auth: {
         persistSession: true,
         autoRefreshToken: true,
         detectSessionInUrl: true,
       },
     });
-    win.__supabase_singleton__ = client;
-    return client;
+    globalObj.__supabase_singleton__ = cachedBrowserClient;
+    return cachedBrowserClient;
   } catch {
     return null;
   }

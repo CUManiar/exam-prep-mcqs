@@ -3458,15 +3458,53 @@ EXAMINER RESPONSE REQUIREMENTS:
 
                     {/* Submitted Answer Content */}
                     <div className="space-y-4">
-                      {/* If typed answer exists */}
+                      {/* Case A: Typed answer or extracted OCR text exists */}
                       {answerText ||
                       (evaluation.studentAnswer &&
                         !evaluation.studentAnswer.startsWith(
                           "(Answer submitted via",
                         )) ? (
-                        <div className="rounded-xl border border-slate-200 dark:border-slate-700/80 bg-slate-50/60 dark:bg-slate-800/40 p-4 sm:p-5">
+                        <div className="rounded-xl border border-slate-200 dark:border-slate-700/80 bg-slate-50/60 dark:bg-slate-800/40 p-4 sm:p-5 space-y-3">
+                          <div className="flex items-center justify-between gap-2 border-b border-slate-200/60 dark:border-slate-700/60 pb-2.5">
+                            <span className="text-xs font-bold text-indigo-700 dark:text-indigo-300 flex items-center gap-1.5">
+                              <Sparkles className="h-3.5 w-3.5 text-indigo-500" />
+                              {uploadedImages.length > 0
+                                ? "Extracted OCR Transcript (Handwritten)"
+                                : "Candidate Answer Text"}
+                            </span>
+                            <button
+                              type="button"
+                              onClick={handleCopyAttemptedAnswer}
+                              className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-xs font-semibold text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors cursor-pointer shadow-2xs"
+                              title="Copy extracted text to clipboard"
+                            >
+                              {copiedAttempt ? (
+                                <>
+                                  <Check className="h-3 w-3 text-emerald-600" />
+                                  <span>Copied</span>
+                                </>
+                              ) : (
+                                <>
+                                  <Copy className="h-3 w-3 text-slate-500" />
+                                  <span>Copy Text</span>
+                                </>
+                              )}
+                            </button>
+                          </div>
                           <p className="whitespace-pre-wrap text-xs sm:text-sm font-sans leading-relaxed text-slate-800 dark:text-slate-200">
                             {answerText || evaluation.studentAnswer}
+                          </p>
+                        </div>
+                      ) : uploadedImages.length > 0 ? (
+                        /* Case B: Uploaded sheets exist but verbatim OCR was unextractable */
+                        <div className="rounded-xl border border-amber-200 dark:border-amber-900/60 bg-amber-50/70 dark:bg-amber-950/30 p-4 space-y-2">
+                          <div className="flex items-center gap-2 text-amber-800 dark:text-amber-300 font-semibold text-xs sm:text-sm">
+                            <AlertTriangle className="h-4 w-4 shrink-0 text-amber-600 dark:text-amber-400" />
+                            <span>Verbatim OCR Text Not Extracted</span>
+                          </div>
+                          <p className="text-xs text-amber-700 dark:text-amber-400 leading-relaxed">
+                            {evaluation.ocrWarning ||
+                              "The handwriting, scan resolution, or contrast in the uploaded sheet was not clear enough for high-fidelity verbatim text extraction. However, the UPSC examiner evaluated the conceptual content, structure, and points directly from your attached image pages below."}
                           </p>
                         </div>
                       ) : null}

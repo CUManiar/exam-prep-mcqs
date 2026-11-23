@@ -57,6 +57,7 @@ export interface MainsEvaluationResult {
   approachBreakdown?: MainsApproachBreakdown;
   evaluatedAt: string;
   transcribedAnswer?: string;
+  ocrWarning?: string;
   // PO & Analytics attributes
   evaluatorVersion?: string;
   evaluatedByProvider?:
@@ -665,12 +666,15 @@ Provide a detailed pedagogical breakdown explaining what earns marks and why for
   * "conclusionStrategy": Forward-looking synthesis line.
 - "sampleValueAdditions": 2 to 3 specific Articles, Reports, Judgments, or Thinkers with brief explanation of why each boosts marks.
 
-ACCURATE CANDIDATE WORD COUNT & TRANSCRIPTION (CRITICAL FOR UPLOADED HANDWRITTEN IMAGES/PDFS):
+ACCURATE CANDIDATE WORD COUNT & OCR TRANSCRIPTION (CRITICAL & MANDATORY):
 - "actualWordCount": (INTEGER, MANDATORY).
   * If typed text is provided: count its exact words.
   * If the candidate submitted a handwritten answer via uploaded image(s) or PDF pages: carefully read the handwriting across all attached pages, and count the total number of words written by the candidate (excluding the printed question prompt).
   * NEVER return 0 if the candidate has written an attempt on the sheet. Return the genuine word count (e.g., 145, 172, 220).
-- "transcribedAnswer": If the candidate submitted a handwritten answer via uploaded sheet/images, provide the clean transcript of their written answer text here. If typed text was already provided, this can match the text.
+- "transcribedAnswer": MANDATORY FOR ALL ATTACHED IMAGES/HANDWRITTEN SUBMISSIONS.
+  * You MUST transcribe the candidate's complete handwritten answer text verbatim or faithfully into this field so they can review, copy, and compare their attempt.
+  * Faithfully preserve headings, bullet points, numbered items, and paragraph breaks.
+  * If the sheet is genuinely illegible, blurry, low resolution, or completely blank, you MUST prefix the explanation with: "UNREADABLE: <specific reason why text could not be extracted verbatim, e.g. handwriting illegible in lower half, image blur, or blank page>".
 
 STYLE REQUIREMENTS:
 - Blunt, concise, strictly ≤6 words per weakness pointer.

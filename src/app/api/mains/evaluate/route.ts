@@ -819,11 +819,27 @@ export async function POST(req: NextRequest) {
     const targetWordCount = maxMarks === 10 ? 150 : maxMarks === 15 ? 250 : 300;
     const timeLimitMinutes = maxMarks === 10 ? 7 : maxMarks === 15 ? 11 : 20;
 
-    const transcribedText =
-      typeof parsed.transcribedAnswer === "string" &&
-      parsed.transcribedAnswer.trim().length > 10 &&
-      !parsed.transcribedAnswer.startsWith("Clean verbatim or faithful")
+    const rawTranscribed =
+      typeof parsed.transcribedAnswer === "string"
         ? parsed.transcribedAnswer.trim()
+        : "";
+
+    const isUnreadable =
+      rawTranscribed.toUpperCase().startsWith("UNREADABLE:") ||
+      rawTranscribed.toLowerCase().includes("cannot be transcribed") ||
+      rawTranscribed.toLowerCase().includes("illegible");
+
+    const ocrWarning = isUnreadable
+      ? rawTranscribed.replace(/^UNREADABLE:\s*/i, "").trim()
+      : !rawTranscribed && hasValidImages && !trimmedAnswer
+        ? "The handwriting, scan resolution, or contrast in the uploaded sheet was not clear enough for high-fidelity verbatim text extraction. However, the UPSC examiner evaluated the conceptual content, structure, and points directly from your attached image pages."
+        : undefined;
+
+    const transcribedText =
+      !isUnreadable &&
+      rawTranscribed.length > 10 &&
+      !rawTranscribed.startsWith("Clean verbatim or faithful")
+        ? rawTranscribed
         : "";
 
     let actualWordCount = 0;
@@ -1055,6 +1071,7 @@ export async function POST(req: NextRequest) {
           ? "(Answer submitted via uploaded document/images)"
           : ""),
       transcribedAnswer: transcribedText || undefined,
+      ocrWarning: ocrWarning || undefined,
       paperType,
       optionalSubject: optionalSubject?.trim() || undefined,
       maxMarks,

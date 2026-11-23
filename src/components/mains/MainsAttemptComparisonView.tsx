@@ -14,6 +14,8 @@ import {
   Target,
   BarChart3,
   Scale,
+  Copy,
+  Check,
 } from "lucide-react";
 import { MainsAttemptItem } from "@/lib/mainsEvaluation";
 
@@ -54,6 +56,8 @@ export function MainsAttemptComparisonView({
   const [indexB, setIndexB] = useState<number>(
     Math.max(0, evaluatedAttempts.length - 1),
   );
+  const [copiedA, setCopiedA] = useState(false);
+  const [copiedB, setCopiedB] = useState(false);
 
   const itemA = evaluatedAttempts[indexA] || evaluatedAttempts[0];
   const itemB =
@@ -363,18 +367,67 @@ export function MainsAttemptComparisonView({
                 Attempt {itemA?.att.attemptNumber} Written Answer ({wordsA}{" "}
                 words)
               </span>
-              <button
-                type="button"
-                onClick={() => onSelectAttemptForDetail(itemA.originalIndex)}
-                className="text-[11px] text-indigo-600 dark:text-indigo-400 font-bold hover:underline"
-              >
-                Inspect Copy →
-              </button>
+              <div className="flex items-center gap-2">
+                {((itemA?.att.studentAnswer &&
+                  !itemA.att.studentAnswer.startsWith(
+                    "(Answer submitted via",
+                  )) ||
+                  (evalA?.studentAnswer &&
+                    !evalA.studentAnswer.startsWith(
+                      "(Answer submitted via",
+                    ))) && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const text =
+                        itemA?.att.studentAnswer || evalA?.studentAnswer || "";
+                      navigator.clipboard.writeText(text);
+                      setCopiedA(true);
+                      setTimeout(() => setCopiedA(false), 2000);
+                    }}
+                    className="inline-flex items-center gap-1 text-[11px] font-semibold text-slate-600 dark:text-slate-400 hover:text-indigo-600"
+                    title="Copy Answer Text"
+                  >
+                    {copiedA ? (
+                      <>
+                        <Check className="h-3 w-3 text-emerald-600" />
+                        <span>Copied</span>
+                      </>
+                    ) : (
+                      <>
+                        <Copy className="h-3 w-3" />
+                        <span>Copy</span>
+                      </>
+                    )}
+                  </button>
+                )}
+                <button
+                  type="button"
+                  onClick={() => onSelectAttemptForDetail(itemA.originalIndex)}
+                  className="text-[11px] text-indigo-600 dark:text-indigo-400 font-bold hover:underline"
+                >
+                  Inspect Copy →
+                </button>
+              </div>
             </div>
             <div className="text-xs leading-relaxed text-slate-700 dark:text-slate-300 max-h-96 overflow-y-auto whitespace-pre-wrap font-sans">
-              {itemA?.att.studentAnswer ||
-                evalA?.studentAnswer ||
-                "(Handwritten pages submitted)"}
+              {itemA?.att.studentAnswer &&
+              !itemA.att.studentAnswer.startsWith("(Answer submitted via") ? (
+                itemA.att.studentAnswer
+              ) : evalA?.studentAnswer &&
+                !evalA.studentAnswer.startsWith("(Answer submitted via") ? (
+                evalA.studentAnswer
+              ) : (
+                <div className="p-2.5 rounded-lg border border-amber-200 dark:border-amber-900/60 bg-amber-50/60 dark:bg-amber-950/20 text-amber-800 dark:text-amber-300">
+                  <span className="font-semibold block text-[11px] mb-0.5">
+                    ⚠️ Verbatim OCR Not Extracted
+                  </span>
+                  <span className="text-[11px] text-amber-700 dark:text-amber-400">
+                    {evalA?.ocrWarning ||
+                      "Evaluated directly from attached handwritten sheet pages."}
+                  </span>
+                </div>
+              )}
             </div>
           </div>
 
@@ -385,18 +438,67 @@ export function MainsAttemptComparisonView({
                 Attempt {itemB?.att.attemptNumber} Written Answer ({wordsB}{" "}
                 words)
               </span>
-              <button
-                type="button"
-                onClick={() => onSelectAttemptForDetail(itemB.originalIndex)}
-                className="text-[11px] text-indigo-600 dark:text-indigo-400 font-bold hover:underline"
-              >
-                Inspect Copy →
-              </button>
+              <div className="flex items-center gap-2">
+                {((itemB?.att.studentAnswer &&
+                  !itemB.att.studentAnswer.startsWith(
+                    "(Answer submitted via",
+                  )) ||
+                  (evalB?.studentAnswer &&
+                    !evalB.studentAnswer.startsWith(
+                      "(Answer submitted via",
+                    ))) && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const text =
+                        itemB?.att.studentAnswer || evalB?.studentAnswer || "";
+                      navigator.clipboard.writeText(text);
+                      setCopiedB(true);
+                      setTimeout(() => setCopiedB(false), 2000);
+                    }}
+                    className="inline-flex items-center gap-1 text-[11px] font-semibold text-slate-600 dark:text-slate-400 hover:text-indigo-600"
+                    title="Copy Answer Text"
+                  >
+                    {copiedB ? (
+                      <>
+                        <Check className="h-3 w-3 text-emerald-600" />
+                        <span>Copied</span>
+                      </>
+                    ) : (
+                      <>
+                        <Copy className="h-3 w-3" />
+                        <span>Copy</span>
+                      </>
+                    )}
+                  </button>
+                )}
+                <button
+                  type="button"
+                  onClick={() => onSelectAttemptForDetail(itemB.originalIndex)}
+                  className="text-[11px] text-indigo-600 dark:text-indigo-400 font-bold hover:underline"
+                >
+                  Inspect Copy →
+                </button>
+              </div>
             </div>
             <div className="text-xs leading-relaxed text-slate-800 dark:text-slate-200 max-h-96 overflow-y-auto whitespace-pre-wrap font-sans">
-              {itemB?.att.studentAnswer ||
-                evalB?.studentAnswer ||
-                "(Handwritten pages submitted)"}
+              {itemB?.att.studentAnswer &&
+              !itemB.att.studentAnswer.startsWith("(Answer submitted via") ? (
+                itemB.att.studentAnswer
+              ) : evalB?.studentAnswer &&
+                !evalB.studentAnswer.startsWith("(Answer submitted via") ? (
+                evalB.studentAnswer
+              ) : (
+                <div className="p-2.5 rounded-lg border border-amber-200 dark:border-amber-900/60 bg-amber-50/60 dark:bg-amber-950/20 text-amber-800 dark:text-amber-300">
+                  <span className="font-semibold block text-[11px] mb-0.5">
+                    ⚠️ Verbatim OCR Not Extracted
+                  </span>
+                  <span className="text-[11px] text-amber-700 dark:text-amber-400">
+                    {evalB?.ocrWarning ||
+                      "Evaluated directly from attached handwritten sheet pages."}
+                  </span>
+                </div>
+              )}
             </div>
           </div>
         </div>
