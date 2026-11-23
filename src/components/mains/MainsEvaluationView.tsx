@@ -1347,26 +1347,35 @@ EXAMINER RESPONSE REQUIREMENTS:
         }`}
       >
         {/* Sidebar Header */}
-        <div className="p-3.5 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <BookOpen className="h-4 w-4 text-indigo-600" />
-            <h2 className="text-xs font-bold uppercase tracking-wider text-slate-800 dark:text-slate-200">
-              Practice Booklet ({filteredSessions.length})
+        <div className="px-3 py-2.5 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between gap-2 shrink-0">
+          <div className="flex items-center gap-1.5 min-w-0 flex-1">
+            <BookOpen className="h-4 w-4 text-indigo-600 shrink-0" />
+            <h2 className="text-xs font-bold uppercase tracking-wider text-slate-800 dark:text-slate-200 truncate">
+              Booklet
             </h2>
+            <span className="text-[10px] font-mono font-bold px-1.5 py-0.2 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 shrink-0">
+              {filteredSessions.length}
+            </span>
             {currentUser && (
               <span
-                className="text-[10px] text-emerald-600 dark:text-emerald-400 font-semibold flex items-center gap-1"
-                title="Synchronized with your account database"
+                className="text-[10px] text-emerald-600 dark:text-emerald-400 font-semibold flex items-center gap-1 shrink-0 ml-auto mr-1"
+                title={
+                  isSyncingWithCloud
+                    ? "Syncing with cloud..."
+                    : "Synchronized with cloud"
+                }
               >
                 <Cloud className="h-3 w-3" />
-                {isSyncingWithCloud ? "Syncing..." : "Synced"}
+                <span className="hidden xl:inline text-[9px]">
+                  {isSyncingWithCloud ? "Syncing" : "Synced"}
+                </span>
               </span>
             )}
           </div>
           <button
             type="button"
             onClick={handleNewEvaluation}
-            className="flex items-center gap-1 px-2.5 py-1 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold shadow-xs cursor-pointer transition-colors"
+            className="flex items-center gap-1 px-2.5 py-1 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold shadow-xs cursor-pointer transition-colors shrink-0"
             title="Start New Practice Question"
           >
             <Plus className="h-3.5 w-3.5" />

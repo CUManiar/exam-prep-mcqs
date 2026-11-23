@@ -10,23 +10,37 @@ import { VocabCard } from "./vocabTypes";
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || "";
 const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || "";
 
-const globalForSupabase = globalThis as unknown as {
-  supabaseClient?: SupabaseClient | null;
-};
-
 export function getSupabaseClient(): SupabaseClient | null {
   if (typeof window === "undefined") {
     if (!supabaseUrl || !supabaseAnonKey) return null;
-    return createClient(supabaseUrl, supabaseAnonKey);
+    return createClient(supabaseUrl, supabaseAnonKey, {
+      auth: {
+        persistSession: false,
+        autoRefreshToken: false,
+      },
+    });
   }
 
-  if (!globalForSupabase.supabaseClient && supabaseUrl && supabaseAnonKey) {
-    globalForSupabase.supabaseClient = createClient(
-      supabaseUrl,
-      supabaseAnonKey,
-    );
+  const win = window as any;
+  if (win.__supabase_singleton__) {
+    return win.__supabase_singleton__;
   }
-  return globalForSupabase.supabaseClient || null;
+
+  if (!supabaseUrl || !supabaseAnonKey) return null;
+
+  try {
+    const client = createClient(supabaseUrl, supabaseAnonKey, {
+      auth: {
+        persistSession: true,
+        autoRefreshToken: true,
+        detectSessionInUrl: true,
+      },
+    });
+    win.__supabase_singleton__ = client;
+    return client;
+  } catch {
+    return null;
+  }
 }
 
 export interface UserProfile {
