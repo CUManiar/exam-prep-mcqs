@@ -219,15 +219,25 @@ async function discoverGeminiModels(apiKey: string): Promise<string[]> {
         .filter((m: any) =>
           m.supportedGenerationMethods?.includes("generateContent"),
         )
-        .map((m: any) => m.name.replace(/^models\//, "") as string);
+        .map((m: any) => m.name.replace(/^models\//, "") as string)
+        .filter(
+          (name: string) =>
+            !name.includes("embedding") &&
+            !name.includes("aqa") &&
+            !name.includes("imagen") &&
+            !name.includes("learnlm"),
+        );
 
       models.sort((a, b) => {
         const score = (id: string) => {
           let s = 0;
-          if (id.includes("2.0-flash")) s += 40;
-          if (id.includes("1.5-flash")) s += 30;
-          if (id.includes("flash")) s += 20;
-          if (id.includes("pro")) s += 10;
+          if (id === "gemini-2.0-flash") s += 100;
+          if (id === "gemini-1.5-flash") s += 80;
+          if (id.includes("2.0-flash")) s += 70;
+          if (id.includes("1.5-flash")) s += 60;
+          if (id.includes("2.5-flash")) s += 50;
+          if (id.includes("flash")) s += 40;
+          if (id.includes("pro")) s += 30;
           return s;
         };
         return score(b) - score(a);
@@ -239,10 +249,9 @@ async function discoverGeminiModels(apiKey: string): Promise<string[]> {
     console.warn("Gemini model discovery failed:", e?.message);
   }
   return [
-    "gemini-1.5-flash",
-    "gemini-1.5-flash-latest",
     "gemini-2.0-flash",
-    "gemini-2.0-flash-exp",
+    "gemini-1.5-flash",
+    "gemini-2.5-flash",
     "gemini-1.5-pro",
   ];
 }
@@ -256,8 +265,8 @@ async function callGeminiEvaluation(
   const discovered = await discoverGeminiModels(apiKey);
   const models =
     discovered.length > 0
-      ? discovered
-      : ["gemini-1.5-flash", "gemini-2.0-flash"];
+      ? discovered.slice(0, 4)
+      : ["gemini-2.0-flash", "gemini-1.5-flash", "gemini-1.5-pro"];
   let lastError = "";
 
   const preparedParts: any[] = [{ text: prompt }];
@@ -277,66 +286,70 @@ async function callGeminiEvaluation(
 
   for (const rawModel of models) {
     const cleanModel = rawModel.replace(/^models\//, "");
-    const endpoints = [
-      `https://generativelanguage.googleapis.com/v1beta/models/${cleanModel}:generateContent?key=${apiKey}`,
-      `https://generativelanguage.googleapis.com/v1/models/${cleanModel}:generateContent?key=${apiKey}`,
-    ];
+    const url = `https://generativelanguage.googleapis.com/v1beta/models/${cleanModel}:generateContent?key=${apiKey}`;
 
-    for (const url of endpoints) {
-      try {
-        const res = await fetch(url, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            contents: [{ role: "user", parts: preparedParts }],
-            generationConfig: {
-              temperature: 0.3,
-              maxOutputTokens: 4000,
-              responseMimeType: "application/json",
-            },
-          }),
-          signal: AbortSignal.timeout(45000),
-        });
+    try {
+      const res = await fetch(url, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          contents: [{ role: "user", parts: preparedParts }],
+          generationConfig: {
+            temperature: 0.3,
+            maxOutputTokens: 4000,
+            responseMimeType: "application/json",
+          },
+        }),
+        signal: AbortSignal.timeout(50000),
+      });
 
-        if (res.ok) {
-          const data = await res.json();
-          const text = data.candidates?.[0]?.content?.parts?.[0]?.text || "";
-          if (text) return text;
-        } else {
-          const errJson = await res.json().catch(() => ({}));
-          lastError = errJson.error?.message || `HTTP ${res.status}`;
-          // If responseMimeType is rejected with 400 Bad Request, retry without it
-          if (
-            res.status === 400 &&
-            lastError.toLowerCase().includes("responsemimetype")
-          ) {
-            const retryRes = await fetch(url, {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({
-                contents: [{ role: "user", parts: preparedParts }],
-                generationConfig: {
-                  temperature: 0.3,
-                  maxOutputTokens: 4000,
-                },
-              }),
-              signal: AbortSignal.timeout(45000),
-            });
-            if (retryRes.ok) {
-              const retryData = await retryRes.json();
-              const retryText =
-                retryData.candidates?.[0]?.content?.parts?.[0]?.text || "";
-              if (retryText) return retryText;
-            }
+      if (res.ok) {
+        const data = await res.json();
+        const parts = data.candidates?.[0]?.content?.parts || [];
+        const text = parts
+          .map((p: any) => p.text || "")
+          .join("")
+          .trim();
+        if (text) return text;
+      } else {
+        const errJson = await res.json().catch(() => ({}));
+        lastError = errJson.error?.message || `HTTP ${res.status}`;
+        // If responseMimeType is rejected with 400 Bad Request, retry without it
+        if (
+          res.status === 400 &&
+          lastError.toLowerCase().includes("responsemimetype")
+        ) {
+          const retryRes = await fetch(url, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              contents: [{ role: "user", parts: preparedParts }],
+              generationConfig: {
+                temperature: 0.3,
+                maxOutputTokens: 4000,
+              },
+            }),
+            signal: AbortSignal.timeout(50000),
+          });
+          if (retryRes.ok) {
+            const retryData = await retryRes.json();
+            const retryParts = retryData.candidates?.[0]?.content?.parts || [];
+            const retryText = retryParts
+              .map((p: any) => p.text || "")
+              .join("")
+              .trim();
+            if (retryText) return retryText;
           }
         }
-      } catch (e: any) {
-        lastError = e?.message || "Gemini connection error";
       }
+    } catch (e: any) {
+      lastError = e?.message || "Gemini connection error";
     }
   }
 
-  throw new Error(lastError || "Gemini failed to evaluate");
+  throw new Error(
+    `Google Gemini evaluation failed across models (${models.slice(0, 3).join(", ")}): ${lastError}`,
+  );
 }
 
 /** Execute with OpenAI */
@@ -662,9 +675,12 @@ export async function POST(req: NextRequest) {
           `User-configured ${provider} evaluation failed:`,
           err?.message,
         );
-        if (hasValidImages && !trimmedAnswer) {
-          throw err;
-        }
+        return NextResponse.json(
+          {
+            error: `${provider.toUpperCase()} Evaluation Error: ${err?.message || "Evaluation request failed"}. Please verify your API key in AI Provider Settings.`,
+          },
+          { status: 400 },
+        );
       }
     }
 
@@ -803,11 +819,27 @@ export async function POST(req: NextRequest) {
     const targetWordCount = maxMarks === 10 ? 150 : maxMarks === 15 ? 250 : 300;
     const timeLimitMinutes = maxMarks === 10 ? 7 : maxMarks === 15 ? 11 : 20;
 
-    const transcribedText =
-      typeof parsed.transcribedAnswer === "string" &&
-      parsed.transcribedAnswer.trim().length > 10 &&
-      !parsed.transcribedAnswer.startsWith("Clean verbatim or faithful")
+    const rawTranscribed =
+      typeof parsed.transcribedAnswer === "string"
         ? parsed.transcribedAnswer.trim()
+        : "";
+
+    const isUnreadable =
+      rawTranscribed.toUpperCase().startsWith("UNREADABLE:") ||
+      rawTranscribed.toLowerCase().includes("cannot be transcribed") ||
+      rawTranscribed.toLowerCase().includes("illegible");
+
+    const ocrWarning = isUnreadable
+      ? rawTranscribed.replace(/^UNREADABLE:\s*/i, "").trim()
+      : !rawTranscribed && hasValidImages && !trimmedAnswer
+        ? "The handwriting, scan resolution, or contrast in the uploaded sheet was not clear enough for high-fidelity verbatim text extraction. However, the UPSC examiner evaluated the conceptual content, structure, and points directly from your attached image pages."
+        : undefined;
+
+    const transcribedText =
+      !isUnreadable &&
+      rawTranscribed.length > 10 &&
+      !rawTranscribed.startsWith("Clean verbatim or faithful")
+        ? rawTranscribed
         : "";
 
     let actualWordCount = 0;
@@ -845,15 +877,24 @@ export async function POST(req: NextRequest) {
     );
 
     const parseDim = (dim: any, fallbackComment: string) => {
-      const score =
+      let rawScore =
         typeof dim?.score === "number"
-          ? Math.min(10, Math.max(0, dim.score))
-          : typeof dim === "number"
-            ? Math.min(10, Math.max(0, dim))
-            : baseDimScore;
+          ? dim.score
+          : typeof dim?.percentage === "number"
+            ? dim.percentage
+            : typeof dim === "number"
+              ? dim
+              : baseDimScore;
+
+      // Grade sub-scores as percentages (0-100), never out of 10
+      if (rawScore <= 10 && (dim?.max === 10 || rawScore <= 10)) {
+        rawScore = Math.round(rawScore * 10);
+      }
+      const score = Math.min(100, Math.max(0, Math.round(rawScore)));
       return {
         score,
-        max: 10,
+        max: 100,
+        percentage: score,
         comment:
           typeof dim?.comment === "string" && dim.comment.trim()
             ? dim.comment.trim()
@@ -1030,6 +1071,7 @@ export async function POST(req: NextRequest) {
           ? "(Answer submitted via uploaded document/images)"
           : ""),
       transcribedAnswer: transcribedText || undefined,
+      ocrWarning: ocrWarning || undefined,
       paperType,
       optionalSubject: optionalSubject?.trim() || undefined,
       maxMarks,
@@ -1047,6 +1089,13 @@ export async function POST(req: NextRequest) {
             : "Below Average"),
       directive: parsed.directive || "General",
       directiveAnalysis: parsed.directiveAnalysis || "",
+      evaluatorVersion: parsed.evaluatorVersion || "v2.5-po-calibrated",
+      evaluatedByProvider:
+        userApiKey && provider
+          ? provider
+          : serverGeminiKey
+            ? "gemini"
+            : "free-ai",
       dimensions,
       markedCopy,
       rubric: {

@@ -10,18 +10,47 @@ import { VocabCard } from "./vocabTypes";
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || "";
 const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || "";
 
-let clientInstance: SupabaseClient | null = null;
+const globalObj = (typeof window !== "undefined" ? window : globalThis) as any;
+let cachedBrowserClient: SupabaseClient | null =
+  globalObj.__supabase_singleton__ || null;
 
 export function getSupabaseClient(): SupabaseClient | null {
   if (typeof window === "undefined") {
     if (!supabaseUrl || !supabaseAnonKey) return null;
-    return createClient(supabaseUrl, supabaseAnonKey);
+    if (globalObj.__supabase_server_singleton__) {
+      return globalObj.__supabase_server_singleton__;
+    }
+    const serverClient = createClient(supabaseUrl, supabaseAnonKey, {
+      auth: {
+        persistSession: false,
+        autoRefreshToken: false,
+      },
+    });
+    globalObj.__supabase_server_singleton__ = serverClient;
+    return serverClient;
   }
 
-  if (!clientInstance && supabaseUrl && supabaseAnonKey) {
-    clientInstance = createClient(supabaseUrl, supabaseAnonKey);
+  if (cachedBrowserClient) return cachedBrowserClient;
+  if (globalObj.__supabase_singleton__) {
+    cachedBrowserClient = globalObj.__supabase_singleton__;
+    return cachedBrowserClient;
   }
-  return clientInstance;
+
+  if (!supabaseUrl || !supabaseAnonKey) return null;
+
+  try {
+    cachedBrowserClient = createClient(supabaseUrl, supabaseAnonKey, {
+      auth: {
+        persistSession: true,
+        autoRefreshToken: true,
+        detectSessionInUrl: true,
+      },
+    });
+    globalObj.__supabase_singleton__ = cachedBrowserClient;
+    return cachedBrowserClient;
+  } catch {
+    return null;
+  }
 }
 
 export interface UserProfile {
@@ -403,7 +432,22 @@ export async function fetchUserMainsSessionsFromSupabase(
   const supabase = getSupabaseClient();
   if (!supabase || !userId) return [];
   try {
-    // Try dedicated mains_sessions table first
+    // 1. Check profile.mains_sessions FIRST (it contains the complete structured session objects with attempts and evaluations)
+    const { data: profileData } = await supabase
+      .from("profiles")
+      .select("mains_sessions")
+      .eq("id", userId)
+      .maybeSingle();
+
+    if (
+      profileData &&
+      Array.isArray(profileData.mains_sessions) &&
+      profileData.mains_sessions.length > 0
+    ) {
+      return profileData.mains_sessions;
+    }
+
+    // 2. Fallback: check dedicated mains_sessions table
     const { data: tableData, error: tableError } = await supabase
       .from("mains_sessions")
       .select("*")
@@ -419,17 +463,6 @@ export async function fetchUserMainsSessionsFromSupabase(
         updatedAt: row.updated_at,
         questions: row.questions || [],
       }));
-    }
-
-    // Fallback: check profile.mains_sessions
-    const { data: profileData } = await supabase
-      .from("profiles")
-      .select("mains_sessions")
-      .eq("id", userId)
-      .maybeSingle();
-
-    if (profileData && Array.isArray(profileData.mains_sessions)) {
-      return profileData.mains_sessions;
     }
 
     return [];
@@ -494,10 +527,15 @@ export async function deleteUserMainsSessionFromSupabase(
   const supabase = getSupabaseClient();
   if (!supabase || !userId) return false;
   try {
+    const idsToDelete = [sessionId];
+    if (sessionId.includes("_q")) idsToDelete.push(sessionId.split("_q")[0]);
+    if (sessionId.includes("_att"))
+      idsToDelete.push(sessionId.split("_att")[0]);
+
     await supabase
       .from("mains_sessions")
       .delete()
-      .eq("id", sessionId)
+      .in("id", idsToDelete)
       .eq("user_id", userId);
 
     if (Array.isArray(remainingSessions)) {
