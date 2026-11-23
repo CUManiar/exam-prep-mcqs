@@ -52,6 +52,7 @@ import {
   getDeletedMainsSessionIds,
   recordDeletedMainsSessionId,
   loadMainsSessionsFromIndexedDB,
+  getSessionWithFullImagesFromIDB,
 } from "@/lib/mainsEvaluation";
 import { MainsAttemptComparisonView } from "./MainsAttemptComparisonView";
 import { MainsAnalyticsDashboard } from "./MainsAnalyticsDashboard";
@@ -349,6 +350,24 @@ export function MainsEvaluationView() {
     setMaxMarks(sess.maxMarks || latestAtt.evaluation?.maxMarks || 10);
     const attImages = latestAtt.attachedImages || [];
     setUploadedImages(attImages);
+
+    // If attached images have stripped data in localStorage, hydrate immediately from IndexedDB
+    if (attImages.some((img) => !img.data || img.data.length < 50)) {
+      getSessionWithFullImagesFromIDB(sess.id)
+        .then((fullSess) => {
+          if (fullSess) {
+            const fullAtt =
+              (fullSess.attempts || [])[latestIdx] ||
+              fullSess.attempts?.slice(-1)[0];
+            const fullImages =
+              fullAtt?.attachedImages || fullSess.attachedImages || [];
+            if (fullImages.some((img) => img.data && img.data.length > 50)) {
+              setUploadedImages(fullImages);
+            }
+          }
+        })
+        .catch(() => {});
+    }
     if (attImages.length > 0 && !latestAtt.studentAnswer?.trim()) {
       setInputMode("upload");
     } else if (latestAtt.studentAnswer?.trim()) {
@@ -2558,7 +2577,8 @@ EXAMINER RESPONSE REQUIREMENTS:
                                 key={idx}
                                 className="relative group p-1.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 flex items-center gap-2 text-xs shadow-2xs hover:border-indigo-300 transition-all"
                               >
-                                {img.data.startsWith("data:image/") ? (
+                                {img.data &&
+                                img.data.startsWith("data:image/") ? (
                                   <img
                                     src={img.data}
                                     alt={img.name}
@@ -3459,21 +3479,49 @@ EXAMINER RESPONSE REQUIREMENTS:
                             ):
                           </span>
                           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
-                            {uploadedImages.map((img, i) => (
-                              <div
-                                key={i}
-                                className="rounded-xl border border-slate-200 dark:border-slate-700 overflow-hidden bg-slate-100 dark:bg-slate-800"
-                              >
-                                <img
-                                  src={img.data}
-                                  alt={`Page ${i + 1}`}
-                                  className="w-full h-48 object-cover"
-                                />
-                                <div className="p-2 text-[11px] font-medium text-slate-600 dark:text-slate-400 text-center">
-                                  Page {i + 1}
+                            {uploadedImages.map((img, i) => {
+                              const hasValidImage =
+                                img.data &&
+                                (img.data.startsWith("data:image/") ||
+                                  img.data.startsWith("http"));
+                              return (
+                                <div
+                                  key={i}
+                                  className="rounded-xl border border-slate-200 dark:border-slate-700 overflow-hidden bg-slate-100 dark:bg-slate-800"
+                                >
+                                  {hasValidImage ? (
+                                    <img
+                                      src={img.data}
+                                      alt={`Page ${i + 1}`}
+                                      className="w-full h-48 object-cover cursor-pointer hover:opacity-95 transition-opacity"
+                                      onClick={() => {
+                                        try {
+                                          const win = window.open();
+                                          if (win) {
+                                            win.document.write(
+                                              `<title>Answer Sheet - Page ${i + 1}</title><body style="margin:0; background:#0f172a; display:flex; justify-content:center; align-items:center; min-height:100vh;"><img src="${img.data}" style="max-width:100%; max-height:100vh; object-fit:contain; box-shadow:0 10px 30px rgba(0,0,0,0.5);" /></body>`,
+                                            );
+                                          }
+                                        } catch (_) {}
+                                      }}
+                                    />
+                                  ) : (
+                                    <div className="w-full h-48 flex flex-col items-center justify-center p-4 bg-slate-50 dark:bg-slate-800/80 text-slate-500 dark:text-slate-400">
+                                      <FileText className="h-10 w-10 text-indigo-500 mb-2 stroke-[1.5]" />
+                                      <span className="text-xs font-semibold text-slate-700 dark:text-slate-300">
+                                        Answer Sheet Page {i + 1}
+                                      </span>
+                                      <span className="text-[11px] text-slate-400 mt-0.5">
+                                        {img.name || "Handwritten submission"}
+                                      </span>
+                                    </div>
+                                  )}
+                                  <div className="p-2 text-[11px] font-medium text-slate-600 dark:text-slate-400 text-center border-t border-slate-200/60 dark:border-slate-700/60 bg-white/50 dark:bg-slate-900/40">
+                                    Page {i + 1}
+                                  </div>
                                 </div>
-                              </div>
-                            ))}
+                              );
+                            })}
                           </div>
                         </div>
                       )}

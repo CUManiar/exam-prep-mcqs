@@ -469,6 +469,25 @@ export async function loadMainsSessionsFromIndexedDB(): Promise<
   });
 }
 
+/** Asynchronously retrieves a single session with full image data from IndexedDB */
+export async function getSessionWithFullImagesFromIDB(
+  sessionId: string,
+): Promise<MainsEvaluationSession | null> {
+  const db = await openMainsIDB();
+  if (!db) return null;
+  return new Promise((resolve) => {
+    try {
+      const tx = db.transaction(MAINS_IDB_STORE, "readonly");
+      const store = tx.objectStore(MAINS_IDB_STORE);
+      const req = store.get(sessionId);
+      req.onsuccess = () => resolve(req.result || null);
+      req.onerror = () => resolve(null);
+    } catch {
+      resolve(null);
+    }
+  });
+}
+
 /** Sanitizes sessions for localStorage to guarantee zero QuotaExceededError */
 export function sanitizeSessionsForLocalStorage(
   sessions: MainsEvaluationSession[],
