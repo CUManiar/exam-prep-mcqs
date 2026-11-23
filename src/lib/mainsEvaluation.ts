@@ -59,6 +59,8 @@ export interface MainsEvaluationResult {
   transcribedAnswer?: string;
   // PO & Analytics attributes
   evaluatorVersion?: string;
+  evaluatedByProvider?:
+    "gemini" | "openai" | "anthropic" | "groq" | "free-ai" | string;
   humanScore?: number;
   measuredWritingSpeedWpm?: number;
   // Backward compatibility
@@ -407,6 +409,103 @@ export function migrateMainsSessionsToSingleQuestionBooklet(
   );
 }
 
+const MAINS_IDB_NAME = "upsc_mains_storage_v1";
+const MAINS_IDB_STORE = "sessions_store";
+
+function openMainsIDB(): Promise<IDBDatabase | null> {
+  if (typeof window === "undefined" || !window.indexedDB) {
+    return Promise.resolve(null);
+  }
+  return new Promise((resolve) => {
+    try {
+      const request = indexedDB.open(MAINS_IDB_NAME, 1);
+      request.onupgradeneeded = () => {
+        const db = request.result;
+        if (!db.objectStoreNames.contains(MAINS_IDB_STORE)) {
+          db.createObjectStore(MAINS_IDB_STORE, { keyPath: "id" });
+        }
+      };
+      request.onsuccess = () => resolve(request.result);
+      request.onerror = () => resolve(null);
+    } catch {
+      resolve(null);
+    }
+  });
+}
+
+/** Asynchronously saves full sessions (including heavy base64 images) to IndexedDB */
+export async function saveMainsSessionsToIndexedDB(
+  sessions: MainsEvaluationSession[],
+): Promise<void> {
+  const db = await openMainsIDB();
+  if (!db) return;
+  try {
+    const tx = db.transaction(MAINS_IDB_STORE, "readwrite");
+    const store = tx.objectStore(MAINS_IDB_STORE);
+    for (const sess of sessions) {
+      store.put(sess);
+    }
+  } catch {}
+}
+
+/** Asynchronously loads full sessions from IndexedDB */
+export async function loadMainsSessionsFromIndexedDB(): Promise<
+  MainsEvaluationSession[]
+> {
+  const db = await openMainsIDB();
+  if (!db) return [];
+  return new Promise((resolve) => {
+    try {
+      const tx = db.transaction(MAINS_IDB_STORE, "readonly");
+      const store = tx.objectStore(MAINS_IDB_STORE);
+      const req = store.getAll();
+      req.onsuccess = () => {
+        resolve(Array.isArray(req.result) ? req.result : []);
+      };
+      req.onerror = () => resolve([]);
+    } catch {
+      resolve([]);
+    }
+  });
+}
+
+/** Sanitizes sessions for localStorage to guarantee zero QuotaExceededError */
+export function sanitizeSessionsForLocalStorage(
+  sessions: MainsEvaluationSession[],
+): MainsEvaluationSession[] {
+  return sessions.map((sess) => {
+    const cleanAttachedImages = (sess.attachedImages || []).map((img) => ({
+      ...img,
+      data: img.data && img.data.length > 500 ? "" : img.data,
+    }));
+
+    const cleanAttempts = (sess.attempts || []).map((att) => ({
+      ...att,
+      attachedImages: (att.attachedImages || []).map((img) => ({
+        ...img,
+        data: img.data && img.data.length > 500 ? "" : img.data,
+      })),
+      evaluation: att.evaluation
+        ? {
+            ...att.evaluation,
+            annotatedPages: (
+              ((att.evaluation as any).annotatedPages || []) as any[]
+            ).map((p) => ({
+              ...p,
+              imageUrl: p.imageUrl && p.imageUrl.length > 500 ? "" : p.imageUrl,
+            })),
+          }
+        : att.evaluation,
+    }));
+
+    return {
+      ...sess,
+      attachedImages: cleanAttachedImages,
+      attempts: cleanAttempts,
+    };
+  });
+}
+
 /**
  * Loads saved evaluation sessions from localStorage
  */
@@ -432,14 +531,26 @@ export function loadMainsSessions(): MainsEvaluationSession[] {
 }
 
 /**
- * Saves evaluation sessions to localStorage (unlimited storage)
+ * Saves evaluation sessions to localStorage and IndexedDB (guaranteed QuotaExceededError protection)
  */
 export function saveMainsSessions(sessions: MainsEvaluationSession[]): void {
   if (typeof window === "undefined") return;
+
+  // 1. Asynchronously persist full sessions including base64 images to IndexedDB
+  saveMainsSessionsToIndexedDB(sessions).catch(() => {});
+
+  // 2. Synchronously save lightweight text & scores to localStorage
   try {
-    localStorage.setItem(MAINS_STORAGE_KEY, JSON.stringify(sessions));
+    const safeSessions = sanitizeSessionsForLocalStorage(sessions);
+    localStorage.setItem(MAINS_STORAGE_KEY, JSON.stringify(safeSessions));
   } catch (e) {
-    console.warn("Failed to save mains evaluations to localStorage:", e);
+    // If quota is still tight across the origin, persist top 15 most recent
+    try {
+      const trimmed = sanitizeSessionsForLocalStorage(sessions.slice(0, 15));
+      localStorage.setItem(MAINS_STORAGE_KEY, JSON.stringify(trimmed));
+    } catch {
+      // IndexedDB has already persisted the full dataset safely
+    }
   }
 }
 

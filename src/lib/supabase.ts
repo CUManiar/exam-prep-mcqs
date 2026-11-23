@@ -10,7 +10,9 @@ import { VocabCard } from "./vocabTypes";
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || "";
 const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || "";
 
-let clientInstance: SupabaseClient | null = null;
+const globalForSupabase = globalThis as unknown as {
+  supabaseClient?: SupabaseClient | null;
+};
 
 export function getSupabaseClient(): SupabaseClient | null {
   if (typeof window === "undefined") {
@@ -18,10 +20,13 @@ export function getSupabaseClient(): SupabaseClient | null {
     return createClient(supabaseUrl, supabaseAnonKey);
   }
 
-  if (!clientInstance && supabaseUrl && supabaseAnonKey) {
-    clientInstance = createClient(supabaseUrl, supabaseAnonKey);
+  if (!globalForSupabase.supabaseClient && supabaseUrl && supabaseAnonKey) {
+    globalForSupabase.supabaseClient = createClient(
+      supabaseUrl,
+      supabaseAnonKey,
+    );
   }
-  return clientInstance;
+  return globalForSupabase.supabaseClient || null;
 }
 
 export interface UserProfile {

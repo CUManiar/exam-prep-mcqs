@@ -51,6 +51,7 @@ import {
   formatMainsDefaultTitle,
   getDeletedMainsSessionIds,
   recordDeletedMainsSessionId,
+  loadMainsSessionsFromIndexedDB,
 } from "@/lib/mainsEvaluation";
 import { MainsAttemptComparisonView } from "./MainsAttemptComparisonView";
 import { MainsAnalyticsDashboard } from "./MainsAnalyticsDashboard";
@@ -801,8 +802,20 @@ export function MainsEvaluationView() {
       }
     }
 
-    const config = getRevisionConfig();
-    setActiveProvider(config?.provider || "");
+    const activeVault = getProviderVault();
+    const config =
+      getRevisionConfig() ||
+      aiConfig ||
+      (activeProvider && activeVault[activeProvider]
+        ? {
+            provider: activeProvider as any,
+            apiKey: activeVault[activeProvider],
+          }
+        : null);
+
+    if (config?.provider) {
+      setActiveProvider(config.provider);
+    }
 
     // Early client-side check: Groq is text-only and cannot process uploaded sheets without text
     if (hasUploads && !trimmedAnswer && config?.provider === "groq") {
@@ -954,7 +967,16 @@ export function MainsEvaluationView() {
     setIsChatLoading(true);
 
     try {
-      const config = getRevisionConfig();
+      const activeVault = getProviderVault();
+      const config =
+        getRevisionConfig() ||
+        aiConfig ||
+        (activeProvider && activeVault[activeProvider]
+          ? {
+              provider: activeProvider as any,
+              apiKey: activeVault[activeProvider],
+            }
+          : null);
       const studentAttemptExcerpt = (
         evaluation.studentAnswer ||
         answerText ||
@@ -1813,7 +1835,14 @@ EXAMINER RESPONSE REQUIREMENTS:
                         key={p}
                         type="button"
                         onClick={() => {
-                          switchActiveProvider(p);
+                          const switched = switchActiveProvider(p);
+                          if (switched) {
+                            setAiConfig(switched);
+                            setActiveProvider(switched.provider);
+                          } else {
+                            setActiveProvider(p);
+                          }
+                          setVault(getProviderVault());
                           setErrorMsg(null);
                         }}
                         className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-bold transition-all cursor-pointer ${
@@ -1852,20 +1881,20 @@ EXAMINER RESPONSE REQUIREMENTS:
               >
                 <span
                   className={`h-2 w-2 rounded-full shrink-0 ${
-                    activeProvider
+                    activeProvider && vault[activeProvider]
                       ? "bg-emerald-500 animate-pulse"
                       : "bg-amber-500"
                   }`}
                 />
                 <span className="font-semibold text-xs">
-                  {activeProvider === "gemini"
-                    ? "Google Gemini"
-                    : activeProvider === "groq"
-                      ? "Groq"
-                      : activeProvider === "openai"
-                        ? "OpenAI"
-                        : activeProvider === "anthropic"
-                          ? "Claude"
+                  {activeProvider === "gemini" && vault.gemini
+                    ? "Gemini (Active)"
+                    : activeProvider === "groq" && vault.groq
+                      ? "Groq (Active)"
+                      : activeProvider === "openai" && vault.openai
+                        ? "OpenAI (Active)"
+                        : activeProvider === "anthropic" && vault.anthropic
+                          ? "Claude (Active)"
                           : "Free AI"}
                 </span>
                 <Settings2 className="h-3.5 w-3.5 text-slate-400" />
@@ -2639,6 +2668,23 @@ EXAMINER RESPONSE REQUIREMENTS:
                       <span className="text-xs text-slate-400 font-mono">
                         • Attempt {activeAttemptIndex + 1}
                       </span>
+                      {evaluation.evaluatedByProvider && (
+                        <span className="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-md bg-indigo-50 dark:bg-indigo-950/60 text-indigo-700 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800">
+                          <Sparkles className="h-2.5 w-2.5 text-indigo-500" />
+                          <span>
+                            {evaluation.evaluatedByProvider === "gemini"
+                              ? "Google Gemini"
+                              : evaluation.evaluatedByProvider === "groq"
+                                ? "Groq Cloud"
+                                : evaluation.evaluatedByProvider === "openai"
+                                  ? "OpenAI"
+                                  : evaluation.evaluatedByProvider ===
+                                      "anthropic"
+                                    ? "Claude AI"
+                                    : "Free AI Tier"}
+                          </span>
+                        </span>
+                      )}
                     </div>
 
                     <div className="flex items-center gap-2.5 flex-wrap pt-0.5">
@@ -3828,12 +3874,14 @@ EXAMINER RESPONSE REQUIREMENTS:
         onSave={(cfg) => {
           setAiConfig(cfg);
           setActiveProvider(cfg.provider);
+          setVault(getProviderVault());
           setShowSettingsModal(false);
           setErrorMsg(null);
         }}
         onClear={() => {
           setAiConfig(null);
           setActiveProvider("");
+          setVault(getProviderVault());
           setShowSettingsModal(false);
           setErrorMsg(null);
         }}
