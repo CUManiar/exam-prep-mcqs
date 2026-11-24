@@ -1394,7 +1394,7 @@ EXAMINER RESPONSE REQUIREMENTS:
   }, [filteredSessions, isSearching, visibleCount]);
 
   return (
-    <div className="flex h-[calc(100vh-4rem)] w-full max-w-full bg-slate-100/70 dark:bg-slate-950 text-slate-900 dark:text-slate-100 overflow-hidden font-sans relative">
+    <div className="flex h-full w-full max-w-full bg-slate-100/70 dark:bg-slate-950 text-slate-900 dark:text-slate-100 overflow-hidden font-sans relative">
       {/* Mobile Backdrop when Sidebar is Open */}
       {isSidebarOpen && (
         <div
@@ -1778,12 +1778,12 @@ EXAMINER RESPONSE REQUIREMENTS:
       {/* ── 2. MAIN EVALUATION WORKSPACE ── */}
       <main className="flex-1 flex flex-col min-w-0 w-full max-w-full overflow-y-auto overflow-x-hidden touch-pan-y pb-28 sm:pb-20">
         {/* Top Controls Bar */}
-        <header className="bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 px-3.5 sm:px-6 py-2.5 flex items-center justify-between gap-3 shrink-0">
-          <div className="flex items-center gap-2">
+        <header className="bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 px-2 sm:px-6 py-2 sm:py-2.5 flex items-center justify-between gap-1.5 sm:gap-3 shrink-0">
+          <div className="flex items-center gap-1.5 sm:gap-2 min-w-0">
             <button
               type="button"
               onClick={() => setIsSidebarOpen(!isSidebarOpen)}
-              className="p-1.5 rounded-lg border border-slate-200 dark:border-slate-800 text-slate-600 hover:bg-slate-50 transition-colors"
+              className="p-1.5 rounded-lg border border-slate-200 dark:border-slate-800 text-slate-600 hover:bg-slate-50 transition-colors shrink-0"
               title="Toggle sidebar"
             >
               {isSidebarOpen ? (
@@ -1792,7 +1792,7 @@ EXAMINER RESPONSE REQUIREMENTS:
                 <PanelLeftOpen className="h-4 w-4" />
               )}
             </button>
-            <div className="flex items-center gap-2 min-w-0">
+            <div className="flex items-center gap-1.5 sm:gap-2 min-w-0">
               <Award className="h-5 w-5 text-indigo-600 shrink-0" />
               {isHeaderRenaming ? (
                 <form
@@ -1835,9 +1835,9 @@ EXAMINER RESPONSE REQUIREMENTS:
                   </button>
                 </form>
               ) : (
-                <div className="flex items-center gap-1.5 min-w-0">
+                <div className="flex items-center gap-1 min-w-0">
                   <h1
-                    className="text-xs sm:text-sm font-bold text-slate-900 dark:text-slate-100 truncate max-w-[120px] sm:max-w-xs md:max-w-md"
+                    className="text-xs sm:text-sm font-bold text-slate-900 dark:text-slate-100 truncate max-w-[70px] xs:max-w-[110px] sm:max-w-xs md:max-w-md"
                     title={
                       sessions.find((s) => s.id === currentSessionId)
                         ?.question ||
@@ -1869,13 +1869,13 @@ EXAMINER RESPONSE REQUIREMENTS:
             </div>
           </div>
 
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1 sm:gap-2 shrink-0">
             {/* View Mode Switcher: Booklet vs Analytics */}
-            <div className="flex items-center rounded-xl bg-slate-100 dark:bg-slate-800 p-0.5 border border-slate-200 dark:border-slate-700 text-xs font-semibold">
+            <div className="flex items-center rounded-xl bg-slate-100 dark:bg-slate-800 p-0.5 border border-slate-200 dark:border-slate-700 text-xs font-semibold shrink-0">
               <button
                 type="button"
                 onClick={() => setViewMode("booklet")}
-                className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                className={`flex items-center gap-1.5 p-1.5 sm:px-2.5 sm:py-1 rounded-lg text-xs font-bold transition-all cursor-pointer ${
                   viewMode === "booklet"
                     ? "bg-white dark:bg-slate-900 text-indigo-600 dark:text-indigo-400 shadow-2xs"
                     : "text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200"
@@ -1888,7 +1888,7 @@ EXAMINER RESPONSE REQUIREMENTS:
               <button
                 type="button"
                 onClick={() => setViewMode("dashboard")}
-                className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                className={`flex items-center gap-1.5 p-1.5 sm:px-2.5 sm:py-1 rounded-lg text-xs font-bold transition-all cursor-pointer ${
                   viewMode === "dashboard"
                     ? "bg-white dark:bg-slate-900 text-indigo-600 dark:text-indigo-400 shadow-2xs"
                     : "text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200"
@@ -1900,7 +1900,7 @@ EXAMINER RESPONSE REQUIREMENTS:
               </button>
             </div>
             {Object.keys(vault).filter((k) => Boolean(vault[k])).length > 1 ? (
-              <div className="flex items-center rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-100 dark:bg-slate-800/80 p-0.5 text-xs">
+              <div className="flex items-center rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-100 dark:bg-slate-800/80 p-0.5 text-xs shrink-0">
                 {Object.keys(vault)
                   .filter((k) => Boolean(vault[k]))
                   .map((p) => {
@@ -1930,7 +1930,7 @@ EXAMINER RESPONSE REQUIREMENTS:
                           setVault(getProviderVault());
                           setErrorMsg(null);
                         }}
-                        className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                        className={`flex items-center gap-1 sm:gap-1.5 px-1.5 sm:px-2.5 py-1 rounded-lg text-xs font-bold transition-all cursor-pointer ${
                           isCurrent
                             ? "bg-white dark:bg-slate-900 text-indigo-600 dark:text-indigo-400 shadow-2xs"
                             : "text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200"
@@ -1961,7 +1961,7 @@ EXAMINER RESPONSE REQUIREMENTS:
               <button
                 type="button"
                 onClick={() => setShowSettingsModal(true)}
-                className="inline-flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 text-xs font-semibold text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors shadow-2xs cursor-pointer"
+                className="inline-flex items-center gap-1 sm:gap-1.5 px-2 sm:px-3 py-1 sm:py-1.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 text-xs font-semibold text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors shadow-2xs cursor-pointer shrink-0"
                 title="Configure AI Provider & API Key"
               >
                 <span
@@ -1971,7 +1971,7 @@ EXAMINER RESPONSE REQUIREMENTS:
                       : "bg-amber-500"
                   }`}
                 />
-                <span className="font-semibold text-xs">
+                <span className="font-semibold text-xs hidden sm:inline">
                   {activeProvider === "gemini" && vault.gemini
                     ? "Gemini (Active)"
                     : activeProvider === "groq" && vault.groq
@@ -1982,18 +1982,29 @@ EXAMINER RESPONSE REQUIREMENTS:
                           ? "Claude (Active)"
                           : "Free AI"}
                 </span>
-                <Settings2 className="h-3.5 w-3.5 text-slate-400" />
+                <span className="font-semibold text-xs sm:hidden">
+                  {activeProvider === "gemini" && vault.gemini
+                    ? "Gemini"
+                    : activeProvider === "groq" && vault.groq
+                      ? "Groq"
+                      : activeProvider === "openai" && vault.openai
+                        ? "OpenAI"
+                        : activeProvider === "anthropic" && vault.anthropic
+                          ? "Claude"
+                          : "Free"}
+                </span>
+                <Settings2 className="h-3.5 w-3.5 text-slate-400 shrink-0" />
               </button>
             )}
 
             <button
               type="button"
               onClick={handleNewEvaluation}
-              className="inline-flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 text-xs font-semibold text-slate-700 dark:text-slate-200 hover:bg-slate-50 transition-colors shadow-2xs cursor-pointer"
+              className="inline-flex items-center justify-center gap-1 px-2 sm:px-3 py-1 sm:py-1.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 text-xs font-semibold text-slate-700 dark:text-slate-200 hover:bg-slate-50 transition-colors shadow-2xs cursor-pointer shrink-0"
+              title="Create new question"
             >
-              <Plus className="h-3.5 w-3.5 text-indigo-600" />
+              <Plus className="h-3.5 w-3.5 text-indigo-600 shrink-0" />
               <span className="hidden sm:inline">New Question</span>
-              <span className="sm:hidden">New</span>
             </button>
           </div>
         </header>
@@ -2054,17 +2065,19 @@ EXAMINER RESPONSE REQUIREMENTS:
                   </div>
                 </div>
 
-                {/* Question Prompt display */}
-                <div className="p-2 sm:p-3 rounded-lg sm:rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200/70 dark:border-slate-700/60">
-                  <p className="text-xs sm:text-sm font-semibold text-slate-900 dark:text-slate-100 leading-snug line-clamp-3 sm:line-clamp-none">
-                    {question || (
-                      <span className="text-slate-400 italic font-normal">
-                        No question prompt entered yet. Type your Mains question
-                        below or upload your answer booklet!
-                      </span>
-                    )}
-                  </p>
-                </div>
+                {/* Question Prompt display (hidden when form is expanded to prevent duplicate prompt card) */}
+                {!isFormExpanded && (
+                  <div className="p-2 sm:p-3 rounded-lg sm:rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200/70 dark:border-slate-700/60">
+                    <p className="text-xs sm:text-sm font-semibold text-slate-900 dark:text-slate-100 leading-snug line-clamp-3 sm:line-clamp-none">
+                      {question || (
+                        <span className="text-slate-400 italic font-normal">
+                          No question prompt entered yet. Type your Mains
+                          question below or upload your answer booklet!
+                        </span>
+                      )}
+                    </p>
+                  </div>
+                )}
 
                 {/* Attempts Switcher & Compare Bar */}
                 <div className="flex items-center justify-between flex-wrap gap-2 pt-1 border-t border-slate-100 dark:border-slate-800/80">
