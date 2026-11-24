@@ -1394,7 +1394,7 @@ EXAMINER RESPONSE REQUIREMENTS:
   }, [filteredSessions, isSearching, visibleCount]);
 
   return (
-    <div className="flex h-full w-full max-w-full bg-slate-100/70 dark:bg-slate-950 text-slate-900 dark:text-slate-100 overflow-hidden font-sans relative">
+    <div className="flex min-h-[calc(100dvh-3.5rem)] w-full max-w-full bg-slate-100/70 dark:bg-slate-950 text-slate-900 dark:text-slate-100 font-sans relative">
       {/* Mobile Backdrop when Sidebar is Open */}
       {isSidebarOpen && (
         <div
@@ -1776,7 +1776,7 @@ EXAMINER RESPONSE REQUIREMENTS:
       )}
 
       {/* ── 2. MAIN EVALUATION WORKSPACE ── */}
-      <main className="flex-1 flex flex-col min-w-0 w-full max-w-full overflow-y-auto overflow-x-hidden touch-pan-y pb-28 sm:pb-20">
+      <main className="flex-1 flex flex-col min-w-0 w-full max-w-full pb-8">
         {/* Top Controls Bar */}
         <header className="bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 px-2 sm:px-6 py-2 sm:py-2.5 flex items-center justify-between gap-1.5 sm:gap-3 shrink-0">
           <div className="flex items-center gap-1.5 sm:gap-2 min-w-0">
@@ -1901,53 +1901,85 @@ EXAMINER RESPONSE REQUIREMENTS:
             </div>
             {Object.keys(vault).filter((k) => Boolean(vault[k])).length > 1 ? (
               <div className="flex items-center rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-100 dark:bg-slate-800/80 p-0.5 text-xs shrink-0">
-                {Object.keys(vault)
-                  .filter((k) => Boolean(vault[k]))
-                  .map((p) => {
-                    const isCurrent = activeProvider === p;
-                    const label =
-                      p === "gemini"
-                        ? "Gemini"
-                        : p === "groq"
-                          ? "Groq"
-                          : p === "openai"
-                            ? "OpenAI"
-                            : p === "anthropic"
-                              ? "Claude"
-                              : p;
-                    return (
-                      <button
-                        key={p}
-                        type="button"
-                        onClick={() => {
-                          const switched = switchActiveProvider(p);
-                          if (switched) {
-                            setAiConfig(switched);
-                            setActiveProvider(switched.provider);
-                          } else {
-                            setActiveProvider(p);
-                          }
-                          setVault(getProviderVault());
-                          setErrorMsg(null);
-                        }}
-                        className={`flex items-center gap-1 sm:gap-1.5 px-1.5 sm:px-2.5 py-1 rounded-lg text-xs font-bold transition-all cursor-pointer ${
-                          isCurrent
-                            ? "bg-white dark:bg-slate-900 text-indigo-600 dark:text-indigo-400 shadow-2xs"
-                            : "text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200"
-                        }`}
-                        title={`Switch to ${label}`}
-                      >
-                        <span
-                          className={`h-1.5 w-1.5 rounded-full shrink-0 ${
+                {/* Desktop: Show all provider pills */}
+                <div className="hidden sm:flex items-center">
+                  {Object.keys(vault)
+                    .filter((k) => Boolean(vault[k]))
+                    .map((p) => {
+                      const isCurrent = activeProvider === p;
+                      const label =
+                        p === "gemini"
+                          ? "Gemini"
+                          : p === "groq"
+                            ? "Groq"
+                            : p === "openai"
+                              ? "OpenAI"
+                              : p === "anthropic"
+                                ? "Claude"
+                                : p;
+                      return (
+                        <button
+                          key={p}
+                          type="button"
+                          onClick={() => {
+                            const switched = switchActiveProvider(p);
+                            if (switched) {
+                              setAiConfig(switched);
+                              setActiveProvider(switched.provider);
+                            } else {
+                              setActiveProvider(p);
+                            }
+                            setVault(getProviderVault());
+                            setErrorMsg(null);
+                          }}
+                          className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-bold transition-all cursor-pointer ${
                             isCurrent
-                              ? "bg-emerald-500 animate-pulse"
-                              : "bg-slate-400"
+                              ? "bg-white dark:bg-slate-900 text-indigo-600 dark:text-indigo-400 shadow-2xs"
+                              : "text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200"
                           }`}
-                        />
-                        <span>{label}</span>
-                      </button>
+                          title={`Switch to ${label}`}
+                        >
+                          <span
+                            className={`h-1.5 w-1.5 rounded-full shrink-0 ${
+                              isCurrent
+                                ? "bg-emerald-500 animate-pulse"
+                                : "bg-slate-400"
+                            }`}
+                          />
+                          <span>{label}</span>
+                        </button>
+                      );
+                    })}
+                </div>
+
+                {/* Mobile: Show active provider pill with quick cycle to avoid header overflow */}
+                <button
+                  type="button"
+                  onClick={() => {
+                    const keys = Object.keys(vault).filter((k) =>
+                      Boolean(vault[k]),
                     );
-                  })}
+                    const currentIdx = keys.indexOf(activeProvider);
+                    const nextKey = keys[(currentIdx + 1) % keys.length];
+                    const switched = switchActiveProvider(nextKey);
+                    if (switched) {
+                      setAiConfig(switched);
+                      setActiveProvider(switched.provider);
+                    } else {
+                      setActiveProvider(nextKey);
+                    }
+                    setVault(getProviderVault());
+                    setErrorMsg(null);
+                  }}
+                  className="sm:hidden flex items-center gap-1 px-2 py-1 rounded-lg text-xs font-bold bg-white dark:bg-slate-900 text-indigo-600 dark:text-indigo-400 shadow-2xs cursor-pointer"
+                  title="Tap to cycle active AI provider"
+                >
+                  <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse shrink-0" />
+                  <span className="capitalize">
+                    {activeProvider === "anthropic" ? "Claude" : activeProvider}
+                  </span>
+                </button>
+
                 <button
                   type="button"
                   onClick={() => setShowSettingsModal(true)}
@@ -2023,7 +2055,7 @@ EXAMINER RESPONSE REQUIREMENTS:
             }}
           />
         ) : (
-          <div className="max-w-5xl w-full mx-auto p-2 sm:p-6 space-y-2.5 sm:space-y-5 min-w-0 overflow-hidden">
+          <div className="max-w-5xl w-full mx-auto p-2 sm:p-6 space-y-2.5 sm:space-y-5 min-w-0">
             {/* ── Top Bar: Question Navigation & Active Question Context (static on mobile, sticky on desktop) ── */}
             <div className="static sm:sticky sm:top-0 z-20 bg-slate-50/95 dark:bg-slate-950/95 backdrop-blur-md pt-1 pb-2 sm:pb-3 sm:-mt-2 space-y-2 sm:space-y-3 transition-all">
               {/* ── PRACTICE QUESTION BOOKLET HEADER & ATTEMPTS SWITCHER ── */}

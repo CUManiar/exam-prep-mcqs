@@ -710,13 +710,13 @@ export function RevisionView() {
       {/* ── MAIN WORKSPACE ── */}
       <main className="flex-1 min-h-0 flex flex-col h-full overflow-hidden bg-slate-50 dark:bg-slate-950">
         {/* Top Control Bar */}
-        <header className="px-3 sm:px-5 py-2.5 border-b border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 flex flex-wrap items-center justify-between gap-2.5 shadow-2xs">
-          <div className="flex items-center gap-2">
+        <header className="px-2 sm:px-5 py-1.5 sm:py-2.5 border-b border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 flex items-center justify-between gap-1.5 sm:gap-2.5 shadow-2xs shrink-0">
+          <div className="flex items-center gap-1.5 sm:gap-2 min-w-0 flex-1 overflow-x-auto no-scrollbar py-0.5">
             {!isSidebarOpen && (
               <button
                 type="button"
                 onClick={() => setIsSidebarOpen(true)}
-                className="p-1.5 rounded-lg text-slate-500 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
+                className="p-1.5 rounded-lg text-slate-500 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors shrink-0"
                 title="Open sidebar"
               >
                 <PanelLeftOpen className="h-4 w-4" />
@@ -734,7 +734,7 @@ export function RevisionView() {
             />
           </div>
 
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1 sm:gap-2 shrink-0">
             {/* Cloud Sync Status Indicator */}
             <div
               className="hidden sm:inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 text-xs font-medium text-slate-600 dark:text-slate-300"
@@ -763,7 +763,7 @@ export function RevisionView() {
             <button
               type="button"
               onClick={() => setShowExportModal(true)}
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold bg-indigo-50 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-400 hover:bg-indigo-100 dark:hover:bg-indigo-900/60 transition-colors shadow-2xs cursor-pointer"
+              className="p-1.5 sm:px-3 sm:py-1.5 rounded-xl text-xs font-semibold bg-indigo-50 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-400 hover:bg-indigo-100 dark:hover:bg-indigo-900/60 transition-colors shadow-2xs cursor-pointer shrink-0"
               title="Export all chat notes"
             >
               <Download className="h-3.5 w-3.5" />
@@ -773,10 +773,11 @@ export function RevisionView() {
             <button
               type="button"
               onClick={() => setShowSettingsModal(true)}
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors shadow-2xs cursor-pointer"
+              className="p-1.5 sm:px-3 sm:py-1.5 rounded-xl text-xs font-semibold border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors shadow-2xs cursor-pointer shrink-0"
+              title="Configure AI Provider & Key"
             >
               <Settings2 className="h-3.5 w-3.5 text-slate-500" />
-              <span className="capitalize">
+              <span className="capitalize hidden sm:inline">
                 {config?.provider || "Configure AI"}
               </span>
             </button>
@@ -784,7 +785,7 @@ export function RevisionView() {
         </header>
 
         {/* Secondary Bar: Output Format Selector */}
-        <div className="px-3 sm:px-5 py-2 border-b border-slate-200/60 dark:border-slate-800/60 bg-white/70 dark:bg-slate-900/70 backdrop-blur-xs flex items-center justify-between gap-3">
+        <div className="px-2 sm:px-5 py-1.5 sm:py-2 border-b border-slate-200/60 dark:border-slate-800/60 bg-white/70 dark:bg-slate-900/70 backdrop-blur-xs flex items-center justify-between gap-2 shrink-0">
           <OutputFormatSelector
             currentFormat={format}
             onSelectFormat={(f) => setFormat(f)}
@@ -1007,7 +1008,7 @@ export function RevisionView() {
         </div>
 
         {/* ── INPUT FOOTER ── */}
-        <footer className="p-3 sm:p-4 border-t border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900">
+        <footer className="p-2 sm:p-4 border-t border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 shrink-0">
           <div className="max-w-3xl mx-auto space-y-2">
             <div className="relative flex items-end gap-2 bg-slate-50 dark:bg-slate-800/60 rounded-2xl border border-slate-200 dark:border-slate-700/80 p-2 shadow-2xs focus-within:ring-2 focus-within:ring-indigo-500 focus-within:border-transparent">
               <textarea
