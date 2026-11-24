@@ -252,20 +252,20 @@ export function StrategicDiagnosticsWidget({
   }, [completed, papers]);
 
   return (
-    <section className="grid grid-cols-2 gap-2.5 sm:gap-3 lg:grid-cols-4">
+    <section className="grid grid-cols-2 gap-2 sm:gap-3 lg:grid-cols-4 w-full min-w-0">
       {/* ── CARD 1: Projected Prelims Score ── */}
-      <div className="group relative surface-card flex items-start gap-2.5 sm:gap-3 p-3 sm:p-5 rounded-xl sm:rounded-2xl border border-slate-200/90 hover:border-indigo-300 hover:shadow-sm transition-all cursor-default">
+      <div className="group relative surface-card flex items-start gap-2 sm:gap-3 p-2.5 sm:p-5 rounded-xl sm:rounded-2xl border border-slate-200/90 hover:border-indigo-300 hover:shadow-sm transition-all cursor-default min-w-0 overflow-hidden">
         <span className="flex h-8 w-8 sm:h-10 sm:w-10 shrink-0 items-center justify-center rounded-lg sm:rounded-xl ring-1 bg-indigo-50 ring-indigo-200/70 text-indigo-600">
           <Target className="h-4 w-4 sm:h-5 sm:w-5" />
         </span>
-        <div className="min-w-0 flex-1">
+        <div className="min-w-0 flex-1 overflow-hidden">
           <div className="flex items-center justify-between gap-1">
             <span className="block truncate text-[10px] sm:text-xs font-semibold uppercase tracking-wider text-slate-400">
               Projected Score
             </span>
             <Info className="h-3 w-3 text-slate-300 group-hover:text-indigo-500 shrink-0 transition-colors hidden sm:block" />
           </div>
-          <span className="mt-0.5 block text-lg sm:text-2xl font-black tracking-tight text-slate-900 tabular-nums">
+          <span className="mt-0.5 block text-base sm:text-2xl font-black tracking-tight text-slate-900 tabular-nums truncate">
             {projectedPrelims ? `${projectedPrelims.projectedScore}` : "—"}
             <span className="text-[10px] sm:text-xs font-normal text-slate-400 ml-1">
               / 200
@@ -345,18 +345,18 @@ export function StrategicDiagnosticsWidget({
       </div>
 
       {/* ── CARD 2: Overconfidence Trap ── */}
-      <div className="group relative surface-card flex items-start gap-2.5 sm:gap-3 p-3 sm:p-5 rounded-xl sm:rounded-2xl border border-slate-200/90 hover:border-amber-300 hover:shadow-sm transition-all cursor-default">
+      <div className="group relative surface-card flex items-start gap-2 sm:gap-3 p-2.5 sm:p-5 rounded-xl sm:rounded-2xl border border-slate-200/90 hover:border-amber-300 hover:shadow-sm transition-all cursor-default min-w-0 overflow-hidden">
         <span className="flex h-8 w-8 sm:h-10 sm:w-10 shrink-0 items-center justify-center rounded-lg sm:rounded-xl ring-1 bg-amber-50 ring-amber-200/70 text-amber-600">
           <AlertTriangle className="h-4 w-4 sm:h-5 sm:w-5" />
         </span>
-        <div className="min-w-0 flex-1">
+        <div className="min-w-0 flex-1 overflow-hidden">
           <div className="flex items-center justify-between gap-1">
             <span className="block truncate text-[10px] sm:text-xs font-semibold uppercase tracking-wider text-slate-400">
               Overconfidence
             </span>
             <Info className="h-3 w-3 text-slate-300 group-hover:text-amber-500 shrink-0 transition-colors hidden sm:block" />
           </div>
-          <span className="mt-0.5 block text-lg sm:text-2xl font-black tracking-tight text-slate-900 tabular-nums">
+          <span className="mt-0.5 block text-base sm:text-2xl font-black tracking-tight text-slate-900 tabular-nums truncate">
             {sureMistakesAnalysis.totalSureMistakes}
             <span className="text-[10px] sm:text-xs font-normal text-slate-400 ml-1">
               blunders
@@ -424,18 +424,18 @@ export function StrategicDiagnosticsWidget({
       </div>
 
       {/* ── CARD 3: Negative Mark Leakage ── */}
-      <div className="group relative surface-card flex items-start gap-2.5 sm:gap-3 p-3 sm:p-5 rounded-xl sm:rounded-2xl border border-slate-200/90 hover:border-rose-300 hover:shadow-sm transition-all cursor-default">
+      <div className="group relative surface-card flex items-start gap-2 sm:gap-3 p-2.5 sm:p-5 rounded-xl sm:rounded-2xl border border-slate-200/90 hover:border-rose-300 hover:shadow-sm transition-all cursor-default min-w-0 overflow-hidden">
         <span className="flex h-8 w-8 sm:h-10 sm:w-10 shrink-0 items-center justify-center rounded-lg sm:rounded-xl ring-1 bg-rose-50 ring-rose-200/70 text-rose-600">
           <TrendingDown className="h-4 w-4 sm:h-5 sm:w-5" />
         </span>
-        <div className="min-w-0 flex-1">
+        <div className="min-w-0 flex-1 overflow-hidden">
           <div className="flex items-center justify-between gap-1">
             <span className="block truncate text-[10px] sm:text-xs font-semibold uppercase tracking-wider text-slate-400">
               Negative Leakage
             </span>
             <Info className="h-3 w-3 text-slate-300 group-hover:text-rose-500 shrink-0 transition-colors hidden sm:block" />
           </div>
-          <span className="mt-0.5 block text-lg sm:text-2xl font-black tracking-tight text-slate-900 tabular-nums">
+          <span className="mt-0.5 block text-base sm:text-2xl font-black tracking-tight text-slate-900 tabular-nums truncate">
             -{negativeLeakage.penaltyMarks}
             <span className="text-[10px] sm:text-xs font-normal text-slate-400 ml-1">
               pts
@@ -492,18 +492,18 @@ export function StrategicDiagnosticsWidget({
       </div>
 
       {/* ── CARD 4: Rolling 4-Week Accuracy ── */}
-      <div className="group relative surface-card flex items-start gap-2.5 sm:gap-3 p-3 sm:p-5 rounded-xl sm:rounded-2xl border border-slate-200/90 hover:border-emerald-300 hover:shadow-sm transition-all cursor-default">
+      <div className="group relative surface-card flex items-start gap-2 sm:gap-3 p-2.5 sm:p-5 rounded-xl sm:rounded-2xl border border-slate-200/90 hover:border-emerald-300 hover:shadow-sm transition-all cursor-default min-w-0 overflow-hidden">
         <span className="flex h-8 w-8 sm:h-10 sm:w-10 shrink-0 items-center justify-center rounded-lg sm:rounded-xl ring-1 bg-emerald-50 ring-emerald-200/70 text-emerald-600">
           <Zap className="h-4 w-4 sm:h-5 sm:w-5" />
         </span>
-        <div className="min-w-0 flex-1">
+        <div className="min-w-0 flex-1 overflow-hidden">
           <div className="flex items-center justify-between gap-1">
             <span className="block truncate text-[10px] sm:text-xs font-semibold uppercase tracking-wider text-slate-400">
               Rolling 4W Acc
             </span>
             <Info className="h-3 w-3 text-slate-300 group-hover:text-emerald-500 shrink-0 transition-colors hidden sm:block" />
           </div>
-          <span className="mt-0.5 block text-lg sm:text-2xl font-black tracking-tight text-slate-900 tabular-nums">
+          <span className="mt-0.5 block text-base sm:text-2xl font-black tracking-tight text-slate-900 tabular-nums truncate">
             {rollingSubjectAccuracy.overallAccuracyPct}%
           </span>
           <span className="mt-0.5 block truncate text-[10px] sm:text-[11px] font-medium text-emerald-700">

@@ -201,18 +201,18 @@ export function RecentTestInsights({
   }, [completed]);
 
   return (
-    <div className="surface-card p-3.5 sm:p-6 space-y-4 sm:space-y-6">
+    <div className="surface-card p-3 sm:p-6 space-y-3.5 sm:space-y-6 w-full max-w-full min-w-0 overflow-hidden">
       {/* Widget Header */}
-      <div className="flex items-center justify-between border-b border-slate-100 pb-3">
-        <div className="flex items-center gap-2">
-          <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-indigo-500/10 text-indigo-600 ring-1 ring-indigo-300/60">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 border-b border-slate-100 pb-3 min-w-0">
+        <div className="flex items-center gap-2 min-w-0">
+          <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-indigo-500/10 text-indigo-600 ring-1 ring-indigo-300/60 shrink-0">
             <LineChart className="h-4 w-4" />
           </span>
-          <div>
-            <h2 className="text-base font-semibold text-slate-900">
+          <div className="min-w-0">
+            <h2 className="text-base font-semibold text-slate-900 truncate">
               Exam Insights &amp; Trajectory
             </h2>
-            <p className="text-[11px] text-slate-500">
+            <p className="text-[11px] text-slate-500 line-clamp-1 sm:line-clamp-none">
               Score trajectory curve, subject mastery, and strategic test-taking
               metrics.
             </p>
@@ -222,7 +222,7 @@ export function RecentTestInsights({
         <button
           type="button"
           onClick={onNavigateHistory}
-          className="text-xs font-semibold text-blue-700 hover:text-blue-800 cursor-pointer inline-flex items-center gap-1"
+          className="text-xs font-semibold text-blue-700 hover:text-blue-800 cursor-pointer inline-flex items-center gap-1 shrink-0 self-start sm:self-auto"
         >
           Detailed History <ArrowRight className="h-3 w-3" />
         </button>

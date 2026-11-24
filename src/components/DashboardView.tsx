@@ -258,23 +258,23 @@ export function DashboardView({
       )}
 
       {/* Top 4 Key Performance Metrics */}
-      <section className="grid grid-cols-2 gap-2.5 sm:gap-3 lg:grid-cols-4">
+      <section className="grid grid-cols-2 gap-2 sm:gap-3 lg:grid-cols-4 w-full min-w-0">
         {metrics.map(
           ({ label, value, sublabel, icon: Icon, iconClass, iconBgClass }) => (
             <div
               key={label}
-              className="surface-card flex items-start gap-2.5 sm:gap-3 p-3 sm:p-5 rounded-xl sm:rounded-2xl border border-slate-200/90 hover:border-slate-300 transition-colors"
+              className="surface-card flex items-start gap-2 sm:gap-3 p-2.5 sm:p-5 rounded-xl sm:rounded-2xl border border-slate-200/90 hover:border-slate-300 transition-colors min-w-0 overflow-hidden"
             >
               <span
                 className={`flex h-8 w-8 sm:h-10 sm:w-10 shrink-0 items-center justify-center rounded-lg sm:rounded-xl ring-1 ${iconBgClass}`}
               >
                 <Icon className={`h-4 w-4 sm:h-5 sm:w-5 ${iconClass}`} />
               </span>
-              <div className="min-w-0 flex-1">
+              <div className="min-w-0 flex-1 overflow-hidden">
                 <span className="block truncate text-[10px] sm:text-xs font-semibold uppercase tracking-wider text-slate-400">
                   {label}
                 </span>
-                <span className="mt-0.5 block text-lg sm:text-2xl font-black tracking-tight text-slate-900 tabular-nums">
+                <span className="mt-0.5 block text-base sm:text-2xl font-black tracking-tight text-slate-900 tabular-nums truncate">
                   {value}
                 </span>
                 <span className="mt-0.5 block truncate text-[10px] sm:text-[11px] font-medium text-slate-500">
@@ -290,11 +290,11 @@ export function DashboardView({
       <StrategicDiagnosticsWidget attempts={attempts} papers={papers} />
 
       {/* Row 1: Solved MCQ Count & Mock Trends (2/3) + Goals & Reminders Board (1/3) */}
-      <section className="grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-6">
-        <div className="lg:col-span-2">
+      <section className="grid grid-cols-1 lg:grid-cols-3 gap-3 sm:gap-6 w-full min-w-0">
+        <div className="lg:col-span-2 min-w-0 w-full">
           <McqAndMockTrendsChart attempts={attempts} dailyTarget={50} />
         </div>
-        <div className="lg:col-span-1">
+        <div className="lg:col-span-1 min-w-0 w-full">
           <GoalsAndRemindersBoard
             todayAnsweredCount={todayAnsweredCount}
             weekMocksCount={weekMocksCount}
@@ -304,11 +304,11 @@ export function DashboardView({
       </section>
 
       {/* Row 2: Strike Calendar (2/3) + Recent Test Insights & Pacing (1/3) */}
-      <section className="grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-6">
-        <div className="lg:col-span-2">
+      <section className="grid grid-cols-1 lg:grid-cols-3 gap-3 sm:gap-6 w-full min-w-0">
+        <div className="lg:col-span-2 min-w-0 w-full">
           <StrikeCalendar attempts={attempts} />
         </div>
-        <div className="lg:col-span-1">
+        <div className="lg:col-span-1 min-w-0 w-full">
           <RecentTestInsights
             attempts={attempts}
             papers={papers}

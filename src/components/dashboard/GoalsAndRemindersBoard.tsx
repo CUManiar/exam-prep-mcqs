@@ -135,18 +135,18 @@ export function GoalsAndRemindersBoard({
   );
 
   return (
-    <div className="surface-card flex flex-col justify-between p-3.5 sm:p-6 space-y-4 sm:space-y-6">
+    <div className="surface-card flex flex-col justify-between p-3 sm:p-6 space-y-3.5 sm:space-y-6 w-full max-w-full min-w-0 overflow-hidden">
       {/* Board Header */}
-      <div className="flex items-center justify-between border-b border-slate-100 pb-3">
-        <div className="flex items-center gap-2">
-          <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-emerald-500/10 text-emerald-600 ring-1 ring-emerald-300/60">
+      <div className="flex items-center justify-between border-b border-slate-100 pb-3 min-w-0">
+        <div className="flex items-center gap-2 min-w-0">
+          <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-emerald-500/10 text-emerald-600 ring-1 ring-emerald-300/60 shrink-0">
             <Target className="h-4 w-4" />
           </span>
-          <div>
-            <h2 className="text-base font-semibold text-slate-900">
+          <div className="min-w-0">
+            <h2 className="text-base font-semibold text-slate-900 truncate">
               Goals &amp; Syllabus Progress
             </h2>
-            <p className="text-[11px] text-slate-500">
+            <p className="text-[11px] text-slate-500 line-clamp-1 sm:line-clamp-none">
               Daily practice quotas and milestones finished.
             </p>
           </div>

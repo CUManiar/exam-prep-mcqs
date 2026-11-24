@@ -95,7 +95,7 @@ export function LastThreePapersSummary({
           </button>
         </div>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-3 sm:gap-4 w-full min-w-0">
           {lastThree.map((attempt, index) => {
             const matchedPaper = papers.find((p) => p.id === attempt.paperId);
             const cutoffInfo = getPaperCutoffStatus(matchedPaper, attempt);
@@ -112,7 +112,7 @@ export function LastThreePapersSummary({
             return (
               <div
                 key={attempt.id}
-                className="surface-card flex flex-col justify-between p-3.5 sm:p-5 rounded-xl sm:rounded-2xl border border-slate-200/90 hover:border-blue-300 hover:shadow-md transition-all duration-200"
+                className="surface-card flex flex-col justify-between p-3 sm:p-5 rounded-xl sm:rounded-2xl border border-slate-200/90 hover:border-blue-300 hover:shadow-md transition-all duration-200 min-w-0 overflow-hidden"
               >
                 <div>
                   {/* Card Header */}

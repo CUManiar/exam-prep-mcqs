@@ -306,27 +306,27 @@ export function StrikeCalendar({
   });
 
   return (
-    <div className="surface-card p-3.5 sm:p-6 space-y-3.5 sm:space-y-5">
+    <div className="surface-card p-3 sm:p-6 space-y-3 sm:space-y-5 w-full max-w-full min-w-0 overflow-hidden">
       {/* Header with Title and Streak Badges */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2.5 sm:gap-3 border-b border-slate-100 pb-3 sm:pb-4">
-        <div>
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2.5 sm:gap-3 border-b border-slate-100 pb-3 sm:pb-4 min-w-0">
+        <div className="min-w-0">
           <div className="flex items-center gap-2">
-            <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-amber-500/10 text-amber-600 ring-1 ring-amber-300/60">
+            <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-amber-500/10 text-amber-600 ring-1 ring-amber-300/60 shrink-0">
               <Flame className="h-4 w-4" />
             </span>
-            <h2 className="text-base sm:text-lg font-semibold text-slate-900">
+            <h2 className="text-base sm:text-lg font-semibold text-slate-900 truncate">
               Strike &amp; Practice Calendar
             </h2>
           </div>
-          <p className="mt-0.5 text-xs text-slate-500">
+          <p className="mt-0.5 text-xs text-slate-500 line-clamp-1 sm:line-clamp-none">
             Track daily study consistency, question volume, and your active
             learning streak.
           </p>
         </div>
 
         {/* Quick Streak KPI Pills */}
-        <div className="flex flex-wrap items-center gap-2">
-          <div className="inline-flex items-center gap-1.5 rounded-full border border-amber-200 bg-amber-50/70 px-3 py-1 text-xs font-bold text-amber-900">
+        <div className="flex flex-wrap items-center gap-1.5 sm:gap-2">
+          <div className="inline-flex items-center gap-1.5 rounded-full border border-amber-200 bg-amber-50/70 px-2.5 sm:px-3 py-1 text-xs font-bold text-amber-900">
             <Flame
               className={`h-4 w-4 ${
                 streakStats.isActiveToday
@@ -337,7 +337,7 @@ export function StrikeCalendar({
             <span>{streakStats.currentStreak} Day Streak</span>
           </div>
 
-          <div className="inline-flex items-center gap-1.5 rounded-full border border-indigo-200 bg-indigo-50/70 px-3 py-1 text-xs font-semibold text-indigo-900">
+          <div className="inline-flex items-center gap-1.5 rounded-full border border-indigo-200 bg-indigo-50/70 px-2.5 sm:px-3 py-1 text-xs font-semibold text-indigo-900">
             <Award className="h-3.5 w-3.5 text-indigo-600" />
             <span>Best: {streakStats.longestStreak}d</span>
           </div>
@@ -345,8 +345,8 @@ export function StrikeCalendar({
       </div>
 
       {/* Month Navigation & Month Stats Summary */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2.5">
-        <div className="flex items-center gap-2">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 sm:gap-2.5 min-w-0">
+        <div className="flex items-center gap-1.5 sm:gap-2 flex-wrap">
           <button
             type="button"
             onClick={handlePrevMonth}
@@ -355,7 +355,7 @@ export function StrikeCalendar({
           >
             <ChevronLeft className="h-4 w-4" />
           </button>
-          <span className="text-sm font-bold text-slate-800 min-w-[8.5rem] text-center">
+          <span className="text-sm font-bold text-slate-800 min-w-[7.5rem] sm:min-w-[8.5rem] text-center">
             {monthLabel}
           </span>
           <button
@@ -369,13 +369,13 @@ export function StrikeCalendar({
           <button
             type="button"
             onClick={handleCurrentMonth}
-            className="ml-1 text-[11px] font-semibold text-blue-700 hover:text-blue-800 bg-blue-50/80 hover:bg-blue-100/70 px-2 py-1 rounded-md border border-blue-200 transition-colors cursor-pointer"
+            className="ml-0.5 sm:ml-1 text-[11px] font-semibold text-blue-700 hover:text-blue-800 bg-blue-50/80 hover:bg-blue-100/70 px-2 py-1 rounded-md border border-blue-200 transition-colors cursor-pointer"
           >
             Today
           </button>
         </div>
 
-        <div className="flex items-center gap-3 text-xs text-slate-500">
+        <div className="flex flex-wrap items-center gap-2 sm:gap-3 text-xs text-slate-500">
           <span>
             Active:{" "}
             <strong className="font-semibold text-slate-800">
@@ -394,8 +394,8 @@ export function StrikeCalendar({
       </div>
 
       {/* 7-column calendar grid */}
-      <div>
-        <div className="grid grid-cols-7 gap-1.5 sm:gap-2 mb-2 text-center text-[11px] font-bold uppercase tracking-wider text-slate-400">
+      <div className="w-full min-w-0 overflow-hidden">
+        <div className="grid grid-cols-7 gap-1 sm:gap-2 mb-1.5 sm:mb-2 text-center text-[10px] sm:text-[11px] font-bold uppercase tracking-wider text-slate-400">
           <span>Mon</span>
           <span>Tue</span>
           <span>Wed</span>
@@ -405,7 +405,7 @@ export function StrikeCalendar({
           <span className="text-rose-400 font-extrabold">Sun</span>
         </div>
 
-        <div className="grid grid-cols-7 gap-1.5 sm:gap-2">
+        <div className="grid grid-cols-7 gap-1 sm:gap-2">
           {calendarDays.map((day) => {
             const hasActivity = day.mcqCount > 0;
 
@@ -441,7 +441,7 @@ export function StrikeCalendar({
                 onClick={() => onSelectDate?.(day.dateStr)}
                 onMouseEnter={() => setHoveredDay(day)}
                 onMouseLeave={() => setHoveredDay(null)}
-                className={`relative flex flex-col justify-between h-14 sm:h-16 p-1.5 rounded-xl border transition-all cursor-pointer ${bgClass} ${isTodayClass}`}
+                className={`relative flex flex-col justify-between h-12 sm:h-16 p-1 sm:p-1.5 rounded-lg sm:rounded-xl border transition-all cursor-pointer min-w-0 overflow-hidden ${bgClass} ${isTodayClass}`}
               >
                 <div className="flex items-center justify-between">
                   <span className="text-[11px] sm:text-xs font-semibold tabular-nums leading-none">

@@ -1362,7 +1362,7 @@ EXAMINER RESPONSE REQUIREMENTS:
   }, [filteredSessions, isSearching, visibleCount]);
 
   return (
-    <div className="flex h-[calc(100vh-4rem)] bg-slate-100/70 dark:bg-slate-950 text-slate-900 dark:text-slate-100 overflow-hidden font-sans relative">
+    <div className="flex h-[calc(100vh-4rem)] w-full max-w-full bg-slate-100/70 dark:bg-slate-950 text-slate-900 dark:text-slate-100 overflow-hidden font-sans relative">
       {/* Mobile Backdrop when Sidebar is Open */}
       {isSidebarOpen && (
         <div
@@ -1744,7 +1744,7 @@ EXAMINER RESPONSE REQUIREMENTS:
       )}
 
       {/* ── 2. MAIN EVALUATION WORKSPACE ── */}
-      <main className="flex-1 flex flex-col min-w-0 overflow-y-auto touch-pan-y pb-28 sm:pb-20">
+      <main className="flex-1 flex flex-col min-w-0 w-full max-w-full overflow-y-auto overflow-x-hidden touch-pan-y pb-28 sm:pb-20">
         {/* Top Controls Bar */}
         <header className="bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 px-3.5 sm:px-6 py-2.5 flex items-center justify-between gap-3 shrink-0">
           <div className="flex items-center gap-2">
@@ -1980,7 +1980,7 @@ EXAMINER RESPONSE REQUIREMENTS:
             }}
           />
         ) : (
-          <div className="max-w-5xl w-full mx-auto p-2.5 sm:p-6 space-y-3 sm:space-y-5">
+          <div className="max-w-5xl w-full mx-auto p-2 sm:p-6 space-y-2.5 sm:space-y-5 min-w-0 overflow-hidden">
             {/* ── Top Bar: Question Navigation & Active Question Context (static on mobile, sticky on desktop) ── */}
             <div className="static sm:sticky sm:top-0 z-20 bg-slate-50/95 dark:bg-slate-950/95 backdrop-blur-md pt-1 pb-2 sm:pb-3 sm:-mt-2 space-y-2 sm:space-y-3 transition-all">
               {/* ── PRACTICE QUESTION BOOKLET HEADER & ATTEMPTS SWITCHER ── */}
@@ -2698,7 +2698,7 @@ EXAMINER RESPONSE REQUIREMENTS:
             {!isComparingAttempts && evaluation && (
               <div className="space-y-5 animate-in fade-in duration-300">
                 {/* Score Hero Banner */}
-                <div className="rounded-2xl border border-indigo-200 dark:border-indigo-900/60 bg-gradient-to-r from-indigo-50/70 via-white to-indigo-50/40 dark:from-slate-900 dark:via-slate-900 dark:to-indigo-950 p-5 sm:p-6 shadow-sm flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+                <div className="rounded-xl sm:rounded-2xl border border-indigo-200 dark:border-indigo-900/60 bg-gradient-to-r from-indigo-50/70 via-white to-indigo-50/40 dark:from-slate-900 dark:via-slate-900 dark:to-indigo-950 p-3.5 sm:p-6 shadow-sm flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 sm:gap-4 w-full min-w-0 overflow-hidden">
                   <div className="space-y-2.5 flex-1 min-w-0">
                     <div className="flex items-center gap-2 flex-wrap">
                       <span className="text-xs font-bold uppercase tracking-wider text-indigo-700 dark:text-indigo-400">
@@ -2831,11 +2831,11 @@ EXAMINER RESPONSE REQUIREMENTS:
                 </div>
 
                 {/* Navigation Tabs */}
-                <div className="flex rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-0.5 sm:p-1 gap-1 text-xs shadow-2xs overflow-x-auto no-scrollbar scroll-smooth">
+                <div className="flex rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-0.5 sm:p-1 gap-1 text-xs shadow-2xs overflow-x-auto no-scrollbar scroll-smooth w-full max-w-full min-w-0">
                   <button
                     type="button"
                     onClick={() => setActiveTab("feedback")}
-                    className={`flex-1 min-w-[75px] sm:min-w-[120px] py-1.5 sm:py-2 px-2 sm:px-3 rounded-lg font-bold text-[11px] sm:text-xs transition-colors cursor-pointer flex items-center justify-center gap-1 sm:gap-1.5 ${
+                    className={`flex-1 min-w-[62px] sm:min-w-[120px] py-1.5 sm:py-2 px-1 sm:px-3 rounded-lg font-bold text-[11px] sm:text-xs transition-colors cursor-pointer flex items-center justify-center gap-1 sm:gap-1.5 ${
                       activeTab === "feedback"
                         ? "bg-slate-900 text-white shadow-xs"
                         : "text-slate-600 dark:text-slate-400 hover:text-slate-900"
@@ -2848,7 +2848,7 @@ EXAMINER RESPONSE REQUIREMENTS:
                   <button
                     type="button"
                     onClick={() => setActiveTab("approach")}
-                    className={`flex-1 min-w-[75px] sm:min-w-[125px] py-1.5 sm:py-2 px-2 sm:px-3 rounded-lg font-bold text-[11px] sm:text-xs transition-colors cursor-pointer flex items-center justify-center gap-1 sm:gap-1.5 ${
+                    className={`flex-1 min-w-[62px] sm:min-w-[125px] py-1.5 sm:py-2 px-1 sm:px-3 rounded-lg font-bold text-[11px] sm:text-xs transition-colors cursor-pointer flex items-center justify-center gap-1 sm:gap-1.5 ${
                       activeTab === "approach"
                         ? "bg-slate-900 text-white shadow-xs"
                         : "text-slate-600 dark:text-slate-400 hover:text-slate-900"
@@ -2862,7 +2862,7 @@ EXAMINER RESPONSE REQUIREMENTS:
                   <button
                     type="button"
                     onClick={() => setActiveTab("model")}
-                    className={`flex-1 min-w-[75px] sm:min-w-[120px] py-1.5 sm:py-2 px-2 sm:px-3 rounded-lg font-bold text-[11px] sm:text-xs transition-colors cursor-pointer flex items-center justify-center gap-1 sm:gap-1.5 ${
+                    className={`flex-1 min-w-[62px] sm:min-w-[120px] py-1.5 sm:py-2 px-1 sm:px-3 rounded-lg font-bold text-[11px] sm:text-xs transition-colors cursor-pointer flex items-center justify-center gap-1 sm:gap-1.5 ${
                       activeTab === "model"
                         ? "bg-slate-900 text-white shadow-xs"
                         : "text-slate-600 dark:text-slate-400 hover:text-slate-900"
@@ -2876,7 +2876,7 @@ EXAMINER RESPONSE REQUIREMENTS:
                   <button
                     type="button"
                     onClick={() => setActiveTab("attempt")}
-                    className={`flex-1 min-w-[75px] sm:min-w-[120px] py-1.5 sm:py-2 px-2 sm:px-3 rounded-lg font-bold text-[11px] sm:text-xs transition-colors cursor-pointer flex items-center justify-center gap-1 sm:gap-1.5 ${
+                    className={`flex-1 min-w-[62px] sm:min-w-[120px] py-1.5 sm:py-2 px-1 sm:px-3 rounded-lg font-bold text-[11px] sm:text-xs transition-colors cursor-pointer flex items-center justify-center gap-1 sm:gap-1.5 ${
                       activeTab === "attempt"
                         ? "bg-slate-900 text-white shadow-xs"
                         : "text-slate-600 dark:text-slate-400 hover:text-slate-900"
@@ -2901,7 +2901,7 @@ EXAMINER RESPONSE REQUIREMENTS:
                   <button
                     type="button"
                     onClick={() => setActiveTab("chat")}
-                    className={`flex-1 min-w-[75px] sm:min-w-[120px] py-1.5 sm:py-2 px-2 sm:px-3 rounded-lg font-bold text-[11px] sm:text-xs transition-colors cursor-pointer flex items-center justify-center gap-1 sm:gap-1.5 ${
+                    className={`flex-1 min-w-[62px] sm:min-w-[120px] py-1.5 sm:py-2 px-1 sm:px-3 rounded-lg font-bold text-[11px] sm:text-xs transition-colors cursor-pointer flex items-center justify-center gap-1 sm:gap-1.5 ${
                       activeTab === "chat"
                         ? "bg-slate-900 text-white shadow-xs"
                         : "text-slate-600 dark:text-slate-400 hover:text-slate-900"

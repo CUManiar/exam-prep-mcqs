@@ -23,7 +23,7 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
               ? "h-screen h-[100dvh] w-full overflow-hidden"
               : isRevision
                 ? "h-[calc(100dvh-7.75rem)] md:h-[calc(100dvh-4rem)] overflow-hidden flex flex-col"
-                : "min-h-[calc(100vh-7rem)] sm:min-h-[calc(100vh-4rem)] pb-16 md:pb-0"
+                : "min-h-[calc(100vh-7rem)] sm:min-h-[calc(100vh-4rem)] pb-16 md:pb-0 w-full max-w-full overflow-x-hidden"
         }
       >
         {children}
