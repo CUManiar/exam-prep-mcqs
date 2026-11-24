@@ -16,6 +16,7 @@ import {
   MessageSquare,
   PanelLeftClose,
   PanelLeftOpen,
+  Pencil,
   Plus,
   RotateCcw,
   Search,
@@ -542,6 +543,28 @@ export function RevisionView() {
     }, 2000);
   };
 
+  // Retry query with optional prompt override
+  const handleRetry = (promptOverride?: string) => {
+    let promptToRetry = promptOverride;
+    if (!promptToRetry) {
+      for (let i = messages.length - 1; i >= 0; i--) {
+        if (messages[i].role === "user") {
+          promptToRetry = messages[i].content;
+          break;
+        }
+      }
+    }
+    if (promptToRetry) {
+      setMessages((prev) => {
+        if (prev.length > 0 && prev[prev.length - 1].isError) {
+          return prev.slice(0, -1);
+        }
+        return prev;
+      });
+      handleSend(promptToRetry);
+    }
+  };
+
   // Filtered sessions
   const filteredSessions = useMemo(() => {
     if (!searchQuery.trim()) return sessions;
@@ -886,17 +909,63 @@ export function RevisionView() {
                   }`}
                 >
                   {isUser ? (
-                    <div className="whitespace-pre-wrap font-medium text-xs sm:text-sm">
-                      {msg.content}
+                    <div className="space-y-1.5">
+                      <div className="whitespace-pre-wrap font-medium text-xs sm:text-sm">
+                        {msg.content}
+                      </div>
+                      <div className="flex items-center justify-end pt-1">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setInputPrompt(msg.content);
+                            if (textareaRef.current) {
+                              textareaRef.current.focus();
+                              textareaRef.current.style.height = "auto";
+                              textareaRef.current.style.height = `${Math.min(
+                                textareaRef.current.scrollHeight,
+                                120,
+                              )}px`;
+                            }
+                          }}
+                          className="inline-flex items-center gap-1 text-[10px] font-semibold text-indigo-200 hover:text-white transition-colors cursor-pointer"
+                          title="Edit prompt and re-send"
+                        >
+                          <Pencil className="h-3 w-3" />
+                          <span>Edit Prompt</span>
+                        </button>
+                      </div>
                     </div>
                   ) : (
                     <div className="space-y-2">
                       <RevisionMarkdownRenderer content={msg.content} />
-                      <div className="flex items-center justify-end pt-2 border-t border-slate-100 dark:border-slate-800">
+                      <div className="flex flex-wrap items-center justify-between gap-2 pt-2 border-t border-slate-100 dark:border-slate-800">
+                        {msg.isError ? (
+                          <div className="flex items-center gap-1.5">
+                            <button
+                              type="button"
+                              onClick={() => handleRetry()}
+                              disabled={isLoading}
+                              className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold shadow-2xs transition-colors cursor-pointer disabled:opacity-50"
+                            >
+                              <RotateCcw className="h-3 w-3" />
+                              <span>Retry Query</span>
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => setShowSettingsModal(true)}
+                              className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 text-xs font-semibold shadow-2xs transition-colors cursor-pointer"
+                            >
+                              <Settings2 className="h-3 w-3" />
+                              <span>Switch AI / Key</span>
+                            </button>
+                          </div>
+                        ) : (
+                          <div />
+                        )}
                         <button
                           type="button"
                           onClick={() => handleCopy(msg.id, msg.content)}
-                          className="inline-flex items-center gap-1 text-[11px] font-medium text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition-colors"
+                          className="inline-flex items-center gap-1 text-[11px] font-medium text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition-colors ml-auto cursor-pointer"
                         >
                           {copiedId === msg.id ? (
                             <Check className="h-3.5 w-3.5 text-emerald-500" />

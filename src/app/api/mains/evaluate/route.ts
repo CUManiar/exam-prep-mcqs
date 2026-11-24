@@ -225,18 +225,23 @@ async function discoverGeminiModels(apiKey: string): Promise<string[]> {
             !name.includes("embedding") &&
             !name.includes("aqa") &&
             !name.includes("imagen") &&
-            !name.includes("learnlm"),
+            !name.includes("learnlm") &&
+            !name.includes("tts") &&
+            !name.includes("realtime") &&
+            !name.includes("preview-image") &&
+            !name.includes("preview-tts") &&
+            !name.includes("2.5-flash-preview"),
         );
 
       models.sort((a, b) => {
         const score = (id: string) => {
           let s = 0;
           if (id === "gemini-2.0-flash") s += 100;
-          if (id === "gemini-1.5-flash") s += 80;
-          if (id.includes("2.0-flash")) s += 70;
-          if (id.includes("1.5-flash")) s += 60;
-          if (id.includes("2.5-flash")) s += 50;
-          if (id.includes("flash")) s += 40;
+          if (id === "gemini-1.5-flash") s += 90;
+          if (id === "gemini-1.5-pro") s += 80;
+          if (id === "gemini-1.5-flash-8b") s += 70;
+          if (id.includes("2.0-flash")) s += 60;
+          if (id.includes("1.5-flash")) s += 50;
           if (id.includes("pro")) s += 30;
           return s;
         };
@@ -251,8 +256,8 @@ async function discoverGeminiModels(apiKey: string): Promise<string[]> {
   return [
     "gemini-2.0-flash",
     "gemini-1.5-flash",
-    "gemini-2.5-flash",
     "gemini-1.5-pro",
+    "gemini-1.5-flash-8b",
   ];
 }
 
@@ -363,12 +368,19 @@ async function callOpenAIEvaluation(
 
   const content: any[] = [{ type: "text", text: prompt }];
   for (const img of images) {
-    const dataUrl = img.data.startsWith("data:")
-      ? img.data
-      : `data:${img.mimeType || "image/jpeg"};base64,${img.data}`;
+    let mime = (img.mimeType || "image/jpeg").toLowerCase().trim();
+    if (mime === "image/jpg") mime = "image/jpeg";
+    if (mime === "application/pdf") continue; // OpenAI chat completions does not accept raw PDF in image_url
+
+    const cleanData = img.data
+      .replace(/^data:[^;]+;base64,/, "")
+      .replace(/\s+/g, "");
     content.push({
       type: "image_url",
-      image_url: { url: dataUrl },
+      image_url: {
+        url: `data:${mime};base64,${cleanData}`,
+        detail: "high",
+      },
     });
   }
 
@@ -387,7 +399,7 @@ async function callOpenAIEvaluation(
           max_tokens: 4000,
           response_format: { type: "json_object" },
         }),
-        signal: AbortSignal.timeout(45000),
+        signal: AbortSignal.timeout(55000),
       });
 
       if (res.ok) {
@@ -484,21 +496,40 @@ async function callGroqEvaluation(
 ): Promise<string> {
   const isVision = images.length > 0;
 
-  // If candidate submitted only images and NO typed text, Groq cannot evaluate it
-  if (isVision && !answerText.trim()) {
-    throw new Error(
-      "Groq Cloud currently only supports text-based models and does not support image or handwritten OCR. Please select Google Gemini (free at aistudio.google.com) in AI Revision Settings, or type/paste your answer directly in the text tab.",
-    );
+  let visionContent: any[] = [{ type: "text", text: prompt }];
+  if (isVision) {
+    for (const img of images) {
+      let mime = (img.mimeType || "image/jpeg").toLowerCase().trim();
+      if (mime === "image/jpg") mime = "image/jpeg";
+      if (mime === "application/pdf") continue;
+      const cleanData = img.data
+        .replace(/^data:[^;]+;base64,/, "")
+        .replace(/\s+/g, "");
+      visionContent.push({
+        type: "image_url",
+        image_url: {
+          url: `data:${mime};base64,${cleanData}`,
+        },
+      });
+    }
   }
 
-  const models = ["llama-3.3-70b-versatile", "llama-3.1-8b-instant"];
+  // Use vision models if images are attached; fallback to versatile text model
+  const models = isVision
+    ? ["llama-3.2-11b-vision-preview", "llama-3.2-90b-vision-preview"]
+    : ["llama-3.3-70b-versatile", "llama-3.1-8b-instant"];
   let lastError = "";
 
   for (const model of models) {
     try {
       const payload: any = {
         model,
-        messages: [{ role: "user", content: prompt }],
+        messages: [
+          {
+            role: "user",
+            content: isVision ? visionContent : prompt,
+          },
+        ],
         temperature: 0.3,
         max_tokens: 3500,
         response_format: { type: "json_object" },
@@ -513,7 +544,7 @@ async function callGroqEvaluation(
             Authorization: `Bearer ${apiKey}`,
           },
           body: JSON.stringify(payload),
-          signal: AbortSignal.timeout(45000),
+          signal: AbortSignal.timeout(50000),
         },
       );
 
@@ -528,6 +559,11 @@ async function callGroqEvaluation(
     } catch (e: any) {
       lastError = e?.message || "Groq connection error";
     }
+  }
+
+  // If Groq vision model failed or quota exceeded and candidate has typed text, fallback to text-based evaluation
+  if (isVision && answerText.trim()) {
+    return callGroqEvaluation(apiKey, prompt, [], answerText);
   }
 
   throw new Error(lastError || "Groq evaluation failed");

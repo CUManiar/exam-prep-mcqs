@@ -111,9 +111,23 @@ export function PrepStageSelector({
   return (
     <div className="flex flex-wrap items-center gap-2">
       <div className="flex items-center gap-1 p-1 bg-slate-100 dark:bg-slate-800/80 rounded-xl border border-slate-200/80 dark:border-slate-700/80 shadow-2xs">
-        {stages.map((stg) => {
+        {stages.map((stg, index) => {
           const cfg = STAGE_METADATA[stg];
           const isActive = currentStage === stg;
+          // Determine edge-safe popover and arrow alignment to prevent viewport clipping
+          const isFirst = index === 0;
+          const isLast = index >= stages.length - 2;
+          const popoverPosClass = isFirst
+            ? "left-0 sm:left-0 sm:translate-x-0"
+            : isLast
+              ? "right-0 sm:right-0 sm:left-auto sm:translate-x-0"
+              : "left-0 sm:left-1/2 sm:-translate-x-1/2";
+          const arrowPosClass = isFirst
+            ? "left-6 sm:left-6 sm:translate-x-0"
+            : isLast
+              ? "right-6 sm:right-6 sm:left-auto sm:translate-x-0"
+              : "left-6 sm:left-1/2 sm:-translate-x-1/2";
+
           return (
             <div key={stg} className="relative group">
               <button
@@ -131,9 +145,13 @@ export function PrepStageSelector({
               </button>
 
               {/* ── Hover Popover (Value Provided & When To Use) ── */}
-              <div className="pointer-events-none invisible opacity-0 group-hover:visible group-hover:opacity-100 group-hover:pointer-events-auto transition-all duration-200 ease-out absolute z-50 top-full mt-2 left-0 sm:left-1/2 sm:-translate-x-1/2 w-72 sm:w-80 rounded-2xl bg-slate-900/95 text-slate-100 p-4 shadow-2xl backdrop-blur-md border border-slate-800 text-xs">
+              <div
+                className={`pointer-events-none invisible opacity-0 group-hover:visible group-hover:opacity-100 group-hover:pointer-events-auto transition-all duration-200 ease-out absolute z-50 top-full mt-2 w-72 sm:w-80 max-w-[calc(100vw-2rem)] rounded-2xl bg-slate-900/95 text-slate-100 p-4 shadow-2xl backdrop-blur-md border border-slate-800 text-xs ${popoverPosClass}`}
+              >
                 {/* Arrow */}
-                <div className="absolute -top-1.5 left-6 sm:left-1/2 sm:-translate-x-1/2 w-3 h-3 bg-slate-900 border-t border-l border-slate-800 rotate-45" />
+                <div
+                  className={`absolute -top-1.5 w-3 h-3 bg-slate-900 border-t border-l border-slate-800 rotate-45 ${arrowPosClass}`}
+                />
 
                 <div className="space-y-2.5">
                   <div className="flex items-center justify-between border-b border-slate-800 pb-2">
