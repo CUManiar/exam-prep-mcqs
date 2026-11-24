@@ -189,6 +189,15 @@ select:disabled,
   gap: 0.5rem;
 }
 
+/* Hide scrollbars for clean mobile horizontal carousels */
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
 .app-account-button,
 .app-sign-in {
   display: inline-flex;

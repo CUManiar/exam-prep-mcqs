@@ -109,11 +109,21 @@ export function PrepStageSelector({
   ];
 
   return (
-    <div className="flex flex-wrap items-center gap-2">
-      <div className="flex items-center gap-1 p-1 bg-slate-100 dark:bg-slate-800/80 rounded-xl border border-slate-200/80 dark:border-slate-700/80 shadow-2xs">
+    <div className="flex items-center gap-1.5 shrink-0">
+      <div className="flex items-center gap-0.5 sm:gap-1 p-0.5 sm:p-1 bg-slate-100 dark:bg-slate-800/80 rounded-xl border border-slate-200/80 dark:border-slate-700/80 shadow-2xs">
         {stages.map((stg, index) => {
           const cfg = STAGE_METADATA[stg];
           const isActive = currentStage === stg;
+          const mobileLabel =
+            stg === "prelims"
+              ? "Prelims"
+              : stg === "mains"
+                ? "Mains"
+                : stg === "optional"
+                  ? "Optional"
+                  : stg === "csat"
+                    ? "CSAT"
+                    : "Concept";
           // Determine edge-safe popover and arrow alignment to prevent viewport clipping
           const isFirst = index === 0;
           const isLast = index >= stages.length - 2;
@@ -133,7 +143,7 @@ export function PrepStageSelector({
               <button
                 type="button"
                 onClick={() => onSelectStage(stg)}
-                className={`flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-lg text-xs font-semibold whitespace-nowrap shrink-0 transition-all cursor-pointer ${
+                className={`flex items-center gap-1 sm:gap-1.5 px-2 sm:px-3 py-1 sm:py-1.5 rounded-lg text-xs font-semibold whitespace-nowrap shrink-0 transition-all cursor-pointer ${
                   isActive
                     ? "bg-white dark:bg-slate-900 text-indigo-600 dark:text-indigo-400 shadow-2xs"
                     : "text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white"
@@ -141,7 +151,7 @@ export function PrepStageSelector({
               >
                 <span>{cfg.icon}</span>
                 <span className="hidden sm:inline">{cfg.label}</span>
-                <span className="sm:hidden">{cfg.badge.split(" ")[0]}</span>
+                <span className="sm:hidden">{mobileLabel}</span>
               </button>
 
               {/* ── Hover Popover (Value Provided & When To Use) ── */}
@@ -193,7 +203,7 @@ export function PrepStageSelector({
         })}
 
         {mistakeCount !== undefined && mistakeCount > 0 && onToggleMistakes && (
-          <div className="relative group pl-1 border-l border-slate-200 dark:border-slate-700/80">
+          <div className="hidden sm:block relative group pl-1 border-l border-slate-200 dark:border-slate-700/80">
             <button
               type="button"
               onClick={onToggleMistakes}

@@ -1008,9 +1008,9 @@ export function RevisionView() {
         </div>
 
         {/* ── INPUT FOOTER ── */}
-        <footer className="p-2 sm:p-4 border-t border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 shrink-0">
-          <div className="max-w-3xl mx-auto space-y-2">
-            <div className="relative flex items-end gap-2 bg-slate-50 dark:bg-slate-800/60 rounded-2xl border border-slate-200 dark:border-slate-700/80 p-2 shadow-2xs focus-within:ring-2 focus-within:ring-indigo-500 focus-within:border-transparent">
+        <footer className="px-2.5 py-1.5 sm:p-4 border-t border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 shrink-0">
+          <div className="max-w-3xl mx-auto">
+            <div className="relative flex items-end gap-2 bg-slate-50 dark:bg-slate-800/60 rounded-2xl border border-slate-200 dark:border-slate-700/80 p-1.5 sm:p-2 shadow-2xs focus-within:ring-2 focus-within:ring-indigo-500 focus-within:border-transparent">
               <textarea
                 ref={textareaRef}
                 value={inputPrompt}
