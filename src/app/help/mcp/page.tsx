@@ -206,7 +206,8 @@ export default function McpHelpPage() {
         <div className="pointer-events-none absolute -bottom-24 left-1/3 h-56 w-56 rounded-full bg-blue-200/30 blur-3xl" />
         <div className="relative max-w-3xl">
           <div className="inline-flex items-center gap-2 rounded-full border border-violet-200 bg-white/80 px-3 py-1.5 text-xs font-semibold text-violet-700 shadow-sm">
-            <Sparkles className="h-3.5 w-3.5 text-fuchsia-500" /> AI Help
+            <Sparkles className="h-3.5 w-3.5 text-fuchsia-500" /> MCP External
+            Integration
           </div>
           <h1 className="mt-5 text-3xl font-semibold tracking-tight text-slate-950 sm:text-5xl">
             Need a smarter study assistant?

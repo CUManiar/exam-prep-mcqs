@@ -56,8 +56,8 @@ export function OutputFormatSelector({
     : FORMAT_OPTIONS;
 
   return (
-    <div className="flex items-center gap-1.5 overflow-x-auto py-1 no-scrollbar">
-      <span className="text-[11px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider shrink-0 mr-0.5">
+    <div className="flex flex-wrap items-center gap-1 sm:gap-1.5 py-0.5">
+      <span className="text-[10px] sm:text-[11px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider shrink-0 mr-0.5">
         Format:
       </span>
       {options.map((opt) => {
@@ -68,7 +68,7 @@ export function OutputFormatSelector({
             type="button"
             onClick={() => onSelectFormat(opt.id)}
             title={opt.desc}
-            className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-medium transition-all shrink-0 cursor-pointer ${
+            className={`inline-flex items-center gap-1 sm:gap-1.5 px-2 sm:px-2.5 py-1 rounded-lg text-[11px] sm:text-xs font-medium transition-all shrink-0 cursor-pointer ${
               isActive
                 ? "bg-slate-900 dark:bg-white text-white dark:text-slate-900 shadow-2xs font-semibold"
                 : "bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700"

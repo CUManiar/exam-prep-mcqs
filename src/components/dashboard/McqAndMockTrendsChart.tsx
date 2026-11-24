@@ -248,32 +248,32 @@ export function McqAndMockTrendsChart({
   }, [chartData, metricView, dailyTarget]);
 
   return (
-    <div className="surface-card p-5 sm:p-6 space-y-5">
+    <div className="surface-card p-3 sm:p-6 space-y-3 sm:space-y-5 w-full max-w-full min-w-0 overflow-hidden">
       {/* Widget Header & Controls */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 border-b border-slate-100 pb-4">
-        <div>
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2.5 sm:gap-3 border-b border-slate-100 pb-3 sm:pb-4 min-w-0">
+        <div className="min-w-0">
           <div className="flex items-center gap-2">
-            <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-blue-500/10 text-blue-600 ring-1 ring-blue-300/60">
+            <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-blue-500/10 text-blue-600 ring-1 ring-blue-300/60 shrink-0">
               <BarChart3 className="h-4 w-4" />
             </span>
-            <h2 className="text-base sm:text-lg font-semibold text-slate-900">
+            <h2 className="text-base sm:text-lg font-semibold text-slate-900 truncate">
               MCQ Volume &amp; Mock Trends
             </h2>
           </div>
-          <p className="mt-0.5 text-xs text-slate-500">
+          <p className="mt-0.5 text-xs text-slate-500 line-clamp-1 sm:line-clamp-none">
             Daily practice volume, mock assessment velocity, and accuracy
             trajectory.
           </p>
         </div>
 
         {/* View Controls: Time Range & Metric Toggle */}
-        <div className="flex flex-wrap items-center gap-2">
+        <div className="flex flex-wrap items-center gap-1.5 sm:gap-2">
           {/* Metric Selector */}
           <div className="inline-flex rounded-lg border border-slate-200 bg-slate-50 p-0.5 text-xs font-semibold">
             <button
               type="button"
               onClick={() => setMetricView("mcqs")}
-              className={`rounded-md px-2.5 py-1 transition-all cursor-pointer ${
+              className={`rounded-md px-2 py-0.5 sm:px-2.5 sm:py-1 transition-all cursor-pointer text-xs ${
                 metricView === "mcqs"
                   ? "bg-white text-blue-700 shadow-2xs"
                   : "text-slate-600 hover:text-slate-900"
@@ -284,7 +284,7 @@ export function McqAndMockTrendsChart({
             <button
               type="button"
               onClick={() => setMetricView("mocks")}
-              className={`rounded-md px-2.5 py-1 transition-all cursor-pointer ${
+              className={`rounded-md px-2 py-0.5 sm:px-2.5 sm:py-1 transition-all cursor-pointer text-xs ${
                 metricView === "mocks"
                   ? "bg-white text-blue-700 shadow-2xs"
                   : "text-slate-600 hover:text-slate-900"
@@ -295,7 +295,7 @@ export function McqAndMockTrendsChart({
             <button
               type="button"
               onClick={() => setMetricView("accuracy")}
-              className={`rounded-md px-2.5 py-1 transition-all cursor-pointer ${
+              className={`rounded-md px-2 py-0.5 sm:px-2.5 sm:py-1 transition-all cursor-pointer text-xs ${
                 metricView === "accuracy"
                   ? "bg-white text-blue-700 shadow-2xs"
                   : "text-slate-600 hover:text-slate-900"
@@ -312,7 +312,7 @@ export function McqAndMockTrendsChart({
                 key={range}
                 type="button"
                 onClick={() => setTimeRange(range)}
-                className={`rounded-md px-2 py-1 transition-all cursor-pointer uppercase text-[11px] ${
+                className={`rounded-md px-1.5 py-0.5 sm:px-2 sm:py-1 transition-all cursor-pointer uppercase text-[10px] sm:text-[11px] ${
                   timeRange === range
                     ? "bg-white text-indigo-700 shadow-2xs font-bold"
                     : "text-slate-500 hover:text-slate-800"
@@ -326,61 +326,63 @@ export function McqAndMockTrendsChart({
       </div>
 
       {/* KPI Highlights Row */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-        <div className="rounded-xl border border-slate-100 bg-slate-50/60 p-3">
-          <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-3 w-full min-w-0">
+        <div className="rounded-xl border border-slate-100 bg-slate-50/60 p-2.5 sm:p-3 min-w-0 overflow-hidden">
+          <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block truncate">
             Today&apos;s MCQs
           </span>
-          <div className="mt-1 flex items-baseline gap-1.5">
-            <span className="text-xl font-bold text-slate-900 tabular-nums">
+          <div className="mt-1 flex items-baseline gap-1.5 flex-wrap">
+            <span className="text-lg sm:text-xl font-bold text-slate-900 tabular-nums">
               {overviewStats.todayMcqs}
             </span>
-            <span className="text-xs text-slate-400">/ {dailyTarget} goal</span>
+            <span className="text-xs text-slate-400 truncate">
+              / {dailyTarget} goal
+            </span>
           </div>
-          <span className="text-[10px] font-medium text-emerald-700 mt-0.5 block">
+          <span className="text-[10px] font-medium text-emerald-700 mt-0.5 block truncate">
             {overviewStats.todayMocks > 0
               ? `${overviewStats.todayMocks} mock completed`
               : "Keep practicing"}
           </span>
         </div>
 
-        <div className="rounded-xl border border-slate-100 bg-slate-50/60 p-3">
-          <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
+        <div className="rounded-xl border border-slate-100 bg-slate-50/60 p-2.5 sm:p-3 min-w-0 overflow-hidden">
+          <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block truncate">
             This Week
           </span>
-          <div className="mt-1 flex items-baseline gap-1.5">
-            <span className="text-xl font-bold text-slate-900 tabular-nums">
+          <div className="mt-1 flex items-baseline gap-1.5 flex-wrap">
+            <span className="text-lg sm:text-xl font-bold text-slate-900 tabular-nums">
               {overviewStats.weekMcqs}
             </span>
-            <span className="text-xs text-slate-400">MCQs</span>
+            <span className="text-xs text-slate-400 truncate">MCQs</span>
           </div>
-          <span className="text-[10px] font-medium text-indigo-700 mt-0.5 block">
+          <span className="text-[10px] font-medium text-indigo-700 mt-0.5 block truncate">
             {overviewStats.weekMocks} mock
             {overviewStats.weekMocks === 1 ? "" : "s"} taken
           </span>
         </div>
 
-        <div className="rounded-xl border border-slate-100 bg-slate-50/60 p-3">
-          <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
+        <div className="rounded-xl border border-slate-100 bg-slate-50/60 p-2.5 sm:p-3 min-w-0 overflow-hidden">
+          <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block truncate">
             This Month
           </span>
-          <div className="mt-1 flex items-baseline gap-1.5">
-            <span className="text-xl font-bold text-slate-900 tabular-nums">
+          <div className="mt-1 flex items-baseline gap-1.5 flex-wrap">
+            <span className="text-lg sm:text-xl font-bold text-slate-900 tabular-nums">
               {overviewStats.monthMcqs}
             </span>
-            <span className="text-xs text-slate-400">MCQs</span>
+            <span className="text-xs text-slate-400 truncate">MCQs</span>
           </div>
-          <span className="text-[10px] font-medium text-blue-700 mt-0.5 block">
+          <span className="text-[10px] font-medium text-blue-700 mt-0.5 block truncate">
             {overviewStats.monthMocks} mock
             {overviewStats.monthMocks === 1 ? "" : "s"} completed
           </span>
         </div>
 
-        <div className="rounded-xl border border-slate-100 bg-slate-50/60 p-3">
-          <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
+        <div className="rounded-xl border border-slate-100 bg-slate-50/60 p-2.5 sm:p-3 min-w-0 overflow-hidden">
+          <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block truncate">
             Daily Average
           </span>
-          <div className="mt-1 flex items-baseline gap-1.5">
+          <div className="mt-1 flex items-baseline gap-1.5 flex-wrap">
             <span className="text-xl font-bold text-slate-900 tabular-nums">
               {chartData.length > 0
                 ? Math.round(
@@ -389,105 +391,110 @@ export function McqAndMockTrendsChart({
                   )
                 : 0}
             </span>
-            <span className="text-xs text-slate-400">MCQs/day</span>
+            <span className="text-xs text-slate-400 truncate">MCQs/day</span>
           </div>
-          <span className="text-[10px] font-medium text-slate-500 mt-0.5 block">
+          <span className="text-[10px] font-medium text-slate-500 mt-0.5 block truncate">
             In selected {timeRange}
           </span>
         </div>
       </div>
 
       {/* SVG Responsive Chart View */}
-      <div className="relative pt-4">
-        {/* Daily Target reference dashed line when viewing MCQs */}
-        {metricView === "mcqs" && (
-          <div
-            className="pointer-events-none absolute left-0 right-0 flex items-center z-10"
-            style={{
-              bottom: `${(dailyTarget / maxValue) * 160 + 32}px`,
-            }}
-          >
-            <div className="w-full border-b border-dashed border-amber-400/80" />
-            <span className="absolute right-0 -top-3 rounded bg-amber-50 px-1.5 py-0.5 text-[9px] font-bold text-amber-800 border border-amber-200 shadow-2xs">
-              Daily Target: {dailyTarget}
-            </span>
-          </div>
-        )}
-
-        {/* Bar chart container */}
-        <div className="flex items-end gap-1.5 sm:gap-2 h-44 sm:h-48 pt-6 pb-2 border-b border-slate-200">
-          {chartData.map((d, idx) => {
-            let barHeight = 0;
-            let displayVal = 0;
-            let barColor = "bg-blue-500 hover:bg-blue-600";
-
-            if (metricView === "mcqs") {
-              displayVal = d.mcqs;
-              barHeight = (d.mcqs / maxValue) * 100;
-              if (d.mcqs >= dailyTarget) {
-                barColor =
-                  "bg-gradient-to-t from-emerald-600 to-emerald-400 hover:from-emerald-500 hover:to-emerald-300";
-              } else if (d.mcqs > 0) {
-                barColor =
-                  "bg-gradient-to-t from-blue-600 to-blue-400 hover:from-blue-500 hover:to-blue-300";
-              } else {
-                barColor = "bg-slate-100 hover:bg-slate-200";
-                barHeight = 3; // tiny sliver for 0 values
-              }
-            } else if (metricView === "mocks") {
-              const totalTests = d.mocks + d.practice;
-              displayVal = totalTests;
-              barHeight = (totalTests / maxValue) * 100;
-              barColor =
-                d.mocks > 0
-                  ? "bg-gradient-to-t from-indigo-600 to-indigo-400 hover:from-indigo-500 hover:to-indigo-300"
-                  : d.practice > 0
-                    ? "bg-gradient-to-t from-sky-500 to-sky-300 hover:from-sky-400 hover:to-sky-200"
-                    : "bg-slate-100";
-              if (totalTests === 0) barHeight = 3;
-            } else {
-              // accuracy
-              displayVal = d.accuracy || 0;
-              barHeight = (displayVal / 100) * 100;
-              barColor =
-                displayVal >= 75
-                  ? "bg-gradient-to-t from-emerald-600 to-emerald-400"
-                  : displayVal >= 60
-                    ? "bg-gradient-to-t from-amber-500 to-amber-300"
-                    : displayVal > 0
-                      ? "bg-gradient-to-t from-rose-500 to-rose-300"
-                      : "bg-slate-100";
-              if (displayVal === 0) barHeight = 3;
-            }
-
-            const clampedHeight = Math.min(Math.max(barHeight, 3), 100);
-
-            return (
+      <div className="relative pt-4 w-full max-w-full overflow-hidden">
+        {/* Scrollable Track container for bars */}
+        <div className="w-full overflow-x-auto overflow-y-hidden pb-1 no-scrollbar touch-pan-x">
+          <div className="relative min-w-[340px] sm:min-w-0 w-full">
+            {/* Daily Target reference dashed line when viewing MCQs */}
+            {metricView === "mcqs" && (
               <div
-                key={idx}
-                onMouseEnter={() => setHoveredPoint(d)}
-                onMouseLeave={() => setHoveredPoint(null)}
-                className="group relative flex-1 flex flex-col justify-end items-center h-full cursor-pointer"
+                className="pointer-events-none absolute left-0 right-0 flex items-center z-10"
+                style={{
+                  bottom: `${(dailyTarget / maxValue) * 160 + 32}px`,
+                }}
               >
-                {/* Visual Bar */}
-                <div
-                  className={`w-full max-w-[2.25rem] rounded-t-md transition-all duration-300 ${barColor}`}
-                  style={{ height: `${clampedHeight}%` }}
-                />
-
-                {/* X-axis label */}
-                <span className="mt-2 text-[10px] font-medium text-slate-400 truncate max-w-full text-center group-hover:text-slate-800 transition-colors">
-                  {d.label}
+                <div className="w-full border-b border-dashed border-amber-400/80" />
+                <span className="absolute right-0 -top-3 rounded bg-amber-50 px-1.5 py-0.5 text-[9px] font-bold text-amber-800 border border-amber-200 shadow-2xs">
+                  Daily Target: {dailyTarget}
                 </span>
               </div>
-            );
-          })}
+            )}
+
+            {/* Bar chart container */}
+            <div className="flex items-end gap-1 sm:gap-2 h-44 sm:h-48 pt-6 pb-2 border-b border-slate-200 w-full">
+              {chartData.map((d, idx) => {
+                let barHeight = 0;
+                let displayVal = 0;
+                let barColor = "bg-blue-500 hover:bg-blue-600";
+
+                if (metricView === "mcqs") {
+                  displayVal = d.mcqs;
+                  barHeight = (d.mcqs / maxValue) * 100;
+                  if (d.mcqs >= dailyTarget) {
+                    barColor =
+                      "bg-gradient-to-t from-emerald-600 to-emerald-400 hover:from-emerald-500 hover:to-emerald-300";
+                  } else if (d.mcqs > 0) {
+                    barColor =
+                      "bg-gradient-to-t from-blue-600 to-blue-400 hover:from-blue-500 hover:to-blue-300";
+                  } else {
+                    barColor = "bg-slate-100 hover:bg-slate-200";
+                    barHeight = 3; // tiny sliver for 0 values
+                  }
+                } else if (metricView === "mocks") {
+                  const totalTests = d.mocks + d.practice;
+                  displayVal = totalTests;
+                  barHeight = (totalTests / maxValue) * 100;
+                  barColor =
+                    d.mocks > 0
+                      ? "bg-gradient-to-t from-indigo-600 to-indigo-400 hover:from-indigo-500 hover:to-indigo-300"
+                      : d.practice > 0
+                        ? "bg-gradient-to-t from-sky-500 to-sky-300 hover:from-sky-400 hover:to-sky-200"
+                        : "bg-slate-100";
+                  if (totalTests === 0) barHeight = 3;
+                } else {
+                  // accuracy
+                  displayVal = d.accuracy || 0;
+                  barHeight = (displayVal / 100) * 100;
+                  barColor =
+                    displayVal >= 75
+                      ? "bg-gradient-to-t from-emerald-600 to-emerald-400"
+                      : displayVal >= 60
+                        ? "bg-gradient-to-t from-amber-500 to-amber-300"
+                        : displayVal > 0
+                          ? "bg-gradient-to-t from-rose-500 to-rose-300"
+                          : "bg-slate-100";
+                  if (displayVal === 0) barHeight = 3;
+                }
+
+                const clampedHeight = Math.min(Math.max(barHeight, 3), 100);
+
+                return (
+                  <div
+                    key={idx}
+                    onMouseEnter={() => setHoveredPoint(d)}
+                    onMouseLeave={() => setHoveredPoint(null)}
+                    className="group relative flex-1 min-w-0 flex flex-col justify-end items-center h-full cursor-pointer"
+                  >
+                    {/* Visual Bar */}
+                    <div
+                      className={`w-full max-w-[2.25rem] rounded-t-md transition-all duration-300 ${barColor}`}
+                      style={{ height: `${clampedHeight}%` }}
+                    />
+
+                    {/* X-axis label */}
+                    <span className="mt-2 text-[9px] sm:text-[10px] font-medium text-slate-400 truncate max-w-full text-center group-hover:text-slate-800 transition-colors">
+                      {d.label}
+                    </span>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
         </div>
 
         {/* Hover inspection pill */}
         {hoveredPoint ? (
-          <div className="mt-3 flex items-center justify-between rounded-xl border border-blue-200 bg-blue-50/80 p-2.5 sm:p-3 text-xs">
-            <div className="flex items-center gap-2">
+          <div className="mt-3 flex flex-wrap items-center justify-between rounded-xl border border-blue-200 bg-blue-50/80 p-2.5 sm:p-3 text-xs gap-2">
+            <div className="flex flex-wrap items-center gap-1.5 sm:gap-2">
               <span className="font-bold text-slate-900">
                 {hoveredPoint.sublabel}
               </span>
@@ -514,17 +521,17 @@ export function McqAndMockTrendsChart({
               </span>
             </div>
             {hoveredPoint.accuracy !== null && (
-              <div className="font-semibold text-emerald-800">
+              <div className="font-semibold text-emerald-800 shrink-0">
                 Accuracy: {hoveredPoint.accuracy}%
               </div>
             )}
           </div>
         ) : (
-          <div className="mt-2 flex items-center justify-between text-[11px] text-slate-400">
-            <span>
+          <div className="mt-2 flex flex-wrap items-center justify-between gap-1 text-[11px] text-slate-400">
+            <span className="truncate max-w-[220px] sm:max-w-none">
               Hover or tap any day column to view detailed metrics breakdown.
             </span>
-            <span>Scale max: {maxValue}</span>
+            <span className="shrink-0 font-mono">Scale max: {maxValue}</span>
           </div>
         )}
       </div>

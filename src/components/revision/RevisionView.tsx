@@ -16,6 +16,7 @@ import {
   MessageSquare,
   PanelLeftClose,
   PanelLeftOpen,
+  Pencil,
   Plus,
   RotateCcw,
   Search,
@@ -542,6 +543,28 @@ export function RevisionView() {
     }, 2000);
   };
 
+  // Retry query with optional prompt override
+  const handleRetry = (promptOverride?: string) => {
+    let promptToRetry = promptOverride;
+    if (!promptToRetry) {
+      for (let i = messages.length - 1; i >= 0; i--) {
+        if (messages[i].role === "user") {
+          promptToRetry = messages[i].content;
+          break;
+        }
+      }
+    }
+    if (promptToRetry) {
+      setMessages((prev) => {
+        if (prev.length > 0 && prev[prev.length - 1].isError) {
+          return prev.slice(0, -1);
+        }
+        return prev;
+      });
+      handleSend(promptToRetry);
+    }
+  };
+
   // Filtered sessions
   const filteredSessions = useMemo(() => {
     if (!searchQuery.trim()) return sessions;
@@ -687,13 +710,13 @@ export function RevisionView() {
       {/* ── MAIN WORKSPACE ── */}
       <main className="flex-1 min-h-0 flex flex-col h-full overflow-hidden bg-slate-50 dark:bg-slate-950">
         {/* Top Control Bar */}
-        <header className="px-3 sm:px-5 py-2.5 border-b border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 flex flex-wrap items-center justify-between gap-2.5 shadow-2xs">
-          <div className="flex items-center gap-2">
+        <header className="px-2 sm:px-5 py-1.5 sm:py-2.5 border-b border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 flex items-center justify-between gap-1.5 sm:gap-2.5 shadow-2xs shrink-0">
+          <div className="flex items-center gap-1.5 sm:gap-2 min-w-0 flex-1">
             {!isSidebarOpen && (
               <button
                 type="button"
                 onClick={() => setIsSidebarOpen(true)}
-                className="p-1.5 rounded-lg text-slate-500 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
+                className="p-1.5 rounded-lg text-slate-500 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors shrink-0"
                 title="Open sidebar"
               >
                 <PanelLeftOpen className="h-4 w-4" />
@@ -711,7 +734,22 @@ export function RevisionView() {
             />
           </div>
 
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1 sm:gap-2 shrink-0">
+            {mistakeDiagnostics.totalWrongQuestions > 0 && (
+              <button
+                type="button"
+                onClick={() => setShowMistakesBanner(!showMistakesBanner)}
+                className={`sm:hidden inline-flex items-center gap-1 px-2 py-1 rounded-lg text-[11px] font-bold transition-colors shrink-0 cursor-pointer ${
+                  showMistakesBanner
+                    ? "bg-rose-600 text-white"
+                    : "bg-rose-50 dark:bg-rose-950/60 text-rose-600 dark:text-rose-400 border border-rose-200/80 dark:border-rose-800/80"
+                }`}
+                title="Toggle Weak Spots"
+              >
+                <Flame className="h-3 w-3" />
+                <span>{mistakeDiagnostics.totalWrongQuestions}</span>
+              </button>
+            )}
             {/* Cloud Sync Status Indicator */}
             <div
               className="hidden sm:inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 text-xs font-medium text-slate-600 dark:text-slate-300"
@@ -740,7 +778,7 @@ export function RevisionView() {
             <button
               type="button"
               onClick={() => setShowExportModal(true)}
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold bg-indigo-50 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-400 hover:bg-indigo-100 dark:hover:bg-indigo-900/60 transition-colors shadow-2xs cursor-pointer"
+              className="p-1.5 sm:px-3 sm:py-1.5 rounded-xl text-xs font-semibold bg-indigo-50 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-400 hover:bg-indigo-100 dark:hover:bg-indigo-900/60 transition-colors shadow-2xs cursor-pointer shrink-0"
               title="Export all chat notes"
             >
               <Download className="h-3.5 w-3.5" />
@@ -750,10 +788,11 @@ export function RevisionView() {
             <button
               type="button"
               onClick={() => setShowSettingsModal(true)}
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors shadow-2xs cursor-pointer"
+              className="p-1.5 sm:px-3 sm:py-1.5 rounded-xl text-xs font-semibold border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors shadow-2xs cursor-pointer shrink-0"
+              title="Configure AI Provider & Key"
             >
               <Settings2 className="h-3.5 w-3.5 text-slate-500" />
-              <span className="capitalize">
+              <span className="capitalize hidden sm:inline">
                 {config?.provider || "Configure AI"}
               </span>
             </button>
@@ -761,7 +800,7 @@ export function RevisionView() {
         </header>
 
         {/* Secondary Bar: Output Format Selector */}
-        <div className="px-3 sm:px-5 py-2 border-b border-slate-200/60 dark:border-slate-800/60 bg-white/70 dark:bg-slate-900/70 backdrop-blur-xs flex items-center justify-between gap-3">
+        <div className="px-2 sm:px-5 py-1.5 sm:py-2 border-b border-slate-200/60 dark:border-slate-800/60 bg-white/70 dark:bg-slate-900/70 backdrop-blur-xs flex items-center justify-between gap-2 shrink-0">
           <OutputFormatSelector
             currentFormat={format}
             onSelectFormat={(f) => setFormat(f)}
@@ -772,7 +811,7 @@ export function RevisionView() {
             <button
               type="button"
               onClick={() => setShowMistakesBanner(!showMistakesBanner)}
-              className="text-[11px] font-semibold text-rose-600 dark:text-rose-400 hover:underline flex items-center gap-1 shrink-0 cursor-pointer"
+              className="hidden sm:flex text-[11px] font-semibold text-rose-600 dark:text-rose-400 hover:underline items-center gap-1 shrink-0 cursor-pointer"
             >
               <Flame className="h-3.5 w-3.5" />
               <span>
@@ -886,17 +925,63 @@ export function RevisionView() {
                   }`}
                 >
                   {isUser ? (
-                    <div className="whitespace-pre-wrap font-medium text-xs sm:text-sm">
-                      {msg.content}
+                    <div className="space-y-1.5">
+                      <div className="whitespace-pre-wrap font-medium text-xs sm:text-sm">
+                        {msg.content}
+                      </div>
+                      <div className="flex items-center justify-end pt-1">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setInputPrompt(msg.content);
+                            if (textareaRef.current) {
+                              textareaRef.current.focus();
+                              textareaRef.current.style.height = "auto";
+                              textareaRef.current.style.height = `${Math.min(
+                                textareaRef.current.scrollHeight,
+                                120,
+                              )}px`;
+                            }
+                          }}
+                          className="inline-flex items-center gap-1 text-[10px] font-semibold text-indigo-200 hover:text-white transition-colors cursor-pointer"
+                          title="Edit prompt and re-send"
+                        >
+                          <Pencil className="h-3 w-3" />
+                          <span>Edit Prompt</span>
+                        </button>
+                      </div>
                     </div>
                   ) : (
                     <div className="space-y-2">
                       <RevisionMarkdownRenderer content={msg.content} />
-                      <div className="flex items-center justify-end pt-2 border-t border-slate-100 dark:border-slate-800">
+                      <div className="flex flex-wrap items-center justify-between gap-2 pt-2 border-t border-slate-100 dark:border-slate-800">
+                        {msg.isError ? (
+                          <div className="flex items-center gap-1.5">
+                            <button
+                              type="button"
+                              onClick={() => handleRetry()}
+                              disabled={isLoading}
+                              className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold shadow-2xs transition-colors cursor-pointer disabled:opacity-50"
+                            >
+                              <RotateCcw className="h-3 w-3" />
+                              <span>Retry Query</span>
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => setShowSettingsModal(true)}
+                              className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 text-xs font-semibold shadow-2xs transition-colors cursor-pointer"
+                            >
+                              <Settings2 className="h-3 w-3" />
+                              <span>Switch AI / Key</span>
+                            </button>
+                          </div>
+                        ) : (
+                          <div />
+                        )}
                         <button
                           type="button"
                           onClick={() => handleCopy(msg.id, msg.content)}
-                          className="inline-flex items-center gap-1 text-[11px] font-medium text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition-colors"
+                          className="inline-flex items-center gap-1 text-[11px] font-medium text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition-colors ml-auto cursor-pointer"
                         >
                           {copiedId === msg.id ? (
                             <Check className="h-3.5 w-3.5 text-emerald-500" />
@@ -938,9 +1023,9 @@ export function RevisionView() {
         </div>
 
         {/* ── INPUT FOOTER ── */}
-        <footer className="p-3 sm:p-4 border-t border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900">
-          <div className="max-w-3xl mx-auto space-y-2">
-            <div className="relative flex items-end gap-2 bg-slate-50 dark:bg-slate-800/60 rounded-2xl border border-slate-200 dark:border-slate-700/80 p-2 shadow-2xs focus-within:ring-2 focus-within:ring-indigo-500 focus-within:border-transparent">
+        <footer className="px-2.5 py-1.5 sm:p-4 border-t border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 shrink-0">
+          <div className="max-w-3xl mx-auto">
+            <div className="relative flex items-end gap-2 bg-slate-50 dark:bg-slate-800/60 rounded-2xl border border-slate-200 dark:border-slate-700/80 p-1.5 sm:p-2 shadow-2xs focus-within:ring-2 focus-within:ring-indigo-500 focus-within:border-transparent">
               <textarea
                 ref={textareaRef}
                 value={inputPrompt}
