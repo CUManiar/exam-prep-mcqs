@@ -77,7 +77,7 @@ export function LastThreePapersSummary({
       </div>
 
       {lastThree.length === 0 ? (
-        <div className="surface-card p-8 text-center rounded-2xl border border-dashed border-slate-200">
+        <div className="surface-card p-5 sm:p-8 text-center rounded-xl sm:rounded-2xl border border-dashed border-slate-200">
           <BookOpen className="mx-auto h-8 w-8 text-slate-300" />
           <h3 className="mt-2 text-sm font-semibold text-slate-800">
             No completed assessments yet
@@ -112,7 +112,7 @@ export function LastThreePapersSummary({
             return (
               <div
                 key={attempt.id}
-                className="surface-card flex flex-col justify-between p-5 rounded-2xl border border-slate-200/90 hover:border-blue-300 hover:shadow-md transition-all duration-200"
+                className="surface-card flex flex-col justify-between p-3.5 sm:p-5 rounded-xl sm:rounded-2xl border border-slate-200/90 hover:border-blue-300 hover:shadow-md transition-all duration-200"
               >
                 <div>
                   {/* Card Header */}

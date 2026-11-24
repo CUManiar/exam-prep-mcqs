@@ -135,7 +135,7 @@ export function GoalsAndRemindersBoard({
   );
 
   return (
-    <div className="surface-card flex flex-col justify-between p-5 sm:p-6 space-y-6">
+    <div className="surface-card flex flex-col justify-between p-3.5 sm:p-6 space-y-4 sm:space-y-6">
       {/* Board Header */}
       <div className="flex items-center justify-between border-b border-slate-100 pb-3">
         <div className="flex items-center gap-2">

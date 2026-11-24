@@ -306,9 +306,9 @@ export function StrikeCalendar({
   });
 
   return (
-    <div className="surface-card p-5 sm:p-6 space-y-5">
+    <div className="surface-card p-3.5 sm:p-6 space-y-3.5 sm:space-y-5">
       {/* Header with Title and Streak Badges */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 border-b border-slate-100 pb-4">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2.5 sm:gap-3 border-b border-slate-100 pb-3 sm:pb-4">
         <div>
           <div className="flex items-center gap-2">
             <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-amber-500/10 text-amber-600 ring-1 ring-amber-300/60">

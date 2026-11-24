@@ -248,9 +248,9 @@ export function McqAndMockTrendsChart({
   }, [chartData, metricView, dailyTarget]);
 
   return (
-    <div className="surface-card p-5 sm:p-6 space-y-5">
+    <div className="surface-card p-3.5 sm:p-6 space-y-3.5 sm:space-y-5">
       {/* Widget Header & Controls */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 border-b border-slate-100 pb-4">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2.5 sm:gap-3 border-b border-slate-100 pb-3 sm:pb-4">
         <div>
           <div className="flex items-center gap-2">
             <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-blue-500/10 text-blue-600 ring-1 ring-blue-300/60">
@@ -273,7 +273,7 @@ export function McqAndMockTrendsChart({
             <button
               type="button"
               onClick={() => setMetricView("mcqs")}
-              className={`rounded-md px-2.5 py-1 transition-all cursor-pointer ${
+              className={`rounded-md px-2 py-0.5 sm:px-2.5 sm:py-1 transition-all cursor-pointer text-xs ${
                 metricView === "mcqs"
                   ? "bg-white text-blue-700 shadow-2xs"
                   : "text-slate-600 hover:text-slate-900"
@@ -284,7 +284,7 @@ export function McqAndMockTrendsChart({
             <button
               type="button"
               onClick={() => setMetricView("mocks")}
-              className={`rounded-md px-2.5 py-1 transition-all cursor-pointer ${
+              className={`rounded-md px-2 py-0.5 sm:px-2.5 sm:py-1 transition-all cursor-pointer text-xs ${
                 metricView === "mocks"
                   ? "bg-white text-blue-700 shadow-2xs"
                   : "text-slate-600 hover:text-slate-900"
@@ -295,7 +295,7 @@ export function McqAndMockTrendsChart({
             <button
               type="button"
               onClick={() => setMetricView("accuracy")}
-              className={`rounded-md px-2.5 py-1 transition-all cursor-pointer ${
+              className={`rounded-md px-2 py-0.5 sm:px-2.5 sm:py-1 transition-all cursor-pointer text-xs ${
                 metricView === "accuracy"
                   ? "bg-white text-blue-700 shadow-2xs"
                   : "text-slate-600 hover:text-slate-900"
@@ -312,7 +312,7 @@ export function McqAndMockTrendsChart({
                 key={range}
                 type="button"
                 onClick={() => setTimeRange(range)}
-                className={`rounded-md px-2 py-1 transition-all cursor-pointer uppercase text-[11px] ${
+                className={`rounded-md px-1.5 py-0.5 sm:px-2 sm:py-1 transition-all cursor-pointer uppercase text-[10px] sm:text-[11px] ${
                   timeRange === range
                     ? "bg-white text-indigo-700 shadow-2xs font-bold"
                     : "text-slate-500 hover:text-slate-800"
@@ -326,13 +326,13 @@ export function McqAndMockTrendsChart({
       </div>
 
       {/* KPI Highlights Row */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-        <div className="rounded-xl border border-slate-100 bg-slate-50/60 p-3">
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-3">
+        <div className="rounded-xl border border-slate-100 bg-slate-50/60 p-2.5 sm:p-3">
           <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
             Today&apos;s MCQs
           </span>
           <div className="mt-1 flex items-baseline gap-1.5">
-            <span className="text-xl font-bold text-slate-900 tabular-nums">
+            <span className="text-lg sm:text-xl font-bold text-slate-900 tabular-nums">
               {overviewStats.todayMcqs}
             </span>
             <span className="text-xs text-slate-400">/ {dailyTarget} goal</span>
@@ -344,12 +344,12 @@ export function McqAndMockTrendsChart({
           </span>
         </div>
 
-        <div className="rounded-xl border border-slate-100 bg-slate-50/60 p-3">
+        <div className="rounded-xl border border-slate-100 bg-slate-50/60 p-2.5 sm:p-3">
           <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
             This Week
           </span>
           <div className="mt-1 flex items-baseline gap-1.5">
-            <span className="text-xl font-bold text-slate-900 tabular-nums">
+            <span className="text-lg sm:text-xl font-bold text-slate-900 tabular-nums">
               {overviewStats.weekMcqs}
             </span>
             <span className="text-xs text-slate-400">MCQs</span>
@@ -360,12 +360,12 @@ export function McqAndMockTrendsChart({
           </span>
         </div>
 
-        <div className="rounded-xl border border-slate-100 bg-slate-50/60 p-3">
+        <div className="rounded-xl border border-slate-100 bg-slate-50/60 p-2.5 sm:p-3">
           <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
             This Month
           </span>
           <div className="mt-1 flex items-baseline gap-1.5">
-            <span className="text-xl font-bold text-slate-900 tabular-nums">
+            <span className="text-lg sm:text-xl font-bold text-slate-900 tabular-nums">
               {overviewStats.monthMcqs}
             </span>
             <span className="text-xs text-slate-400">MCQs</span>
@@ -376,7 +376,7 @@ export function McqAndMockTrendsChart({
           </span>
         </div>
 
-        <div className="rounded-xl border border-slate-100 bg-slate-50/60 p-3">
+        <div className="rounded-xl border border-slate-100 bg-slate-50/60 p-2.5 sm:p-3">
           <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
             Daily Average
           </span>

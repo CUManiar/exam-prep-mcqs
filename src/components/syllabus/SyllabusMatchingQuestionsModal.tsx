@@ -27,6 +27,27 @@ interface SyllabusMatchingQuestionsModalProps {
   onNavigatePaper?: (paperId: string) => void;
 }
 
+function getQuestionPyqYear(q: {
+  paperTitle: string;
+  paperYear: string;
+  previousYears?: string;
+}): string | undefined {
+  if (q.previousYears && q.previousYears.trim()) {
+    return cleanPreviousYears(q.previousYears);
+  }
+  const title = (q.paperTitle || "").toLowerCase();
+  const isMock = title.includes("mock") || title.includes("practice set");
+  if (
+    q.paperYear &&
+    /^(19[89]\d|20[0-2]\d)$/.test(q.paperYear) &&
+    q.paperYear !== "2026" &&
+    !isMock
+  ) {
+    return cleanPreviousYears(q.paperYear);
+  }
+  return undefined;
+}
+
 function getAllDescendantTopicTitles(
   rootId: string,
   allTopics: SyllabusItem[],
@@ -84,10 +105,32 @@ export function SyllabusMatchingQuestionsModal({
   }, [topic.id, allTopics]);
 
   // Lazily compute indexed matching questions (aggregating child topics if parent)
+  // Sort PYQs top to non-PYQs bottom, with newest PYQs first
   const matchingQuestions = useMemo(() => {
     const searchQueries =
       childTitles.length > 0 ? [topic.title, ...childTitles] : topic.title;
-    return findQuestionsForSyllabusTopic(searchQueries, papers, 40);
+    const raw = findQuestionsForSyllabusTopic(searchQueries, papers, 50);
+
+    return [...raw].sort((a, b) => {
+      const pyqA = getQuestionPyqYear(a);
+      const pyqB = getQuestionPyqYear(b);
+      const isPyqA = Boolean(pyqA);
+      const isPyqB = Boolean(pyqB);
+
+      // PYQs always at the top
+      if (isPyqA && !isPyqB) return -1;
+      if (!isPyqA && isPyqB) return 1;
+
+      // When both are PYQs, sort by year descending (newest first)
+      if (isPyqA && isPyqB) {
+        const yearNumA = parseInt(pyqA!.replace(/\D+/g, "") || "0", 10);
+        const yearNumB = parseInt(pyqB!.replace(/\D+/g, "") || "0", 10);
+        if (yearNumA !== yearNumB) return yearNumB - yearNumA;
+      }
+
+      // Maintain relevance score order for ties
+      return (b.relevanceScore || 0) - (a.relevanceScore || 0);
+    });
   }, [topic.title, childTitles, papers]);
 
   const handleSelectOption = (index: number, optionKey: string) => {
@@ -209,43 +252,41 @@ export function SyllabusMatchingQuestionsModal({
     <div
       role="dialog"
       aria-modal="true"
-      className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-6 bg-slate-900/60 backdrop-blur-xs animate-in fade-in duration-200"
+      className="fixed inset-0 z-50 flex items-center justify-center p-0 sm:p-4 md:p-6 bg-slate-900/60 backdrop-blur-xs animate-in fade-in duration-200"
     >
       <div
-        className="w-full max-w-4xl lg:max-w-5xl max-h-[92vh] flex flex-col bg-white dark:bg-slate-900 rounded-2xl shadow-2xl border border-slate-200 dark:border-slate-800 overflow-hidden"
+        className="w-full max-w-4xl lg:max-w-5xl h-full sm:h-auto sm:max-h-[90vh] flex flex-col bg-white dark:bg-slate-900 rounded-none sm:rounded-2xl shadow-2xl border-0 sm:border border-slate-200 dark:border-slate-800 overflow-hidden"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
-        <div className="flex items-center justify-between p-4 sm:px-6 border-b border-slate-100 dark:border-slate-800 bg-slate-50/80 dark:bg-slate-900/70 shrink-0 gap-3">
-          <div className="space-y-1 min-w-0 flex-1">
-            <div className="flex items-center gap-2">
-              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md font-bold text-[10px] uppercase tracking-wider bg-indigo-100 dark:bg-indigo-950/70 text-indigo-800 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800">
+        <div className="flex items-center justify-between p-3 sm:px-6 sm:py-4 border-b border-slate-100 dark:border-slate-800 bg-slate-50/90 dark:bg-slate-900/90 shrink-0 gap-2 sm:gap-3">
+          <div className="space-y-0.5 sm:space-y-1 min-w-0 flex-1">
+            <div className="flex items-center gap-1.5 sm:gap-2 flex-wrap">
+              <span className="inline-flex items-center gap-1 px-1.5 sm:px-2 py-0.5 rounded-md font-bold text-[9px] sm:text-[10px] uppercase tracking-wider bg-indigo-100 dark:bg-indigo-950/70 text-indigo-800 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800">
                 <BookOpen className="h-3 w-3" />
                 Syllabus Topic
               </span>
-              <span className="text-xs text-slate-500 font-mono">
-                {matchingQuestions.length}{" "}
-                {matchingQuestions.length === 1 ? "question" : "questions"}{" "}
-                found
+              <span className="text-[11px] sm:text-xs text-slate-500 font-mono">
+                {matchingQuestions.length} Qs
                 {childTitles.length > 0
-                  ? ` (includes ${childTitles.length} subtopics)`
+                  ? ` (${childTitles.length} subtopics)`
                   : ""}
               </span>
             </div>
             <h3
-              className="text-base sm:text-lg font-bold text-slate-900 dark:text-white truncate"
+              className="text-sm sm:text-base md:text-lg font-bold text-slate-900 dark:text-white truncate"
               title={topic.title}
             >
               {topic.title}
             </h3>
           </div>
 
-          <div className="flex items-center gap-2 shrink-0">
+          <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
             {matchingQuestions.length > 0 && (
               <button
                 type="button"
                 onClick={handleStartPracticeSession}
-                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs shadow-xs transition-colors cursor-pointer"
+                className="hidden sm:inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs shadow-xs transition-colors cursor-pointer"
                 title={`Launch dedicated practice mode for these ${matchingQuestions.length} questions`}
               >
                 <Play className="h-3.5 w-3.5 fill-white" />
@@ -264,7 +305,7 @@ export function SyllabusMatchingQuestionsModal({
         </div>
 
         {/* Content Body */}
-        <div className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-4">
+        <div className="flex-1 overflow-y-auto p-3 sm:p-5 md:p-6 space-y-3 sm:space-y-4">
           {matchingQuestions.length === 0 ? (
             <div className="py-12 text-center space-y-2 border border-dashed border-slate-200 dark:border-slate-800 rounded-xl bg-slate-50/50 dark:bg-slate-900/30">
               <Layers className="h-8 w-8 text-slate-400 mx-auto" />
@@ -288,55 +329,48 @@ export function SyllabusMatchingQuestionsModal({
                   q.correctAnswer.trim().toUpperCase();
 
               // Resolve PYQ year label: either explicit q.previousYears or official paper year (1979-2025)
-              const pyqYears = q.previousYears
-                ? cleanPreviousYears(q.previousYears)
-                : q.paperYear &&
-                    /^(19[89]\d|20[0-2]\d)$/.test(q.paperYear) &&
-                    q.paperYear !== "2026" &&
-                    !q.paperTitle.toLowerCase().includes("mock")
-                  ? cleanPreviousYears(q.paperYear)
-                  : undefined;
+              const pyqYears = getQuestionPyqYear(q);
 
               const optionKeys = Object.keys(q.options || {}).sort();
 
               return (
                 <div
                   key={`${q.paperId}-${q.questionNo}-${idx}`}
-                  className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900/90 hover:border-indigo-200 dark:hover:border-indigo-800 transition-all p-4 space-y-3 shadow-2xs"
+                  className="rounded-xl sm:rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900/90 hover:border-indigo-200 dark:hover:border-indigo-800 transition-all p-3 sm:p-4 space-y-2.5 sm:space-y-3 shadow-2xs"
                 >
                   {/* Top Metadata */}
-                  <div className="flex items-center justify-between gap-2 text-xs">
-                    <div className="flex items-center gap-2 min-w-0 flex-wrap">
+                  <div className="flex items-center justify-between gap-1.5 sm:gap-2 text-xs">
+                    <div className="flex items-center gap-1.5 sm:gap-2 min-w-0 flex-wrap">
                       {/* Practice sequence index: #1, #2, etc. */}
-                      <span className="font-bold text-slate-900 dark:text-slate-100 bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 px-2.5 py-0.5 rounded-md font-mono text-[11px] shrink-0">
+                      <span className="font-bold text-slate-900 dark:text-slate-100 bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 px-2 py-0.5 rounded-md font-mono text-[10px] sm:text-[11px] shrink-0">
                         #{idx + 1}
                       </span>
 
                       {/* Prominent PYQ Badge */}
                       {pyqYears && (
-                        <span className="inline-flex items-center gap-1 font-mono font-bold text-[10px] text-amber-900 dark:text-amber-200 bg-amber-100/90 dark:bg-amber-950/70 border border-amber-300 dark:border-amber-700 px-2 py-0.5 rounded-md shadow-2xs shrink-0">
+                        <span className="inline-flex items-center gap-1 font-mono font-bold text-[9px] sm:text-[10px] text-amber-900 dark:text-amber-200 bg-amber-100/90 dark:bg-amber-950/70 border border-amber-300 dark:border-amber-700 px-1.5 sm:px-2 py-0.5 rounded-md shadow-2xs shrink-0">
                           PYQ {pyqYears}
                         </span>
                       )}
 
                       {/* Paper source & Paper Question Number */}
                       <div
-                        className="flex items-center gap-1.5 text-xs truncate max-w-[240px] sm:max-w-[420px]"
+                        className="flex items-center gap-1 text-[11px] sm:text-xs truncate max-w-[160px] sm:max-w-[420px]"
                         title={`${q.paperTitle} (Question ${q.questionNo})`}
                       >
                         <span className="font-semibold text-indigo-700 dark:text-indigo-400 truncate">
                           {q.paperTitle}
                         </span>
-                        <span className="text-[11px] font-mono text-slate-400 dark:text-slate-500 shrink-0">
+                        <span className="text-[10px] sm:text-[11px] font-mono text-slate-400 dark:text-slate-500 shrink-0">
                           (Q{q.questionNo})
                         </span>
                       </div>
                     </div>
 
-                    <div className="flex items-center gap-2 shrink-0">
+                    <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
                       {hasAttempted && (
                         <span
-                          className={`inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-md border ${
+                          className={`inline-flex items-center gap-1 text-[9px] sm:text-[10px] font-bold px-1.5 sm:px-2 py-0.5 rounded-md border ${
                             isUserCorrect
                               ? "bg-emerald-50 dark:bg-emerald-950/60 text-emerald-800 dark:text-emerald-300 border-emerald-300"
                               : "bg-rose-50 dark:bg-rose-950/60 text-rose-800 dark:text-rose-300 border-rose-300"
@@ -363,7 +397,7 @@ export function SyllabusMatchingQuestionsModal({
                             onClose();
                             onNavigatePaper(q.paperId);
                           }}
-                          className="inline-flex items-center gap-1 text-[11px] font-semibold text-slate-500 hover:text-indigo-600 transition-colors cursor-pointer"
+                          className="hidden sm:inline-flex items-center gap-1 text-[11px] font-semibold text-slate-500 hover:text-indigo-600 transition-colors cursor-pointer"
                           title="View full paper in Papers vault"
                         >
                           <span>Open Paper</span>
@@ -380,7 +414,7 @@ export function SyllabusMatchingQuestionsModal({
 
                   {/* Options (Interactive Practice: Click to Answer!) */}
                   {optionKeys.length > 0 && (
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-1">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5 sm:gap-2 pt-0.5 sm:pt-1">
                       {optionKeys.map((key) => {
                         const isSelected = userSelected === key;
                         const isCorrectOption =
@@ -414,10 +448,10 @@ export function SyllabusMatchingQuestionsModal({
                             key={key}
                             type="button"
                             onClick={() => handleSelectOption(idx, key)}
-                            className={`flex items-start gap-2.5 p-2.5 rounded-xl border text-xs text-left transition-all cursor-pointer ${optionStyle}`}
+                            className={`flex items-start gap-2 p-2 sm:p-2.5 rounded-lg sm:rounded-xl border text-xs text-left transition-all cursor-pointer ${optionStyle}`}
                           >
                             <span
-                              className={`font-bold font-mono uppercase shrink-0 px-1.5 py-0.5 rounded ${
+                              className={`font-bold font-mono uppercase shrink-0 px-1.5 py-0.5 rounded text-[10px] sm:text-xs ${
                                 isSelected
                                   ? "bg-white/20 text-white"
                                   : "text-slate-500 bg-slate-200/60 dark:bg-slate-700"
@@ -439,7 +473,7 @@ export function SyllabusMatchingQuestionsModal({
                     <button
                       type="button"
                       onClick={() => toggleRevealAnswer(idx)}
-                      className="cursor-pointer inline-flex items-center gap-1 text-xs font-semibold text-indigo-600 dark:text-indigo-400 hover:text-indigo-800 transition-colors"
+                      className="cursor-pointer inline-flex items-center gap-1 text-[11px] sm:text-xs font-semibold text-indigo-600 dark:text-indigo-400 hover:text-indigo-800 transition-colors"
                     >
                       <Sparkles className="h-3 w-3" />
                       <span>
@@ -453,18 +487,18 @@ export function SyllabusMatchingQuestionsModal({
                       <button
                         type="button"
                         onClick={() => handleReattempt(idx)}
-                        className="cursor-pointer inline-flex items-center gap-1 text-xs font-semibold text-slate-500 hover:text-indigo-600 transition-colors"
+                        className="cursor-pointer inline-flex items-center gap-1 text-[11px] sm:text-xs font-semibold text-slate-500 hover:text-indigo-600 transition-colors"
                         title="Reset your answer to re-attempt this question"
                       >
                         <RotateCcw className="h-3 w-3" />
-                        <span>Re-attempt question</span>
+                        <span>Re-attempt</span>
                       </button>
                     )}
                   </div>
 
                   {/* Solution & Explanation Disclosure */}
                   {isAnswerRevealed && (
-                    <div className="p-3.5 sm:p-4 rounded-xl bg-emerald-50/70 dark:bg-emerald-950/40 border border-emerald-100 dark:border-emerald-800/60 space-y-2 text-xs animate-in fade-in duration-150">
+                    <div className="p-3 sm:p-4 rounded-xl bg-emerald-50/70 dark:bg-emerald-950/40 border border-emerald-100 dark:border-emerald-800/60 space-y-2 text-xs animate-in fade-in duration-150">
                       <div className="font-bold text-emerald-900 dark:text-emerald-300 flex items-center gap-1.5 text-xs sm:text-sm">
                         <CheckCircle2 className="h-4 w-4 text-emerald-600 dark:text-emerald-400 shrink-0" />
                         <span>
@@ -489,15 +523,15 @@ export function SyllabusMatchingQuestionsModal({
         </div>
 
         {/* Footer */}
-        <div className="p-3.5 sm:px-6 border-t border-slate-100 dark:border-slate-800 bg-slate-50/80 dark:bg-slate-900/70 flex items-center justify-between text-xs text-slate-500 shrink-0 gap-3">
-          <span className="hidden sm:inline">
+        <div className="p-2.5 sm:p-3.5 sm:px-6 border-t border-slate-100 dark:border-slate-800 bg-slate-50/90 dark:bg-slate-900/90 flex items-center justify-between text-xs text-slate-500 shrink-0 gap-2 sm:gap-3">
+          <span className="hidden md:inline">
             Targeted practice powered by syllabus inverted indexing.
           </span>
-          <div className="flex items-center gap-2 ml-auto">
+          <div className="flex items-center gap-2 w-full md:w-auto justify-between md:justify-end ml-auto">
             <button
               type="button"
               onClick={onClose}
-              className="px-3.5 py-1.5 rounded-lg font-semibold text-slate-600 dark:text-slate-300 hover:bg-slate-200/60 dark:hover:bg-slate-800 transition-colors cursor-pointer"
+              className="px-3 py-1.5 rounded-lg font-semibold text-slate-600 dark:text-slate-300 hover:bg-slate-200/60 dark:hover:bg-slate-800 transition-colors cursor-pointer text-xs"
             >
               Close
             </button>
@@ -505,11 +539,14 @@ export function SyllabusMatchingQuestionsModal({
               <button
                 type="button"
                 onClick={handleStartPracticeSession}
-                className="inline-flex items-center gap-1.5 px-4 py-1.5 rounded-lg font-bold bg-indigo-600 hover:bg-indigo-700 text-white transition-colors shadow-xs cursor-pointer"
+                className="inline-flex items-center gap-1.5 px-3.5 sm:px-4 py-1.5 rounded-lg font-bold bg-indigo-600 hover:bg-indigo-700 text-white transition-colors shadow-xs cursor-pointer text-xs"
               >
-                <Play className="h-3.5 w-3.5 fill-white" />
-                <span>
+                <Play className="h-3.5 w-3.5 fill-white shrink-0" />
+                <span className="hidden sm:inline">
                   Practice in Exam Simulator ({matchingQuestions.length} Qs)
+                </span>
+                <span className="sm:hidden">
+                  Practice Simulator ({matchingQuestions.length} Qs)
                 </span>
               </button>
             )}

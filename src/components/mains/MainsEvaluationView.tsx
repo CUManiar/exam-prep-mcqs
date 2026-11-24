@@ -321,6 +321,9 @@ export function MainsEvaluationView() {
   };
 
   const loadSession = (sess: MainsEvaluationSession) => {
+    if (typeof window !== "undefined" && window.innerWidth < 640) {
+      setIsSidebarOpen(false);
+    }
     setCurrentSessionId(sess.id);
     const normalizedAtts = normalizeSessionAttempts(sess);
     setAttempts(normalizedAtts);
@@ -505,6 +508,9 @@ export function MainsEvaluationView() {
   };
 
   const handleNewEvaluation = () => {
+    if (typeof window !== "undefined" && window.innerWidth < 640) {
+      setIsSidebarOpen(false);
+    }
     const newId = `mains_${Date.now()}`;
     const initialAtt: MainsAttemptItem = {
       id: `${newId}_att1`,
@@ -1356,12 +1362,21 @@ EXAMINER RESPONSE REQUIREMENTS:
   }, [filteredSessions, isSearching, visibleCount]);
 
   return (
-    <div className="flex h-[calc(100vh-4rem)] bg-slate-100/70 dark:bg-slate-950 text-slate-900 dark:text-slate-100 overflow-hidden font-sans">
+    <div className="flex h-[calc(100vh-4rem)] bg-slate-100/70 dark:bg-slate-950 text-slate-900 dark:text-slate-100 overflow-hidden font-sans relative">
+      {/* Mobile Backdrop when Sidebar is Open */}
+      {isSidebarOpen && (
+        <div
+          className="fixed inset-0 bg-slate-900/40 backdrop-blur-xs z-25 sm:hidden"
+          onClick={() => setIsSidebarOpen(false)}
+          aria-hidden="true"
+        />
+      )}
+
       {/* ── 1. SIDEBAR (Practice Booklet of Questions) ── */}
       <aside
-        className={`bg-white dark:bg-slate-900 border-r border-slate-200 dark:border-slate-800 flex flex-col transition-all duration-200 shrink-0 z-20 ${
+        className={`bg-white dark:bg-slate-900 border-r border-slate-200 dark:border-slate-800 flex flex-col transition-all duration-200 shrink-0 z-30 ${
           isSidebarOpen
-            ? "w-72 sm:w-80 fixed inset-y-16 left-0 sm:static sm:inset-auto"
+            ? "w-72 sm:w-80 fixed inset-y-16 left-0 sm:static sm:inset-auto shadow-2xl sm:shadow-none"
             : "w-0 overflow-hidden"
         }`}
       >
@@ -1391,15 +1406,25 @@ EXAMINER RESPONSE REQUIREMENTS:
               </span>
             )}
           </div>
-          <button
-            type="button"
-            onClick={handleNewEvaluation}
-            className="flex items-center gap-1 px-2.5 py-1 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold shadow-xs cursor-pointer transition-colors shrink-0"
-            title="Start New Practice Question"
-          >
-            <Plus className="h-3.5 w-3.5" />
-            <span>New</span>
-          </button>
+          <div className="flex items-center gap-1 shrink-0">
+            <button
+              type="button"
+              onClick={handleNewEvaluation}
+              className="flex items-center gap-1 px-2.5 py-1 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold shadow-xs cursor-pointer transition-colors shrink-0"
+              title="Start New Practice Question"
+            >
+              <Plus className="h-3.5 w-3.5" />
+              <span>New</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => setIsSidebarOpen(false)}
+              className="p-1 rounded-lg text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 sm:hidden cursor-pointer"
+              title="Close Booklet Sidebar"
+            >
+              <X className="h-4 w-4" />
+            </button>
+          </div>
         </div>
 
         {/* Search Input Bar (Requirement 3) */}
@@ -1780,7 +1805,7 @@ EXAMINER RESPONSE REQUIREMENTS:
               ) : (
                 <div className="flex items-center gap-1.5 min-w-0">
                   <h1
-                    className="text-xs sm:text-sm font-bold text-slate-900 dark:text-slate-100 truncate max-w-[180px] sm:max-w-xs md:max-w-md"
+                    className="text-xs sm:text-sm font-bold text-slate-900 dark:text-slate-100 truncate max-w-[120px] sm:max-w-xs md:max-w-md"
                     title={
                       sessions.find((s) => s.id === currentSessionId)
                         ?.question ||
@@ -1955,24 +1980,24 @@ EXAMINER RESPONSE REQUIREMENTS:
             }}
           />
         ) : (
-          <div className="max-w-5xl w-full mx-auto p-3.5 sm:p-6 space-y-5">
-            {/* ── Sticky Top Bar: Question Navigation & Active Question Context ── */}
-            <div className="sticky top-0 z-20 bg-slate-50/95 dark:bg-slate-950/95 backdrop-blur-md pt-1 pb-3 -mt-2 space-y-3 transition-all">
+          <div className="max-w-5xl w-full mx-auto p-2.5 sm:p-6 space-y-3 sm:space-y-5">
+            {/* ── Top Bar: Question Navigation & Active Question Context (static on mobile, sticky on desktop) ── */}
+            <div className="static sm:sticky sm:top-0 z-20 bg-slate-50/95 dark:bg-slate-950/95 backdrop-blur-md pt-1 pb-2 sm:pb-3 sm:-mt-2 space-y-2 sm:space-y-3 transition-all">
               {/* ── PRACTICE QUESTION BOOKLET HEADER & ATTEMPTS SWITCHER ── */}
-              <div className="bg-white dark:bg-slate-900 p-3 sm:p-4 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-2xs space-y-3">
+              <div className="bg-white dark:bg-slate-900 p-2.5 sm:p-4 rounded-xl sm:rounded-2xl border border-slate-200 dark:border-slate-800 shadow-2xs space-y-2 sm:space-y-3">
                 {/* Question metadata & text */}
-                <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2.5">
-                  <div className="flex items-center gap-2 flex-wrap">
-                    <span className="px-2.5 py-0.5 rounded-lg text-xs font-bold bg-indigo-50 dark:bg-indigo-950 text-indigo-600 dark:text-indigo-400 border border-indigo-200 dark:border-indigo-800 font-mono">
+                <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2">
+                  <div className="flex items-center gap-1.5 sm:gap-2 flex-wrap">
+                    <span className="px-2 sm:px-2.5 py-0.5 rounded-lg text-xs font-bold bg-indigo-50 dark:bg-indigo-950 text-indigo-600 dark:text-indigo-400 border border-indigo-200 dark:border-indigo-800 font-mono">
                       {paperType}{" "}
                       {paperType === "Optional" && optionalSubject
                         ? `(${optionalSubject})`
                         : ""}
                     </span>
-                    <span className="text-xs font-bold text-slate-500 uppercase">
+                    <span className="text-[11px] sm:text-xs font-bold text-slate-500 uppercase">
                       • {maxMarks} Marks ({targetWords} Words)
                     </span>
-                    <span className="text-xs text-slate-400 font-medium">
+                    <span className="text-xs text-slate-400 font-medium hidden sm:inline">
                       • Practice Booklet
                     </span>
                   </div>
@@ -1998,8 +2023,8 @@ EXAMINER RESPONSE REQUIREMENTS:
                 </div>
 
                 {/* Question Prompt display */}
-                <div className="p-2.5 sm:p-3 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200/70 dark:border-slate-700/60">
-                  <p className="text-xs sm:text-sm font-semibold text-slate-900 dark:text-slate-100 leading-snug">
+                <div className="p-2 sm:p-3 rounded-lg sm:rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200/70 dark:border-slate-700/60">
+                  <p className="text-xs sm:text-sm font-semibold text-slate-900 dark:text-slate-100 leading-snug line-clamp-3 sm:line-clamp-none">
                     {question || (
                       <span className="text-slate-400 italic font-normal">
                         No question prompt entered yet. Type your Mains question
@@ -2806,60 +2831,63 @@ EXAMINER RESPONSE REQUIREMENTS:
                 </div>
 
                 {/* Navigation Tabs */}
-                <div className="flex rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-1 gap-1 text-xs shadow-2xs overflow-x-auto no-scrollbar scroll-smooth">
+                <div className="flex rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-0.5 sm:p-1 gap-1 text-xs shadow-2xs overflow-x-auto no-scrollbar scroll-smooth">
                   <button
                     type="button"
                     onClick={() => setActiveTab("feedback")}
-                    className={`flex-1 min-w-[120px] py-2 px-3 rounded-lg font-bold text-xs transition-colors cursor-pointer flex items-center justify-center gap-1.5 ${
+                    className={`flex-1 min-w-[75px] sm:min-w-[120px] py-1.5 sm:py-2 px-2 sm:px-3 rounded-lg font-bold text-[11px] sm:text-xs transition-colors cursor-pointer flex items-center justify-center gap-1 sm:gap-1.5 ${
                       activeTab === "feedback"
                         ? "bg-slate-900 text-white shadow-xs"
                         : "text-slate-600 dark:text-slate-400 hover:text-slate-900"
                     }`}
                   >
-                    <FileText className="h-3.5 w-3.5" />
-                    <span>Rubric & Feedback</span>
+                    <FileText className="h-3 sm:h-3.5 w-3 sm:w-3.5" />
+                    <span>Feedback</span>
                   </button>
 
                   <button
                     type="button"
                     onClick={() => setActiveTab("approach")}
-                    className={`flex-1 min-w-[125px] py-2 px-3 rounded-lg font-bold text-xs transition-colors cursor-pointer flex items-center justify-center gap-1.5 ${
+                    className={`flex-1 min-w-[75px] sm:min-w-[125px] py-1.5 sm:py-2 px-2 sm:px-3 rounded-lg font-bold text-[11px] sm:text-xs transition-colors cursor-pointer flex items-center justify-center gap-1 sm:gap-1.5 ${
                       activeTab === "approach"
                         ? "bg-slate-900 text-white shadow-xs"
                         : "text-slate-600 dark:text-slate-400 hover:text-slate-900"
                     }`}
                   >
-                    <Layers className="h-3.5 w-3.5 text-indigo-400" />
-                    <span>Approach Breakdown</span>
+                    <Layers className="h-3 sm:h-3.5 w-3 sm:w-3.5 text-indigo-400" />
+                    <span className="hidden sm:inline">Approach Breakdown</span>
+                    <span className="sm:hidden">Approach</span>
                   </button>
 
                   <button
                     type="button"
                     onClick={() => setActiveTab("model")}
-                    className={`flex-1 min-w-[120px] py-2 px-3 rounded-lg font-bold text-xs transition-colors cursor-pointer flex items-center justify-center gap-1.5 ${
+                    className={`flex-1 min-w-[75px] sm:min-w-[120px] py-1.5 sm:py-2 px-2 sm:px-3 rounded-lg font-bold text-[11px] sm:text-xs transition-colors cursor-pointer flex items-center justify-center gap-1 sm:gap-1.5 ${
                       activeTab === "model"
                         ? "bg-slate-900 text-white shadow-xs"
                         : "text-slate-600 dark:text-slate-400 hover:text-slate-900"
                     }`}
                   >
-                    <Sparkles className="h-3.5 w-3.5 text-amber-400" />
-                    <span>Model Answer</span>
+                    <Sparkles className="h-3 sm:h-3.5 w-3 sm:w-3.5 text-amber-400" />
+                    <span className="hidden sm:inline">Model Answer</span>
+                    <span className="sm:hidden">Model</span>
                   </button>
 
                   <button
                     type="button"
                     onClick={() => setActiveTab("attempt")}
-                    className={`flex-1 min-w-[120px] py-2 px-3 rounded-lg font-bold text-xs transition-colors cursor-pointer flex items-center justify-center gap-1.5 ${
+                    className={`flex-1 min-w-[75px] sm:min-w-[120px] py-1.5 sm:py-2 px-2 sm:px-3 rounded-lg font-bold text-[11px] sm:text-xs transition-colors cursor-pointer flex items-center justify-center gap-1 sm:gap-1.5 ${
                       activeTab === "attempt"
                         ? "bg-slate-900 text-white shadow-xs"
                         : "text-slate-600 dark:text-slate-400 hover:text-slate-900"
                     }`}
                   >
-                    <PenLine className="h-3.5 w-3.5 text-emerald-400" />
-                    <span>Your Attempt</span>
+                    <PenLine className="h-3 sm:h-3.5 w-3 sm:w-3.5 text-emerald-400" />
+                    <span className="hidden sm:inline">Your Attempt</span>
+                    <span className="sm:hidden">Attempt</span>
                     {actualWordCount > 0 && (
                       <span
-                        className={`text-[10px] font-mono px-1.5 py-0.2 rounded-md font-bold ${
+                        className={`text-[9px] sm:text-[10px] font-mono px-1 sm:px-1.5 py-0.2 rounded font-bold ${
                           activeTab === "attempt"
                             ? "bg-white/20 text-white"
                             : "bg-indigo-50 dark:bg-indigo-950 text-indigo-600 dark:text-indigo-400 border border-indigo-200 dark:border-indigo-800"
@@ -2873,14 +2901,15 @@ EXAMINER RESPONSE REQUIREMENTS:
                   <button
                     type="button"
                     onClick={() => setActiveTab("chat")}
-                    className={`flex-1 min-w-[120px] py-2 px-3 rounded-lg font-bold text-xs transition-colors cursor-pointer flex items-center justify-center gap-1.5 ${
+                    className={`flex-1 min-w-[75px] sm:min-w-[120px] py-1.5 sm:py-2 px-2 sm:px-3 rounded-lg font-bold text-[11px] sm:text-xs transition-colors cursor-pointer flex items-center justify-center gap-1 sm:gap-1.5 ${
                       activeTab === "chat"
                         ? "bg-slate-900 text-white shadow-xs"
                         : "text-slate-600 dark:text-slate-400 hover:text-slate-900"
                     }`}
                   >
-                    <MessageSquare className="h-3.5 w-3.5 text-sky-400" />
-                    <span>Ask Examiner</span>
+                    <MessageSquare className="h-3 sm:h-3.5 w-3 sm:w-3.5 text-sky-400" />
+                    <span className="hidden sm:inline">Ask Examiner</span>
+                    <span className="sm:hidden">Chat</span>
                   </button>
                 </div>
 

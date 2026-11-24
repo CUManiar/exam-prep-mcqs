@@ -198,17 +198,17 @@ export function DashboardView({
   ];
 
   return (
-    <div className="page-container space-y-6">
+    <div className="page-container space-y-4 sm:space-y-6">
       {/* Page Header */}
       <PageHeader
         eyebrow="Your UPSC Study Workspace"
-        title="Assessment Overview &amp; Analytics"
+        title="Assessment Overview & Analytics"
         description="Comprehensive insights into your MCQ consistency, mock performance, and learning goals."
         actions={
           <button
             type="button"
             onClick={onNavigatePapers}
-            className="button-primary cursor-pointer shadow-sm"
+            className="button-primary cursor-pointer shadow-sm text-xs sm:text-sm py-1.5 sm:py-2"
           >
             <BookOpen className="h-4 w-4" /> Browse papers
           </button>
@@ -218,21 +218,21 @@ export function DashboardView({
       {/* Active Assessment Draft Alert Banner */}
       {activeDraft && (
         <section
-          className="flex flex-col gap-4 rounded-2xl border border-blue-200 bg-blue-50/80 p-4 sm:flex-row sm:items-center sm:justify-between sm:p-5 shadow-2xs"
+          className="flex flex-col gap-3 sm:gap-4 rounded-xl sm:rounded-2xl border border-blue-200 bg-blue-50/80 p-3 sm:p-5 shadow-2xs sm:flex-row sm:items-center sm:justify-between"
           aria-label="Assessment in progress"
         >
-          <div className="flex min-w-0 items-start gap-3">
-            <span className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-white text-blue-700 ring-1 ring-blue-200 shadow-2xs">
+          <div className="flex min-w-0 items-start gap-2.5 sm:gap-3">
+            <span className="mt-0.5 flex h-8 w-8 sm:h-9 sm:w-9 shrink-0 items-center justify-center rounded-lg sm:rounded-xl bg-white text-blue-700 ring-1 ring-blue-200 shadow-2xs">
               <Clock3 className="h-4 w-4" />
             </span>
             <div className="min-w-0">
-              <p className="text-xs font-bold uppercase tracking-wider text-blue-800">
+              <p className="text-[10px] sm:text-xs font-bold uppercase tracking-wider text-blue-800">
                 Assessment in progress
               </p>
-              <h2 className="mt-0.5 truncate text-base font-bold text-slate-900">
+              <h2 className="mt-0.5 truncate text-sm sm:text-base font-bold text-slate-900">
                 {activeDraft.paperLabel}
               </h2>
-              <p className="mt-0.5 text-xs text-slate-600">
+              <p className="mt-0.5 text-[11px] sm:text-xs text-slate-600 line-clamp-1 sm:line-clamp-none">
                 Your answers and timer are saved in real-time. Resume whenever
                 you are ready.
               </p>
@@ -242,7 +242,7 @@ export function DashboardView({
             <button
               type="button"
               onClick={() => onResumeDraft?.(activeDraft)}
-              className="button-primary text-xs py-1.5 cursor-pointer"
+              className="button-primary text-xs py-1.5 cursor-pointer flex-1 sm:flex-none justify-center"
             >
               <RotateCcw className="h-3.5 w-3.5" /> Resume assessment
             </button>
@@ -258,26 +258,26 @@ export function DashboardView({
       )}
 
       {/* Top 4 Key Performance Metrics */}
-      <section className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+      <section className="grid grid-cols-2 gap-2.5 sm:gap-3 lg:grid-cols-4">
         {metrics.map(
           ({ label, value, sublabel, icon: Icon, iconClass, iconBgClass }) => (
             <div
               key={label}
-              className="surface-card flex items-start gap-3 p-4 sm:p-5 rounded-2xl border border-slate-200/90 hover:border-slate-300 transition-colors"
+              className="surface-card flex items-start gap-2.5 sm:gap-3 p-3 sm:p-5 rounded-xl sm:rounded-2xl border border-slate-200/90 hover:border-slate-300 transition-colors"
             >
               <span
-                className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl ring-1 ${iconBgClass}`}
+                className={`flex h-8 w-8 sm:h-10 sm:w-10 shrink-0 items-center justify-center rounded-lg sm:rounded-xl ring-1 ${iconBgClass}`}
               >
-                <Icon className={`h-5 w-5 ${iconClass}`} />
+                <Icon className={`h-4 w-4 sm:h-5 sm:w-5 ${iconClass}`} />
               </span>
               <div className="min-w-0 flex-1">
-                <span className="block truncate text-xs font-semibold uppercase tracking-wider text-slate-400">
+                <span className="block truncate text-[10px] sm:text-xs font-semibold uppercase tracking-wider text-slate-400">
                   {label}
                 </span>
-                <span className="mt-0.5 block text-xl sm:text-2xl font-black tracking-tight text-slate-900 tabular-nums">
+                <span className="mt-0.5 block text-lg sm:text-2xl font-black tracking-tight text-slate-900 tabular-nums">
                   {value}
                 </span>
-                <span className="mt-0.5 block truncate text-[11px] font-medium text-slate-500">
+                <span className="mt-0.5 block truncate text-[10px] sm:text-[11px] font-medium text-slate-500">
                   {sublabel}
                 </span>
               </div>
@@ -290,7 +290,7 @@ export function DashboardView({
       <StrategicDiagnosticsWidget attempts={attempts} papers={papers} />
 
       {/* Row 1: Solved MCQ Count & Mock Trends (2/3) + Goals & Reminders Board (1/3) */}
-      <section className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      <section className="grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-6">
         <div className="lg:col-span-2">
           <McqAndMockTrendsChart attempts={attempts} dailyTarget={50} />
         </div>
@@ -304,7 +304,7 @@ export function DashboardView({
       </section>
 
       {/* Row 2: Strike Calendar (2/3) + Recent Test Insights & Pacing (1/3) */}
-      <section className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      <section className="grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-6">
         <div className="lg:col-span-2">
           <StrikeCalendar attempts={attempts} />
         </div>
@@ -346,9 +346,9 @@ export function DashboardView({
           </button>
         </div>
 
-        <div className="surface-card overflow-hidden rounded-2xl border border-slate-200/90 shadow-2xs">
+        <div className="surface-card overflow-hidden rounded-xl sm:rounded-2xl border border-slate-200/90 shadow-2xs">
           {completed.length === 0 ? (
-            <div className="px-5 py-10 text-center">
+            <div className="px-4 py-8 sm:px-5 sm:py-10 text-center">
               <p className="text-sm font-medium text-slate-800">
                 No completed assessments yet
               </p>
@@ -370,7 +370,7 @@ export function DashboardView({
                         onViewAttempt(attempt);
                       }
                     }}
-                    className="flex w-full cursor-pointer flex-col gap-3 px-4 py-3.5 text-left transition hover:bg-slate-50/80 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 sm:flex-row sm:items-center sm:justify-between sm:px-5"
+                    className="flex w-full cursor-pointer flex-col gap-2 sm:gap-3 px-3.5 py-2.5 sm:px-5 sm:py-3.5 text-left transition hover:bg-slate-50/80 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 sm:flex-row sm:items-center sm:justify-between"
                   >
                     <span className="min-w-0 flex-1 pr-2 sm:pr-4">
                       <span className="flex items-center gap-1.5 text-sm font-semibold text-slate-900">

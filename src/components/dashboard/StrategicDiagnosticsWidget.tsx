@@ -252,26 +252,26 @@ export function StrategicDiagnosticsWidget({
   }, [completed, papers]);
 
   return (
-    <section className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+    <section className="grid grid-cols-2 gap-2.5 sm:gap-3 lg:grid-cols-4">
       {/* ── CARD 1: Projected Prelims Score ── */}
-      <div className="group relative surface-card flex items-start gap-3 p-4 sm:p-5 rounded-2xl border border-slate-200/90 hover:border-indigo-300 hover:shadow-sm transition-all cursor-default">
-        <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl ring-1 bg-indigo-50 ring-indigo-200/70 text-indigo-600">
-          <Target className="h-5 w-5" />
+      <div className="group relative surface-card flex items-start gap-2.5 sm:gap-3 p-3 sm:p-5 rounded-xl sm:rounded-2xl border border-slate-200/90 hover:border-indigo-300 hover:shadow-sm transition-all cursor-default">
+        <span className="flex h-8 w-8 sm:h-10 sm:w-10 shrink-0 items-center justify-center rounded-lg sm:rounded-xl ring-1 bg-indigo-50 ring-indigo-200/70 text-indigo-600">
+          <Target className="h-4 w-4 sm:h-5 sm:w-5" />
         </span>
         <div className="min-w-0 flex-1">
           <div className="flex items-center justify-between gap-1">
-            <span className="block truncate text-xs font-semibold uppercase tracking-wider text-slate-400">
+            <span className="block truncate text-[10px] sm:text-xs font-semibold uppercase tracking-wider text-slate-400">
               Projected Score
             </span>
-            <Info className="h-3 w-3 text-slate-300 group-hover:text-indigo-500 shrink-0 transition-colors" />
+            <Info className="h-3 w-3 text-slate-300 group-hover:text-indigo-500 shrink-0 transition-colors hidden sm:block" />
           </div>
-          <span className="mt-0.5 block text-xl sm:text-2xl font-black tracking-tight text-slate-900 tabular-nums">
+          <span className="mt-0.5 block text-lg sm:text-2xl font-black tracking-tight text-slate-900 tabular-nums">
             {projectedPrelims ? `${projectedPrelims.projectedScore}` : "—"}
-            <span className="text-xs font-normal text-slate-400 ml-1">
+            <span className="text-[10px] sm:text-xs font-normal text-slate-400 ml-1">
               / 200
             </span>
           </span>
-          <span className="mt-0.5 block truncate text-[11px] font-medium">
+          <span className="mt-0.5 block truncate text-[10px] sm:text-[11px] font-medium">
             {projectedPrelims ? (
               projectedPrelims.margin >= 0 ? (
                 <span className="text-emerald-700 font-semibold">
@@ -289,7 +289,7 @@ export function StrategicDiagnosticsWidget({
         </div>
 
         {/* Hover Popover */}
-        <div className="pointer-events-none invisible opacity-0 group-hover:visible group-hover:opacity-100 group-hover:pointer-events-auto transition-all duration-200 ease-out absolute z-40 top-full mt-2.5 left-0 w-72 sm:w-80 rounded-2xl bg-slate-900/95 text-slate-100 p-4 shadow-2xl backdrop-blur-md border border-slate-800 text-xs">
+        <div className="pointer-events-none invisible opacity-0 sm:group-hover:visible sm:group-hover:opacity-100 sm:group-hover:pointer-events-auto transition-all duration-200 ease-out absolute z-40 top-full mt-2.5 left-0 w-72 sm:w-80 rounded-2xl bg-slate-900/95 text-slate-100 p-4 shadow-2xl backdrop-blur-md border border-slate-800 text-xs hidden sm:block">
           <div className="absolute -top-1.5 left-8 w-3 h-3 bg-slate-900 border-t border-l border-slate-800 rotate-45" />
           <div className="space-y-2">
             <div className="flex items-center justify-between border-b border-slate-800 pb-2">
@@ -345,31 +345,31 @@ export function StrategicDiagnosticsWidget({
       </div>
 
       {/* ── CARD 2: Overconfidence Trap ── */}
-      <div className="group relative surface-card flex items-start gap-3 p-4 sm:p-5 rounded-2xl border border-slate-200/90 hover:border-amber-300 hover:shadow-sm transition-all cursor-default">
-        <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl ring-1 bg-amber-50 ring-amber-200/70 text-amber-600">
-          <AlertTriangle className="h-5 w-5" />
+      <div className="group relative surface-card flex items-start gap-2.5 sm:gap-3 p-3 sm:p-5 rounded-xl sm:rounded-2xl border border-slate-200/90 hover:border-amber-300 hover:shadow-sm transition-all cursor-default">
+        <span className="flex h-8 w-8 sm:h-10 sm:w-10 shrink-0 items-center justify-center rounded-lg sm:rounded-xl ring-1 bg-amber-50 ring-amber-200/70 text-amber-600">
+          <AlertTriangle className="h-4 w-4 sm:h-5 sm:w-5" />
         </span>
         <div className="min-w-0 flex-1">
           <div className="flex items-center justify-between gap-1">
-            <span className="block truncate text-xs font-semibold uppercase tracking-wider text-slate-400">
+            <span className="block truncate text-[10px] sm:text-xs font-semibold uppercase tracking-wider text-slate-400">
               Overconfidence
             </span>
-            <Info className="h-3 w-3 text-slate-300 group-hover:text-amber-500 shrink-0 transition-colors" />
+            <Info className="h-3 w-3 text-slate-300 group-hover:text-amber-500 shrink-0 transition-colors hidden sm:block" />
           </div>
-          <span className="mt-0.5 block text-xl sm:text-2xl font-black tracking-tight text-slate-900 tabular-nums">
+          <span className="mt-0.5 block text-lg sm:text-2xl font-black tracking-tight text-slate-900 tabular-nums">
             {sureMistakesAnalysis.totalSureMistakes}
-            <span className="text-xs font-normal text-slate-400 ml-1">
+            <span className="text-[10px] sm:text-xs font-normal text-slate-400 ml-1">
               blunders
             </span>
           </span>
-          <span className="mt-0.5 block truncate text-[11px] font-medium text-amber-800">
+          <span className="mt-0.5 block truncate text-[10px] sm:text-[11px] font-medium text-amber-800">
             {sureMistakesAnalysis.overconfidenceRate}% of errors tagged
             &ldquo;Sure&rdquo;
           </span>
         </div>
 
         {/* Hover Popover */}
-        <div className="pointer-events-none invisible opacity-0 group-hover:visible group-hover:opacity-100 group-hover:pointer-events-auto transition-all duration-200 ease-out absolute z-40 top-full mt-2.5 right-0 sm:left-1/2 sm:-translate-x-1/2 w-72 sm:w-80 rounded-2xl bg-slate-900/95 text-slate-100 p-4 shadow-2xl backdrop-blur-md border border-slate-800 text-xs">
+        <div className="pointer-events-none invisible opacity-0 sm:group-hover:visible sm:group-hover:opacity-100 sm:group-hover:pointer-events-auto transition-all duration-200 ease-out absolute z-40 top-full mt-2.5 right-0 sm:left-1/2 sm:-translate-x-1/2 w-72 sm:w-80 rounded-2xl bg-slate-900/95 text-slate-100 p-4 shadow-2xl backdrop-blur-md border border-slate-800 text-xs hidden sm:block">
           <div className="absolute -top-1.5 right-8 sm:left-1/2 sm:-translate-x-1/2 w-3 h-3 bg-slate-900 border-t border-l border-slate-800 rotate-45" />
           <div className="space-y-2">
             <div className="flex items-center justify-between border-b border-slate-800 pb-2">
@@ -424,28 +424,30 @@ export function StrategicDiagnosticsWidget({
       </div>
 
       {/* ── CARD 3: Negative Mark Leakage ── */}
-      <div className="group relative surface-card flex items-start gap-3 p-4 sm:p-5 rounded-2xl border border-slate-200/90 hover:border-rose-300 hover:shadow-sm transition-all cursor-default">
-        <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl ring-1 bg-rose-50 ring-rose-200/70 text-rose-600">
-          <TrendingDown className="h-5 w-5" />
+      <div className="group relative surface-card flex items-start gap-2.5 sm:gap-3 p-3 sm:p-5 rounded-xl sm:rounded-2xl border border-slate-200/90 hover:border-rose-300 hover:shadow-sm transition-all cursor-default">
+        <span className="flex h-8 w-8 sm:h-10 sm:w-10 shrink-0 items-center justify-center rounded-lg sm:rounded-xl ring-1 bg-rose-50 ring-rose-200/70 text-rose-600">
+          <TrendingDown className="h-4 w-4 sm:h-5 sm:w-5" />
         </span>
         <div className="min-w-0 flex-1">
           <div className="flex items-center justify-between gap-1">
-            <span className="block truncate text-xs font-semibold uppercase tracking-wider text-slate-400">
+            <span className="block truncate text-[10px] sm:text-xs font-semibold uppercase tracking-wider text-slate-400">
               Negative Leakage
             </span>
-            <Info className="h-3 w-3 text-slate-300 group-hover:text-rose-500 shrink-0 transition-colors" />
+            <Info className="h-3 w-3 text-slate-300 group-hover:text-rose-500 shrink-0 transition-colors hidden sm:block" />
           </div>
-          <span className="mt-0.5 block text-xl sm:text-2xl font-black tracking-tight text-slate-900 tabular-nums">
+          <span className="mt-0.5 block text-lg sm:text-2xl font-black tracking-tight text-slate-900 tabular-nums">
             -{negativeLeakage.penaltyMarks}
-            <span className="text-xs font-normal text-slate-400 ml-1">pts</span>
+            <span className="text-[10px] sm:text-xs font-normal text-slate-400 ml-1">
+              pts
+            </span>
           </span>
-          <span className="mt-0.5 block truncate text-[11px] font-medium text-rose-700">
+          <span className="mt-0.5 block truncate text-[10px] sm:text-[11px] font-medium text-rose-700">
             ~{negativeLeakage.avgPenaltyPerMock} pts lost per mock
           </span>
         </div>
 
         {/* Hover Popover */}
-        <div className="pointer-events-none invisible opacity-0 group-hover:visible group-hover:opacity-100 group-hover:pointer-events-auto transition-all duration-200 ease-out absolute z-40 top-full mt-2.5 left-0 sm:left-1/2 sm:-translate-x-1/2 w-72 sm:w-80 rounded-2xl bg-slate-900/95 text-slate-100 p-4 shadow-2xl backdrop-blur-md border border-slate-800 text-xs">
+        <div className="pointer-events-none invisible opacity-0 sm:group-hover:visible sm:group-hover:opacity-100 sm:group-hover:pointer-events-auto transition-all duration-200 ease-out absolute z-40 top-full mt-2.5 left-0 sm:left-1/2 sm:-translate-x-1/2 w-72 sm:w-80 rounded-2xl bg-slate-900/95 text-slate-100 p-4 shadow-2xl backdrop-blur-md border border-slate-800 text-xs hidden sm:block">
           <div className="absolute -top-1.5 left-8 sm:left-1/2 sm:-translate-x-1/2 w-3 h-3 bg-slate-900 border-t border-l border-slate-800 rotate-45" />
           <div className="space-y-2">
             <div className="flex items-center justify-between border-b border-slate-800 pb-2">
@@ -490,27 +492,27 @@ export function StrategicDiagnosticsWidget({
       </div>
 
       {/* ── CARD 4: Rolling 4-Week Accuracy ── */}
-      <div className="group relative surface-card flex items-start gap-3 p-4 sm:p-5 rounded-2xl border border-slate-200/90 hover:border-emerald-300 hover:shadow-sm transition-all cursor-default">
-        <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl ring-1 bg-emerald-50 ring-emerald-200/70 text-emerald-600">
-          <Zap className="h-5 w-5" />
+      <div className="group relative surface-card flex items-start gap-2.5 sm:gap-3 p-3 sm:p-5 rounded-xl sm:rounded-2xl border border-slate-200/90 hover:border-emerald-300 hover:shadow-sm transition-all cursor-default">
+        <span className="flex h-8 w-8 sm:h-10 sm:w-10 shrink-0 items-center justify-center rounded-lg sm:rounded-xl ring-1 bg-emerald-50 ring-emerald-200/70 text-emerald-600">
+          <Zap className="h-4 w-4 sm:h-5 sm:w-5" />
         </span>
         <div className="min-w-0 flex-1">
           <div className="flex items-center justify-between gap-1">
-            <span className="block truncate text-xs font-semibold uppercase tracking-wider text-slate-400">
+            <span className="block truncate text-[10px] sm:text-xs font-semibold uppercase tracking-wider text-slate-400">
               Rolling 4W Acc
             </span>
-            <Info className="h-3 w-3 text-slate-300 group-hover:text-emerald-500 shrink-0 transition-colors" />
+            <Info className="h-3 w-3 text-slate-300 group-hover:text-emerald-500 shrink-0 transition-colors hidden sm:block" />
           </div>
-          <span className="mt-0.5 block text-xl sm:text-2xl font-black tracking-tight text-slate-900 tabular-nums">
+          <span className="mt-0.5 block text-lg sm:text-2xl font-black tracking-tight text-slate-900 tabular-nums">
             {rollingSubjectAccuracy.overallAccuracyPct}%
           </span>
-          <span className="mt-0.5 block truncate text-[11px] font-medium text-emerald-700">
+          <span className="mt-0.5 block truncate text-[10px] sm:text-[11px] font-medium text-emerald-700">
             Last 28 days ({rollingSubjectAccuracy.totalQs} Qs)
           </span>
         </div>
 
         {/* Hover Popover */}
-        <div className="pointer-events-none invisible opacity-0 group-hover:visible group-hover:opacity-100 group-hover:pointer-events-auto transition-all duration-200 ease-out absolute z-40 top-full mt-2.5 right-0 w-72 sm:w-80 rounded-2xl bg-slate-900/95 text-slate-100 p-4 shadow-2xl backdrop-blur-md border border-slate-800 text-xs">
+        <div className="pointer-events-none invisible opacity-0 sm:group-hover:visible sm:group-hover:opacity-100 sm:group-hover:pointer-events-auto transition-all duration-200 ease-out absolute z-40 top-full mt-2.5 right-0 w-72 sm:w-80 rounded-2xl bg-slate-900/95 text-slate-100 p-4 shadow-2xl backdrop-blur-md border border-slate-800 text-xs hidden sm:block">
           <div className="absolute -top-1.5 right-8 w-3 h-3 bg-slate-900 border-t border-l border-slate-800 rotate-45" />
           <div className="space-y-2">
             <div className="flex items-center justify-between border-b border-slate-800 pb-2">
