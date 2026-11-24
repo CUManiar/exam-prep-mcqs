@@ -109,8 +109,28 @@ export function PrepStageSelector({
   ];
 
   return (
-    <div className="flex items-center gap-1.5 shrink-0">
-      <div className="flex items-center gap-0.5 sm:gap-1 p-0.5 sm:p-1 bg-slate-100 dark:bg-slate-800/80 rounded-xl border border-slate-200/80 dark:border-slate-700/80 shadow-2xs">
+    <div className="flex items-center gap-1.5 min-w-0">
+      {/* Mobile: Clean compact select dropdown (zero horizontal scroll) */}
+      <div className="sm:hidden min-w-0 max-w-full">
+        <select
+          aria-label="Select preparation stage"
+          value={currentStage}
+          onChange={(e) => onSelectStage(e.target.value as PrepStage)}
+          className="max-w-[155px] truncate px-2.5 py-1.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-100 dark:bg-slate-800 text-slate-900 dark:text-white text-xs font-semibold focus:outline-hidden focus:ring-2 focus:ring-indigo-500 cursor-pointer"
+        >
+          {stages.map((stg) => {
+            const cfg = STAGE_METADATA[stg];
+            return (
+              <option key={stg} value={stg}>
+                {cfg.icon} {cfg.label}
+              </option>
+            );
+          })}
+        </select>
+      </div>
+
+      {/* Desktop: Segmented pills with hover popovers */}
+      <div className="hidden sm:flex items-center gap-1 p-1 bg-slate-100 dark:bg-slate-800/80 rounded-xl border border-slate-200/80 dark:border-slate-700/80 shadow-2xs">
         {stages.map((stg, index) => {
           const cfg = STAGE_METADATA[stg];
           const isActive = currentStage === stg;

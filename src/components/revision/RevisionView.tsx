@@ -711,7 +711,7 @@ export function RevisionView() {
       <main className="flex-1 min-h-0 flex flex-col h-full overflow-hidden bg-slate-50 dark:bg-slate-950">
         {/* Top Control Bar */}
         <header className="px-2 sm:px-5 py-1.5 sm:py-2.5 border-b border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 flex items-center justify-between gap-1.5 sm:gap-2.5 shadow-2xs shrink-0">
-          <div className="flex items-center gap-1.5 sm:gap-2 min-w-0 flex-1 overflow-x-auto no-scrollbar py-0.5">
+          <div className="flex items-center gap-1.5 sm:gap-2 min-w-0 flex-1">
             {!isSidebarOpen && (
               <button
                 type="button"
@@ -735,6 +735,21 @@ export function RevisionView() {
           </div>
 
           <div className="flex items-center gap-1 sm:gap-2 shrink-0">
+            {mistakeDiagnostics.totalWrongQuestions > 0 && (
+              <button
+                type="button"
+                onClick={() => setShowMistakesBanner(!showMistakesBanner)}
+                className={`sm:hidden inline-flex items-center gap-1 px-2 py-1 rounded-lg text-[11px] font-bold transition-colors shrink-0 cursor-pointer ${
+                  showMistakesBanner
+                    ? "bg-rose-600 text-white"
+                    : "bg-rose-50 dark:bg-rose-950/60 text-rose-600 dark:text-rose-400 border border-rose-200/80 dark:border-rose-800/80"
+                }`}
+                title="Toggle Weak Spots"
+              >
+                <Flame className="h-3 w-3" />
+                <span>{mistakeDiagnostics.totalWrongQuestions}</span>
+              </button>
+            )}
             {/* Cloud Sync Status Indicator */}
             <div
               className="hidden sm:inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 text-xs font-medium text-slate-600 dark:text-slate-300"
@@ -796,7 +811,7 @@ export function RevisionView() {
             <button
               type="button"
               onClick={() => setShowMistakesBanner(!showMistakesBanner)}
-              className="text-[11px] font-semibold text-rose-600 dark:text-rose-400 hover:underline flex items-center gap-1 shrink-0 cursor-pointer"
+              className="hidden sm:flex text-[11px] font-semibold text-rose-600 dark:text-rose-400 hover:underline items-center gap-1 shrink-0 cursor-pointer"
             >
               <Flame className="h-3.5 w-3.5" />
               <span>

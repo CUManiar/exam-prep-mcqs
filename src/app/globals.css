@@ -1970,6 +1970,10 @@ select:disabled,
     border-radius: 9999px;
   }
 
+  .app-brand-caption {
+    display: none;
+  }
+
   .app-primary-nav {
     display: none;
   }

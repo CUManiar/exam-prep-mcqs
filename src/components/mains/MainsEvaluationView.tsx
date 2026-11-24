@@ -2113,7 +2113,7 @@ EXAMINER RESPONSE REQUIREMENTS:
 
                 {/* Attempts Switcher & Compare Bar */}
                 <div className="flex items-center justify-between flex-wrap gap-2 pt-1 border-t border-slate-100 dark:border-slate-800/80">
-                  <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar py-0.5 max-w-full">
+                  <div className="flex items-center flex-wrap gap-1.5 py-0.5 max-w-full">
                     <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider mr-1 hidden sm:inline">
                       Attempts:
                     </span>
@@ -2283,7 +2283,7 @@ EXAMINER RESPONSE REQUIREMENTS:
                   </div>
 
                   {/* Sample Question Pills */}
-                  <div className="flex items-center gap-1.5 overflow-x-auto text-xs">
+                  <div className="flex items-center flex-wrap gap-1.5 text-xs">
                     <span className="text-[11px] text-slate-400 font-medium">
                       Try Sample:
                     </span>
@@ -2908,7 +2908,7 @@ EXAMINER RESPONSE REQUIREMENTS:
                 </div>
 
                 {/* Navigation Tabs */}
-                <div className="flex rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-0.5 sm:p-1 gap-1 text-xs shadow-2xs overflow-x-auto no-scrollbar scroll-smooth w-full max-w-full min-w-0">
+                <div className="flex flex-wrap rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-0.5 sm:p-1 gap-1 text-xs shadow-2xs w-full max-w-full min-w-0">
                   <button
                     type="button"
                     onClick={() => setActiveTab("feedback")}
