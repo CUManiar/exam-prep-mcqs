@@ -125,13 +125,20 @@ const mobilePrimaryNavigation = [
 
 export function Navbar() {
   const pathname = usePathname() || "/";
-  const { currentUser, openAuthModal, theme, setTheme } = useApp();
+  const { currentUser, openAuthModal, theme, setTheme, notifications } =
+    useApp();
   const [showProfile, setShowProfile] = useState(false);
   const [openDropdown, setOpenDropdown] = useState<"practice" | "study" | null>(
     null,
   );
   const navContainerRef = useRef<HTMLDivElement>(null);
   const hoverTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+
+  const unreadCount =
+    notifications?.reduce(
+      (count, notification) => count + (notification.read ? 0 : 1),
+      0,
+    ) || 0;
 
   // Close dropdown on route change
   useEffect(() => {
@@ -199,7 +206,9 @@ export function Navbar() {
             </span>
             <span className="min-w-0">
               <span className="app-brand-name">UPSC Prep Hub</span>
-              <span className="app-brand-caption">Assessment workspace</span>
+              <span className="app-brand-caption hidden sm:block">
+                Assessment workspace
+              </span>
             </span>
           </Link>
 
@@ -373,22 +382,7 @@ export function Navbar() {
 
           {/* Action Tools & User Profile */}
           <div className="app-header-actions">
-            {/* 4. AI Agent (Right-aligned) */}
-            <Link
-              href="/help/mcp"
-              aria-current={
-                pathname.startsWith("/help/mcp") ? "page" : undefined
-              }
-              className={`app-nav-link ai-help-link hidden sm:inline-flex ${
-                pathname.startsWith("/help/mcp") ? "is-active" : ""
-              }`}
-              title="Connect Claude, ChatGPT or local agents via MCP"
-            >
-              <Sparkles className="h-4 w-4" aria-hidden="true" />
-              <span>AI Agent</span>
-            </Link>
-
-            {/* Quick Reading Theme Toggle: Shown only to logged-in students */}
+            {/* Quick Reading Theme Toggle: Shown on desktop/tablet, inside side opener on mobile */}
             {currentUser && (
               <button
                 type="button"
@@ -403,7 +397,7 @@ export function Navbar() {
                 }}
                 title={`Switch visual comfort theme (Current: ${theme})`}
                 aria-label={`Switch visual comfort theme. Current theme: ${theme}`}
-                className="flex h-9 w-9 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-600 hover:bg-slate-50 hover:text-slate-900 transition-colors cursor-pointer"
+                className="hidden sm:flex h-9 w-9 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-600 hover:bg-slate-50 hover:text-slate-900 transition-colors cursor-pointer"
               >
                 {theme === "light" ? (
                   <Sun className="h-4 w-4 text-amber-500" />
@@ -415,13 +409,17 @@ export function Navbar() {
               </button>
             )}
 
-            {/* Notifications: Shown only to logged-in students */}
-            {currentUser && <NotificationCenter />}
+            {/* Notifications: Shown on desktop/tablet, inside side opener on mobile */}
+            {currentUser && (
+              <div className="hidden sm:block">
+                <NotificationCenter />
+              </div>
+            )}
 
             {currentUser ? (
               <button
                 type="button"
-                className="app-account-button"
+                className="app-account-button relative"
                 onClick={() => setShowProfile(true)}
                 aria-label="Open account and preferences"
               >
@@ -434,17 +432,34 @@ export function Navbar() {
                     .charAt(0)
                     .toUpperCase()}
                 </span>
-                <span className="app-account-label">Account</span>
+                <span className="app-account-label hidden sm:inline">
+                  Account
+                </span>
+                {unreadCount > 0 && (
+                  <span className="sm:hidden absolute -top-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full bg-rose-500 text-[9px] font-bold text-white shadow-xs">
+                    {unreadCount > 9 ? "9+" : unreadCount}
+                  </span>
+                )}
               </button>
             ) : (
-              <button
-                type="button"
-                className="app-sign-in"
-                onClick={openAuthModal}
-              >
-                <LogIn aria-hidden="true" />
-                Sign in
-              </button>
+              <div className="flex items-center gap-1.5">
+                <button
+                  type="button"
+                  className="app-sign-in"
+                  onClick={openAuthModal}
+                >
+                  <LogIn aria-hidden="true" />
+                  <span>Sign in</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setShowProfile(true)}
+                  className="sm:hidden p-2 rounded-lg text-slate-600 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
+                  aria-label="Open side menu"
+                >
+                  <Menu className="h-4 w-4" />
+                </button>
+              </div>
             )}
           </div>
         </div>
@@ -496,8 +511,7 @@ export function Navbar() {
             showProfile ||
             pathname.startsWith("/history") ||
             pathname.startsWith("/syllabus") ||
-            pathname.startsWith("/misc") ||
-            pathname.startsWith("/help/mcp")
+            pathname.startsWith("/misc")
               ? "is-active"
               : ""
           }`}

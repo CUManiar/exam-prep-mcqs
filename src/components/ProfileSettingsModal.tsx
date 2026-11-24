@@ -2,10 +2,12 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import {
   AlertTriangle,
   Award,
   BarChart3,
+  Bell,
   BookOpen,
   Check,
   ChevronRight,
@@ -47,6 +49,10 @@ export function ProfileSettingsModal({
     currentUser,
     isPro,
     attempts,
+    notifications,
+    markNotificationRead,
+    markAllNotificationsRead,
+    clearNotifications,
     openProUpgradeModal,
     handleSignOut,
     openAuthModal,
@@ -59,6 +65,7 @@ export function ProfileSettingsModal({
     optionalSubject,
     setOptionalSubject,
   } = useApp();
+  const router = useRouter();
   const [autoAdvance, setAutoAdvance] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
@@ -241,20 +248,84 @@ export function ProfileSettingsModal({
                   </span>
                   <ChevronRight className="w-4 h-4 text-slate-400" />
                 </Link>
-
-                <Link
-                  href="/help/mcp"
-                  onClick={onClose}
-                  className="flex items-center justify-between p-3.5 text-sm font-medium text-slate-700 hover:bg-slate-100 transition-colors"
-                >
-                  <span className="flex items-center gap-2.5">
-                    <Sparkles className="w-4 h-4 text-purple-600" />
-                    <span>AI Help & External Chatbots (MCP)</span>
-                  </span>
-                  <ChevronRight className="w-4 h-4 text-slate-400" />
-                </Link>
               </div>
             </div>
+
+            {/* Notifications & Recent Activity in Side Opener */}
+            {currentUser && (
+              <div className="rounded-xl border border-slate-200 overflow-hidden bg-white shadow-2xs">
+                <div className="flex items-center justify-between border-b border-slate-200 px-4 py-3 bg-slate-50/70">
+                  <div className="flex items-center gap-2">
+                    <Bell className="h-4 w-4 text-indigo-600" />
+                    <h3 className="text-sm font-semibold text-slate-900">
+                      Notifications
+                    </h3>
+                    {notifications.filter((n) => !n.read).length > 0 && (
+                      <span className="px-1.5 py-0.5 rounded-full text-[10px] font-bold bg-rose-100 text-rose-700">
+                        {notifications.filter((n) => !n.read).length} new
+                      </span>
+                    )}
+                  </div>
+                  {notifications.length > 0 && (
+                    <div className="flex items-center gap-2">
+                      {notifications.some((n) => !n.read) && (
+                        <button
+                          type="button"
+                          onClick={markAllNotificationsRead}
+                          className="text-[11px] font-semibold text-indigo-600 hover:text-indigo-800 cursor-pointer"
+                        >
+                          Mark all read
+                        </button>
+                      )}
+                      <button
+                        type="button"
+                        onClick={clearNotifications}
+                        className="text-[11px] font-semibold text-slate-400 hover:text-slate-600 cursor-pointer"
+                      >
+                        Clear
+                      </button>
+                    </div>
+                  )}
+                </div>
+                <div className="divide-y divide-slate-100 max-h-56 overflow-y-auto">
+                  {notifications.length === 0 ? (
+                    <div className="p-4 text-center text-xs text-slate-400">
+                      No notifications yet
+                    </div>
+                  ) : (
+                    notifications.slice(0, 10).map((n) => (
+                      <div
+                        key={n.id}
+                        onClick={() => {
+                          markNotificationRead(n.id);
+                          onClose();
+                          if (n.href) {
+                            router.push(n.href);
+                          }
+                        }}
+                        className={`p-3 text-xs transition-colors cursor-pointer hover:bg-slate-50 flex items-start gap-2.5 ${
+                          !n.read ? "bg-indigo-50/30" : ""
+                        }`}
+                      >
+                        <span
+                          className={`mt-1 h-2 w-2 rounded-full shrink-0 ${
+                            !n.read ? "bg-indigo-600" : "bg-transparent"
+                          }`}
+                        />
+                        <div className="flex-1 min-w-0">
+                          <p className="font-semibold text-slate-800 truncate">
+                            {n.title}
+                          </p>
+                          <p className="text-slate-500 text-[11px] line-clamp-2 mt-0.5">
+                            {n.message}
+                          </p>
+                        </div>
+                      </div>
+                    ))
+                  )}
+                </div>
+              </div>
+            )}
 
             {/* AI Provider & API Keys */}
             <div className="rounded-xl border border-slate-200 bg-white overflow-hidden shadow-2xs">
@@ -350,28 +421,6 @@ export function ProfileSettingsModal({
                   onChange={setOptionalSubject}
                   placeholder="Choose your Optional Subject..."
                 />
-              </div>
-            </div>
-
-            <div className="rounded-lg border border-indigo-200 bg-indigo-50/60">
-              <div className="flex items-start gap-3 px-4 py-4">
-                <Sparkles className="mt-0.5 h-4 w-4 shrink-0 text-indigo-700" />
-                <div>
-                  <p className="text-sm font-semibold text-indigo-950">
-                    Connect ChatGPT or Claude
-                  </p>
-                  <p className="mt-1 text-xs leading-5 text-indigo-900/75">
-                    Ask your chatbot to read progress, import papers, and record
-                    scores in this account.
-                  </p>
-                  <Link
-                    href="/help/mcp"
-                    onClick={onClose}
-                    className="mt-3 inline-flex text-xs font-semibold text-indigo-700 hover:text-indigo-900"
-                  >
-                    Open the connection guide →
-                  </Link>
-                </div>
               </div>
             </div>
 
