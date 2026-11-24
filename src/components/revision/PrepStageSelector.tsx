@@ -1,6 +1,7 @@
 "use client";
 
-import { Info, Sparkles, CheckCircle2 } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
+import { Check, CheckCircle2, ChevronDown, Info, Sparkles } from "lucide-react";
 import { PrepStage } from "../../lib/types";
 import { UPSC_OPTIONAL_SUBJECTS } from "../../lib/optionalSubjects";
 
@@ -107,26 +108,91 @@ export function PrepStageSelector({
     "csat",
     "concept",
   ];
+  const [isMobileOpen, setIsMobileOpen] = useState(false);
+  const mobileDropdownRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!isMobileOpen) return;
+    const handleOutside = (e: MouseEvent) => {
+      if (
+        mobileDropdownRef.current &&
+        !mobileDropdownRef.current.contains(e.target as Node)
+      ) {
+        setIsMobileOpen(false);
+      }
+    };
+    const handleEsc = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setIsMobileOpen(false);
+    };
+    document.addEventListener("mousedown", handleOutside);
+    document.addEventListener("keydown", handleEsc);
+    return () => {
+      document.removeEventListener("mousedown", handleOutside);
+      document.removeEventListener("keydown", handleEsc);
+    };
+  }, [isMobileOpen]);
+
+  const activeCfg = STAGE_METADATA[currentStage] || STAGE_METADATA.prelims;
 
   return (
     <div className="flex items-center gap-1.5 min-w-0">
-      {/* Mobile: Clean compact select dropdown (zero horizontal scroll) */}
-      <div className="sm:hidden min-w-0 max-w-full">
-        <select
-          aria-label="Select preparation stage"
-          value={currentStage}
-          onChange={(e) => onSelectStage(e.target.value as PrepStage)}
-          className="max-w-[155px] truncate px-2.5 py-1.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-100 dark:bg-slate-800 text-slate-900 dark:text-white text-xs font-semibold focus:outline-hidden focus:ring-2 focus:ring-indigo-500 cursor-pointer"
+      {/* Mobile: Clean custom dropdown menu (readable options, zero horizontal scroll) */}
+      <div ref={mobileDropdownRef} className="sm:hidden relative min-w-0">
+        <button
+          type="button"
+          onClick={() => setIsMobileOpen((prev) => !prev)}
+          aria-expanded={isMobileOpen}
+          aria-haspopup="listbox"
+          className="inline-flex items-center gap-1.5 max-w-[160px] px-2.5 py-1.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-100 dark:bg-slate-800 text-slate-900 dark:text-white text-xs font-semibold cursor-pointer"
         >
-          {stages.map((stg) => {
-            const cfg = STAGE_METADATA[stg];
-            return (
-              <option key={stg} value={stg}>
-                {cfg.icon} {cfg.label}
-              </option>
-            );
-          })}
-        </select>
+          <span className="shrink-0">{activeCfg.icon}</span>
+          <span className="truncate">{activeCfg.label}</span>
+          <ChevronDown
+            className={`h-3.5 w-3.5 text-slate-500 shrink-0 transition-transform ${
+              isMobileOpen ? "rotate-180" : ""
+            }`}
+          />
+        </button>
+
+        {isMobileOpen && (
+          <div
+            role="listbox"
+            className="fixed left-3 right-3 top-[6.75rem] z-50 rounded-2xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 shadow-2xl p-1.5 space-y-1"
+          >
+            {stages.map((stg) => {
+              const cfg = STAGE_METADATA[stg];
+              const isSelected = currentStage === stg;
+              return (
+                <button
+                  key={stg}
+                  type="button"
+                  role="option"
+                  aria-selected={isSelected}
+                  onClick={() => {
+                    onSelectStage(stg);
+                    setIsMobileOpen(false);
+                  }}
+                  className={`w-full flex items-center justify-between gap-2 px-3 py-2.5 rounded-xl text-left text-xs font-semibold transition-colors cursor-pointer ${
+                    isSelected
+                      ? "bg-indigo-50 dark:bg-indigo-950/60 text-indigo-700 dark:text-indigo-300"
+                      : "text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800"
+                  }`}
+                >
+                  <span className="flex items-center gap-2 min-w-0">
+                    <span className="text-sm shrink-0">{cfg.icon}</span>
+                    <span className="truncate">{cfg.label}</span>
+                    <span className="text-[10px] font-medium text-slate-400 truncate">
+                      · {cfg.badge}
+                    </span>
+                  </span>
+                  {isSelected && (
+                    <Check className="h-3.5 w-3.5 text-indigo-600 dark:text-indigo-400 shrink-0" />
+                  )}
+                </button>
+              );
+            })}
+          </div>
+        )}
       </div>
 
       {/* Desktop: Segmented pills with hover popovers */}
