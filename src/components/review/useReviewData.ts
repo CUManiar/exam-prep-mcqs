@@ -38,7 +38,10 @@ function matchPaper(
   );
   if (byId) return byId;
 
-  if (attempt.paperId?.startsWith("custom_")) {
+  if (
+    attempt.paperId?.startsWith("custom_") ||
+    attempt.paperId?.startsWith("retest-")
+  ) {
     const customPapers = getCustomPapers();
     const customMatch = customPapers.find(
       (p) =>

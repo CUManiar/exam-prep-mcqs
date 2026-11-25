@@ -334,7 +334,15 @@ export function saveCustomPaper(paper: QuestionPaper): void {
     } else {
       list.unshift(paper);
     }
-    localStorage.setItem(STORAGE_KEYS.CUSTOM_PAPERS, JSON.stringify(list));
+    try {
+      localStorage.setItem(STORAGE_KEYS.CUSTOM_PAPERS, JSON.stringify(list));
+    } catch {
+      // Prune older generated re-test papers if localStorage quota is full
+      const pruned = list.filter(
+        (p, i) => i === 0 || !p.id.startsWith("retest-"),
+      );
+      localStorage.setItem(STORAGE_KEYS.CUSTOM_PAPERS, JSON.stringify(pruned));
+    }
   } catch (err) {
     console.error("Failed to save custom paper:", err);
   }

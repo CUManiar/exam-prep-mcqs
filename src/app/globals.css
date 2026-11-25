@@ -198,6 +198,15 @@ select:disabled,
   scrollbar-width: none;
 }
 
+/* Native modal dialog scroll containment */
+dialog.vocab-modal-dialog:modal {
+  overscroll-behavior: contain;
+}
+dialog.vocab-modal-dialog::backdrop {
+  overflow: hidden;
+  overscroll-behavior: contain;
+}
+
 .app-account-button,
 .app-sign-in {
   display: inline-flex;

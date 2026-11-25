@@ -1,6 +1,6 @@
 "use client";
 
-import { Suspense, useEffect, useState } from "react";
+import { Suspense, useEffect, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useApp } from "../../context/AppContext";
 import { ExamSessionView } from "../../components/ExamSessionView";
@@ -100,27 +100,38 @@ function ExamSessionContent() {
     effectiveActiveDraft?.mode ||
     "mock";
 
-  let paper = papers.find((p) => p.id === paperId);
-  if (!paper && paperId && mounted) {
-    const localCustom = getCustomPapers();
-    paper = localCustom.find((p) => p.id === paperId);
-  }
-  if (paper) {
-    if (paper.markdownContent) {
-      if (!paper.parsedQuestions || paper.parsedQuestions.length === 0) {
-        paper = {
-          ...paper,
-          parsedQuestions: parseQuestionnaireMarkdown(paper.markdownContent),
-        };
-      }
-      if (!paper.instructions || paper.instructions.length === 0) {
-        paper = {
-          ...paper,
-          instructions: parseMarkdownHeader(paper.markdownContent).instructions,
+  const paper = useMemo(() => {
+    let resolved = papers.find((p) => p.id === paperId);
+    if (!resolved && paperId && mounted) {
+      const localCustom = getCustomPapers();
+      resolved = localCustom.find((p) => p.id === paperId);
+    }
+    if (resolved && resolved.markdownContent) {
+      const needsParsed =
+        !resolved.parsedQuestions || resolved.parsedQuestions.length === 0;
+      const needsInstructions =
+        !resolved.instructions || resolved.instructions.length === 0;
+      if (needsParsed || needsInstructions) {
+        resolved = {
+          ...resolved,
+          ...(needsParsed
+            ? {
+                parsedQuestions: parseQuestionnaireMarkdown(
+                  resolved.markdownContent,
+                ),
+              }
+            : {}),
+          ...(needsInstructions
+            ? {
+                instructions: parseMarkdownHeader(resolved.markdownContent)
+                  .instructions,
+              }
+            : {}),
         };
       }
     }
-  }
+    return resolved;
+  }, [papers, paperId, mounted]);
 
   const [loadTimedOut, setLoadTimedOut] = useState(false);
 

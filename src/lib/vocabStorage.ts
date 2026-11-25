@@ -1,4 +1,4 @@
-import { VocabCard } from "./vocabTypes";
+import { ReviewRating, VocabCard, VocabSRS } from "./vocabTypes";
 import { saveUserVocabCardsToSupabase, getUserProfile } from "./supabase";
 
 const VOCAB_STORAGE_KEY = "exam_prep_vocab_cards_v1";
@@ -162,6 +162,125 @@ export function getTodayVocabCount(userId?: string): number {
   const cards = getStoredVocabCards(userId);
   const today = getTodayString();
   return cards.filter((c) => c.dateAdded === today).length;
+}
+
+export function addDaysToDateString(dateStr: string, days: number): string {
+  const [y, m, d] = dateStr.split("-").map(Number);
+  const dt = new Date(y, (m || 1) - 1, d || 1);
+  dt.setDate(dt.getDate() + days);
+  const year = dt.getFullYear();
+  const month = String(dt.getMonth() + 1).padStart(2, "0");
+  const day = String(dt.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
+
+export function isCardDue(
+  card: VocabCard,
+  todayStr = getTodayString(),
+): boolean {
+  if (card.mastered) return false;
+  if (!card.srs?.nextReviewDate) return true;
+  return card.srs.nextReviewDate <= todayStr;
+}
+
+export function getMemoryStrength(card: VocabCard): number {
+  if (card.mastered) return 100;
+  const srs = card.srs;
+  if (!srs || srs.reps === 0) return 15;
+  const repScore = Math.min(srs.reps * 18, 60);
+  const intervalScore = Math.min(Math.round((srs.intervalDays / 21) * 40), 40);
+  return Math.max(15, Math.min(99, repScore + intervalScore));
+}
+
+export function computeNextSRS(
+  current: VocabSRS | undefined,
+  rating: ReviewRating,
+  todayStr = getTodayString(),
+): VocabSRS {
+  const base: VocabSRS = current ?? {
+    intervalDays: 0,
+    easeFactor: 2.5,
+    reps: 0,
+    lapses: 0,
+    nextReviewDate: todayStr,
+  };
+
+  let ease = base.easeFactor || 2.5;
+  let reps = base.reps || 0;
+  let lapses = base.lapses || 0;
+  let interval = base.intervalDays || 0;
+
+  if (rating === "again") {
+    reps = 0;
+    lapses += 1;
+    interval = 0;
+    ease = Math.max(1.3, ease - 0.2);
+  } else if (rating === "hard") {
+    reps = reps === 0 ? 1 : reps;
+    interval = interval <= 1 ? 1 : Math.max(2, Math.round(interval * 1.2));
+    ease = Math.max(1.3, ease - 0.15);
+  } else if (rating === "good") {
+    reps += 1;
+    if (reps === 1) interval = 1;
+    else if (reps === 2) interval = 3;
+    else interval = Math.max(4, Math.round(interval * ease));
+  } else {
+    // easy
+    reps += 1;
+    ease = Math.min(3.0, ease + 0.15);
+    if (reps === 1) interval = 4;
+    else if (reps === 2) interval = 7;
+    else interval = Math.max(7, Math.round(interval * ease * 1.3));
+  }
+
+  return {
+    intervalDays: interval,
+    easeFactor: Number(ease.toFixed(2)),
+    reps,
+    lapses,
+    nextReviewDate: addDaysToDateString(todayStr, interval),
+    lastReviewedAt: new Date().toISOString(),
+  };
+}
+
+export function formatIntervalLabel(days: number): string {
+  if (days <= 0) return "Today";
+  if (days === 1) return "1d";
+  if (days < 30) return `${days}d`;
+  const months = Math.round(days / 30);
+  return `${months}mo`;
+}
+
+export function recordCardReview(
+  id: string,
+  rating: ReviewRating,
+  userId?: string,
+): VocabCard[] {
+  const cards = getStoredVocabCards(userId);
+  const today = getTodayString();
+  const updated = cards.map((c) => {
+    if (c.id !== id) return c;
+    const nextSrs = computeNextSRS(c.srs, rating, today);
+    const autoMastered = nextSrs.intervalDays >= 21 ? true : c.mastered;
+    return {
+      ...c,
+      srs: nextSrs,
+      mastered: rating === "again" ? false : autoMastered,
+    };
+  });
+  saveStoredVocabCards(updated, userId);
+  return updated;
+}
+
+export function updateVocabCardDetails(
+  id: string,
+  updates: Partial<VocabCard>,
+  userId?: string,
+): VocabCard[] {
+  const cards = getStoredVocabCards(userId);
+  const updated = cards.map((c) => (c.id === id ? { ...c, ...updates } : c));
+  saveStoredVocabCards(updated, userId);
+  return updated;
 }
 
 /** Synchronize local cards with Supabase for the authenticated user */

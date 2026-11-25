@@ -315,10 +315,10 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   // the "Opening assessment…" overlay that was shown when the user clicked
   // Mock/Practice. Using an explicit signal (instead of a pathname effect)
   // ensures the loader stays visible for the full hydration period.
-  const notifyExamReady = () => {
+  const notifyExamReady = useCallback(() => {
     startExamLockRef.current = false;
     setIsStartingExam(false);
-  };
+  }, []);
 
   const handleSignOut = async () => {
     const supabase = getSupabaseClient();
@@ -709,6 +709,11 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     }
     startExamLockRef.current = true;
     setIsStartingExam(true);
+    // Ensure dynamically generated papers (e.g., targeted re-tests, topic practice)
+    // are immediately available in context memory on /exam even before storage sync.
+    setPapers((prev) =>
+      prev.some((p) => p.id === paper.id) ? prev : [paper, ...prev],
+    );
     clearActiveDraft();
     setActiveDraft(null);
     if (currentUser) {

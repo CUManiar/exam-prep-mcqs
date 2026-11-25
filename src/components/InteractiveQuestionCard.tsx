@@ -166,6 +166,12 @@ export function InteractiveQuestionCard({
 }: InteractiveQuestionCardProps) {
   const [showExplanationManual, setShowExplanationManual] =
     useState<boolean>(false);
+  const [isAiChatOpen, setIsAiChatOpen] = useState(false);
+
+  useEffect(() => {
+    setIsAiChatOpen(false);
+  }, [currentQuestion]);
+
   const questions = paper.parsedQuestions || [];
 
   // 1. INSTRUCTIONS / BUFFER SCREEN (When currentQuestion is null)
@@ -288,11 +294,6 @@ export function InteractiveQuestionCard({
 
   // 2. ACTIVE QUESTION SCREEN
   const qData = questions.find((q) => q.questionNo === currentQuestion);
-  const [isAiChatOpen, setIsAiChatOpen] = useState(false);
-
-  useEffect(() => {
-    setIsAiChatOpen(false);
-  }, [currentQuestion]);
 
   if (!qData) {
     return (

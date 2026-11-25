@@ -578,16 +578,23 @@ export async function POST(req: NextRequest) {
         );
       }
 
-      const prompt = `You are an expert vocabulary coach for serious students preparing for competitive exams and academic writing.
+      const prompt = `You are an expert vocabulary coach and cognitive memory specialist for serious students preparing for competitive exams (UPSC CSE, GRE, academic & editorial writing).
 The student has provided the word: "${word.trim()}".
-Do NOT create an overwhelming dictionary entry. Focus on making it practical, clear, and memorable for daily use (4-5 words a day habit).
+Make it practical, visually structured, and unforgettable using Dual Coding (vivid mental imagery) and Etymology/Root clues. NEVER write generic filler like "Link X with core root to recall" or "The policy paper underscored the significance of X".
 
 Respond ONLY with a JSON object in this exact format:
 {
   "word": "${word.trim()}",
-  "meaning": "One clear, intuitive, and plain-language sentence explaining what the word means.",
-  "memoryHook": "A clever, relatable memory hook, association, or root clue that makes the word instant to remember.",
-  "example": "A realistic, contemporary sentence demonstrating how to naturally use this word in an editorial, essay, or discussion."
+  "partOfSpeech": "noun | verb | adjective | adverb",
+  "phonetic": "Clear syllable pronunciation guide, e.g. 'hi-JEM-uh-nee' or 'uh-FEM-er-ul'",
+  "meaning": "One crisp, intuitive, plain-language sentence explaining what the word means.",
+  "memoryHook": "A vivid, concrete visual scene, wordplay, or sound-alike story that locks the meaning in memory.",
+  "rootBreakdown": "Concise etymology or word parts, e.g. 'Greek ephēmeros (epi = on + hēmera = day → lasting only a day)'",
+  "example": "A natural, authentic sentence demonstrating how the word is actually used in a high-scoring editorial or GS essay.",
+  "synonyms": ["synonym1", "synonym2", "synonym3"],
+  "antonyms": ["antonym1", "antonym2"],
+  "collocations": ["natural phrase 1", "natural phrase 2"],
+  "nuanceTip": "1 short sentence on register/tone or common usage pitfall (e.g. 'Formal; usually carries a critical tone')."
 }`;
 
       const raw = await executePrompt(prompt, providerConfig);

@@ -1,4 +1,5 @@
 import { QuestionPaper, QuestionAnswer, ParsedQuestion } from "./types";
+import { parseQuestionnaireMarkdown } from "./markdownPaperParser";
 
 export interface CreateMistakePaperOptions {
   includeSkipped?: boolean;
@@ -30,6 +31,14 @@ export function createMistakeReTestPaper(
   const filteredExplanations: Record<number, string> = {};
   const remappedParsedQuestions: ParsedQuestion[] = [];
 
+  // Ensure source questions are parsed even if originalPaper only had markdownContent
+  const sourceParsedQuestions: ParsedQuestion[] =
+    originalPaper.parsedQuestions && originalPaper.parsedQuestions.length > 0
+      ? originalPaper.parsedQuestions
+      : originalPaper.markdownContent
+        ? parseQuestionnaireMarkdown(originalPaper.markdownContent)
+        : [];
+
   const markdownLines: string[] = [
     `# [Re-Test] Mistakes: ${originalPaper.label}`,
     `Subject: ${originalPaper.subject} | Mode: Targeted Re-Test`,
@@ -53,7 +62,7 @@ export function createMistakeReTestPaper(
       filteredExplanations[newQNo] = expl;
     }
 
-    const origPq = originalPaper.parsedQuestions?.find(
+    const origPq = sourceParsedQuestions.find(
       (pq) => pq.questionNo === origQNo,
     );
 
@@ -100,19 +109,29 @@ export function createMistakeReTestPaper(
   const correctMarks = originalPaper.correctMarks || 2.0;
   const incorrectMarks = originalPaper.incorrectMarks || 0.667;
 
-  const sanitizedId = originalPaper.id.replace(/[^a-zA-Z0-9_-]/g, "");
-  const paperId = `retest-${sanitizedId}-${Date.now().toString(36)}`;
+  const baseId = originalPaper.id
+    .replace(/^retest-/, "")
+    .replace(/[^a-zA-Z0-9_-]/g, "")
+    .slice(0, 48);
+  const paperId = `retest-${baseId}-${Date.now().toString(36)}`;
 
   return {
     ...originalPaper,
     id: paperId,
-    label: `[Re-Test] Mistakes: ${originalPaper.label}`,
-    title: `Targeted Mistake Re-Test • ${originalPaper.label}`,
+    label: `[Re-Test] Mistakes: ${originalPaper.label.replace(/^\[Re-Test\]\s*Mistakes:\s*/i, "")}`,
+    title: `Targeted Mistake Re-Test • ${originalPaper.label.replace(/^\[Re-Test\]\s*Mistakes:\s*/i, "")}`,
     totalQuestions: count,
     totalMarks: Math.round(count * correctMarks * 10) / 10,
     timeMinutes,
     correctMarks,
     incorrectMarks,
+    qpUrl:
+      remappedParsedQuestions.length > 0
+        ? `local://${paperId}`
+        : originalPaper.qpUrl,
+    akUrl: undefined,
+    exsUrl: undefined,
+    answerKeyText: undefined,
     answerKey: filteredAnswerKey,
     explanations: filteredExplanations,
     parsedQuestions:
