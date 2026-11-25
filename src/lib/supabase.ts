@@ -7,6 +7,8 @@ import {
 } from "./types";
 import { VocabCard } from "./vocabTypes";
 
+import { inferPaperStream } from "./paperStream";
+
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || "";
 const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || "";
 
@@ -174,6 +176,20 @@ export async function saveUserAttemptToSupabase(
   const supabase = getSupabaseClient();
   if (!supabase) return false;
   try {
+    const streamInfo = inferPaperStream({
+      paperStream: attempt.paperStream,
+      optionalName: attempt.optionalName,
+      category: attempt.category,
+      examType: attempt.examType,
+      label: attempt.paperLabel,
+      subject: attempt.paperLabel,
+    });
+    const enrichedPayload: Attempt = {
+      ...attempt,
+      paperStream: streamInfo.paperStream,
+      optionalName: streamInfo.optionalName,
+    };
+
     const { error } = await supabase.from("attempts").upsert({
       id: attempt.id,
       user_id: userId,
@@ -181,13 +197,15 @@ export async function saveUserAttemptToSupabase(
       paper_label: attempt.paperLabel,
       category: attempt.category,
       exam_type: attempt.examType,
+      paper_stream: streamInfo.paperStream,
+      optional_name: streamInfo.optionalName || null,
       mode: attempt.mode,
       score: attempt.score,
       max_score: attempt.maxScore,
       accuracy_pct: attempt.accuracyPct,
       started_at: attempt.startedAt,
       finished_at: attempt.finishedAt || new Date().toISOString(),
-      payload: attempt,
+      payload: enrichedPayload,
     });
 
     return !error;
@@ -410,6 +428,13 @@ export async function saveUserMainsSessionsToSupabase(
         user_id: userId,
         title: s.title || "Untitled Evaluation",
         paper_type: s.paperType || "GS-2",
+        paper_stream: inferPaperStream({
+          category: "mains",
+          examType: "subjective",
+          paperType: s.paperType,
+          optionalName: s.optionalSubject,
+          title: s.title,
+        }).paperStream,
         optional_subject: s.optionalSubject || null,
         updated_at: s.updatedAt || new Date().toISOString(),
         questions: s.questions || [],
@@ -588,6 +613,15 @@ export async function fetchUserCustomPapersFromSupabase(
         category: (row.stage || "prelims") as any,
         examType: (row.exam_type || "objective") as any,
         subject: row.subject || paperLabel,
+        paperStream:
+          row.paper_stream ||
+          inferPaperStream({
+            category: row.stage,
+            examType: row.exam_type,
+            subject: row.subject,
+            title: paperLabel,
+          }).paperStream,
+        optionalName: row.optional_name || undefined,
         label: paperLabel,
         title: paperLabel,
         totalQuestions: Number(row.total_questions) || 100,
@@ -654,6 +688,15 @@ export async function saveUserCustomPaperToSupabase(
   try {
     const paperTitle =
       paper.label || paper.title || `${paper.year} – ${paper.subject}`;
+    const streamInfo = inferPaperStream({
+      paperStream: paper.paperStream,
+      optionalName: paper.optionalName,
+      category: paper.category,
+      examType: paper.examType,
+      subject: paper.subject,
+      title: paperTitle,
+      label: paper.label,
+    });
     const { error } = await supabase.from("custom_papers").upsert({
       id: paper.id,
       user_id: userId,
@@ -662,6 +705,8 @@ export async function saveUserCustomPaperToSupabase(
       subject: paper.subject || paperTitle,
       stage: paper.category,
       exam_type: paper.examType,
+      paper_stream: streamInfo.paperStream,
+      optional_name: streamInfo.optionalName || null,
       label: paperTitle,
       total_questions: paper.totalQuestions,
       total_marks: paper.totalMarks,

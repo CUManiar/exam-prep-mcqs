@@ -1,4 +1,5 @@
 import { MatchingItem } from "./types";
+import type { PaperStream } from "./paperStream";
 
 export type ExamStage = "prelims" | "mains" | "optional";
 export type QuestionType = "mcq" | "subjective" | "cloze" | "matching";
@@ -14,6 +15,8 @@ export interface QuestionBankEntity {
   // Taxonomy & Stage
   examStage: ExamStage;
   questionType: QuestionType;
+  paperStream?: PaperStream;
+  optionalName?: string;
   subject: string;
   topic?: string;
   subtopic?: string;
@@ -42,6 +45,7 @@ export interface QuestionBankQueryFilter {
   userId?: string;
   examStage?: ExamStage;
   questionType?: QuestionType;
+  paperStream?: PaperStream;
   subject?: string;
   topic?: string;
   syllabusNodeId?: string;
