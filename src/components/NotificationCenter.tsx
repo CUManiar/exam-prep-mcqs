@@ -93,7 +93,7 @@ export function NotificationCenter() {
           <section
             role="dialog"
             aria-label="Notifications"
-            className="fixed left-3 right-3 top-16 z-50 max-w-sm mx-auto sm:max-w-none sm:absolute sm:left-auto sm:right-0 sm:top-[calc(100%+0.625rem)] sm:w-88 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl"
+            className="fixed left-3 right-3 top-16 z-50 max-w-sm mx-auto sm:max-w-[calc(100vw-1.5rem)] sm:absolute sm:left-auto sm:right-0 sm:top-[calc(100%+0.625rem)] sm:w-[22rem] overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl"
           >
             <div className="flex items-center justify-between border-b border-slate-200 px-4 py-3">
               <div>
@@ -142,9 +142,17 @@ export function NotificationCenter() {
                         <NotificationIcon type={notification.type} />
                       </span>
                       <span className="min-w-0 flex-1">
-                        <span className="flex items-center justify-between gap-3">
-                          <span className="text-sm font-medium text-slate-900">
-                            {notification.title}
+                        <span className="flex items-center justify-between gap-2">
+                          <span className="flex items-center gap-1.5 min-w-0">
+                            {!notification.read && (
+                              <span
+                                className="h-2 w-2 shrink-0 rounded-full bg-blue-600"
+                                aria-label="Unread"
+                              />
+                            )}
+                            <span className="text-sm font-medium text-slate-900 truncate">
+                              {notification.title}
+                            </span>
                           </span>
                           <span className="shrink-0 text-[11px] text-slate-500">
                             {formatNotificationTime(notification.createdAt)}
@@ -154,9 +162,6 @@ export function NotificationCenter() {
                           {notification.message}
                         </span>
                       </span>
-                      {!notification.read && (
-                        <span className="mt-2 h-2 w-2 shrink-0 rounded-full bg-blue-600" />
-                      )}
                     </button>
                   ))}
                 </div>

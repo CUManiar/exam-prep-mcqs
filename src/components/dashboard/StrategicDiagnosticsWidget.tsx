@@ -254,7 +254,7 @@ export function StrategicDiagnosticsWidget({
   return (
     <section className="grid grid-cols-2 gap-2 sm:gap-3 lg:grid-cols-4 w-full min-w-0">
       {/* ── CARD 1: Projected Prelims Score ── */}
-      <div className="group relative surface-card flex items-start gap-2 sm:gap-3 p-2.5 sm:p-5 rounded-xl sm:rounded-2xl border border-slate-200/90 hover:border-indigo-300 hover:shadow-sm transition-all cursor-default min-w-0 overflow-hidden">
+      <div className="group relative surface-card flex items-start gap-2 sm:gap-3 p-2.5 sm:p-5 rounded-xl sm:rounded-2xl border border-slate-200/90 hover:border-indigo-300 hover:shadow-sm transition-all cursor-default min-w-0">
         <span className="flex h-8 w-8 sm:h-10 sm:w-10 shrink-0 items-center justify-center rounded-lg sm:rounded-xl ring-1 bg-indigo-50 ring-indigo-200/70 text-indigo-600">
           <Target className="h-4 w-4 sm:h-5 sm:w-5" />
         </span>
@@ -345,7 +345,7 @@ export function StrategicDiagnosticsWidget({
       </div>
 
       {/* ── CARD 2: Overconfidence Trap ── */}
-      <div className="group relative surface-card flex items-start gap-2 sm:gap-3 p-2.5 sm:p-5 rounded-xl sm:rounded-2xl border border-slate-200/90 hover:border-amber-300 hover:shadow-sm transition-all cursor-default min-w-0 overflow-hidden">
+      <div className="group relative surface-card flex items-start gap-2 sm:gap-3 p-2.5 sm:p-5 rounded-xl sm:rounded-2xl border border-slate-200/90 hover:border-amber-300 hover:shadow-sm transition-all cursor-default min-w-0">
         <span className="flex h-8 w-8 sm:h-10 sm:w-10 shrink-0 items-center justify-center rounded-lg sm:rounded-xl ring-1 bg-amber-50 ring-amber-200/70 text-amber-600">
           <AlertTriangle className="h-4 w-4 sm:h-5 sm:w-5" />
         </span>
@@ -424,7 +424,7 @@ export function StrategicDiagnosticsWidget({
       </div>
 
       {/* ── CARD 3: Negative Mark Leakage ── */}
-      <div className="group relative surface-card flex items-start gap-2 sm:gap-3 p-2.5 sm:p-5 rounded-xl sm:rounded-2xl border border-slate-200/90 hover:border-rose-300 hover:shadow-sm transition-all cursor-default min-w-0 overflow-hidden">
+      <div className="group relative surface-card flex items-start gap-2 sm:gap-3 p-2.5 sm:p-5 rounded-xl sm:rounded-2xl border border-slate-200/90 hover:border-rose-300 hover:shadow-sm transition-all cursor-default min-w-0">
         <span className="flex h-8 w-8 sm:h-10 sm:w-10 shrink-0 items-center justify-center rounded-lg sm:rounded-xl ring-1 bg-rose-50 ring-rose-200/70 text-rose-600">
           <TrendingDown className="h-4 w-4 sm:h-5 sm:w-5" />
         </span>
@@ -492,7 +492,7 @@ export function StrategicDiagnosticsWidget({
       </div>
 
       {/* ── CARD 4: Rolling 4-Week Accuracy ── */}
-      <div className="group relative surface-card flex items-start gap-2 sm:gap-3 p-2.5 sm:p-5 rounded-xl sm:rounded-2xl border border-slate-200/90 hover:border-emerald-300 hover:shadow-sm transition-all cursor-default min-w-0 overflow-hidden">
+      <div className="group relative surface-card flex items-start gap-2 sm:gap-3 p-2.5 sm:p-5 rounded-xl sm:rounded-2xl border border-slate-200/90 hover:border-emerald-300 hover:shadow-sm transition-all cursor-default min-w-0">
         <span className="flex h-8 w-8 sm:h-10 sm:w-10 shrink-0 items-center justify-center rounded-lg sm:rounded-xl ring-1 bg-emerald-50 ring-emerald-200/70 text-emerald-600">
           <Zap className="h-4 w-4 sm:h-5 sm:w-5" />
         </span>
