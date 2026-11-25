@@ -4,6 +4,7 @@ import { useState, useEffect, useRef, useCallback } from "react";
 import { QuestionPaper, QuestionAnswer } from "../lib/types";
 import { MatchingItemsTable } from "./MatchingItemsTable";
 import { HtmlExplanation } from "./HtmlExplanation";
+import { InlineQuestionAiChat } from "./InlineQuestionAiChat";
 import {
   CheckCircle2,
   XCircle,
@@ -287,6 +288,11 @@ export function InteractiveQuestionCard({
 
   // 2. ACTIVE QUESTION SCREEN
   const qData = questions.find((q) => q.questionNo === currentQuestion);
+  const [isAiChatOpen, setIsAiChatOpen] = useState(false);
+
+  useEffect(() => {
+    setIsAiChatOpen(false);
+  }, [currentQuestion]);
 
   if (!qData) {
     return (
@@ -629,16 +635,23 @@ export function InteractiveQuestionCard({
                     <h4 className="text-xs sm:text-sm font-bold text-slate-900">
                       Official Solution & Conceptual Breakdown
                     </h4>
-                    <a
-                      href={`/revision?paperId=${encodeURIComponent(paper.id)}&q=${currentQuestion}`}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-indigo-50 border border-indigo-200 text-indigo-700 text-xs font-semibold hover:bg-indigo-100 transition-colors shadow-2xs"
-                      title="Discuss this question with AI Mentor"
+                    <button
+                      type="button"
+                      onClick={() => setIsAiChatOpen((prev) => !prev)}
+                      className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md border text-xs font-semibold transition-colors shadow-2xs cursor-pointer ${
+                        isAiChatOpen
+                          ? "bg-indigo-600 border-indigo-600 text-white"
+                          : "bg-indigo-50 border-indigo-200 text-indigo-700 hover:bg-indigo-100"
+                      }`}
+                      title="Ask quick follow-up questions right here"
                     >
-                      <Sparkles className="h-3 w-3 text-indigo-600" />
-                      <span>Discuss with AI</span>
-                    </a>
+                      <Sparkles
+                        className={`h-3 w-3 ${isAiChatOpen ? "text-white" : "text-indigo-600"}`}
+                      />
+                      <span>
+                        {isAiChatOpen ? "Hide AI Doubt" : "Discuss with AI"}
+                      </span>
+                    </button>
                   </div>
                   <span className="text-[11px] text-slate-500 font-mono">
                     {correctOpt ? (
@@ -657,6 +670,22 @@ export function InteractiveQuestionCard({
             </div>
 
             <HtmlExplanation text={explanation} className="text-slate-700" />
+            {isAiChatOpen && qData && (
+              <InlineQuestionAiChat
+                paperId={paper.id}
+                paperTitle={paper.title}
+                questionNo={currentQuestion}
+                questionText={qData.text}
+                options={Object.entries(qData.options || {}).map(
+                  ([id, text]) => ({ id, text }),
+                )}
+                userAnswer={currentAnswer?.selected || null}
+                correctAnswer={correctOpt || null}
+                explanation={explanation}
+                studentNote={currentAnswer?.note}
+                onClose={() => setIsAiChatOpen(false)}
+              />
+            )}
           </div>
         )}
       </div>
