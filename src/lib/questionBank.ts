@@ -5,6 +5,7 @@ import {
 import { QuestionPaper, ParsedQuestion } from "./types";
 import { parseQuestionnaireMarkdown } from "./markdownPaperParser";
 import { getSupabaseClient } from "./supabase";
+import { inferPaperStream } from "./paperStream";
 
 /** In-memory cache for fast local access and offline fallback */
 const inMemoryQuestionBank: Map<string, QuestionBankEntity> = new Map();
@@ -47,6 +48,18 @@ export function normalizePaperToQuestions(
           ? "cloze"
           : "mcq";
 
+    const streamInfo = inferPaperStream({
+      paperStream: q.paperStream || paper.paperStream,
+      optionalName: q.optionalName || paper.optionalName,
+      examStage: paper.category,
+      examType: paper.examType,
+      category: paper.category,
+      subject: q.subject || paper.subject,
+      title: paperTitle,
+      label: paper.label,
+      text: q.text,
+    });
+
     return {
       id: questionId,
       userId: userId || paper.userId || null,
@@ -54,8 +67,13 @@ export function normalizePaperToQuestions(
       sourcePaperTitle: paperTitle,
       sourcePaperYear: String(paper.year || ""),
       questionNo: qNo,
-      examStage: paper.category || "prelims",
+      examStage:
+        streamInfo.paperStream === "Optional"
+          ? "optional"
+          : paper.category || "prelims",
       questionType,
+      paperStream: streamInfo.paperStream,
+      optionalName: streamInfo.optionalName,
       subject: paper.subject || "General Studies",
       topic: q.topic || undefined,
       subtopic: q.chapter || undefined,
@@ -102,6 +120,23 @@ export async function saveQuestionsToBank(
       question_no: q.questionNo,
       exam_stage: q.examStage,
       question_type: q.questionType,
+      paper_stream:
+        q.paperStream ||
+        inferPaperStream({
+          examStage: q.examStage,
+          subject: q.subject,
+          title: q.sourcePaperTitle,
+          text: q.contentMarkdown,
+        }).paperStream,
+      optional_name:
+        q.optionalName ||
+        inferPaperStream({
+          examStage: q.examStage,
+          subject: q.subject,
+          title: q.sourcePaperTitle,
+          text: q.contentMarkdown,
+        }).optionalName ||
+        null,
       subject: q.subject,
       topic: q.topic || null,
       subtopic: q.subtopic || null,
@@ -151,6 +186,9 @@ export async function queryQuestionBank(
       }
       if (filter.examStage) {
         query = query.eq("exam_stage", filter.examStage);
+      }
+      if (filter.paperStream) {
+        query = query.eq("paper_stream", filter.paperStream);
       }
       if (filter.subject) {
         query = query.ilike("subject", `%${filter.subject}%`);

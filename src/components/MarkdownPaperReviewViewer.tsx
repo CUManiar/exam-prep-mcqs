@@ -26,6 +26,7 @@ import {
   Bookmark,
 } from "lucide-react";
 import { HtmlExplanation } from "./HtmlExplanation";
+import { InlineQuestionAiChat } from "./InlineQuestionAiChat";
 
 interface MarkdownPaperReviewViewerProps {
   paper: QuestionPaper;
@@ -70,6 +71,7 @@ export function MarkdownPaperReviewViewer({
   };
   const [showPaperDetails, setShowPaperDetails] = useState<boolean>(false);
   const [isPaletteOpen, setIsPaletteOpen] = useState<boolean>(false);
+  const [openAiQuestionNo, setOpenAiQuestionNo] = useState<number | null>(null);
 
   const touchStartRef = useRef<{ x: number; y: number; time: number } | null>(
     null,
@@ -702,21 +704,45 @@ export function MarkdownPaperReviewViewer({
                       <button
                         type="button"
                         onClick={() =>
-                          router.push(
-                            `/revision?paperId=${encodeURIComponent(paper.id)}&q=${q.questionNo}`,
+                          setOpenAiQuestionNo((prev) =>
+                            prev === q.questionNo ? null : q.questionNo,
                           )
                         }
-                        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md bg-indigo-600 text-white hover:bg-indigo-700 active:bg-indigo-800 text-[11px] sm:text-xs font-semibold transition-colors shadow-sm whitespace-nowrap"
-                        title="Open question in AI Revision"
+                        className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md text-[11px] sm:text-xs font-semibold transition-colors shadow-sm whitespace-nowrap cursor-pointer ${
+                          openAiQuestionNo === q.questionNo
+                            ? "bg-indigo-800 text-white"
+                            : "bg-indigo-600 text-white hover:bg-indigo-700 active:bg-indigo-800"
+                        }`}
+                        title="Ask quick follow-up questions right here"
                       >
                         <Sparkles className="h-3 w-3 flex-shrink-0" />
-                        <span>Discuss with AI</span>
+                        <span>
+                          {openAiQuestionNo === q.questionNo
+                            ? "Hide AI Doubt"
+                            : "Discuss with AI"}
+                        </span>
                       </button>
                     </div>
                     <HtmlExplanation
                       text={explanationText}
                       className="text-sm sm:text-[15px] text-slate-900"
                     />
+                    {openAiQuestionNo === q.questionNo && (
+                      <InlineQuestionAiChat
+                        paperId={paper.id}
+                        paperTitle={paper.title}
+                        questionNo={q.questionNo}
+                        questionText={q.text}
+                        options={Object.entries(q.options || {}).map(
+                          ([id, text]) => ({ id, text }),
+                        )}
+                        userAnswer={userSelected || ans?.selected || null}
+                        correctAnswer={correctOpt || null}
+                        explanation={explanationText}
+                        studentNote={ans?.note}
+                        onClose={() => setOpenAiQuestionNo(null)}
+                      />
+                    )}
                   </div>
                 )}
               </div>

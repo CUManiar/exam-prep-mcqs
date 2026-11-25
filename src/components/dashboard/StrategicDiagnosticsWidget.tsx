@@ -2,6 +2,7 @@
 
 import { useMemo } from "react";
 import { Attempt, QuestionPaper } from "../../lib/types";
+import { inferPaperStream } from "../../lib/paperStream";
 import { AlertTriangle, Target, TrendingDown, Zap, Info } from "lucide-react";
 
 interface StrategicDiagnosticsWidgetProps {
@@ -49,9 +50,24 @@ export function StrategicDiagnosticsWidget({
     [attempts],
   );
 
-  // 1. PROJECTED PRELIMS SCORE (Weighted from recent mocks on 200-mark UPSC scale)
-  const projectedPrelims = useMemo(() => {
-    const mocks = completed.filter((a) => a.mode === "mock");
+  // 1. PROJECTED PRELIMS SCORES — SEPARATE GS (92 / 105) & CSAT (66.67 / 75)
+  const computeStreamProjection = (
+    targetStream: "GS" | "CSAT",
+    cutoffBenchmark: number,
+    safetyBenchmark: number,
+  ) => {
+    const mocks = completed.filter((a) => {
+      if (a.mode !== "mock") return false;
+      const stream =
+        a.paperStream ||
+        inferPaperStream({
+          category: a.category,
+          examType: a.examType,
+          label: a.paperLabel,
+          subject: a.paperLabel,
+        }).paperStream;
+      return stream === targetStream;
+    });
     if (mocks.length === 0) return null;
 
     // Last 5 mocks with recency weighting (5x, 4x, 3x, 2x, 1x)
@@ -68,18 +84,19 @@ export function StrategicDiagnosticsWidget({
 
     const projectedScore =
       Math.round((weightedSum / Math.max(1, weightTotal)) * 10) / 10;
-    const UPSC_CUTOFF_BENCHMARK = 92.0;
-    const margin =
-      Math.round((projectedScore - UPSC_CUTOFF_BENCHMARK) * 10) / 10;
-    const isQualifying = projectedScore >= UPSC_CUTOFF_BENCHMARK;
-    const isSafeBuffer = projectedScore >= UPSC_CUTOFF_BENCHMARK + 10;
+    const cutoffMargin =
+      Math.round((projectedScore - cutoffBenchmark) * 10) / 10;
+    const safetyMargin =
+      Math.round((projectedScore - safetyBenchmark) * 10) / 10;
 
     return {
       projectedScore,
-      benchmark: UPSC_CUTOFF_BENCHMARK,
-      margin,
-      isQualifying,
-      isSafeBuffer,
+      cutoffBenchmark,
+      safetyBenchmark,
+      cutoffMargin,
+      safetyMargin,
+      isQualifying: projectedScore >= cutoffBenchmark,
+      isSafeBuffer: projectedScore >= safetyBenchmark,
       mockCount: recent.length,
       averageMockAccuracy:
         Math.round(
@@ -88,7 +105,16 @@ export function StrategicDiagnosticsWidget({
             10,
         ) / 10,
     };
-  }, [completed]);
+  };
+
+  const projectedGS = useMemo(
+    () => computeStreamProjection("GS", 92.0, 105.0),
+    [completed],
+  );
+  const projectedCSAT = useMemo(
+    () => computeStreamProjection("CSAT", 66.67, 75.0),
+    [completed],
+  );
 
   // 2. WRONG ANSWERS TAGGED "SURE" (Overconfidence Trap)
   const sureMistakesAnalysis = useMemo(() => {
@@ -252,40 +278,53 @@ export function StrategicDiagnosticsWidget({
   }, [completed, papers]);
 
   return (
-    <section className="grid grid-cols-2 gap-2 sm:gap-3 lg:grid-cols-4 w-full min-w-0">
-      {/* ── CARD 1: Projected Prelims Score ── */}
-      <div className="group relative surface-card flex items-start gap-2 sm:gap-3 p-2.5 sm:p-5 rounded-xl sm:rounded-2xl border border-slate-200/90 hover:border-indigo-300 hover:shadow-sm transition-all cursor-default min-w-0 overflow-hidden">
-        <span className="flex h-8 w-8 sm:h-10 sm:w-10 shrink-0 items-center justify-center rounded-lg sm:rounded-xl ring-1 bg-indigo-50 ring-indigo-200/70 text-indigo-600">
-          <Target className="h-4 w-4 sm:h-5 sm:w-5" />
+    <section className="grid grid-cols-2 gap-2 sm:gap-3 lg:grid-cols-5 w-full min-w-0">
+      {/* ── CARD 1A: GS Prelims Predictability (92 Cut-to-Cut / 105 Safe) ── */}
+      <div className="group relative surface-card flex items-start gap-2 sm:gap-3 p-2.5 sm:p-4 rounded-xl sm:rounded-2xl border border-slate-200/90 hover:border-indigo-300 hover:shadow-sm transition-all cursor-default min-w-0">
+        <span className="flex h-8 w-8 sm:h-9 sm:w-9 shrink-0 items-center justify-center rounded-lg sm:rounded-xl ring-1 bg-indigo-50 ring-indigo-200/70 text-indigo-600">
+          <Target className="h-4 w-4 sm:h-4.5 sm:w-4.5" />
         </span>
         <div className="min-w-0 flex-1 overflow-hidden">
           <div className="flex items-center justify-between gap-1">
             <span className="block truncate text-[10px] sm:text-xs font-semibold uppercase tracking-wider text-slate-400">
-              Projected Score
+              GS Prelims
             </span>
             <Info className="h-3 w-3 text-slate-300 group-hover:text-indigo-500 shrink-0 transition-colors hidden sm:block" />
           </div>
-          <span className="mt-0.5 block text-base sm:text-2xl font-black tracking-tight text-slate-900 tabular-nums truncate">
-            {projectedPrelims ? `${projectedPrelims.projectedScore}` : "—"}
+          <span className="mt-0.5 block text-base sm:text-xl font-black tracking-tight text-slate-900 tabular-nums truncate">
+            {projectedGS ? `${projectedGS.projectedScore}` : "—"}
             <span className="text-[10px] sm:text-xs font-normal text-slate-400 ml-1">
               / 200
             </span>
           </span>
-          <span className="mt-0.5 block truncate text-[10px] sm:text-[11px] font-medium">
-            {projectedPrelims ? (
-              projectedPrelims.margin >= 0 ? (
-                <span className="text-emerald-700 font-semibold">
-                  +{projectedPrelims.margin} pts buffer
-                </span>
-              ) : (
-                <span className="text-rose-700 font-semibold">
-                  {projectedPrelims.margin} pts to cutoff
-                </span>
-              )
-            ) : (
-              <span className="text-slate-500">Need ≥1 mock exam</span>
-            )}
-          </span>
+          {projectedGS ? (
+            <div className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[10px] font-medium">
+              <span
+                className={
+                  projectedGS.cutoffMargin >= 0
+                    ? "text-emerald-700 font-semibold"
+                    : "text-rose-700 font-semibold"
+                }
+              >
+                92: {projectedGS.cutoffMargin >= 0 ? "+" : ""}
+                {projectedGS.cutoffMargin}
+              </span>
+              <span
+                className={
+                  projectedGS.safetyMargin >= 0
+                    ? "text-emerald-700 font-semibold"
+                    : "text-amber-700 font-semibold"
+                }
+              >
+                105: {projectedGS.safetyMargin >= 0 ? "+" : ""}
+                {projectedGS.safetyMargin}
+              </span>
+            </div>
+          ) : (
+            <span className="mt-0.5 block truncate text-[10px] text-slate-500">
+              Need ≥1 GS mock
+            </span>
+          )}
         </div>
 
         {/* Hover Popover */}
@@ -295,57 +334,171 @@ export function StrategicDiagnosticsWidget({
             <div className="flex items-center justify-between border-b border-slate-800 pb-2">
               <span className="font-bold text-white text-xs flex items-center gap-1.5">
                 <Target className="h-3.5 w-3.5 text-indigo-400" />
-                Projected Prelims Score
+                GS Prelims Predictability
               </span>
               <span className="font-mono text-[10px] text-slate-400">
-                UPSC Benchmark: 92.0
+                {projectedGS?.mockCount ?? 0} GS mocks
               </span>
             </div>
             <p className="text-[11px] text-slate-300 leading-relaxed">
-              Recency-weighted projection scaled to the 200-mark GS-1 standard
-              across your recent mocks.
+              Recency-weighted GS Paper-I projection (200 marks) evaluated on
+              two factors: Cut-to-Cut (92.0) and Margin of Safety (105.0).
             </p>
             <div className="space-y-1.5 pt-1 font-mono text-[11px]">
               <div className="flex justify-between text-slate-400">
-                <span>Qualifying Status:</span>
+                <span>1. Cut-to-Cut (92.0):</span>
                 <span
                   className={
-                    projectedPrelims?.isQualifying
+                    projectedGS?.isQualifying
                       ? "text-emerald-400 font-bold"
                       : "text-rose-400 font-bold"
                   }
                 >
-                  {projectedPrelims?.isSafeBuffer
-                    ? "Safe Buffer Zone"
-                    : projectedPrelims?.isQualifying
-                      ? "Qualifying"
-                      : "Below Benchmark"}
+                  {projectedGS
+                    ? `${projectedGS.cutoffMargin >= 0 ? "+" : ""}${projectedGS.cutoffMargin} pts (${projectedGS.isQualifying ? "Pass" : "Short"})`
+                    : "—"}
                 </span>
               </div>
               <div className="flex justify-between text-slate-400">
-                <span>Buffer over Cutoff:</span>
-                <span className="text-white font-bold">
-                  {projectedPrelims && projectedPrelims.margin >= 0 ? "+" : ""}
-                  {projectedPrelims?.margin ?? 0} pts
+                <span>2. Margin of Safety (105.0):</span>
+                <span
+                  className={
+                    projectedGS?.isSafeBuffer
+                      ? "text-emerald-400 font-bold"
+                      : "text-amber-400 font-bold"
+                  }
+                >
+                  {projectedGS
+                    ? `${projectedGS.safetyMargin >= 0 ? "+" : ""}${projectedGS.safetyMargin} pts (${projectedGS.isSafeBuffer ? "Safe" : "Gap"})`
+                    : "—"}
                 </span>
               </div>
               <div className="flex justify-between text-slate-400">
-                <span>Recent Mock Accuracy:</span>
+                <span>GS Mock Accuracy:</span>
                 <span className="text-white font-bold">
-                  {projectedPrelims?.averageMockAccuracy ?? 0}%
+                  {projectedGS?.averageMockAccuracy ?? 0}%
                 </span>
               </div>
             </div>
             <div className="pt-2 border-t border-slate-800 text-[10px] text-indigo-300">
-              💡 Tip: Maintain +15 pts safety buffer over 92.0 to account for
-              unpredictable Prelims scaling.
+              💡 Tip: Target 105+ to absorb UPSC key variations and tough
+              shifts.
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* ── CARD 1B: CSAT Prelims Predictability (66.67 Cut-to-Cut / 75 Safe) ── */}
+      <div className="group relative surface-card flex items-start gap-2 sm:gap-3 p-2.5 sm:p-4 rounded-xl sm:rounded-2xl border border-slate-200/90 hover:border-cyan-300 hover:shadow-sm transition-all cursor-default min-w-0">
+        <span className="flex h-8 w-8 sm:h-9 sm:w-9 shrink-0 items-center justify-center rounded-lg sm:rounded-xl ring-1 bg-cyan-50 ring-cyan-200/70 text-cyan-700">
+          <Target className="h-4 w-4 sm:h-4.5 sm:w-4.5" />
+        </span>
+        <div className="min-w-0 flex-1 overflow-hidden">
+          <div className="flex items-center justify-between gap-1">
+            <span className="block truncate text-[10px] sm:text-xs font-semibold uppercase tracking-wider text-slate-400">
+              CSAT Prelims
+            </span>
+            <Info className="h-3 w-3 text-slate-300 group-hover:text-cyan-600 shrink-0 transition-colors hidden sm:block" />
+          </div>
+          <span className="mt-0.5 block text-base sm:text-xl font-black tracking-tight text-slate-900 tabular-nums truncate">
+            {projectedCSAT ? `${projectedCSAT.projectedScore}` : "—"}
+            <span className="text-[10px] sm:text-xs font-normal text-slate-400 ml-1">
+              / 200
+            </span>
+          </span>
+          {projectedCSAT ? (
+            <div className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[10px] font-medium">
+              <span
+                className={
+                  projectedCSAT.cutoffMargin >= 0
+                    ? "text-emerald-700 font-semibold"
+                    : "text-rose-700 font-semibold"
+                }
+              >
+                66.7: {projectedCSAT.cutoffMargin >= 0 ? "+" : ""}
+                {projectedCSAT.cutoffMargin}
+              </span>
+              <span
+                className={
+                  projectedCSAT.safetyMargin >= 0
+                    ? "text-emerald-700 font-semibold"
+                    : "text-amber-700 font-semibold"
+                }
+              >
+                75: {projectedCSAT.safetyMargin >= 0 ? "+" : ""}
+                {projectedCSAT.safetyMargin}
+              </span>
+            </div>
+          ) : (
+            <span className="mt-0.5 block truncate text-[10px] text-slate-500">
+              Need ≥1 CSAT mock
+            </span>
+          )}
+        </div>
+
+        {/* Hover Popover */}
+        <div className="pointer-events-none invisible opacity-0 sm:group-hover:visible sm:group-hover:opacity-100 sm:group-hover:pointer-events-auto transition-all duration-200 ease-out absolute z-40 top-full mt-2.5 right-0 sm:left-0 sm:right-auto w-72 sm:w-80 rounded-2xl bg-slate-900/95 text-slate-100 p-4 shadow-2xl backdrop-blur-md border border-slate-800 text-xs hidden sm:block">
+          <div className="absolute -top-1.5 right-8 sm:left-8 sm:right-auto w-3 h-3 bg-slate-900 border-t border-l border-slate-800 rotate-45" />
+          <div className="space-y-2">
+            <div className="flex items-center justify-between border-b border-slate-800 pb-2">
+              <span className="font-bold text-white text-xs flex items-center gap-1.5">
+                <Target className="h-3.5 w-3.5 text-cyan-400" />
+                CSAT Prelims Predictability
+              </span>
+              <span className="font-mono text-[10px] text-slate-400">
+                {projectedCSAT?.mockCount ?? 0} CSAT mocks
+              </span>
+            </div>
+            <p className="text-[11px] text-slate-300 leading-relaxed">
+              Recency-weighted CSAT Paper-II projection (200 marks) evaluated on
+              Cut-to-Cut (66.67) and Margin of Safety (75.0).
+            </p>
+            <div className="space-y-1.5 pt-1 font-mono text-[11px]">
+              <div className="flex justify-between text-slate-400">
+                <span>1. Cut-to-Cut (66.67):</span>
+                <span
+                  className={
+                    projectedCSAT?.isQualifying
+                      ? "text-emerald-400 font-bold"
+                      : "text-rose-400 font-bold"
+                  }
+                >
+                  {projectedCSAT
+                    ? `${projectedCSAT.cutoffMargin >= 0 ? "+" : ""}${projectedCSAT.cutoffMargin} pts (${projectedCSAT.isQualifying ? "Qualifying" : "Risk"})`
+                    : "—"}
+                </span>
+              </div>
+              <div className="flex justify-between text-slate-400">
+                <span>2. Margin of Safety (75.0):</span>
+                <span
+                  className={
+                    projectedCSAT?.isSafeBuffer
+                      ? "text-emerald-400 font-bold"
+                      : "text-amber-400 font-bold"
+                  }
+                >
+                  {projectedCSAT
+                    ? `${projectedCSAT.safetyMargin >= 0 ? "+" : ""}${projectedCSAT.safetyMargin} pts (${projectedCSAT.isSafeBuffer ? "Safe" : "Gap"})`
+                    : "—"}
+                </span>
+              </div>
+              <div className="flex justify-between text-slate-400">
+                <span>CSAT Mock Accuracy:</span>
+                <span className="text-white font-bold">
+                  {projectedCSAT?.averageMockAccuracy ?? 0}%
+                </span>
+              </div>
+            </div>
+            <div className="pt-2 border-t border-slate-800 text-[10px] text-cyan-300">
+              💡 Tip: Hold 75+ in CSAT mocks so comprehension ambiguity never
+              endangers qualifying.
             </div>
           </div>
         </div>
       </div>
 
       {/* ── CARD 2: Overconfidence Trap ── */}
-      <div className="group relative surface-card flex items-start gap-2 sm:gap-3 p-2.5 sm:p-5 rounded-xl sm:rounded-2xl border border-slate-200/90 hover:border-amber-300 hover:shadow-sm transition-all cursor-default min-w-0 overflow-hidden">
+      <div className="group relative surface-card flex items-start gap-2 sm:gap-3 p-2.5 sm:p-5 rounded-xl sm:rounded-2xl border border-slate-200/90 hover:border-amber-300 hover:shadow-sm transition-all cursor-default min-w-0">
         <span className="flex h-8 w-8 sm:h-10 sm:w-10 shrink-0 items-center justify-center rounded-lg sm:rounded-xl ring-1 bg-amber-50 ring-amber-200/70 text-amber-600">
           <AlertTriangle className="h-4 w-4 sm:h-5 sm:w-5" />
         </span>
@@ -424,7 +577,7 @@ export function StrategicDiagnosticsWidget({
       </div>
 
       {/* ── CARD 3: Negative Mark Leakage ── */}
-      <div className="group relative surface-card flex items-start gap-2 sm:gap-3 p-2.5 sm:p-5 rounded-xl sm:rounded-2xl border border-slate-200/90 hover:border-rose-300 hover:shadow-sm transition-all cursor-default min-w-0 overflow-hidden">
+      <div className="group relative surface-card flex items-start gap-2 sm:gap-3 p-2.5 sm:p-5 rounded-xl sm:rounded-2xl border border-slate-200/90 hover:border-rose-300 hover:shadow-sm transition-all cursor-default min-w-0">
         <span className="flex h-8 w-8 sm:h-10 sm:w-10 shrink-0 items-center justify-center rounded-lg sm:rounded-xl ring-1 bg-rose-50 ring-rose-200/70 text-rose-600">
           <TrendingDown className="h-4 w-4 sm:h-5 sm:w-5" />
         </span>
@@ -492,7 +645,7 @@ export function StrategicDiagnosticsWidget({
       </div>
 
       {/* ── CARD 4: Rolling 4-Week Accuracy ── */}
-      <div className="group relative surface-card flex items-start gap-2 sm:gap-3 p-2.5 sm:p-5 rounded-xl sm:rounded-2xl border border-slate-200/90 hover:border-emerald-300 hover:shadow-sm transition-all cursor-default min-w-0 overflow-hidden">
+      <div className="group relative surface-card flex items-start gap-2 sm:gap-3 p-2.5 sm:p-5 rounded-xl sm:rounded-2xl border border-slate-200/90 hover:border-emerald-300 hover:shadow-sm transition-all cursor-default min-w-0">
         <span className="flex h-8 w-8 sm:h-10 sm:w-10 shrink-0 items-center justify-center rounded-lg sm:rounded-xl ring-1 bg-emerald-50 ring-emerald-200/70 text-emerald-600">
           <Zap className="h-4 w-4 sm:h-5 sm:w-5" />
         </span>

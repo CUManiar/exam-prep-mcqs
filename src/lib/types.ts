@@ -1,3 +1,5 @@
+import type { PaperStream } from "./paperStream";
+
 export type ExamType = "objective" | "subjective";
 export type ExamCategory = "prelims" | "mains";
 export type CutoffType = "percentage" | "marks";
@@ -17,6 +19,8 @@ export interface ParsedQuestion {
   subject?: string;
   chapter?: string;
   topic?: string;
+  paperStream?: PaperStream;
+  optionalName?: string;
   wordLimit?: number;
   previousYears?: string; // e.g. "2017, 2021" for multi-year repetition
 }
@@ -34,6 +38,8 @@ export interface QuestionPaper {
   category: ExamCategory; // 'prelims' | 'mains'
   examType: ExamType; // 'objective' | 'subjective'
   subject: string; // 'GS I', 'GS II CSAT', 'Essay', 'GS I (Mains)', etc.
+  paperStream?: PaperStream;
+  optionalName?: string;
   label: string;
   title?: string;
   totalQuestions: number; // 100 for GS1, 80 for GS2, 20 for Mains
@@ -94,6 +100,8 @@ export interface Attempt {
   paperLabel: string;
   category: ExamCategory;
   examType: ExamType;
+  paperStream?: PaperStream;
+  optionalName?: string;
   mode: "practice" | "mock";
   startedAt: string;
   finishedAt?: string;

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { uploadFile, readJsonStore, writeJsonStore } from "@/lib/cloudStorage";
 import { parseAnswerKeyDetailed } from "@/lib/defaults";
 import { parseMarkdownHeader } from "@/lib/markdownPaperParser";
+import { inferPaperStream } from "@/lib/paperStream";
 import {
   normalizePaperToQuestions,
   saveQuestionsToBank,
@@ -225,6 +226,16 @@ export async function POST(req: NextRequest) {
         ? parseAnswerKeyDetailed(answerKeyContent)
         : { answers: {}, explanations: {} };
 
+    const streamInfo = inferPaperStream({
+      paperStream: (formData.get("paperStream") as string) || undefined,
+      optionalName: (formData.get("optionalName") as string) || undefined,
+      category: examType === "objective" ? "prelims" : "mains",
+      examType,
+      subject: isCustomUpload || isUserUpload ? paperTitle : subject,
+      title: paperTitle,
+      label: paperTitle,
+    });
+
     const paperObj = {
       id: paperId,
       userId: isUserUpload ? userId : undefined,
@@ -232,6 +243,8 @@ export async function POST(req: NextRequest) {
       category: examType === "objective" ? "prelims" : "mains",
       examType,
       subject: isCustomUpload || isUserUpload ? paperTitle : subject,
+      paperStream: streamInfo.paperStream,
+      optionalName: streamInfo.optionalName,
       label: paperTitle,
       title: paperTitle,
       totalQuestions,
@@ -275,6 +288,8 @@ export async function POST(req: NextRequest) {
           subject: paperTitle,
           stage: catFolder,
           exam_type: examType,
+          paper_stream: streamInfo.paperStream,
+          optional_name: streamInfo.optionalName || null,
           label: paperTitle,
           total_questions: totalQuestions,
           total_marks: totalMarks,
