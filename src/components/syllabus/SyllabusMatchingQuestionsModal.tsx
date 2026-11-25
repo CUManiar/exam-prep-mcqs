@@ -14,6 +14,7 @@ import {
 } from "lucide-react";
 import { SyllabusItem, QuestionPaper, ParsedQuestion } from "../../lib/types";
 import { findQuestionsForSyllabusTopic } from "../../lib/syllabusQuestionIndex";
+import { inferPaperStream, PaperStream } from "../../lib/paperStream";
 import { cleanPreviousYears } from "../../lib/markdownPaperParser";
 import { useApp } from "../../context/AppContext";
 import { saveCustomPaper } from "../../lib/storage";
@@ -104,12 +105,79 @@ export function SyllabusMatchingQuestionsModal({
     return allTopics ? getAllDescendantTopicTitles(topic.id, allTopics) : [];
   }, [topic.id, allTopics]);
 
+  // Walk ancestor chain (from root paper heading down to active topic) to infer paper stream
+  const topicFilterOptions = useMemo(() => {
+    const chain: string[] = [topic.title];
+    if (allTopics && topic.parentId) {
+      const byId = new Map(allTopics.map((t) => [t.id, t]));
+      let curParent = topic.parentId;
+      let depth = 0;
+      while (curParent && depth < 12) {
+        const parentNode = byId.get(curParent);
+        if (!parentNode) break;
+        chain.unshift(parentNode.title);
+        curParent = parentNode.parentId || "";
+        depth++;
+      }
+    }
+    const pathText = chain.join(" ");
+    const lowerPath = pathText.toLowerCase();
+
+    if (
+      /\boptional\b|\bsociology\b|\bpsir\b|\banthropology\b|\bpublic administration\b/i.test(
+        lowerPath,
+      )
+    ) {
+      return { allowedStreams: ["Optional"] as PaperStream[] };
+    }
+    if (/\bessay\b/i.test(lowerPath)) {
+      return {
+        allowedStreams: ["Essay"] as PaperStream[],
+        examType: "subjective" as const,
+      };
+    }
+    if (/\bgujarati\b/i.test(lowerPath)) {
+      return { allowedStreams: ["Gujarati"] as PaperStream[] };
+    }
+    if (
+      /\benglish\b/i.test(lowerPath) &&
+      /\bcompulsory\b|\bmains\b|\bpaper\b/i.test(lowerPath)
+    ) {
+      return { allowedStreams: ["English"] as PaperStream[] };
+    }
+    if (/\bcsat\b|\bpaper[\s-]*(ii|2)\b/i.test(lowerPath)) {
+      return { allowedStreams: ["CSAT"] as PaperStream[] };
+    }
+    const isMainsPath = /\bmains\b/i.test(lowerPath);
+    if (isMainsPath) {
+      const inferred = inferPaperStream({
+        category: "mains",
+        examType: "subjective",
+        title: pathText,
+        subject: pathText,
+      });
+      return {
+        allowedStreams: [inferred.paperStream] as PaperStream[],
+        examType: "subjective" as const,
+      };
+    }
+    if (/\bprelims\b/i.test(lowerPath)) {
+      return { allowedStreams: ["GS"] as PaperStream[] };
+    }
+    return undefined;
+  }, [topic, allTopics]);
+
   // Lazily compute indexed matching questions (aggregating child topics if parent)
   // Sort PYQs top to non-PYQs bottom, with newest PYQs first
   const matchingQuestions = useMemo(() => {
     const searchQueries =
       childTitles.length > 0 ? [topic.title, ...childTitles] : topic.title;
-    const raw = findQuestionsForSyllabusTopic(searchQueries, papers, 50);
+    const raw = findQuestionsForSyllabusTopic(
+      searchQueries,
+      papers,
+      50,
+      topicFilterOptions,
+    );
 
     return [...raw].sort((a, b) => {
       const pyqA = getQuestionPyqYear(a);
@@ -131,7 +199,7 @@ export function SyllabusMatchingQuestionsModal({
       // Maintain relevance score order for ties
       return (b.relevanceScore || 0) - (a.relevanceScore || 0);
     });
-  }, [topic.title, childTitles, papers]);
+  }, [topic.title, childTitles, papers, topicFilterOptions]);
 
   const handleSelectOption = (index: number, optionKey: string) => {
     // Record selection and automatically reveal answer & solution

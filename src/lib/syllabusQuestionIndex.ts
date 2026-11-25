@@ -3,6 +3,7 @@ import {
   parseQuestionnaireMarkdown,
   cleanPreviousYears,
 } from "./markdownPaperParser";
+import { inferPaperStream, PaperStream } from "./paperStream";
 
 export interface IndexedQuestionMatch {
   paperId: string;
@@ -23,6 +24,8 @@ interface StoredQuestionRef {
   paperTitle: string;
   paperYear: string;
   paperSubject: string;
+  paperStream: PaperStream;
+  examType: string;
   questionNo: number;
   text: string;
   options: Record<string, string>;
@@ -89,6 +92,17 @@ const COMMON_STOP_WORDS = new Set([
   "test",
   "set",
   "question",
+  "essay",
+  "section",
+  "unit",
+  "units",
+  "topic",
+  "topics",
+  "chapter",
+  "chapters",
+  "general",
+  "studies",
+  "practice",
 ]);
 
 function tokenizeString(input: string): string[] {
@@ -211,12 +225,26 @@ function getOrBuildInvertedIndex(papers: QuestionPaper[]): MemoryQuestionIndex {
         resolvedPYQ = undefined;
       }
 
+      const qStream =
+        q.paperStream ||
+        paper.paperStream ||
+        inferPaperStream({
+          category: paper.category,
+          examType: paper.examType,
+          subject: q.subject || paper.subject,
+          title: paperTitle,
+          label: paper.label,
+          text: qText,
+        }).paperStream;
+
       const qIndex = questions.length;
       questions.push({
         paperId: paper.id,
         paperTitle,
         paperYear: paper.year || "",
         paperSubject: paper.subject || "",
+        paperStream: qStream,
+        examType: paper.examType || "objective",
         questionNo: q.questionNo,
         text: qText,
         options: q.options || {},
@@ -252,10 +280,16 @@ function getOrBuildInvertedIndex(papers: QuestionPaper[]): MemoryQuestionIndex {
  * without full-text scanning. Uses the cached inverted index, scoring exact phrase and token overlap.
  * Result set is strictly bounded by maxLimit to prevent DOM or memory bloat.
  */
+export interface SyllabusTopicFilterOptions {
+  allowedStreams?: PaperStream[];
+  examType?: "objective" | "subjective";
+}
+
 export function findQuestionsForSyllabusTopic(
   topicQuery: string | string[],
   papers: QuestionPaper[],
   maxLimit = 30,
+  options?: SyllabusTopicFilterOptions,
 ): IndexedQuestionMatch[] {
   const rawQueries = Array.isArray(topicQuery) ? topicQuery : [topicQuery];
   const queries = rawQueries.map((q) => q.trim()).filter((q) => q.length > 0);
@@ -266,19 +300,41 @@ export function findQuestionsForSyllabusTopic(
 
   const index = getOrBuildInvertedIndex(papers);
   const candidateScores = new Map<number, number>();
+  const matchedTokenSets = new Map<number, Set<string>>();
+  const allowedStreamSet =
+    options?.allowedStreams && options.allowedStreams.length > 0
+      ? new Set<PaperStream>(options.allowedStreams)
+      : null;
+
+  // Track max token length of queries to avoid false-positive 1-token coincidences
+  let maxQueryTokenCount = 0;
 
   queries.forEach((qStr, qIdx) => {
     const isPrimary = qIdx === 0;
     const tokens = tokenizeString(qStr);
+    if (tokens.length > maxQueryTokenCount) maxQueryTokenCount = tokens.length;
 
     tokens.forEach((token) => {
       const matchedIndices = index.tokenMap.get(token);
       if (!matchedIndices) return;
 
       matchedIndices.forEach((questionIdx) => {
+        const ref = index.questions[questionIdx];
+        if (allowedStreamSet && !allowedStreamSet.has(ref.paperStream)) {
+          return;
+        }
+        if (options?.examType && ref.examType !== options.examType) {
+          return;
+        }
         const current = candidateScores.get(questionIdx) || 0;
         // Direct topic match gets 3 points per token; child/descendant subtopic gets 2 points
         candidateScores.set(questionIdx, current + (isPrimary ? 3 : 2));
+        let tokSet = matchedTokenSets.get(questionIdx);
+        if (!tokSet) {
+          tokSet = new Set();
+          matchedTokenSets.set(questionIdx, tokSet);
+        }
+        tokSet.add(token);
       });
     });
   });
@@ -294,14 +350,26 @@ export function findQuestionsForSyllabusTopic(
   candidateScores.forEach((baseScore, questionIdx) => {
     const q = index.questions[questionIdx];
     let score = baseScore;
+    let hasPhraseMatch = false;
 
     // High bonus for exact phrase match with any query title (higher for primary topic)
     for (let i = 0; i < normalizedQueries.length; i++) {
       const nq = normalizedQueries[i];
       if (nq.length >= 4 && q.rawNormalizedText.includes(nq)) {
         score += i === 0 ? 25 : 15;
+        hasPhraseMatch = true;
         break;
       }
+    }
+
+    // Require >=2 matched tokens when no exact phrase match on multi-token topics
+    const distinctTokensMatched = matchedTokenSets.get(questionIdx)?.size || 0;
+    if (
+      !hasPhraseMatch &&
+      maxQueryTokenCount >= 2 &&
+      distinctTokensMatched < 2
+    ) {
+      return;
     }
 
     // Bonus for matching subject
