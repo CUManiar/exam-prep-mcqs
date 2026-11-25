@@ -1,7 +1,7 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import { VocabCard } from "../../lib/vocabTypes";
+import { useState, useEffect, useMemo } from "react";
+import { ReviewRating, VocabCard } from "../../lib/vocabTypes";
 import {
   getStoredVocabCards,
   addVocabCard,
@@ -10,10 +10,16 @@ import {
   getTodayVocabCount,
   syncVocabCardsWithSupabase,
   getTodayString,
+  isCardDue,
+  getMemoryStrength,
+  recordCardReview,
+  updateVocabCardDetails,
 } from "../../lib/vocabStorage";
+import { speakVocabWord } from "../../lib/vocabSpeech";
 import { useApp } from "../../context/AppContext";
 import { VocabInputBar } from "../vocab/VocabInputBar";
 import { VocabFlashcard } from "../vocab/VocabFlashcard";
+import { VocabReviewDeck } from "../vocab/VocabReviewDeck";
 import { WordPracticeView } from "../vocab/WordPracticeView";
 import { VocabGameMode } from "../vocab/VocabGameMode";
 import {
@@ -28,13 +34,20 @@ import {
   Loader2,
   Search,
   X,
+  Brain,
+  Clock,
+  LayoutGrid,
+  List,
+  Volume2,
+  ArrowRight,
 } from "lucide-react";
 
 export function MiscHubView() {
   const { currentUser } = useApp();
-  const [activeTab, setActiveTab] = useState<"cards" | "practice" | "game">(
-    "cards",
-  );
+  const [activeTab, setActiveTab] = useState<
+    "review" | "cards" | "practice" | "game"
+  >("cards");
+  const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
   const [cards, setCards] = useState<VocabCard[]>(() =>
     getStoredVocabCards(currentUser?.id),
   );
@@ -42,7 +55,7 @@ export function MiscHubView() {
     getTodayVocabCount(currentUser?.id),
   );
   const [filter, setFilter] = useState<
-    "all" | "today" | "learning" | "mastered"
+    "all" | "due" | "today" | "learning" | "mastered"
   >("all");
   const [searchQuery, setSearchQuery] = useState<string>("");
   const [practiceWord, setPracticeWord] = useState<string | null>(null);
@@ -75,6 +88,13 @@ export function MiscHubView() {
     meaning: string;
     memoryHook: string;
     example: string;
+    partOfSpeech?: string;
+    phonetic?: string;
+    rootBreakdown?: string;
+    synonyms?: string[];
+    antonyms?: string[];
+    collocations?: string[];
+    nuanceTip?: string;
   }) => {
     const result = addVocabCard(newWordData, currentUser?.id);
     if (!result.ok && result.error) {
@@ -97,27 +117,57 @@ export function MiscHubView() {
     setTodayCount(getTodayVocabCount(currentUser?.id));
   };
 
+  const handleRecordReview = (id: string, rating: ReviewRating) => {
+    const updated = recordCardReview(id, rating, currentUser?.id);
+    setCards(updated);
+  };
+
+  const handleUpdateCard = (id: string, updates: Partial<VocabCard>) => {
+    const updated = updateVocabCardDetails(id, updates, currentUser?.id);
+    setCards(updated);
+  };
+
   const handlePracticeCard = (word: string) => {
     setPracticeWord(word);
     setActiveTab("practice");
   };
 
-  const todayStr = new Date().toISOString().split("T")[0];
+  const todayStr = getTodayString();
+
+  const stats = useMemo(() => {
+    const due = cards.filter((c) => isCardDue(c, todayStr)).length;
+    const mastered = cards.filter((c) => c.mastered).length;
+    const learning = cards.length - mastered;
+    const avgStrength =
+      cards.length > 0
+        ? Math.round(
+            cards.reduce((sum, c) => sum + getMemoryStrength(c), 0) /
+              cards.length,
+          )
+        : 0;
+    return { due, mastered, learning, avgStrength };
+  }, [cards, todayStr]);
 
   const filteredCards = cards.filter((card) => {
-    // 1. Status/Date filter
+    if (filter === "due" && !isCardDue(card, todayStr)) return false;
     if (filter === "today" && card.dateAdded !== todayStr) return false;
     if (filter === "learning" && card.mastered) return false;
     if (filter === "mastered" && !card.mastered) return false;
 
-    // 2. Search query filter across word, meaning, memoryHook, and example
     if (searchQuery.trim()) {
       const q = searchQuery.trim().toLowerCase();
       const matchWord = card.word?.toLowerCase().includes(q);
       const matchMeaning = card.meaning?.toLowerCase().includes(q);
       const matchHook = card.memoryHook?.toLowerCase().includes(q);
       const matchExample = card.example?.toLowerCase().includes(q);
-      if (!matchWord && !matchMeaning && !matchHook && !matchExample) {
+      const matchRoot = card.rootBreakdown?.toLowerCase().includes(q);
+      if (
+        !matchWord &&
+        !matchMeaning &&
+        !matchHook &&
+        !matchExample &&
+        !matchRoot
+      ) {
         return false;
       }
     }
@@ -127,15 +177,15 @@ export function MiscHubView() {
 
   return (
     <div className="max-w-6xl mx-auto px-3.5 sm:px-6 pt-3 sm:pt-6 pb-28 sm:pb-16 space-y-4 sm:space-y-6">
-      {/* Header with Mobile Responsive Layout */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-200 dark:border-slate-800 pb-4">
+      {/* Header with Responsive Tab Switcher */}
+      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3.5 border-b border-slate-200 dark:border-slate-800 pb-4">
         <div>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 flex-wrap">
             <span className="p-1.5 rounded-lg bg-indigo-50 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-400">
-              <Layers className="w-5 h-5" />
+              <Layers className="w-5 h-5" aria-hidden="true" />
             </span>
             <h1 className="text-lg sm:text-2xl font-semibold text-slate-900 dark:text-white">
-              Study Aids & Misc.
+              Vocabulary Studio
             </h1>
             {currentUser && (
               <span
@@ -157,101 +207,187 @@ export function MiscHubView() {
             )}
           </div>
           <p className="text-xs sm:text-sm text-slate-500 dark:text-slate-400 mt-1">
-            Build high-retention vocabulary at 4–5 words a day. Feed only the
-            word — AI creates memory hooks, flashcards & 2-min rapid recall
-            games.
+            Dual-coded memory hooks, root etymology, spaced repetition &amp;
+            active recall drills — built for long-term exam retention.
           </p>
         </div>
 
-        {/* Tab switchers */}
-        <div className="grid grid-cols-3 sm:flex sm:items-center bg-slate-100 dark:bg-slate-800/80 p-1 rounded-xl border border-slate-200/60 dark:border-slate-700/60 shrink-0 gap-1">
+        {/* 4-Mode Navigation */}
+        <nav
+          aria-label="Vocabulary modes"
+          className="grid grid-cols-2 sm:flex sm:items-center bg-slate-100 dark:bg-slate-800/80 p-1 rounded-xl border border-slate-200/60 dark:border-slate-700/60 shrink-0 gap-1"
+        >
           <button
             type="button"
             onClick={() => setActiveTab("cards")}
-            className={`flex items-center justify-center gap-1.5 min-h-[36px] py-1.5 px-3 rounded-lg text-xs font-medium transition-all touch-manipulation cursor-pointer ${
+            className={`flex items-center justify-center gap-1.5 min-h-[40px] sm:min-h-[36px] py-1.5 px-3 rounded-lg text-xs font-medium transition-all touch-manipulation cursor-pointer ${
               activeTab === "cards"
                 ? "bg-white dark:bg-slate-900 text-indigo-700 dark:text-indigo-300 shadow-2xs font-semibold"
                 : "text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200"
             }`}
           >
-            <Sparkles className="w-3.5 h-3.5" />
-            <span className="truncate">Cards ({cards.length})</span>
+            <Sparkles className="w-3.5 h-3.5" aria-hidden="true" />
+            <span className="truncate">Wordbook ({cards.length})</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setActiveTab("review")}
+            className={`flex items-center justify-center gap-1.5 min-h-[40px] sm:min-h-[36px] py-1.5 px-3 rounded-lg text-xs font-medium transition-all touch-manipulation cursor-pointer ${
+              activeTab === "review"
+                ? "bg-white dark:bg-slate-900 text-indigo-700 dark:text-indigo-300 shadow-2xs font-semibold"
+                : "text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200"
+            }`}
+          >
+            <Brain className="w-3.5 h-3.5" aria-hidden="true" />
+            <span className="truncate">
+              Review{stats.due > 0 ? ` (${stats.due})` : ""}
+            </span>
           </button>
 
           <button
             type="button"
             onClick={() => setActiveTab("practice")}
-            className={`flex items-center justify-center gap-1.5 min-h-[36px] py-1.5 px-3 rounded-lg text-xs font-medium transition-all touch-manipulation cursor-pointer ${
+            className={`flex items-center justify-center gap-1.5 min-h-[40px] sm:min-h-[36px] py-1.5 px-3 rounded-lg text-xs font-medium transition-all touch-manipulation cursor-pointer ${
               activeTab === "practice"
                 ? "bg-white dark:bg-slate-900 text-indigo-700 dark:text-indigo-300 shadow-2xs font-semibold"
                 : "text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200"
             }`}
           >
-            <BookOpen className="w-3.5 h-3.5" />
+            <BookOpen className="w-3.5 h-3.5" aria-hidden="true" />
             <span className="truncate">Practice</span>
           </button>
 
           <button
             type="button"
             onClick={() => setActiveTab("game")}
-            className={`flex items-center justify-center gap-1.5 min-h-[36px] py-1.5 px-3 rounded-lg text-xs font-medium transition-all touch-manipulation cursor-pointer ${
+            className={`flex items-center justify-center gap-1.5 min-h-[40px] sm:min-h-[36px] py-1.5 px-3 rounded-lg text-xs font-medium transition-all touch-manipulation cursor-pointer ${
               activeTab === "game"
                 ? "bg-amber-500 text-slate-950 font-semibold shadow-2xs"
                 : "text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200"
             }`}
           >
-            <Zap className="w-3.5 h-3.5" />
-            <span className="truncate">2-Min Game</span>
+            <Zap className="w-3.5 h-3.5" aria-hidden="true" />
+            <span className="truncate">2-Min Blitz</span>
           </button>
-        </div>
+        </nav>
       </div>
 
-      {/* TAB 1: VOCAB BUILDER & FLASHCARDS */}
+      {/* TAB 1: WORDBOOK & FLASHCARDS */}
       {activeTab === "cards" && (
         <div className="space-y-4 sm:space-y-5">
-          {/* Quick Input Bar with duplicate word prevention */}
+          {/* Quick Input Bar */}
           <VocabInputBar
             onWordAdded={handleWordAdded}
             todayCount={todayCount}
             existingWords={cards.map((c) => c.word)}
           />
 
-          {/* Search, Filter Chips, and Quick Game Icon */}
+          {/* Cognitive Retention & Focus Review CTA Strip */}
+          {cards.length > 0 && (
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 sm:gap-3">
+              <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-3 sm:p-3.5 flex items-center justify-between">
+                <div>
+                  <div className="text-[11px] text-slate-500 dark:text-slate-400">
+                    Due Today
+                  </div>
+                  <div className="text-lg sm:text-xl font-bold text-amber-600 dark:text-amber-400">
+                    {stats.due}
+                  </div>
+                </div>
+                <Clock
+                  className="w-5 h-5 text-amber-500/70"
+                  aria-hidden="true"
+                />
+              </div>
+
+              <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-3 sm:p-3.5 flex items-center justify-between">
+                <div>
+                  <div className="text-[11px] text-slate-500 dark:text-slate-400">
+                    Avg Retention
+                  </div>
+                  <div className="text-lg sm:text-xl font-bold text-indigo-600 dark:text-indigo-400">
+                    {stats.avgStrength}%
+                  </div>
+                </div>
+                <Brain
+                  className="w-5 h-5 text-indigo-500/70"
+                  aria-hidden="true"
+                />
+              </div>
+
+              <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-3 sm:p-3.5 flex items-center justify-between">
+                <div>
+                  <div className="text-[11px] text-slate-500 dark:text-slate-400">
+                    Mastered
+                  </div>
+                  <div className="text-lg sm:text-xl font-bold text-emerald-600 dark:text-emerald-400">
+                    {stats.mastered}
+                  </div>
+                </div>
+                <CheckCircle2
+                  className="w-5 h-5 text-emerald-500/70"
+                  aria-hidden="true"
+                />
+              </div>
+
+              <button
+                type="button"
+                onClick={() => setActiveTab("review")}
+                className="bg-indigo-600 hover:bg-indigo-700 active:scale-[0.99] text-white rounded-xl p-3 sm:p-3.5 flex items-center justify-between text-left transition-all shadow-xs cursor-pointer touch-manipulation"
+              >
+                <div>
+                  <div className="text-[11px] text-indigo-100 font-medium">
+                    Active Recall
+                  </div>
+                  <div className="text-xs sm:text-sm font-semibold mt-0.5">
+                    {stats.due > 0
+                      ? `Review ${stats.due} Due`
+                      : "Practice Deck"}
+                  </div>
+                </div>
+                <ArrowRight className="w-4 h-4 shrink-0" aria-hidden="true" />
+              </button>
+            </div>
+          )}
+
+          {/* Search, Filter Chips, and View Toggle */}
           {cards.length > 0 && (
             <div className="space-y-2.5 pt-1">
               <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-2.5">
-                {/* Search Bar in Word List */}
+                {/* Search Bar */}
                 <div className="relative flex-1 max-w-md">
                   <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400 pointer-events-none" />
                   <input
                     type="text"
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
-                    placeholder="Search words, meanings, or examples..."
-                    className="w-full pl-9 pr-8 py-2 text-xs rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-100 placeholder-slate-400 focus:outline-hidden focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500/20 transition-all shadow-2xs"
+                    placeholder="Search words, meanings, roots, or examples..."
+                    aria-label="Search vocabulary cards"
+                    className="w-full min-h-[40px] sm:min-h-[36px] pl-9 pr-8 py-2 text-sm sm:text-xs rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-100 placeholder-slate-400 focus:outline-hidden focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500/20 transition-all shadow-2xs"
                   />
                   {searchQuery && (
                     <button
                       type="button"
                       onClick={() => setSearchQuery("")}
-                      className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 p-0.5 rounded cursor-pointer"
-                      title="Clear search"
+                      className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 p-1 rounded cursor-pointer"
+                      aria-label="Clear search"
                     >
-                      <X className="w-3.5 h-3.5" />
+                      <X className="w-3.5 h-3.5" aria-hidden="true" />
                     </button>
                   )}
                 </div>
 
-                {/* Status Filter Chips + Blitz Game Icon */}
+                {/* Status Filter Chips + View Mode Toggle */}
                 <div className="flex items-center justify-between sm:justify-end gap-2 overflow-x-auto no-scrollbar">
                   <div className="flex items-center gap-1.5 shrink-0">
-                    <span className="text-[11px] font-medium text-slate-400 flex items-center gap-1 shrink-0 mr-0.5">
-                      <Filter className="w-3 h-3" /> Filter:
+                    <span className="text-[11px] font-medium text-slate-400 hidden md:flex items-center gap-1 shrink-0 mr-0.5">
+                      <Filter className="w-3 h-3" aria-hidden="true" /> Filter:
                     </span>
                     <button
                       type="button"
                       onClick={() => setFilter("all")}
-                      className={`text-xs px-2.5 py-1.5 rounded-lg whitespace-nowrap transition-colors touch-manipulation cursor-pointer ${
+                      className={`min-h-[36px] sm:min-h-[32px] text-xs px-2.5 py-1.5 rounded-lg whitespace-nowrap transition-colors touch-manipulation cursor-pointer ${
                         filter === "all"
                           ? "bg-slate-900 text-white dark:bg-white dark:text-slate-900 font-medium shadow-2xs"
                           : "bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 hover:bg-slate-200"
@@ -261,66 +397,85 @@ export function MiscHubView() {
                     </button>
                     <button
                       type="button"
+                      onClick={() => setFilter("due")}
+                      className={`min-h-[36px] sm:min-h-[32px] text-xs px-2.5 py-1.5 rounded-lg whitespace-nowrap transition-colors flex items-center gap-1 touch-manipulation cursor-pointer ${
+                        filter === "due"
+                          ? "bg-amber-500 text-slate-950 font-semibold shadow-2xs"
+                          : "bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 hover:bg-slate-200"
+                      }`}
+                    >
+                      <Clock className="w-3 h-3" aria-hidden="true" /> Due (
+                      {stats.due})
+                    </button>
+                    <button
+                      type="button"
                       onClick={() => setFilter("today")}
-                      className={`text-xs px-2.5 py-1.5 rounded-lg whitespace-nowrap transition-colors flex items-center gap-1 touch-manipulation cursor-pointer ${
+                      className={`min-h-[36px] sm:min-h-[32px] text-xs px-2.5 py-1.5 rounded-lg whitespace-nowrap transition-colors flex items-center gap-1 touch-manipulation cursor-pointer ${
                         filter === "today"
                           ? "bg-indigo-600 text-white font-medium shadow-2xs"
                           : "bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 hover:bg-slate-200"
                       }`}
                     >
-                      <Calendar className="w-3 h-3" /> Today ({todayCount})
+                      <Calendar className="w-3 h-3" aria-hidden="true" /> Today
+                      ({todayCount})
                     </button>
                     <button
                       type="button"
                       onClick={() => setFilter("learning")}
-                      className={`text-xs px-2.5 py-1.5 rounded-lg whitespace-nowrap transition-colors touch-manipulation cursor-pointer ${
+                      className={`min-h-[36px] sm:min-h-[32px] text-xs px-2.5 py-1.5 rounded-lg whitespace-nowrap transition-colors touch-manipulation cursor-pointer ${
                         filter === "learning"
                           ? "bg-indigo-600 text-white font-medium shadow-2xs"
                           : "bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 hover:bg-slate-200"
                       }`}
                     >
-                      Learning ({cards.filter((c) => !c.mastered).length})
+                      Learning ({stats.learning})
                     </button>
                     <button
                       type="button"
                       onClick={() => setFilter("mastered")}
-                      className={`text-xs px-2.5 py-1.5 rounded-lg whitespace-nowrap transition-colors flex items-center gap-1 touch-manipulation cursor-pointer ${
+                      className={`min-h-[36px] sm:min-h-[32px] text-xs px-2.5 py-1.5 rounded-lg whitespace-nowrap transition-colors flex items-center gap-1 touch-manipulation cursor-pointer ${
                         filter === "mastered"
                           ? "bg-emerald-600 text-white font-medium shadow-2xs"
                           : "bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 hover:bg-slate-200"
                       }`}
                     >
-                      <CheckCircle2 className="w-3 h-3" /> Mastered (
-                      {cards.filter((c) => c.mastered).length})
+                      <CheckCircle2 className="w-3 h-3" aria-hidden="true" />{" "}
+                      Mastered ({stats.mastered})
                     </button>
                   </div>
 
-                  {/* Square Game Icon with Tooltip on Hover */}
-                  {cards.length >= 2 && (
-                    <div className="relative group shrink-0">
-                      <button
-                        type="button"
-                        onClick={() => setActiveTab("game")}
-                        title="2-Minute Blitz Game: Rapid recall under a strict 120s timer"
-                        className="flex h-8 w-8 items-center justify-center rounded-xl bg-amber-500 hover:bg-amber-600 active:scale-95 text-slate-950 shadow-sm transition-all cursor-pointer"
-                        aria-label="2-Minute Blitz Game"
-                      >
-                        <Zap className="w-4 h-4 fill-slate-950" />
-                      </button>
-
-                      {/* Tooltip on Hover */}
-                      <div className="pointer-events-none absolute bottom-full right-0 mb-2 hidden sm:group-hover:flex flex-col items-end z-50">
-                        <div className="whitespace-nowrap rounded-lg bg-slate-900 dark:bg-slate-100 px-2.5 py-1.5 text-xs font-semibold text-white dark:text-slate-900 shadow-xl">
-                          ⚡ 2-Minute Blitz Game
-                        </div>
-                        <div className="h-1 w-2 mr-3 -mt-px border-4 border-transparent border-t-slate-900 dark:border-t-slate-100" />
-                      </div>
-                    </div>
-                  )}
+                  {/* Grid vs Compact List Toggle */}
+                  <div className="flex items-center bg-slate-100 dark:bg-slate-800 p-0.5 rounded-lg border border-slate-200/70 dark:border-slate-700/70 shrink-0">
+                    <button
+                      type="button"
+                      onClick={() => setViewMode("grid")}
+                      aria-label="Card grid view"
+                      aria-pressed={viewMode === "grid"}
+                      className={`min-h-[32px] min-w-[32px] inline-flex items-center justify-center rounded-md transition-colors cursor-pointer ${
+                        viewMode === "grid"
+                          ? "bg-white dark:bg-slate-900 text-indigo-600 dark:text-indigo-400 shadow-2xs"
+                          : "text-slate-500 hover:text-slate-700 dark:hover:text-slate-300"
+                      }`}
+                    >
+                      <LayoutGrid className="w-3.5 h-3.5" aria-hidden="true" />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setViewMode("list")}
+                      aria-label="Compact list view"
+                      aria-pressed={viewMode === "list"}
+                      className={`min-h-[32px] min-w-[32px] inline-flex items-center justify-center rounded-md transition-colors cursor-pointer ${
+                        viewMode === "list"
+                          ? "bg-white dark:bg-slate-900 text-indigo-600 dark:text-indigo-400 shadow-2xs"
+                          : "text-slate-500 hover:text-slate-700 dark:hover:text-slate-300"
+                      }`}
+                    >
+                      <List className="w-3.5 h-3.5" aria-hidden="true" />
+                    </button>
+                  </div>
                 </div>
               </div>
 
-              {/* Search active results summary chip */}
               {searchQuery.trim() && (
                 <div className="flex items-center justify-between text-xs text-slate-500 dark:text-slate-400 px-1">
                   <span>
@@ -343,19 +498,84 @@ export function MiscHubView() {
             </div>
           )}
 
-          {/* Cards Grid with improved dimensions & typography */}
+          {/* Cards Grid OR Compact List */}
           {filteredCards.length > 0 ? (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5 sm:gap-6">
-              {filteredCards.map((card) => (
-                <VocabFlashcard
-                  key={card.id}
-                  card={card}
-                  onToggleMastery={handleToggleMastery}
-                  onDelete={handleDelete}
-                  onPractice={handlePracticeCard}
-                />
-              ))}
-            </div>
+            viewMode === "grid" ? (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-5 items-start">
+                {filteredCards.map((card) => (
+                  <VocabFlashcard
+                    key={card.id}
+                    card={card}
+                    onToggleMastery={handleToggleMastery}
+                    onDelete={handleDelete}
+                    onPractice={handlePracticeCard}
+                    onUpdateCard={handleUpdateCard}
+                  />
+                ))}
+              </div>
+            ) : (
+              <ul className="divide-y divide-slate-200 dark:divide-slate-800 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl overflow-hidden shadow-2xs">
+                {filteredCards.map((card) => {
+                  const strength = getMemoryStrength(card);
+                  return (
+                    <li
+                      key={card.id}
+                      className="p-3.5 sm:p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 hover:bg-slate-50/70 dark:hover:bg-slate-800/40 transition-colors"
+                    >
+                      <div className="min-w-0 flex-1 space-y-1">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <span className="font-semibold text-sm sm:text-base text-slate-900 dark:text-white capitalize">
+                            {card.word}
+                          </span>
+                          {card.phonetic && (
+                            <span className="text-xs font-mono text-slate-400">
+                              {card.phonetic}
+                            </span>
+                          )}
+                          <span
+                            className={`text-[10px] px-2 py-0.5 rounded-full font-medium ${
+                              card.mastered
+                                ? "bg-emerald-50 text-emerald-700 dark:bg-emerald-950/50 dark:text-emerald-300"
+                                : "bg-indigo-50 text-indigo-700 dark:bg-indigo-950/50 dark:text-indigo-300"
+                            }`}
+                          >
+                            {card.mastered ? "Mastered" : `${strength}%`}
+                          </span>
+                        </div>
+                        <p className="text-xs sm:text-sm text-slate-600 dark:text-slate-300 leading-relaxed">
+                          {card.meaning}
+                        </p>
+                      </div>
+
+                      <div className="flex items-center gap-1.5 shrink-0">
+                        <button
+                          type="button"
+                          onClick={() => speakVocabWord(card.word)}
+                          aria-label={`Pronounce ${card.word}`}
+                          className="min-h-[38px] min-w-[38px] inline-flex items-center justify-center rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:text-indigo-600 cursor-pointer"
+                        >
+                          <Volume2 className="w-4 h-4" aria-hidden="true" />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handlePracticeCard(card.word)}
+                          className="min-h-[38px] px-3 py-1.5 rounded-lg bg-indigo-50 dark:bg-indigo-950/50 text-indigo-700 dark:text-indigo-300 text-xs font-medium hover:bg-indigo-100 cursor-pointer"
+                        >
+                          Practice
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleToggleMastery(card.id)}
+                          className="min-h-[38px] px-3 py-1.5 rounded-lg bg-emerald-50 dark:bg-emerald-950/50 text-emerald-700 dark:text-emerald-300 text-xs font-medium hover:bg-emerald-100 cursor-pointer"
+                        >
+                          {card.mastered ? "Learning" : "Master"}
+                        </button>
+                      </div>
+                    </li>
+                  );
+                })}
+              </ul>
+            )
           ) : (
             <div className="p-8 sm:p-12 text-center border border-dashed border-slate-200 dark:border-slate-800 rounded-2xl bg-white/50 dark:bg-slate-900/40">
               <Sparkles className="w-8 h-8 mx-auto text-indigo-400 dark:text-indigo-500 mb-2" />
@@ -387,7 +607,17 @@ export function MiscHubView() {
         </div>
       )}
 
-      {/* TAB 2: TWO-WAY WORD PRACTICE */}
+      {/* TAB 2: ACTIVE RECALL & SPACED REPETITION DECK */}
+      {activeTab === "review" && (
+        <VocabReviewDeck
+          cards={cards}
+          onRecordReview={handleRecordReview}
+          onPracticeWord={handlePracticeCard}
+          onExitToCards={() => setActiveTab("cards")}
+        />
+      )}
+
+      {/* TAB 3: TWO-WAY WORD PRACTICE */}
       {activeTab === "practice" && (
         <WordPracticeView
           cards={cards}
@@ -396,7 +626,7 @@ export function MiscHubView() {
         />
       )}
 
-      {/* TAB 3: 2-MINUTE BLITZ GAME MODE */}
+      {/* TAB 4: 2-MINUTE BLITZ GAME MODE */}
       {activeTab === "game" && (
         <VocabGameMode cards={cards} onExitGame={() => setActiveTab("cards")} />
       )}

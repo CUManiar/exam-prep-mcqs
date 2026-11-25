@@ -10,6 +10,13 @@ interface VocabInputBarProps {
     meaning: string;
     memoryHook: string;
     example: string;
+    partOfSpeech?: string;
+    phonetic?: string;
+    rootBreakdown?: string;
+    synonyms?: string[];
+    antonyms?: string[];
+    collocations?: string[];
+    nuanceTip?: string;
   }) => { card?: any; error?: string; ok?: boolean } | void;
   todayCount: number;
   existingWords?: string[];
@@ -79,6 +86,19 @@ export function VocabInputBar({
           json.data.memoryHook || "Recall context clues from your reading.",
         example:
           json.data.example || `The term ${cleanWord} was applied effectively.`,
+        partOfSpeech: json.data.partOfSpeech,
+        phonetic: json.data.phonetic,
+        rootBreakdown: json.data.rootBreakdown,
+        synonyms: Array.isArray(json.data.synonyms)
+          ? json.data.synonyms
+          : undefined,
+        antonyms: Array.isArray(json.data.antonyms)
+          ? json.data.antonyms
+          : undefined,
+        collocations: Array.isArray(json.data.collocations)
+          ? json.data.collocations
+          : undefined,
+        nuanceTip: json.data.nuanceTip,
       });
 
       if (resAdd && resAdd.error) {
