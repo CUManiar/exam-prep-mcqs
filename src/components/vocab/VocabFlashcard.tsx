@@ -144,8 +144,11 @@ export function VocabFlashcard({
         >
           {/* FRONT FACE */}
           <article
-            style={{ containerType: "inline-size", gridArea: "1 / 1" }}
-            className="backface-hidden rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-2xs group-hover:border-indigo-400/80 dark:group-hover:border-indigo-500/70 group-hover:shadow-lg group-hover:shadow-indigo-500/10 group-hover:-translate-y-0.5 focus-within:ring-2 focus-within:ring-indigo-500/40 transition-all duration-200 flex flex-col justify-between min-h-[280px]"
+            style={{ gridArea: "1 / 1" }}
+            aria-hidden={isFlipped}
+            className={`backface-hidden rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-2xs group-hover:border-indigo-400 dark:group-hover:border-indigo-500 group-hover:ring-2 group-hover:ring-indigo-500/20 group-hover:shadow-md focus-within:ring-2 focus-within:ring-indigo-500/40 transition-all duration-200 flex flex-col justify-between min-h-[280px] ${
+              isFlipped ? "pointer-events-none" : "z-10"
+            }`}
           >
             <header className="flex items-center justify-between gap-2 px-4 pt-4 pb-2.5 border-b border-slate-100 dark:border-slate-800/80">
               <div className="flex items-center gap-1.5 min-w-0 flex-wrap">
@@ -241,8 +244,11 @@ export function VocabFlashcard({
 
           {/* BACK FACE: 5-Second Contrast & Essay-Ready Snapshot */}
           <article
-            style={{ containerType: "inline-size", gridArea: "1 / 1" }}
-            className="backface-hidden rotate-y-180 rounded-2xl border border-indigo-200/90 dark:border-indigo-800/70 bg-gradient-to-br from-white via-indigo-50/30 to-slate-50 dark:from-slate-900 dark:via-indigo-950/20 dark:to-slate-950 shadow-sm group-hover:border-indigo-400 dark:group-hover:border-indigo-500 group-hover:shadow-lg group-hover:shadow-indigo-500/10 group-hover:-translate-y-0.5 focus-within:ring-2 focus-within:ring-indigo-500/40 transition-all duration-200 flex flex-col justify-between min-h-[280px]"
+            style={{ gridArea: "1 / 1" }}
+            aria-hidden={!isFlipped}
+            className={`backface-hidden rotate-y-180 rounded-2xl border border-indigo-200 dark:border-indigo-800 bg-slate-50 dark:bg-slate-900 shadow-sm group-hover:border-indigo-400 dark:group-hover:border-indigo-500 group-hover:ring-2 group-hover:ring-indigo-500/20 group-hover:shadow-md focus-within:ring-2 focus-within:ring-indigo-500/40 transition-all duration-200 flex flex-col justify-between min-h-[280px] ${
+              isFlipped ? "z-10" : "pointer-events-none"
+            }`}
           >
             <header className="flex items-center justify-between gap-2 px-4 pt-4 pb-2.5 border-b border-slate-100 dark:border-slate-800/80">
               <div className="min-w-0">
