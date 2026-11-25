@@ -288,7 +288,7 @@ export interface SyllabusTopicFilterOptions {
 export function findQuestionsForSyllabusTopic(
   topicQuery: string | string[],
   papers: QuestionPaper[],
-  maxLimit = 30,
+  maxLimit = 0,
   options?: SyllabusTopicFilterOptions,
 ): IndexedQuestionMatch[] {
   const rawQueries = Array.isArray(topicQuery) ? topicQuery : [topicQuery];
@@ -400,8 +400,8 @@ export function findQuestionsForSyllabusTopic(
     });
   });
 
-  // Sort by relevance score descending and truncate to maxLimit
+  // Sort by relevance score descending and optionally cap if maxLimit > 0
   results.sort((a, b) => b.relevanceScore - a.relevanceScore);
 
-  return results.slice(0, maxLimit);
+  return maxLimit > 0 ? results.slice(0, maxLimit) : results;
 }

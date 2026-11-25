@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo, useEffect } from "react";
+import { useState, useMemo, useEffect, useRef } from "react";
 import {
   X,
   BookOpen,
@@ -11,6 +11,8 @@ import {
   Play,
   RotateCcw,
   Layers,
+  ChevronLeft,
+  ChevronRight,
 } from "lucide-react";
 import { SyllabusItem, QuestionPaper, ParsedQuestion } from "../../lib/types";
 import { findQuestionsForSyllabusTopic } from "../../lib/syllabusQuestionIndex";
@@ -88,6 +90,13 @@ export function SyllabusMatchingQuestionsModal({
   const [revealedAnswers, setRevealedAnswers] = useState<Set<number>>(
     new Set(),
   );
+  const PAGE_SIZE = 50;
+  const [currentPage, setCurrentPage] = useState(1);
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [topic.id]);
 
   // Close modal when Escape key is pressed
   useEffect(() => {
@@ -175,7 +184,7 @@ export function SyllabusMatchingQuestionsModal({
     const raw = findQuestionsForSyllabusTopic(
       searchQueries,
       papers,
-      50,
+      0,
       topicFilterOptions,
     );
 
@@ -200,6 +209,22 @@ export function SyllabusMatchingQuestionsModal({
       return (b.relevanceScore || 0) - (a.relevanceScore || 0);
     });
   }, [topic.title, childTitles, papers, topicFilterOptions]);
+
+  const totalPages = Math.max(
+    1,
+    Math.ceil(matchingQuestions.length / PAGE_SIZE),
+  );
+  const safePage = Math.min(currentPage, totalPages);
+  const pageStart = (safePage - 1) * PAGE_SIZE;
+  const paginatedQuestions = useMemo(
+    () => matchingQuestions.slice(pageStart, pageStart + PAGE_SIZE),
+    [matchingQuestions, pageStart],
+  );
+
+  const handlePageChange = (nextPage: number) => {
+    setCurrentPage(nextPage);
+    scrollContainerRef.current?.scrollTo({ top: 0, behavior: "smooth" });
+  };
 
   const handleSelectOption = (index: number, optionKey: string) => {
     // Record selection and automatically reveal answer & solution
@@ -373,7 +398,10 @@ export function SyllabusMatchingQuestionsModal({
         </div>
 
         {/* Content Body */}
-        <div className="flex-1 overflow-y-auto p-3 sm:p-5 md:p-6 space-y-3 sm:space-y-4">
+        <div
+          ref={scrollContainerRef}
+          className="flex-1 overflow-y-auto p-3 sm:p-5 md:p-6 space-y-3 sm:space-y-4"
+        >
           {matchingQuestions.length === 0 ? (
             <div className="py-12 text-center space-y-2 border border-dashed border-slate-200 dark:border-slate-800 rounded-xl bg-slate-50/50 dark:bg-slate-900/30">
               <Layers className="h-8 w-8 text-slate-400 mx-auto" />
@@ -386,7 +414,8 @@ export function SyllabusMatchingQuestionsModal({
               </p>
             </div>
           ) : (
-            matchingQuestions.map((q, idx) => {
+            paginatedQuestions.map((q, localIdx) => {
+              const idx = pageStart + localIdx;
               const isAnswerRevealed = revealedAnswers.has(idx);
               const userSelected = selectedOptions[idx];
               const hasAttempted = Boolean(userSelected);
@@ -591,10 +620,38 @@ export function SyllabusMatchingQuestionsModal({
         </div>
 
         {/* Footer */}
-        <div className="p-2.5 sm:p-3.5 sm:px-6 border-t border-slate-100 dark:border-slate-800 bg-slate-50/90 dark:bg-slate-900/90 flex items-center justify-between text-xs text-slate-500 shrink-0 gap-2 sm:gap-3">
-          <span className="hidden md:inline">
-            Targeted practice powered by syllabus inverted indexing.
-          </span>
+        <div className="p-2.5 sm:p-3.5 sm:px-6 border-t border-slate-100 dark:border-slate-800 bg-slate-50/90 dark:bg-slate-900/90 flex flex-wrap items-center justify-between text-xs text-slate-500 shrink-0 gap-2 sm:gap-3">
+          {matchingQuestions.length > PAGE_SIZE ? (
+            <div className="flex items-center gap-1.5">
+              <button
+                type="button"
+                disabled={safePage <= 1}
+                onClick={() => handlePageChange(safePage - 1)}
+                className="inline-flex items-center gap-1 px-2 py-1 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 font-semibold disabled:opacity-40 cursor-pointer disabled:cursor-default"
+              >
+                <ChevronLeft className="h-3.5 w-3.5" />
+                <span>Prev</span>
+              </button>
+              <span className="font-mono text-[11px] font-semibold text-slate-600 dark:text-slate-300 px-1.5">
+                {pageStart + 1}–
+                {Math.min(pageStart + PAGE_SIZE, matchingQuestions.length)} of{" "}
+                {matchingQuestions.length}
+              </span>
+              <button
+                type="button"
+                disabled={safePage >= totalPages}
+                onClick={() => handlePageChange(safePage + 1)}
+                className="inline-flex items-center gap-1 px-2 py-1 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 font-semibold disabled:opacity-40 cursor-pointer disabled:cursor-default"
+              >
+                <span>Next</span>
+                <ChevronRight className="h-3.5 w-3.5" />
+              </button>
+            </div>
+          ) : (
+            <span className="hidden md:inline">
+              Targeted practice powered by syllabus inverted indexing.
+            </span>
+          )}
           <div className="flex items-center gap-2 w-full md:w-auto justify-between md:justify-end ml-auto">
             <button
               type="button"
