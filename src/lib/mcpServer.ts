@@ -1499,6 +1499,8 @@ export function createPortalMcpServer(
       },
     },
     async ({ subject, topic, stage, searchQuery, limit }) => {
+      const authError = scopeError(scope, MCP_READ_SCOPE);
+      if (authError) return authError;
       const questions = await queryQuestionBank({
         userId,
         subject,
