@@ -1122,15 +1122,23 @@ export async function saveUserVocabCards(
   const supabase = getAdminClient();
   if (supabase) {
     try {
-      await supabase
+      const { error } = await supabase
         .from("profiles")
         .update({
           vocab_cards: cards,
           updated_at: new Date().toISOString(),
         })
         .eq("id", userId);
+      if (error) {
+        console.warn(
+          "Failed updating vocab_cards in Supabase profiles:",
+          error,
+        );
+        return false;
+      }
     } catch (e) {
       console.warn("Failed updating vocab_cards in Supabase profiles:", e);
+      return false;
     }
   }
   return true;
