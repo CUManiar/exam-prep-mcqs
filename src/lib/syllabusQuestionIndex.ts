@@ -2,6 +2,7 @@ import { QuestionPaper, ParsedQuestion } from "./types";
 import {
   parseQuestionnaireMarkdown,
   cleanPreviousYears,
+  extractPyqYearsFromText,
 } from "./markdownPaperParser";
 import { inferPaperStream, PaperStream } from "./paperStream";
 
@@ -169,25 +170,9 @@ function getOrBuildInvertedIndex(papers: QuestionPaper[]): MemoryQuestionIndex {
       // 2. Explicit tag or inline UPSC / CSE / PYQ reference in text or explanation
       if (!resolvedPYQ) {
         const textToScan = `${qText} ${paper.explanations?.[q.questionNo] || q.explanation || ""}`;
-
-        // Matches [Year: 2017, 2021] or [PYQ: 2020]
-        const bracketTagMatch = textToScan.match(
-          /\[\s*(?:(?:UPSC\s+)?PYQ|Previously\s*Asked|Previous\s*Years?|Years?)\s*:\s*([^\]]+)\]/i,
-        );
-        if (bracketTagMatch && bracketTagMatch[1]) {
-          const cleaned = cleanPreviousYears(bracketTagMatch[1]);
-          if (cleaned) resolvedPYQ = cleaned;
-        }
-
-        // Matches (UPSC 2021), [PYQ 2020], PYQ 2019, <i>PYQ 2024</i>, UPSC CSE 2018
-        if (!resolvedPYQ) {
-          const inlinePYQMatch = textToScan.match(
-            /(?:\[|\(|\b)(?:UPSC(?:\s*CSE)?|CSE|PYQ)\s*[:\-–]?\s*((?:19[89]\d|20[0-2]\d)(?:\s*,\s*(?:19[89]\d|20[0-2]\d))*)/i,
-          );
-          if (inlinePYQMatch && inlinePYQMatch[1]) {
-            const cleaned = cleanPreviousYears(inlinePYQMatch[1]);
-            if (cleaned) resolvedPYQ = cleaned;
-          }
+        const extracted = extractPyqYearsFromText(textToScan);
+        if (extracted) {
+          resolvedPYQ = extracted;
         }
       }
 
@@ -198,9 +183,9 @@ function getOrBuildInvertedIndex(papers: QuestionPaper[]): MemoryQuestionIndex {
         if (yearNum >= 1979 && yearNum <= 2025 && pYear !== "2026") {
           const isPastOfficial =
             !paper.isCustom ||
-            /prelims|upsc|cse/i.test(paper.label || "") ||
-            /prelims|upsc|cse/i.test(paper.title || "") ||
-            /prelims/i.test(paper.id);
+            /prelims|upsc|cse|pyq/i.test(paper.label || "") ||
+            /prelims|upsc|cse|pyq/i.test(paper.title || "") ||
+            /prelims|pyq/i.test(paper.id);
           if (isPastOfficial) {
             resolvedPYQ = pYear;
           }

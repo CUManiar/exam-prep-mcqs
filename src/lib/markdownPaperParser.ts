@@ -111,18 +111,74 @@ export function cleanPreviousYears(val: string): string {
   const currentYear = new Date().getFullYear();
   // Real PYQs are strictly past UPSC exams (1979 to 2025; current/future test years like 2026 are mocks)
   const maxPYQYear = Math.min(currentYear, 2025);
-  const validYears = cleaned
-    .split(/[,;/]+/)
-    .map((y) => {
-      const match = y.trim().match(/\b(19[89]\d|20[0-2]\d)\b/);
-      return match ? match[1] : null;
-    })
-    .filter((y): y is string => {
-      if (!y) return false;
-      const num = parseInt(y, 10);
-      return num >= 1979 && num <= maxPYQYear;
-    });
+  const matches = cleaned.match(/\b(19[789]\d|20[0-2]\d)\b/g) || [];
+  const validYears = Array.from(
+    new Set(
+      matches.filter((y) => {
+        const num = parseInt(y, 10);
+        return num >= 1979 && num <= maxPYQYear;
+      }),
+    ),
+  );
   return validYears.join(", ");
+}
+
+/**
+ * Extracts UPSC/CSE/Prelims PYQ years from question text, tags, or explanations.
+ * Supports: [PYQ: 2020], [Year: 2017, 2021], (UPSC 2021), (UPSC CSE 2019),
+ * (2021 UPSC), Asked in 2020, or trailing (2021) / [2019].
+ */
+export function extractPyqYearsFromText(text: string): string {
+  if (!text) return "";
+
+  // 1. Explicit bracket tags: [Year: 2017, 2021], [PYQ: 2020], [Previously Asked: 2019]
+  const bracketTagMatch = text.match(
+    /\[\s*(?:(?:UPSC\s+)?PYQ|Previously\s*Asked|Previous\s*Years?|Years?|Repeated)\s*[:\-–]?\s*([^\]]+)\]/i,
+  );
+  if (bracketTagMatch?.[1]) {
+    const cleaned = cleanPreviousYears(bracketTagMatch[1]);
+    if (cleaned) return cleaned;
+  }
+
+  // 2. Explicit paren tags: (UPSC 2021), (UPSC CSE 2019, 2020), (PYQ: 2018), (CSE 2022)
+  const parenTagMatch = text.match(
+    /\(\s*(?:UPSC(?:\s*CSE)?|CSE|Prelims|PYQ|Previously\s*Asked|Asked\s*in)\s*[:\-–]?\s*([^)]+)\)/i,
+  );
+  if (parenTagMatch?.[1]) {
+    const cleaned = cleanPreviousYears(parenTagMatch[1]);
+    if (cleaned) return cleaned;
+  }
+
+  // 3. Inline keyword before years: UPSC CSE 2018, PYQ 2019, Asked in 2021
+  const inlineBeforeMatch = text.match(
+    /(?:\b(?:UPSC(?:\s*CSE)?|CSE|PYQ|Asked\s+in)\s*[:\-–]?\s*)((?:19[789]\d|20[0-2]\d)(?:\s*(?:,|\/|&|\band\b)\s*(?:19[789]\d|20[0-2]\d))*)/i,
+  );
+  if (inlineBeforeMatch?.[1]) {
+    const cleaned = cleanPreviousYears(inlineBeforeMatch[1]);
+    if (cleaned) return cleaned;
+  }
+
+  // 4. Year before keyword: 2021 UPSC, 2020 Prelims, 2019 CSE, 2018 PYQ
+  const inlineAfterMatch = text.match(
+    /((?:19[789]\d|20[0-2]\d)(?:\s*(?:,|\/|&|\band\b)\s*(?:19[789]\d|20[0-2]\d))*)\s*(?:UPSC(?:\s*CSE)?|CSE|Prelims|PYQ)\b/i,
+  );
+  if (inlineAfterMatch?.[1]) {
+    const cleaned = cleanPreviousYears(inlineAfterMatch[1]);
+    if (cleaned) return cleaned;
+  }
+
+  // 5. Trailing standalone parenthesized/bracketed year(s) at the end of the text: e.g. "...correct? (2021)" or "[2019, 2021]"
+  const trailingYearMatch = text
+    .trim()
+    .match(
+      /[\[(]\s*((?:19[789]\d|20[0-2]\d)(?:\s*(?:,|\/|&|\band\b)\s*(?:19[789]\d|20[0-2]\d))*)\s*[\])]\s*[.?!]?\s*$/,
+    );
+  if (trailingYearMatch?.[1]) {
+    const cleaned = cleanPreviousYears(trailingYearMatch[1]);
+    if (cleaned) return cleaned;
+  }
+
+  return "";
 }
 
 /**

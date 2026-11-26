@@ -7,7 +7,7 @@ import {
   getStandardTimeMinutes,
   isUserUploadedPaper,
 } from "./defaults";
-import { readJsonStore, writeJsonStore } from "./cloudStorage";
+import { readJsonStore, writeJsonStore, deleteFile } from "./cloudStorage";
 import { findQuestionsForSyllabusTopic } from "./syllabusQuestionIndex";
 
 let adminClient: SupabaseClient | null | undefined;
@@ -131,13 +131,7 @@ export async function getUserPapers(userId: string): Promise<QuestionPaper[]> {
   const visibleDefaults = onlyCustomPapers
     ? []
     : INITIAL_PAPERS.filter((paper) => !hiddenPaperIds.includes(paper.id));
-  return [...custom, ...visibleDefaults].map((paper) => {
-    const normalized = normalizePaper(paper);
-    if (normalized.markdownContent && !normalized.parsedQuestions) {
-      normalized.parsedQuestions = [];
-    }
-    return normalized;
-  });
+  return [...custom, ...visibleDefaults].map((paper) => normalizePaper(paper));
 }
 
 export async function getUserPaper(
@@ -145,7 +139,12 @@ export async function getUserPaper(
   paperId: string,
 ): Promise<QuestionPaper | null> {
   const papers = await getUserPapers(userId);
-  return papers.find((paper) => paper.id === paperId) || null;
+  const lower = paperId.trim().toLowerCase();
+  return (
+    papers.find(
+      (paper) => paper.id === paperId || paper.id.toLowerCase() === lower,
+    ) || null
+  );
 }
 
 export async function getPaperById(
@@ -312,28 +311,103 @@ export async function deleteMcpPaper(
   paperId: string,
 ): Promise<boolean> {
   const supabase = getAdminClient();
+  const cleanId = paperId.trim();
+  const lowerId = cleanId.toLowerCase();
+
   if (supabase) {
+    const candidateIds = Array.from(new Set([cleanId, lowerId]));
+    const { data: rows } = await supabase
+      .from("custom_papers")
+      .select("id, qp_url, ak_url, exs_url")
+      .eq("user_id", userId)
+      .in("id", candidateIds);
+
+    const matchedIds = new Set<string>(candidateIds);
+    if (rows && rows.length > 0) {
+      for (const row of rows) {
+        matchedIds.add(row.id);
+        if (row.qp_url && !String(row.qp_url).startsWith("local://")) {
+          await deleteFile(row.qp_url).catch(() => {});
+        }
+        if (row.ak_url && !String(row.ak_url).startsWith("local://")) {
+          await deleteFile(row.ak_url).catch(() => {});
+        }
+        if (row.exs_url && !String(row.exs_url).startsWith("local://")) {
+          await deleteFile(row.exs_url).catch(() => {});
+        }
+        const folder = `custom-papers/${userId}/${row.id}`;
+        const { data: files } = await supabase.storage
+          .from("papers")
+          .list(folder);
+        if (files && files.length > 0) {
+          await supabase.storage
+            .from("papers")
+            .remove(files.map((f) => `${folder}/${f.name}`))
+            .catch(() => {});
+        }
+      }
+    }
+
+    const idList = Array.from(matchedIds);
+    // Clean up question_bank entries if present (best-effort)
+    await supabase
+      .from("question_bank")
+      .delete()
+      .eq("user_id", userId)
+      .in("source_paper_id", idList);
+
     const { error } = await supabase
       .from("custom_papers")
       .delete()
-      .eq("id", paperId)
-      .eq("user_id", userId);
-    if (error) throw new Error("The paper could not be deleted.");
-  } else {
+      .eq("user_id", userId)
+      .in("id", idList);
+    if (error) {
+      throw new Error(`The paper could not be deleted: ${error.message}`);
+    }
+  }
+
+  // Always also remove from papers.json / Blob store so no stale entry remains
+  try {
     const stored = await readJsonStore<Record<string, QuestionPaper>>(
       "papers.json",
       {},
     );
-    if (stored[paperId] && stored[paperId].userId === userId) {
-      delete stored[paperId];
+    let changed = false;
+    for (const key of Object.keys(stored)) {
+      const entry = stored[key];
+      if (
+        entry &&
+        (!entry.userId || entry.userId === userId) &&
+        (key === cleanId ||
+          key.toLowerCase() === lowerId ||
+          entry.id?.toLowerCase() === lowerId)
+      ) {
+        if (entry.qpUrl && !entry.qpUrl.startsWith("local://")) {
+          await deleteFile(entry.qpUrl).catch(() => {});
+        }
+        if (entry.akUrl && !entry.akUrl.startsWith("local://")) {
+          await deleteFile(entry.akUrl).catch(() => {});
+        }
+        if (entry.exsUrl && !entry.exsUrl.startsWith("local://")) {
+          await deleteFile(entry.exsUrl).catch(() => {});
+        }
+        delete stored[key];
+        changed = true;
+      }
+    }
+    if (changed) {
       await writeJsonStore("papers.json", stored);
     }
+  } catch (err) {
+    console.warn("Notice: papers.json cleanup during MCP delete:", err);
   }
 
   // Also remove from hidden_paper_ids if it was archived
   const { hiddenPaperIds } = await getUserProfileData(userId);
-  if (hiddenPaperIds.includes(paperId)) {
-    const nextHidden = hiddenPaperIds.filter((id) => id !== paperId);
+  if (hiddenPaperIds.includes(cleanId) || hiddenPaperIds.includes(lowerId)) {
+    const nextHidden = hiddenPaperIds.filter(
+      (id) => id !== cleanId && id.toLowerCase() !== lowerId,
+    );
     if (supabase) {
       await supabase
         .from("profiles")
@@ -1006,12 +1080,12 @@ export async function getUserVocabCards(userId: string): Promise<VocabCard[]> {
   const supabase = getAdminClient();
   if (supabase) {
     try {
-      const { data } = await supabase
+      const { data, error } = await supabase
         .from("profiles")
         .select("vocab_cards")
         .eq("id", userId)
         .maybeSingle();
-      if (Array.isArray(data?.vocab_cards) && data.vocab_cards.length > 0) {
+      if (!error && Array.isArray(data?.vocab_cards)) {
         return data.vocab_cards;
       }
     } catch (e) {
@@ -1050,15 +1124,23 @@ export async function saveUserVocabCards(
   const supabase = getAdminClient();
   if (supabase) {
     try {
-      await supabase
+      const { error } = await supabase
         .from("profiles")
         .update({
           vocab_cards: cards,
           updated_at: new Date().toISOString(),
         })
         .eq("id", userId);
+      if (error) {
+        console.warn(
+          "Failed updating vocab_cards in Supabase profiles:",
+          error,
+        );
+        return false;
+      }
     } catch (e) {
       console.warn("Failed updating vocab_cards in Supabase profiles:", e);
+      return false;
     }
   }
   return true;
