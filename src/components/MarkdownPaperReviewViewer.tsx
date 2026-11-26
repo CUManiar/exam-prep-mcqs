@@ -23,6 +23,8 @@ import {
   Grid3X3,
   ChevronLeft,
   ChevronRight,
+  ChevronDown,
+  ChevronUp,
   Bookmark,
 } from "lucide-react";
 import { HtmlExplanation } from "./HtmlExplanation";
@@ -72,6 +74,9 @@ export function MarkdownPaperReviewViewer({
   const [showPaperDetails, setShowPaperDetails] = useState<boolean>(false);
   const [isPaletteOpen, setIsPaletteOpen] = useState<boolean>(false);
   const [openAiQuestionNo, setOpenAiQuestionNo] = useState<number | null>(null);
+  const [expandedEvalMap, setExpandedEvalMap] = useState<
+    Record<number, boolean>
+  >({});
 
   const touchStartRef = useRef<{ x: number; y: number; time: number } | null>(
     null,
@@ -749,6 +754,50 @@ export function MarkdownPaperReviewViewer({
                       </strong>
                       {ans.note.trim()}
                     </div>
+                  </div>
+                )}
+
+                {/* Collapsible Evaluator Feedback (Below Student Note, Markdown papers only) */}
+                {ans?.evaluationComment && ans.evaluationComment.trim() && (
+                  <div className="mt-3 rounded-xl bg-sky-50/70 border border-sky-200/90 shadow-2xs overflow-hidden">
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setExpandedEvalMap((prev) => ({
+                          ...prev,
+                          [q.questionNo]: !prev[q.questionNo],
+                        }))
+                      }
+                      aria-expanded={Boolean(expandedEvalMap[q.questionNo])}
+                      className="w-full flex items-center justify-between gap-2 px-3 py-2.5 text-left hover:bg-sky-100/50 transition-colors cursor-pointer"
+                    >
+                      <div className="flex items-center gap-2 min-w-0">
+                        <Sparkles className="h-3.5 w-3.5 text-sky-600 shrink-0" />
+                        <span className="text-[10px] font-bold uppercase tracking-wider text-sky-900">
+                          Evaluator Feedback
+                        </span>
+                        {ans.evaluationSource && (
+                          <span className="text-[9px] font-mono uppercase font-bold px-1.5 py-0.5 rounded bg-sky-100 text-sky-700 border border-sky-200">
+                            {ans.evaluationSource}
+                          </span>
+                        )}
+                      </div>
+                      <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-sky-700 shrink-0">
+                        <span>
+                          {expandedEvalMap[q.questionNo] ? "Hide" : "Show"}
+                        </span>
+                        {expandedEvalMap[q.questionNo] ? (
+                          <ChevronUp className="h-3.5 w-3.5" />
+                        ) : (
+                          <ChevronDown className="h-3.5 w-3.5" />
+                        )}
+                      </span>
+                    </button>
+                    {expandedEvalMap[q.questionNo] && (
+                      <div className="px-3 pb-3 pt-1 border-t border-sky-200/60 text-xs text-slate-800 leading-relaxed whitespace-pre-wrap">
+                        {ans.evaluationComment.trim()}
+                      </div>
+                    )}
                   </div>
                 )}
 
