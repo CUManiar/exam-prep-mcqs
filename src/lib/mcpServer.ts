@@ -208,11 +208,20 @@ function parseDurationToMinutes(raw: unknown): number | undefined {
   return undefined;
 }
 
-function generateFallbackVocabDetails(word: string): {
+interface EnrichedVocabDetails {
   meaning: string;
   memoryHook: string;
   example: string;
-} {
+  partOfSpeech?: string;
+  phonetic?: string;
+  rootBreakdown?: string;
+  synonyms?: string[];
+  antonyms?: string[];
+  collocations?: string[];
+  nuanceTip?: string;
+}
+
+function generateFallbackVocabDetails(word: string): EnrichedVocabDetails {
   const cleanWord = word.trim();
   return {
     meaning: `Key conceptual term referring to ${cleanWord.toLowerCase()} within administrative, constitutional, or socio-economic discourse.`,
@@ -221,25 +230,30 @@ function generateFallbackVocabDetails(word: string): {
   };
 }
 
-async function enrichVocabWordWithAi(word: string): Promise<{
-  meaning: string;
-  memoryHook: string;
-  example: string;
-}> {
+async function enrichVocabWordWithAi(
+  word: string,
+): Promise<EnrichedVocabDetails> {
   const cleanWord = word.trim();
   const apiKey = process.env.GEMINI_API_KEY?.trim();
   if (apiKey) {
     try {
-      const prompt = `You are an expert vocabulary coach for serious students preparing for competitive exams (UPSC/editorial).
+      const prompt = `You are an expert vocabulary coach and cognitive memory specialist for serious students preparing for competitive exams (UPSC CSE, GRE, editorial writing).
 The student provided the word: "${cleanWord}".
 Respond ONLY with a JSON object in this exact format:
 {
-  "meaning": "One clear, intuitive, and plain-language sentence explaining what the word means.",
-  "memoryHook": "A clever, relatable memory hook, association, or root clue that makes the word instant to remember.",
-  "example": "A realistic, contemporary sentence demonstrating how to naturally use this word in an editorial or essay."
+  "partOfSpeech": "noun | verb | adjective | adverb",
+  "phonetic": "Clear syllable pronunciation guide",
+  "meaning": "One crisp, intuitive, plain-language sentence explaining what the word means.",
+  "memoryHook": "A vivid visual scene, wordplay, or sound-alike story that locks the meaning in memory.",
+  "rootBreakdown": "Concise etymology or word parts",
+  "example": "A realistic, contemporary sentence demonstrating how to naturally use this word in an editorial or GS essay.",
+  "synonyms": ["synonym1", "synonym2", "synonym3"],
+  "antonyms": ["antonym1", "antonym2"],
+  "collocations": ["natural phrase 1", "natural phrase 2"],
+  "nuanceTip": "1 short sentence on register/tone or common usage pitfall."
 }`;
       const res = await fetch(
-        `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`,
+        `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`,
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -263,6 +277,33 @@ Respond ONLY with a JSON object in this exact format:
               meaning: String(parsed.meaning).trim(),
               memoryHook: String(parsed.memoryHook).trim(),
               example: String(parsed.example).trim(),
+              partOfSpeech: parsed.partOfSpeech
+                ? String(parsed.partOfSpeech).trim()
+                : undefined,
+              phonetic: parsed.phonetic
+                ? String(parsed.phonetic).trim()
+                : undefined,
+              rootBreakdown: parsed.rootBreakdown
+                ? String(parsed.rootBreakdown).trim()
+                : undefined,
+              synonyms: Array.isArray(parsed.synonyms)
+                ? parsed.synonyms
+                    .map((s: unknown) => String(s).trim())
+                    .filter(Boolean)
+                : undefined,
+              antonyms: Array.isArray(parsed.antonyms)
+                ? parsed.antonyms
+                    .map((s: unknown) => String(s).trim())
+                    .filter(Boolean)
+                : undefined,
+              collocations: Array.isArray(parsed.collocations)
+                ? parsed.collocations
+                    .map((s: unknown) => String(s).trim())
+                    .filter(Boolean)
+                : undefined,
+              nuanceTip: parsed.nuanceTip
+                ? String(parsed.nuanceTip).trim()
+                : undefined,
             };
           }
         }
@@ -2540,12 +2581,22 @@ export function createPortalMcpServer(
       let finalMeaning = meaning?.trim();
       let finalHook = memoryHook?.trim();
       let finalExample = example?.trim();
+      let enrichedExtras: Partial<VocabCard> = {};
 
       if (!finalMeaning || !finalHook || !finalExample) {
         const generated = await enrichVocabWordWithAi(cleanWord);
         if (!finalMeaning) finalMeaning = generated.meaning;
         if (!finalHook) finalHook = generated.memoryHook;
         if (!finalExample) finalExample = generated.example;
+        enrichedExtras = {
+          partOfSpeech: generated.partOfSpeech,
+          phonetic: generated.phonetic,
+          rootBreakdown: generated.rootBreakdown,
+          synonyms: generated.synonyms,
+          antonyms: generated.antonyms,
+          collocations: generated.collocations,
+          nuanceTip: generated.nuanceTip,
+        };
       }
 
       const cards = await getUserVocabCards(userId);
@@ -2567,6 +2618,7 @@ export function createPortalMcpServer(
         meaning: finalMeaning,
         memoryHook: finalHook,
         example: finalExample,
+        ...enrichedExtras,
         dateAdded: todayStr,
         mastered: Boolean(mastered),
         createdAt: nowIso,
