@@ -269,7 +269,7 @@ export function LongitudinalTrendChart({
     <div className="bi-card rounded-2xl p-4 sm:p-5 border border-slate-200/90 shadow-2xs space-y-4">
       {/* Collapsible Header Bar */}
       <div
-        className={`flex flex-col sm:flex-row sm:items-center justify-between gap-3 ${
+        className={`space-y-3 ${
           isExpanded ? "pb-3 border-b border-slate-100" : ""
         }`}
       >
@@ -277,56 +277,59 @@ export function LongitudinalTrendChart({
           type="button"
           onClick={() => setIsExpanded((prev) => !prev)}
           aria-expanded={isExpanded}
-          className="flex items-center justify-between sm:justify-start gap-2.5 text-left cursor-pointer group flex-1 min-w-0"
+          className="w-full flex items-center justify-between gap-2.5 text-left cursor-pointer group min-h-[40px]"
         >
-          <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-indigo-50 border border-indigo-200/60 text-indigo-600 shrink-0">
-            <TrendingUp className="h-3.5 w-3.5" />
-          </span>
-          <div className="space-y-0.5 min-w-0">
-            <div className="flex items-center gap-2 flex-wrap">
-              <h3 className="text-xs sm:text-sm font-bold text-slate-900 tracking-tight group-hover:text-indigo-700 transition-colors">
-                Longitudinal Performance &amp; Direction
-              </h3>
-              {stats && activeDelta !== null && (
-                <span
-                  className={`inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full ${
-                    activeDelta > 0
-                      ? "bg-emerald-50 text-emerald-700 border border-emerald-200"
-                      : activeDelta < 0
-                        ? "bg-rose-50 text-rose-700 border border-rose-200"
-                        : "bg-slate-100 text-slate-700 border border-slate-200"
-                  }`}
-                >
-                  {activeDelta > 0 ? (
-                    <TrendingUp className="h-2.5 w-2.5" />
-                  ) : activeDelta < 0 ? (
-                    <TrendingDown className="h-2.5 w-2.5" />
-                  ) : (
-                    <Minus className="h-2.5 w-2.5" />
-                  )}
-                  {activeDelta > 0 ? `+${activeDelta}` : activeDelta}
-                  {activeDeltaSuffix}
-                </span>
-              )}
-              {!isExpanded && stats && (
-                <span className="hidden md:inline-flex items-center text-[10px] font-mono font-semibold text-slate-500 bg-slate-100 px-2 py-0.5 rounded-full">
-                  Recent 5 Avg:{" "}
-                  {metric === "score"
-                    ? `${stats.recentAvgScore} pts`
-                    : metric === "accuracy"
-                      ? `${stats.recentAvgAcc}%`
-                      : `${stats.recentAvgPct}%`}
-                </span>
-              )}
+          <div className="flex items-center gap-2.5 min-w-0 flex-1">
+            <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-indigo-50 border border-indigo-200/60 text-indigo-600 shrink-0">
+              <TrendingUp className="h-3.5 w-3.5" />
+            </span>
+            <div className="space-y-0.5 min-w-0 flex-1">
+              <div className="flex items-center gap-2 flex-wrap">
+                <h3 className="text-xs sm:text-sm font-bold text-slate-900 tracking-tight group-hover:text-indigo-700 transition-colors">
+                  Longitudinal Performance &amp; Direction
+                </h3>
+                {stats && activeDelta !== null && (
+                  <span
+                    className={`inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full ${
+                      activeDelta > 0
+                        ? "bg-emerald-50 text-emerald-700 border border-emerald-200"
+                        : activeDelta < 0
+                          ? "bg-rose-50 text-rose-700 border border-rose-200"
+                          : "bg-slate-100 text-slate-700 border border-slate-200"
+                    }`}
+                  >
+                    {activeDelta > 0 ? (
+                      <TrendingUp className="h-2.5 w-2.5" />
+                    ) : activeDelta < 0 ? (
+                      <TrendingDown className="h-2.5 w-2.5" />
+                    ) : (
+                      <Minus className="h-2.5 w-2.5" />
+                    )}
+                    {activeDelta > 0 ? `+${activeDelta}` : activeDelta}
+                    {activeDeltaSuffix}
+                  </span>
+                )}
+                {!isExpanded && stats && (
+                  <span className="hidden md:inline-flex items-center text-[10px] font-mono font-semibold text-slate-500 bg-slate-100 px-2 py-0.5 rounded-full">
+                    Recent 5 Avg:{" "}
+                    {metric === "score"
+                      ? `${stats.recentAvgScore} pts`
+                      : metric === "accuracy"
+                        ? `${stats.recentAvgAcc}%`
+                        : `${stats.recentAvgPct}%`}
+                  </span>
+                )}
+              </div>
+              <p className="text-[11px] text-slate-500">
+                {isExpanded
+                  ? `Showing ${displayedAttempts.length} of ${chronologicalAttempts.length} completed exam mocks`
+                  : `Tap to expand trajectory chart & execution breakdown (${chronologicalAttempts.length} mocks)`}
+              </p>
             </div>
-            <p className="text-[11px] text-slate-500">
-              {isExpanded
-                ? `Showing ${displayedAttempts.length} of ${chronologicalAttempts.length} completed exam mocks`
-                : `Click to expand trajectory chart & execution breakdown (${chronologicalAttempts.length} mocks)`}
-            </p>
           </div>
-          <span className="inline-flex items-center gap-1 rounded-lg border border-slate-200 bg-slate-50 px-2 py-1 text-[11px] font-semibold text-slate-600 group-hover:border-indigo-200 group-hover:text-indigo-700 shrink-0 sm:ml-auto">
-            <span>{isExpanded ? "Collapse" : "Expand"}</span>
+
+          <span className="inline-flex items-center gap-1 rounded-xl border border-slate-200 bg-slate-50 px-2.5 py-1.5 text-[11px] font-semibold text-slate-700 group-hover:border-indigo-200 group-hover:bg-indigo-50 group-hover:text-indigo-700 shrink-0 transition-colors">
+            <span>{isExpanded ? "Close" : "Expand"}</span>
             {isExpanded ? (
               <ChevronUp className="h-3.5 w-3.5" />
             ) : (
@@ -336,7 +339,7 @@ export function LongitudinalTrendChart({
         </button>
 
         {isExpanded && (
-          <div className="flex items-center gap-2 flex-wrap sm:flex-nowrap">
+          <div className="flex items-center gap-2 flex-wrap pt-1">
             {/* Horizon Selector Toggle */}
             <div className="inline-flex rounded-xl bg-slate-100 p-0.5 text-xs font-semibold text-slate-600">
               <button
@@ -701,6 +704,18 @@ export function LongitudinalTrendChart({
             attempts={displayedAttempts}
             papers={papers}
           />
+
+          {/* Mobile-friendly bottom Close control */}
+          <div className="pt-2 border-t border-slate-100 flex justify-center sm:justify-end">
+            <button
+              type="button"
+              onClick={() => setIsExpanded(false)}
+              className="w-full sm:w-auto inline-flex items-center justify-center gap-1.5 rounded-xl border border-slate-200 bg-slate-50 hover:bg-slate-100 px-4 py-2 text-xs font-semibold text-slate-700 transition-colors cursor-pointer"
+            >
+              <ChevronUp className="h-3.5 w-3.5" />
+              <span>Close Trajectory &amp; Breakdown</span>
+            </button>
+          </div>
         </>
       )}
     </div>
