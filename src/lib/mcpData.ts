@@ -131,13 +131,7 @@ export async function getUserPapers(userId: string): Promise<QuestionPaper[]> {
   const visibleDefaults = onlyCustomPapers
     ? []
     : INITIAL_PAPERS.filter((paper) => !hiddenPaperIds.includes(paper.id));
-  return [...custom, ...visibleDefaults].map((paper) => {
-    const normalized = normalizePaper(paper);
-    if (normalized.markdownContent && !normalized.parsedQuestions) {
-      normalized.parsedQuestions = [];
-    }
-    return normalized;
-  });
+  return [...custom, ...visibleDefaults].map((paper) => normalizePaper(paper));
 }
 
 export async function getUserPaper(
