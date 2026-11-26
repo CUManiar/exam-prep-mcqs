@@ -600,134 +600,139 @@ export function QuestionPalette({
               </div>
             ))}
 
-          {/* Student Scratchpad Note */}
-          {expandedQuestion.note && expandedQuestion.note.trim() ? (
-            <div className="rounded-xl border border-amber-300 bg-amber-50/80 p-3 shadow-2xs space-y-1 overflow-hidden">
-              <div className="flex items-center justify-between text-[10px] font-bold uppercase tracking-wider text-amber-900">
-                <span className="flex items-center gap-1.5">
-                  <FileText className="h-3.5 w-3.5 text-amber-700 shrink-0" />
-                  Student Note
-                </span>
-                {onSaveQuestionNote && (
+          {/* Student Scratchpad Note & Evaluator Feedback: Shown only for PDF papers; in Markdown papers, both are displayed in the main review center */}
+          {!isMarkdownPaper && (
+            <>
+              {/* Student Scratchpad Note */}
+              {expandedQuestion.note && expandedQuestion.note.trim() ? (
+                <div className="rounded-xl border border-amber-300 bg-amber-50/80 p-3 shadow-2xs space-y-1 overflow-hidden">
+                  <div className="flex items-center justify-between text-[10px] font-bold uppercase tracking-wider text-amber-900">
+                    <span className="flex items-center gap-1.5">
+                      <FileText className="h-3.5 w-3.5 text-amber-700 shrink-0" />
+                      Student Note
+                    </span>
+                    {onSaveQuestionNote && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setEditingQNo(expandedQuestion.questionNo);
+                          setNoteDraft(expandedQuestion.note || "");
+                        }}
+                        className="text-[10px] font-semibold text-amber-900 bg-amber-100 hover:bg-amber-200 px-2 py-0.5 rounded cursor-pointer transition-colors"
+                      >
+                        Edit
+                      </button>
+                    )}
+                  </div>
+                  {editingQNo === expandedQuestion.questionNo ? (
+                    <div className="space-y-1.5 pt-1">
+                      <textarea
+                        value={noteDraft}
+                        onChange={(e) => setNoteDraft(e.target.value)}
+                        rows={2}
+                        className="w-full rounded-lg border border-amber-300 bg-white p-2 text-xs text-slate-900 focus:outline-none focus:ring-2 focus:ring-amber-200"
+                      />
+                      <div className="flex justify-end gap-1.5">
+                        <button
+                          type="button"
+                          onClick={() => setEditingQNo(null)}
+                          className="px-2 py-0.5 text-xs text-slate-600 hover:bg-slate-100 rounded cursor-pointer"
+                        >
+                          Cancel
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            onSaveQuestionNote?.(
+                              expandedQuestion.questionNo,
+                              noteDraft,
+                            );
+                            setEditingQNo(null);
+                          }}
+                          className="px-2.5 py-0.5 text-xs font-bold text-white bg-amber-600 hover:bg-amber-700 rounded shadow-2xs cursor-pointer"
+                        >
+                          Save
+                        </button>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="text-xs font-mono text-slate-900 leading-relaxed whitespace-pre-wrap break-words">
+                      {expandedQuestion.note}
+                    </div>
+                  )}
+                </div>
+              ) : onSaveQuestionNote ? (
+                editingQNo === expandedQuestion.questionNo ? (
+                  <div className="rounded-xl border border-amber-300 bg-amber-50/80 p-3 space-y-1.5 shadow-2xs">
+                    <textarea
+                      value={noteDraft}
+                      onChange={(e) => setNoteDraft(e.target.value)}
+                      placeholder="Add formula, elimination logic or mistake note..."
+                      rows={2}
+                      className="w-full rounded-lg border border-amber-300 bg-white p-2 text-xs text-slate-900 focus:outline-none focus:ring-2 focus:ring-amber-200"
+                    />
+                    <div className="flex justify-end gap-1.5">
+                      <button
+                        type="button"
+                        onClick={() => setEditingQNo(null)}
+                        className="px-2 py-0.5 text-xs text-slate-600 hover:bg-slate-100 rounded cursor-pointer"
+                      >
+                        Cancel
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          onSaveQuestionNote?.(
+                            expandedQuestion.questionNo,
+                            noteDraft,
+                          );
+                          setEditingQNo(null);
+                        }}
+                        className="px-2.5 py-0.5 text-xs font-bold text-white bg-amber-600 hover:bg-amber-700 rounded shadow-2xs cursor-pointer"
+                      >
+                        Save Note
+                      </button>
+                    </div>
+                  </div>
+                ) : (
                   <button
                     type="button"
                     onClick={() => {
                       setEditingQNo(expandedQuestion.questionNo);
-                      setNoteDraft(expandedQuestion.note || "");
+                      setNoteDraft("");
                     }}
-                    className="text-[10px] font-semibold text-amber-900 bg-amber-100 hover:bg-amber-200 px-2 py-0.5 rounded cursor-pointer transition-colors"
+                    className="inline-flex items-center gap-1 text-[11px] text-slate-500 hover:text-amber-800 transition-colors font-medium cursor-pointer"
                   >
-                    Edit
+                    <FileText className="h-3 w-3 text-slate-400" />
+                    <span>+ Add note for Q{expandedQuestion.questionNo}</span>
                   </button>
-                )}
-              </div>
-              {editingQNo === expandedQuestion.questionNo ? (
-                <div className="space-y-1.5 pt-1">
-                  <textarea
-                    value={noteDraft}
-                    onChange={(e) => setNoteDraft(e.target.value)}
-                    rows={2}
-                    className="w-full rounded-lg border border-amber-300 bg-white p-2 text-xs text-slate-900 focus:outline-none focus:ring-2 focus:ring-amber-200"
-                  />
-                  <div className="flex justify-end gap-1.5">
-                    <button
-                      type="button"
-                      onClick={() => setEditingQNo(null)}
-                      className="px-2 py-0.5 text-xs text-slate-600 hover:bg-slate-100 rounded cursor-pointer"
-                    >
-                      Cancel
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        onSaveQuestionNote?.(
-                          expandedQuestion.questionNo,
-                          noteDraft,
-                        );
-                        setEditingQNo(null);
-                      }}
-                      className="px-2.5 py-0.5 text-xs font-bold text-white bg-amber-600 hover:bg-amber-700 rounded shadow-2xs cursor-pointer"
-                    >
-                      Save
-                    </button>
-                  </div>
-                </div>
-              ) : (
-                <div className="text-xs font-mono text-slate-900 leading-relaxed whitespace-pre-wrap break-words">
-                  {expandedQuestion.note}
-                </div>
-              )}
-            </div>
-          ) : onSaveQuestionNote ? (
-            editingQNo === expandedQuestion.questionNo ? (
-              <div className="rounded-xl border border-amber-300 bg-amber-50/80 p-3 space-y-1.5 shadow-2xs">
-                <textarea
-                  value={noteDraft}
-                  onChange={(e) => setNoteDraft(e.target.value)}
-                  placeholder="Add formula, elimination logic or mistake note..."
-                  rows={2}
-                  className="w-full rounded-lg border border-amber-300 bg-white p-2 text-xs text-slate-900 focus:outline-none focus:ring-2 focus:ring-amber-200"
-                />
-                <div className="flex justify-end gap-1.5">
-                  <button
-                    type="button"
-                    onClick={() => setEditingQNo(null)}
-                    className="px-2 py-0.5 text-xs text-slate-600 hover:bg-slate-100 rounded cursor-pointer"
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      onSaveQuestionNote?.(
-                        expandedQuestion.questionNo,
-                        noteDraft,
-                      );
-                      setEditingQNo(null);
-                    }}
-                    className="px-2.5 py-0.5 text-xs font-bold text-white bg-amber-600 hover:bg-amber-700 rounded shadow-2xs cursor-pointer"
-                  >
-                    Save Note
-                  </button>
-                </div>
-              </div>
-            ) : (
-              <button
-                type="button"
-                onClick={() => {
-                  setEditingQNo(expandedQuestion.questionNo);
-                  setNoteDraft("");
-                }}
-                className="inline-flex items-center gap-1 text-[11px] text-slate-500 hover:text-amber-800 transition-colors font-medium cursor-pointer"
-              >
-                <FileText className="h-3 w-3 text-slate-400" />
-                <span>+ Add note for Q{expandedQuestion.questionNo}</span>
-              </button>
-            )
-          ) : null}
+                )
+              ) : null}
 
-          {/* Evaluator / AI Attempt Feedback */}
-          {expandedQuestion.evaluationComment &&
-            expandedQuestion.evaluationComment.trim() && (
-              <div className="rounded-xl border border-indigo-200 bg-indigo-50/80 p-2.5 shadow-2xs space-y-1">
-                <div className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wider text-indigo-950">
-                  <Sparkles className="h-3 w-3 text-indigo-600 shrink-0" />
-                  <span>Evaluator Feedback</span>
-                  {expandedQuestion.evaluationSource && (
-                    <span className="text-[8px] uppercase px-1 py-0.2 rounded font-mono font-semibold bg-indigo-100 text-indigo-700">
-                      {expandedQuestion.evaluationSource === "mcp"
-                        ? "MCP"
-                        : expandedQuestion.evaluationSource === "ai"
-                          ? "AI"
-                          : "Examiner"}
-                    </span>
-                  )}
-                </div>
-                <p className="text-xs text-slate-800 leading-relaxed whitespace-pre-wrap">
-                  {expandedQuestion.evaluationComment}
-                </p>
-              </div>
-            )}
+              {/* Evaluator / AI Attempt Feedback */}
+              {expandedQuestion.evaluationComment &&
+                expandedQuestion.evaluationComment.trim() && (
+                  <div className="rounded-xl border border-indigo-200 bg-indigo-50/80 p-2.5 shadow-2xs space-y-1">
+                    <div className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wider text-indigo-950">
+                      <Sparkles className="h-3 w-3 text-indigo-600 shrink-0" />
+                      <span>Evaluator Feedback</span>
+                      {expandedQuestion.evaluationSource && (
+                        <span className="text-[8px] uppercase px-1 py-0.2 rounded font-mono font-semibold bg-indigo-100 text-indigo-700">
+                          {expandedQuestion.evaluationSource === "mcp"
+                            ? "MCP"
+                            : expandedQuestion.evaluationSource === "ai"
+                              ? "AI"
+                              : "Examiner"}
+                        </span>
+                      )}
+                    </div>
+                    <p className="text-xs text-slate-800 leading-relaxed whitespace-pre-wrap">
+                      {expandedQuestion.evaluationComment}
+                    </p>
+                  </div>
+                )}
+            </>
+          )}
 
           {/* Card Navigation Footer */}
           <div className="pt-2 border-t border-slate-200 flex items-center justify-between gap-2 flex-wrap">
