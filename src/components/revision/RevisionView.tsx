@@ -55,7 +55,10 @@ import { OutputFormatSelector } from "./OutputFormatSelector";
 import { MistakeDossierCard } from "./MistakeDossierCard";
 import { extractMistakeDiagnostics } from "../../lib/revision/mistakeProfiler";
 import { FirstPrinciplesGuideCard } from "./FirstPrinciplesGuideCard";
-import { getPaperDisplayTitle } from "../../lib/defaults";
+import {
+  getPaperDisplayTitle,
+  isOfficialMockAttempt,
+} from "../../lib/defaults";
 import { NotesExportModal } from "./NotesExportModal";
 
 export interface StoredSession {
@@ -565,6 +568,87 @@ export function RevisionView() {
     }
   };
 
+  // Dynamic starter cards: top 5 completed mocks & high-yield mistake clusters across varied subjects
+  const dynamicStarterCards = useMemo(() => {
+    const cards: {
+      label: string;
+      badge: string;
+      prompt: string;
+      icon: string;
+      topic?: string;
+    }[] = [];
+    const seenSubjects = new Set<string>();
+    const paperMap = new Map(papers.map((p) => [p.id, p]));
+
+    const officialMocks = [...attempts]
+      .filter((a) => isOfficialMockAttempt(a, paperMap.get(a.paperId)))
+      .sort(
+        (a, b) =>
+          new Date(b.finishedAt || b.startedAt).getTime() -
+          new Date(a.finishedAt || a.startedAt).getTime(),
+      );
+
+    // 1. High-yield mistake clusters across distinct subjects
+    const diagnostics = extractMistakeDiagnostics(officialMocks, papers);
+    for (const cluster of diagnostics.clusters) {
+      if (cards.length >= 2) break;
+      const subjKey = (cluster.subject || cluster.conceptTitle).toLowerCase();
+      if (seenSubjects.has(subjKey) && diagnostics.clusters.length > 2) {
+        continue;
+      }
+      seenSubjects.add(subjKey);
+      const sample = cluster.sampleQuestions[0];
+      cards.push({
+        label: `${cluster.conceptTitle} (${cluster.mistakeCount} missed)`,
+        badge: cluster.subject || "Weak Spot",
+        icon: "🎯",
+        topic: cluster.conceptTitle,
+        prompt: sample
+          ? `Analyze my ${cluster.mistakeCount} mistakes in "${cluster.conceptTitle}" (e.g. "${sample.paperTitle}" Q#${sample.questionNo}). Explain the core concepts, elimination traps, and give 2 targeted practice questions.`
+          : `Drill high-yield UPSC concepts and elimination traps for "${cluster.conceptTitle}".`,
+      });
+    }
+
+    // 2. Last top 5 completed tests across varied subjects
+    for (const att of officialMocks.slice(0, 8)) {
+      if (cards.length >= 4) break;
+      const paper = paperMap.get(att.paperId);
+      const title = paper ? getPaperDisplayTitle(paper) : att.paperLabel;
+      const subj = (paper?.subject || att.category || "GS").trim();
+      const subjKey = subj.toLowerCase();
+      if (seenSubjects.has(subjKey) && officialMocks.length > 3) {
+        continue;
+      }
+      seenSubjects.add(subjKey);
+      cards.push({
+        label: title,
+        badge: `${subj} · ${Math.round(att.accuracyPct || 0)}% acc`,
+        icon: "📝",
+        topic: title,
+        prompt: `Review my completed test "${title}" (Score: ${att.score}/${att.maxScore}, Accuracy: ${Math.round(att.accuracyPct || 0)}%). Focus on high-yield conceptual gaps and elimination rules from this paper.`,
+      });
+    }
+
+    // 3. Fallback to stage-matched starters only if fewer than 4 dynamic cards exist
+    if (cards.length < 4) {
+      for (const sp of STARTER_PROMPTS.filter(
+        (s) => s.stage === stage || s.stage === "prelims",
+      )) {
+        if (cards.length >= 4) break;
+        if (!cards.some((c) => c.label === sp.label)) {
+          cards.push({
+            label: sp.label,
+            badge: PREP_PERSONAS[sp.stage]?.badge || "Prep",
+            icon: sp.icon,
+            prompt: sp.prompt,
+          });
+        }
+      }
+    }
+
+    return cards;
+  }, [attempts, papers, stage]);
+
   // Filtered sessions
   const filteredSessions = useMemo(() => {
     if (!searchQuery.trim()) return sessions;
@@ -873,30 +957,34 @@ export function RevisionView() {
                 </p>
               </div>
 
-              {/* Starter Prompts Grid */}
+              {/* Dynamic Multi-Subject Starter Cards */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 text-left pt-2">
-                {STARTER_PROMPTS.filter(
-                  (sp) => sp.stage === stage || sp.stage === "prelims",
-                )
-                  .slice(0, 4)
-                  .map((sp, idx) => (
-                    <button
-                      key={idx}
-                      type="button"
-                      onClick={() => handleSend(sp.prompt)}
-                      className="p-3.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 hover:border-indigo-400 dark:hover:border-indigo-600 hover:shadow-sm transition-all text-left space-y-1 group cursor-pointer"
-                    >
-                      <div className="flex items-center gap-2">
-                        <span className="text-base">{sp.icon}</span>
-                        <span className="text-xs font-bold text-slate-800 dark:text-slate-200 group-hover:text-indigo-600 dark:group-hover:text-indigo-400">
-                          {sp.label}
+                {dynamicStarterCards.map((card, idx) => (
+                  <button
+                    key={idx}
+                    type="button"
+                    onClick={() => {
+                      if (card.topic) setActiveTopic(card.topic);
+                      handleSend(card.prompt);
+                    }}
+                    className="p-3.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 hover:border-indigo-400 dark:hover:border-indigo-600 hover:shadow-sm transition-all text-left space-y-1.5 group cursor-pointer"
+                  >
+                    <div className="flex items-center justify-between gap-2">
+                      <div className="flex items-center gap-2 min-w-0">
+                        <span className="text-base shrink-0">{card.icon}</span>
+                        <span className="text-xs font-bold text-slate-800 dark:text-slate-200 group-hover:text-indigo-600 dark:group-hover:text-indigo-400 truncate">
+                          {card.label}
                         </span>
                       </div>
-                      <p className="text-[11px] text-slate-500 dark:text-slate-400 line-clamp-2">
-                        {sp.prompt}
-                      </p>
-                    </button>
-                  ))}
+                      <span className="text-[10px] font-mono font-semibold px-1.5 py-0.5 rounded bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 shrink-0">
+                        {card.badge}
+                      </span>
+                    </div>
+                    <p className="text-[11px] text-slate-500 dark:text-slate-400 line-clamp-2">
+                      {card.prompt}
+                    </p>
+                  </button>
+                ))}
               </div>
             </div>
           )}
