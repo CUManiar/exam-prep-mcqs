@@ -168,8 +168,10 @@ export function MistakeDossierCard({
                   {item.paperTitle} • Q#{item.questionNo}
                 </span>
                 <span className="text-rose-600 dark:text-rose-400 font-semibold">
-                  Selected ({item.studentSelected}) ➔ Correct (
-                  {item.correctAnswer})
+                  Selected ({item.studentSelected})
+                  {item.correctAnswer
+                    ? ` ➔ Correct (${item.correctAnswer})`
+                    : ""}
                 </span>
               </div>
               <p className="text-slate-700 dark:text-slate-300 line-clamp-2">

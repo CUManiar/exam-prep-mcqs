@@ -23,6 +23,7 @@ import {
   Send,
   Settings2,
   Sparkles,
+  Square,
   Trash2,
   User,
   X,
@@ -55,7 +56,10 @@ import { OutputFormatSelector } from "./OutputFormatSelector";
 import { MistakeDossierCard } from "./MistakeDossierCard";
 import { extractMistakeDiagnostics } from "../../lib/revision/mistakeProfiler";
 import { FirstPrinciplesGuideCard } from "./FirstPrinciplesGuideCard";
-import { getPaperDisplayTitle } from "../../lib/defaults";
+import {
+  getPaperDisplayTitle,
+  isOfficialMockAttempt,
+} from "../../lib/defaults";
 import { NotesExportModal } from "./NotesExportModal";
 
 export interface StoredSession {
@@ -484,8 +488,21 @@ export function RevisionView() {
     scrollToBottom();
   }, [messages, isLoading, scrollToBottom]);
 
+  const abortControllerRef = useRef<AbortController | null>(null);
+
+  const handleStopGeneration = () => {
+    abortControllerRef.current?.abort();
+    abortControllerRef.current = null;
+    setIsLoading(false);
+    setToastMsg("Generation stopped.");
+    setTimeout(() => setToastMsg(null), 1800);
+  };
+
   // Dispatch query
-  const handleSend = async (customPrompt?: string) => {
+  const handleSend = async (
+    customPrompt?: string,
+    options?: { baseMessages?: RevisionMessage[]; skipCache?: boolean },
+  ) => {
     const promptToSend = (customPrompt || inputPrompt).trim();
     if (!promptToSend || isLoading) return;
 
@@ -503,14 +520,23 @@ export function RevisionView() {
       },
     };
 
-    const nextMessages = [...messages, userMessage];
+    const base = options?.baseMessages ?? messages;
+    const nextMessages = [...base, userMessage];
     setMessages(nextMessages);
-    setInputPrompt("");
-    if (textareaRef.current) textareaRef.current.style.height = "auto";
+    if (!customPrompt) {
+      setInputPrompt("");
+      if (textareaRef.current) textareaRef.current.style.height = "auto";
+    }
     setIsLoading(true);
 
+    const controller = new AbortController();
+    abortControllerRef.current = controller;
+
     try {
-      const res = await sendRevisionQuery(nextMessages, activeContext, config);
+      const res = await sendRevisionQuery(nextMessages, activeContext, config, {
+        signal: controller.signal,
+        skipCache: options?.skipCache,
+      });
       const assistantMessage: RevisionMessage = {
         id: `msg_a_${Date.now()}`,
         role: "assistant",
@@ -519,6 +545,9 @@ export function RevisionView() {
       };
       setMessages([...nextMessages, assistantMessage]);
     } catch (err: any) {
+      if (err?.name === "AbortError") {
+        return;
+      }
       const errorMsg: RevisionMessage = {
         id: `msg_err_${Date.now()}`,
         role: "assistant",
@@ -528,8 +557,27 @@ export function RevisionView() {
       };
       setMessages([...nextMessages, errorMsg]);
     } finally {
+      if (abortControllerRef.current === controller) {
+        abortControllerRef.current = null;
+      }
       setIsLoading(false);
     }
+  };
+
+  // Regenerate response for a specific assistant message index
+  const handleRegenerateAt = (assistantIndex: number) => {
+    if (isLoading) return;
+    let userIdx = -1;
+    for (let i = assistantIndex - 1; i >= 0; i--) {
+      if (messages[i].role === "user") {
+        userIdx = i;
+        break;
+      }
+    }
+    if (userIdx === -1) return;
+    const promptToRegen = messages[userIdx].content;
+    const baseMessages = messages.slice(0, userIdx);
+    handleSend(promptToRegen, { baseMessages, skipCache: true });
   };
 
   // Copy message
@@ -564,6 +612,87 @@ export function RevisionView() {
       handleSend(promptToRetry);
     }
   };
+
+  // Dynamic starter cards: top 5 completed mocks & high-yield mistake clusters across varied subjects
+  const dynamicStarterCards = useMemo(() => {
+    const cards: {
+      label: string;
+      badge: string;
+      prompt: string;
+      icon: string;
+      topic?: string;
+    }[] = [];
+    const seenSubjects = new Set<string>();
+    const paperMap = new Map(papers.map((p) => [p.id, p]));
+
+    const officialMocks = [...attempts]
+      .filter((a) => isOfficialMockAttempt(a, paperMap.get(a.paperId)))
+      .sort(
+        (a, b) =>
+          new Date(b.finishedAt || b.startedAt).getTime() -
+          new Date(a.finishedAt || a.startedAt).getTime(),
+      );
+
+    // 1. High-yield mistake clusters across distinct subjects
+    const diagnostics = extractMistakeDiagnostics(officialMocks, papers);
+    for (const cluster of diagnostics.clusters) {
+      if (cards.length >= 2) break;
+      const subjKey = (cluster.subject || cluster.conceptTitle).toLowerCase();
+      if (seenSubjects.has(subjKey) && diagnostics.clusters.length > 2) {
+        continue;
+      }
+      seenSubjects.add(subjKey);
+      const sample = cluster.sampleQuestions[0];
+      cards.push({
+        label: `${cluster.conceptTitle} (${cluster.mistakeCount} missed)`,
+        badge: cluster.subject || "Weak Spot",
+        icon: "🎯",
+        topic: cluster.conceptTitle,
+        prompt: sample
+          ? `Analyze my ${cluster.mistakeCount} mistakes in "${cluster.conceptTitle}" (e.g. "${sample.paperTitle}" Q#${sample.questionNo}). Explain the core concepts, elimination traps, and give 2 targeted practice questions.`
+          : `Drill high-yield UPSC concepts and elimination traps for "${cluster.conceptTitle}".`,
+      });
+    }
+
+    // 2. Last top 5 completed tests across varied subjects
+    for (const att of officialMocks.slice(0, 8)) {
+      if (cards.length >= 4) break;
+      const paper = paperMap.get(att.paperId);
+      const title = paper ? getPaperDisplayTitle(paper) : att.paperLabel;
+      const subj = (paper?.subject || att.category || "GS").trim();
+      const subjKey = subj.toLowerCase();
+      if (seenSubjects.has(subjKey) && officialMocks.length > 3) {
+        continue;
+      }
+      seenSubjects.add(subjKey);
+      cards.push({
+        label: title,
+        badge: `${subj} · ${Math.round(att.accuracyPct || 0)}% acc`,
+        icon: "📝",
+        topic: title,
+        prompt: `Review my completed test "${title}" (Score: ${att.score}/${att.maxScore}, Accuracy: ${Math.round(att.accuracyPct || 0)}%). Focus on high-yield conceptual gaps and elimination rules from this paper.`,
+      });
+    }
+
+    // 3. Fallback to stage-matched starters only if fewer than 4 dynamic cards exist
+    if (cards.length < 4) {
+      for (const sp of STARTER_PROMPTS.filter(
+        (s) => s.stage === stage || s.stage === "prelims",
+      )) {
+        if (cards.length >= 4) break;
+        if (!cards.some((c) => c.label === sp.label)) {
+          cards.push({
+            label: sp.label,
+            badge: PREP_PERSONAS[sp.stage]?.badge || "Prep",
+            icon: sp.icon,
+            prompt: sp.prompt,
+          });
+        }
+      }
+    }
+
+    return cards;
+  }, [attempts, papers, stage]);
 
   // Filtered sessions
   const filteredSessions = useMemo(() => {
@@ -873,36 +1002,40 @@ export function RevisionView() {
                 </p>
               </div>
 
-              {/* Starter Prompts Grid */}
+              {/* Dynamic Multi-Subject Starter Cards */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 text-left pt-2">
-                {STARTER_PROMPTS.filter(
-                  (sp) => sp.stage === stage || sp.stage === "prelims",
-                )
-                  .slice(0, 4)
-                  .map((sp, idx) => (
-                    <button
-                      key={idx}
-                      type="button"
-                      onClick={() => handleSend(sp.prompt)}
-                      className="p-3.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 hover:border-indigo-400 dark:hover:border-indigo-600 hover:shadow-sm transition-all text-left space-y-1 group cursor-pointer"
-                    >
-                      <div className="flex items-center gap-2">
-                        <span className="text-base">{sp.icon}</span>
-                        <span className="text-xs font-bold text-slate-800 dark:text-slate-200 group-hover:text-indigo-600 dark:group-hover:text-indigo-400">
-                          {sp.label}
+                {dynamicStarterCards.map((card, idx) => (
+                  <button
+                    key={idx}
+                    type="button"
+                    onClick={() => {
+                      if (card.topic) setActiveTopic(card.topic);
+                      handleSend(card.prompt);
+                    }}
+                    className="p-3.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 hover:border-indigo-400 dark:hover:border-indigo-600 hover:shadow-sm transition-all text-left space-y-1.5 group cursor-pointer"
+                  >
+                    <div className="flex items-center justify-between gap-2">
+                      <div className="flex items-center gap-2 min-w-0">
+                        <span className="text-base shrink-0">{card.icon}</span>
+                        <span className="text-xs font-bold text-slate-800 dark:text-slate-200 group-hover:text-indigo-600 dark:group-hover:text-indigo-400 truncate">
+                          {card.label}
                         </span>
                       </div>
-                      <p className="text-[11px] text-slate-500 dark:text-slate-400 line-clamp-2">
-                        {sp.prompt}
-                      </p>
-                    </button>
-                  ))}
+                      <span className="text-[10px] font-mono font-semibold px-1.5 py-0.5 rounded bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 shrink-0">
+                        {card.badge}
+                      </span>
+                    </div>
+                    <p className="text-[11px] text-slate-500 dark:text-slate-400 line-clamp-2">
+                      {card.prompt}
+                    </p>
+                  </button>
+                ))}
               </div>
             </div>
           )}
 
           {/* Active Messages */}
-          {messages.map((msg) => {
+          {messages.map((msg, msgIdx) => {
             const isUser = msg.role === "user";
             return (
               <div
@@ -976,7 +1109,16 @@ export function RevisionView() {
                             </button>
                           </div>
                         ) : (
-                          <div />
+                          <button
+                            type="button"
+                            onClick={() => handleRegenerateAt(msgIdx)}
+                            disabled={isLoading}
+                            className="inline-flex items-center gap-1 text-[11px] font-medium text-slate-400 hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors cursor-pointer disabled:opacity-40"
+                            title="Regenerate response"
+                          >
+                            <RotateCcw className="h-3 w-3" />
+                            <span>Regenerate</span>
+                          </button>
                         )}
                         <button
                           type="button"
@@ -1022,10 +1164,10 @@ export function RevisionView() {
           <div ref={messagesEndRef} />
         </div>
 
-        {/* ── INPUT FOOTER ── */}
-        <footer className="px-2.5 py-1.5 sm:p-4 border-t border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 shrink-0">
+        {/* ── INPUT FOOTER (Minimal Claude-style Composer) ── */}
+        <footer className="px-3 py-2.5 sm:px-4 sm:py-3.5 bg-slate-50/80 dark:bg-slate-950/80 shrink-0">
           <div className="max-w-3xl mx-auto">
-            <div className="relative flex items-end gap-2 bg-slate-50 dark:bg-slate-800/60 rounded-2xl border border-slate-200 dark:border-slate-700/80 p-1.5 sm:p-2 shadow-2xs focus-within:ring-2 focus-within:ring-indigo-500 focus-within:border-transparent">
+            <div className="rounded-2xl border border-slate-200 dark:border-slate-700/80 bg-white dark:bg-slate-900 px-3.5 pt-3 pb-2 shadow-sm focus-within:border-slate-300 dark:focus-within:border-slate-600 focus-within:shadow-md transition-all">
               <textarea
                 ref={textareaRef}
                 value={inputPrompt}
@@ -1035,7 +1177,7 @@ export function RevisionView() {
                     textareaRef.current.style.height = "auto";
                     textareaRef.current.style.height = `${Math.min(
                       textareaRef.current.scrollHeight,
-                      120,
+                      160,
                     )}px`;
                   }
                 }}
@@ -1047,24 +1189,45 @@ export function RevisionView() {
                 }}
                 placeholder={
                   stage === "concept"
-                    ? "Ask to explain any UPSC concept from first principles without reading book page by page..."
+                    ? "Ask to explain any UPSC concept from first principles..."
                     : stage === "optional"
                       ? `Ask anything on ${optionalSubject} Paper I & II...`
-                      : "Ask topic, paste question prompt, or request elimination drill..."
+                      : "Ask a topic, paste a question, or request an elimination drill..."
                 }
                 rows={1}
-                className="flex-1 bg-transparent border-0 resize-none text-xs sm:text-sm text-slate-900 dark:text-white placeholder:text-slate-400 focus:outline-hidden p-1 min-h-[36px] max-h-[120px]"
+                className="w-full bg-transparent border-0 outline-none ring-0 focus:outline-none focus:ring-0 resize-none text-xs sm:text-sm text-slate-900 dark:text-white placeholder:text-slate-400 min-h-[28px] max-h-[160px] leading-relaxed"
               />
 
-              <button
-                type="button"
-                onClick={() => handleSend()}
-                disabled={!inputPrompt.trim() || isLoading}
-                className="p-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 disabled:opacity-40 disabled:hover:bg-indigo-600 text-white transition-all shadow-xs cursor-pointer shrink-0"
-                title="Send query (Enter)"
-              >
-                <Send className="h-4 w-4" />
-              </button>
+              <div className="flex items-center justify-between gap-2 pt-2 mt-1">
+                <span className="text-[10px] text-slate-400 hidden sm:inline">
+                  Enter to send · Shift+Enter for new line
+                </span>
+
+                <div className="flex items-center gap-1.5 ml-auto">
+                  {isLoading ? (
+                    <button
+                      type="button"
+                      onClick={handleStopGeneration}
+                      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-900 hover:bg-slate-800 dark:bg-slate-100 dark:hover:bg-white text-white dark:text-slate-900 text-xs font-semibold transition-colors shadow-xs cursor-pointer"
+                      title="Stop generating response"
+                    >
+                      <Square className="h-3 w-3 fill-current" />
+                      <span>Stop</span>
+                    </button>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={() => handleSend()}
+                      disabled={!inputPrompt.trim()}
+                      className="inline-flex items-center justify-center h-8 w-8 rounded-xl bg-indigo-600 hover:bg-indigo-700 disabled:opacity-35 disabled:hover:bg-indigo-600 text-white transition-all shadow-xs cursor-pointer shrink-0"
+                      title="Send query (Enter)"
+                      aria-label="Send query"
+                    >
+                      <Send className="h-3.5 w-3.5" />
+                    </button>
+                  )}
+                </div>
+              </div>
             </div>
           </div>
         </footer>

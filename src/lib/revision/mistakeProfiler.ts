@@ -80,8 +80,23 @@ export function extractMistakeDiagnostics(
       }
 
       const q = parsedMap.get(qNo);
-      const topic = q?.topic?.trim() || "General Studies Core";
-      const subject = q?.subject?.trim() || paper.category || "GS";
+      const subject =
+        q?.subject?.trim() ||
+        ans.subject?.trim() ||
+        paper.subject?.trim() ||
+        paper.category ||
+        "GS";
+      const topic =
+        q?.topic?.trim() ||
+        ans.topic?.trim() ||
+        q?.chapter?.trim() ||
+        ans.chapter?.trim() ||
+        (subject && subject !== "GS I" && subject !== "CSAT"
+          ? subject
+          : paper.title ||
+            paper.label ||
+            att.paperLabel ||
+            "General Studies Core");
 
       // Infer root cause
       let rootCause: MistakeRootCause = "elimination_trap";
@@ -104,7 +119,8 @@ export function extractMistakeDiagnostics(
         questionNo: qNo,
         questionText: q?.text || `Question #${qNo}`,
         studentSelected: ans.selected,
-        correctAnswer: q?.answer,
+        correctAnswer:
+          q?.answer || ans.correctAnswer || paper.answerKey?.[qNo] || undefined,
         topic,
         subject,
         rootCause,

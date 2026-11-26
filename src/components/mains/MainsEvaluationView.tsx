@@ -151,6 +151,7 @@ export function MainsEvaluationView() {
   // Processing & evaluation state
   const [isLoading, setIsLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
+  const [copiedError, setCopiedError] = useState(false);
   const [activeTab, setActiveTab] = useState<
     "feedback" | "approach" | "model" | "attempt" | "chat"
   >("feedback");
@@ -201,111 +202,92 @@ export function MainsEvaluationView() {
     };
   }, []);
 
-  // Centralized session persistence (local cache + Supabase sync when signed in)
+  // Centralized session persistence (Supabase is source of truth when signed in; localStorage for guests only)
   const persistSessions = (
     updated: MainsEvaluationSession[],
     deletedId?: string,
   ) => {
-    saveMainsSessions(updated);
     if (currentUser?.id) {
       if (deletedId) {
         deleteUserMainsSessionFromSupabase(currentUser.id, deletedId, updated);
       } else {
         saveUserMainsSessionsToSupabase(currentUser.id, updated);
       }
+    } else {
+      saveMainsSessions(updated);
     }
   };
 
   // Load saved sessions on mount and synchronize with Supabase for authenticated accounts
   useEffect(() => {
     let isMounted = true;
-    const initialLocal = loadMainsSessions();
 
     if (!currentUser) {
+      const initialLocal = loadMainsSessions();
       if (initialLocal.length > 0) {
         setSessions(initialLocal);
         loadSession(initialLocal[0]);
-      } else {
-        handleNewEvaluation();
       }
       return;
     }
 
-    // Authenticated user: immediately render local cache for speed
-    if (initialLocal.length > 0) {
-      setSessions(initialLocal);
-      loadSession(initialLocal[0]);
-    }
+    const isEmptyDraftSession = (s: MainsEvaluationSession) => {
+      const hasQ = Boolean(s.question?.trim());
+      const hasAns = Boolean(s.studentAnswer?.trim());
+      const hasEval = Boolean(s.evaluation);
+      const hasAttContent = (s.attempts || []).some(
+        (a) =>
+          Boolean(a.evaluation) ||
+          Boolean(a.studentAnswer?.trim()) ||
+          (a.attachedImages?.length || 0) > 0,
+      );
+      return !hasQ && !hasAns && !hasEval && !hasAttContent;
+    };
 
-    setIsSyncingWithCloud(true);
-    fetchUserMainsSessionsFromSupabase(currentUser.id)
-      .then((dbSessions) => {
-        if (!isMounted) return;
-        const deletedIds = getDeletedMainsSessionIds();
-        const normalizedDb = migrateMainsSessionsToSingleQuestionBooklet(
-          dbSessions || [],
-        ).filter((s) => !deletedIds.has(s.id));
-        const normalizedLocal = migrateMainsSessionsToSingleQuestionBooklet(
-          initialLocal || [],
-        ).filter((s) => !deletedIds.has(s.id));
+    const syncFromCloud = () => {
+      setIsSyncingWithCloud(true);
+      fetchUserMainsSessionsFromSupabase(currentUser.id)
+        .then((dbSessions) => {
+          if (!isMounted) return;
+          const normalizedDb = migrateMainsSessionsToSingleQuestionBooklet(
+            dbSessions || [],
+          )
+            .filter((s) => !isEmptyDraftSession(s))
+            .sort(
+              (a, b) =>
+                new Date(b.updatedAt || 0).getTime() -
+                new Date(a.updatedAt || 0).getTime(),
+            );
 
-        // Merge dbSessions with local sessions:
-        const sessionMap = new Map<string, MainsEvaluationSession>();
+          setSessions(normalizedDb);
 
-        normalizedDb.forEach((s) => {
-          if (s && s.id && !deletedIds.has(s.id)) sessionMap.set(s.id, s);
-        });
-
-        normalizedLocal.forEach((ls) => {
-          if (!deletedIds.has(ls.id)) {
-            if (!sessionMap.has(ls.id)) {
-              sessionMap.set(ls.id, ls);
-            } else {
-              const dbS = sessionMap.get(ls.id)!;
-              const dbAtts = dbS.attempts || [];
-              const localAtts = ls.attempts || [];
-              const dbEvalCount = dbAtts.filter((a) => a.evaluation).length;
-              const localEvalCount = localAtts.filter(
-                (a) => a.evaluation,
-              ).length;
-
-              if (
-                localEvalCount > dbEvalCount ||
-                (ls.updatedAt && ls.updatedAt > (dbS.updatedAt || ""))
-              ) {
-                sessionMap.set(ls.id, ls);
-              }
+          if (normalizedDb.length > 0) {
+            const hasActive =
+              currentSessionId &&
+              normalizedDb.some((s) => s.id === currentSessionId);
+            if (!hasActive) {
+              loadSession(normalizedDb[0]);
             }
           }
+        })
+        .catch((err) => {
+          console.warn("Failed syncing mains sessions with Supabase:", err);
+        })
+        .finally(() => {
+          if (isMounted) setIsSyncingWithCloud(false);
         });
+    };
 
-        const merged = Array.from(sessionMap.values()).sort(
-          (a, b) =>
-            new Date(b.updatedAt || 0).getTime() -
-            new Date(a.updatedAt || 0).getTime(),
-        );
+    syncFromCloud();
 
-        setSessions(merged);
-        saveMainsSessions(merged);
-        saveUserMainsSessionsToSupabase(currentUser.id, merged);
-
-        if (!currentSessionId || !sessionMap.has(currentSessionId)) {
-          if (merged.length > 0) {
-            loadSession(merged[0]);
-          } else {
-            handleNewEvaluation();
-          }
-        }
-      })
-      .catch((err) => {
-        console.warn("Failed syncing mains sessions with Supabase:", err);
-      })
-      .finally(() => {
-        if (isMounted) setIsSyncingWithCloud(false);
-      });
+    const handleFocus = () => {
+      if (!isLoading) syncFromCloud();
+    };
+    window.addEventListener("focus", handleFocus);
 
     return () => {
       isMounted = false;
+      window.removeEventListener("focus", handleFocus);
     };
   }, [currentUser?.id]);
 
@@ -692,113 +674,123 @@ export function MainsEvaluationView() {
     setInputMode("upload");
     setErrorMsg(null);
 
-    const newAttachments: Array<{
-      mimeType: string;
-      data: string;
-      name: string;
-    }> = [];
+    try {
+      const newAttachments: Array<{
+        mimeType: string;
+        data: string;
+        name: string;
+      }> = [];
 
-    for (const file of files) {
-      const isPdf =
-        file.type === "application/pdf" ||
-        file.name.toLowerCase().endsWith(".pdf");
+      for (const file of files) {
+        const isPdf =
+          file.type === "application/pdf" ||
+          file.name.toLowerCase().endsWith(".pdf");
 
-      if (isPdf) {
-        try {
-          const pdfjsLib = await loadPdfJs();
-          if (pdfjsLib) {
-            const arrayBuffer = await file.arrayBuffer();
-            const pdf = await pdfjsLib.getDocument({ data: arrayBuffer })
-              .promise;
+        if (isPdf) {
+          try {
+            const pdfjsLib = await loadPdfJs();
+            if (pdfjsLib) {
+              const arrayBuffer = await file.arrayBuffer();
+              const pdf = await pdfjsLib.getDocument({ data: arrayBuffer })
+                .promise;
 
-            for (let pageNum = 1; pageNum <= pdf.numPages; pageNum++) {
-              const page = await pdf.getPage(pageNum);
-              const viewport = page.getViewport({ scale: 1.5 });
+              for (let pageNum = 1; pageNum <= pdf.numPages; pageNum++) {
+                const page = await pdf.getPage(pageNum);
+                const viewport = page.getViewport({ scale: 1.35 });
+                const canvas = document.createElement("canvas");
+                canvas.width = Math.ceil(viewport.width);
+                canvas.height = Math.ceil(viewport.height);
+                const ctx = canvas.getContext("2d");
+                if (ctx) {
+                  await page.render({ canvasContext: ctx, viewport }).promise;
+                  const dataUrl = canvas.toDataURL("image/jpeg", 0.75);
+                  newAttachments.push({
+                    mimeType: "image/jpeg",
+                    data: dataUrl,
+                    name: `${file.name} (P.${pageNum}/${pdf.numPages})`,
+                  });
+                }
+              }
+              continue;
+            }
+          } catch (pdfErr) {
+            console.warn(
+              "Failed to render PDF pages as images, falling back to raw PDF:",
+              pdfErr,
+            );
+          }
+
+          // Fallback: Read raw PDF as data URL
+          const dataUrl = await new Promise<string>((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onload = () => resolve(reader.result as string);
+            reader.onerror = reject;
+            reader.readAsDataURL(file);
+          });
+          newAttachments.push({
+            mimeType: "application/pdf",
+            data: dataUrl,
+            name: file.name,
+          });
+        } else {
+          // Image files: client-side compression to prevent 413 Payload Too Large / timeout with multiple photos
+          const dataUrl = await new Promise<string>((resolve) => {
+            const img = new Image();
+            const url = URL.createObjectURL(file);
+            img.onload = () => {
+              URL.revokeObjectURL(url);
+              const maxDim = 1280;
+              let width = img.width;
+              let height = img.height;
+              if (width > maxDim || height > maxDim) {
+                if (width > height) {
+                  height = Math.round((height * maxDim) / width);
+                  width = maxDim;
+                } else {
+                  width = Math.round((width * maxDim) / height);
+                  height = maxDim;
+                }
+              }
               const canvas = document.createElement("canvas");
-              canvas.width = Math.ceil(viewport.width);
-              canvas.height = Math.ceil(viewport.height);
+              canvas.width = width;
+              canvas.height = height;
               const ctx = canvas.getContext("2d");
               if (ctx) {
-                await page.render({ canvasContext: ctx, viewport }).promise;
-                const dataUrl = canvas.toDataURL("image/jpeg", 0.9);
-                newAttachments.push({
-                  mimeType: "image/jpeg",
-                  data: dataUrl,
-                  name: `${file.name} (P.${pageNum}/${pdf.numPages})`,
-                });
-              }
-            }
-            continue;
-          }
-        } catch (pdfErr) {
-          console.warn(
-            "Failed to render PDF pages as images, falling back to raw PDF:",
-            pdfErr,
-          );
-        }
-
-        // Fallback: Read raw PDF as data URL
-        const dataUrl = await new Promise<string>((resolve, reject) => {
-          const reader = new FileReader();
-          reader.onload = () => resolve(reader.result as string);
-          reader.onerror = reject;
-          reader.readAsDataURL(file);
-        });
-        newAttachments.push({
-          mimeType: "application/pdf",
-          data: dataUrl,
-          name: file.name,
-        });
-      } else {
-        // Image files: client-side compression to prevent 413 Payload Too Large / timeout with multiple photos
-        const dataUrl = await new Promise<string>((resolve) => {
-          const img = new Image();
-          const url = URL.createObjectURL(file);
-          img.onload = () => {
-            URL.revokeObjectURL(url);
-            const maxDim = 1600;
-            let width = img.width;
-            let height = img.height;
-            if (width > maxDim || height > maxDim) {
-              if (width > height) {
-                height = Math.round((height * maxDim) / width);
-                width = maxDim;
+                ctx.drawImage(img, 0, 0, width, height);
+                resolve(canvas.toDataURL("image/jpeg", 0.75));
               } else {
-                width = Math.round((width * maxDim) / height);
-                height = maxDim;
+                const reader = new FileReader();
+                reader.onload = () => resolve(reader.result as string);
+                reader.readAsDataURL(file);
               }
-            }
-            const canvas = document.createElement("canvas");
-            canvas.width = width;
-            canvas.height = height;
-            const ctx = canvas.getContext("2d");
-            if (ctx) {
-              ctx.drawImage(img, 0, 0, width, height);
-              resolve(canvas.toDataURL("image/jpeg", 0.82));
-            } else {
+            };
+            img.onerror = () => {
+              URL.revokeObjectURL(url);
               const reader = new FileReader();
               reader.onload = () => resolve(reader.result as string);
               reader.readAsDataURL(file);
-            }
-          };
-          img.onerror = () => {
-            URL.revokeObjectURL(url);
-            const reader = new FileReader();
-            reader.onload = () => resolve(reader.result as string);
-            reader.readAsDataURL(file);
-          };
-          img.src = url;
-        });
-        newAttachments.push({
-          mimeType: "image/jpeg",
-          data: dataUrl,
-          name: file.name,
-        });
+            };
+            img.src = url;
+          });
+          newAttachments.push({
+            mimeType: "image/jpeg",
+            data: dataUrl,
+            name: file.name,
+          });
+        }
       }
-    }
 
-    setUploadedImages((prev) => [...prev, ...newAttachments]);
-    setIsProcessingFiles(false);
+      if (newAttachments.length > 0) {
+        setUploadedImages((prev) => [...prev, ...newAttachments]);
+      }
+    } catch (err: any) {
+      setErrorMsg(
+        err?.message ||
+          "Failed to process one or more selected files. Please try again.",
+      );
+    } finally {
+      setIsProcessingFiles(false);
+    }
   };
 
   // Handle image / PDF file selection
@@ -888,6 +880,15 @@ export function MainsEvaluationView() {
     setIsLoading(true);
     setErrorMsg(null);
 
+    const fallbackProviders = Object.entries(activeVault)
+      .filter(
+        ([prov, key]) => Boolean(key?.trim()) && prov !== config?.provider,
+      )
+      .map(([prov, key]) => ({
+        provider: prov,
+        apiKey: key.trim(),
+      }));
+
     try {
       const res = await fetch("/api/mains/evaluate", {
         method: "POST",
@@ -905,6 +906,7 @@ export function MainsEvaluationView() {
             data: img.data,
           })),
           providerConfig: config,
+          fallbackProviders,
         }),
       });
 
@@ -2521,6 +2523,7 @@ EXAMINER RESPONSE REQUIREMENTS:
                         type="file"
                         accept="image/*"
                         capture="environment"
+                        multiple
                         onChange={handleFileUpload}
                         className="hidden"
                       />
@@ -2718,21 +2721,43 @@ EXAMINER RESPONSE REQUIREMENTS:
                   )}
                 </div>
 
-                {/* Error Message with Retry */}
+                {/* Full Error Message with Copy & Retry */}
                 {errorMsg && (
-                  <div className="p-3 rounded-xl bg-rose-50 dark:bg-rose-950/60 border border-rose-200 dark:border-rose-900 text-xs text-rose-700 dark:text-rose-300 flex items-center justify-between gap-3">
-                    <div className="flex items-center gap-2 min-w-0">
-                      <AlertTriangle className="h-4 w-4 shrink-0 text-rose-600" />
-                      <span className="truncate">{errorMsg}</span>
+                  <div className="p-3.5 rounded-xl bg-rose-50 dark:bg-rose-950/60 border border-rose-200 dark:border-rose-900 text-xs text-rose-800 dark:text-rose-200 flex flex-col sm:flex-row sm:items-start justify-between gap-3">
+                    <div className="flex items-start gap-2.5 min-w-0 flex-1">
+                      <AlertTriangle className="h-4 w-4 shrink-0 text-rose-600 mt-0.5" />
+                      <span className="whitespace-pre-wrap break-words leading-relaxed select-text">
+                        {errorMsg}
+                      </span>
                     </div>
-                    <button
-                      type="button"
-                      onClick={handleEvaluate}
-                      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-rose-600 hover:bg-rose-700 text-white font-bold text-xs shrink-0 cursor-pointer shadow-xs transition-colors"
-                    >
-                      <RotateCcw className="h-3.5 w-3.5" />
-                      <span>Retry</span>
-                    </button>
+                    <div className="flex items-center gap-2 shrink-0 self-end sm:self-start">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          navigator.clipboard?.writeText(errorMsg);
+                          setCopiedError(true);
+                          setTimeout(() => setCopiedError(false), 1800);
+                        }}
+                        className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg border border-rose-200 dark:border-rose-800 bg-white dark:bg-rose-950 hover:bg-rose-100/70 text-rose-700 dark:text-rose-200 font-semibold text-xs cursor-pointer transition-colors"
+                        title="Copy full error details"
+                        aria-label="Copy full error details"
+                      >
+                        {copiedError ? (
+                          <Check className="h-3.5 w-3.5 text-emerald-600" />
+                        ) : (
+                          <Copy className="h-3.5 w-3.5" />
+                        )}
+                        <span>{copiedError ? "Copied" : "Copy"}</span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={handleEvaluate}
+                        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-rose-600 hover:bg-rose-700 text-white font-bold text-xs shrink-0 cursor-pointer shadow-xs transition-colors"
+                      >
+                        <RotateCcw className="h-3.5 w-3.5" />
+                        <span>Retry</span>
+                      </button>
+                    </div>
                   </div>
                 )}
 
@@ -2997,367 +3022,278 @@ EXAMINER RESPONSE REQUIREMENTS:
                     <MainsDissectionsPanel evaluation={evaluation} />
 
                     {/* 4 Core Dimensions Scored Strictly /10 */}
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                      {/* Demand */}
-                      <div className="p-4 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-2xs space-y-2.5 flex flex-col justify-between">
-                        <div className="space-y-2">
-                          <div className="flex items-center justify-between">
-                            <span className="font-bold text-xs text-slate-800 dark:text-slate-200 uppercase tracking-wide">
-                              1. Demand & Directive Compliance
-                            </span>
-                            <span className="font-mono font-bold text-xs px-2 py-0.5 rounded-lg bg-indigo-50 dark:bg-indigo-950 text-indigo-600 dark:text-indigo-400 border border-indigo-200 dark:border-indigo-800 shrink-0">
-                              {evaluation.dimensions?.demand?.score ??
-                                Math.round(
-                                  (evaluation.marksAwarded /
-                                    evaluation.maxMarks) *
-                                    10 *
-                                    10,
-                                ) / 10}{" "}
-                              <span className="text-slate-400 font-normal">
-                                / 10
-                              </span>
-                            </span>
-                          </div>
-                          <div className="w-full bg-slate-100 dark:bg-slate-800 h-1.5 rounded-full overflow-hidden">
-                            <div
-                              className={`h-full rounded-full transition-all duration-300 ${
-                                (evaluation.dimensions?.demand?.score ?? 5) >= 6
-                                  ? "bg-emerald-500"
-                                  : (evaluation.dimensions?.demand?.score ??
-                                        5) >= 4
-                                    ? "bg-indigo-500"
-                                    : "bg-amber-500"
-                              }`}
-                              style={{
-                                width: `${Math.min(
-                                  100,
-                                  Math.max(
-                                    0,
-                                    ((evaluation.dimensions?.demand?.score ??
-                                      (evaluation.marksAwarded /
-                                        evaluation.maxMarks) *
-                                        10) /
-                                      10) *
-                                      100,
-                                  ),
-                                )}%`,
-                              }}
-                            />
-                          </div>
-                        </div>
-                        <p className="text-xs text-slate-600 dark:text-slate-400 leading-relaxed">
-                          {evaluation.dimensions?.demand?.comment ||
+                    {(() => {
+                      const fallbackDim =
+                        Math.round(
+                          (evaluation.marksAwarded /
+                            Math.max(1, evaluation.maxMarks)) *
+                            100,
+                        ) / 10;
+                      const normDim = (
+                        raw: number | undefined,
+                        fb = fallbackDim,
+                      ) => {
+                        if (raw === undefined || !Number.isFinite(raw))
+                          return Math.min(10, Math.max(0, fb));
+                        const scaled = raw > 10 ? raw / 10 : raw;
+                        return Math.min(
+                          10,
+                          Math.max(0, Math.round(scaled * 10) / 10),
+                        );
+                      };
+                      const contentFb = evaluation.rubric?.bodyContent?.score
+                        ? Math.round(
+                            (evaluation.rubric.bodyContent.score /
+                              Math.max(1, evaluation.rubric.bodyContent.max)) *
+                              100,
+                          ) / 10
+                        : fallbackDim;
+                      const structureFb = evaluation.rubric
+                        ?.structurePresentation?.score
+                        ? Math.round(
+                            (evaluation.rubric.structurePresentation.score /
+                              Math.max(
+                                1,
+                                evaluation.rubric.structurePresentation.max,
+                              )) *
+                              100,
+                          ) / 10
+                        : fallbackDim;
+
+                      const dimCards = [
+                        {
+                          title: "1. Demand & Directive Compliance",
+                          score: normDim(evaluation.dimensions?.demand?.score),
+                          comment:
+                            evaluation.dimensions?.demand?.comment ||
                             evaluation.directiveAnalysis ||
-                            "Demand and directive compliance addressed."}
-                        </p>
-                      </div>
-
-                      {/* Content */}
-                      <div className="p-4 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-2xs space-y-2.5 flex flex-col justify-between">
-                        <div className="space-y-2">
-                          <div className="flex items-center justify-between">
-                            <span className="font-bold text-xs text-slate-800 dark:text-slate-200 uppercase tracking-wide">
-                              2. Content & Citation Depth
-                            </span>
-                            <span className="font-mono font-bold text-xs px-2 py-0.5 rounded-lg bg-indigo-50 dark:bg-indigo-950 text-indigo-600 dark:text-indigo-400 border border-indigo-200 dark:border-indigo-800 shrink-0">
-                              {evaluation.dimensions?.content?.score ??
-                                (evaluation.rubric?.bodyContent?.score
-                                  ? Math.round(
-                                      (evaluation.rubric.bodyContent.score /
-                                        evaluation.rubric.bodyContent.max) *
-                                        10 *
-                                        10,
-                                    ) / 10
-                                  : Math.round(
-                                      (evaluation.marksAwarded /
-                                        evaluation.maxMarks) *
-                                        10 *
-                                        10,
-                                    ) / 10)}{" "}
-                              <span className="text-slate-400 font-normal">
-                                / 10
-                              </span>
-                            </span>
-                          </div>
-                          <div className="w-full bg-slate-100 dark:bg-slate-800 h-1.5 rounded-full overflow-hidden">
-                            <div
-                              className={`h-full rounded-full transition-all duration-300 ${
-                                (evaluation.dimensions?.content?.score ?? 5) >=
-                                6
-                                  ? "bg-emerald-500"
-                                  : (evaluation.dimensions?.content?.score ??
-                                        5) >= 4
-                                    ? "bg-indigo-500"
-                                    : "bg-amber-500"
-                              }`}
-                              style={{
-                                width: `${Math.min(
-                                  100,
-                                  Math.max(
-                                    0,
-                                    ((evaluation.dimensions?.content?.score ??
-                                      (evaluation.marksAwarded /
-                                        evaluation.maxMarks) *
-                                        10) /
-                                      10) *
-                                      100,
-                                  ),
-                                )}%`,
-                              }}
-                            />
-                          </div>
-                        </div>
-                        <p className="text-xs text-slate-600 dark:text-slate-400 leading-relaxed">
-                          {evaluation.dimensions?.content?.comment ||
+                            "Demand and directive compliance addressed.",
+                        },
+                        {
+                          title: "2. Content & Citation Depth",
+                          score: normDim(
+                            evaluation.dimensions?.content?.score,
+                            contentFb,
+                          ),
+                          comment:
+                            evaluation.dimensions?.content?.comment ||
                             evaluation.rubric?.bodyContent?.comment ||
-                            "Coverage of core analytical dimensions, judgments, and empirical data."}
-                        </p>
-                      </div>
-
-                      {/* Structure */}
-                      <div className="p-4 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-2xs space-y-2.5 flex flex-col justify-between">
-                        <div className="space-y-2">
-                          <div className="flex items-center justify-between">
-                            <span className="font-bold text-xs text-slate-800 dark:text-slate-200 uppercase tracking-wide">
-                              3. Structure & Keyword Headings
-                            </span>
-                            <span className="font-mono font-bold text-xs px-2 py-0.5 rounded-lg bg-indigo-50 dark:bg-indigo-950 text-indigo-600 dark:text-indigo-400 border border-indigo-200 dark:border-indigo-800 shrink-0">
-                              {evaluation.dimensions?.structure?.score ??
-                                (evaluation.rubric?.structurePresentation?.score
-                                  ? Math.round(
-                                      (evaluation.rubric.structurePresentation
-                                        .score /
-                                        evaluation.rubric.structurePresentation
-                                          .max) *
-                                        10 *
-                                        10,
-                                    ) / 10
-                                  : Math.round(
-                                      (evaluation.marksAwarded /
-                                        evaluation.maxMarks) *
-                                        10 *
-                                        10,
-                                    ) / 10)}{" "}
-                              <span className="text-slate-400 font-normal">
-                                / 10
-                              </span>
-                            </span>
-                          </div>
-                          <div className="w-full bg-slate-100 dark:bg-slate-800 h-1.5 rounded-full overflow-hidden">
-                            <div
-                              className={`h-full rounded-full transition-all duration-300 ${
-                                (evaluation.dimensions?.structure?.score ??
-                                  5) >= 6
-                                  ? "bg-emerald-500"
-                                  : (evaluation.dimensions?.structure?.score ??
-                                        5) >= 4
-                                    ? "bg-indigo-500"
-                                    : "bg-amber-500"
-                              }`}
-                              style={{
-                                width: `${Math.min(
-                                  100,
-                                  Math.max(
-                                    0,
-                                    ((evaluation.dimensions?.structure?.score ??
-                                      (evaluation.marksAwarded /
-                                        evaluation.maxMarks) *
-                                        10) /
-                                      10) *
-                                      100,
-                                  ),
-                                )}%`,
-                              }}
-                            />
-                          </div>
-                        </div>
-                        <p className="text-xs text-slate-600 dark:text-slate-400 leading-relaxed">
-                          {evaluation.dimensions?.structure?.comment ||
+                            "Coverage of core analytical dimensions, judgments, and empirical data.",
+                        },
+                        {
+                          title: "3. Structure & Keyword Headings",
+                          score: normDim(
+                            evaluation.dimensions?.structure?.score,
+                            structureFb,
+                          ),
+                          comment:
+                            evaluation.dimensions?.structure?.comment ||
                             evaluation.rubric?.structurePresentation?.comment ||
-                            "Intro, keyword headings, numbered arguments, counterview, and verdict."}
-                        </p>
-                      </div>
+                            "Intro, keyword headings, numbered arguments, counterview, and verdict.",
+                        },
+                        {
+                          title: "4. Presentation & Time Writability",
+                          score: normDim(
+                            evaluation.dimensions?.presentation?.score,
+                          ),
+                          comment:
+                            evaluation.dimensions?.presentation?.comment ||
+                            `Word limit compliance and realistic writability in ${evaluation.timeLimitMinutes || (evaluation.maxMarks === 10 ? 7 : 11)} minutes.`,
+                        },
+                      ];
 
-                      {/* Presentation */}
-                      <div className="p-4 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-2xs space-y-2.5 flex flex-col justify-between">
-                        <div className="space-y-2">
-                          <div className="flex items-center justify-between">
-                            <span className="font-bold text-xs text-slate-800 dark:text-slate-200 uppercase tracking-wide">
-                              4. Presentation & Time Writability
-                            </span>
-                            <span className="font-mono font-bold text-xs px-2 py-0.5 rounded-lg bg-indigo-50 dark:bg-indigo-950 text-indigo-600 dark:text-indigo-400 border border-indigo-200 dark:border-indigo-800 shrink-0">
-                              {evaluation.dimensions?.presentation?.score ??
-                                Math.round(
-                                  (evaluation.marksAwarded /
-                                    evaluation.maxMarks) *
-                                    10 *
-                                    10,
-                                ) / 10}{" "}
-                              <span className="text-slate-400 font-normal">
-                                / 10
-                              </span>
-                            </span>
-                          </div>
-                          <div className="w-full bg-slate-100 dark:bg-slate-800 h-1.5 rounded-full overflow-hidden">
+                      return (
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                          {dimCards.map((dim) => (
                             <div
-                              className={`h-full rounded-full transition-all duration-300 ${
-                                (evaluation.dimensions?.presentation?.score ??
-                                  5) >= 6
-                                  ? "bg-emerald-500"
-                                  : (evaluation.dimensions?.presentation
-                                        ?.score ?? 5) >= 4
-                                    ? "bg-indigo-500"
-                                    : "bg-amber-500"
-                              }`}
-                              style={{
-                                width: `${Math.min(
-                                  100,
-                                  Math.max(
-                                    0,
-                                    ((evaluation.dimensions?.presentation
-                                      ?.score ??
-                                      (evaluation.marksAwarded /
-                                        evaluation.maxMarks) *
-                                        10) /
-                                      10) *
-                                      100,
-                                  ),
-                                )}%`,
-                              }}
-                            />
-                          </div>
+                              key={dim.title}
+                              className="p-4 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-2xs space-y-2.5 flex flex-col justify-between"
+                            >
+                              <div className="space-y-2">
+                                <div className="flex items-center justify-between gap-2">
+                                  <span className="font-bold text-xs text-slate-800 dark:text-slate-200 uppercase tracking-wide">
+                                    {dim.title}
+                                  </span>
+                                  <span className="font-mono font-bold text-xs px-2 py-0.5 rounded-lg bg-indigo-50 dark:bg-indigo-950 text-indigo-600 dark:text-indigo-400 border border-indigo-200 dark:border-indigo-800 shrink-0">
+                                    {dim.score}{" "}
+                                    <span className="text-slate-400 font-normal">
+                                      / 10
+                                    </span>
+                                  </span>
+                                </div>
+                                <div className="w-full bg-slate-100 dark:bg-slate-800 h-1.5 rounded-full overflow-hidden">
+                                  <div
+                                    className={`h-full rounded-full transition-all duration-300 ${
+                                      dim.score >= 6
+                                        ? "bg-emerald-500"
+                                        : dim.score >= 4
+                                          ? "bg-indigo-500"
+                                          : "bg-amber-500"
+                                    }`}
+                                    style={{
+                                      width: `${Math.min(100, Math.max(0, (dim.score / 10) * 100))}%`,
+                                    }}
+                                  />
+                                </div>
+                              </div>
+                              <p className="text-xs text-slate-600 dark:text-slate-400 leading-relaxed">
+                                {dim.comment}
+                              </p>
+                            </div>
+                          ))}
                         </div>
-                        <p className="text-xs text-slate-600 dark:text-slate-400 leading-relaxed">
-                          {evaluation.dimensions?.presentation?.comment ||
-                            `Word limit compliance and realistic writability in ${evaluation.timeLimitMinutes || (evaluation.maxMarks === 10 ? 7 : 11)} minutes.`}
-                        </p>
-                      </div>
-                    </div>
+                      );
+                    })()}
 
                     {/* Examiner Marked Copy & Line-by-Line Script Audit */}
                     {evaluation.markedCopy &&
-                      evaluation.markedCopy.length > 0 && (
-                        <div className="p-4 sm:p-5 rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-2xs space-y-3">
-                          <div className="flex flex-wrap items-center justify-between gap-2 pb-2 border-b border-slate-100 dark:border-slate-800">
-                            <div className="flex items-center gap-2">
-                              <FileCheck className="h-4 w-4 text-indigo-600" />
-                              <h4 className="text-xs font-bold uppercase tracking-wider text-slate-900 dark:text-slate-100">
-                                Examiner Script Audit (Line-by-Line Marked Copy)
-                              </h4>
+                      evaluation.markedCopy.length > 0 &&
+                      (() => {
+                        const NEGATIVE_AUDIT_RE =
+                          /\b(irrelevant|off[- ]topic|not\s+relevant|wrong|incorrect|inaccurate|error|misspelled|confuses|contradicts|false|missing|flawed|unsubstantiated|superficial|vague|out\s+of\s+context|misplaced|incorrectly)\b/i;
+                        const VERIFY_AUDIT_RE =
+                          /\b(verify|unverified|check\s+fact|double[- ]check)\b/i;
+                        const resolveAuditType = (item: {
+                          type?: string;
+                          note?: string;
+                        }): "correct" | "incorrect" | "verify" | "note" => {
+                          const comment = (item.note || "").trim();
+                          if (NEGATIVE_AUDIT_RE.test(comment))
+                            return "incorrect";
+                          if (VERIFY_AUDIT_RE.test(comment)) return "verify";
+                          if (
+                            item.type === "correct" ||
+                            item.type === "incorrect" ||
+                            item.type === "verify"
+                          ) {
+                            return item.type;
+                          }
+                          return "note";
+                        };
+                        const typedAnnotations = evaluation.markedCopy.map(
+                          (item) => ({
+                            ...item,
+                            resolvedType: resolveAuditType(item),
+                          }),
+                        );
+                        const correctCount = typedAnnotations.filter(
+                          (m) => m.resolvedType === "correct",
+                        ).length;
+                        const incorrectCount = typedAnnotations.filter(
+                          (m) => m.resolvedType === "incorrect",
+                        ).length;
+                        const verifyCount = typedAnnotations.filter(
+                          (m) => m.resolvedType === "verify",
+                        ).length;
+
+                        return (
+                          <div className="p-4 sm:p-5 rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-2xs space-y-3">
+                            <div className="flex flex-wrap items-center justify-between gap-2 pb-2 border-b border-slate-100 dark:border-slate-800">
+                              <div className="flex items-center gap-2">
+                                <FileCheck className="h-4 w-4 text-indigo-600" />
+                                <h4 className="text-xs font-bold uppercase tracking-wider text-slate-900 dark:text-slate-100">
+                                  Examiner Script Audit (Line-by-Line Marked
+                                  Copy)
+                                </h4>
+                              </div>
+                              <div className="flex items-center gap-1.5 text-[11px] font-mono">
+                                <span className="px-2 py-0.5 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 font-semibold">
+                                  {typedAnnotations.length} Annotations
+                                </span>
+                                {correctCount > 0 && (
+                                  <span className="px-2 py-0.5 rounded-full bg-emerald-100 dark:bg-emerald-950/80 text-emerald-700 dark:text-emerald-300 font-semibold">
+                                    {correctCount} Accurate
+                                  </span>
+                                )}
+                                {incorrectCount > 0 && (
+                                  <span className="px-2 py-0.5 rounded-full bg-rose-100 dark:bg-rose-950/80 text-rose-700 dark:text-rose-300 font-semibold">
+                                    {incorrectCount} Wrong/Errors
+                                  </span>
+                                )}
+                                {verifyCount > 0 && (
+                                  <span className="px-2 py-0.5 rounded-full bg-amber-100 dark:bg-amber-950/80 text-amber-700 dark:text-amber-300 font-semibold">
+                                    {verifyCount} Unverified
+                                  </span>
+                                )}
+                              </div>
                             </div>
-                            <div className="flex items-center gap-1.5 text-[11px] font-mono">
-                              <span className="px-2 py-0.5 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 font-semibold">
-                                {evaluation.markedCopy.length} Annotations
-                              </span>
-                              {(() => {
-                                const correctCount =
-                                  evaluation.markedCopy.filter(
-                                    (m) => m.type === "correct",
-                                  ).length;
-                                const incorrectCount =
-                                  evaluation.markedCopy.filter(
-                                    (m) => m.type === "incorrect",
-                                  ).length;
-                                const verifyCount =
-                                  evaluation.markedCopy.filter(
-                                    (m) => m.type === "verify",
-                                  ).length;
+                            <div className="space-y-3">
+                              {typedAnnotations.map((item, idx) => {
+                                const isCorrect =
+                                  item.resolvedType === "correct";
+                                const isIncorrect =
+                                  item.resolvedType === "incorrect";
+                                const isVerify = item.resolvedType === "verify";
+
+                                const cardBorder = isCorrect
+                                  ? "bg-emerald-50/40 dark:bg-emerald-950/20 border-emerald-200/80 dark:border-emerald-900/60"
+                                  : isIncorrect
+                                    ? "bg-rose-50/40 dark:bg-rose-950/20 border-rose-200/80 dark:border-rose-900/60"
+                                    : isVerify
+                                      ? "bg-amber-50/40 dark:bg-amber-950/20 border-amber-200/80 dark:border-amber-900/60"
+                                      : "bg-slate-50/80 dark:bg-slate-800/50 border-slate-200/80 dark:border-slate-700/60";
+
+                                const quoteBorder = isCorrect
+                                  ? "border-emerald-500"
+                                  : isIncorrect
+                                    ? "border-rose-500"
+                                    : isVerify
+                                      ? "border-amber-500"
+                                      : "border-indigo-400";
+
+                                const badgeStyle = isCorrect
+                                  ? "bg-emerald-100 dark:bg-emerald-950/80 text-emerald-800 dark:text-emerald-300"
+                                  : isIncorrect
+                                    ? "bg-rose-100 dark:bg-rose-950/80 text-rose-800 dark:text-rose-300"
+                                    : isVerify
+                                      ? "bg-amber-100 dark:bg-amber-950/80 text-amber-800 dark:text-amber-300"
+                                      : "bg-indigo-100 dark:bg-indigo-950/80 text-indigo-700 dark:text-indigo-300";
+
+                                const badgeText = isCorrect
+                                  ? "✓ Accurate & Fits"
+                                  : isIncorrect
+                                    ? "✗ Wrong / Off-Topic"
+                                    : isVerify
+                                      ? "⚠️ Verify Fact"
+                                      : "Examiner Note";
+
+                                const noteColor = isCorrect
+                                  ? "text-emerald-800 dark:text-emerald-300 font-semibold"
+                                  : isIncorrect
+                                    ? "text-rose-700 dark:text-rose-300 font-semibold"
+                                    : isVerify
+                                      ? "text-amber-800 dark:text-amber-300 font-semibold"
+                                      : "text-slate-700 dark:text-slate-300 font-semibold";
+
                                 return (
-                                  <>
-                                    {correctCount > 0 && (
-                                      <span className="px-2 py-0.5 rounded-full bg-emerald-100 dark:bg-emerald-950/80 text-emerald-700 dark:text-emerald-300 font-semibold">
-                                        {correctCount} Accurate
+                                  <div
+                                    key={idx}
+                                    className={`p-3.5 rounded-xl border space-y-2 text-xs transition-colors ${cardBorder}`}
+                                  >
+                                    <div
+                                      className={`text-slate-800 dark:text-slate-200 font-serif italic pl-3 border-l-2 leading-relaxed text-xs sm:text-[13px] ${quoteBorder}`}
+                                    >
+                                      &ldquo;{item.quote}&rdquo;
+                                    </div>
+                                    <div className="flex items-start gap-2 pt-1 border-t border-slate-100 dark:border-slate-700/40">
+                                      <span
+                                        className={`text-[10px] font-mono font-bold uppercase tracking-wider px-1.5 py-0.5 rounded shrink-0 ${badgeStyle}`}
+                                      >
+                                        {badgeText}
                                       </span>
-                                    )}
-                                    {incorrectCount > 0 && (
-                                      <span className="px-2 py-0.5 rounded-full bg-rose-100 dark:bg-rose-950/80 text-rose-700 dark:text-rose-300 font-semibold">
-                                        {incorrectCount} Wrong/Errors
+                                      <span
+                                        className={`leading-relaxed ${noteColor}`}
+                                      >
+                                        {item.note}
                                       </span>
-                                    )}
-                                    {verifyCount > 0 && (
-                                      <span className="px-2 py-0.5 rounded-full bg-amber-100 dark:bg-amber-950/80 text-amber-700 dark:text-amber-300 font-semibold">
-                                        {verifyCount} Unverified
-                                      </span>
-                                    )}
-                                  </>
+                                    </div>
+                                  </div>
                                 );
-                              })()}
+                              })}
                             </div>
                           </div>
-                          <div className="space-y-3">
-                            {evaluation.markedCopy.map((item, idx) => {
-                              const isCorrect = item.type === "correct";
-                              const isIncorrect = item.type === "incorrect";
-                              const isVerify = item.type === "verify";
-
-                              const cardBorder = isCorrect
-                                ? "bg-emerald-50/40 dark:bg-emerald-950/20 border-emerald-200/80 dark:border-emerald-900/60"
-                                : isIncorrect
-                                  ? "bg-rose-50/40 dark:bg-rose-950/20 border-rose-200/80 dark:border-rose-900/60"
-                                  : isVerify
-                                    ? "bg-amber-50/40 dark:bg-amber-950/20 border-amber-200/80 dark:border-amber-900/60"
-                                    : "bg-slate-50/80 dark:bg-slate-800/50 border-slate-200/80 dark:border-slate-700/60";
-
-                              const quoteBorder = isCorrect
-                                ? "border-emerald-500"
-                                : isIncorrect
-                                  ? "border-rose-500"
-                                  : isVerify
-                                    ? "border-amber-500"
-                                    : "border-indigo-400";
-
-                              const badgeStyle = isCorrect
-                                ? "bg-emerald-100 dark:bg-emerald-950/80 text-emerald-800 dark:text-emerald-300"
-                                : isIncorrect
-                                  ? "bg-rose-100 dark:bg-rose-950/80 text-rose-800 dark:text-rose-300"
-                                  : isVerify
-                                    ? "bg-amber-100 dark:bg-amber-950/80 text-amber-800 dark:text-amber-300"
-                                    : "bg-indigo-100 dark:bg-indigo-950/80 text-indigo-700 dark:text-indigo-300";
-
-                              const badgeText = isCorrect
-                                ? "✓ Accurate & Fits"
-                                : isIncorrect
-                                  ? "✗ Factually Wrong / Error"
-                                  : isVerify
-                                    ? "⚠️ Verify Fact"
-                                    : "Examiner Note";
-
-                              const noteColor = isCorrect
-                                ? "text-emerald-800 dark:text-emerald-300 font-semibold"
-                                : isIncorrect
-                                  ? "text-rose-700 dark:text-rose-300 font-semibold"
-                                  : isVerify
-                                    ? "text-amber-800 dark:text-amber-300 font-semibold"
-                                    : "text-slate-700 dark:text-slate-300 font-semibold";
-
-                              return (
-                                <div
-                                  key={idx}
-                                  className={`p-3.5 rounded-xl border space-y-2 text-xs transition-colors ${cardBorder}`}
-                                >
-                                  <div
-                                    className={`text-slate-800 dark:text-slate-200 font-serif italic pl-3 border-l-2 leading-relaxed text-xs sm:text-[13px] ${quoteBorder}`}
-                                  >
-                                    &ldquo;{item.quote}&rdquo;
-                                  </div>
-                                  <div className="flex items-start gap-2 pt-1 border-t border-slate-100 dark:border-slate-700/40">
-                                    <span
-                                      className={`text-[10px] font-mono font-bold uppercase tracking-wider px-1.5 py-0.5 rounded shrink-0 ${badgeStyle}`}
-                                    >
-                                      {badgeText}
-                                    </span>
-                                    <span
-                                      className={`leading-relaxed ${noteColor}`}
-                                    >
-                                      {item.note}
-                                    </span>
-                                  </div>
-                                </div>
-                              );
-                            })}
-                          </div>
-                        </div>
-                      )}
+                        );
+                      })()}
 
                     {/* Strengths, Flaws, and Missing Dimensions Grid */}
                     {(() => {
