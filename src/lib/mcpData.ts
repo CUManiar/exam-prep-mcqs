@@ -38,7 +38,7 @@ function normalizePaper(row: Record<string, any>): QuestionPaper {
     year: String(row.year || new Date().getFullYear()),
     category: row.stage || row.category || "prelims",
     examType: row.exam_type || row.examType || "objective",
-    subject: row.subject || label,
+    subject: row.subject || "",
     label,
     title: row.title || label,
     totalQuestions: Number(row.total_questions ?? row.totalQuestions) || 0,
@@ -271,7 +271,7 @@ export async function saveMcpPaper(
       user_id: userId,
       title,
       year: Number(paper.year) || new Date().getFullYear(),
-      subject: paper.subject || title,
+      subject: paper.subject || "",
       stage: paper.category,
       exam_type: paper.examType,
       label: title,
@@ -313,6 +313,8 @@ export async function deleteMcpPaper(
   const supabase = getAdminClient();
   const cleanId = paperId.trim();
   const lowerId = cleanId.toLowerCase();
+  let deletedFromSupabase = false;
+  let deletedFromStore = false;
 
   if (supabase) {
     const candidateIds = Array.from(new Set([cleanId, lowerId]));
@@ -356,14 +358,16 @@ export async function deleteMcpPaper(
       .eq("user_id", userId)
       .in("source_paper_id", idList);
 
-    const { error } = await supabase
+    const { data: deletedRows, error } = await supabase
       .from("custom_papers")
       .delete()
       .eq("user_id", userId)
-      .in("id", idList);
+      .in("id", idList)
+      .select("id");
     if (error) {
       throw new Error(`The paper could not be deleted: ${error.message}`);
     }
+    deletedFromSupabase = Boolean(deletedRows && deletedRows.length > 0);
   }
 
   // Always also remove from papers.json / Blob store so no stale entry remains
@@ -397,6 +401,7 @@ export async function deleteMcpPaper(
     }
     if (changed) {
       await writeJsonStore("papers.json", stored);
+      deletedFromStore = true;
     }
   } catch (err) {
     console.warn("Notice: papers.json cleanup during MCP delete:", err);
@@ -421,7 +426,7 @@ export async function deleteMcpPaper(
     }
   }
 
-  return true;
+  return supabase ? deletedFromSupabase || deletedFromStore : deletedFromStore;
 }
 
 export async function setPaperArchived(

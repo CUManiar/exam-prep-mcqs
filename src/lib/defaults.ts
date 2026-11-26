@@ -34,6 +34,39 @@ export function getSubjectiveAssessmentFraction(
   return assessment ? SUBJECTIVE_ASSESSMENT_META[assessment].fraction : 0;
 }
 
+/**
+ * Returns true if an attempt is a Mistake Re-Test (which is only for review/practice
+ * and excluded from official score pointers & projections).
+ */
+export function isRetestAttempt(
+  attempt: Attempt,
+  paper?: QuestionPaper | null,
+): boolean {
+  if (attempt.paperId?.startsWith("retest-")) return true;
+  if (/^\[re-?test\]/i.test((attempt.paperLabel || "").trim())) return true;
+  if (paper?.id?.startsWith("retest-")) return true;
+  if (/^\[re-?test\]/i.test((paper?.title || paper?.label || "").trim()))
+    return true;
+  return false;
+}
+
+/**
+ * Returns true only for completed, non-abandoned, non-retest Mock attempts.
+ * Practice sessions, re-tests, and abandoned mocks (no finishedAt or 0 answered)
+ * are excluded from all score KPIs, projections, and analytics pointers.
+ */
+export function isOfficialMockAttempt(
+  attempt: Attempt,
+  paper?: QuestionPaper | null,
+): boolean {
+  return (
+    attempt.mode === "mock" &&
+    Boolean(attempt.finishedAt) &&
+    (attempt.answered || 0) > 0 &&
+    !isRetestAttempt(attempt, paper)
+  );
+}
+
 export function normalizeClozeText(text: string): string {
   if (!text) return "";
   return text

@@ -71,7 +71,7 @@ const faqItems = [
     question:
       "Can an assistant inspect and re-grade answers to fill assessment gaps?",
     answer:
-      "Yes. The get_attempt_detail tool surfaces question prompts, word limits (e.g. 150 words for 10 marks), options, candidate responses, and your uploaded full-booklet PDF URL (userSubmissionPdfUrl). The assistant can evaluate your answers and call grade_attempt_questions to post adjusted marks, qualitative tags (strong, partial, needs-work), and feedback notes. Re-grading automatically uses the paper's current marks and recalculates your total score, percentage, and accuracy in real time.",
+      "Yes. The get_attempt_detail tool surfaces question prompts, word limits (e.g. 150 words for 10 marks), options, candidate responses, and your uploaded full-booklet PDF URL (userSubmissionPdfUrl). The assistant can evaluate your answers and call grade_attempt_questions to post adjusted marks, qualitative tags (strong, partial, needs-work), and evaluator feedback notes (saved to evaluationComment without overwriting your own scratchpad note). Re-grading automatically uses the paper's current marks, recalculates your total score, percentage, and accuracy in real time, and surfaces a Regraded badge in the review UI.",
   },
   {
     question: "How can I see tests I haven't attempted yet?",

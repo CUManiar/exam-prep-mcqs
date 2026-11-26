@@ -242,7 +242,9 @@ export function useReviewData(attempt: Attempt, papers: QuestionPaper[]) {
   };
 
   const getFullMarks = (qNo: number) =>
-    isClozeQuestion(qNo) ? correctMarksPerQ : subjectiveMarksPerQ;
+    isClozeQuestion(qNo) || !isSubjectiveAttempt
+      ? correctMarksPerQ
+      : subjectiveMarksPerQ;
 
   const getAssessmentMarks = (
     qNo: number,
@@ -277,6 +279,9 @@ export function useReviewData(attempt: Attempt, papers: QuestionPaper[]) {
           const effectiveCorrect = paperCorrect || ans?.correctAnswer;
           const effectiveExp = paperExp || ans?.explanation;
           const isCloze = isClozeQuestion(qNo);
+          const hasExplicitOverride =
+            ans?.subjectiveAssessment !== undefined ||
+            ans?.subjectiveMarks !== undefined;
           const isCorrect =
             ans?.selected !== null && ans?.selected !== undefined
               ? isCloze
@@ -287,10 +292,27 @@ export function useReviewData(attempt: Attempt, papers: QuestionPaper[]) {
                       ? false
                       : null
                   : null
-                : effectiveCorrect
-                  ? ans.selected.trim().toUpperCase() ===
-                    effectiveCorrect.trim().toUpperCase()
-                  : ans.isCorrect
+                : hasExplicitOverride
+                  ? ans.subjectiveAssessment === "strong"
+                    ? true
+                    : ans.subjectiveAssessment === "needs-work"
+                      ? false
+                      : ans.subjectiveAssessment === "partial" ||
+                          ans.subjectiveAssessment === "no-attempt"
+                        ? null
+                        : ans.isCorrect !== undefined
+                          ? ans.isCorrect
+                          : (ans.subjectiveMarks ?? 0) >= correctMarksPerQ
+                            ? true
+                            : (ans.subjectiveMarks ?? 0) > 0
+                              ? null
+                              : false
+                  : ans.isCorrect !== undefined && ans.isCorrect !== null
+                    ? ans.isCorrect
+                    : effectiveCorrect
+                      ? ans.selected.trim().toUpperCase() ===
+                        effectiveCorrect.trim().toUpperCase()
+                      : ans.isCorrect
               : null;
 
           const effectivePreviousYears =

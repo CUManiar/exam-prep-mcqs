@@ -612,7 +612,7 @@ export async function fetchUserCustomPapersFromSupabase(
         year: String(row.year),
         category: (row.stage || "prelims") as any,
         examType: (row.exam_type || "objective") as any,
-        subject: row.subject || paperLabel,
+        subject: row.subject || "",
         paperStream:
           row.paper_stream ||
           inferPaperStream({
@@ -702,7 +702,7 @@ export async function saveUserCustomPaperToSupabase(
       user_id: userId,
       title: paperTitle,
       year: parseInt(paper.year) || 2026,
-      subject: paper.subject || paperTitle,
+      subject: paper.subject || "",
       stage: paper.category,
       exam_type: paper.examType,
       paper_stream: streamInfo.paperStream,

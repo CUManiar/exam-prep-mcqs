@@ -375,8 +375,10 @@ function createImportedPaper(
 
   const examType = input.examType === "subjective" ? "subjective" : "objective";
   const category = input.category === "mains" ? "mains" : "prelims";
-  const paperSubject = String(input.subject || header.subject || title);
-  const enforceSingleSubject = isSpecificSingleSubject(paperSubject);
+  const paperSubject = String(input.subject || header.subject || "").trim();
+  const enforceSingleSubject = paperSubject
+    ? isSpecificSingleSubject(paperSubject)
+    : false;
 
   let parsedQuestions = normalizeQuestions(input);
   if (parsedQuestions.length === 0 && markdownText.trim()) {
@@ -1787,7 +1789,7 @@ export function createPortalMcpServer(
                 .string()
                 .optional()
                 .describe(
-                  "Optional feedback or explanation note for this question.",
+                  "Optional evaluator feedback or explanation note for this question (saved to evaluationComment; preserves student scratchpad note).",
                 ),
             }),
           )
@@ -1889,6 +1891,7 @@ export function createPortalMcpServer(
                   ? grade.isCorrect
                   : null;
 
+        const timestamp = new Date().toISOString();
         updatedAnswers[qNo] = {
           ...currentAnswer,
           selected: isCloze
@@ -1899,7 +1902,13 @@ export function createPortalMcpServer(
           subjectiveAssessment: assessment,
           subjectiveMarks: grade.marks,
           isCorrect,
-          note: grade.note !== undefined ? grade.note : currentAnswer.note,
+          ...(grade.note !== undefined
+            ? {
+                evaluationComment: grade.note,
+                evaluationSource: "mcp" as const,
+                evaluationUpdatedAt: timestamp,
+              }
+            : {}),
         };
       }
 
@@ -2345,7 +2354,12 @@ export function createPortalMcpServer(
         );
       }
 
-      await deleteMcpPaper(userId, paper.id);
+      const deleted = await deleteMcpPaper(userId, paper.id);
+      if (!deleted) {
+        return errorResult(
+          "Paper could not be deleted because no matching record was removed.",
+        );
+      }
       return textResult({
         deleted: true,
         paperId: paper.id,

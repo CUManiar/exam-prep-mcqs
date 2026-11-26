@@ -3,6 +3,7 @@
 import {
   AlertTriangle,
   Award,
+  Calendar,
   Check,
   CheckCircle2,
   ChevronRight,
@@ -25,6 +26,7 @@ import {
   formatTimeSeconds,
   getAttemptPercentage,
   getPaperCutoffStatus,
+  isOfficialMockAttempt,
 } from "../lib/defaults";
 import { Attempt } from "../lib/types";
 import { LongitudinalTrendChart } from "./history/LongitudinalTrendChart";
@@ -42,8 +44,12 @@ export function HistoryView({
   onViewAttempt,
   onDeleteAttempt,
 }: HistoryViewProps) {
-  const { papers, handleStartExam } = useApp();
+  const { papers, hiddenPaperIds = [], handleStartExam } = useApp();
   const [search, setSearch] = useState("");
+  const [dateFilter, setDateFilter] = useState<
+    "all" | "today" | "7d" | "30d" | "90d" | "custom"
+  >("all");
+  const [customDate, setCustomDate] = useState("");
   const [viewMode, setViewMode] = useState<"all" | "cumulative">("all");
   const [performanceViewMode, setPerformanceViewMode] = useState<
     "grid" | "list"
@@ -89,10 +95,41 @@ export function HistoryView({
     } catch {}
   }, [mounted, search, viewMode, performanceViewMode]);
 
-  // Only mock mode attempts are counted in official history
-  const mockAttempts = attempts.filter(
-    (a) => a.mode === "mock" && Boolean(a.finishedAt),
-  );
+  // Only completed, non-abandoned, non-retest mock attempts count in official history
+  const allMockAttempts = useMemo(() => {
+    const paperMap = new Map(papers.map((p) => [p.id, p]));
+    return attempts.filter((a) =>
+      isOfficialMockAttempt(a, paperMap.get(a.paperId)),
+    );
+  }, [attempts, papers]);
+
+  const mockAttempts = useMemo(() => {
+    if (dateFilter === "all") return allMockAttempts;
+    const now = new Date();
+    const startOfToday = new Date(
+      now.getFullYear(),
+      now.getMonth(),
+      now.getDate(),
+    ).getTime();
+
+    return allMockAttempts.filter((a) => {
+      const ts = new Date(a.finishedAt || a.startedAt).getTime();
+      if (Number.isNaN(ts)) return false;
+      if (dateFilter === "today") return ts >= startOfToday;
+      if (dateFilter === "7d")
+        return ts >= startOfToday - 6 * 24 * 60 * 60 * 1000;
+      if (dateFilter === "30d")
+        return ts >= startOfToday - 29 * 24 * 60 * 60 * 1000;
+      if (dateFilter === "90d")
+        return ts >= startOfToday - 89 * 24 * 60 * 60 * 1000;
+      if (dateFilter === "custom" && customDate) {
+        const d = new Date(a.finishedAt || a.startedAt);
+        const ymd = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+        return ymd === customDate;
+      }
+      return true;
+    });
+  }, [allMockAttempts, dateFilter, customDate]);
 
   // Group by paper for cumulative tracking
   const groupedByPaper = useMemo(() => {
@@ -274,19 +311,8 @@ export function HistoryView({
             </button>
           </div>
 
-          {/* Search & Layout switcher */}
-          <div className="flex items-center gap-2 w-full sm:w-auto">
-            <div className="flex-1 sm:w-56 relative">
-              <Search className="absolute left-3 top-2.5 h-3.5 w-3.5 text-slate-400" />
-              <input
-                type="text"
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                placeholder="Search paper..."
-                className="w-full rounded-xl border border-slate-200 bg-white pl-8 pr-3 py-1.5 text-xs text-slate-800 placeholder-slate-400 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 focus:outline-none transition-all shadow-xs"
-              />
-            </div>
-
+          {/* Layout switcher */}
+          <div className="flex items-center gap-2 self-end sm:self-auto">
             <div
               className="inline-flex items-center gap-0.5 rounded-xl border border-slate-200 bg-slate-100 p-0.5 shrink-0"
               aria-label="Performance layout"
@@ -321,6 +347,64 @@ export function HistoryView({
           </div>
         </div>
       </div>
+
+      {/* Attempted Paper Search & Date Filter Bar (Top) */}
+      {allMockAttempts.length > 0 && (
+        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
+          <div className="relative flex-1 min-w-0">
+            <Search className="absolute left-3.5 top-3 h-4 w-4 text-slate-400" />
+            <input
+              type="text"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="Search attempted papers by title, subject, year, or mode..."
+              className="w-full rounded-2xl border border-slate-200 bg-white pl-10 pr-16 py-2.5 text-xs sm:text-sm text-slate-800 placeholder-slate-400 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 focus:outline-none transition-all shadow-2xs"
+            />
+            {search && (
+              <button
+                type="button"
+                onClick={() => setSearch("")}
+                className="absolute right-3 top-2 rounded-lg bg-slate-100 hover:bg-slate-200 px-2.5 py-1 text-[11px] font-semibold text-slate-600 transition-colors cursor-pointer"
+              >
+                Clear
+              </button>
+            )}
+          </div>
+
+          <div className="flex items-center gap-2 shrink-0">
+            <div className="relative flex-1 sm:flex-initial">
+              <Calendar className="pointer-events-none absolute left-3 top-3 h-3.5 w-3.5 text-slate-400" />
+              <select
+                aria-label="Filter attempts by date"
+                value={dateFilter}
+                onChange={(e) => {
+                  const val = e.target.value as typeof dateFilter;
+                  setDateFilter(val);
+                  if (val !== "custom") setCustomDate("");
+                }}
+                className="w-full sm:w-auto rounded-2xl border border-slate-200 bg-white pl-8 pr-7 py-2.5 text-xs sm:text-sm font-medium text-slate-700 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 focus:outline-none transition-all shadow-2xs cursor-pointer"
+              >
+                <option value="all">All Dates</option>
+                <option value="today">Today</option>
+                <option value="7d">Last 7 Days</option>
+                <option value="30d">Last 30 Days</option>
+                <option value="90d">Last 90 Days</option>
+                <option value="custom">Specific Date</option>
+              </select>
+            </div>
+
+            {dateFilter === "custom" && (
+              <input
+                type="date"
+                aria-label="Pick specific attempt date"
+                value={customDate}
+                onChange={(e) => setCustomDate(e.target.value)}
+                className="rounded-2xl border border-slate-200 bg-white px-3 py-2 text-xs sm:text-sm text-slate-700 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 focus:outline-none transition-all shadow-2xs"
+              />
+            )}
+          </div>
+        </div>
+      )}
 
       {/* Aggregate Overview Bar (if attempts exist) */}
       {totalMocks > 0 && !search && (
@@ -372,7 +456,7 @@ export function HistoryView({
         </div>
       )}
 
-      {/* Longitudinal Performance Trajectory Chart */}
+      {/* Longitudinal Performance Trajectory & Direction Breakdown (Default Closed) */}
       {totalMocks > 0 && !search && (
         <LongitudinalTrendChart
           attempts={mockAttempts}
@@ -401,7 +485,8 @@ export function HistoryView({
           <div className="space-y-6">
             {filteredGrouped.map((group) => {
               const hasMultiple = group.attempts.length > 1;
-              const paperDeleted = !group.paper;
+              const paperDeleted =
+                !group.paper && !hiddenPaperIds.includes(group.paperId);
 
               return (
                 <div
@@ -721,7 +806,8 @@ export function HistoryView({
             const totalPaperAttempts = group.attempts.length;
             const matchedPaper =
               group.paper || papers.find((p) => p.id === group.paperId);
-            const paperDeleted = !matchedPaper;
+            const paperDeleted =
+              !matchedPaper && !hiddenPaperIds.includes(group.paperId);
 
             const scoreColor =
               activeAttempt.score >= 90

@@ -3,6 +3,7 @@
 import { useMemo } from "react";
 import { Attempt, QuestionPaper } from "../../lib/types";
 import { inferPaperStream } from "../../lib/paperStream";
+import { isOfficialMockAttempt } from "../../lib/defaults";
 import { AlertTriangle, Target, TrendingDown, Zap, Info } from "lucide-react";
 
 interface StrategicDiagnosticsWidgetProps {
@@ -38,17 +39,16 @@ export function StrategicDiagnosticsWidget({
   attempts,
   papers,
 }: StrategicDiagnosticsWidgetProps) {
-  const completed = useMemo(
-    () =>
-      [...attempts]
-        .filter((a) => Boolean(a.finishedAt))
-        .sort(
-          (a, b) =>
-            new Date(b.finishedAt || b.startedAt).getTime() -
-            new Date(a.finishedAt || a.startedAt).getTime(),
-        ),
-    [attempts],
-  );
+  const completed = useMemo(() => {
+    const paperMap = new Map(papers.map((p) => [p.id, p]));
+    return [...attempts]
+      .filter((a) => isOfficialMockAttempt(a, paperMap.get(a.paperId)))
+      .sort(
+        (a, b) =>
+          new Date(b.finishedAt || b.startedAt).getTime() -
+          new Date(a.finishedAt || a.startedAt).getTime(),
+      );
+  }, [attempts, papers]);
 
   // 1. PROJECTED PRELIMS SCORES — SEPARATE GS (92 / 105) & CSAT (66.67 / 75)
   const computeStreamProjection = (

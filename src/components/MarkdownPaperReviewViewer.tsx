@@ -23,6 +23,8 @@ import {
   Grid3X3,
   ChevronLeft,
   ChevronRight,
+  ChevronDown,
+  ChevronUp,
   Bookmark,
 } from "lucide-react";
 import { HtmlExplanation } from "./HtmlExplanation";
@@ -72,6 +74,9 @@ export function MarkdownPaperReviewViewer({
   const [showPaperDetails, setShowPaperDetails] = useState<boolean>(false);
   const [isPaletteOpen, setIsPaletteOpen] = useState<boolean>(false);
   const [openAiQuestionNo, setOpenAiQuestionNo] = useState<number | null>(null);
+  const [expandedEvalMap, setExpandedEvalMap] = useState<
+    Record<number, boolean>
+  >({});
 
   const touchStartRef = useRef<{ x: number; y: number; time: number } | null>(
     null,
@@ -454,17 +459,39 @@ export function MarkdownPaperReviewViewer({
 
             const isAnswered = Boolean(ans?.selected?.trim());
             const isPartial =
-              isAnswered && ans?.subjectiveAssessment === "partial";
+              isAnswered &&
+              (ans?.subjectiveAssessment === "partial" ||
+                (!isCloze &&
+                  ans?.isCorrect === null &&
+                  ans?.subjectiveMarks !== undefined &&
+                  ans.subjectiveMarks > 0));
             const isCorrect =
               isAnswered &&
               (isCloze
                 ? ans?.subjectiveAssessment === "strong"
-                : !isPartial && ans?.isCorrect === true);
+                : !isPartial &&
+                  (ans?.isCorrect === true ||
+                    ans?.subjectiveAssessment === "strong"));
             const isWrong =
               isAnswered &&
               (isCloze
                 ? ans?.subjectiveAssessment === "needs-work"
-                : !isPartial && ans?.isCorrect === false);
+                : !isPartial &&
+                  !isCorrect &&
+                  (ans?.isCorrect === false ||
+                    ans?.subjectiveAssessment === "needs-work"));
+            const isRegraded =
+              !isCloze &&
+              Boolean(
+                ans &&
+                (ans.subjectiveAssessment !== undefined ||
+                  ans.subjectiveMarks !== undefined ||
+                  (isAnswered &&
+                    correctOpt &&
+                    ans.isCorrect !== null &&
+                    ans.isCorrect !== undefined &&
+                    ans.isCorrect !== (userSelected === correctOpt))),
+              );
             const isSelectedActive = activeQuestionNo === q.questionNo;
 
             const explanationText =
@@ -511,13 +538,25 @@ export function MarkdownPaperReviewViewer({
                     ) : isCorrect ? (
                       <span className="inline-flex items-center gap-1 text-[11px] font-bold text-emerald-800 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-full shadow-2xs">
                         <CheckCircle2 className="h-3 w-3 text-emerald-600" />
-                        <span>Correct · +{correctMarksValue}</span>
+                        <span>
+                          Correct · +
+                          {Number(
+                            (ans?.subjectiveMarks ?? correctMarksValue).toFixed(
+                              2,
+                            ),
+                          )}
+                        </span>
                       </span>
                     ) : isWrong ? (
                       <span className="inline-flex items-center gap-1 text-[11px] font-bold text-rose-800 bg-rose-50 border border-rose-200 px-2 py-0.5 rounded-full shadow-2xs">
                         <XCircle className="h-3 w-3 text-rose-600" />
                         <span>
-                          Incorrect · -{incorrectMarksValue}
+                          Incorrect ·{" "}
+                          {ans?.subjectiveMarks !== undefined
+                            ? ans.subjectiveMarks > 0
+                              ? `+${Number(ans.subjectiveMarks.toFixed(2))}`
+                              : Number(ans.subjectiveMarks.toFixed(2))
+                            : `-${incorrectMarksValue}`}
                           {userSelected && !isCloze
                             ? ` · Picked ${userSelected}`
                             : ""}
@@ -532,6 +571,12 @@ export function MarkdownPaperReviewViewer({
                       <span className="inline-flex items-center gap-1 text-[11px] font-medium text-slate-500 bg-slate-100 border border-slate-200 px-2 py-0.5 rounded-full">
                         <HelpCircle className="h-3 w-3 text-slate-400" />
                         <span>Skipped · 0 pts</span>
+                      </span>
+                    )}
+
+                    {isRegraded && (
+                      <span className="inline-flex items-center gap-1 text-[11px] font-bold text-indigo-800 bg-indigo-50 border border-indigo-200 px-2 py-0.5 rounded-full shadow-2xs">
+                        <span>Regraded</span>
                       </span>
                     )}
 
@@ -644,6 +689,23 @@ export function MarkdownPaperReviewViewer({
                             Correct
                           </span>
                         );
+                      } else if (isUserPick && isCorrect) {
+                        optStyle =
+                          "bg-emerald-50 border-2 border-emerald-500 text-emerald-950 font-semibold shadow-2xs";
+                        badgeEl = (
+                          <span className="text-[10px] font-bold text-emerald-800 ml-auto flex items-center gap-0.5 shrink-0 bg-emerald-100 px-1.5 py-0.5 rounded">
+                            <Check className="h-3 w-3 text-emerald-700" /> Your
+                            answer (Regraded)
+                          </span>
+                        );
+                      } else if (isUserPick && isPartial) {
+                        optStyle =
+                          "bg-amber-50 border-2 border-amber-400 text-amber-950 font-semibold shadow-2xs";
+                        badgeEl = (
+                          <span className="text-[10px] font-bold text-amber-800 ml-auto flex items-center gap-0.5 shrink-0 bg-amber-100 px-1.5 py-0.5 rounded">
+                            Your answer (Partial)
+                          </span>
+                        );
                       } else if (isUserPick) {
                         optStyle =
                           "bg-rose-50 border-2 border-rose-500 text-rose-950 font-semibold shadow-2xs";
@@ -661,11 +723,13 @@ export function MarkdownPaperReviewViewer({
                         >
                           <span
                             className={`font-mono text-[11px] font-bold px-1.5 py-0.5 rounded shrink-0 ${
-                              isRightAnswer
+                              isRightAnswer || (isUserPick && isCorrect)
                                 ? "bg-emerald-600 text-white"
-                                : isUserPick
-                                  ? "bg-rose-600 text-white"
-                                  : "bg-slate-200 text-slate-800"
+                                : isUserPick && isPartial
+                                  ? "bg-amber-500 text-white"
+                                  : isUserPick
+                                    ? "bg-rose-600 text-white"
+                                    : "bg-slate-200 text-slate-800"
                             }`}
                           >
                             {optKey}
@@ -690,6 +754,50 @@ export function MarkdownPaperReviewViewer({
                       </strong>
                       {ans.note.trim()}
                     </div>
+                  </div>
+                )}
+
+                {/* Collapsible Evaluator Feedback (Below Student Note, Markdown papers only) */}
+                {ans?.evaluationComment && ans.evaluationComment.trim() && (
+                  <div className="mt-3 rounded-xl bg-sky-50/70 border border-sky-200/90 shadow-2xs overflow-hidden">
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setExpandedEvalMap((prev) => ({
+                          ...prev,
+                          [q.questionNo]: !prev[q.questionNo],
+                        }))
+                      }
+                      aria-expanded={Boolean(expandedEvalMap[q.questionNo])}
+                      className="w-full flex items-center justify-between gap-2 px-3 py-2.5 text-left hover:bg-sky-100/50 transition-colors cursor-pointer"
+                    >
+                      <div className="flex items-center gap-2 min-w-0">
+                        <Sparkles className="h-3.5 w-3.5 text-sky-600 shrink-0" />
+                        <span className="text-[10px] font-bold uppercase tracking-wider text-sky-900">
+                          Evaluator Feedback
+                        </span>
+                        {ans.evaluationSource && (
+                          <span className="text-[9px] font-mono uppercase font-bold px-1.5 py-0.5 rounded bg-sky-100 text-sky-700 border border-sky-200">
+                            {ans.evaluationSource}
+                          </span>
+                        )}
+                      </div>
+                      <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-sky-700 shrink-0">
+                        <span>
+                          {expandedEvalMap[q.questionNo] ? "Hide" : "Show"}
+                        </span>
+                        {expandedEvalMap[q.questionNo] ? (
+                          <ChevronUp className="h-3.5 w-3.5" />
+                        ) : (
+                          <ChevronDown className="h-3.5 w-3.5" />
+                        )}
+                      </span>
+                    </button>
+                    {expandedEvalMap[q.questionNo] && (
+                      <div className="px-3 pb-3 pt-1 border-t border-sky-200/60 text-xs text-slate-800 leading-relaxed whitespace-pre-wrap">
+                        {ans.evaluationComment.trim()}
+                      </div>
+                    )}
                   </div>
                 )}
 

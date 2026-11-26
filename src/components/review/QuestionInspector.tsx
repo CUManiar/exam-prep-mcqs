@@ -107,13 +107,27 @@ export function QuestionInspector({
     ? Boolean(question.selected?.trim() && question.selected !== "attempted")
     : question.selected !== null && question.selected !== undefined;
 
+  const isPartial =
+    subjectiveAssessment === "partial" ||
+    (!isEvaluable &&
+      question.isCorrect === null &&
+      question.subjectiveMarks !== undefined &&
+      question.subjectiveMarks > 0);
   const isCorrect = isEvaluable
     ? subjectiveAssessment === "strong"
-    : Boolean(question.selected && question.isCorrect === true);
+    : Boolean(
+        question.selected &&
+        !isPartial &&
+        (question.isCorrect === true || subjectiveAssessment === "strong"),
+      );
   const isWrong = isEvaluable
     ? subjectiveAssessment === "needs-work"
-    : Boolean(question.selected && question.isCorrect === false);
-  const isPartial = isEvaluable && subjectiveAssessment === "partial";
+    : Boolean(
+        question.selected &&
+        !isPartial &&
+        !isCorrect &&
+        (question.isCorrect === false || subjectiveAssessment === "needs-work"),
+      );
   const isSkipped = !isAnswered && !subjectiveAssessment;
   const isSlow = (question.timeSpentSeconds || 0) >= 90;
 
@@ -130,6 +144,17 @@ export function QuestionInspector({
   const candidateAnswer = isCloze
     ? rawCandidate
     : rawCandidate.replace(/[\(\)\[\]\.\s]/g, "").toUpperCase();
+  const isRegraded =
+    !isEvaluable &&
+    Boolean(
+      subjectiveAssessment !== undefined ||
+      question.subjectiveMarks !== undefined ||
+      (isAnswered &&
+        expectedAnswer &&
+        question.isCorrect !== null &&
+        question.isCorrect !== undefined &&
+        question.isCorrect !== (candidateAnswer === expectedAnswer)),
+    );
   const officialExplanation =
     parsedQuestion?.explanation || question.explanation;
 
@@ -242,13 +267,22 @@ export function QuestionInspector({
           {isCorrect && (
             <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-bold bg-emerald-100 text-emerald-800 border border-emerald-300 shadow-2xs">
               <CheckCircle2 className="h-3.5 w-3.5 text-emerald-600" />
-              Correct (+{fullMarks.toFixed(1)} pts)
+              Correct (+{(question.subjectiveMarks ?? fullMarks).toFixed(
+                1,
+              )}{" "}
+              pts)
             </span>
           )}
           {isWrong && (
             <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-bold bg-rose-100 text-rose-800 border border-rose-300 shadow-2xs">
               <XCircle className="h-3.5 w-3.5 text-rose-600" />
-              Incorrect (-{incorrectMarksPerQ.toFixed(2)} pts)
+              Incorrect (
+              {question.subjectiveMarks !== undefined
+                ? question.subjectiveMarks > 0
+                  ? `+${question.subjectiveMarks.toFixed(2)}`
+                  : question.subjectiveMarks.toFixed(2)
+                : `-${incorrectMarksPerQ.toFixed(2)}`}{" "}
+              pts)
             </span>
           )}
           {isPartial && (
@@ -260,6 +294,12 @@ export function QuestionInspector({
           {isSkipped && (
             <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-slate-100 text-slate-600 border border-slate-200">
               Unattempted (0 pts)
+            </span>
+          )}
+
+          {isRegraded && (
+            <span className="text-[11px] font-bold text-indigo-700 bg-indigo-50 border border-indigo-200 px-2 py-0.5 rounded-full">
+              Regraded
             </span>
           )}
 
@@ -479,10 +519,14 @@ export function QuestionInspector({
                   "border-slate-200 bg-white text-slate-800 hover:border-slate-300";
                 let badgeStyle = "bg-slate-100 text-slate-700 border-slate-200";
 
-                if (isOfficialCorrect) {
+                if (isOfficialCorrect || (isCandidateChoice && isCorrect)) {
                   cardStyle =
                     "border-emerald-500 bg-emerald-50/90 text-emerald-950 ring-2 ring-emerald-500/20 shadow-xs";
                   badgeStyle = "bg-emerald-600 text-white border-emerald-700";
+                } else if (isCandidateChoice && isPartial) {
+                  cardStyle =
+                    "border-amber-400 bg-amber-50/90 text-amber-950 ring-2 ring-amber-400/20 shadow-xs";
+                  badgeStyle = "bg-amber-500 text-white border-amber-600";
                 } else if (isCandidateChoice && !isOfficialCorrect) {
                   cardStyle =
                     "border-rose-500 bg-rose-50/90 text-rose-950 ring-2 ring-rose-500/20 shadow-xs";
@@ -513,12 +557,26 @@ export function QuestionInspector({
                         <span>Your answer (Correct)</span>
                       </span>
                     )}
-                    {isCandidateChoice && !isOfficialCorrect && (
-                      <span className="shrink-0 inline-flex items-center gap-1 text-[11px] font-bold text-rose-800 bg-rose-100 px-2 py-0.5 rounded-md border border-rose-300">
-                        <XCircle className="h-3.5 w-3.5 text-rose-600" />
-                        <span>Your answer</span>
+                    {isCandidateChoice && isCorrect && !isOfficialCorrect && (
+                      <span className="shrink-0 inline-flex items-center gap-1 text-[11px] font-bold text-emerald-800 bg-emerald-100 px-2 py-0.5 rounded-md border border-emerald-300">
+                        <CheckCircle2 className="h-3.5 w-3.5 text-emerald-600" />
+                        <span>Your answer (Regraded)</span>
                       </span>
                     )}
+                    {isCandidateChoice && isPartial && !isOfficialCorrect && (
+                      <span className="shrink-0 inline-flex items-center gap-1 text-[11px] font-bold text-amber-800 bg-amber-100 px-2 py-0.5 rounded-md border border-amber-300">
+                        <span>Your answer (Partial)</span>
+                      </span>
+                    )}
+                    {isCandidateChoice &&
+                      !isOfficialCorrect &&
+                      !isCorrect &&
+                      !isPartial && (
+                        <span className="shrink-0 inline-flex items-center gap-1 text-[11px] font-bold text-rose-800 bg-rose-100 px-2 py-0.5 rounded-md border border-rose-300">
+                          <XCircle className="h-3.5 w-3.5 text-rose-600" />
+                          <span>Your answer</span>
+                        </span>
+                      )}
                     {!isCandidateChoice && isOfficialCorrect && (
                       <span className="shrink-0 inline-flex items-center gap-1 text-[11px] font-bold text-emerald-800 bg-emerald-100 px-2 py-0.5 rounded-md border border-emerald-300">
                         <CheckCircle2 className="h-3.5 w-3.5 text-emerald-600" />
@@ -541,12 +599,22 @@ export function QuestionInspector({
                 {isCorrect ? (
                   <span className="inline-flex items-center gap-1 text-emerald-700 bg-emerald-50 border border-emerald-200 px-2.5 py-0.5 rounded-full text-xs font-bold">
                     <CheckCircle2 className="h-3.5 w-3.5 text-emerald-600" />+
-                    {fullMarks.toFixed(2)} pts awarded
+                    {(question.subjectiveMarks ?? fullMarks).toFixed(2)} pts
+                    awarded
+                  </span>
+                ) : isPartial ? (
+                  <span className="inline-flex items-center gap-1 text-amber-700 bg-amber-50 border border-amber-200 px-2.5 py-0.5 rounded-full text-xs font-bold">
+                    +{(question.subjectiveMarks ?? fullMarks * 0.5).toFixed(2)}{" "}
+                    pts partial
                   </span>
                 ) : isWrong ? (
                   <span className="inline-flex items-center gap-1 text-rose-700 bg-rose-50 border border-rose-200 px-2.5 py-0.5 rounded-full text-xs font-bold">
-                    <XCircle className="h-3.5 w-3.5 text-rose-600" />-
-                    {incorrectMarksPerQ.toFixed(2)} penalty
+                    <XCircle className="h-3.5 w-3.5 text-rose-600" />
+                    {question.subjectiveMarks !== undefined
+                      ? question.subjectiveMarks > 0
+                        ? `+${question.subjectiveMarks.toFixed(2)} pts`
+                        : `${question.subjectiveMarks.toFixed(2)} pts`
+                      : `-${incorrectMarksPerQ.toFixed(2)} penalty`}
                   </span>
                 ) : (
                   <span className="text-slate-500 bg-slate-100 px-2.5 py-0.5 rounded-full text-xs font-medium">

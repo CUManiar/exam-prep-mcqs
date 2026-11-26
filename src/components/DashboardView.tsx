@@ -2,7 +2,7 @@
 
 import { useMemo } from "react";
 import { ActiveSessionDraft, Attempt, QuestionPaper } from "../lib/types";
-import { getAttemptPercentage } from "../lib/defaults";
+import { getAttemptPercentage, isOfficialMockAttempt } from "../lib/defaults";
 import {
   ArrowRight,
   BarChart3,
@@ -107,24 +107,32 @@ export function DashboardView({
     [attempts],
   );
 
+  const officialMocks = useMemo(() => {
+    const paperMap = new Map(papers.map((p) => [p.id, p]));
+    return completed.filter((attempt) =>
+      isOfficialMockAttempt(attempt, paperMap.get(attempt.paperId)),
+    );
+  }, [completed, papers]);
+
   const questionsAnswered = useMemo(
-    () => completed.reduce((sum, attempt) => sum + (attempt.answered || 0), 0),
-    [completed],
+    () =>
+      officialMocks.reduce((sum, attempt) => sum + (attempt.answered || 0), 0),
+    [officialMocks],
   );
 
   const averageAccuracy = useMemo(() => {
-    if (!completed.length) return null;
+    if (!officialMocks.length) return null;
     return (
       Math.round(
-        (completed.reduce(
+        (officialMocks.reduce(
           (sum, attempt) => sum + (attempt.accuracyPct || 0),
           0,
         ) /
-          completed.length) *
+          officialMocks.length) *
           10,
       ) / 10
     );
-  }, [completed]);
+  }, [officialMocks]);
 
   const streakData = useMemo(
     () => calculatePracticeStreak(completed),
@@ -287,12 +295,12 @@ export function DashboardView({
       </section>
 
       {/* Secondary Strategic Diagnostics Row: 4 high-yield metrics placed directly below with hover details */}
-      <StrategicDiagnosticsWidget attempts={attempts} papers={papers} />
+      <StrategicDiagnosticsWidget attempts={officialMocks} papers={papers} />
 
       {/* Row 1: Solved MCQ Count & Mock Trends (2/3) + Goals & Reminders Board (1/3) */}
       <section className="grid grid-cols-1 lg:grid-cols-3 gap-3 sm:gap-6 w-full min-w-0">
         <div className="lg:col-span-2 min-w-0 w-full">
-          <McqAndMockTrendsChart attempts={attempts} dailyTarget={50} />
+          <McqAndMockTrendsChart attempts={officialMocks} dailyTarget={50} />
         </div>
         <div className="lg:col-span-1 min-w-0 w-full">
           <GoalsAndRemindersBoard
@@ -310,7 +318,7 @@ export function DashboardView({
         </div>
         <div className="lg:col-span-1 min-w-0 w-full">
           <RecentTestInsights
-            attempts={attempts}
+            attempts={officialMocks}
             papers={papers}
             onNavigateHistory={onNavigateHistory}
             onViewAttempt={onViewAttempt}
