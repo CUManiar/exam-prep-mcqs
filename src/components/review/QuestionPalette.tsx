@@ -124,23 +124,37 @@ export function QuestionPalette({
       : expandedQuestion?.selected !== null &&
         expandedQuestion?.selected !== undefined;
 
+  const expandedIsPartial = Boolean(
+    expandedQuestion &&
+    (expandedQuestion.subjectiveAssessment === "partial" ||
+      (!isEvaluable &&
+        expandedQuestion.isCorrect === null &&
+        expandedQuestion.subjectiveMarks !== undefined &&
+        expandedQuestion.subjectiveMarks > 0)),
+  );
+
   const expandedIsCorrect = expandedQuestion
     ? isEvaluable
       ? expandedQuestion.subjectiveAssessment === "strong"
-      : expandedQuestion.selected && expandedQuestion.isCorrect === true
+      : Boolean(
+          expandedQuestion.selected &&
+          !expandedIsPartial &&
+          (expandedQuestion.isCorrect === true ||
+            expandedQuestion.subjectiveAssessment === "strong"),
+        )
     : false;
 
   const expandedIsWrong = expandedQuestion
     ? isEvaluable
       ? expandedQuestion.subjectiveAssessment === "needs-work"
-      : expandedQuestion.selected && expandedQuestion.isCorrect === false
+      : Boolean(
+          expandedQuestion.selected &&
+          !expandedIsPartial &&
+          !expandedIsCorrect &&
+          (expandedQuestion.isCorrect === false ||
+            expandedQuestion.subjectiveAssessment === "needs-work"),
+        )
     : false;
-
-  const expandedIsPartial = Boolean(
-    expandedQuestion &&
-    isEvaluable &&
-    expandedQuestion.subjectiveAssessment === "partial",
-  );
 
   const expandedIsPending = Boolean(
     expandedQuestion &&
@@ -172,6 +186,19 @@ export function QuestionPalette({
   const isKeySingleLetter = /^[A-D]$/.test(keyLetterMatch);
 
   const explanationText = parsedQ?.explanation || expandedQuestion?.explanation;
+
+  const expandedIsRegraded = Boolean(
+    expandedQuestion &&
+    !isEvaluable &&
+    (expandedQuestion.subjectiveAssessment !== undefined ||
+      expandedQuestion.subjectiveMarks !== undefined ||
+      (expandedIsAnswered &&
+        isKeySingleLetter &&
+        expandedQuestion.isCorrect !== null &&
+        expandedQuestion.isCorrect !== undefined &&
+        expandedQuestion.isCorrect !==
+          (candidateLetterMatch === keyLetterMatch))),
+  );
 
   const fullMarks =
     expandedQuestion && getFullMarks
@@ -236,14 +263,28 @@ export function QuestionPalette({
               ? q.selected === "attempted" || Boolean(q.selected?.trim())
               : q.selected !== null && q.selected !== undefined;
 
+          const isPartial =
+            q.subjectiveAssessment === "partial" ||
+            (!qIsEvaluable &&
+              q.isCorrect === null &&
+              q.subjectiveMarks !== undefined &&
+              q.subjectiveMarks > 0);
           const isCorrect = qIsEvaluable
             ? q.subjectiveAssessment === "strong"
-            : q.selected && q.isCorrect === true;
+            : Boolean(
+                q.selected &&
+                !isPartial &&
+                (q.isCorrect === true || q.subjectiveAssessment === "strong"),
+              );
           const isWrong = qIsEvaluable
             ? q.subjectiveAssessment === "needs-work"
-            : q.selected && q.isCorrect === false;
-          const isPartial =
-            qIsEvaluable && q.subjectiveAssessment === "partial";
+            : Boolean(
+                q.selected &&
+                !isPartial &&
+                !isCorrect &&
+                (q.isCorrect === false ||
+                  q.subjectiveAssessment === "needs-work"),
+              );
           const isPending =
             qIsEvaluable && qIsAnswered && !q.subjectiveAssessment;
           const isSkipped = !qIsAnswered && !q.subjectiveAssessment;
@@ -314,12 +355,24 @@ export function QuestionPalette({
               {expandedIsCorrect ? (
                 <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-50 text-emerald-800 border border-emerald-200">
                   <CheckCircle2 className="h-3 w-3 text-emerald-600 shrink-0" />
-                  <span>Correct (+{fullMarks.toFixed(2)})</span>
+                  <span>
+                    Correct (+
+                    {(expandedQuestion.subjectiveMarks ?? fullMarks).toFixed(2)}
+                    )
+                  </span>
                 </span>
               ) : expandedIsWrong ? (
                 <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-rose-50 text-rose-800 border border-rose-200">
                   <XCircle className="h-3 w-3 text-rose-600 shrink-0" />
-                  <span>Wrong (-{incorrectMarksPerQ.toFixed(2)})</span>
+                  <span>
+                    Wrong (
+                    {expandedQuestion.subjectiveMarks !== undefined
+                      ? expandedQuestion.subjectiveMarks > 0
+                        ? `+${expandedQuestion.subjectiveMarks.toFixed(2)}`
+                        : expandedQuestion.subjectiveMarks.toFixed(2)
+                      : `-${incorrectMarksPerQ.toFixed(2)}`}
+                    )
+                  </span>
                 </span>
               ) : expandedIsPartial ? (
                 <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-50 text-amber-800 border border-amber-200">
@@ -337,6 +390,12 @@ export function QuestionPalette({
               ) : (
                 <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-medium bg-slate-100 text-slate-500 border border-slate-200">
                   Skipped · 0 pts
+                </span>
+              )}
+
+              {expandedIsRegraded && (
+                <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold bg-indigo-50 text-indigo-700 border border-indigo-200">
+                  Regraded
                 </span>
               )}
             </div>
@@ -419,7 +478,9 @@ export function QuestionPalette({
                     ? `(${expandedQuestion.subjectiveAssessment})`
                     : isEvaluable && expandedIsAnswered
                       ? "(Awaiting Grade)"
-                      : ""}
+                      : expandedIsRegraded
+                        ? "(Regraded)"
+                        : ""}
                 </span>
                 {isCandidateSingleLetter ? (
                   <span className="font-mono text-xs font-black truncate mt-0.5">

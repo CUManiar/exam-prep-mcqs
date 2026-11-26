@@ -454,17 +454,39 @@ export function MarkdownPaperReviewViewer({
 
             const isAnswered = Boolean(ans?.selected?.trim());
             const isPartial =
-              isAnswered && ans?.subjectiveAssessment === "partial";
+              isAnswered &&
+              (ans?.subjectiveAssessment === "partial" ||
+                (!isCloze &&
+                  ans?.isCorrect === null &&
+                  ans?.subjectiveMarks !== undefined &&
+                  ans.subjectiveMarks > 0));
             const isCorrect =
               isAnswered &&
               (isCloze
                 ? ans?.subjectiveAssessment === "strong"
-                : !isPartial && ans?.isCorrect === true);
+                : !isPartial &&
+                  (ans?.isCorrect === true ||
+                    ans?.subjectiveAssessment === "strong"));
             const isWrong =
               isAnswered &&
               (isCloze
                 ? ans?.subjectiveAssessment === "needs-work"
-                : !isPartial && ans?.isCorrect === false);
+                : !isPartial &&
+                  !isCorrect &&
+                  (ans?.isCorrect === false ||
+                    ans?.subjectiveAssessment === "needs-work"));
+            const isRegraded =
+              !isCloze &&
+              Boolean(
+                ans &&
+                (ans.subjectiveAssessment !== undefined ||
+                  ans.subjectiveMarks !== undefined ||
+                  (isAnswered &&
+                    correctOpt &&
+                    ans.isCorrect !== null &&
+                    ans.isCorrect !== undefined &&
+                    ans.isCorrect !== (userSelected === correctOpt))),
+              );
             const isSelectedActive = activeQuestionNo === q.questionNo;
 
             const explanationText =
@@ -511,13 +533,25 @@ export function MarkdownPaperReviewViewer({
                     ) : isCorrect ? (
                       <span className="inline-flex items-center gap-1 text-[11px] font-bold text-emerald-800 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-full shadow-2xs">
                         <CheckCircle2 className="h-3 w-3 text-emerald-600" />
-                        <span>Correct · +{correctMarksValue}</span>
+                        <span>
+                          Correct · +
+                          {Number(
+                            (ans?.subjectiveMarks ?? correctMarksValue).toFixed(
+                              2,
+                            ),
+                          )}
+                        </span>
                       </span>
                     ) : isWrong ? (
                       <span className="inline-flex items-center gap-1 text-[11px] font-bold text-rose-800 bg-rose-50 border border-rose-200 px-2 py-0.5 rounded-full shadow-2xs">
                         <XCircle className="h-3 w-3 text-rose-600" />
                         <span>
-                          Incorrect · -{incorrectMarksValue}
+                          Incorrect ·{" "}
+                          {ans?.subjectiveMarks !== undefined
+                            ? ans.subjectiveMarks > 0
+                              ? `+${Number(ans.subjectiveMarks.toFixed(2))}`
+                              : Number(ans.subjectiveMarks.toFixed(2))
+                            : `-${incorrectMarksValue}`}
                           {userSelected && !isCloze
                             ? ` · Picked ${userSelected}`
                             : ""}
@@ -532,6 +566,12 @@ export function MarkdownPaperReviewViewer({
                       <span className="inline-flex items-center gap-1 text-[11px] font-medium text-slate-500 bg-slate-100 border border-slate-200 px-2 py-0.5 rounded-full">
                         <HelpCircle className="h-3 w-3 text-slate-400" />
                         <span>Skipped · 0 pts</span>
+                      </span>
+                    )}
+
+                    {isRegraded && (
+                      <span className="inline-flex items-center gap-1 text-[11px] font-bold text-indigo-800 bg-indigo-50 border border-indigo-200 px-2 py-0.5 rounded-full shadow-2xs">
+                        <span>Regraded</span>
                       </span>
                     )}
 
@@ -644,6 +684,23 @@ export function MarkdownPaperReviewViewer({
                             Correct
                           </span>
                         );
+                      } else if (isUserPick && isCorrect) {
+                        optStyle =
+                          "bg-emerald-50 border-2 border-emerald-500 text-emerald-950 font-semibold shadow-2xs";
+                        badgeEl = (
+                          <span className="text-[10px] font-bold text-emerald-800 ml-auto flex items-center gap-0.5 shrink-0 bg-emerald-100 px-1.5 py-0.5 rounded">
+                            <Check className="h-3 w-3 text-emerald-700" /> Your
+                            answer (Regraded)
+                          </span>
+                        );
+                      } else if (isUserPick && isPartial) {
+                        optStyle =
+                          "bg-amber-50 border-2 border-amber-400 text-amber-950 font-semibold shadow-2xs";
+                        badgeEl = (
+                          <span className="text-[10px] font-bold text-amber-800 ml-auto flex items-center gap-0.5 shrink-0 bg-amber-100 px-1.5 py-0.5 rounded">
+                            Your answer (Partial)
+                          </span>
+                        );
                       } else if (isUserPick) {
                         optStyle =
                           "bg-rose-50 border-2 border-rose-500 text-rose-950 font-semibold shadow-2xs";
@@ -661,11 +718,13 @@ export function MarkdownPaperReviewViewer({
                         >
                           <span
                             className={`font-mono text-[11px] font-bold px-1.5 py-0.5 rounded shrink-0 ${
-                              isRightAnswer
+                              isRightAnswer || (isUserPick && isCorrect)
                                 ? "bg-emerald-600 text-white"
-                                : isUserPick
-                                  ? "bg-rose-600 text-white"
-                                  : "bg-slate-200 text-slate-800"
+                                : isUserPick && isPartial
+                                  ? "bg-amber-500 text-white"
+                                  : isUserPick
+                                    ? "bg-rose-600 text-white"
+                                    : "bg-slate-200 text-slate-800"
                             }`}
                           >
                             {optKey}
