@@ -1084,12 +1084,12 @@ export async function getUserVocabCards(userId: string): Promise<VocabCard[]> {
   const supabase = getAdminClient();
   if (supabase) {
     try {
-      const { data } = await supabase
+      const { data, error } = await supabase
         .from("profiles")
         .select("vocab_cards")
         .eq("id", userId)
         .maybeSingle();
-      if (Array.isArray(data?.vocab_cards) && data.vocab_cards.length > 0) {
+      if (!error && Array.isArray(data?.vocab_cards)) {
         return data.vocab_cards;
       }
     } catch (e) {
