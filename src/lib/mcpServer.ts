@@ -1,4 +1,4 @@
-import { randomUUID } from "node:crypto";
+import { createHash, randomUUID } from "node:crypto";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
 import {
@@ -487,8 +487,24 @@ function createImportedPaper(
         ? header.instructions
         : undefined;
 
+  const explicitId =
+    typeof input.id === "string" && input.id.trim()
+      ? input.id.trim()
+      : typeof input.paperId === "string" && input.paperId.trim()
+        ? input.paperId.trim()
+        : "";
+  const contentFingerprint = createHash("sha1")
+    .update(
+      markdownText ||
+        JSON.stringify(parsedQuestions.map((q) => q.text)) ||
+        title,
+    )
+    .digest("hex")
+    .slice(0, 6);
+  const generatedId = `custom_${userId.slice(0, 8)}_${year}_${slug}_${contentFingerprint}`;
+
   return {
-    id: `custom_${userId.slice(0, 8)}_${year}_${slug}`,
+    id: explicitId || generatedId,
     userId,
     year: year || String(new Date().getFullYear()),
     category,
