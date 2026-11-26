@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Edit3, FileText, Check } from "lucide-react";
 
 interface GeneralNotesCardProps {
@@ -14,6 +14,12 @@ export function GeneralNotesCard({
 }: GeneralNotesCardProps) {
   const [isEditing, setIsEditing] = useState(false);
   const [notes, setNotes] = useState(initialNotes);
+
+  useEffect(() => {
+    if (!isEditing) {
+      setNotes(initialNotes);
+    }
+  }, [initialNotes, isEditing]);
 
   const handleSave = () => {
     onSaveNotes(notes);
