@@ -26,6 +26,7 @@ import {
   formatTimeSeconds,
   getAttemptPercentage,
   getPaperCutoffStatus,
+  isOfficialMockAttempt,
 } from "../lib/defaults";
 import { Attempt } from "../lib/types";
 import { LongitudinalTrendChart } from "./history/LongitudinalTrendChart";
@@ -43,7 +44,7 @@ export function HistoryView({
   onViewAttempt,
   onDeleteAttempt,
 }: HistoryViewProps) {
-  const { papers, handleStartExam } = useApp();
+  const { papers, hiddenPaperIds = [], handleStartExam } = useApp();
   const [search, setSearch] = useState("");
   const [dateFilter, setDateFilter] = useState<
     "all" | "today" | "7d" | "30d" | "90d" | "custom"
@@ -94,10 +95,13 @@ export function HistoryView({
     } catch {}
   }, [mounted, search, viewMode, performanceViewMode]);
 
-  // Only mock mode attempts are counted in official history
-  const allMockAttempts = attempts.filter(
-    (a) => a.mode === "mock" && Boolean(a.finishedAt),
-  );
+  // Only completed, non-abandoned, non-retest mock attempts count in official history
+  const allMockAttempts = useMemo(() => {
+    const paperMap = new Map(papers.map((p) => [p.id, p]));
+    return attempts.filter((a) =>
+      isOfficialMockAttempt(a, paperMap.get(a.paperId)),
+    );
+  }, [attempts, papers]);
 
   const mockAttempts = useMemo(() => {
     if (dateFilter === "all") return allMockAttempts;
@@ -481,7 +485,8 @@ export function HistoryView({
           <div className="space-y-6">
             {filteredGrouped.map((group) => {
               const hasMultiple = group.attempts.length > 1;
-              const paperDeleted = !group.paper;
+              const paperDeleted =
+                !group.paper && !hiddenPaperIds.includes(group.paperId);
 
               return (
                 <div
@@ -801,7 +806,8 @@ export function HistoryView({
             const totalPaperAttempts = group.attempts.length;
             const matchedPaper =
               group.paper || papers.find((p) => p.id === group.paperId);
-            const paperDeleted = !matchedPaper;
+            const paperDeleted =
+              !matchedPaper && !hiddenPaperIds.includes(group.paperId);
 
             const scoreColor =
               activeAttempt.score >= 90
