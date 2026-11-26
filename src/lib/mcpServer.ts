@@ -15,6 +15,8 @@ import {
   isCsatPaper,
 } from "./defaults";
 import {
+  cleanPreviousYears,
+  extractPyqYearsFromText,
   isSpecificSingleSubject,
   parseMarkdownHeader,
   parseQuestionnaireMarkdown,
@@ -388,6 +390,32 @@ function createImportedPaper(
       }
     }
   }
+
+  // Hydrate previousYears (PYQ) and missing answers/explanations onto parsedQuestions
+  const resolvedYearNum = parseInt(year, 10);
+  const isPastPyqPaper =
+    !isNaN(resolvedYearNum) &&
+    resolvedYearNum >= 1979 &&
+    resolvedYearNum <= 2025 &&
+    /prelims|upsc|cse|pyq/i.test(`${title} ${paperSubject}`);
+
+  parsedQuestions = parsedQuestions.map((q) => {
+    const qExpl = mergedExplanations[q.questionNo] || q.explanation || "";
+    const qAns = mergedAnswerKey[q.questionNo] || q.answer;
+    let pyq = q.previousYears ? cleanPreviousYears(q.previousYears) : "";
+    if (!pyq) {
+      pyq = extractPyqYearsFromText(`${q.text} ${qExpl}`);
+    }
+    if (!pyq && isPastPyqPaper) {
+      pyq = String(resolvedYearNum);
+    }
+    return {
+      ...q,
+      ...(qAns && !q.answer ? { answer: qAns } : {}),
+      ...(qExpl && !q.explanation ? { explanation: qExpl } : {}),
+      ...(pyq ? { previousYears: pyq } : {}),
+    };
+  });
 
   // Calculate total questions:
   // 1. Explicit input.totalQuestions
@@ -2230,7 +2258,19 @@ export function createPortalMcpServer(
       const authError = scopeError(scope, MCP_WRITE_SCOPE);
       if (authError) return authError;
 
-      const paper = await getUserPaper(userId, paperId);
+      let paper = await getUserPaper(userId, paperId);
+      if (!paper) {
+        const allPapers = await getUserPapers(userId);
+        const lower = paperId.trim().toLowerCase();
+        const byTitle = allPapers.filter(
+          (p) =>
+            p.label?.toLowerCase() === lower ||
+            p.title?.toLowerCase() === lower,
+        );
+        if (byTitle.length === 1) {
+          paper = byTitle[0];
+        }
+      }
       if (!paper) {
         return errorResult("Paper not found in this student's library.");
       }
@@ -2241,10 +2281,10 @@ export function createPortalMcpServer(
         );
       }
 
-      await deleteMcpPaper(userId, paperId);
+      await deleteMcpPaper(userId, paper.id);
       return textResult({
         deleted: true,
-        paperId,
+        paperId: paper.id,
         title: paper.label || paper.title || paper.subject,
         message: "Paper deleted successfully.",
       });

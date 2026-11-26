@@ -7,7 +7,7 @@ import {
   getStandardTimeMinutes,
   isUserUploadedPaper,
 } from "./defaults";
-import { readJsonStore, writeJsonStore } from "./cloudStorage";
+import { readJsonStore, writeJsonStore, deleteFile } from "./cloudStorage";
 import { findQuestionsForSyllabusTopic } from "./syllabusQuestionIndex";
 
 let adminClient: SupabaseClient | null | undefined;
@@ -145,7 +145,12 @@ export async function getUserPaper(
   paperId: string,
 ): Promise<QuestionPaper | null> {
   const papers = await getUserPapers(userId);
-  return papers.find((paper) => paper.id === paperId) || null;
+  const lower = paperId.trim().toLowerCase();
+  return (
+    papers.find(
+      (paper) => paper.id === paperId || paper.id.toLowerCase() === lower,
+    ) || null
+  );
 }
 
 export async function getPaperById(
@@ -312,28 +317,101 @@ export async function deleteMcpPaper(
   paperId: string,
 ): Promise<boolean> {
   const supabase = getAdminClient();
+  const cleanId = paperId.trim();
+  const lowerId = cleanId.toLowerCase();
+
   if (supabase) {
+    const { data: rows } = await supabase
+      .from("custom_papers")
+      .select("id, qp_url, ak_url, exs_url")
+      .eq("user_id", userId)
+      .or(`id.eq.${cleanId},id.eq.${lowerId},id.ilike.${lowerId}`);
+
+    if (rows && rows.length > 0) {
+      for (const row of rows) {
+        if (row.qp_url && !String(row.qp_url).startsWith("local://")) {
+          await deleteFile(row.qp_url).catch(() => {});
+        }
+        if (row.ak_url && !String(row.ak_url).startsWith("local://")) {
+          await deleteFile(row.ak_url).catch(() => {});
+        }
+        if (row.exs_url && !String(row.exs_url).startsWith("local://")) {
+          await deleteFile(row.exs_url).catch(() => {});
+        }
+        const folder = `custom-papers/${userId}/${row.id}`;
+        const { data: files } = await supabase.storage
+          .from("papers")
+          .list(folder);
+        if (files && files.length > 0) {
+          await supabase.storage
+            .from("papers")
+            .remove(files.map((f) => `${folder}/${f.name}`))
+            .catch(() => {});
+        }
+      }
+    }
+
+    // Clean up question_bank entries if present (best-effort)
+    await supabase
+      .from("question_bank")
+      .delete()
+      .eq("user_id", userId)
+      .or(
+        `source_paper_id.eq.${cleanId},source_paper_id.eq.${lowerId},source_paper_id.ilike.${lowerId}`,
+      );
+
     const { error } = await supabase
       .from("custom_papers")
       .delete()
-      .eq("id", paperId)
-      .eq("user_id", userId);
-    if (error) throw new Error("The paper could not be deleted.");
-  } else {
+      .eq("user_id", userId)
+      .or(`id.eq.${cleanId},id.eq.${lowerId},id.ilike.${lowerId}`);
+    if (error) {
+      throw new Error(`The paper could not be deleted: ${error.message}`);
+    }
+  }
+
+  // Always also remove from papers.json / Blob store so no stale entry remains
+  try {
     const stored = await readJsonStore<Record<string, QuestionPaper>>(
       "papers.json",
       {},
     );
-    if (stored[paperId] && stored[paperId].userId === userId) {
-      delete stored[paperId];
+    let changed = false;
+    for (const key of Object.keys(stored)) {
+      const entry = stored[key];
+      if (
+        entry &&
+        (!entry.userId || entry.userId === userId) &&
+        (key === cleanId ||
+          key.toLowerCase() === lowerId ||
+          entry.id?.toLowerCase() === lowerId)
+      ) {
+        if (entry.qpUrl && !entry.qpUrl.startsWith("local://")) {
+          await deleteFile(entry.qpUrl).catch(() => {});
+        }
+        if (entry.akUrl && !entry.akUrl.startsWith("local://")) {
+          await deleteFile(entry.akUrl).catch(() => {});
+        }
+        if (entry.exsUrl && !entry.exsUrl.startsWith("local://")) {
+          await deleteFile(entry.exsUrl).catch(() => {});
+        }
+        delete stored[key];
+        changed = true;
+      }
+    }
+    if (changed) {
       await writeJsonStore("papers.json", stored);
     }
+  } catch (err) {
+    console.warn("Notice: papers.json cleanup during MCP delete:", err);
   }
 
   // Also remove from hidden_paper_ids if it was archived
   const { hiddenPaperIds } = await getUserProfileData(userId);
-  if (hiddenPaperIds.includes(paperId)) {
-    const nextHidden = hiddenPaperIds.filter((id) => id !== paperId);
+  if (hiddenPaperIds.includes(cleanId) || hiddenPaperIds.includes(lowerId)) {
+    const nextHidden = hiddenPaperIds.filter(
+      (id) => id !== cleanId && id.toLowerCase() !== lowerId,
+    );
     if (supabase) {
       await supabase
         .from("profiles")
