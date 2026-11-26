@@ -3022,242 +3022,128 @@ EXAMINER RESPONSE REQUIREMENTS:
                     <MainsDissectionsPanel evaluation={evaluation} />
 
                     {/* 4 Core Dimensions Scored Strictly /10 */}
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                      {/* Demand */}
-                      <div className="p-4 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-2xs space-y-2.5 flex flex-col justify-between">
-                        <div className="space-y-2">
-                          <div className="flex items-center justify-between">
-                            <span className="font-bold text-xs text-slate-800 dark:text-slate-200 uppercase tracking-wide">
-                              1. Demand & Directive Compliance
-                            </span>
-                            <span className="font-mono font-bold text-xs px-2 py-0.5 rounded-lg bg-indigo-50 dark:bg-indigo-950 text-indigo-600 dark:text-indigo-400 border border-indigo-200 dark:border-indigo-800 shrink-0">
-                              {evaluation.dimensions?.demand?.score ??
-                                Math.round(
-                                  (evaluation.marksAwarded /
-                                    evaluation.maxMarks) *
-                                    10 *
-                                    10,
-                                ) / 10}{" "}
-                              <span className="text-slate-400 font-normal">
-                                / 10
-                              </span>
-                            </span>
-                          </div>
-                          <div className="w-full bg-slate-100 dark:bg-slate-800 h-1.5 rounded-full overflow-hidden">
-                            <div
-                              className={`h-full rounded-full transition-all duration-300 ${
-                                (evaluation.dimensions?.demand?.score ?? 5) >= 6
-                                  ? "bg-emerald-500"
-                                  : (evaluation.dimensions?.demand?.score ??
-                                        5) >= 4
-                                    ? "bg-indigo-500"
-                                    : "bg-amber-500"
-                              }`}
-                              style={{
-                                width: `${Math.min(
-                                  100,
-                                  Math.max(
-                                    0,
-                                    ((evaluation.dimensions?.demand?.score ??
-                                      (evaluation.marksAwarded /
-                                        evaluation.maxMarks) *
-                                        10) /
-                                      10) *
-                                      100,
-                                  ),
-                                )}%`,
-                              }}
-                            />
-                          </div>
-                        </div>
-                        <p className="text-xs text-slate-600 dark:text-slate-400 leading-relaxed">
-                          {evaluation.dimensions?.demand?.comment ||
+                    {(() => {
+                      const fallbackDim =
+                        Math.round(
+                          (evaluation.marksAwarded /
+                            Math.max(1, evaluation.maxMarks)) *
+                            100,
+                        ) / 10;
+                      const normDim = (
+                        raw: number | undefined,
+                        fb = fallbackDim,
+                      ) => {
+                        if (raw === undefined || !Number.isFinite(raw))
+                          return Math.min(10, Math.max(0, fb));
+                        const scaled = raw > 10 ? raw / 10 : raw;
+                        return Math.min(
+                          10,
+                          Math.max(0, Math.round(scaled * 10) / 10),
+                        );
+                      };
+                      const contentFb = evaluation.rubric?.bodyContent?.score
+                        ? Math.round(
+                            (evaluation.rubric.bodyContent.score /
+                              Math.max(1, evaluation.rubric.bodyContent.max)) *
+                              100,
+                          ) / 10
+                        : fallbackDim;
+                      const structureFb = evaluation.rubric
+                        ?.structurePresentation?.score
+                        ? Math.round(
+                            (evaluation.rubric.structurePresentation.score /
+                              Math.max(
+                                1,
+                                evaluation.rubric.structurePresentation.max,
+                              )) *
+                              100,
+                          ) / 10
+                        : fallbackDim;
+
+                      const dimCards = [
+                        {
+                          title: "1. Demand & Directive Compliance",
+                          score: normDim(evaluation.dimensions?.demand?.score),
+                          comment:
+                            evaluation.dimensions?.demand?.comment ||
                             evaluation.directiveAnalysis ||
-                            "Demand and directive compliance addressed."}
-                        </p>
-                      </div>
-
-                      {/* Content */}
-                      <div className="p-4 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-2xs space-y-2.5 flex flex-col justify-between">
-                        <div className="space-y-2">
-                          <div className="flex items-center justify-between">
-                            <span className="font-bold text-xs text-slate-800 dark:text-slate-200 uppercase tracking-wide">
-                              2. Content & Citation Depth
-                            </span>
-                            <span className="font-mono font-bold text-xs px-2 py-0.5 rounded-lg bg-indigo-50 dark:bg-indigo-950 text-indigo-600 dark:text-indigo-400 border border-indigo-200 dark:border-indigo-800 shrink-0">
-                              {evaluation.dimensions?.content?.score ??
-                                (evaluation.rubric?.bodyContent?.score
-                                  ? Math.round(
-                                      (evaluation.rubric.bodyContent.score /
-                                        evaluation.rubric.bodyContent.max) *
-                                        10 *
-                                        10,
-                                    ) / 10
-                                  : Math.round(
-                                      (evaluation.marksAwarded /
-                                        evaluation.maxMarks) *
-                                        10 *
-                                        10,
-                                    ) / 10)}{" "}
-                              <span className="text-slate-400 font-normal">
-                                / 10
-                              </span>
-                            </span>
-                          </div>
-                          <div className="w-full bg-slate-100 dark:bg-slate-800 h-1.5 rounded-full overflow-hidden">
-                            <div
-                              className={`h-full rounded-full transition-all duration-300 ${
-                                (evaluation.dimensions?.content?.score ?? 5) >=
-                                6
-                                  ? "bg-emerald-500"
-                                  : (evaluation.dimensions?.content?.score ??
-                                        5) >= 4
-                                    ? "bg-indigo-500"
-                                    : "bg-amber-500"
-                              }`}
-                              style={{
-                                width: `${Math.min(
-                                  100,
-                                  Math.max(
-                                    0,
-                                    ((evaluation.dimensions?.content?.score ??
-                                      (evaluation.marksAwarded /
-                                        evaluation.maxMarks) *
-                                        10) /
-                                      10) *
-                                      100,
-                                  ),
-                                )}%`,
-                              }}
-                            />
-                          </div>
-                        </div>
-                        <p className="text-xs text-slate-600 dark:text-slate-400 leading-relaxed">
-                          {evaluation.dimensions?.content?.comment ||
+                            "Demand and directive compliance addressed.",
+                        },
+                        {
+                          title: "2. Content & Citation Depth",
+                          score: normDim(
+                            evaluation.dimensions?.content?.score,
+                            contentFb,
+                          ),
+                          comment:
+                            evaluation.dimensions?.content?.comment ||
                             evaluation.rubric?.bodyContent?.comment ||
-                            "Coverage of core analytical dimensions, judgments, and empirical data."}
-                        </p>
-                      </div>
-
-                      {/* Structure */}
-                      <div className="p-4 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-2xs space-y-2.5 flex flex-col justify-between">
-                        <div className="space-y-2">
-                          <div className="flex items-center justify-between">
-                            <span className="font-bold text-xs text-slate-800 dark:text-slate-200 uppercase tracking-wide">
-                              3. Structure & Keyword Headings
-                            </span>
-                            <span className="font-mono font-bold text-xs px-2 py-0.5 rounded-lg bg-indigo-50 dark:bg-indigo-950 text-indigo-600 dark:text-indigo-400 border border-indigo-200 dark:border-indigo-800 shrink-0">
-                              {evaluation.dimensions?.structure?.score ??
-                                (evaluation.rubric?.structurePresentation?.score
-                                  ? Math.round(
-                                      (evaluation.rubric.structurePresentation
-                                        .score /
-                                        evaluation.rubric.structurePresentation
-                                          .max) *
-                                        10 *
-                                        10,
-                                    ) / 10
-                                  : Math.round(
-                                      (evaluation.marksAwarded /
-                                        evaluation.maxMarks) *
-                                        10 *
-                                        10,
-                                    ) / 10)}{" "}
-                              <span className="text-slate-400 font-normal">
-                                / 10
-                              </span>
-                            </span>
-                          </div>
-                          <div className="w-full bg-slate-100 dark:bg-slate-800 h-1.5 rounded-full overflow-hidden">
-                            <div
-                              className={`h-full rounded-full transition-all duration-300 ${
-                                (evaluation.dimensions?.structure?.score ??
-                                  5) >= 6
-                                  ? "bg-emerald-500"
-                                  : (evaluation.dimensions?.structure?.score ??
-                                        5) >= 4
-                                    ? "bg-indigo-500"
-                                    : "bg-amber-500"
-                              }`}
-                              style={{
-                                width: `${Math.min(
-                                  100,
-                                  Math.max(
-                                    0,
-                                    ((evaluation.dimensions?.structure?.score ??
-                                      (evaluation.marksAwarded /
-                                        evaluation.maxMarks) *
-                                        10) /
-                                      10) *
-                                      100,
-                                  ),
-                                )}%`,
-                              }}
-                            />
-                          </div>
-                        </div>
-                        <p className="text-xs text-slate-600 dark:text-slate-400 leading-relaxed">
-                          {evaluation.dimensions?.structure?.comment ||
+                            "Coverage of core analytical dimensions, judgments, and empirical data.",
+                        },
+                        {
+                          title: "3. Structure & Keyword Headings",
+                          score: normDim(
+                            evaluation.dimensions?.structure?.score,
+                            structureFb,
+                          ),
+                          comment:
+                            evaluation.dimensions?.structure?.comment ||
                             evaluation.rubric?.structurePresentation?.comment ||
-                            "Intro, keyword headings, numbered arguments, counterview, and verdict."}
-                        </p>
-                      </div>
+                            "Intro, keyword headings, numbered arguments, counterview, and verdict.",
+                        },
+                        {
+                          title: "4. Presentation & Time Writability",
+                          score: normDim(
+                            evaluation.dimensions?.presentation?.score,
+                          ),
+                          comment:
+                            evaluation.dimensions?.presentation?.comment ||
+                            `Word limit compliance and realistic writability in ${evaluation.timeLimitMinutes || (evaluation.maxMarks === 10 ? 7 : 11)} minutes.`,
+                        },
+                      ];
 
-                      {/* Presentation */}
-                      <div className="p-4 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-2xs space-y-2.5 flex flex-col justify-between">
-                        <div className="space-y-2">
-                          <div className="flex items-center justify-between">
-                            <span className="font-bold text-xs text-slate-800 dark:text-slate-200 uppercase tracking-wide">
-                              4. Presentation & Time Writability
-                            </span>
-                            <span className="font-mono font-bold text-xs px-2 py-0.5 rounded-lg bg-indigo-50 dark:bg-indigo-950 text-indigo-600 dark:text-indigo-400 border border-indigo-200 dark:border-indigo-800 shrink-0">
-                              {evaluation.dimensions?.presentation?.score ??
-                                Math.round(
-                                  (evaluation.marksAwarded /
-                                    evaluation.maxMarks) *
-                                    10 *
-                                    10,
-                                ) / 10}{" "}
-                              <span className="text-slate-400 font-normal">
-                                / 10
-                              </span>
-                            </span>
-                          </div>
-                          <div className="w-full bg-slate-100 dark:bg-slate-800 h-1.5 rounded-full overflow-hidden">
+                      return (
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                          {dimCards.map((dim) => (
                             <div
-                              className={`h-full rounded-full transition-all duration-300 ${
-                                (evaluation.dimensions?.presentation?.score ??
-                                  5) >= 6
-                                  ? "bg-emerald-500"
-                                  : (evaluation.dimensions?.presentation
-                                        ?.score ?? 5) >= 4
-                                    ? "bg-indigo-500"
-                                    : "bg-amber-500"
-                              }`}
-                              style={{
-                                width: `${Math.min(
-                                  100,
-                                  Math.max(
-                                    0,
-                                    ((evaluation.dimensions?.presentation
-                                      ?.score ??
-                                      (evaluation.marksAwarded /
-                                        evaluation.maxMarks) *
-                                        10) /
-                                      10) *
-                                      100,
-                                  ),
-                                )}%`,
-                              }}
-                            />
-                          </div>
+                              key={dim.title}
+                              className="p-4 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-2xs space-y-2.5 flex flex-col justify-between"
+                            >
+                              <div className="space-y-2">
+                                <div className="flex items-center justify-between gap-2">
+                                  <span className="font-bold text-xs text-slate-800 dark:text-slate-200 uppercase tracking-wide">
+                                    {dim.title}
+                                  </span>
+                                  <span className="font-mono font-bold text-xs px-2 py-0.5 rounded-lg bg-indigo-50 dark:bg-indigo-950 text-indigo-600 dark:text-indigo-400 border border-indigo-200 dark:border-indigo-800 shrink-0">
+                                    {dim.score}{" "}
+                                    <span className="text-slate-400 font-normal">
+                                      / 10
+                                    </span>
+                                  </span>
+                                </div>
+                                <div className="w-full bg-slate-100 dark:bg-slate-800 h-1.5 rounded-full overflow-hidden">
+                                  <div
+                                    className={`h-full rounded-full transition-all duration-300 ${
+                                      dim.score >= 6
+                                        ? "bg-emerald-500"
+                                        : dim.score >= 4
+                                          ? "bg-indigo-500"
+                                          : "bg-amber-500"
+                                    }`}
+                                    style={{
+                                      width: `${Math.min(100, Math.max(0, (dim.score / 10) * 100))}%`,
+                                    }}
+                                  />
+                                </div>
+                              </div>
+                              <p className="text-xs text-slate-600 dark:text-slate-400 leading-relaxed">
+                                {dim.comment}
+                              </p>
+                            </div>
+                          ))}
                         </div>
-                        <p className="text-xs text-slate-600 dark:text-slate-400 leading-relaxed">
-                          {evaluation.dimensions?.presentation?.comment ||
-                            `Word limit compliance and realistic writability in ${evaluation.timeLimitMinutes || (evaluation.maxMarks === 10 ? 7 : 11)} minutes.`}
-                        </p>
-                      </div>
-                    </div>
+                      );
+                    })()}
 
                     {/* Examiner Marked Copy & Line-by-Line Script Audit */}
                     {evaluation.markedCopy &&
