@@ -151,6 +151,7 @@ export function MainsEvaluationView() {
   // Processing & evaluation state
   const [isLoading, setIsLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
+  const [copiedError, setCopiedError] = useState(false);
   const [activeTab, setActiveTab] = useState<
     "feedback" | "approach" | "model" | "attempt" | "chat"
   >("feedback");
@@ -692,113 +693,123 @@ export function MainsEvaluationView() {
     setInputMode("upload");
     setErrorMsg(null);
 
-    const newAttachments: Array<{
-      mimeType: string;
-      data: string;
-      name: string;
-    }> = [];
+    try {
+      const newAttachments: Array<{
+        mimeType: string;
+        data: string;
+        name: string;
+      }> = [];
 
-    for (const file of files) {
-      const isPdf =
-        file.type === "application/pdf" ||
-        file.name.toLowerCase().endsWith(".pdf");
+      for (const file of files) {
+        const isPdf =
+          file.type === "application/pdf" ||
+          file.name.toLowerCase().endsWith(".pdf");
 
-      if (isPdf) {
-        try {
-          const pdfjsLib = await loadPdfJs();
-          if (pdfjsLib) {
-            const arrayBuffer = await file.arrayBuffer();
-            const pdf = await pdfjsLib.getDocument({ data: arrayBuffer })
-              .promise;
+        if (isPdf) {
+          try {
+            const pdfjsLib = await loadPdfJs();
+            if (pdfjsLib) {
+              const arrayBuffer = await file.arrayBuffer();
+              const pdf = await pdfjsLib.getDocument({ data: arrayBuffer })
+                .promise;
 
-            for (let pageNum = 1; pageNum <= pdf.numPages; pageNum++) {
-              const page = await pdf.getPage(pageNum);
-              const viewport = page.getViewport({ scale: 1.5 });
+              for (let pageNum = 1; pageNum <= pdf.numPages; pageNum++) {
+                const page = await pdf.getPage(pageNum);
+                const viewport = page.getViewport({ scale: 1.35 });
+                const canvas = document.createElement("canvas");
+                canvas.width = Math.ceil(viewport.width);
+                canvas.height = Math.ceil(viewport.height);
+                const ctx = canvas.getContext("2d");
+                if (ctx) {
+                  await page.render({ canvasContext: ctx, viewport }).promise;
+                  const dataUrl = canvas.toDataURL("image/jpeg", 0.75);
+                  newAttachments.push({
+                    mimeType: "image/jpeg",
+                    data: dataUrl,
+                    name: `${file.name} (P.${pageNum}/${pdf.numPages})`,
+                  });
+                }
+              }
+              continue;
+            }
+          } catch (pdfErr) {
+            console.warn(
+              "Failed to render PDF pages as images, falling back to raw PDF:",
+              pdfErr,
+            );
+          }
+
+          // Fallback: Read raw PDF as data URL
+          const dataUrl = await new Promise<string>((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onload = () => resolve(reader.result as string);
+            reader.onerror = reject;
+            reader.readAsDataURL(file);
+          });
+          newAttachments.push({
+            mimeType: "application/pdf",
+            data: dataUrl,
+            name: file.name,
+          });
+        } else {
+          // Image files: client-side compression to prevent 413 Payload Too Large / timeout with multiple photos
+          const dataUrl = await new Promise<string>((resolve) => {
+            const img = new Image();
+            const url = URL.createObjectURL(file);
+            img.onload = () => {
+              URL.revokeObjectURL(url);
+              const maxDim = 1280;
+              let width = img.width;
+              let height = img.height;
+              if (width > maxDim || height > maxDim) {
+                if (width > height) {
+                  height = Math.round((height * maxDim) / width);
+                  width = maxDim;
+                } else {
+                  width = Math.round((width * maxDim) / height);
+                  height = maxDim;
+                }
+              }
               const canvas = document.createElement("canvas");
-              canvas.width = Math.ceil(viewport.width);
-              canvas.height = Math.ceil(viewport.height);
+              canvas.width = width;
+              canvas.height = height;
               const ctx = canvas.getContext("2d");
               if (ctx) {
-                await page.render({ canvasContext: ctx, viewport }).promise;
-                const dataUrl = canvas.toDataURL("image/jpeg", 0.9);
-                newAttachments.push({
-                  mimeType: "image/jpeg",
-                  data: dataUrl,
-                  name: `${file.name} (P.${pageNum}/${pdf.numPages})`,
-                });
-              }
-            }
-            continue;
-          }
-        } catch (pdfErr) {
-          console.warn(
-            "Failed to render PDF pages as images, falling back to raw PDF:",
-            pdfErr,
-          );
-        }
-
-        // Fallback: Read raw PDF as data URL
-        const dataUrl = await new Promise<string>((resolve, reject) => {
-          const reader = new FileReader();
-          reader.onload = () => resolve(reader.result as string);
-          reader.onerror = reject;
-          reader.readAsDataURL(file);
-        });
-        newAttachments.push({
-          mimeType: "application/pdf",
-          data: dataUrl,
-          name: file.name,
-        });
-      } else {
-        // Image files: client-side compression to prevent 413 Payload Too Large / timeout with multiple photos
-        const dataUrl = await new Promise<string>((resolve) => {
-          const img = new Image();
-          const url = URL.createObjectURL(file);
-          img.onload = () => {
-            URL.revokeObjectURL(url);
-            const maxDim = 1600;
-            let width = img.width;
-            let height = img.height;
-            if (width > maxDim || height > maxDim) {
-              if (width > height) {
-                height = Math.round((height * maxDim) / width);
-                width = maxDim;
+                ctx.drawImage(img, 0, 0, width, height);
+                resolve(canvas.toDataURL("image/jpeg", 0.75));
               } else {
-                width = Math.round((width * maxDim) / height);
-                height = maxDim;
+                const reader = new FileReader();
+                reader.onload = () => resolve(reader.result as string);
+                reader.readAsDataURL(file);
               }
-            }
-            const canvas = document.createElement("canvas");
-            canvas.width = width;
-            canvas.height = height;
-            const ctx = canvas.getContext("2d");
-            if (ctx) {
-              ctx.drawImage(img, 0, 0, width, height);
-              resolve(canvas.toDataURL("image/jpeg", 0.82));
-            } else {
+            };
+            img.onerror = () => {
+              URL.revokeObjectURL(url);
               const reader = new FileReader();
               reader.onload = () => resolve(reader.result as string);
               reader.readAsDataURL(file);
-            }
-          };
-          img.onerror = () => {
-            URL.revokeObjectURL(url);
-            const reader = new FileReader();
-            reader.onload = () => resolve(reader.result as string);
-            reader.readAsDataURL(file);
-          };
-          img.src = url;
-        });
-        newAttachments.push({
-          mimeType: "image/jpeg",
-          data: dataUrl,
-          name: file.name,
-        });
+            };
+            img.src = url;
+          });
+          newAttachments.push({
+            mimeType: "image/jpeg",
+            data: dataUrl,
+            name: file.name,
+          });
+        }
       }
-    }
 
-    setUploadedImages((prev) => [...prev, ...newAttachments]);
-    setIsProcessingFiles(false);
+      if (newAttachments.length > 0) {
+        setUploadedImages((prev) => [...prev, ...newAttachments]);
+      }
+    } catch (err: any) {
+      setErrorMsg(
+        err?.message ||
+          "Failed to process one or more selected files. Please try again.",
+      );
+    } finally {
+      setIsProcessingFiles(false);
+    }
   };
 
   // Handle image / PDF file selection
@@ -888,6 +899,15 @@ export function MainsEvaluationView() {
     setIsLoading(true);
     setErrorMsg(null);
 
+    const fallbackProviders = Object.entries(activeVault)
+      .filter(
+        ([prov, key]) => Boolean(key?.trim()) && prov !== config?.provider,
+      )
+      .map(([prov, key]) => ({
+        provider: prov,
+        apiKey: key.trim(),
+      }));
+
     try {
       const res = await fetch("/api/mains/evaluate", {
         method: "POST",
@@ -905,6 +925,7 @@ export function MainsEvaluationView() {
             data: img.data,
           })),
           providerConfig: config,
+          fallbackProviders,
         }),
       });
 
@@ -2521,6 +2542,7 @@ EXAMINER RESPONSE REQUIREMENTS:
                         type="file"
                         accept="image/*"
                         capture="environment"
+                        multiple
                         onChange={handleFileUpload}
                         className="hidden"
                       />
@@ -2718,21 +2740,43 @@ EXAMINER RESPONSE REQUIREMENTS:
                   )}
                 </div>
 
-                {/* Error Message with Retry */}
+                {/* Full Error Message with Copy & Retry */}
                 {errorMsg && (
-                  <div className="p-3 rounded-xl bg-rose-50 dark:bg-rose-950/60 border border-rose-200 dark:border-rose-900 text-xs text-rose-700 dark:text-rose-300 flex items-center justify-between gap-3">
-                    <div className="flex items-center gap-2 min-w-0">
-                      <AlertTriangle className="h-4 w-4 shrink-0 text-rose-600" />
-                      <span className="truncate">{errorMsg}</span>
+                  <div className="p-3.5 rounded-xl bg-rose-50 dark:bg-rose-950/60 border border-rose-200 dark:border-rose-900 text-xs text-rose-800 dark:text-rose-200 flex flex-col sm:flex-row sm:items-start justify-between gap-3">
+                    <div className="flex items-start gap-2.5 min-w-0 flex-1">
+                      <AlertTriangle className="h-4 w-4 shrink-0 text-rose-600 mt-0.5" />
+                      <span className="whitespace-pre-wrap break-words leading-relaxed select-text">
+                        {errorMsg}
+                      </span>
                     </div>
-                    <button
-                      type="button"
-                      onClick={handleEvaluate}
-                      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-rose-600 hover:bg-rose-700 text-white font-bold text-xs shrink-0 cursor-pointer shadow-xs transition-colors"
-                    >
-                      <RotateCcw className="h-3.5 w-3.5" />
-                      <span>Retry</span>
-                    </button>
+                    <div className="flex items-center gap-2 shrink-0 self-end sm:self-start">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          navigator.clipboard?.writeText(errorMsg);
+                          setCopiedError(true);
+                          setTimeout(() => setCopiedError(false), 1800);
+                        }}
+                        className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg border border-rose-200 dark:border-rose-800 bg-white dark:bg-rose-950 hover:bg-rose-100/70 text-rose-700 dark:text-rose-200 font-semibold text-xs cursor-pointer transition-colors"
+                        title="Copy full error details"
+                        aria-label="Copy full error details"
+                      >
+                        {copiedError ? (
+                          <Check className="h-3.5 w-3.5 text-emerald-600" />
+                        ) : (
+                          <Copy className="h-3.5 w-3.5" />
+                        )}
+                        <span>{copiedError ? "Copied" : "Copy"}</span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={handleEvaluate}
+                        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-rose-600 hover:bg-rose-700 text-white font-bold text-xs shrink-0 cursor-pointer shadow-xs transition-colors"
+                      >
+                        <RotateCcw className="h-3.5 w-3.5" />
+                        <span>Retry</span>
+                      </button>
+                    </div>
                   </div>
                 )}
 

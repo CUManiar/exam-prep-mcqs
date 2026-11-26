@@ -253,12 +253,7 @@ async function discoverGeminiModels(apiKey: string): Promise<string[]> {
   } catch (e: any) {
     console.warn("Gemini model discovery failed:", e?.message);
   }
-  return [
-    "gemini-2.0-flash",
-    "gemini-1.5-flash",
-    "gemini-1.5-pro",
-    "gemini-1.5-flash-8b",
-  ];
+  return ["gemini-2.5-flash", "gemini-2.5-pro", "gemini-2.0-flash"];
 }
 
 /** Execute with Google Gemini */
@@ -424,7 +419,11 @@ async function callAnthropicEvaluation(
   prompt: string,
   images: Array<{ mimeType: string; data: string }> = [],
 ): Promise<string> {
-  const models = ["claude-3-5-sonnet-latest", "claude-3-5-haiku-latest"];
+  const models = [
+    "claude-sonnet-4-5-20250929",
+    "claude-haiku-4-5-20251001",
+    "claude-3-7-sonnet-latest",
+  ];
   let lastError = "";
 
   const content: any[] = [];
@@ -516,7 +515,10 @@ async function callGroqEvaluation(
 
   // Use vision models if images are attached; fallback to versatile text model
   const models = isVision
-    ? ["llama-3.2-11b-vision-preview", "llama-3.2-90b-vision-preview"]
+    ? [
+        "meta-llama/llama-4-scout-17b-16e-instruct",
+        "meta-llama/llama-4-maverick-17b-128e-instruct",
+      ]
     : ["llama-3.3-70b-versatile", "llama-3.1-8b-instant"];
   let lastError = "";
 
@@ -615,6 +617,7 @@ export async function POST(req: NextRequest) {
       maxMarks?: 10 | 15 | 20;
       images?: Array<{ mimeType: string; data: string }>;
       providerConfig?: RevisionProviderConfig | null;
+      fallbackProviders?: Array<{ provider: string; apiKey: string }>;
     } = body;
 
     const trimmedQuestion = (question || "").trim();
@@ -676,51 +679,61 @@ export async function POST(req: NextRequest) {
     });
 
     let rawOutput = "";
+    const providerErrors: string[] = [];
 
-    // 1. User-configured provider
-    if (userApiKey && provider) {
-      try {
-        if (provider === "gemini") {
-          rawOutput = await callGeminiEvaluation(
-            userApiKey,
-            evaluationPrompt,
-            validImages,
-          );
-        } else if (provider === "openai") {
-          rawOutput = await callOpenAIEvaluation(
-            userApiKey,
-            evaluationPrompt,
-            validImages,
-          );
-        } else if (provider === "anthropic") {
-          rawOutput = await callAnthropicEvaluation(
-            userApiKey,
-            evaluationPrompt,
-            validImages,
-          );
-        } else if (provider === "groq") {
-          rawOutput = await callGroqEvaluation(
-            userApiKey,
-            evaluationPrompt,
-            validImages,
-            trimmedAnswer,
+    const runProvider = async (prov: string, key: string) => {
+      if (prov === "gemini") {
+        return callGeminiEvaluation(key, evaluationPrompt, validImages);
+      }
+      if (prov === "openai") {
+        return callOpenAIEvaluation(key, evaluationPrompt, validImages);
+      }
+      if (prov === "anthropic") {
+        return callAnthropicEvaluation(key, evaluationPrompt, validImages);
+      }
+      if (prov === "groq") {
+        if (hasValidImages && !trimmedAnswer) {
+          throw new Error(
+            "Groq does not support image/PDF OCR without typed text.",
           );
         }
+        return callGroqEvaluation(
+          key,
+          evaluationPrompt,
+          validImages,
+          trimmedAnswer,
+        );
+      }
+      throw new Error(`Unsupported provider: ${prov}`);
+    };
+
+    // 1. User-configured primary provider
+    if (userApiKey && provider) {
+      try {
+        rawOutput = await runProvider(provider, userApiKey);
       } catch (err: any) {
-        console.warn(
-          `User-configured ${provider} evaluation failed:`,
-          err?.message,
-        );
-        return NextResponse.json(
-          {
-            error: `${provider.toUpperCase()} Evaluation Error: ${err?.message || "Evaluation request failed"}. Please verify your API key in AI Provider Settings.`,
-          },
-          { status: 400 },
-        );
+        const msg = `${provider.toUpperCase()}: ${err?.message || "Evaluation request failed"}`;
+        console.warn("Primary evaluation failed:", msg);
+        providerErrors.push(msg);
       }
     }
 
-    // 2. Server-side Gemini Key fallback
+    // 2. Fallback to any other configured keys in the user's vault
+    if (!rawOutput && Array.isArray(body.fallbackProviders)) {
+      for (const fb of body.fallbackProviders) {
+        if (!fb?.provider || !fb?.apiKey?.trim()) continue;
+        try {
+          rawOutput = await runProvider(fb.provider, fb.apiKey.trim());
+          if (rawOutput) break;
+        } catch (err: any) {
+          const msg = `${fb.provider.toUpperCase()}: ${err?.message || "Evaluation request failed"}`;
+          console.warn("Vault fallback evaluation failed:", msg);
+          providerErrors.push(msg);
+        }
+      }
+    }
+
+    // 3. Server-side Gemini Key fallback
     if (!rawOutput && serverGeminiKey) {
       try {
         rawOutput = await callGeminiEvaluation(
@@ -729,8 +742,19 @@ export async function POST(req: NextRequest) {
           validImages,
         );
       } catch (err: any) {
-        console.warn("Server Gemini evaluation failed:", err?.message);
+        const msg = `SERVER GEMINI: ${err?.message || "Evaluation request failed"}`;
+        console.warn("Server Gemini evaluation failed:", msg);
+        providerErrors.push(msg);
       }
+    }
+
+    if (!rawOutput && providerErrors.length > 0) {
+      return NextResponse.json(
+        {
+          error: providerErrors.join("\n"),
+        },
+        { status: 400 },
+      );
     }
 
     // 3. Free Live Tier fallback (Text only)
