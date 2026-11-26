@@ -450,47 +450,64 @@ export async function saveUserMainsSessionsToSupabase(
   }
 }
 
-// Fetch user's Mains evaluation sessions from Supabase
+// Fetch user's Mains evaluation sessions from Supabase (merging profiles.mains_sessions + mains_sessions table)
 export async function fetchUserMainsSessionsFromSupabase(
   userId: string,
 ): Promise<any[]> {
   const supabase = getSupabaseClient();
   if (!supabase || !userId) return [];
   try {
-    // 1. Check profile.mains_sessions FIRST (it contains the complete structured session objects with attempts and evaluations)
-    const { data: profileData } = await supabase
-      .from("profiles")
-      .select("mains_sessions")
-      .eq("id", userId)
-      .maybeSingle();
+    const [{ data: profileData }, { data: tableData, error: tableError }] =
+      await Promise.all([
+        supabase
+          .from("profiles")
+          .select("mains_sessions")
+          .eq("id", userId)
+          .maybeSingle(),
+        supabase
+          .from("mains_sessions")
+          .select("*")
+          .eq("user_id", userId)
+          .order("updated_at", { ascending: false }),
+      ]);
 
-    if (
-      profileData &&
-      Array.isArray(profileData.mains_sessions) &&
-      profileData.mains_sessions.length > 0
-    ) {
-      return profileData.mains_sessions;
+    const mergedMap = new Map<string, any>();
+
+    // Add dedicated mains_sessions table rows first
+    if (!tableError && Array.isArray(tableData)) {
+      for (const row of tableData) {
+        if (!row?.id) continue;
+        mergedMap.set(row.id, {
+          id: row.id,
+          title: row.title,
+          paperType: row.paper_type,
+          optionalSubject: row.optional_subject,
+          updatedAt: row.updated_at,
+          questions: row.questions || [],
+        });
+      }
     }
 
-    // 2. Fallback: check dedicated mains_sessions table
-    const { data: tableData, error: tableError } = await supabase
-      .from("mains_sessions")
-      .select("*")
-      .eq("user_id", userId)
-      .order("updated_at", { ascending: false });
-
-    if (!tableError && Array.isArray(tableData) && tableData.length > 0) {
-      return tableData.map((row) => ({
-        id: row.id,
-        title: row.title,
-        paperType: row.paper_type,
-        optionalSubject: row.optional_subject,
-        updatedAt: row.updated_at,
-        questions: row.questions || [],
-      }));
+    // Overlay profiles.mains_sessions (contains full structured attempts & evaluations)
+    if (profileData && Array.isArray(profileData.mains_sessions)) {
+      for (const s of profileData.mains_sessions) {
+        if (!s?.id) continue;
+        const existing = mergedMap.get(s.id);
+        if (
+          !existing ||
+          (s.updatedAt && s.updatedAt >= (existing.updatedAt || "")) ||
+          (Array.isArray(s.attempts) && s.attempts.length > 0)
+        ) {
+          mergedMap.set(s.id, s);
+        }
+      }
     }
 
-    return [];
+    return Array.from(mergedMap.values()).sort(
+      (a, b) =>
+        new Date(b.updatedAt || 0).getTime() -
+        new Date(a.updatedAt || 0).getTime(),
+    );
   } catch (err) {
     console.warn("Failed fetching mains sessions from Supabase:", err);
     return [];
