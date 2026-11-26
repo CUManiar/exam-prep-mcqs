@@ -2358,7 +2358,12 @@ export function createPortalMcpServer(
         );
       }
 
-      await deleteMcpPaper(userId, paper.id);
+      const deleted = await deleteMcpPaper(userId, paper.id);
+      if (!deleted) {
+        return errorResult(
+          "Paper could not be deleted because no matching record was removed.",
+        );
+      }
       return textResult({
         deleted: true,
         paperId: paper.id,
