@@ -375,8 +375,14 @@ function createImportedPaper(
 
   const examType = input.examType === "subjective" ? "subjective" : "objective";
   const category = input.category === "mains" ? "mains" : "prelims";
-  const paperSubject = String(input.subject || header.subject || title);
-  const enforceSingleSubject = isSpecificSingleSubject(paperSubject);
+  const rawSubject = String(input.subject || header.subject || "").trim();
+  const paperSubject =
+    rawSubject && rawSubject.toLowerCase() !== title.toLowerCase()
+      ? rawSubject
+      : "";
+  const enforceSingleSubject = paperSubject
+    ? isSpecificSingleSubject(paperSubject)
+    : false;
 
   let parsedQuestions = normalizeQuestions(input);
   if (parsedQuestions.length === 0 && markdownText.trim()) {

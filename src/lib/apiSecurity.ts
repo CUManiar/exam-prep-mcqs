@@ -137,7 +137,7 @@ export async function getOwnedCustomPaperFromSupabase(
       year: String(data.year || new Date().getFullYear()),
       category: data.stage || "prelims",
       examType: data.exam_type || "objective",
-      subject: data.subject || data.label || data.title || "Custom Paper",
+      subject: data.subject || "",
       label: data.label || data.title || "Custom Paper",
       title: data.title || data.label || "Custom Paper",
       totalQuestions: Number(data.total_questions) || 0,
