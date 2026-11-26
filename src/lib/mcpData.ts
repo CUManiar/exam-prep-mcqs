@@ -315,14 +315,17 @@ export async function deleteMcpPaper(
   const lowerId = cleanId.toLowerCase();
 
   if (supabase) {
+    const candidateIds = Array.from(new Set([cleanId, lowerId]));
     const { data: rows } = await supabase
       .from("custom_papers")
       .select("id, qp_url, ak_url, exs_url")
       .eq("user_id", userId)
-      .or(`id.eq.${cleanId},id.eq.${lowerId},id.ilike.${lowerId}`);
+      .in("id", candidateIds);
 
+    const matchedIds = new Set<string>(candidateIds);
     if (rows && rows.length > 0) {
       for (const row of rows) {
+        matchedIds.add(row.id);
         if (row.qp_url && !String(row.qp_url).startsWith("local://")) {
           await deleteFile(row.qp_url).catch(() => {});
         }
@@ -345,20 +348,19 @@ export async function deleteMcpPaper(
       }
     }
 
+    const idList = Array.from(matchedIds);
     // Clean up question_bank entries if present (best-effort)
     await supabase
       .from("question_bank")
       .delete()
       .eq("user_id", userId)
-      .or(
-        `source_paper_id.eq.${cleanId},source_paper_id.eq.${lowerId},source_paper_id.ilike.${lowerId}`,
-      );
+      .in("source_paper_id", idList);
 
     const { error } = await supabase
       .from("custom_papers")
       .delete()
       .eq("user_id", userId)
-      .or(`id.eq.${cleanId},id.eq.${lowerId},id.ilike.${lowerId}`);
+      .in("id", idList);
     if (error) {
       throw new Error(`The paper could not be deleted: ${error.message}`);
     }

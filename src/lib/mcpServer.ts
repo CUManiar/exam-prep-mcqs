@@ -271,7 +271,12 @@ Respond ONLY with a JSON object in this exact format:
         const data = await res.json();
         const text = data.candidates?.[0]?.content?.parts?.[0]?.text;
         if (text) {
-          const parsed = JSON.parse(text);
+          const cleanedJson = text
+            .trim()
+            .replace(/^```json\s*/i, "")
+            .replace(/^```\s*/, "")
+            .replace(/\s*```$/, "");
+          const parsed = JSON.parse(cleanedJson);
           if (parsed.meaning && parsed.memoryHook && parsed.example) {
             return {
               meaning: String(parsed.meaning).trim(),

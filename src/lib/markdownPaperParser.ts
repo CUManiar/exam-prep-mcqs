@@ -167,10 +167,12 @@ export function extractPyqYearsFromText(text: string): string {
     if (cleaned) return cleaned;
   }
 
-  // 5. Trailing standalone parenthesized/bracketed year(s) at end of prompt: e.g. "...correct? (2021)" or "[2019, 2021]"
-  const trailingYearMatch = text.match(
-    /[\[(]\s*((?:19[789]\d|20[0-2]\d)(?:\s*(?:,|\/|&|\band\b)\s*(?:19[789]\d|20[0-2]\d))*)\s*[\])]\s*[.?!]?\s*$/m,
-  );
+  // 5. Trailing standalone parenthesized/bracketed year(s) at the end of the text: e.g. "...correct? (2021)" or "[2019, 2021]"
+  const trailingYearMatch = text
+    .trim()
+    .match(
+      /[\[(]\s*((?:19[789]\d|20[0-2]\d)(?:\s*(?:,|\/|&|\band\b)\s*(?:19[789]\d|20[0-2]\d))*)\s*[\])]\s*[.?!]?\s*$/,
+    );
   if (trailingYearMatch?.[1]) {
     const cleaned = cleanPreviousYears(trailingYearMatch[1]);
     if (cleaned) return cleaned;
