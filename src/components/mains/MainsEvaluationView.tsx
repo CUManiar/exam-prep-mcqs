@@ -244,7 +244,7 @@ export function MainsEvaluationView() {
       return !hasQ && !hasAns && !hasEval && !hasAttContent;
     };
 
-    const syncFromCloud = () => {
+    const syncFromCloud = (isInitialLoad: boolean) => {
       setIsSyncingWithCloud(true);
       fetchUserMainsSessionsFromSupabase(currentUser.id)
         .then((dbSessions) => {
@@ -261,11 +261,11 @@ export function MainsEvaluationView() {
 
           setSessions(normalizedDb);
 
-          if (normalizedDb.length > 0) {
-            const hasActive =
-              currentSessionId &&
-              normalizedDb.some((s) => s.id === currentSessionId);
-            if (!hasActive) {
+          if (isInitialLoad && normalizedDb.length > 0) {
+            if (
+              !currentSessionId ||
+              !normalizedDb.some((s) => s.id === currentSessionId)
+            ) {
               loadSession(normalizedDb[0]);
             }
           }
@@ -278,10 +278,10 @@ export function MainsEvaluationView() {
         });
     };
 
-    syncFromCloud();
+    syncFromCloud(true);
 
     const handleFocus = () => {
-      if (!isLoading) syncFromCloud();
+      if (!isLoading && !isProcessingFiles) syncFromCloud(false);
     };
     window.addEventListener("focus", handleFocus);
 
