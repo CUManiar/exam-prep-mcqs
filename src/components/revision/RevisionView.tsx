@@ -23,6 +23,7 @@ import {
   Send,
   Settings2,
   Sparkles,
+  Square,
   Trash2,
   User,
   X,
@@ -487,8 +488,21 @@ export function RevisionView() {
     scrollToBottom();
   }, [messages, isLoading, scrollToBottom]);
 
+  const abortControllerRef = useRef<AbortController | null>(null);
+
+  const handleStopGeneration = () => {
+    abortControllerRef.current?.abort();
+    abortControllerRef.current = null;
+    setIsLoading(false);
+    setToastMsg("Generation stopped.");
+    setTimeout(() => setToastMsg(null), 1800);
+  };
+
   // Dispatch query
-  const handleSend = async (customPrompt?: string) => {
+  const handleSend = async (
+    customPrompt?: string,
+    options?: { baseMessages?: RevisionMessage[]; skipCache?: boolean },
+  ) => {
     const promptToSend = (customPrompt || inputPrompt).trim();
     if (!promptToSend || isLoading) return;
 
@@ -506,14 +520,23 @@ export function RevisionView() {
       },
     };
 
-    const nextMessages = [...messages, userMessage];
+    const base = options?.baseMessages ?? messages;
+    const nextMessages = [...base, userMessage];
     setMessages(nextMessages);
-    setInputPrompt("");
-    if (textareaRef.current) textareaRef.current.style.height = "auto";
+    if (!customPrompt) {
+      setInputPrompt("");
+      if (textareaRef.current) textareaRef.current.style.height = "auto";
+    }
     setIsLoading(true);
 
+    const controller = new AbortController();
+    abortControllerRef.current = controller;
+
     try {
-      const res = await sendRevisionQuery(nextMessages, activeContext, config);
+      const res = await sendRevisionQuery(nextMessages, activeContext, config, {
+        signal: controller.signal,
+        skipCache: options?.skipCache,
+      });
       const assistantMessage: RevisionMessage = {
         id: `msg_a_${Date.now()}`,
         role: "assistant",
@@ -522,6 +545,9 @@ export function RevisionView() {
       };
       setMessages([...nextMessages, assistantMessage]);
     } catch (err: any) {
+      if (err?.name === "AbortError") {
+        return;
+      }
       const errorMsg: RevisionMessage = {
         id: `msg_err_${Date.now()}`,
         role: "assistant",
@@ -531,8 +557,27 @@ export function RevisionView() {
       };
       setMessages([...nextMessages, errorMsg]);
     } finally {
+      if (abortControllerRef.current === controller) {
+        abortControllerRef.current = null;
+      }
       setIsLoading(false);
     }
+  };
+
+  // Regenerate response for a specific assistant message index
+  const handleRegenerateAt = (assistantIndex: number) => {
+    if (isLoading) return;
+    let userIdx = -1;
+    for (let i = assistantIndex - 1; i >= 0; i--) {
+      if (messages[i].role === "user") {
+        userIdx = i;
+        break;
+      }
+    }
+    if (userIdx === -1) return;
+    const promptToRegen = messages[userIdx].content;
+    const baseMessages = messages.slice(0, userIdx);
+    handleSend(promptToRegen, { baseMessages, skipCache: true });
   };
 
   // Copy message
@@ -990,7 +1035,7 @@ export function RevisionView() {
           )}
 
           {/* Active Messages */}
-          {messages.map((msg) => {
+          {messages.map((msg, msgIdx) => {
             const isUser = msg.role === "user";
             return (
               <div
@@ -1064,7 +1109,16 @@ export function RevisionView() {
                             </button>
                           </div>
                         ) : (
-                          <div />
+                          <button
+                            type="button"
+                            onClick={() => handleRegenerateAt(msgIdx)}
+                            disabled={isLoading}
+                            className="inline-flex items-center gap-1 text-[11px] font-medium text-slate-400 hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors cursor-pointer disabled:opacity-40"
+                            title="Regenerate response"
+                          >
+                            <RotateCcw className="h-3 w-3" />
+                            <span>Regenerate</span>
+                          </button>
                         )}
                         <button
                           type="button"
@@ -1110,10 +1164,10 @@ export function RevisionView() {
           <div ref={messagesEndRef} />
         </div>
 
-        {/* ── INPUT FOOTER ── */}
-        <footer className="px-2.5 py-1.5 sm:p-4 border-t border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 shrink-0">
+        {/* ── INPUT FOOTER (Minimal Claude-style Composer) ── */}
+        <footer className="px-3 py-2.5 sm:px-4 sm:py-3.5 bg-slate-50/80 dark:bg-slate-950/80 shrink-0">
           <div className="max-w-3xl mx-auto">
-            <div className="relative flex items-end gap-2 bg-slate-50 dark:bg-slate-800/60 rounded-2xl border border-slate-200 dark:border-slate-700/80 p-1.5 sm:p-2 shadow-2xs focus-within:ring-2 focus-within:ring-indigo-500 focus-within:border-transparent">
+            <div className="rounded-2xl border border-slate-200 dark:border-slate-700/80 bg-white dark:bg-slate-900 px-3.5 pt-3 pb-2 shadow-sm focus-within:border-slate-300 dark:focus-within:border-slate-600 focus-within:shadow-md transition-all">
               <textarea
                 ref={textareaRef}
                 value={inputPrompt}
@@ -1123,7 +1177,7 @@ export function RevisionView() {
                     textareaRef.current.style.height = "auto";
                     textareaRef.current.style.height = `${Math.min(
                       textareaRef.current.scrollHeight,
-                      120,
+                      160,
                     )}px`;
                   }
                 }}
@@ -1135,24 +1189,45 @@ export function RevisionView() {
                 }}
                 placeholder={
                   stage === "concept"
-                    ? "Ask to explain any UPSC concept from first principles without reading book page by page..."
+                    ? "Ask to explain any UPSC concept from first principles..."
                     : stage === "optional"
                       ? `Ask anything on ${optionalSubject} Paper I & II...`
-                      : "Ask topic, paste question prompt, or request elimination drill..."
+                      : "Ask a topic, paste a question, or request an elimination drill..."
                 }
                 rows={1}
-                className="flex-1 bg-transparent border-0 resize-none text-xs sm:text-sm text-slate-900 dark:text-white placeholder:text-slate-400 focus:outline-hidden p-1 min-h-[36px] max-h-[120px]"
+                className="w-full bg-transparent border-0 outline-none ring-0 focus:outline-none focus:ring-0 resize-none text-xs sm:text-sm text-slate-900 dark:text-white placeholder:text-slate-400 min-h-[28px] max-h-[160px] leading-relaxed"
               />
 
-              <button
-                type="button"
-                onClick={() => handleSend()}
-                disabled={!inputPrompt.trim() || isLoading}
-                className="p-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 disabled:opacity-40 disabled:hover:bg-indigo-600 text-white transition-all shadow-xs cursor-pointer shrink-0"
-                title="Send query (Enter)"
-              >
-                <Send className="h-4 w-4" />
-              </button>
+              <div className="flex items-center justify-between gap-2 pt-2 mt-1">
+                <span className="text-[10px] text-slate-400 hidden sm:inline">
+                  Enter to send · Shift+Enter for new line
+                </span>
+
+                <div className="flex items-center gap-1.5 ml-auto">
+                  {isLoading ? (
+                    <button
+                      type="button"
+                      onClick={handleStopGeneration}
+                      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-900 hover:bg-slate-800 dark:bg-slate-100 dark:hover:bg-white text-white dark:text-slate-900 text-xs font-semibold transition-colors shadow-xs cursor-pointer"
+                      title="Stop generating response"
+                    >
+                      <Square className="h-3 w-3 fill-current" />
+                      <span>Stop</span>
+                    </button>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={() => handleSend()}
+                      disabled={!inputPrompt.trim()}
+                      className="inline-flex items-center justify-center h-8 w-8 rounded-xl bg-indigo-600 hover:bg-indigo-700 disabled:opacity-35 disabled:hover:bg-indigo-600 text-white transition-all shadow-xs cursor-pointer shrink-0"
+                      title="Send query (Enter)"
+                      aria-label="Send query"
+                    >
+                      <Send className="h-3.5 w-3.5" />
+                    </button>
+                  )}
+                </div>
+              </div>
             </div>
           </div>
         </footer>

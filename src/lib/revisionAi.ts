@@ -345,11 +345,12 @@ export async function sendRevisionQuery(
   messages: RevisionMessage[],
   context: RevisionContext,
   config?: RevisionProviderConfig | null,
+  options?: { signal?: AbortSignal; skipCache?: boolean },
 ): Promise<RevisionQueryResponse> {
   const lastUserMsg = messages[messages.length - 1]?.content || "";
 
   // 1. Check cache for quick hit
-  if (messages.length === 1 && lastUserMsg) {
+  if (!options?.skipCache && messages.length === 1 && lastUserMsg) {
     const cached = getCachedRevisionResponse(
       lastUserMsg,
       context.stage,
@@ -366,6 +367,7 @@ export async function sendRevisionQuery(
   const res = await fetch("/api/revision/chat", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
+    signal: options?.signal,
     body: JSON.stringify({
       messages: pruned,
       context,
