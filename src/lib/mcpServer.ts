@@ -1787,7 +1787,7 @@ export function createPortalMcpServer(
                 .string()
                 .optional()
                 .describe(
-                  "Optional feedback or explanation note for this question.",
+                  "Optional evaluator feedback or explanation note for this question (saved to evaluationComment; preserves student scratchpad note).",
                 ),
             }),
           )
@@ -1889,6 +1889,7 @@ export function createPortalMcpServer(
                   ? grade.isCorrect
                   : null;
 
+        const timestamp = new Date().toISOString();
         updatedAnswers[qNo] = {
           ...currentAnswer,
           selected: isCloze
@@ -1899,7 +1900,13 @@ export function createPortalMcpServer(
           subjectiveAssessment: assessment,
           subjectiveMarks: grade.marks,
           isCorrect,
-          note: grade.note !== undefined ? grade.note : currentAnswer.note,
+          ...(grade.note !== undefined
+            ? {
+                evaluationComment: grade.note,
+                evaluationSource: "mcp" as const,
+                evaluationUpdatedAt: timestamp,
+              }
+            : {}),
         };
       }
 
