@@ -227,11 +227,22 @@ export function MainsEvaluationView() {
       if (initialLocal.length > 0) {
         setSessions(initialLocal);
         loadSession(initialLocal[0]);
-      } else {
-        handleNewEvaluation();
       }
       return;
     }
+
+    const isEmptyDraftSession = (s: MainsEvaluationSession) => {
+      const hasQ = Boolean(s.question?.trim());
+      const hasAns = Boolean(s.studentAnswer?.trim());
+      const hasEval = Boolean(s.evaluation);
+      const hasAttContent = (s.attempts || []).some(
+        (a) =>
+          Boolean(a.evaluation) ||
+          Boolean(a.studentAnswer?.trim()) ||
+          (a.attachedImages?.length || 0) > 0,
+      );
+      return !hasQ && !hasAns && !hasEval && !hasAttContent;
+    };
 
     const syncFromCloud = () => {
       setIsSyncingWithCloud(true);
@@ -240,22 +251,22 @@ export function MainsEvaluationView() {
           if (!isMounted) return;
           const normalizedDb = migrateMainsSessionsToSingleQuestionBooklet(
             dbSessions || [],
-          ).sort(
-            (a, b) =>
-              new Date(b.updatedAt || 0).getTime() -
-              new Date(a.updatedAt || 0).getTime(),
-          );
+          )
+            .filter((s) => !isEmptyDraftSession(s))
+            .sort(
+              (a, b) =>
+                new Date(b.updatedAt || 0).getTime() -
+                new Date(a.updatedAt || 0).getTime(),
+            );
 
           setSessions(normalizedDb);
 
-          if (
-            !currentSessionId ||
-            !normalizedDb.some((s) => s.id === currentSessionId)
-          ) {
-            if (normalizedDb.length > 0) {
+          if (normalizedDb.length > 0) {
+            const hasActive =
+              currentSessionId &&
+              normalizedDb.some((s) => s.id === currentSessionId);
+            if (!hasActive) {
               loadSession(normalizedDb[0]);
-            } else {
-              handleNewEvaluation();
             }
           }
         })
@@ -3250,128 +3261,153 @@ EXAMINER RESPONSE REQUIREMENTS:
 
                     {/* Examiner Marked Copy & Line-by-Line Script Audit */}
                     {evaluation.markedCopy &&
-                      evaluation.markedCopy.length > 0 && (
-                        <div className="p-4 sm:p-5 rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-2xs space-y-3">
-                          <div className="flex flex-wrap items-center justify-between gap-2 pb-2 border-b border-slate-100 dark:border-slate-800">
-                            <div className="flex items-center gap-2">
-                              <FileCheck className="h-4 w-4 text-indigo-600" />
-                              <h4 className="text-xs font-bold uppercase tracking-wider text-slate-900 dark:text-slate-100">
-                                Examiner Script Audit (Line-by-Line Marked Copy)
-                              </h4>
+                      evaluation.markedCopy.length > 0 &&
+                      (() => {
+                        const NEGATIVE_AUDIT_RE =
+                          /\b(irrelevant|off[- ]topic|not\s+relevant|wrong|incorrect|inaccurate|error|misspelled|confuses|contradicts|false|missing|flawed|unsubstantiated|superficial|vague|out\s+of\s+context|misplaced|incorrectly)\b/i;
+                        const VERIFY_AUDIT_RE =
+                          /\b(verify|unverified|check\s+fact|double[- ]check)\b/i;
+                        const resolveAuditType = (item: {
+                          type?: string;
+                          note?: string;
+                        }): "correct" | "incorrect" | "verify" | "note" => {
+                          const comment = (item.note || "").trim();
+                          if (NEGATIVE_AUDIT_RE.test(comment))
+                            return "incorrect";
+                          if (VERIFY_AUDIT_RE.test(comment)) return "verify";
+                          if (
+                            item.type === "correct" ||
+                            item.type === "incorrect" ||
+                            item.type === "verify"
+                          ) {
+                            return item.type;
+                          }
+                          return "note";
+                        };
+                        const typedAnnotations = evaluation.markedCopy.map(
+                          (item) => ({
+                            ...item,
+                            resolvedType: resolveAuditType(item),
+                          }),
+                        );
+                        const correctCount = typedAnnotations.filter(
+                          (m) => m.resolvedType === "correct",
+                        ).length;
+                        const incorrectCount = typedAnnotations.filter(
+                          (m) => m.resolvedType === "incorrect",
+                        ).length;
+                        const verifyCount = typedAnnotations.filter(
+                          (m) => m.resolvedType === "verify",
+                        ).length;
+
+                        return (
+                          <div className="p-4 sm:p-5 rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-2xs space-y-3">
+                            <div className="flex flex-wrap items-center justify-between gap-2 pb-2 border-b border-slate-100 dark:border-slate-800">
+                              <div className="flex items-center gap-2">
+                                <FileCheck className="h-4 w-4 text-indigo-600" />
+                                <h4 className="text-xs font-bold uppercase tracking-wider text-slate-900 dark:text-slate-100">
+                                  Examiner Script Audit (Line-by-Line Marked
+                                  Copy)
+                                </h4>
+                              </div>
+                              <div className="flex items-center gap-1.5 text-[11px] font-mono">
+                                <span className="px-2 py-0.5 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 font-semibold">
+                                  {typedAnnotations.length} Annotations
+                                </span>
+                                {correctCount > 0 && (
+                                  <span className="px-2 py-0.5 rounded-full bg-emerald-100 dark:bg-emerald-950/80 text-emerald-700 dark:text-emerald-300 font-semibold">
+                                    {correctCount} Accurate
+                                  </span>
+                                )}
+                                {incorrectCount > 0 && (
+                                  <span className="px-2 py-0.5 rounded-full bg-rose-100 dark:bg-rose-950/80 text-rose-700 dark:text-rose-300 font-semibold">
+                                    {incorrectCount} Wrong/Errors
+                                  </span>
+                                )}
+                                {verifyCount > 0 && (
+                                  <span className="px-2 py-0.5 rounded-full bg-amber-100 dark:bg-amber-950/80 text-amber-700 dark:text-amber-300 font-semibold">
+                                    {verifyCount} Unverified
+                                  </span>
+                                )}
+                              </div>
                             </div>
-                            <div className="flex items-center gap-1.5 text-[11px] font-mono">
-                              <span className="px-2 py-0.5 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 font-semibold">
-                                {evaluation.markedCopy.length} Annotations
-                              </span>
-                              {(() => {
-                                const correctCount =
-                                  evaluation.markedCopy.filter(
-                                    (m) => m.type === "correct",
-                                  ).length;
-                                const incorrectCount =
-                                  evaluation.markedCopy.filter(
-                                    (m) => m.type === "incorrect",
-                                  ).length;
-                                const verifyCount =
-                                  evaluation.markedCopy.filter(
-                                    (m) => m.type === "verify",
-                                  ).length;
+                            <div className="space-y-3">
+                              {typedAnnotations.map((item, idx) => {
+                                const isCorrect =
+                                  item.resolvedType === "correct";
+                                const isIncorrect =
+                                  item.resolvedType === "incorrect";
+                                const isVerify = item.resolvedType === "verify";
+
+                                const cardBorder = isCorrect
+                                  ? "bg-emerald-50/40 dark:bg-emerald-950/20 border-emerald-200/80 dark:border-emerald-900/60"
+                                  : isIncorrect
+                                    ? "bg-rose-50/40 dark:bg-rose-950/20 border-rose-200/80 dark:border-rose-900/60"
+                                    : isVerify
+                                      ? "bg-amber-50/40 dark:bg-amber-950/20 border-amber-200/80 dark:border-amber-900/60"
+                                      : "bg-slate-50/80 dark:bg-slate-800/50 border-slate-200/80 dark:border-slate-700/60";
+
+                                const quoteBorder = isCorrect
+                                  ? "border-emerald-500"
+                                  : isIncorrect
+                                    ? "border-rose-500"
+                                    : isVerify
+                                      ? "border-amber-500"
+                                      : "border-indigo-400";
+
+                                const badgeStyle = isCorrect
+                                  ? "bg-emerald-100 dark:bg-emerald-950/80 text-emerald-800 dark:text-emerald-300"
+                                  : isIncorrect
+                                    ? "bg-rose-100 dark:bg-rose-950/80 text-rose-800 dark:text-rose-300"
+                                    : isVerify
+                                      ? "bg-amber-100 dark:bg-amber-950/80 text-amber-800 dark:text-amber-300"
+                                      : "bg-indigo-100 dark:bg-indigo-950/80 text-indigo-700 dark:text-indigo-300";
+
+                                const badgeText = isCorrect
+                                  ? "✓ Accurate & Fits"
+                                  : isIncorrect
+                                    ? "✗ Wrong / Off-Topic"
+                                    : isVerify
+                                      ? "⚠️ Verify Fact"
+                                      : "Examiner Note";
+
+                                const noteColor = isCorrect
+                                  ? "text-emerald-800 dark:text-emerald-300 font-semibold"
+                                  : isIncorrect
+                                    ? "text-rose-700 dark:text-rose-300 font-semibold"
+                                    : isVerify
+                                      ? "text-amber-800 dark:text-amber-300 font-semibold"
+                                      : "text-slate-700 dark:text-slate-300 font-semibold";
+
                                 return (
-                                  <>
-                                    {correctCount > 0 && (
-                                      <span className="px-2 py-0.5 rounded-full bg-emerald-100 dark:bg-emerald-950/80 text-emerald-700 dark:text-emerald-300 font-semibold">
-                                        {correctCount} Accurate
+                                  <div
+                                    key={idx}
+                                    className={`p-3.5 rounded-xl border space-y-2 text-xs transition-colors ${cardBorder}`}
+                                  >
+                                    <div
+                                      className={`text-slate-800 dark:text-slate-200 font-serif italic pl-3 border-l-2 leading-relaxed text-xs sm:text-[13px] ${quoteBorder}`}
+                                    >
+                                      &ldquo;{item.quote}&rdquo;
+                                    </div>
+                                    <div className="flex items-start gap-2 pt-1 border-t border-slate-100 dark:border-slate-700/40">
+                                      <span
+                                        className={`text-[10px] font-mono font-bold uppercase tracking-wider px-1.5 py-0.5 rounded shrink-0 ${badgeStyle}`}
+                                      >
+                                        {badgeText}
                                       </span>
-                                    )}
-                                    {incorrectCount > 0 && (
-                                      <span className="px-2 py-0.5 rounded-full bg-rose-100 dark:bg-rose-950/80 text-rose-700 dark:text-rose-300 font-semibold">
-                                        {incorrectCount} Wrong/Errors
+                                      <span
+                                        className={`leading-relaxed ${noteColor}`}
+                                      >
+                                        {item.note}
                                       </span>
-                                    )}
-                                    {verifyCount > 0 && (
-                                      <span className="px-2 py-0.5 rounded-full bg-amber-100 dark:bg-amber-950/80 text-amber-700 dark:text-amber-300 font-semibold">
-                                        {verifyCount} Unverified
-                                      </span>
-                                    )}
-                                  </>
+                                    </div>
+                                  </div>
                                 );
-                              })()}
+                              })}
                             </div>
                           </div>
-                          <div className="space-y-3">
-                            {evaluation.markedCopy.map((item, idx) => {
-                              const isCorrect = item.type === "correct";
-                              const isIncorrect = item.type === "incorrect";
-                              const isVerify = item.type === "verify";
-
-                              const cardBorder = isCorrect
-                                ? "bg-emerald-50/40 dark:bg-emerald-950/20 border-emerald-200/80 dark:border-emerald-900/60"
-                                : isIncorrect
-                                  ? "bg-rose-50/40 dark:bg-rose-950/20 border-rose-200/80 dark:border-rose-900/60"
-                                  : isVerify
-                                    ? "bg-amber-50/40 dark:bg-amber-950/20 border-amber-200/80 dark:border-amber-900/60"
-                                    : "bg-slate-50/80 dark:bg-slate-800/50 border-slate-200/80 dark:border-slate-700/60";
-
-                              const quoteBorder = isCorrect
-                                ? "border-emerald-500"
-                                : isIncorrect
-                                  ? "border-rose-500"
-                                  : isVerify
-                                    ? "border-amber-500"
-                                    : "border-indigo-400";
-
-                              const badgeStyle = isCorrect
-                                ? "bg-emerald-100 dark:bg-emerald-950/80 text-emerald-800 dark:text-emerald-300"
-                                : isIncorrect
-                                  ? "bg-rose-100 dark:bg-rose-950/80 text-rose-800 dark:text-rose-300"
-                                  : isVerify
-                                    ? "bg-amber-100 dark:bg-amber-950/80 text-amber-800 dark:text-amber-300"
-                                    : "bg-indigo-100 dark:bg-indigo-950/80 text-indigo-700 dark:text-indigo-300";
-
-                              const badgeText = isCorrect
-                                ? "✓ Accurate & Fits"
-                                : isIncorrect
-                                  ? "✗ Factually Wrong / Error"
-                                  : isVerify
-                                    ? "⚠️ Verify Fact"
-                                    : "Examiner Note";
-
-                              const noteColor = isCorrect
-                                ? "text-emerald-800 dark:text-emerald-300 font-semibold"
-                                : isIncorrect
-                                  ? "text-rose-700 dark:text-rose-300 font-semibold"
-                                  : isVerify
-                                    ? "text-amber-800 dark:text-amber-300 font-semibold"
-                                    : "text-slate-700 dark:text-slate-300 font-semibold";
-
-                              return (
-                                <div
-                                  key={idx}
-                                  className={`p-3.5 rounded-xl border space-y-2 text-xs transition-colors ${cardBorder}`}
-                                >
-                                  <div
-                                    className={`text-slate-800 dark:text-slate-200 font-serif italic pl-3 border-l-2 leading-relaxed text-xs sm:text-[13px] ${quoteBorder}`}
-                                  >
-                                    &ldquo;{item.quote}&rdquo;
-                                  </div>
-                                  <div className="flex items-start gap-2 pt-1 border-t border-slate-100 dark:border-slate-700/40">
-                                    <span
-                                      className={`text-[10px] font-mono font-bold uppercase tracking-wider px-1.5 py-0.5 rounded shrink-0 ${badgeStyle}`}
-                                    >
-                                      {badgeText}
-                                    </span>
-                                    <span
-                                      className={`leading-relaxed ${noteColor}`}
-                                    >
-                                      {item.note}
-                                    </span>
-                                  </div>
-                                </div>
-                              );
-                            })}
-                          </div>
-                        </div>
-                      )}
+                        );
+                      })()}
 
                     {/* Strengths, Flaws, and Missing Dimensions Grid */}
                     {(() => {
