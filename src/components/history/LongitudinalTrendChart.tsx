@@ -546,7 +546,8 @@ export function LongitudinalTrendChart({
                         textAnchor="end"
                         className="text-[9px] fill-rose-600 font-bold font-mono"
                       >
-                        Cutoff Benchmark ({cutoffVal})
+                        Cutoff Benchmark ({cutoffVal}
+                        {metric !== "score" ? "%" : ""})
                       </text>
                     </g>
                   )}
@@ -616,7 +617,8 @@ export function LongitudinalTrendChart({
                       <strong className="text-indigo-600">
                         {activeHoverPoint.attempt.score}
                       </strong>
-                      /{activeHoverPoint.attempt.maxScore || 200}
+                      /{activeHoverPoint.attempt.maxScore || 200} (
+                      {getAttemptPercentage(activeHoverPoint.attempt)}%)
                     </span>
                     <span>
                       Accuracy:{" "}
