@@ -274,19 +274,8 @@ export function HistoryView({
             </button>
           </div>
 
-          {/* Search & Layout switcher */}
-          <div className="flex items-center gap-2 w-full sm:w-auto">
-            <div className="flex-1 sm:w-56 relative">
-              <Search className="absolute left-3 top-2.5 h-3.5 w-3.5 text-slate-400" />
-              <input
-                type="text"
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                placeholder="Search paper..."
-                className="w-full rounded-xl border border-slate-200 bg-white pl-8 pr-3 py-1.5 text-xs text-slate-800 placeholder-slate-400 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 focus:outline-none transition-all shadow-xs"
-              />
-            </div>
-
+          {/* Layout switcher */}
+          <div className="flex items-center gap-2 self-end sm:self-auto">
             <div
               className="inline-flex items-center gap-0.5 rounded-xl border border-slate-200 bg-slate-100 p-0.5 shrink-0"
               aria-label="Performance layout"
@@ -321,6 +310,29 @@ export function HistoryView({
           </div>
         </div>
       </div>
+
+      {/* Attempted Paper Search Bar (Top) */}
+      {totalMocks > 0 && (
+        <div className="relative">
+          <Search className="absolute left-3.5 top-3 h-4 w-4 text-slate-400" />
+          <input
+            type="text"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="Search attempted papers by title, subject, year, or mode..."
+            className="w-full rounded-2xl border border-slate-200 bg-white pl-10 pr-20 py-2.5 text-xs sm:text-sm text-slate-800 placeholder-slate-400 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 focus:outline-none transition-all shadow-2xs"
+          />
+          {search && (
+            <button
+              type="button"
+              onClick={() => setSearch("")}
+              className="absolute right-3 top-2 rounded-lg bg-slate-100 hover:bg-slate-200 px-2.5 py-1 text-[11px] font-semibold text-slate-600 transition-colors cursor-pointer"
+            >
+              Clear
+            </button>
+          )}
+        </div>
+      )}
 
       {/* Aggregate Overview Bar (if attempts exist) */}
       {totalMocks > 0 && !search && (
@@ -372,7 +384,7 @@ export function HistoryView({
         </div>
       )}
 
-      {/* Longitudinal Performance Trajectory Chart */}
+      {/* Longitudinal Performance Trajectory & Direction Breakdown (Default Closed) */}
       {totalMocks > 0 && !search && (
         <LongitudinalTrendChart
           attempts={mockAttempts}
