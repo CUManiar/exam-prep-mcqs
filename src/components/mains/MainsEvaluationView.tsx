@@ -202,27 +202,28 @@ export function MainsEvaluationView() {
     };
   }, []);
 
-  // Centralized session persistence (local cache + Supabase sync when signed in)
+  // Centralized session persistence (Supabase is source of truth when signed in; localStorage for guests only)
   const persistSessions = (
     updated: MainsEvaluationSession[],
     deletedId?: string,
   ) => {
-    saveMainsSessions(updated);
     if (currentUser?.id) {
       if (deletedId) {
         deleteUserMainsSessionFromSupabase(currentUser.id, deletedId, updated);
       } else {
         saveUserMainsSessionsToSupabase(currentUser.id, updated);
       }
+    } else {
+      saveMainsSessions(updated);
     }
   };
 
   // Load saved sessions on mount and synchronize with Supabase for authenticated accounts
   useEffect(() => {
     let isMounted = true;
-    const initialLocal = loadMainsSessions();
 
     if (!currentUser) {
+      const initialLocal = loadMainsSessions();
       if (initialLocal.length > 0) {
         setSessions(initialLocal);
         loadSession(initialLocal[0]);
@@ -232,81 +233,50 @@ export function MainsEvaluationView() {
       return;
     }
 
-    // Authenticated user: immediately render local cache for speed
-    if (initialLocal.length > 0) {
-      setSessions(initialLocal);
-      loadSession(initialLocal[0]);
-    }
+    const syncFromCloud = () => {
+      setIsSyncingWithCloud(true);
+      fetchUserMainsSessionsFromSupabase(currentUser.id)
+        .then((dbSessions) => {
+          if (!isMounted) return;
+          const normalizedDb = migrateMainsSessionsToSingleQuestionBooklet(
+            dbSessions || [],
+          ).sort(
+            (a, b) =>
+              new Date(b.updatedAt || 0).getTime() -
+              new Date(a.updatedAt || 0).getTime(),
+          );
 
-    setIsSyncingWithCloud(true);
-    fetchUserMainsSessionsFromSupabase(currentUser.id)
-      .then((dbSessions) => {
-        if (!isMounted) return;
-        const deletedIds = getDeletedMainsSessionIds();
-        const normalizedDb = migrateMainsSessionsToSingleQuestionBooklet(
-          dbSessions || [],
-        ).filter((s) => !deletedIds.has(s.id));
-        const normalizedLocal = migrateMainsSessionsToSingleQuestionBooklet(
-          initialLocal || [],
-        ).filter((s) => !deletedIds.has(s.id));
+          setSessions(normalizedDb);
 
-        // Merge dbSessions with local sessions:
-        const sessionMap = new Map<string, MainsEvaluationSession>();
-
-        normalizedDb.forEach((s) => {
-          if (s && s.id && !deletedIds.has(s.id)) sessionMap.set(s.id, s);
-        });
-
-        normalizedLocal.forEach((ls) => {
-          if (!deletedIds.has(ls.id)) {
-            if (!sessionMap.has(ls.id)) {
-              sessionMap.set(ls.id, ls);
+          if (
+            !currentSessionId ||
+            !normalizedDb.some((s) => s.id === currentSessionId)
+          ) {
+            if (normalizedDb.length > 0) {
+              loadSession(normalizedDb[0]);
             } else {
-              const dbS = sessionMap.get(ls.id)!;
-              const dbAtts = dbS.attempts || [];
-              const localAtts = ls.attempts || [];
-              const dbEvalCount = dbAtts.filter((a) => a.evaluation).length;
-              const localEvalCount = localAtts.filter(
-                (a) => a.evaluation,
-              ).length;
-
-              if (
-                localEvalCount > dbEvalCount ||
-                (ls.updatedAt && ls.updatedAt > (dbS.updatedAt || ""))
-              ) {
-                sessionMap.set(ls.id, ls);
-              }
+              handleNewEvaluation();
             }
           }
+        })
+        .catch((err) => {
+          console.warn("Failed syncing mains sessions with Supabase:", err);
+        })
+        .finally(() => {
+          if (isMounted) setIsSyncingWithCloud(false);
         });
+    };
 
-        const merged = Array.from(sessionMap.values()).sort(
-          (a, b) =>
-            new Date(b.updatedAt || 0).getTime() -
-            new Date(a.updatedAt || 0).getTime(),
-        );
+    syncFromCloud();
 
-        setSessions(merged);
-        saveMainsSessions(merged);
-        saveUserMainsSessionsToSupabase(currentUser.id, merged);
-
-        if (!currentSessionId || !sessionMap.has(currentSessionId)) {
-          if (merged.length > 0) {
-            loadSession(merged[0]);
-          } else {
-            handleNewEvaluation();
-          }
-        }
-      })
-      .catch((err) => {
-        console.warn("Failed syncing mains sessions with Supabase:", err);
-      })
-      .finally(() => {
-        if (isMounted) setIsSyncingWithCloud(false);
-      });
+    const handleFocus = () => {
+      if (!isLoading) syncFromCloud();
+    };
+    window.addEventListener("focus", handleFocus);
 
     return () => {
       isMounted = false;
+      window.removeEventListener("focus", handleFocus);
     };
   }, [currentUser?.id]);
 

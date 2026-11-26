@@ -236,13 +236,15 @@ async function discoverGeminiModels(apiKey: string): Promise<string[]> {
       models.sort((a, b) => {
         const score = (id: string) => {
           let s = 0;
-          if (id === "gemini-2.0-flash") s += 100;
-          if (id === "gemini-1.5-flash") s += 90;
-          if (id === "gemini-1.5-pro") s += 80;
-          if (id === "gemini-1.5-flash-8b") s += 70;
-          if (id.includes("2.0-flash")) s += 60;
-          if (id.includes("1.5-flash")) s += 50;
-          if (id.includes("pro")) s += 30;
+          if (id === "gemini-2.5-flash") s += 140;
+          if (id === "gemini-2.0-flash") s += 130;
+          if (id === "gemini-2.5-flash-lite") s += 120;
+          if (id === "gemini-1.5-flash") s += 100;
+          if (id.includes("flash")) s += 80;
+          if (id.includes("2.5-flash")) s += 30;
+          if (id.includes("2.0-flash")) s += 20;
+          if (id.includes("pro")) s += 15;
+          if (id.includes("preview") || id.includes("exp")) s -= 40;
           return s;
         };
         return score(b) - score(a);
@@ -265,8 +267,8 @@ async function callGeminiEvaluation(
   const discovered = await discoverGeminiModels(apiKey);
   const models =
     discovered.length > 0
-      ? discovered.slice(0, 4)
-      : ["gemini-2.0-flash", "gemini-1.5-flash", "gemini-1.5-pro"];
+      ? discovered.slice(0, 6)
+      : ["gemini-2.5-flash", "gemini-2.0-flash", "gemini-2.5-pro"];
   let lastError = "";
 
   const preparedParts: any[] = [{ text: prompt }];
