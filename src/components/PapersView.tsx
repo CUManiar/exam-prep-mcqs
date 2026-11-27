@@ -779,7 +779,7 @@ export function PapersView({
               <button
                 type="button"
                 onClick={() => setIsMobileFiltersOpen(!isMobileFiltersOpen)}
-                className="sm:hidden cursor-pointer inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-semibold bg-white text-indigo-700 hover:bg-slate-50 border border-indigo-200 transition-colors shadow-2xs shrink-0"
+                className="cursor-pointer inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-semibold bg-white text-indigo-700 hover:bg-slate-50 border border-indigo-200 transition-colors shadow-2xs shrink-0"
               >
                 <Filter className="h-3 w-3 text-indigo-600" />
                 <span>
@@ -806,7 +806,7 @@ export function PapersView({
         {/* Filter Rows with Small Gap and Distinct Highlighting */}
         <div
           className={`p-2.5 sm:p-3 bg-slate-50/50 space-y-2 ${
-            isMobileFiltersOpen ? "block" : "hidden sm:block"
+            isMobileFiltersOpen ? "block" : "hidden"
           }`}
         >
           {/* Row 1: Attempted, Unattempted */}

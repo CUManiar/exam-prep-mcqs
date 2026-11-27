@@ -85,18 +85,24 @@ export async function POST(
       "papers.json",
       {},
     );
-    // Find paper in customMeta or built-in INITIAL_PAPERS
+    const builtInMatch = INITIAL_PAPERS.find(
+      (p) => p.id.toLowerCase() === cleanId,
+    );
+    // Find paper in customMeta, Supabase custom_papers, or built-in INITIAL_PAPERS
     let currentPaper =
       customMeta[cleanId] ||
       (await getOwnedCustomPaperFromSupabase(cleanId, user.id)) ||
-      INITIAL_PAPERS.find((p) => p.id.toLowerCase() === cleanId);
+      builtInMatch;
     if (!currentPaper) {
       return NextResponse.json(
         { ok: false, error: "Question paper not found" },
         { status: 404 },
       );
     }
-    if (!currentPaper.userId || currentPaper.userId !== user.id) {
+    if (
+      !builtInMatch &&
+      (!currentPaper.userId || currentPaper.userId !== user.id)
+    ) {
       return NextResponse.json(
         { ok: false, error: "You do not own this question paper." },
         { status: 403 },
@@ -203,6 +209,7 @@ export async function POST(
     const updated = {
       ...currentPaper,
       id: cleanId,
+      userId: currentPaper.userId || user.id,
       qpUrl,
       akUrl,
       exsUrl,
@@ -246,7 +253,7 @@ export async function POST(
 
     // Sync to Supabase custom_papers if configured
     if (
-      currentPaper.userId &&
+      updated.userId &&
       process.env.NEXT_PUBLIC_SUPABASE_URL &&
       process.env.SUPABASE_SERVICE_ROLE_KEY
     ) {
@@ -258,7 +265,7 @@ export async function POST(
         );
         await supabase.from("custom_papers").upsert({
           id: cleanId,
-          user_id: currentPaper.userId,
+          user_id: updated.userId,
           title: updated.label,
           year: parseInt(String(updated.year), 10) || new Date().getFullYear(),
           subject: updated.subject,
