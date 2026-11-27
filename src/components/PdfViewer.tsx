@@ -617,6 +617,27 @@ export function PdfViewer({
               >
                 <ChevronRight className="h-4 w-4" />
               </button>
+              {!showToolbar && (
+                <div
+                  className="flex items-center gap-0.5 border-l border-slate-700 pl-2 ml-0.5 text-[10px] font-semibold"
+                  title="Filter pages (e.g. show only Odd or Even pages to skip alternating language pages)"
+                >
+                  {(["all", "odd", "even"] as const).map((mode) => (
+                    <button
+                      key={mode}
+                      type="button"
+                      onClick={() => handlePageFilterChange(mode)}
+                      className={`px-1.5 py-0.5 rounded-full capitalize transition-all ${
+                        pageFilter === mode
+                          ? "bg-indigo-500 text-white"
+                          : "text-slate-400 hover:text-white"
+                      }`}
+                    >
+                      {mode}
+                    </button>
+                  ))}
+                </div>
+              )}
             </div>
           )}
         </div>
