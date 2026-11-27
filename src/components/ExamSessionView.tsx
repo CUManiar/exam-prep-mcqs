@@ -3152,74 +3152,90 @@ export function ExamSessionView({
             {/* Inline OMR Bubble Sheet Strip OR Grid Palette (never both) */}
             {paletteViewMode === "omr" && !isSubjective ? (
               <div className="rounded-xl border border-slate-200 bg-white p-2.5">
-                <div className="grid grid-cols-[repeat(auto-fill,minmax(205px,1fr))] gap-2 max-h-[420px] overflow-y-auto pr-1">
-                  {filteredQuestionNumbers.map((qNo) => {
-                    const q = answers[qNo];
-                    const selected = q?.selected;
-                    const isCur = currentQuestion === qNo;
-                    const isFlag = Boolean(q?.flagged);
-                    const isQCloze = isClozeQuestion(qNo);
-                    return (
-                      <div
-                        key={qNo}
-                        className={`flex items-center justify-between gap-2 rounded-lg border px-2.5 py-1.5 transition-colors ${
-                          isCur
-                            ? "border-blue-200 bg-blue-50 font-bold"
-                            : "border-slate-100 bg-slate-50/40 hover:bg-slate-50"
-                        }`}
-                      >
-                        <div className="flex items-center gap-1 shrink-0">
-                          <button
-                            type="button"
-                            onClick={() => navigateToQuestion(qNo)}
-                            className={`font-mono text-xs min-w-[2.2rem] text-left ${
+                <div className="grid grid-cols-[repeat(auto-fill,minmax(205px,1fr))] gap-2.5 max-h-[520px] overflow-y-auto pr-1">
+                  {Array.from(
+                    { length: Math.ceil(filteredQuestionNumbers.length / 10) },
+                    (_, colIdx) =>
+                      filteredQuestionNumbers.slice(
+                        colIdx * 10,
+                        colIdx * 10 + 10,
+                      ),
+                  ).map((columnQuestions, colIdx) => (
+                    <div
+                      key={colIdx}
+                      className="flex flex-col gap-1 rounded-lg border border-slate-100 bg-slate-50/30 p-1.5"
+                    >
+                      {columnQuestions.map((qNo) => {
+                        const q = answers[qNo];
+                        const selected = q?.selected;
+                        const isCur = currentQuestion === qNo;
+                        const isFlag = Boolean(q?.flagged);
+                        const isQCloze = isClozeQuestion(qNo);
+                        return (
+                          <div
+                            key={qNo}
+                            className={`flex items-center justify-between gap-2 rounded-md px-2 py-1 transition-colors ${
                               isCur
-                                ? "text-blue-700 font-black"
-                                : "text-slate-700 hover:text-blue-600 font-semibold"
+                                ? "bg-blue-50 ring-1 ring-blue-200 font-bold"
+                                : "hover:bg-white"
                             }`}
                           >
-                            Q{qNo}
-                          </button>
-                          {isFlag && (
-                            <Flag className="h-3 w-3 text-amber-500 fill-amber-500 shrink-0" />
-                          )}
-                        </div>
-                        {isQCloze ? (
-                          <div className="text-[11px] font-medium pr-0.5">
-                            {selected &&
-                            selected.trim().length > 0 &&
-                            selected !== "attempted" ? (
-                              <span className="text-emerald-700 font-bold">
-                                Answered
-                              </span>
+                            <div className="flex items-center gap-1 shrink-0">
+                              <button
+                                type="button"
+                                onClick={() => navigateToQuestion(qNo)}
+                                className={`font-mono text-xs min-w-[2.2rem] text-left ${
+                                  isCur
+                                    ? "text-blue-700 font-black"
+                                    : "text-slate-700 hover:text-blue-600 font-semibold"
+                                }`}
+                              >
+                                Q{qNo}
+                              </button>
+                              {isFlag && (
+                                <Flag className="h-3 w-3 text-amber-500 fill-amber-500 shrink-0" />
+                              )}
+                            </div>
+                            {isQCloze ? (
+                              <div className="text-[11px] font-medium pr-0.5">
+                                {selected &&
+                                selected.trim().length > 0 &&
+                                selected !== "attempted" ? (
+                                  <span className="text-emerald-700 font-bold">
+                                    Answered
+                                  </span>
+                                ) : (
+                                  <span className="text-slate-400">Cloze</span>
+                                )}
+                              </div>
                             ) : (
-                              <span className="text-slate-400">Cloze</span>
+                              <div className="flex items-center gap-1.5">
+                                {["A", "B", "C", "D"].map((opt) => {
+                                  const isMarked = selected === opt;
+                                  return (
+                                    <button
+                                      key={opt}
+                                      type="button"
+                                      onClick={() =>
+                                        handleSelectOption(qNo, opt)
+                                      }
+                                      className={`flex h-7 w-7 items-center justify-center rounded-full text-xs font-bold transition-all ${
+                                        isMarked
+                                          ? "bg-slate-950 text-white shadow-inner scale-105"
+                                          : "border border-slate-300 bg-white text-slate-700 hover:border-slate-500 hover:bg-slate-100"
+                                      }`}
+                                    >
+                                      {opt}
+                                    </button>
+                                  );
+                                })}
+                              </div>
                             )}
                           </div>
-                        ) : (
-                          <div className="flex items-center gap-1.5">
-                            {["A", "B", "C", "D"].map((opt) => {
-                              const isMarked = selected === opt;
-                              return (
-                                <button
-                                  key={opt}
-                                  type="button"
-                                  onClick={() => handleSelectOption(qNo, opt)}
-                                  className={`flex h-7 w-7 items-center justify-center rounded-full text-xs font-bold transition-all ${
-                                    isMarked
-                                      ? "bg-slate-950 text-white shadow-inner scale-105"
-                                      : "border border-slate-300 bg-white text-slate-700 hover:border-slate-500 hover:bg-slate-100"
-                                  }`}
-                                >
-                                  {opt}
-                                </button>
-                              );
-                            })}
-                          </div>
-                        )}
-                      </div>
-                    );
-                  })}
+                        );
+                      })}
+                    </div>
+                  ))}
                 </div>
               </div>
             ) : (
