@@ -60,6 +60,7 @@ export function PdfViewer({
   const [numPages, setNumPages] = useState<number>(0);
   const [pageNum, setPageNum] = useState<number>(1);
   const [pageInput, setPageInput] = useState<string>("1");
+  const [pageFilter, setPageFilter] = useState<"all" | "odd" | "even">("all");
   const [zoomScale, setZoomScale] = useState<number>(1.0);
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [loadProgress, setLoadProgress] = useState<{
@@ -142,6 +143,7 @@ export function PdfViewer({
         if (isCancelled || !doc) return;
         setPdfDoc(doc);
         setNumPages(doc.numPages);
+        setPageFilter("all");
         setPageNum(1);
         setPageInput("1");
         setIsLoading(false);
@@ -252,20 +254,58 @@ export function PdfViewer({
     };
   }, [pdfDoc, viewMode, renderCurrentPage]);
 
+  const matchesPageFilter = (p: number, filter: "all" | "odd" | "even") =>
+    filter === "all" || (filter === "odd" ? p % 2 === 1 : p % 2 === 0);
+
+  const findPrevMatchingPage = (
+    current: number,
+    filter: "all" | "odd" | "even",
+  ): number | null => {
+    for (let p = current - 1; p >= 1; p--) {
+      if (matchesPageFilter(p, filter)) return p;
+    }
+    return null;
+  };
+
+  const findNextMatchingPage = (
+    current: number,
+    filter: "all" | "odd" | "even",
+  ): number | null => {
+    for (let p = current + 1; p <= numPages; p++) {
+      if (matchesPageFilter(p, filter)) return p;
+    }
+    return null;
+  };
+
+  const prevPageTarget = findPrevMatchingPage(pageNum, pageFilter);
+  const nextPageTarget = findNextMatchingPage(pageNum, pageFilter);
+
+  const handlePageFilterChange = (nextFilter: "all" | "odd" | "even") => {
+    setPageFilter(nextFilter);
+    if (!matchesPageFilter(pageNum, nextFilter)) {
+      const target =
+        findNextMatchingPage(pageNum, nextFilter) ??
+        findPrevMatchingPage(pageNum, nextFilter);
+      if (target !== null) {
+        setPageNum(target);
+        setPageInput(String(target));
+        containerRef.current?.scrollTo({ top: 0, behavior: "smooth" });
+      }
+    }
+  };
+
   const handlePrevPage = () => {
-    if (pageNum > 1) {
-      const next = pageNum - 1;
-      setPageNum(next);
-      setPageInput(String(next));
+    if (prevPageTarget !== null) {
+      setPageNum(prevPageTarget);
+      setPageInput(String(prevPageTarget));
       containerRef.current?.scrollTo({ top: 0, behavior: "smooth" });
     }
   };
 
   const handleNextPage = () => {
-    if (pageNum < numPages) {
-      const next = pageNum + 1;
-      setPageNum(next);
-      setPageInput(String(next));
+    if (nextPageTarget !== null) {
+      setPageNum(nextPageTarget);
+      setPageInput(String(nextPageTarget));
       containerRef.current?.scrollTo({ top: 0, behavior: "smooth" });
     }
   };
@@ -355,7 +395,7 @@ export function PdfViewer({
                 <div className="flex items-center gap-1 bg-slate-50 border border-slate-200 rounded-lg px-1 py-0.5">
                   <button
                     type="button"
-                    disabled={pageNum <= 1}
+                    disabled={prevPageTarget === null}
                     onClick={handlePrevPage}
                     className="p-1 rounded text-slate-500 hover:text-slate-800 disabled:opacity-30 transition-colors"
                     title="Previous Page"
@@ -379,7 +419,7 @@ export function PdfViewer({
                   </form>
                   <button
                     type="button"
-                    disabled={pageNum >= numPages}
+                    disabled={nextPageTarget === null}
                     onClick={handleNextPage}
                     className="p-1 rounded text-slate-500 hover:text-slate-800 disabled:opacity-30 transition-colors"
                     title="Next Page"
@@ -387,6 +427,29 @@ export function PdfViewer({
                     <ChevronRight className="h-3.5 w-3.5" />
                   </button>
                 </div>
+
+                {/* Odd / Even Page Filter (skip alternating Hindi/English pages) */}
+                {numPages > 1 && (
+                  <div
+                    className="flex items-center bg-slate-50 border border-slate-200 rounded-lg p-0.5 text-[10px] font-semibold"
+                    title="Filter pages (e.g. show only Odd or Even pages to skip alternating language pages)"
+                  >
+                    {(["all", "odd", "even"] as const).map((mode) => (
+                      <button
+                        key={mode}
+                        type="button"
+                        onClick={() => handlePageFilterChange(mode)}
+                        className={`px-1.5 py-0.5 rounded capitalize transition-all ${
+                          pageFilter === mode
+                            ? "bg-indigo-600 text-white shadow-2xs"
+                            : "text-slate-600 hover:text-slate-900"
+                        }`}
+                      >
+                        {mode}
+                      </button>
+                    ))}
+                  </div>
+                )}
 
                 {/* Zoom Controls */}
                 <div className="hidden sm:flex items-center gap-0.5 bg-slate-50 border border-slate-200 rounded-lg p-0.5">
@@ -536,7 +599,7 @@ export function PdfViewer({
             <div className="sticky bottom-3 mt-4 z-10 flex items-center gap-2 bg-slate-900/90 backdrop-blur-md border border-slate-800 rounded-full px-3 py-1.5 shadow-xl text-xs text-slate-300">
               <button
                 type="button"
-                disabled={pageNum <= 1}
+                disabled={prevPageTarget === null}
                 onClick={handlePrevPage}
                 className="p-1 rounded-full text-slate-300 hover:text-white disabled:opacity-30"
               >
@@ -544,10 +607,11 @@ export function PdfViewer({
               </button>
               <span className="text-[11px] font-mono font-semibold px-1">
                 Page {pageNum} of {numPages}
+                {pageFilter !== "all" ? ` (${pageFilter})` : ""}
               </span>
               <button
                 type="button"
-                disabled={pageNum >= numPages}
+                disabled={nextPageTarget === null}
                 onClick={handleNextPage}
                 className="p-1 rounded-full text-slate-300 hover:text-white disabled:opacity-30"
               >
