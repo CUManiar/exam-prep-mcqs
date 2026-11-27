@@ -1756,7 +1756,10 @@ dialog.vocab-modal-dialog::backdrop {
 @media (min-width: 1024px) {
   .exam-session-main {
     display: grid;
-    grid-template-columns: minmax(0, 2fr) minmax(22rem, 1fr);
+    grid-template-columns: var(
+      --exam-split-cols,
+      minmax(0, 2fr) 6px minmax(22rem, 1fr)
+    );
     grid-template-rows: minmax(0, 1fr);
   }
 }

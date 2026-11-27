@@ -187,6 +187,39 @@ export function ExamSessionView({
   const [mobileTab, setMobileTab] = useState<"paper" | "split" | "questions">(
     "paper",
   );
+  const [splitPercent, setSplitPercent] = useState<number>(65);
+  const [isResizingSplit, setIsResizingSplit] = useState<boolean>(false);
+  const splitContainerRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!isResizingSplit) return;
+
+    const updateSplitFromClientX = (clientX: number) => {
+      const container = splitContainerRef.current;
+      if (!container) return;
+      const rect = container.getBoundingClientRect();
+      if (rect.width <= 0) return;
+      const rawPercent = ((clientX - rect.left) / rect.width) * 100;
+      const clamped = Math.min(78, Math.max(30, rawPercent));
+      setSplitPercent(Math.round(clamped * 10) / 10);
+    };
+
+    const handlePointerMove = (e: PointerEvent) => {
+      updateSplitFromClientX(e.clientX);
+    };
+    const handlePointerUp = () => {
+      setIsResizingSplit(false);
+    };
+
+    window.addEventListener("pointermove", handlePointerMove);
+    window.addEventListener("pointerup", handlePointerUp);
+    window.addEventListener("pointercancel", handlePointerUp);
+    return () => {
+      window.removeEventListener("pointermove", handlePointerMove);
+      window.removeEventListener("pointerup", handlePointerUp);
+      window.removeEventListener("pointercancel", handlePointerUp);
+    };
+  }, [isResizingSplit]);
   const [isMobilePaletteOpen, setIsMobilePaletteOpen] =
     useState<boolean>(false);
   const [isMobileScratchpadOpen, setIsMobileScratchpadOpen] =
@@ -1827,6 +1860,12 @@ export function ExamSessionView({
 
       {/* Main Layout */}
       <div
+        ref={splitContainerRef}
+        style={
+          {
+            "--exam-split-cols": `minmax(0, ${splitPercent}fr) 6px minmax(20rem, ${100 - splitPercent}fr)`,
+          } as React.CSSProperties
+        }
         className={`exam-session-main ${!isMarkdownPaper && mobileTab === "split" ? "is-split" : ""}`}
         onTouchStart={handleTouchStart}
         onTouchEnd={handleTouchEnd}
@@ -2082,9 +2121,39 @@ export function ExamSessionView({
           )}
         </div>
 
+        {/* Desktop Draggable Split Divider */}
+        <div
+          role="separator"
+          aria-orientation="vertical"
+          aria-label="Resize paper and answer panels"
+          title="Drag to resize panels (double-click to reset)"
+          onPointerDown={(e) => {
+            e.preventDefault();
+            setIsResizingSplit(true);
+          }}
+          onDoubleClick={() => setSplitPercent(65)}
+          className={`hidden lg:flex items-center justify-center w-[6px] cursor-col-resize select-none transition-colors group ${
+            isResizingSplit
+              ? "bg-indigo-500"
+              : "bg-slate-200/80 hover:bg-indigo-400"
+          }`}
+        >
+          <div
+            className={`h-8 w-1 rounded-full transition-colors ${
+              isResizingSplit
+                ? "bg-white"
+                : "bg-slate-400/70 group-hover:bg-white"
+            }`}
+          />
+        </div>
+
+        {isResizingSplit && (
+          <div className="fixed inset-0 z-50 cursor-col-resize select-none" />
+        )}
+
         {/* Right Side: Question and answer workspace */}
         <div
-          className={`exam-question-pane w-full bg-slate-50/70 border-l border-slate-200 flex flex-col overflow-hidden ${
+          className={`exam-question-pane w-full bg-slate-50/70 flex flex-col overflow-hidden ${
             isMarkdownPaper
               ? "hidden lg:flex"
               : mobileTab === "questions"
