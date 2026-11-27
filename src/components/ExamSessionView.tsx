@@ -3149,235 +3149,256 @@ export function ExamSessionView({
               </div>
             </div>
 
-            {/* Inline OMR Bubble Sheet Strip */}
+            {/* Inline OMR Bubble Sheet Strip OR Grid Palette (never both) */}
             {paletteViewMode === "omr" && !isSubjective ? (
-              <div className="space-y-1 rounded-xl border border-slate-200 bg-white p-2 mb-3">
-                <div className="flex items-center justify-between pb-1.5 text-[10px] font-bold text-slate-400 border-b border-slate-100 px-2">
-                  <span>Q#</span>
-                  <div className="flex items-center gap-3 pr-1">
-                    <span>A</span>
-                    <span>B</span>
-                    <span>C</span>
-                    <span>D</span>
-                  </div>
-                </div>
-                <div className="space-y-1 max-h-80 overflow-y-auto pr-1">
-                  {filteredQuestionNumbers.map((qNo) => {
-                    const q = answers[qNo];
-                    const selected = q?.selected;
-                    const isCur = currentQuestion === qNo;
-                    const isFlag = Boolean(q?.flagged);
-                    const isQCloze = isClozeQuestion(qNo);
-                    return (
-                      <div
-                        key={qNo}
-                        className={`flex items-center justify-between px-2 py-1 rounded transition-colors ${
-                          isCur ? "bg-blue-50 font-bold" : "hover:bg-slate-50"
-                        }`}
-                      >
-                        <div className="flex items-center gap-1.5">
-                          <button
-                            type="button"
-                            onClick={() => navigateToQuestion(qNo)}
-                            className={`font-mono text-xs ${
+              <div className="rounded-xl border border-slate-200 bg-white p-2.5">
+                <div className="grid grid-cols-[repeat(auto-fill,minmax(205px,1fr))] gap-2.5 max-h-[520px] overflow-y-auto pr-1">
+                  {Array.from(
+                    { length: Math.ceil(filteredQuestionNumbers.length / 10) },
+                    (_, colIdx) =>
+                      filteredQuestionNumbers.slice(
+                        colIdx * 10,
+                        colIdx * 10 + 10,
+                      ),
+                  ).map((columnQuestions, colIdx) => (
+                    <div
+                      key={colIdx}
+                      className="flex flex-col gap-1 rounded-lg border border-slate-100 bg-slate-50/30 p-1.5"
+                    >
+                      {columnQuestions.map((qNo) => {
+                        const q = answers[qNo];
+                        const selected = q?.selected;
+                        const isCur = currentQuestion === qNo;
+                        const isFlag = Boolean(q?.flagged);
+                        const isQCloze = isClozeQuestion(qNo);
+                        return (
+                          <div
+                            key={qNo}
+                            className={`flex items-center justify-between gap-2 rounded-md px-2 py-1 transition-colors ${
                               isCur
-                                ? "text-blue-700 font-black"
-                                : "text-slate-700 hover:text-blue-600"
+                                ? "bg-blue-50 ring-1 ring-blue-200 font-bold"
+                                : "hover:bg-white"
                             }`}
                           >
-                            Q{qNo}
-                          </button>
-                          {isFlag && (
-                            <Flag className="h-2.5 w-2.5 text-amber-500 fill-amber-500" />
-                          )}
-                        </div>
-                        {isQCloze ? (
-                          <div className="text-[10px] font-medium pr-1">
-                            {selected &&
-                            selected.trim().length > 0 &&
-                            selected !== "attempted" ? (
-                              <span className="text-emerald-700 font-bold">
-                                Answered
-                              </span>
+                            <div className="flex items-center gap-1 shrink-0">
+                              <button
+                                type="button"
+                                onClick={() => navigateToQuestion(qNo)}
+                                className={`font-mono text-xs min-w-[2.2rem] text-left ${
+                                  isCur
+                                    ? "text-blue-700 font-black"
+                                    : "text-slate-700 hover:text-blue-600 font-semibold"
+                                }`}
+                              >
+                                Q{qNo}
+                              </button>
+                              {isFlag && (
+                                <Flag className="h-3 w-3 text-amber-500 fill-amber-500 shrink-0" />
+                              )}
+                            </div>
+                            {isQCloze ? (
+                              <div className="text-[11px] font-medium pr-0.5">
+                                {selected &&
+                                selected.trim().length > 0 &&
+                                selected !== "attempted" ? (
+                                  <span className="text-emerald-700 font-bold">
+                                    Answered
+                                  </span>
+                                ) : (
+                                  <span className="text-slate-400">Cloze</span>
+                                )}
+                              </div>
                             ) : (
-                              <span className="text-slate-400">
-                                Cloze (Free text)
-                              </span>
+                              <div className="flex items-center gap-1.5">
+                                {["A", "B", "C", "D"].map((opt) => {
+                                  const isMarked = selected === opt;
+                                  return (
+                                    <button
+                                      key={opt}
+                                      type="button"
+                                      onClick={() =>
+                                        handleSelectOption(qNo, opt)
+                                      }
+                                      className={`flex h-7 w-7 items-center justify-center rounded-full text-xs font-bold transition-all ${
+                                        isMarked
+                                          ? "bg-slate-950 text-white shadow-inner scale-105"
+                                          : "border border-slate-300 bg-white text-slate-700 hover:border-slate-500 hover:bg-slate-100"
+                                      }`}
+                                    >
+                                      {opt}
+                                    </button>
+                                  );
+                                })}
+                              </div>
                             )}
                           </div>
-                        ) : (
-                          <div className="flex items-center gap-2">
-                            {["A", "B", "C", "D"].map((opt) => {
-                              const isMarked = selected === opt;
-                              return (
-                                <button
-                                  key={opt}
-                                  type="button"
-                                  onClick={() => handleSelectOption(qNo, opt)}
-                                  className={`flex h-4.5 w-4.5 items-center justify-center rounded-full text-[9px] font-bold transition-all ${
-                                    isMarked
-                                      ? "bg-slate-950 text-white shadow-inner"
-                                      : "border border-slate-300 bg-white text-slate-600 hover:border-slate-500"
-                                  }`}
-                                >
-                                  {opt}
-                                </button>
-                              );
-                            })}
-                          </div>
+                        );
+                      })}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ) : (
+              <>
+                {/* Color Legend */}
+                {mode === "mock" && !isSubjective && (
+                  <div className="flex items-center gap-2.5 flex-wrap text-[10px] font-medium text-slate-500 mb-2.5 px-0.5">
+                    <span className="flex items-center gap-1">
+                      <span className="h-2.5 w-2.5 rounded-sm bg-emerald-600 inline-block shadow-2xs" />{" "}
+                      Sure ({sureCount})
+                    </span>
+                    <span className="flex items-center gap-1">
+                      <span className="h-2.5 w-2.5 rounded-sm bg-amber-500 inline-block shadow-2xs" />{" "}
+                      50:50 ({fiftyFiftyCount})
+                    </span>
+                    <span className="flex items-center gap-1">
+                      <span className="h-2.5 w-2.5 rounded-sm bg-sky-600 inline-block shadow-2xs" />{" "}
+                      Elimination ({eliminationCount})
+                    </span>
+                    <span className="flex items-center gap-1">
+                      <span className="h-2.5 w-2.5 rounded-sm bg-purple-600 inline-block shadow-2xs" />{" "}
+                      Guess ({guessCount})
+                    </span>
+                    <span className="flex items-center gap-1">
+                      <span className="h-2.5 w-2.5 rounded-sm bg-amber-100 border border-amber-300 inline-block" />{" "}
+                      Flagged ({flaggedCount})
+                    </span>
+                  </div>
+                )}
+                {isPractice && !isSubjective && (
+                  <div className="flex items-center gap-2.5 flex-wrap text-[10px] font-medium text-slate-500 mb-2.5 px-0.5">
+                    <span className="flex items-center gap-1">
+                      <span className="h-2.5 w-2.5 rounded-sm bg-emerald-600 inline-block shadow-2xs" />{" "}
+                      Correct
+                    </span>
+                    <span className="flex items-center gap-1">
+                      <span className="h-2.5 w-2.5 rounded-sm bg-rose-600 inline-block shadow-2xs" />{" "}
+                      Incorrect
+                    </span>
+                    <span className="flex items-center gap-1">
+                      <span className="h-2.5 w-2.5 rounded-sm bg-amber-100 border border-amber-300 inline-block" />{" "}
+                      Flagged ({flaggedCount})
+                    </span>
+                  </div>
+                )}
+
+                {/* Grid buttons fitting container width without squishing option pills */}
+                <div className="grid grid-cols-[repeat(auto-fill,minmax(62px,1fr))] gap-1.5 sm:gap-2">
+                  {filteredQuestionNumbers.map((qNo) => {
+                    const q = answers[qNo];
+                    const isCurrent =
+                      currentQuestion !== null && qNo === currentQuestion;
+                    const isAnswered = isQuestionAnswered(q);
+                    const isFlagged = q?.flagged;
+                    const paletteQuestionData =
+                      effectivePaper.parsedQuestions?.find(
+                        (question) => question.questionNo === qNo,
+                      );
+                    const isQNoCloze = isClozeQuestion(qNo);
+                    const isMcqLetter = Boolean(
+                      q?.selected &&
+                      ["A", "B", "C", "D"].includes(
+                        q.selected.trim().toUpperCase(),
+                      ),
+                    );
+                    const paletteQuestionHasOptions =
+                      !isSubjective &&
+                      !isQNoCloze &&
+                      (isMcqLetter ||
+                        (paletteQuestionData
+                          ? Boolean(
+                              paletteQuestionData.options &&
+                              Object.keys(paletteQuestionData.options).length >
+                                0,
+                            )
+                          : true));
+
+                    let badgeColor =
+                      "bg-white text-slate-700 border-slate-200 hover:bg-slate-100 hover:border-slate-300 shadow-2xs";
+
+                    if (isAnswered) {
+                      // In Practice mode: wrong answers are shown in RED, correct in GREEN!
+                      if (isPractice && !isSubjective) {
+                        if (q?.isCorrect === false) {
+                          badgeColor =
+                            "bg-rose-600 text-white border-rose-600 font-semibold shadow-2xs";
+                        } else if (q?.isCorrect === true) {
+                          badgeColor =
+                            "bg-emerald-600 text-white border-emerald-600 font-semibold shadow-2xs";
+                        } else {
+                          badgeColor =
+                            "bg-emerald-600 text-white border-emerald-600 font-semibold shadow-2xs";
+                        }
+                      } else {
+                        // In Mock mode: Answered question background is Green with Sure, Yellowish for 50/50, Guess and Elimination you choose
+                        const conf = q?.confidence;
+                        if (conf === "sure") {
+                          badgeColor =
+                            "bg-emerald-600 text-white border-emerald-600 font-semibold shadow-2xs";
+                        } else if (conf === "50-50") {
+                          badgeColor =
+                            "bg-amber-500 text-white border-amber-500 font-semibold shadow-2xs";
+                        } else if (conf === "elimination") {
+                          badgeColor =
+                            "bg-sky-600 text-white border-sky-600 font-semibold shadow-2xs";
+                        } else if (conf === "guess") {
+                          badgeColor =
+                            "bg-purple-600 text-white border-purple-600 font-semibold shadow-2xs";
+                        } else {
+                          badgeColor =
+                            "bg-indigo-600 text-white border-indigo-600 font-semibold shadow-2xs";
+                        }
+                      }
+                    }
+
+                    if (isFlagged) {
+                      badgeColor =
+                        "bg-amber-100 text-amber-900 border-amber-300 font-semibold shadow-2xs";
+                    }
+
+                    if (isCurrent) {
+                      badgeColor +=
+                        " ring-2 ring-indigo-600 border-indigo-600 scale-105 font-bold";
+                    }
+
+                    return (
+                      <button
+                        key={qNo}
+                        onClick={() =>
+                          navigateToQuestion(
+                            currentQuestion === qNo ? null : qNo,
+                          )
+                        }
+                        className={`relative flex h-9 sm:h-10 items-center justify-center rounded-xl border text-xs transition-all gap-1.5 px-1.5 ${badgeColor}`}
+                        title={
+                          q?.selected
+                            ? paletteQuestionHasOptions
+                              ? `Question ${qNo} (Selected: Option ${q.selected}${q.confidence ? ` - ${q.confidence}` : ""})`
+                              : `Question ${qNo} (Answer recorded${q.confidence ? ` - ${q.confidence}` : ""})`
+                            : `Question ${qNo} (Unattempted)`
+                        }
+                      >
+                        <span className="font-bold leading-none">{qNo}</span>
+                        {q?.selected && paletteQuestionHasOptions && (
+                          <span
+                            className={`inline-flex items-center justify-center min-w-[18px] sm:min-w-[20px] h-5 sm:h-5.5 px-1 rounded-md text-xs sm:text-[13px] font-black uppercase leading-none shadow-xs border ${
+                              isFlagged
+                                ? "bg-amber-900 text-white border-amber-950/20"
+                                : "bg-white text-slate-900 border-black/15"
+                            }`}
+                          >
+                            {q.selected}
+                          </span>
                         )}
-                      </div>
+                        {q?.note && (
+                          <span className="absolute -top-1 -right-1 h-2 w-2 rounded-full bg-indigo-600 ring-1 ring-white" />
+                        )}
+                      </button>
                     );
                   })}
                 </div>
-              </div>
-            ) : null}
-
-            {/* Color Legend */}
-            {mode === "mock" && !isSubjective && (
-              <div className="flex items-center gap-2.5 flex-wrap text-[10px] font-medium text-slate-500 mb-2.5 px-0.5">
-                <span className="flex items-center gap-1">
-                  <span className="h-2.5 w-2.5 rounded-sm bg-emerald-600 inline-block shadow-2xs" />{" "}
-                  Sure ({sureCount})
-                </span>
-                <span className="flex items-center gap-1">
-                  <span className="h-2.5 w-2.5 rounded-sm bg-amber-500 inline-block shadow-2xs" />{" "}
-                  50:50 ({fiftyFiftyCount})
-                </span>
-                <span className="flex items-center gap-1">
-                  <span className="h-2.5 w-2.5 rounded-sm bg-sky-600 inline-block shadow-2xs" />{" "}
-                  Elimination ({eliminationCount})
-                </span>
-                <span className="flex items-center gap-1">
-                  <span className="h-2.5 w-2.5 rounded-sm bg-purple-600 inline-block shadow-2xs" />{" "}
-                  Guess ({guessCount})
-                </span>
-                <span className="flex items-center gap-1">
-                  <span className="h-2.5 w-2.5 rounded-sm bg-amber-100 border border-amber-300 inline-block" />{" "}
-                  Flagged ({flaggedCount})
-                </span>
-              </div>
+              </>
             )}
-            {isPractice && !isSubjective && (
-              <div className="flex items-center gap-2.5 flex-wrap text-[10px] font-medium text-slate-500 mb-2.5 px-0.5">
-                <span className="flex items-center gap-1">
-                  <span className="h-2.5 w-2.5 rounded-sm bg-emerald-600 inline-block shadow-2xs" />{" "}
-                  Correct
-                </span>
-                <span className="flex items-center gap-1">
-                  <span className="h-2.5 w-2.5 rounded-sm bg-rose-600 inline-block shadow-2xs" />{" "}
-                  Incorrect
-                </span>
-                <span className="flex items-center gap-1">
-                  <span className="h-2.5 w-2.5 rounded-sm bg-amber-100 border border-amber-300 inline-block" />{" "}
-                  Flagged ({flaggedCount})
-                </span>
-              </div>
-            )}
-
-            {/* Grid buttons fitting any mobile width */}
-            <div className="grid grid-cols-5 sm:grid-cols-6 md:grid-cols-8 gap-1.5 sm:gap-2">
-              {filteredQuestionNumbers.map((qNo) => {
-                const q = answers[qNo];
-                const isCurrent =
-                  currentQuestion !== null && qNo === currentQuestion;
-                const isAnswered = isQuestionAnswered(q);
-                const isFlagged = q?.flagged;
-                const paletteQuestionData =
-                  effectivePaper.parsedQuestions?.find(
-                    (question) => question.questionNo === qNo,
-                  );
-                const isQNoCloze = isClozeQuestion(qNo);
-                const paletteQuestionHasOptions =
-                  !isSubjective &&
-                  !isQNoCloze &&
-                  Boolean(
-                    paletteQuestionData?.options &&
-                    Object.keys(paletteQuestionData.options).length > 0,
-                  );
-
-                let badgeColor =
-                  "bg-white text-slate-700 border-slate-200 hover:bg-slate-100 hover:border-slate-300 shadow-2xs";
-
-                if (isAnswered) {
-                  // In Practice mode: wrong answers are shown in RED, correct in GREEN!
-                  if (isPractice && !isSubjective) {
-                    if (q?.isCorrect === false) {
-                      badgeColor =
-                        "bg-rose-600 text-white border-rose-600 font-semibold shadow-2xs";
-                    } else if (q?.isCorrect === true) {
-                      badgeColor =
-                        "bg-emerald-600 text-white border-emerald-600 font-semibold shadow-2xs";
-                    } else {
-                      badgeColor =
-                        "bg-emerald-600 text-white border-emerald-600 font-semibold shadow-2xs";
-                    }
-                  } else {
-                    // In Mock mode: Answered question background is Green with Sure, Yellowish for 50/50, Guess and Elimination you choose
-                    const conf = q?.confidence;
-                    if (conf === "sure") {
-                      badgeColor =
-                        "bg-emerald-600 text-white border-emerald-600 font-semibold shadow-2xs";
-                    } else if (conf === "50-50") {
-                      badgeColor =
-                        "bg-amber-500 text-white border-amber-500 font-semibold shadow-2xs";
-                    } else if (conf === "elimination") {
-                      badgeColor =
-                        "bg-sky-600 text-white border-sky-600 font-semibold shadow-2xs";
-                    } else if (conf === "guess") {
-                      badgeColor =
-                        "bg-purple-600 text-white border-purple-600 font-semibold shadow-2xs";
-                    } else {
-                      badgeColor =
-                        "bg-indigo-600 text-white border-indigo-600 font-semibold shadow-2xs";
-                    }
-                  }
-                }
-
-                if (isFlagged) {
-                  badgeColor =
-                    "bg-amber-100 text-amber-900 border-amber-300 font-semibold shadow-2xs";
-                }
-
-                if (isCurrent) {
-                  badgeColor +=
-                    " ring-2 ring-indigo-600 border-indigo-600 scale-105 font-bold";
-                }
-
-                return (
-                  <button
-                    key={qNo}
-                    onClick={() =>
-                      navigateToQuestion(currentQuestion === qNo ? null : qNo)
-                    }
-                    className={`relative flex h-9 sm:h-10 items-center justify-center rounded-xl border text-xs transition-all gap-1.5 px-1.5 ${badgeColor}`}
-                    title={
-                      q?.selected
-                        ? paletteQuestionHasOptions
-                          ? `Question ${qNo} (Selected: Option ${q.selected}${q.confidence ? ` - ${q.confidence}` : ""})`
-                          : `Question ${qNo} (Answer recorded${q.confidence ? ` - ${q.confidence}` : ""})`
-                        : `Question ${qNo} (Unattempted)`
-                    }
-                  >
-                    <span className="font-bold leading-none">{qNo}</span>
-                    {q?.selected && paletteQuestionHasOptions && (
-                      <span
-                        className={`inline-flex items-center justify-center min-w-[18px] sm:min-w-[20px] h-5 sm:h-5.5 px-1 rounded-md text-xs sm:text-[13px] font-black uppercase leading-none shadow-xs border ${
-                          isFlagged
-                            ? "bg-amber-900 text-white border-amber-950/20"
-                            : "bg-white text-slate-900 border-black/15"
-                        }`}
-                      >
-                        {q.selected}
-                      </span>
-                    )}
-                    {q?.note && (
-                      <span className="absolute -top-1 -right-1 h-2 w-2 rounded-full bg-indigo-600 ring-1 ring-white" />
-                    )}
-                  </button>
-                );
-              })}
-            </div>
           </div>
         </div>
       </div>
@@ -3955,6 +3976,27 @@ export function ExamSessionView({
                   const isCurrent = currentQuestion === qNo;
                   const isAnswered = isQuestionAnswered(q);
                   const isFlagged = q?.flagged;
+                  const paletteQuestionData =
+                    effectivePaper.parsedQuestions?.find(
+                      (question) => question.questionNo === qNo,
+                    );
+                  const isQNoCloze = isClozeQuestion(qNo);
+                  const isMcqLetter = Boolean(
+                    q?.selected &&
+                    ["A", "B", "C", "D"].includes(
+                      q.selected.trim().toUpperCase(),
+                    ),
+                  );
+                  const paletteQuestionHasOptions =
+                    !isSubjective &&
+                    !isQNoCloze &&
+                    (isMcqLetter ||
+                      (paletteQuestionData
+                        ? Boolean(
+                            paletteQuestionData.options &&
+                            Object.keys(paletteQuestionData.options).length > 0,
+                          )
+                        : true));
 
                   let badgeColor =
                     "bg-white text-slate-700 border-slate-200 hover:bg-slate-100 shadow-2xs";
@@ -4010,9 +4052,20 @@ export function ExamSessionView({
                         navigateToQuestion(qNo);
                         setIsMobilePaletteOpen(false);
                       }}
-                      className={`relative flex h-11 items-center justify-center rounded-xl border text-xs transition-all ${badgeColor}`}
+                      className={`relative flex h-11 items-center justify-center gap-1 rounded-xl border text-xs transition-all ${badgeColor}`}
                     >
-                      <span>{qNo}</span>
+                      <span className="font-bold leading-none">{qNo}</span>
+                      {q?.selected && paletteQuestionHasOptions && (
+                        <span
+                          className={`inline-flex items-center justify-center min-w-[18px] h-5 px-1 rounded-md text-[11px] font-black uppercase leading-none shadow-xs border ${
+                            isFlagged
+                              ? "bg-amber-900 text-white border-amber-950/20"
+                              : "bg-white text-slate-900 border-black/15"
+                          }`}
+                        >
+                          {q.selected}
+                        </span>
+                      )}
                       {isFlagged && (
                         <span className="absolute top-1 right-1 h-2 w-2 rounded-full bg-amber-500" />
                       )}
