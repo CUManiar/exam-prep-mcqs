@@ -39,6 +39,12 @@ import { InteractiveQuestionCard } from "./InteractiveQuestionCard";
 import { HtmlExplanation } from "./HtmlExplanation";
 import { KeyboardShortcutsModal } from "./KeyboardShortcutsModal";
 import {
+  getProviderVault,
+  getRevisionConfig,
+  PROVIDER_INFO,
+  RevisionProvider,
+} from "../lib/revisionAi";
+import {
   Clock,
   Flag,
   CheckCircle2,
@@ -249,6 +255,34 @@ export function ExamSessionView({
   const [userSubmissionFile, setUserSubmissionFile] = useState<File | null>(
     null,
   );
+  const [submissionFiles, setSubmissionFiles] = useState<File[]>([]);
+  const [isEvaluatingBooklet, setIsEvaluatingBooklet] =
+    useState<boolean>(false);
+  const [bookletEvalError, setBookletEvalError] = useState<string | null>(null);
+  const [providerVault, setProviderVault] = useState<Record<string, string>>(
+    () => (typeof window !== "undefined" ? getProviderVault() : {}),
+  );
+  const [aiEvalProvider, setAiEvalProvider] = useState<RevisionProvider>(() => {
+    if (typeof window === "undefined") return "gemini";
+    const vault = getProviderVault();
+    const active = getRevisionConfig()?.provider;
+    const visionProviders: RevisionProvider[] = [
+      "gemini",
+      "openai",
+      "anthropic",
+    ];
+    if (active && visionProviders.includes(active) && vault[active]?.trim()) {
+      return active;
+    }
+    const first = visionProviders.find((p) => Boolean(vault[p]?.trim()));
+    return first || "gemini";
+  });
+  useEffect(() => {
+    if (isScanUploadPhase) {
+      setProviderVault(getProviderVault());
+      setBookletEvalError(null);
+    }
+  }, [isScanUploadPhase]);
   const [isUploadingScan, setIsUploadingScan] = useState<boolean>(false);
   const [fullBookletUrl, setFullBookletUrl] = useState<string | undefined>(
     undefined,
@@ -1347,12 +1381,19 @@ export function ExamSessionView({
   });
 
   // Finish exam calculations
-  const handleFinishExam = async (submissionPdfBlobUrl?: string) => {
+  const handleFinishExam = async (
+    submissionPdfBlobUrl?: string,
+    aiResult?: {
+      answersOverride?: Record<number, QuestionAnswer>;
+      overallFeedback?: string;
+    },
+  ) => {
     if (isSubmittingExam) return;
     setIsSubmittingExam(true);
 
     try {
       clearActiveDraft();
+      const sourceAnswers = aiResult?.answersOverride || answers;
 
       let correctCount = 0;
       let incorrectCount = 0;
@@ -1373,7 +1414,7 @@ export function ExamSessionView({
       const finalAnswers: Record<number, QuestionAnswer> = {};
 
       for (let i = 1; i <= paper.totalQuestions; i++) {
-        const a = answers[i] || { questionNo: i, selected: null };
+        const a = sourceAnswers[i] || { questionNo: i, selected: null };
         const rawCorrect = getCorrectAnswerForQ(i);
         const correctAns = rawCorrect
           ? rawCorrect.toUpperCase().trim()
@@ -1580,6 +1621,7 @@ export function ExamSessionView({
         alteredHarmCount,
         alteredBenefitCount,
         answers: finalAnswers,
+        generalNotes: aiResult?.overallFeedback || undefined,
         userSubmissionPdfUrl: submissionPdfBlobUrl || fullBookletUrl,
       };
 
@@ -3903,103 +3945,325 @@ export function ExamSessionView({
           <div className="sticky top-0 z-20 border-b border-slate-200 bg-white/95 backdrop-blur-md px-4 py-3 sm:px-6 shadow-2xs">
             <div className="max-w-4xl mx-auto flex items-center justify-between">
               <button
+                type="button"
+                disabled={isSubmittingExam || isEvaluatingBooklet}
                 onClick={() => setIsScanUploadPhase(false)}
-                className="flex items-center gap-1.5 rounded-xl border border-slate-200 bg-slate-50 px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-100 transition-colors shadow-2xs"
+                className="flex items-center gap-1.5 rounded-xl border border-slate-200 bg-slate-50 px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-100 transition-colors shadow-2xs disabled:opacity-50"
               >
                 <ArrowLeft className="h-4 w-4" /> Back to Session
               </button>
               <h2 className="text-sm sm:text-base font-bold text-slate-900">
-                Mains Answer Booklet Submission
+                Mains Answer Booklet &amp; AI Evaluation
               </h2>
             </div>
           </div>
 
           <div className="flex-1 bg-slate-50/60 p-4 sm:p-6 lg:p-8">
-            <div className="max-w-4xl mx-auto space-y-6">
-              <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-2xs space-y-4">
+            <div className="max-w-4xl mx-auto space-y-5">
+              <div className="rounded-2xl border border-slate-200 bg-white p-5 sm:p-6 shadow-2xs space-y-5">
                 <div className="flex items-center gap-3">
                   <div className="rounded-xl bg-violet-100 p-2.5 text-violet-600 shrink-0">
                     <UploadCloud className="h-6 w-6" />
                   </div>
                   <div>
                     <h3 className="text-base font-bold text-slate-900">
-                      Upload Handwritten Answer Copy
+                      Upload Full Answer Booklet (Single Upload)
                     </h3>
                     <p className="text-xs text-slate-500">
-                      Scan your written answer booklet and upload PDF copy
+                      Upload one PDF booklet or select multiple page images for
+                      all answers at once. AI matches your answers to the paper
+                      and syncs scores to your account.
                     </p>
                   </div>
                 </div>
 
-                <div className="rounded-xl bg-slate-50 p-4 border border-slate-200 text-xs text-slate-600 space-y-1">
-                  <p>
-                    ⏱ Exam writing time concluded:{" "}
+                <div className="rounded-xl bg-slate-50 p-3.5 border border-slate-200 text-xs text-slate-600 flex flex-wrap items-center justify-between gap-2">
+                  <span>
+                    ⏱ Writing time:{" "}
                     <strong>{formatTimeSeconds(elapsedSeconds)}</strong>
-                  </p>
-                  <p>
-                    You have grace buffer to scan your handwritten pages and
-                    attach your submission copy.
-                  </p>
+                  </span>
+                  <span>
+                    Paper:{" "}
+                    <strong>{getPaperDisplayTitle(effectivePaper)}</strong> (
+                    {paper.totalQuestions} Qs · {paper.totalMarks} Marks)
+                  </span>
                 </div>
 
-                <label className="flex flex-col items-center justify-center rounded-2xl border-2 border-dashed border-slate-300 bg-slate-50/50 p-8 text-center cursor-pointer hover:border-violet-500 hover:bg-violet-50/20 transition-all">
-                  <FileUp className="h-10 w-10 text-violet-600 mb-2" />
+                {/* Single Upload Dropzone (PDF or Multiple Images) */}
+                <label className="flex flex-col items-center justify-center rounded-2xl border-2 border-dashed border-slate-300 bg-slate-50/50 p-7 text-center cursor-pointer hover:border-violet-500 hover:bg-violet-50/20 transition-all">
+                  <FileUp className="h-9 w-9 text-violet-600 mb-2" />
                   <span className="text-sm font-bold text-slate-900">
-                    {userSubmissionFile
-                      ? userSubmissionFile.name
-                      : "Choose Scanned Answer Copy (PDF)"}
+                    {submissionFiles.length > 0
+                      ? `${submissionFiles.length} file${submissionFiles.length > 1 ? "s" : ""} attached`
+                      : "Choose Answer Booklet (PDF or Page Images)"}
                   </span>
                   <span className="text-xs text-slate-500 mt-1">
-                    {userSubmissionFile
-                      ? `${(userSubmissionFile.size / 1024 / 1024).toFixed(2)} MB`
-                      : "Drop PDF here or browse"}
+                    Supports 1 PDF or multiple JPG/PNG/WebP photos
                   </span>
                   <input
                     type="file"
-                    accept=".pdf"
-                    onChange={(e) =>
-                      setUserSubmissionFile(e.target.files?.[0] || null)
-                    }
+                    accept="application/pdf,image/*"
+                    multiple
+                    onChange={(e) => {
+                      const files = Array.from(e.target.files || []);
+                      if (files.length === 0) return;
+                      setSubmissionFiles((prev) => [...prev, ...files]);
+                      if (!userSubmissionFile && files[0]) {
+                        setUserSubmissionFile(files[0]);
+                      }
+                      setBookletEvalError(null);
+                      e.target.value = "";
+                    }}
                     className="hidden"
                   />
                 </label>
 
-                <div className="flex items-center justify-between pt-2">
+                {/* Attached Files List */}
+                {submissionFiles.length > 0 && (
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between text-xs">
+                      <span className="font-semibold text-slate-700">
+                        Attached Pages / Booklet ({submissionFiles.length})
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setSubmissionFiles([]);
+                          setUserSubmissionFile(null);
+                        }}
+                        className="text-rose-600 hover:text-rose-700 font-semibold cursor-pointer"
+                      >
+                        Clear all
+                      </button>
+                    </div>
+                    <div className="flex flex-wrap gap-2">
+                      {submissionFiles.map((file, idx) => (
+                        <div
+                          key={`${file.name}-${idx}`}
+                          className="flex items-center gap-2 rounded-lg border border-slate-200 bg-slate-50 px-2.5 py-1.5 text-xs text-slate-700"
+                        >
+                          <span className="truncate max-w-[180px] font-medium">
+                            {file.name}
+                          </span>
+                          <span className="text-[10px] text-slate-400 font-mono">
+                            {(file.size / 1024 / 1024).toFixed(1)}MB
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setSubmissionFiles((prev) =>
+                                prev.filter((_, i) => i !== idx),
+                              );
+                            }}
+                            className="text-slate-400 hover:text-rose-600 cursor-pointer"
+                            aria-label={`Remove ${file.name}`}
+                          >
+                            <X className="h-3.5 w-3.5" />
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* AI Evaluator Selector */}
+                {(() => {
+                  const visionProviders: RevisionProvider[] = [
+                    "gemini",
+                    "openai",
+                    "anthropic",
+                  ];
+                  const configured = visionProviders.filter((p) =>
+                    Boolean(providerVault[p]?.trim()),
+                  );
+                  return (
+                    <div className="rounded-xl border border-slate-200 bg-slate-50/70 p-3.5 flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
+                      <div>
+                        <p className="text-xs font-bold text-slate-800">
+                          AI Examiner Bot
+                        </p>
+                        <p className="text-[11px] text-slate-500">
+                          {configured.length > 1
+                            ? "Multiple APIs detected — pick which evaluator to use"
+                            : configured.length === 1
+                              ? `Defaulting to ${PROVIDER_INFO[configured[0]]?.label || configured[0]}`
+                              : "Uses configured API key (add keys in AI Settings if needed)"}
+                        </p>
+                      </div>
+                      {configured.length > 1 ? (
+                        <div className="flex items-center gap-1.5 flex-wrap">
+                          {configured.map((p) => (
+                            <button
+                              key={p}
+                              type="button"
+                              onClick={() => setAiEvalProvider(p)}
+                              className={`px-2.5 py-1 rounded-lg text-xs font-semibold border transition-all cursor-pointer ${
+                                aiEvalProvider === p
+                                  ? "bg-indigo-600 text-white border-indigo-600 shadow-2xs"
+                                  : "bg-white text-slate-700 border-slate-200 hover:border-indigo-300"
+                              }`}
+                            >
+                              {PROVIDER_INFO[p]?.icon}{" "}
+                              {PROVIDER_INFO[p]?.label || p}
+                            </button>
+                          ))}
+                        </div>
+                      ) : (
+                        <span className="inline-flex items-center gap-1 rounded-lg border border-indigo-200 bg-indigo-50 px-2.5 py-1 text-xs font-semibold text-indigo-700">
+                          {PROVIDER_INFO[aiEvalProvider]?.icon}{" "}
+                          {PROVIDER_INFO[aiEvalProvider]?.label ||
+                            aiEvalProvider}
+                        </span>
+                      )}
+                    </div>
+                  );
+                })()}
+
+                {bookletEvalError && (
+                  <div className="rounded-xl border border-rose-200 bg-rose-50 px-3.5 py-2.5 text-xs text-rose-800">
+                    {bookletEvalError}
+                  </div>
+                )}
+
+                <div className="flex flex-wrap items-center justify-between gap-3 pt-2">
                   <button
-                    disabled={isSubmittingExam}
-                    onClick={() => setIsScanUploadPhase(false)}
-                    className={`rounded-xl px-4 py-2 text-xs font-semibold text-slate-600 hover:bg-slate-100 ${
-                      isSubmittingExam
-                        ? "opacity-50 cursor-not-allowed pointer-events-none"
-                        : "cursor-pointer"
-                    }`}
-                  >
-                    Back to Session
-                  </button>
-                  <button
-                    disabled={isSubmittingExam}
+                    type="button"
+                    disabled={isSubmittingExam || isEvaluatingBooklet}
                     onClick={() => {
-                      if (isSubmittingExam) return;
-                      const blobUrl = userSubmissionFile
-                        ? URL.createObjectURL(userSubmissionFile)
+                      if (isSubmittingExam || isEvaluatingBooklet) return;
+                      const blobUrl = submissionFiles[0]
+                        ? URL.createObjectURL(submissionFiles[0])
                         : undefined;
                       handleFinishExam(blobUrl);
                     }}
-                    className={`rounded-xl bg-indigo-600 px-6 py-2.5 text-xs font-bold text-white hover:bg-indigo-700 shadow-xs flex items-center gap-2 ${
-                      isSubmittingExam
-                        ? "opacity-75 cursor-not-allowed pointer-events-none"
-                        : "cursor-pointer"
-                    }`}
+                    className="rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-xs font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-50 cursor-pointer"
                   >
-                    {isSubmittingExam ? (
+                    Skip AI &amp; Finish
+                  </button>
+
+                  <button
+                    type="button"
+                    disabled={
+                      isSubmittingExam ||
+                      isEvaluatingBooklet ||
+                      submissionFiles.length === 0
+                    }
+                    onClick={async () => {
+                      if (
+                        isSubmittingExam ||
+                        isEvaluatingBooklet ||
+                        submissionFiles.length === 0
+                      ) {
+                        return;
+                      }
+                      setIsEvaluatingBooklet(true);
+                      setBookletEvalError(null);
+                      try {
+                        const toAttachment = (file: File) =>
+                          new Promise<{
+                            mimeType: string;
+                            data: string;
+                            name: string;
+                          }>((resolve, reject) => {
+                            const reader = new FileReader();
+                            reader.onload = () =>
+                              resolve({
+                                mimeType: file.type || "application/pdf",
+                                data: String(reader.result || ""),
+                                name: file.name,
+                              });
+                            reader.onerror = () =>
+                              reject(new Error(`Failed reading ${file.name}`));
+                            reader.readAsDataURL(file);
+                          });
+
+                        const attachments = await Promise.all(
+                          submissionFiles.map(toAttachment),
+                        );
+
+                        const res = await fetch("/api/mains/evaluate-paper", {
+                          method: "POST",
+                          headers: { "Content-Type": "application/json" },
+                          body: JSON.stringify({
+                            paperTitle: getPaperDisplayTitle(effectivePaper),
+                            totalQuestions: effectivePaper.totalQuestions,
+                            totalMarks: effectivePaper.totalMarks,
+                            qpUrl: effectivePaper.qpUrl,
+                            parsedQuestions:
+                              effectivePaper.parsedQuestions?.map((q) => ({
+                                questionNo: q.questionNo,
+                                text: q.text,
+                              })),
+                            markdownContent: effectivePaper.markdownContent,
+                            attachments,
+                            providerConfig: {
+                              provider: aiEvalProvider,
+                              apiKey: providerVault[aiEvalProvider] || "",
+                            },
+                          }),
+                        });
+
+                        const data = await res.json();
+                        if (!res.ok || !data.ok) {
+                          throw new Error(
+                            data.error || "AI evaluation failed.",
+                          );
+                        }
+
+                        const updatedAnswers: Record<number, QuestionAnswer> = {
+                          ...answers,
+                        };
+                        if (Array.isArray(data.questionResults)) {
+                          for (const r of data.questionResults) {
+                            const existing = updatedAnswers[r.questionNo] || {
+                              questionNo: r.questionNo,
+                              selected: null,
+                              flagged: false,
+                              note: "",
+                              timeSpentSeconds: 0,
+                            };
+                            const attempted =
+                              r.marksAwarded > 0 ||
+                              !String(r.comment || "")
+                                .toLowerCase()
+                                .includes("not attempted");
+                            updatedAnswers[r.questionNo] = {
+                              ...existing,
+                              selected: attempted
+                                ? existing.selected || "attempted"
+                                : existing.selected,
+                              subjectiveMarks: r.marksAwarded,
+                              subjectiveAssessment: r.assessment,
+                              evaluationComment: r.comment,
+                            };
+                          }
+                        }
+
+                        const blobUrl = submissionFiles[0]
+                          ? URL.createObjectURL(submissionFiles[0])
+                          : undefined;
+                        await handleFinishExam(blobUrl, {
+                          answersOverride: updatedAnswers,
+                          overallFeedback: data.overallFeedback,
+                        });
+                      } catch (err: any) {
+                        setBookletEvalError(
+                          err?.message ||
+                            "AI evaluation failed. You can retry or Skip AI & Finish.",
+                        );
+                      } finally {
+                        setIsEvaluatingBooklet(false);
+                      }
+                    }}
+                    className="rounded-xl bg-indigo-600 px-6 py-2.5 text-xs font-bold text-white hover:bg-indigo-700 shadow-xs flex items-center gap-2 disabled:opacity-50 cursor-pointer"
+                  >
+                    {isEvaluatingBooklet || isSubmittingExam ? (
                       <>
                         <Loader2 className="h-4 w-4 animate-spin" />
-                        <span>Submitting...</span>
+                        <span>Evaluating Answer Booklet...</span>
                       </>
-                    ) : userSubmissionFile ? (
-                      "Save Copy & Finish"
                     ) : (
-                      "Skip & Finish"
+                      <span>Evaluate with AI &amp; Finish</span>
                     )}
                   </button>
                 </div>
