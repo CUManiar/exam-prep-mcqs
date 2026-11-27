@@ -1611,10 +1611,12 @@ export function ExamSessionView({
   const currentQuestionHasOptions =
     !isSubjective &&
     !currentQuestionIsCloze &&
-    Boolean(
-      currentQuestionData?.options &&
-      Object.keys(currentQuestionData.options).length > 0,
-    );
+    (currentQuestionData
+      ? Boolean(
+          currentQuestionData.options &&
+          Object.keys(currentQuestionData.options).length > 0,
+        )
+      : true);
   const currentQuestionExplanation =
     currentQuestion !== null
       ? effectivePaper.parsedQuestions?.find(
@@ -3221,7 +3223,7 @@ export function ExamSessionView({
             {/* Inline OMR Bubble Sheet Strip OR Grid Palette (never both) */}
             {paletteViewMode === "omr" && !isSubjective ? (
               <div className="rounded-xl border border-slate-200 bg-white p-2.5">
-                <div className="grid grid-cols-[repeat(auto-fill,minmax(205px,1fr))] gap-2.5 max-h-[520px] overflow-y-auto pr-1">
+                <div className="grid grid-cols-[repeat(auto-fill,minmax(215px,1fr))] gap-2.5 max-h-[520px] overflow-y-auto pr-1">
                   {Array.from(
                     { length: Math.ceil(filteredQuestionNumbers.length / 10) },
                     (_, colIdx) =>
@@ -3240,10 +3242,36 @@ export function ExamSessionView({
                         const isCur = currentQuestion === qNo;
                         const isFlag = Boolean(q?.flagged);
                         const isQCloze = isClozeQuestion(qNo);
+                        const confMeta =
+                          q?.confidence === "sure"
+                            ? {
+                                icon: "🎯",
+                                label: "Sure",
+                                bubbleClass: "bg-emerald-600 text-white",
+                              }
+                            : q?.confidence === "50-50"
+                              ? {
+                                  icon: "⚖️",
+                                  label: "50:50",
+                                  bubbleClass: "bg-amber-500 text-white",
+                                }
+                              : q?.confidence === "elimination"
+                                ? {
+                                    icon: "✂️",
+                                    label: "Elimination",
+                                    bubbleClass: "bg-sky-600 text-white",
+                                  }
+                                : q?.confidence === "guess"
+                                  ? {
+                                      icon: "🎲",
+                                      label: "Guess",
+                                      bubbleClass: "bg-purple-600 text-white",
+                                    }
+                                  : null;
                         return (
                           <div
                             key={qNo}
-                            className={`flex items-center justify-between gap-2 rounded-md px-2 py-1 transition-colors ${
+                            className={`flex items-center justify-between gap-1.5 rounded-md px-2 py-1 transition-colors ${
                               isCur
                                 ? "bg-blue-50 ring-1 ring-blue-200 font-bold"
                                 : "hover:bg-white"
@@ -3253,7 +3281,7 @@ export function ExamSessionView({
                               <button
                                 type="button"
                                 onClick={() => navigateToQuestion(qNo)}
-                                className={`font-mono text-xs min-w-[2.2rem] text-left ${
+                                className={`font-mono text-xs text-left ${
                                   isCur
                                     ? "text-blue-700 font-black"
                                     : "text-slate-700 hover:text-blue-600 font-semibold"
@@ -3261,8 +3289,19 @@ export function ExamSessionView({
                               >
                                 Q{qNo}
                               </button>
+                              {confMeta && (
+                                <span
+                                  className="text-[11px] leading-none shrink-0"
+                                  title={`Certainty: ${confMeta.label}`}
+                                >
+                                  {confMeta.icon}
+                                </span>
+                              )}
                               {isFlag && (
-                                <Flag className="h-3 w-3 text-amber-500 fill-amber-500 shrink-0" />
+                                <Flag
+                                  className="h-3 w-3 text-amber-500 fill-amber-500 shrink-0"
+                                  aria-label="Flagged"
+                                />
                               )}
                             </div>
                             {isQCloze ? (
@@ -3290,7 +3329,7 @@ export function ExamSessionView({
                                       }
                                       className={`flex h-7 w-7 items-center justify-center rounded-full text-xs font-bold transition-all ${
                                         isMarked
-                                          ? "bg-slate-950 text-white shadow-inner scale-105"
+                                          ? `${confMeta ? confMeta.bubbleClass : "bg-slate-950 text-white"} shadow-inner scale-105`
                                           : "border border-slate-300 bg-white text-slate-700 hover:border-slate-500 hover:bg-slate-100"
                                       }`}
                                     >
