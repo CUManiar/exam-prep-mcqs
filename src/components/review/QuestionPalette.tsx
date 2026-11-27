@@ -735,63 +735,68 @@ export function QuestionPalette({
           )}
 
           {/* Card Navigation Footer */}
-          <div className="pt-2 border-t border-slate-200 flex items-center justify-between gap-2 flex-wrap">
-            {/* Prev Button */}
-            <button
-              type="button"
-              disabled={!canNavigatePrev}
-              onClick={onNavigatePrev}
-              title="Previous Question (shortcut: J)"
-              className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 text-xs font-semibold disabled:opacity-30 disabled:pointer-events-none transition-all shadow-2xs cursor-pointer"
-            >
-              <ChevronLeft className="h-3.5 w-3.5" />
-              <span>Previous</span>
-              <kbd className="hidden sm:inline-block ml-1 px-1 py-0.2 text-[9px] font-mono text-slate-400 bg-slate-100 rounded border border-slate-200">
-                J
-              </kbd>
-            </button>
+          <div className="pt-2.5 border-t border-slate-200 flex flex-col gap-2">
+            <div className="flex items-center justify-between gap-2">
+              {/* Prev Button */}
+              <button
+                type="button"
+                disabled={!canNavigatePrev}
+                onClick={onNavigatePrev}
+                title="Previous Question (shortcut: J)"
+                className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 text-xs font-semibold disabled:opacity-30 disabled:pointer-events-none transition-all shadow-2xs cursor-pointer shrink-0"
+              >
+                <ChevronLeft className="h-3.5 w-3.5" />
+                <span>Previous</span>
+                <kbd className="hidden sm:inline-block ml-1 px-1 py-0.2 text-[9px] font-mono text-slate-400 bg-slate-100 rounded border border-slate-200">
+                  J
+                </kbd>
+              </button>
 
-            {/* Quick Jump Buttons: Next Mistake & Next Skipped */}
-            <div className="flex items-center gap-1.5 flex-wrap">
-              {hasNextMistake && onJumpToNextMistake && (
-                <button
-                  type="button"
-                  onClick={onJumpToNextMistake}
-                  className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg border border-rose-200 bg-rose-50 hover:bg-rose-100 text-rose-800 text-xs font-bold transition-all shadow-2xs cursor-pointer"
-                  title="Fast forward to next incorrect question"
-                >
-                  <span>Next Mistake</span>
-                  <ArrowRight className="h-3.5 w-3.5 text-rose-600" />
-                </button>
-              )}
-
-              {hasNextSkipped && onJumpToNextSkipped && (
-                <button
-                  type="button"
-                  onClick={onJumpToNextSkipped}
-                  className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg border border-slate-200 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold transition-all shadow-2xs cursor-pointer"
-                  title="Fast forward to next unattempted / skipped question"
-                >
-                  <span>Next Skipped</span>
-                  <ArrowRight className="h-3.5 w-3.5 text-slate-500" />
-                </button>
-              )}
+              {/* Next Button */}
+              <button
+                type="button"
+                disabled={!canNavigateNext}
+                onClick={onNavigateNext}
+                title="Next Question (shortcut: K)"
+                className="inline-flex items-center gap-1 px-3 py-1 rounded-lg bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold disabled:opacity-30 disabled:pointer-events-none transition-all shadow-2xs cursor-pointer shrink-0"
+              >
+                <span>Next</span>
+                <kbd className="hidden sm:inline-block ml-1 px-1 py-0.2 text-[9px] font-mono text-slate-300 bg-slate-800 rounded border border-slate-700">
+                  K
+                </kbd>
+                <ChevronRight className="h-3.5 w-3.5" />
+              </button>
             </div>
 
-            {/* Next Button */}
-            <button
-              type="button"
-              disabled={!canNavigateNext}
-              onClick={onNavigateNext}
-              title="Next Question (shortcut: K)"
-              className="inline-flex items-center gap-1 px-3 py-1 rounded-lg bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold disabled:opacity-30 disabled:pointer-events-none transition-all shadow-2xs cursor-pointer"
-            >
-              <span>Next</span>
-              <kbd className="hidden sm:inline-block ml-1 px-1 py-0.2 text-[9px] font-mono text-slate-300 bg-slate-800 rounded border border-slate-700">
-                K
-              </kbd>
-              <ChevronRight className="h-3.5 w-3.5" />
-            </button>
+            {/* Quick Jump Buttons: Next Mistake & Next Skipped */}
+            {((hasNextMistake && onJumpToNextMistake) ||
+              (hasNextSkipped && onJumpToNextSkipped)) && (
+              <div className="flex items-center justify-center gap-1.5 flex-wrap">
+                {hasNextMistake && onJumpToNextMistake && (
+                  <button
+                    type="button"
+                    onClick={onJumpToNextMistake}
+                    className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg border border-rose-200 bg-rose-50 hover:bg-rose-100 text-rose-800 text-xs font-bold transition-all shadow-2xs cursor-pointer"
+                    title="Fast forward to next incorrect question"
+                  >
+                    <span>Next Mistake</span>
+                    <ArrowRight className="h-3.5 w-3.5 text-rose-600" />
+                  </button>
+                )}
+
+                {hasNextSkipped && onJumpToNextSkipped && (
+                  <button
+                    type="button"
+                    onClick={onJumpToNextSkipped}
+                    className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg border border-slate-200 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold transition-all shadow-2xs cursor-pointer"
+                    title="Fast forward to next unattempted / skipped question"
+                  >
+                    <span>Next Skipped</span>
+                    <ArrowRight className="h-3.5 w-3.5 text-slate-500" />
+                  </button>
+                )}
+              </div>
+            )}
           </div>
         </div>
       )}
