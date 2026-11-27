@@ -3266,8 +3266,8 @@ export function ExamSessionView({
                   </div>
                 )}
 
-                {/* Grid buttons fitting any mobile width */}
-                <div className="grid grid-cols-5 sm:grid-cols-6 md:grid-cols-8 gap-1.5 sm:gap-2">
+                {/* Grid buttons fitting container width without squishing option pills */}
+                <div className="grid grid-cols-[repeat(auto-fill,minmax(62px,1fr))] gap-1.5 sm:gap-2">
                   {filteredQuestionNumbers.map((qNo) => {
                     const q = answers[qNo];
                     const isCurrent =
@@ -3279,15 +3279,23 @@ export function ExamSessionView({
                         (question) => question.questionNo === qNo,
                       );
                     const isQNoCloze = isClozeQuestion(qNo);
+                    const isMcqLetter = Boolean(
+                      q?.selected &&
+                      ["A", "B", "C", "D"].includes(
+                        q.selected.trim().toUpperCase(),
+                      ),
+                    );
                     const paletteQuestionHasOptions =
                       !isSubjective &&
                       !isQNoCloze &&
-                      (paletteQuestionData
-                        ? Boolean(
-                            paletteQuestionData.options &&
-                            Object.keys(paletteQuestionData.options).length > 0,
-                          )
-                        : true);
+                      (isMcqLetter ||
+                        (paletteQuestionData
+                          ? Boolean(
+                              paletteQuestionData.options &&
+                              Object.keys(paletteQuestionData.options).length >
+                                0,
+                            )
+                          : true));
 
                     let badgeColor =
                       "bg-white text-slate-700 border-slate-200 hover:bg-slate-100 hover:border-slate-300 shadow-2xs";
@@ -3957,15 +3965,22 @@ export function ExamSessionView({
                       (question) => question.questionNo === qNo,
                     );
                   const isQNoCloze = isClozeQuestion(qNo);
+                  const isMcqLetter = Boolean(
+                    q?.selected &&
+                    ["A", "B", "C", "D"].includes(
+                      q.selected.trim().toUpperCase(),
+                    ),
+                  );
                   const paletteQuestionHasOptions =
                     !isSubjective &&
                     !isQNoCloze &&
-                    (paletteQuestionData
-                      ? Boolean(
-                          paletteQuestionData.options &&
-                          Object.keys(paletteQuestionData.options).length > 0,
-                        )
-                      : true);
+                    (isMcqLetter ||
+                      (paletteQuestionData
+                        ? Boolean(
+                            paletteQuestionData.options &&
+                            Object.keys(paletteQuestionData.options).length > 0,
+                          )
+                        : true));
 
                   let badgeColor =
                     "bg-white text-slate-700 border-slate-200 hover:bg-slate-100 shadow-2xs";
