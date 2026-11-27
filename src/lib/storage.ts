@@ -19,6 +19,7 @@ const STORAGE_KEYS = {
   ATTEMPTS: "exam_prep_attempts_v2",
   GUEST_REVIEW_ATTEMPT: "exam_prep_guest_review_attempt_v1",
   CUSTOM_PAPERS: "exam_prep_custom_papers_v2",
+  EPHEMERAL_PAPER: "exam_prep_ephemeral_paper_v1",
   ACTIVE_PAGE: "exam_prep_active_page_v1",
   SELECTED_ATTEMPT_ID: "exam_prep_selected_attempt_id_v1",
   HIDDEN_PAPERS: "exam_prep_hidden_papers_v1",
@@ -308,6 +309,31 @@ export function deleteAttempt(attemptId: string): void {
       );
   } catch (err) {
     console.error("Failed to delete attempt:", err);
+  }
+}
+
+export function saveEphemeralPracticePaper(paper: QuestionPaper): void {
+  if (typeof window === "undefined") return;
+  try {
+    localStorage.setItem(STORAGE_KEYS.EPHEMERAL_PAPER, JSON.stringify(paper));
+  } catch (err) {
+    console.warn("Failed saving ephemeral practice paper:", err);
+  }
+}
+
+export function getEphemeralPracticePaper(
+  paperId?: string | null,
+): QuestionPaper | null {
+  if (typeof window === "undefined") return null;
+  try {
+    const raw = localStorage.getItem(STORAGE_KEYS.EPHEMERAL_PAPER);
+    if (!raw) return null;
+    const parsed: QuestionPaper = JSON.parse(raw);
+    if (!parsed || !parsed.id) return null;
+    if (paperId && parsed.id !== paperId) return null;
+    return parsed;
+  } catch {
+    return null;
   }
 }
 

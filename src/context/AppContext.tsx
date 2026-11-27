@@ -43,10 +43,12 @@ import {
   saveCustomSyllabusMarkdown,
   removeLocalCustomPaper,
   saveCustomPaper,
+  saveEphemeralPracticePaper,
   getCustomPapers,
   getGuestReviewAttempt,
   saveGuestReviewAttempt,
 } from "../lib/storage";
+import { isEphemeralPracticePaper } from "../lib/retestUtils";
 import {
   parseQuestionnaireMarkdown,
   parseMarkdownHeader,
@@ -448,11 +450,15 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
                 console.warn("Background vocab sync on auth load failed:", err),
               );
 
-              const localCustom = getCustomPapers();
+              const localCustom = getCustomPapers().filter(
+                (p) => !isEphemeralPracticePaper(p),
+              );
               // Backfill Markdown papers created before remote content fields existed.
               // This is the recovery path for the original browser's local copy.
               const remoteCustomById = new Map(
-                userCustomPapers.map((paper) => [paper.id, paper]),
+                userCustomPapers
+                  .filter((p) => !isEphemeralPracticePaper(p))
+                  .map((paper) => [paper.id, paper]),
               );
               const localMarkdownToSync = localCustom.filter((localPaper) => {
                 if (!localPaper.markdownContent) return false;
@@ -472,60 +478,62 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
               // Merge userCustomPapers from Supabase with localCustom so parsedQuestions, markdownContent, and instructions are preserved
               // NOTE: ucp (server source of truth) takes precedence for answer keys, explanations, and scoring rules so updates reflect immediately.
-              const mergedUserCustom = userCustomPapers.map((ucp) => {
-                const match = localCustom.find((lc) => lc.id === ucp.id);
-                const resolvedAnswerKey =
-                  Object.keys(ucp.answerKey || {}).length > 0
-                    ? ucp.answerKey
-                    : match?.answerKey || {};
-                const resolvedExplanations =
-                  Object.keys(ucp.explanations || {}).length > 0
-                    ? ucp.explanations
-                    : match?.explanations || {};
-                const rawCorrect = ucp.correctMarks ?? match?.correctMarks;
-                const resolvedCorrectMarks =
-                  rawCorrect !== undefined &&
-                  rawCorrect !== null &&
-                  !isNaN(Number(rawCorrect)) &&
-                  Number(rawCorrect) > 0
-                    ? Number(rawCorrect)
-                    : 2.0;
+              const mergedUserCustom = userCustomPapers
+                .filter((ucp) => !isEphemeralPracticePaper(ucp))
+                .map((ucp) => {
+                  const match = localCustom.find((lc) => lc.id === ucp.id);
+                  const resolvedAnswerKey =
+                    Object.keys(ucp.answerKey || {}).length > 0
+                      ? ucp.answerKey
+                      : match?.answerKey || {};
+                  const resolvedExplanations =
+                    Object.keys(ucp.explanations || {}).length > 0
+                      ? ucp.explanations
+                      : match?.explanations || {};
+                  const rawCorrect = ucp.correctMarks ?? match?.correctMarks;
+                  const resolvedCorrectMarks =
+                    rawCorrect !== undefined &&
+                    rawCorrect !== null &&
+                    !isNaN(Number(rawCorrect)) &&
+                    Number(rawCorrect) > 0
+                      ? Number(rawCorrect)
+                      : 2.0;
 
-                const rawIncorrect =
-                  ucp.incorrectMarks ?? match?.incorrectMarks;
-                const resolvedIncorrectMarks =
-                  rawIncorrect !== undefined &&
-                  rawIncorrect !== null &&
-                  !isNaN(Number(rawIncorrect))
-                    ? Number(rawIncorrect)
-                    : 0.667;
+                  const rawIncorrect =
+                    ucp.incorrectMarks ?? match?.incorrectMarks;
+                  const resolvedIncorrectMarks =
+                    rawIncorrect !== undefined &&
+                    rawIncorrect !== null &&
+                    !isNaN(Number(rawIncorrect))
+                      ? Number(rawIncorrect)
+                      : 0.667;
 
-                const mergedPaper: QuestionPaper = match
-                  ? {
-                      ...match,
-                      ...ucp,
-                      parsedQuestions:
-                        match.parsedQuestions &&
-                        match.parsedQuestions.length > 0
-                          ? match.parsedQuestions
-                          : ucp.parsedQuestions,
-                      markdownContent:
-                        match.markdownContent || ucp.markdownContent,
-                      instructions:
-                        match.instructions && match.instructions.length > 0
-                          ? match.instructions
-                          : ucp.instructions,
-                      answerKey: resolvedAnswerKey,
-                      explanations: resolvedExplanations,
-                      correctMarks: resolvedCorrectMarks,
-                      incorrectMarks: resolvedIncorrectMarks,
-                    }
-                  : ucp;
+                  const mergedPaper: QuestionPaper = match
+                    ? {
+                        ...match,
+                        ...ucp,
+                        parsedQuestions:
+                          match.parsedQuestions &&
+                          match.parsedQuestions.length > 0
+                            ? match.parsedQuestions
+                            : ucp.parsedQuestions,
+                        markdownContent:
+                          match.markdownContent || ucp.markdownContent,
+                        instructions:
+                          match.instructions && match.instructions.length > 0
+                            ? match.instructions
+                            : ucp.instructions,
+                        answerKey: resolvedAnswerKey,
+                        explanations: resolvedExplanations,
+                        correctMarks: resolvedCorrectMarks,
+                        incorrectMarks: resolvedIncorrectMarks,
+                      }
+                    : ucp;
 
-                // Keep local storage synchronized with fresh server data
-                saveCustomPaper(mergedPaper);
-                return mergedPaper;
-              });
+                  // Keep local storage synchronized with fresh server data
+                  saveCustomPaper(mergedPaper);
+                  return mergedPaper;
+                });
 
               // Also add any local custom papers not yet returned by Supabase
               for (const lc of localCustom) {
@@ -559,9 +567,10 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
                 return p;
               });
 
-              // Filter out papers hidden by this specific user
+              // Filter out papers hidden by this specific user or ephemeral practice/re-test sets
               const visiblePapers = enriched.filter(
                 (p) =>
+                  !isEphemeralPracticePaper(p) &&
                   !hidden.includes(p.id) &&
                   (!customOnly || isUserUploadedPaper(p)),
               );
@@ -624,6 +633,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
             setPapers(
               enriched.filter(
                 (p) =>
+                  !isEphemeralPracticePaper(p) &&
                   !hidden.includes(p.id) &&
                   (!customOnly || isUserUploadedPaper(p)),
               ),
@@ -709,11 +719,15 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     }
     startExamLockRef.current = true;
     setIsStartingExam(true);
-    // Ensure dynamically generated papers (e.g., targeted re-tests, topic practice)
-    // are immediately available in context memory on /exam even before storage sync.
-    setPapers((prev) =>
-      prev.some((p) => p.id === paper.id) ? prev : [paper, ...prev],
-    );
+    // Ephemeral practice sets (re-tests, syllabus topic practice) run in-session
+    // without being added to the persistent Question Papers repository.
+    if (isEphemeralPracticePaper(paper)) {
+      saveEphemeralPracticePaper(paper);
+    } else {
+      setPapers((prev) =>
+        prev.some((p) => p.id === paper.id) ? prev : [paper, ...prev],
+      );
+    }
     clearActiveDraft();
     setActiveDraft(null);
     if (currentUser) {
