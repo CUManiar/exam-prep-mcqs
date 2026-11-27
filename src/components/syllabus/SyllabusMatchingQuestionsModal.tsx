@@ -19,7 +19,7 @@ import { findQuestionsForSyllabusTopic } from "../../lib/syllabusQuestionIndex";
 import { inferPaperStream, PaperStream } from "../../lib/paperStream";
 import { cleanPreviousYears } from "../../lib/markdownPaperParser";
 import { useApp } from "../../context/AppContext";
-import { saveCustomPaper } from "../../lib/storage";
+import { saveEphemeralPracticePaper } from "../../lib/storage";
 import { HtmlExplanation } from "../HtmlExplanation";
 
 interface SyllabusMatchingQuestionsModalProps {
@@ -336,7 +336,7 @@ export function SyllabusMatchingQuestionsModal({
       isCustom: true,
     };
 
-    saveCustomPaper(topicPracticePaper);
+    saveEphemeralPracticePaper(topicPracticePaper);
     onClose();
     handleStartExam(topicPracticePaper, "practice");
   };

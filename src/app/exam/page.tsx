@@ -5,7 +5,11 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { useApp } from "../../context/AppContext";
 import { ExamSessionView } from "../../components/ExamSessionView";
 import { isPaperFree } from "../../lib/defaults";
-import { getActiveDraft, getCustomPapers } from "../../lib/storage";
+import {
+  getActiveDraft,
+  getCustomPapers,
+  getEphemeralPracticePaper,
+} from "../../lib/storage";
 import {
   parseQuestionnaireMarkdown,
   parseMarkdownHeader,
@@ -103,8 +107,9 @@ function ExamSessionContent() {
   const paper = useMemo(() => {
     let resolved = papers.find((p) => p.id === paperId);
     if (!resolved && paperId && mounted) {
-      const localCustom = getCustomPapers();
-      resolved = localCustom.find((p) => p.id === paperId);
+      resolved =
+        getEphemeralPracticePaper(paperId) ??
+        getCustomPapers().find((p) => p.id === paperId);
     }
     if (resolved && resolved.markdownContent) {
       const needsParsed =

@@ -18,6 +18,21 @@ export function isRetestPaper(paper?: QuestionPaper | null): boolean {
 }
 
 /**
+ * Ephemeral practice papers (mistake re-tests and syllabus topic practice)
+ * run in-session without being added to the persistent Question Papers repository.
+ */
+export function isEphemeralPracticePaper(
+  paper?: QuestionPaper | null,
+): boolean {
+  if (!paper) return false;
+  return (
+    isRetestPaper(paper) ||
+    paper.id.startsWith("topic-practice-") ||
+    paper.label.startsWith("[Topic]")
+  );
+}
+
+/**
  * Creates a focused virtual re-test paper containing only questions
  * where the candidate made mistakes (or skipped), re-indexed from 1 to N.
  */

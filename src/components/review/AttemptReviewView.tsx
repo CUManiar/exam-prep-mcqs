@@ -21,7 +21,7 @@ import { DetailedSolutionModal } from "../DetailedSolutionModal";
 import { BatchEvaluationModal } from "./BatchEvaluationModal";
 import { MistakeReTestModal } from "./MistakeReTestModal";
 import { createMistakeReTestPaper } from "../../lib/retestUtils";
-import { saveCustomPaper } from "../../lib/storage";
+import { saveEphemeralPracticePaper } from "../../lib/storage";
 import { useApp } from "../../context/AppContext";
 import {
   FilterTabType,
@@ -690,7 +690,7 @@ export function AttemptReviewView({
       matchedPaper,
       selectedQuestions,
     );
-    saveCustomPaper(retestPaper);
+    saveEphemeralPracticePaper(retestPaper);
     handleStartExam(retestPaper, mode);
   };
 

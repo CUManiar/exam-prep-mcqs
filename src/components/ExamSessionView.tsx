@@ -187,6 +187,39 @@ export function ExamSessionView({
   const [mobileTab, setMobileTab] = useState<"paper" | "split" | "questions">(
     "paper",
   );
+  const [splitPercent, setSplitPercent] = useState<number>(65);
+  const [isResizingSplit, setIsResizingSplit] = useState<boolean>(false);
+  const splitContainerRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!isResizingSplit) return;
+
+    const updateSplitFromClientX = (clientX: number) => {
+      const container = splitContainerRef.current;
+      if (!container) return;
+      const rect = container.getBoundingClientRect();
+      if (rect.width <= 0) return;
+      const rawPercent = ((clientX - rect.left) / rect.width) * 100;
+      const clamped = Math.min(78, Math.max(30, rawPercent));
+      setSplitPercent(Math.round(clamped * 10) / 10);
+    };
+
+    const handlePointerMove = (e: PointerEvent) => {
+      updateSplitFromClientX(e.clientX);
+    };
+    const handlePointerUp = () => {
+      setIsResizingSplit(false);
+    };
+
+    window.addEventListener("pointermove", handlePointerMove);
+    window.addEventListener("pointerup", handlePointerUp);
+    window.addEventListener("pointercancel", handlePointerUp);
+    return () => {
+      window.removeEventListener("pointermove", handlePointerMove);
+      window.removeEventListener("pointerup", handlePointerUp);
+      window.removeEventListener("pointercancel", handlePointerUp);
+    };
+  }, [isResizingSplit]);
   const [isMobilePaletteOpen, setIsMobilePaletteOpen] =
     useState<boolean>(false);
   const [isMobileScratchpadOpen, setIsMobileScratchpadOpen] =
@@ -1578,10 +1611,12 @@ export function ExamSessionView({
   const currentQuestionHasOptions =
     !isSubjective &&
     !currentQuestionIsCloze &&
-    Boolean(
-      currentQuestionData?.options &&
-      Object.keys(currentQuestionData.options).length > 0,
-    );
+    (currentQuestionData
+      ? Boolean(
+          currentQuestionData.options &&
+          Object.keys(currentQuestionData.options).length > 0,
+        )
+      : true);
   const currentQuestionExplanation =
     currentQuestion !== null
       ? effectivePaper.parsedQuestions?.find(
@@ -1827,6 +1862,12 @@ export function ExamSessionView({
 
       {/* Main Layout */}
       <div
+        ref={splitContainerRef}
+        style={
+          {
+            "--exam-split-cols": `minmax(0, ${splitPercent}fr) 6px minmax(20rem, ${100 - splitPercent}fr)`,
+          } as React.CSSProperties
+        }
         className={`exam-session-main ${!isMarkdownPaper && mobileTab === "split" ? "is-split" : ""}`}
         onTouchStart={handleTouchStart}
         onTouchEnd={handleTouchEnd}
@@ -2082,9 +2123,39 @@ export function ExamSessionView({
           )}
         </div>
 
+        {/* Desktop Draggable Split Divider */}
+        <div
+          role="separator"
+          aria-orientation="vertical"
+          aria-label="Resize paper and answer panels"
+          title="Drag to resize panels (double-click to reset)"
+          onPointerDown={(e) => {
+            e.preventDefault();
+            setIsResizingSplit(true);
+          }}
+          onDoubleClick={() => setSplitPercent(65)}
+          className={`hidden lg:flex items-center justify-center w-[6px] cursor-col-resize select-none transition-colors group ${
+            isResizingSplit
+              ? "bg-indigo-500"
+              : "bg-slate-200/80 hover:bg-indigo-400"
+          }`}
+        >
+          <div
+            className={`h-8 w-1 rounded-full transition-colors ${
+              isResizingSplit
+                ? "bg-white"
+                : "bg-slate-400/70 group-hover:bg-white"
+            }`}
+          />
+        </div>
+
+        {isResizingSplit && (
+          <div className="fixed inset-0 z-50 cursor-col-resize select-none" />
+        )}
+
         {/* Right Side: Question and answer workspace */}
         <div
-          className={`exam-question-pane w-full bg-slate-50/70 border-l border-slate-200 flex flex-col overflow-hidden ${
+          className={`exam-question-pane w-full bg-slate-50/70 flex flex-col overflow-hidden ${
             isMarkdownPaper
               ? "hidden lg:flex"
               : mobileTab === "questions"
@@ -3152,7 +3223,7 @@ export function ExamSessionView({
             {/* Inline OMR Bubble Sheet Strip OR Grid Palette (never both) */}
             {paletteViewMode === "omr" && !isSubjective ? (
               <div className="rounded-xl border border-slate-200 bg-white p-2.5">
-                <div className="grid grid-cols-[repeat(auto-fill,minmax(205px,1fr))] gap-2.5 max-h-[520px] overflow-y-auto pr-1">
+                <div className="grid grid-cols-[repeat(auto-fill,minmax(215px,1fr))] gap-2.5 max-h-[520px] overflow-y-auto pr-1">
                   {Array.from(
                     { length: Math.ceil(filteredQuestionNumbers.length / 10) },
                     (_, colIdx) =>
@@ -3171,10 +3242,36 @@ export function ExamSessionView({
                         const isCur = currentQuestion === qNo;
                         const isFlag = Boolean(q?.flagged);
                         const isQCloze = isClozeQuestion(qNo);
+                        const confMeta =
+                          q?.confidence === "sure"
+                            ? {
+                                icon: "🎯",
+                                label: "Sure",
+                                bubbleClass: "bg-emerald-600 text-white",
+                              }
+                            : q?.confidence === "50-50"
+                              ? {
+                                  icon: "⚖️",
+                                  label: "50:50",
+                                  bubbleClass: "bg-amber-500 text-white",
+                                }
+                              : q?.confidence === "elimination"
+                                ? {
+                                    icon: "✂️",
+                                    label: "Elimination",
+                                    bubbleClass: "bg-sky-600 text-white",
+                                  }
+                                : q?.confidence === "guess"
+                                  ? {
+                                      icon: "🎲",
+                                      label: "Guess",
+                                      bubbleClass: "bg-purple-600 text-white",
+                                    }
+                                  : null;
                         return (
                           <div
                             key={qNo}
-                            className={`flex items-center justify-between gap-2 rounded-md px-2 py-1 transition-colors ${
+                            className={`flex items-center justify-between gap-1.5 rounded-md px-2 py-1 transition-colors ${
                               isCur
                                 ? "bg-blue-50 ring-1 ring-blue-200 font-bold"
                                 : "hover:bg-white"
@@ -3184,7 +3281,7 @@ export function ExamSessionView({
                               <button
                                 type="button"
                                 onClick={() => navigateToQuestion(qNo)}
-                                className={`font-mono text-xs min-w-[2.2rem] text-left ${
+                                className={`font-mono text-xs text-left ${
                                   isCur
                                     ? "text-blue-700 font-black"
                                     : "text-slate-700 hover:text-blue-600 font-semibold"
@@ -3192,8 +3289,19 @@ export function ExamSessionView({
                               >
                                 Q{qNo}
                               </button>
+                              {confMeta && (
+                                <span
+                                  className="text-[11px] leading-none shrink-0"
+                                  title={`Certainty: ${confMeta.label}`}
+                                >
+                                  {confMeta.icon}
+                                </span>
+                              )}
                               {isFlag && (
-                                <Flag className="h-3 w-3 text-amber-500 fill-amber-500 shrink-0" />
+                                <Flag
+                                  className="h-3 w-3 text-amber-500 fill-amber-500 shrink-0"
+                                  aria-label="Flagged"
+                                />
                               )}
                             </div>
                             {isQCloze ? (
@@ -3221,7 +3329,7 @@ export function ExamSessionView({
                                       }
                                       className={`flex h-7 w-7 items-center justify-center rounded-full text-xs font-bold transition-all ${
                                         isMarked
-                                          ? "bg-slate-950 text-white shadow-inner scale-105"
+                                          ? `${confMeta ? confMeta.bubbleClass : "bg-slate-950 text-white"} shadow-inner scale-105`
                                           : "border border-slate-300 bg-white text-slate-700 hover:border-slate-500 hover:bg-slate-100"
                                       }`}
                                     >
