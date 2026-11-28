@@ -1,3 +1,5 @@
+import fs from "node:fs";
+import path from "node:path";
 import { NextRequest, NextResponse } from "next/server";
 
 function isAllowedSource(source: URL, request: NextRequest): boolean {
@@ -47,14 +49,47 @@ export async function GET(request: NextRequest) {
       );
     }
 
+    // Serve local static PDFs directly from public/ to avoid self-fetch/redirect issues
+    const isLocalOrigin =
+      source.origin === request.nextUrl.origin || sourceParam.startsWith("/");
+    if (isLocalOrigin && source.pathname.startsWith("/data/")) {
+      const publicDataDir = path.resolve(process.cwd(), "public", "data");
+      const relPath = decodeURIComponent(
+        source.pathname.replace(/^\/data\//, ""),
+      );
+      const localPath = path.resolve(publicDataDir, relPath);
+      if (
+        localPath.startsWith(publicDataDir + path.sep) &&
+        fs.existsSync(localPath) &&
+        fs.statSync(localPath).isFile()
+      ) {
+        const buffer = fs.readFileSync(localPath);
+        return new NextResponse(buffer, {
+          headers: {
+            "Content-Type": "application/pdf",
+            "Content-Disposition": `inline; filename="${filename}"; filename*=UTF-8''${encodeURIComponent(filename)}`,
+            "Cache-Control": "private, no-store",
+          },
+        });
+      }
+      return NextResponse.json(
+        { ok: false, error: "Question paper file not found." },
+        { status: 404 },
+      );
+    }
+
     const upstream = await fetch(source, {
       cache: "no-store",
-      redirect: "error",
+      redirect: "follow",
     });
     if (!upstream.ok) {
-      return new NextResponse("Question paper unavailable", {
-        status: upstream.status,
-      });
+      return NextResponse.json(
+        {
+          ok: false,
+          error: `Question paper unavailable (${upstream.status})`,
+        },
+        { status: upstream.status },
+      );
     }
 
     const contentType =
