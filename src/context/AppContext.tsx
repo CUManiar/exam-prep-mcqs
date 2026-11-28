@@ -49,6 +49,7 @@ import {
   saveGuestReviewAttempt,
   clearPapersCache,
   setActiveStorageUserId,
+  getDeletedAttemptIds,
 } from "../lib/storage";
 import { isEphemeralPracticePaper } from "../lib/retestUtils";
 import {
@@ -399,7 +400,17 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
                 fetchUserCustomPapersFromSupabase(user.id),
                 getUserProfile(user.id),
               ]);
-              setAttempts(userAttempts);
+              const deletedIds = getDeletedAttemptIds(user.id);
+              const filteredAttempts = userAttempts.filter(
+                (a) => !deletedIds.has(a.id),
+              );
+              setAttempts(filteredAttempts);
+              // Retry cloud deletion for any tombstoned attempts still present on server
+              userAttempts
+                .filter((a) => deletedIds.has(a.id))
+                .forEach((a) => {
+                  void deleteUserAttemptFromSupabase(a.id, user.id);
+                });
 
               // Intelligently merge Supabase draft with local draft:
               // Never wipe out active in-progress local exam work if Supabase is stale or null
@@ -601,8 +612,15 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
           // Guest / Anonymous User: Isolated local browser storage only
           setUserPro(false);
           setIsPro(false);
-          const cachedAttempts = getAttempts();
-          const guestReviewAttempt = getGuestReviewAttempt();
+          const guestDeletedIds = getDeletedAttemptIds(null);
+          const cachedAttempts = getAttempts().filter(
+            (a) => !guestDeletedIds.has(a.id),
+          );
+          const rawGuestReview = getGuestReviewAttempt();
+          const guestReviewAttempt =
+            rawGuestReview && !guestDeletedIds.has(rawGuestReview.id)
+              ? rawGuestReview
+              : null;
           setAttempts(
             guestReviewAttempt
               ? [
@@ -863,13 +881,13 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       confirmText: "Delete Attempt",
       cancelText: "Cancel",
       variant: "danger",
-      onConfirm: () => {
+      onConfirm: async () => {
         setModalConfig((prev) => ({ ...prev, isOpen: false }));
-        deleteAttempt(attemptId);
+        deleteAttempt(attemptId, currentUser?.id);
+        setAttempts((prev) => prev.filter((a) => a.id !== attemptId));
         if (currentUser) {
-          deleteUserAttemptFromSupabase(attemptId, currentUser.id);
+          await deleteUserAttemptFromSupabase(attemptId, currentUser.id);
         }
-        setAttempts(getAttempts());
         router.push("/history");
       },
     });

@@ -26,7 +26,38 @@ const STORAGE_KEYS = {
   ONLY_CUSTOM_PAPERS: "exam_prep_only_custom_papers_v1",
   CUSTOM_SYLLABUS: "exam_prep_custom_syllabus_v1",
   CUSTOM_SYLLABUS_MARKDOWN: "exam_prep_custom_syllabus_markdown_v1",
+  DELETED_ATTEMPTS: "exam_prep_deleted_attempts_v1",
 };
+
+export function getDeletedAttemptIds(userId?: string | null): Set<string> {
+  if (typeof window === "undefined") return new Set();
+  try {
+    const effective = userId !== undefined ? userId : activeStorageUserId;
+    const raw = localStorage.getItem(
+      `${STORAGE_KEYS.DELETED_ATTEMPTS}_${effective || "guest"}`,
+    );
+    const parsed = raw ? JSON.parse(raw) : [];
+    return new Set(Array.isArray(parsed) ? parsed : []);
+  } catch {
+    return new Set();
+  }
+}
+
+export function recordDeletedAttemptId(
+  attemptId: string,
+  userId?: string | null,
+): void {
+  if (typeof window === "undefined" || !attemptId) return;
+  try {
+    const effective = userId !== undefined ? userId : activeStorageUserId;
+    const set = getDeletedAttemptIds(effective);
+    set.add(attemptId);
+    localStorage.setItem(
+      `${STORAGE_KEYS.DELETED_ATTEMPTS}_${effective || "guest"}`,
+      JSON.stringify(Array.from(set).slice(-200)),
+    );
+  } catch {}
+}
 
 export function getOnlyCustomPapers(userId?: string): boolean {
   if (typeof window === "undefined") return false;
@@ -290,11 +321,17 @@ export function updateAttempt(
 }
 
 // Delete attempt
-export function deleteAttempt(attemptId: string): void {
+export function deleteAttempt(attemptId: string, userId?: string | null): void {
   if (typeof window === "undefined") return;
   try {
+    recordDeletedAttemptId(attemptId, userId);
     const list = getAttempts().filter((a) => a.id !== attemptId);
     localStorage.setItem(STORAGE_KEYS.ATTEMPTS, JSON.stringify(list));
+
+    const guestReview = getGuestReviewAttempt();
+    if (guestReview?.id === attemptId) {
+      localStorage.removeItem(STORAGE_KEYS.GUEST_REVIEW_ATTEMPT);
+    }
 
     // Server-side delete
     getAuthHeaders()

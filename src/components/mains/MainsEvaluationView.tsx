@@ -249,10 +249,13 @@ export function MainsEvaluationView() {
       fetchUserMainsSessionsFromSupabase(currentUser.id)
         .then((dbSessions) => {
           if (!isMounted) return;
+          const deletedMainsIds = getDeletedMainsSessionIds();
           const normalizedDb = migrateMainsSessionsToSingleQuestionBooklet(
             dbSessions || [],
           )
-            .filter((s) => !isEmptyDraftSession(s))
+            .filter(
+              (s) => !deletedMainsIds.has(s.id) && !isEmptyDraftSession(s),
+            )
             .sort(
               (a, b) =>
                 new Date(b.updatedAt || 0).getTime() -
