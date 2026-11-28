@@ -342,7 +342,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       setIsPro(false);
       setActiveStorageUserId(null);
       clearPapersCache();
-      await loadAllData();
+      await loadAllData({ forceLoading: true });
       router.replace("/");
     }
   };
@@ -777,6 +777,9 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
   // Resume paused exam draft
   const handleResumeDraft = (draft: ActiveSessionDraft) => {
+    if (startExamLockRef.current) return;
+    startExamLockRef.current = true;
+    setIsStartingExam(true);
     const resumedDraft = { ...draft, isExited: false };
     saveActiveDraft(resumedDraft);
     setActiveDraft(resumedDraft);
@@ -786,6 +789,12 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     router.push(
       `/exam?paperId=${encodeURIComponent(draft.paperId)}&mode=${draft.mode}`,
     );
+    window.setTimeout(() => {
+      if (startExamLockRef.current) {
+        startExamLockRef.current = false;
+        setIsStartingExam(false);
+      }
+    }, 15000);
   };
 
   // Discard draft with confirmation
@@ -838,11 +847,13 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     });
 
     // Direct seamless transition to assessment review for both guest and authenticated users
+    window.dispatchEvent(new Event("app-navigation-start"));
     router.push(`/history/${encodeURIComponent(attempt.id)}`);
   };
 
   // View detail
   const handleViewAttemptDetail = (attempt: Attempt) => {
+    window.dispatchEvent(new Event("app-navigation-start"));
     router.push(`/history/${encodeURIComponent(attempt.id)}`);
   };
 

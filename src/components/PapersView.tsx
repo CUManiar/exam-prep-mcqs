@@ -1215,7 +1215,7 @@ export function PapersView({
       </div>
 
       {/* Papers Grid */}
-      {isLoading && papers.length === 0 ? (
+      {isLoading ? (
         <div className="bi-card rounded-2xl p-16 text-center border border-slate-200 bg-white space-y-4 shadow-sm animate-in fade-in duration-200">
           <div className="h-10 w-10 border-3 border-indigo-200 border-t-indigo-600 rounded-full animate-spin mx-auto" />
           <div className="space-y-1">
