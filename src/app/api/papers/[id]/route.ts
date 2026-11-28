@@ -34,6 +34,10 @@ export async function DELETE(
 
     const { id } = await params;
     const cleanId = id.toLowerCase();
+    const isAdmin = user.user_metadata?.role === "admin";
+    const isInitial = INITIAL_PAPERS.some(
+      (p) => p.id.toLowerCase() === cleanId,
+    );
     const customMeta = await readJsonStore<Record<string, any>>(
       "papers.json",
       {},
@@ -42,9 +46,13 @@ export async function DELETE(
       customMeta[cleanId] ||
       customMeta[id] ||
       (await getOwnedCustomPaperFromSupabase(cleanId, user.id));
-    if (!targetPaper?.userId || targetPaper.userId !== user.id) {
+    if (!isAdmin && (!targetPaper?.userId || targetPaper.userId !== user.id)) {
       return NextResponse.json(
-        { ok: false, error: "You do not own this question paper." },
+        {
+          ok: false,
+          error:
+            "You don't have permission to delete this question paper. Only the owner or an admin can delete it.",
+        },
         { status: 403 },
       );
     }
@@ -122,10 +130,7 @@ export async function DELETE(
       delete customMeta[id];
     }
 
-    // Check if it's an initial UPSC built-in paper
-    const isInitial = INITIAL_PAPERS.some(
-      (p) => p.id.toLowerCase() === cleanId,
-    );
+    // Mark built-in paper tombstone if it's an initial UPSC paper
     if (isInitial) {
       // Built-in paper tombstone so it stays hidden
       customMeta[`__deleted_${cleanId}`] = {
@@ -182,18 +187,36 @@ export async function PATCH(
 
     const { id } = await params;
     const cleanId = id.toLowerCase();
+    const isAdmin = user.user_metadata?.role === "admin";
     const body = await req.json();
     const customMeta = await readJsonStore<Record<string, any>>(
       "papers.json",
       {},
     );
+    const initialPaper = INITIAL_PAPERS.find(
+      (p) => p.id.toLowerCase() === cleanId,
+    );
     const current =
       customMeta[cleanId] ||
+      customMeta[id] ||
       (await getOwnedCustomPaperFromSupabase(cleanId, user.id));
-    if (!current?.userId || current.userId !== user.id) {
+
+    if (!isAdmin && (!current?.userId || current.userId !== user.id)) {
       return NextResponse.json(
-        { ok: false, error: "You do not own this question paper." },
+        {
+          ok: false,
+          error:
+            "You don't have permission to edit this question paper. Only the owner or an admin can modify it.",
+        },
         { status: 403 },
+      );
+    }
+
+    const basePaper = current || initialPaper;
+    if (!basePaper) {
+      return NextResponse.json(
+        { ok: false, error: "Question paper not found." },
+        { status: 404 },
       );
     }
 
@@ -216,10 +239,10 @@ export async function PATCH(
     }
 
     const updated = {
-      ...current,
+      ...basePaper,
       ...body,
       id: cleanId,
-      userId: current.userId,
+      userId: basePaper.userId,
       updatedAt: new Date().toISOString(),
     };
 

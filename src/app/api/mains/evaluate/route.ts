@@ -4,8 +4,15 @@ import {
   MainsEvaluationResult,
 } from "@/lib/mainsEvaluation";
 import { RevisionProviderConfig } from "@/lib/types";
+import {
+  callGeminiMultimodal,
+  callOpenAIMultimodal,
+  callAnthropicMultimodal,
+  callGroqMultimodal,
+} from "@/lib/aiProviders";
 
 export const runtime = "nodejs";
+export const maxDuration = 120;
 
 function cleanJsonString(str: string): string {
   return str
@@ -206,152 +213,20 @@ function parseJsonFromText(raw: string): any {
   return null;
 }
 
-/** Dynamically discover active models from a Gemini key */
-async function discoverGeminiModels(apiKey: string): Promise<string[]> {
-  try {
-    const listRes = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models?key=${apiKey}`,
-      { signal: AbortSignal.timeout(8000) },
-    );
-    if (listRes.ok) {
-      const data = await listRes.json();
-      const models = (data.models || [])
-        .filter((m: any) =>
-          m.supportedGenerationMethods?.includes("generateContent"),
-        )
-        .map((m: any) => m.name.replace(/^models\//, "") as string)
-        .filter(
-          (name: string) =>
-            !name.includes("embedding") &&
-            !name.includes("aqa") &&
-            !name.includes("imagen") &&
-            !name.includes("learnlm") &&
-            !name.includes("tts") &&
-            !name.includes("realtime") &&
-            !name.includes("preview-image") &&
-            !name.includes("preview-tts") &&
-            !name.includes("2.5-flash-preview"),
-        );
-
-      models.sort((a, b) => {
-        const score = (id: string) => {
-          let s = 0;
-          if (id === "gemini-2.5-flash") s += 140;
-          if (id === "gemini-2.0-flash") s += 130;
-          if (id === "gemini-2.5-flash-lite") s += 120;
-          if (id === "gemini-1.5-flash") s += 100;
-          if (id.includes("flash")) s += 80;
-          if (id.includes("2.5-flash")) s += 30;
-          if (id.includes("2.0-flash")) s += 20;
-          if (id.includes("pro")) s += 15;
-          if (id.includes("preview") || id.includes("exp")) s -= 40;
-          return s;
-        };
-        return score(b) - score(a);
-      });
-
-      if (models.length > 0) return models;
-    }
-  } catch (e: any) {
-    console.warn("Gemini model discovery failed:", e?.message);
-  }
-  return ["gemini-2.5-flash", "gemini-2.5-pro", "gemini-2.0-flash"];
-}
-
 /** Execute with Google Gemini */
 async function callGeminiEvaluation(
   apiKey: string,
   prompt: string,
   images: Array<{ mimeType: string; data: string }> = [],
 ): Promise<string> {
-  const discovered = await discoverGeminiModels(apiKey);
-  const models =
-    discovered.length > 0
-      ? discovered.slice(0, 6)
-      : ["gemini-2.5-flash", "gemini-2.0-flash", "gemini-2.5-pro"];
-  let lastError = "";
-
-  const preparedParts: any[] = [{ text: prompt }];
-  for (const img of images) {
-    let mime = (img.mimeType || "image/jpeg").toLowerCase().trim();
-    if (mime === "image/jpg") mime = "image/jpeg";
-    const cleanData = img.data
-      .replace(/^data:[^;]+;base64,/, "")
-      .replace(/\s+/g, "");
-    preparedParts.push({
-      inlineData: {
-        mimeType: mime,
-        data: cleanData,
-      },
-    });
-  }
-
-  for (const rawModel of models) {
-    const cleanModel = rawModel.replace(/^models\//, "");
-    const url = `https://generativelanguage.googleapis.com/v1beta/models/${cleanModel}:generateContent?key=${apiKey}`;
-
-    try {
-      const res = await fetch(url, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          contents: [{ role: "user", parts: preparedParts }],
-          generationConfig: {
-            temperature: 0.3,
-            maxOutputTokens: 4000,
-            responseMimeType: "application/json",
-          },
-        }),
-        signal: AbortSignal.timeout(50000),
-      });
-
-      if (res.ok) {
-        const data = await res.json();
-        const parts = data.candidates?.[0]?.content?.parts || [];
-        const text = parts
-          .map((p: any) => p.text || "")
-          .join("")
-          .trim();
-        if (text) return text;
-      } else {
-        const errJson = await res.json().catch(() => ({}));
-        lastError = errJson.error?.message || `HTTP ${res.status}`;
-        // If responseMimeType is rejected with 400 Bad Request, retry without it
-        if (
-          res.status === 400 &&
-          lastError.toLowerCase().includes("responsemimetype")
-        ) {
-          const retryRes = await fetch(url, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              contents: [{ role: "user", parts: preparedParts }],
-              generationConfig: {
-                temperature: 0.3,
-                maxOutputTokens: 4000,
-              },
-            }),
-            signal: AbortSignal.timeout(50000),
-          });
-          if (retryRes.ok) {
-            const retryData = await retryRes.json();
-            const retryParts = retryData.candidates?.[0]?.content?.parts || [];
-            const retryText = retryParts
-              .map((p: any) => p.text || "")
-              .join("")
-              .trim();
-            if (retryText) return retryText;
-          }
-        }
-      }
-    } catch (e: any) {
-      lastError = e?.message || "Gemini connection error";
-    }
-  }
-
-  throw new Error(
-    `Google Gemini evaluation failed across models (${models.slice(0, 3).join(", ")}): ${lastError}`,
-  );
+  return callGeminiMultimodal({
+    apiKey,
+    prompt,
+    attachments: images,
+    temperature: 0.3,
+    maxOutputTokens: 4000,
+    timeoutMs: 60000,
+  });
 }
 
 /** Execute with OpenAI */
@@ -360,59 +235,14 @@ async function callOpenAIEvaluation(
   prompt: string,
   images: Array<{ mimeType: string; data: string }> = [],
 ): Promise<string> {
-  const models = ["gpt-4o-mini", "gpt-4o"];
-  let lastError = "";
-
-  const content: any[] = [{ type: "text", text: prompt }];
-  for (const img of images) {
-    let mime = (img.mimeType || "image/jpeg").toLowerCase().trim();
-    if (mime === "image/jpg") mime = "image/jpeg";
-    if (mime === "application/pdf") continue; // OpenAI chat completions does not accept raw PDF in image_url
-
-    const cleanData = img.data
-      .replace(/^data:[^;]+;base64,/, "")
-      .replace(/\s+/g, "");
-    content.push({
-      type: "image_url",
-      image_url: {
-        url: `data:${mime};base64,${cleanData}`,
-        detail: "high",
-      },
-    });
-  }
-
-  for (const model of models) {
-    try {
-      const res = await fetch("https://api.openai.com/v1/chat/completions", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${apiKey}`,
-        },
-        body: JSON.stringify({
-          model,
-          messages: [{ role: "user", content }],
-          temperature: 0.3,
-          max_tokens: 4000,
-          response_format: { type: "json_object" },
-        }),
-        signal: AbortSignal.timeout(55000),
-      });
-
-      if (res.ok) {
-        const data = await res.json();
-        const text = data.choices?.[0]?.message?.content || "";
-        if (text) return text;
-      } else {
-        const errJson = await res.json().catch(() => ({}));
-        lastError = errJson.error?.message || `HTTP ${res.status}`;
-      }
-    } catch (e: any) {
-      lastError = e?.message || "OpenAI connection error";
-    }
-  }
-
-  throw new Error(lastError || "OpenAI evaluation failed");
+  return callOpenAIMultimodal({
+    apiKey,
+    prompt,
+    attachments: images,
+    temperature: 0.3,
+    maxTokens: 4000,
+    timeoutMs: 60000,
+  });
 }
 
 /** Execute with Anthropic */
@@ -421,71 +251,16 @@ async function callAnthropicEvaluation(
   prompt: string,
   images: Array<{ mimeType: string; data: string }> = [],
 ): Promise<string> {
-  const models = [
-    "claude-sonnet-4-5-20250929",
-    "claude-haiku-4-5-20251001",
-    "claude-3-7-sonnet-latest",
-  ];
-  let lastError = "";
-
-  const content: any[] = [];
-  for (const img of images) {
-    const base64Clean = img.data.replace(/^data:[^;]+;base64,/, "");
-    const mime = img.mimeType || "image/jpeg";
-    if (mime === "application/pdf") {
-      content.push({
-        type: "document",
-        source: {
-          type: "base64",
-          media_type: "application/pdf",
-          data: base64Clean,
-        },
-      });
-    } else {
-      content.push({
-        type: "image",
-        source: {
-          type: "base64",
-          media_type: mime,
-          data: base64Clean,
-        },
-      });
-    }
-  }
-  content.push({ type: "text", text: prompt });
-
-  for (const model of models) {
-    try {
-      const res = await fetch("https://api.anthropic.com/v1/messages", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "x-api-key": apiKey,
-          "anthropic-version": "2023-06-01",
-        },
-        body: JSON.stringify({
-          model,
-          messages: [{ role: "user", content }],
-          max_tokens: 4000,
-          temperature: 0.3,
-        }),
-        signal: AbortSignal.timeout(45000),
-      });
-
-      if (res.ok) {
-        const data = await res.json();
-        const text = data.content?.[0]?.text || "";
-        if (text) return text;
-      } else {
-        const errJson = await res.json().catch(() => ({}));
-        lastError = errJson.error?.message || `HTTP ${res.status}`;
-      }
-    } catch (e: any) {
-      lastError = e?.message || "Anthropic connection error";
-    }
-  }
-
-  throw new Error(lastError || "Anthropic evaluation failed");
+  return callAnthropicMultimodal({
+    apiKey,
+    prompt,
+    attachments: images,
+    systemPrompt:
+      "You are a senior UPSC CSE Mains examiner. Output ONLY valid JSON according to the schema requested.",
+    temperature: 0.3,
+    maxTokens: 4000,
+    timeoutMs: 60000,
+  });
 }
 
 /** Execute with Groq */
@@ -495,82 +270,31 @@ async function callGroqEvaluation(
   images: Array<{ mimeType: string; data: string }> = [],
   answerText: string = "",
 ): Promise<string> {
-  const isVision = images.length > 0;
-
-  let visionContent: any[] = [{ type: "text", text: prompt }];
-  if (isVision) {
-    for (const img of images) {
-      let mime = (img.mimeType || "image/jpeg").toLowerCase().trim();
-      if (mime === "image/jpg") mime = "image/jpeg";
-      if (mime === "application/pdf") continue;
-      const cleanData = img.data
-        .replace(/^data:[^;]+;base64,/, "")
-        .replace(/\s+/g, "");
-      visionContent.push({
-        type: "image_url",
-        image_url: {
-          url: `data:${mime};base64,${cleanData}`,
-        },
+  const nonPdfImages = images.filter(
+    (img) => (img.mimeType || "").toLowerCase().trim() !== "application/pdf",
+  );
+  try {
+    return await callGroqMultimodal({
+      apiKey,
+      prompt,
+      attachments: nonPdfImages,
+      temperature: 0.3,
+      maxTokens: 3500,
+      timeoutMs: 50000,
+    });
+  } catch (err) {
+    if (nonPdfImages.length > 0 && answerText.trim()) {
+      return callGroqMultimodal({
+        apiKey,
+        prompt,
+        attachments: [],
+        temperature: 0.3,
+        maxTokens: 3500,
+        timeoutMs: 50000,
       });
     }
+    throw err;
   }
-
-  // Use vision models if images are attached; fallback to versatile text model
-  const models = isVision
-    ? [
-        "meta-llama/llama-4-scout-17b-16e-instruct",
-        "meta-llama/llama-4-maverick-17b-128e-instruct",
-      ]
-    : ["llama-3.3-70b-versatile", "llama-3.1-8b-instant"];
-  let lastError = "";
-
-  for (const model of models) {
-    try {
-      const payload: any = {
-        model,
-        messages: [
-          {
-            role: "user",
-            content: isVision ? visionContent : prompt,
-          },
-        ],
-        temperature: 0.3,
-        max_tokens: 3500,
-        response_format: { type: "json_object" },
-      };
-
-      const res = await fetch(
-        "https://api.groq.com/openai/v1/chat/completions",
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${apiKey}`,
-          },
-          body: JSON.stringify(payload),
-          signal: AbortSignal.timeout(50000),
-        },
-      );
-
-      if (res.ok) {
-        const data = await res.json();
-        const text = data.choices?.[0]?.message?.content || "";
-        if (text) return text;
-      } else {
-        const errJson = await res.json().catch(() => ({}));
-        lastError = errJson.error?.message || `HTTP ${res.status}`;
-      }
-    } catch (e: any) {
-      lastError = e?.message || "Groq connection error";
-    }
-  }
-
-  // If Groq vision model failed or quota exceeded and candidate has typed text, fallback to text-based evaluation
-  if (isVision && answerText.trim()) {
-    return callGroqEvaluation(apiKey, prompt, [], answerText);
-  }
-
-  throw new Error(lastError || "Groq evaluation failed");
 }
 
 /** Fallback Live Tier (Pollinations) */

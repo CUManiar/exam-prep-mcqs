@@ -27,6 +27,7 @@ import {
   getAttemptPercentage,
   getPaperCutoffStatus,
   isOfficialMockAttempt,
+  isRetestAttempt,
 } from "../lib/defaults";
 import { Attempt } from "../lib/types";
 import { LongitudinalTrendChart } from "./history/LongitudinalTrendChart";
@@ -51,6 +52,9 @@ export function HistoryView({
   >("all");
   const [customDate, setCustomDate] = useState("");
   const [viewMode, setViewMode] = useState<"all" | "cumulative">("all");
+  const [paperTypeFilter, setPaperTypeFilter] = useState<
+    "objective" | "subjective"
+  >("objective");
   const [performanceViewMode, setPerformanceViewMode] = useState<
     "grid" | "list"
   >("grid");
@@ -71,6 +75,12 @@ export function HistoryView({
           setViewMode(saved.viewMode);
         }
         if (
+          saved.paperTypeFilter === "objective" ||
+          saved.paperTypeFilter === "subjective"
+        ) {
+          setPaperTypeFilter(saved.paperTypeFilter);
+        }
+        if (
           saved.performanceViewMode === "grid" ||
           saved.performanceViewMode === "list"
         ) {
@@ -89,19 +99,45 @@ export function HistoryView({
         JSON.stringify({
           search,
           viewMode,
+          paperTypeFilter,
           performanceViewMode,
         }),
       );
     } catch {}
-  }, [mounted, search, viewMode, performanceViewMode]);
+  }, [mounted, search, viewMode, paperTypeFilter, performanceViewMode]);
 
-  // Only completed, non-abandoned, non-retest mock attempts count in official history
-  const allMockAttempts = useMemo(() => {
-    const paperMap = new Map(papers.map((p) => [p.id, p]));
-    return attempts.filter((a) =>
-      isOfficialMockAttempt(a, paperMap.get(a.paperId)),
+  const paperMap = useMemo(
+    () => new Map(papers.map((p) => [p.id, p])),
+    [papers],
+  );
+
+  const isSubjectiveAttempt = (attempt: Attempt) =>
+    attempt.examType === "subjective" ||
+    attempt.category === "mains" ||
+    paperMap.get(attempt.paperId)?.examType === "subjective";
+
+  const objectiveAttemptsAll = useMemo(() => {
+    return attempts.filter(
+      (a) =>
+        !isSubjectiveAttempt(a) &&
+        isOfficialMockAttempt(a, paperMap.get(a.paperId)),
     );
-  }, [attempts, papers]);
+  }, [attempts, paperMap]);
+
+  const subjectiveAttemptsAll = useMemo(() => {
+    return attempts.filter(
+      (a) =>
+        isSubjectiveAttempt(a) &&
+        Boolean(a.finishedAt) &&
+        !isRetestAttempt(a, paperMap.get(a.paperId)),
+    );
+  }, [attempts, paperMap]);
+
+  // Bifurcated pool: Objective vs Subjective (mutually exclusive)
+  const allMockAttempts =
+    paperTypeFilter === "objective"
+      ? objectiveAttemptsAll
+      : subjectiveAttemptsAll;
 
   const mockAttempts = useMemo(() => {
     if (dateFilter === "all") return allMockAttempts;
@@ -263,18 +299,63 @@ export function HistoryView({
       <div className="page-heading">
         <div>
           <p className="page-eyebrow">
-            Assessment record · {totalMocks}{" "}
-            {totalMocks === 1 ? "mock" : "mocks"}
+            {paperTypeFilter === "objective"
+              ? `Objective (Prelims) · ${totalMocks} ${totalMocks === 1 ? "mock" : "mocks"}`
+              : `Subjective (Mains) · ${totalMocks} ${totalMocks === 1 ? "paper" : "papers"}`}
           </p>
           <h1 className="page-title">Performance</h1>
           <p className="page-description">
-            Review individual results and compare your progress across repeated
-            attempts.
+            {paperTypeFilter === "objective"
+              ? "Review objective Prelims results and compare your progress across repeated attempts."
+              : "Review subjective Mains answer evaluations, AI examiner feedback, and score trends."}
           </p>
         </div>
 
-        {/* View Mode Toggle & Search */}
-        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2.5 w-full sm:w-auto">
+        {/* View Mode Toggle & Paper Type Bifurcation */}
+        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2.5 w-full sm:w-auto flex-wrap">
+          {/* Objective vs Subjective Bifurcation */}
+          <div
+            role="tablist"
+            aria-label="Paper type filter"
+            className="grid grid-cols-2 sm:inline-flex items-center gap-1 bg-slate-100 p-1 rounded-xl border border-slate-200/80 text-xs font-medium shrink-0"
+          >
+            <button
+              type="button"
+              role="tab"
+              aria-selected={paperTypeFilter === "objective"}
+              onClick={() => setPaperTypeFilter("objective")}
+              className={`cursor-pointer inline-flex items-center justify-center gap-1.5 rounded-lg px-2.5 py-1.5 whitespace-nowrap transition-colors ${
+                paperTypeFilter === "objective"
+                  ? "bg-white text-indigo-700 shadow-xs font-semibold"
+                  : "text-slate-600 hover:text-slate-900"
+              }`}
+            >
+              <span>Objective</span>
+              <span
+                className={`text-[11px] font-mono px-1.5 py-0.2 rounded-full ${paperTypeFilter === "objective" ? "bg-indigo-50 text-indigo-700" : "bg-slate-200/70 text-slate-600"}`}
+              >
+                {objectiveAttemptsAll.length}
+              </span>
+            </button>
+            <button
+              type="button"
+              role="tab"
+              aria-selected={paperTypeFilter === "subjective"}
+              onClick={() => setPaperTypeFilter("subjective")}
+              className={`cursor-pointer inline-flex items-center justify-center gap-1.5 rounded-lg px-2.5 py-1.5 whitespace-nowrap transition-colors ${
+                paperTypeFilter === "subjective"
+                  ? "bg-white text-indigo-700 shadow-xs font-semibold"
+                  : "text-slate-600 hover:text-slate-900"
+              }`}
+            >
+              <span>Subjective</span>
+              <span
+                className={`text-[11px] font-mono px-1.5 py-0.2 rounded-full ${paperTypeFilter === "subjective" ? "bg-indigo-50 text-indigo-700" : "bg-slate-200/70 text-slate-600"}`}
+              >
+                {subjectiveAttemptsAll.length}
+              </span>
+            </button>
+          </div>
           {/* Segmented Control with inline whitespace-nowrap counts */}
           <div className="grid grid-cols-2 sm:inline-flex items-center gap-1 bg-slate-100 p-1 rounded-xl border border-slate-200/80 text-xs font-medium shrink-0">
             <button
@@ -446,10 +527,12 @@ export function HistoryView({
             </div>
             <div className="min-w-0">
               <span className="text-[10px] sm:text-[11px] font-medium text-slate-400 block truncate">
-                Accuracy
+                {paperTypeFilter === "subjective" ? "Evaluated" : "Accuracy"}
               </span>
               <div className="text-base sm:text-xl font-bold text-teal-700 font-mono mt-0.5 truncate">
-                {avgAccuracy}%
+                {paperTypeFilter === "subjective"
+                  ? `${mockAttempts.filter((a) => a.score > 0 || Boolean(a.generalNotes)).length}/${totalMocks}`
+                  : `${avgAccuracy}%`}
               </div>
             </div>
           </div>

@@ -19,6 +19,10 @@ export function DetailedSolutionModal({
 }: DetailedSolutionModalProps) {
   if (!pdfUrl) return null;
 
+  const isImageUrl =
+    /\.(jpe?g|png|webp|gif)(\?.*)?$/i.test(pdfUrl) ||
+    pdfUrl.startsWith("data:image/");
+
   return (
     <ModalShell
       isOpen={isOpen}
@@ -59,12 +63,22 @@ export function DetailedSolutionModal({
           <X aria-hidden="true" className="h-4 w-4" />
         </button>
       </header>
-      <PdfViewer
-        url={pdfUrl}
-        title={paperTitle || "Detailed Solution"}
-        showToolbar
-        className="h-full min-h-0 w-full flex-1 bg-slate-100"
-      />
+      {isImageUrl ? (
+        <div className="flex-1 min-h-0 w-full overflow-auto bg-slate-100 p-4 flex items-start justify-center">
+          <img
+            src={pdfUrl}
+            alt={paperTitle || "Uploaded Answer Copy"}
+            className="max-w-full h-auto rounded-lg shadow-sm border border-slate-200 bg-white"
+          />
+        </div>
+      ) : (
+        <PdfViewer
+          url={pdfUrl}
+          title={paperTitle || "Detailed Solution"}
+          showToolbar
+          className="h-full min-h-0 w-full flex-1 bg-slate-100"
+        />
+      )}
     </ModalShell>
   );
 }

@@ -26,8 +26,8 @@ export async function POST(req: NextRequest) {
     const validationError = validateUploadFile(file, {
       label: "Submission file",
       maxBytes: 15 * 1024 * 1024,
-      extensions: [".pdf", ".jpg", ".jpeg", ".png"],
-      mimeTypes: ["application/pdf", "image/jpeg", "image/png"],
+      extensions: [".pdf", ".jpg", ".jpeg", ".png", ".webp"],
+      mimeTypes: ["application/pdf", "image/jpeg", "image/png", "image/webp"],
     });
     if (validationError) {
       return NextResponse.json(

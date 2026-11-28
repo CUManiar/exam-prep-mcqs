@@ -12,6 +12,7 @@ import {
 interface StrikeCalendarProps {
   attempts: Attempt[];
   onSelectDate?: (dateStr: string) => void;
+  mode?: "objective" | "subjective";
 }
 
 interface DayActivity {
@@ -39,6 +40,7 @@ function formatDateKey(d: Date): string {
 export function StrikeCalendar({
   attempts,
   onSelectDate,
+  mode = "objective",
 }: StrikeCalendarProps) {
   const [currentMonthDate, setCurrentMonthDate] = useState(() => {
     const now = new Date();
@@ -385,7 +387,7 @@ export function StrikeCalendar({
           </span>
           <span className="text-slate-300">·</span>
           <span>
-            Month MCQs:{" "}
+            {mode === "subjective" ? "Month Answers:" : "Month MCQs:"}{" "}
             <strong className="font-semibold text-slate-800">
               {monthTotalMcqs}
             </strong>
@@ -491,91 +493,95 @@ export function StrikeCalendar({
         </div>
       </div>
 
-      {/* Tooltip / Active Inspection Preview */}
-      {hoveredDay ? (
-        <div className="rounded-xl border border-blue-200/80 bg-blue-50/70 p-3 sm:p-4 text-xs space-y-1 transition-all">
-          <div className="flex items-center justify-between">
-            <span className="font-bold text-slate-900">
-              {new Date(`${hoveredDay.dateStr}T00:00:00`).toLocaleDateString(
-                undefined,
-                {
-                  weekday: "long",
-                  day: "numeric",
-                  month: "short",
-                  year: "numeric",
-                },
-              )}
-              {hoveredDay.isToday && " (Today)"}
-            </span>
-            <span className="font-semibold text-blue-700">
-              {hoveredDay.mcqCount > 0
-                ? "Practice Recorded"
-                : "No Study Recorded"}
-            </span>
-          </div>
-          {hoveredDay.mcqCount > 0 ? (
-            <div className="flex flex-wrap items-center gap-3 pt-1 text-slate-600">
-              <span>
-                MCQs Solved:{" "}
-                <strong className="text-slate-900">
-                  {hoveredDay.mcqCount}
-                </strong>
+      {/* Tooltip / Active Inspection Preview (fixed min-height prevents layout jump on hover) */}
+      <div className="min-h-[72px] flex flex-col justify-center">
+        {hoveredDay ? (
+          <div className="rounded-xl border border-blue-200/80 bg-blue-50/70 p-3 text-xs space-y-1">
+            <div className="flex items-center justify-between">
+              <span className="font-bold text-slate-900">
+                {new Date(`${hoveredDay.dateStr}T00:00:00`).toLocaleDateString(
+                  undefined,
+                  {
+                    weekday: "long",
+                    day: "numeric",
+                    month: "short",
+                    year: "numeric",
+                  },
+                )}
+                {hoveredDay.isToday && " (Today)"}
               </span>
-              <span>·</span>
-              <span>
-                Tests:{" "}
-                <strong className="text-slate-900">
-                  {hoveredDay.mockCount} mocks, {hoveredDay.practiceCount}{" "}
-                  practice
-                </strong>
+              <span className="font-semibold text-blue-700">
+                {hoveredDay.mcqCount > 0
+                  ? "Practice Recorded"
+                  : "No Study Recorded"}
               </span>
-              {hoveredDay.accuracy !== null && (
-                <>
-                  <span>·</span>
-                  <span>
-                    Avg Accuracy:{" "}
-                    <strong
-                      className={
-                        hoveredDay.accuracy >= 70
-                          ? "text-emerald-700"
-                          : hoveredDay.accuracy >= 50
-                            ? "text-amber-700"
-                            : "text-rose-700"
-                      }
-                    >
-                      {hoveredDay.accuracy}%
-                    </strong>
-                  </span>
-                </>
-              )}
             </div>
-          ) : (
-            <p className="text-slate-500 pt-0.5">
-              No assessments recorded on this date. Keep your momentum by
-              practicing daily.
-            </p>
-          )}
-        </div>
-      ) : (
-        /* Legend */
-        <div className="flex flex-wrap items-center justify-between gap-3 text-[11px] text-slate-500 pt-1 border-t border-slate-100">
-          <span className="font-medium text-slate-600">
-            Question Intensity:
-          </span>
-          <div className="flex items-center gap-1.5">
-            <span className="h-3 w-3 rounded bg-slate-100 border border-slate-200/80" />
-            <span className="text-[10px] text-slate-400 mr-2">0</span>
-            <span className="h-3 w-3 rounded bg-emerald-100 border border-emerald-200" />
-            <span className="text-[10px] text-slate-500 mr-2">1–24</span>
-            <span className="h-3 w-3 rounded bg-emerald-300 border border-emerald-400" />
-            <span className="text-[10px] text-slate-600 mr-2">25–49</span>
-            <span className="h-3 w-3 rounded bg-emerald-500" />
-            <span className="text-[10px] text-slate-700 mr-2">50–99</span>
-            <span className="h-3 w-3 rounded bg-emerald-600 ring-1 ring-emerald-300" />
-            <span className="text-[10px] text-slate-800 font-bold">100+</span>
+            {hoveredDay.mcqCount > 0 ? (
+              <div className="flex flex-wrap items-center gap-3 pt-0.5 text-slate-600">
+                <span>
+                  {mode === "subjective" ? "Answers Written:" : "MCQs Solved:"}{" "}
+                  <strong className="text-slate-900">
+                    {hoveredDay.mcqCount}
+                  </strong>
+                </span>
+                <span>·</span>
+                <span>
+                  Tests:{" "}
+                  <strong className="text-slate-900">
+                    {hoveredDay.mockCount} mocks, {hoveredDay.practiceCount}{" "}
+                    practice
+                  </strong>
+                </span>
+                {mode === "objective" && hoveredDay.accuracy !== null && (
+                  <>
+                    <span>·</span>
+                    <span>
+                      Avg Accuracy:{" "}
+                      <strong
+                        className={
+                          hoveredDay.accuracy >= 70
+                            ? "text-emerald-700"
+                            : hoveredDay.accuracy >= 50
+                              ? "text-amber-700"
+                              : "text-rose-700"
+                        }
+                      >
+                        {hoveredDay.accuracy}%
+                      </strong>
+                    </span>
+                  </>
+                )}
+              </div>
+            ) : (
+              <p className="text-slate-500 pt-0.5">
+                No assessments recorded on this date. Keep your momentum by
+                practicing daily.
+              </p>
+            )}
           </div>
-        </div>
-      )}
+        ) : (
+          /* Legend */
+          <div className="flex flex-wrap items-center justify-between gap-3 text-[11px] text-slate-500 pt-2 border-t border-slate-100">
+            <span className="font-medium text-slate-600">
+              {mode === "subjective"
+                ? "Answer Intensity:"
+                : "Question Intensity:"}
+            </span>
+            <div className="flex items-center gap-1.5">
+              <span className="h-3 w-3 rounded bg-slate-100 border border-slate-200/80" />
+              <span className="text-[10px] text-slate-400 mr-2">0</span>
+              <span className="h-3 w-3 rounded bg-emerald-100 border border-emerald-200" />
+              <span className="text-[10px] text-slate-500 mr-2">1–24</span>
+              <span className="h-3 w-3 rounded bg-emerald-300 border border-emerald-400" />
+              <span className="text-[10px] text-slate-600 mr-2">25–49</span>
+              <span className="h-3 w-3 rounded bg-emerald-500" />
+              <span className="text-[10px] text-slate-700 mr-2">50–99</span>
+              <span className="h-3 w-3 rounded bg-emerald-600 ring-1 ring-emerald-300" />
+              <span className="text-[10px] text-slate-800 font-bold">100+</span>
+            </div>
+          </div>
+        )}
+      </div>
     </div>
   );
 }

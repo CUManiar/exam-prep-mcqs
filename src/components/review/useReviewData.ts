@@ -590,62 +590,102 @@ export function useReviewData(attempt: Attempt, papers: QuestionPaper[]) {
   const topTakeaways: TakeawayItem[] = useMemo(() => {
     const items: TakeawayItem[] = [];
 
-    // 1. Negative / alteration analysis
-    if ((attempt.alteredHarmCount || 0) > (attempt.alteredBenefitCount || 0)) {
+    if (isSubjectiveAttempt) {
+      const evaluatedCount =
+        (attempt.correct || 0) +
+        (attempt.partial || 0) +
+        (attempt.incorrect || 0);
       items.push({
-        id: "alteration_penalty",
-        title: "Second-Guessing Cost",
-        metric: `-${Math.abs(netAlterationMarks)} pts net`,
-        desc: `You altered ${alteredQuestions.length} responses, but ${attempt.alteredHarmCount} flipped Right→Wrong. Stick with your first instinct.`,
-        badge: "Harmful revisions",
-        badgeStyle: "bg-rose-100 text-rose-800 border-rose-200",
-        iconType: "negative",
-        actionTab: "altered",
-        actionFilter: { altered: true },
-        actionText: `Review ${alteredQuestions.length} altered questions →`,
-      });
-    } else {
-      items.push({
-        id: "negative_erosion",
-        title: "Negative Marks Erosion",
-        metric: `-${negativePenaltyMarks} pts lost`,
-        desc: `${attempt.incorrect} incorrect choices eroded ${grossCorrectMarks > 0 ? Math.round((negativePenaltyMarks / grossCorrectMarks) * 100) : 0}% of your gross marks (+${grossCorrectMarks} pts).`,
-        badge: `${attempt.incorrect} wrong`,
-        badgeStyle: "bg-rose-100 text-rose-800 border-rose-200",
-        iconType: "negative",
-        actionTab: "incorrect",
-        actionFilter: { outcome: "incorrect" },
-        actionText: `Review ${attempt.incorrect} incorrect →`,
-      });
-    }
-
-    // 2. Confidence calibration: Highlights interaction of Mistakes + Sure!
-    if (sureQuestions.length > 0 && sureAccuracy < 80) {
-      items.push({
-        id: "sure_blindspot",
-        title: "Confidence Blindspots",
-        metric: `${sureQuestions.length - sureCorrect} 'Sure' errors`,
-        desc: `Accuracy on 'Sure' questions was ${sureAccuracy}%. Usually caused by misreading or overestimating recall.`,
-        badge: `${sureAccuracy}% accuracy`,
-        badgeStyle: "bg-amber-100 text-amber-800 border-amber-200",
-        iconType: "confidence",
-        actionTab: "sure",
-        actionFilter: { outcome: "incorrect", confidence: "sure" },
-        actionText: `Inspect ${sureQuestions.length - sureCorrect} 'Sure' errors →`,
-      });
-    } else {
-      items.push({
-        id: "accuracy_profile",
-        title: "Accuracy Profile",
-        metric: `${formatReviewNumber(attempt.accuracyPct)}%`,
-        desc: `${attempt.correct} correct out of ${attempt.answered} attempted.`,
-        badge: `${attempt.correct}/${attempt.answered} hit rate`,
-        badgeStyle: "bg-indigo-100 text-indigo-800 border-indigo-200",
+        id: "subjective_evaluation",
+        title: "Evaluation Summary",
+        metric: `${formatReviewNumber(attempt.score)} / ${effectiveMaxScore} pts`,
+        desc:
+          evaluatedCount > 0
+            ? `${evaluatedCount} of ${attempt.totalQuestions} answers graded (${scorePct}% overall).`
+            : `${attempt.answered} of ${attempt.totalQuestions} questions attempted — awaiting grading.`,
+        badge: evaluatedCount > 0 ? `${scorePct}% score` : "Pending grade",
+        badgeStyle:
+          evaluatedCount > 0
+            ? "bg-indigo-100 text-indigo-800 border-indigo-200"
+            : "bg-amber-100 text-amber-800 border-amber-200",
         iconType: "confidence",
         actionTab: "all",
         actionFilter: {},
-        actionText: "View all questions →",
+        actionText: "Review all answers →",
       });
+
+      items.push({
+        id: "subjective_quality",
+        title: "Answer Quality Mix",
+        metric: `${attempt.correct} Strong · ${attempt.partial ?? 0} Partial`,
+        desc: `${attempt.incorrect} answers marked as Needs Work, ${attempt.unattempted} skipped.`,
+        badge: `${attempt.answered}/${attempt.totalQuestions} written`,
+        badgeStyle: "bg-emerald-100 text-emerald-800 border-emerald-200",
+        iconType: "confidence",
+        actionTab: "all",
+        actionFilter: {},
+        actionText: "Inspect question-wise feedback →",
+      });
+    } else {
+      // 1. Negative / alteration analysis
+      if (
+        (attempt.alteredHarmCount || 0) > (attempt.alteredBenefitCount || 0)
+      ) {
+        items.push({
+          id: "alteration_penalty",
+          title: "Second-Guessing Cost",
+          metric: `-${Math.abs(netAlterationMarks)} pts net`,
+          desc: `You altered ${alteredQuestions.length} responses, but ${attempt.alteredHarmCount} flipped Right→Wrong. Stick with your first instinct.`,
+          badge: "Harmful revisions",
+          badgeStyle: "bg-rose-100 text-rose-800 border-rose-200",
+          iconType: "negative",
+          actionTab: "altered",
+          actionFilter: { altered: true },
+          actionText: `Review ${alteredQuestions.length} altered questions →`,
+        });
+      } else {
+        items.push({
+          id: "negative_erosion",
+          title: "Negative Marks Erosion",
+          metric: `-${negativePenaltyMarks} pts lost`,
+          desc: `${attempt.incorrect} incorrect choices eroded ${grossCorrectMarks > 0 ? Math.round((negativePenaltyMarks / grossCorrectMarks) * 100) : 0}% of your gross marks (+${grossCorrectMarks} pts).`,
+          badge: `${attempt.incorrect} wrong`,
+          badgeStyle: "bg-rose-100 text-rose-800 border-rose-200",
+          iconType: "negative",
+          actionTab: "incorrect",
+          actionFilter: { outcome: "incorrect" },
+          actionText: `Review ${attempt.incorrect} incorrect →`,
+        });
+      }
+
+      // 2. Confidence calibration: Highlights interaction of Mistakes + Sure!
+      if (sureQuestions.length > 0 && sureAccuracy < 80) {
+        items.push({
+          id: "sure_blindspot",
+          title: "Confidence Blindspots",
+          metric: `${sureQuestions.length - sureCorrect} 'Sure' errors`,
+          desc: `Accuracy on 'Sure' questions was ${sureAccuracy}%. Usually caused by misreading or overestimating recall.`,
+          badge: `${sureAccuracy}% accuracy`,
+          badgeStyle: "bg-amber-100 text-amber-800 border-amber-200",
+          iconType: "confidence",
+          actionTab: "sure",
+          actionFilter: { outcome: "incorrect", confidence: "sure" },
+          actionText: `Inspect ${sureQuestions.length - sureCorrect} 'Sure' errors →`,
+        });
+      } else {
+        items.push({
+          id: "accuracy_profile",
+          title: "Accuracy Profile",
+          metric: `${formatReviewNumber(attempt.accuracyPct)}%`,
+          desc: `${attempt.correct} correct out of ${attempt.answered} attempted.`,
+          badge: `${attempt.correct}/${attempt.answered} hit rate`,
+          badgeStyle: "bg-indigo-100 text-indigo-800 border-indigo-200",
+          iconType: "confidence",
+          actionTab: "all",
+          actionFilter: {},
+          actionText: "View all questions →",
+        });
+      }
     }
 
     // 3. Pacing

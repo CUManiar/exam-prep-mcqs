@@ -1,16 +1,19 @@
 "use client";
 
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { ActiveSessionDraft, Attempt, QuestionPaper } from "../lib/types";
 import { getAttemptPercentage, isOfficialMockAttempt } from "../lib/defaults";
 import {
   ArrowRight,
+  Award,
   BarChart3,
   BookOpen,
   Clock3,
   FileCheck2,
+  FileText,
   Flame,
   RotateCcw,
+  Sparkles,
   Target,
 } from "lucide-react";
 import { PageHeader } from "./PageHeader";
@@ -20,6 +23,7 @@ import { LastThreePapersSummary } from "./dashboard/LastThreePapersSummary";
 import { GoalsAndRemindersBoard } from "./dashboard/GoalsAndRemindersBoard";
 import { RecentTestInsights } from "./dashboard/RecentTestInsights";
 import { StrategicDiagnosticsWidget } from "./dashboard/StrategicDiagnosticsWidget";
+import { SubjectiveAnalyticsSection } from "./dashboard/SubjectiveAnalyticsSection";
 
 interface DashboardViewProps {
   papers: QuestionPaper[];
@@ -95,6 +99,20 @@ export function DashboardView({
   onResumeDraft,
   onDiscardDraft,
 }: DashboardViewProps) {
+  const [analyticsMode, setAnalyticsMode] = useState<
+    "objective" | "subjective"
+  >("objective");
+
+  const paperMap = useMemo(
+    () => new Map(papers.map((p) => [p.id, p])),
+    [papers],
+  );
+
+  const isSubjectiveAttempt = (attempt: Attempt) =>
+    attempt.examType === "subjective" ||
+    attempt.category === "mains" ||
+    paperMap.get(attempt.paperId)?.examType === "subjective";
+
   const completed = useMemo(
     () =>
       [...attempts]
@@ -107,12 +125,24 @@ export function DashboardView({
     [attempts],
   );
 
+  const objectiveCompleted = useMemo(
+    () => completed.filter((a) => !isSubjectiveAttempt(a)),
+    [completed, paperMap],
+  );
+
+  const subjectiveCompleted = useMemo(
+    () => completed.filter((a) => isSubjectiveAttempt(a)),
+    [completed, paperMap],
+  );
+
+  const activeCompleted =
+    analyticsMode === "objective" ? objectiveCompleted : subjectiveCompleted;
+
   const officialMocks = useMemo(() => {
-    const paperMap = new Map(papers.map((p) => [p.id, p]));
-    return completed.filter((attempt) =>
+    return objectiveCompleted.filter((attempt) =>
       isOfficialMockAttempt(attempt, paperMap.get(attempt.paperId)),
     );
-  }, [completed, papers]);
+  }, [objectiveCompleted, paperMap]);
 
   const questionsAnswered = useMemo(
     () =>
@@ -133,6 +163,37 @@ export function DashboardView({
       ) / 10
     );
   }, [officialMocks]);
+
+  const subjectiveSummary = useMemo(() => {
+    const total = subjectiveCompleted.length;
+    const evaluated = subjectiveCompleted.filter(
+      (a) => a.score > 0 || Boolean(a.generalNotes),
+    );
+    const avgPct =
+      evaluated.length > 0
+        ? Math.round(
+            (evaluated.reduce((sum, a) => sum + getAttemptPercentage(a), 0) /
+              evaluated.length) *
+              10,
+          ) / 10
+        : null;
+    const bestPct =
+      evaluated.length > 0
+        ? Math.max(...evaluated.map((a) => getAttemptPercentage(a)))
+        : null;
+    const writtenCount = subjectiveCompleted.reduce(
+      (sum, a) => sum + (a.answered || 0),
+      0,
+    );
+    return {
+      total,
+      evaluatedCount: evaluated.length,
+      pendingCount: Math.max(0, total - evaluated.length),
+      avgPct,
+      bestPct,
+      writtenCount,
+    };
+  }, [subjectiveCompleted]);
 
   const streakData = useMemo(
     () => calculatePracticeStreak(completed),
@@ -168,42 +229,84 @@ export function DashboardView({
     }).length;
   }, [completed]);
 
-  const metrics = [
-    {
-      label: "Assessments completed",
-      value: completed.length,
-      sublabel: `${completed.filter((c) => c.mode === "mock").length} mocks · ${completed.filter((c) => c.mode === "practice").length} practice`,
-      icon: FileCheck2,
-      iconClass: "text-indigo-600",
-      iconBgClass: "bg-indigo-50 ring-indigo-100",
-    },
-    {
-      label: "Practice streak",
-      value: `${streakData.currentStreak} ${streakData.currentStreak === 1 ? "day" : "days"}`,
-      sublabel: streakData.isActiveToday
-        ? "Streak active today 🔥"
-        : "Practice today to extend",
-      icon: Flame,
-      iconClass: "text-amber-500",
-      iconBgClass: "bg-amber-50 ring-amber-100",
-    },
-    {
-      label: "Questions answered",
-      value: questionsAnswered,
-      sublabel: `${todayAnsweredCount} answered today`,
-      icon: Target,
-      iconClass: "text-sky-600",
-      iconBgClass: "bg-sky-50 ring-sky-100",
-    },
-    {
-      label: "Average accuracy",
-      value: averageAccuracy === null ? "—" : `${averageAccuracy}%`,
-      sublabel: "Across all completed tests",
-      icon: BarChart3,
-      iconClass: "text-emerald-600",
-      iconBgClass: "bg-emerald-50 ring-emerald-100",
-    },
-  ];
+  const metrics =
+    analyticsMode === "objective"
+      ? [
+          {
+            label: "Objective completed",
+            value: objectiveCompleted.length,
+            sublabel: `${objectiveCompleted.filter((c) => c.mode === "mock").length} mocks · ${objectiveCompleted.filter((c) => c.mode === "practice").length} practice`,
+            icon: FileCheck2,
+            iconClass: "text-indigo-600",
+            iconBgClass: "bg-indigo-50 ring-indigo-100",
+          },
+          {
+            label: "Practice streak",
+            value: `${streakData.currentStreak} ${streakData.currentStreak === 1 ? "day" : "days"}`,
+            sublabel: streakData.isActiveToday
+              ? "Streak active today 🔥"
+              : "Practice today to extend",
+            icon: Flame,
+            iconClass: "text-amber-500",
+            iconBgClass: "bg-amber-50 ring-amber-100",
+          },
+          {
+            label: "Questions answered",
+            value: questionsAnswered,
+            sublabel: `${todayAnsweredCount} answered today`,
+            icon: Target,
+            iconClass: "text-sky-600",
+            iconBgClass: "bg-sky-50 ring-sky-100",
+          },
+          {
+            label: "Average accuracy",
+            value: averageAccuracy === null ? "—" : `${averageAccuracy}%`,
+            sublabel: "Across objective mocks",
+            icon: BarChart3,
+            iconClass: "text-emerald-600",
+            iconBgClass: "bg-emerald-50 ring-emerald-100",
+          },
+        ]
+      : [
+          {
+            label: "Mains papers",
+            value: subjectiveSummary.total,
+            sublabel: `${subjectiveSummary.evaluatedCount} evaluated · ${subjectiveSummary.pendingCount} pending`,
+            icon: FileText,
+            iconClass: "text-violet-600",
+            iconBgClass: "bg-violet-50 ring-violet-100",
+          },
+          {
+            label: "Average Mains score",
+            value:
+              subjectiveSummary.avgPct === null
+                ? "—"
+                : `${subjectiveSummary.avgPct}%`,
+            sublabel: "Across evaluated papers",
+            icon: Sparkles,
+            iconClass: "text-indigo-600",
+            iconBgClass: "bg-indigo-50 ring-indigo-100",
+          },
+          {
+            label: "Best Mains score",
+            value:
+              subjectiveSummary.bestPct === null
+                ? "—"
+                : `${subjectiveSummary.bestPct}%`,
+            sublabel: "Highest subjective percentage",
+            icon: Award,
+            iconClass: "text-emerald-600",
+            iconBgClass: "bg-emerald-50 ring-emerald-100",
+          },
+          {
+            label: "Answers written",
+            value: subjectiveSummary.writtenCount,
+            sublabel: "Across all Mains papers",
+            icon: Target,
+            iconClass: "text-amber-600",
+            iconBgClass: "bg-amber-50 ring-amber-100",
+          },
+        ];
 
   return (
     <div className="page-container space-y-4 sm:space-y-6">
@@ -211,15 +314,49 @@ export function DashboardView({
       <PageHeader
         eyebrow="Your UPSC Study Workspace"
         title="Assessment Overview & Analytics"
-        description="Comprehensive insights into your MCQ consistency, mock performance, and learning goals."
+        description="Comprehensive insights into your Prelims MCQ consistency and Mains subjective evaluations."
         actions={
-          <button
-            type="button"
-            onClick={onNavigatePapers}
-            className="button-primary cursor-pointer shadow-sm text-xs sm:text-sm py-1.5 sm:py-2"
-          >
-            <BookOpen className="h-4 w-4" /> Browse papers
-          </button>
+          <div className="flex items-center gap-2 flex-wrap">
+            <div
+              role="tablist"
+              aria-label="Analytics mode switch"
+              className="inline-flex items-center rounded-xl border border-slate-200 bg-slate-100 p-1 text-xs font-semibold"
+            >
+              <button
+                type="button"
+                role="tab"
+                aria-selected={analyticsMode === "objective"}
+                onClick={() => setAnalyticsMode("objective")}
+                className={`px-3 py-1.5 rounded-lg transition-all cursor-pointer ${
+                  analyticsMode === "objective"
+                    ? "bg-white text-indigo-700 shadow-2xs font-bold"
+                    : "text-slate-600 hover:text-slate-900"
+                }`}
+              >
+                Objective ({objectiveCompleted.length})
+              </button>
+              <button
+                type="button"
+                role="tab"
+                aria-selected={analyticsMode === "subjective"}
+                onClick={() => setAnalyticsMode("subjective")}
+                className={`px-3 py-1.5 rounded-lg transition-all cursor-pointer ${
+                  analyticsMode === "subjective"
+                    ? "bg-white text-violet-700 shadow-2xs font-bold"
+                    : "text-slate-600 hover:text-slate-900"
+                }`}
+              >
+                Subjective ({subjectiveCompleted.length})
+              </button>
+            </div>
+            <button
+              type="button"
+              onClick={onNavigatePapers}
+              className="button-primary cursor-pointer shadow-sm text-xs sm:text-sm py-1.5 sm:py-2"
+            >
+              <BookOpen className="h-4 w-4" /> Browse papers
+            </button>
+          </div>
         }
       />
 
@@ -294,46 +431,79 @@ export function DashboardView({
         )}
       </section>
 
-      {/* Secondary Strategic Diagnostics Row: 4 high-yield metrics placed directly below with hover details */}
-      <StrategicDiagnosticsWidget attempts={officialMocks} papers={papers} />
-
-      {/* Row 1: Solved MCQ Count & Mock Trends (2/3) + Goals & Reminders Board (1/3) */}
-      <section className="grid grid-cols-1 lg:grid-cols-3 gap-3 sm:gap-6 w-full min-w-0">
-        <div className="lg:col-span-2 min-w-0 w-full">
-          <McqAndMockTrendsChart attempts={officialMocks} dailyTarget={50} />
-        </div>
-        <div className="lg:col-span-1 min-w-0 w-full">
-          <GoalsAndRemindersBoard
-            todayAnsweredCount={todayAnsweredCount}
-            weekMocksCount={weekMocksCount}
-            onNavigatePapers={onNavigatePapers}
-          />
-        </div>
-      </section>
-
-      {/* Row 2: Strike Calendar (2/3) + Recent Test Insights & Pacing (1/3) */}
-      <section className="grid grid-cols-1 lg:grid-cols-3 gap-3 sm:gap-6 w-full min-w-0">
-        <div className="lg:col-span-2 min-w-0 w-full">
-          <StrikeCalendar attempts={attempts} />
-        </div>
-        <div className="lg:col-span-1 min-w-0 w-full">
-          <RecentTestInsights
+      {analyticsMode === "objective" ? (
+        <>
+          {/* Secondary Strategic Diagnostics Row: 4 high-yield metrics placed directly below with hover details */}
+          <StrategicDiagnosticsWidget
             attempts={officialMocks}
             papers={papers}
-            onNavigateHistory={onNavigateHistory}
-            onViewAttempt={onViewAttempt}
           />
-        </div>
-      </section>
 
-      {/* Row 3: Last 3 Papers Summary */}
-      <LastThreePapersSummary
-        attempts={attempts}
-        papers={papers}
-        onViewAttempt={onViewAttempt}
-        onNavigatePapers={onNavigatePapers}
-        onStartExam={onStartExam}
-      />
+          {/* Row 1: Solved MCQ Count & Mock Trends (2/3) + Goals & Reminders Board (1/3) */}
+          <section className="grid grid-cols-1 lg:grid-cols-3 gap-3 sm:gap-6 w-full min-w-0">
+            <div className="lg:col-span-2 min-w-0 w-full">
+              <McqAndMockTrendsChart
+                attempts={officialMocks}
+                dailyTarget={50}
+              />
+            </div>
+            <div className="lg:col-span-1 min-w-0 w-full">
+              <GoalsAndRemindersBoard
+                todayAnsweredCount={todayAnsweredCount}
+                weekMocksCount={weekMocksCount}
+                onNavigatePapers={onNavigatePapers}
+              />
+            </div>
+          </section>
+
+          {/* Row 2: Strike Calendar (2/3) + Recent Test Insights & Pacing (1/3) */}
+          <section className="grid grid-cols-1 lg:grid-cols-3 gap-3 sm:gap-6 w-full min-w-0">
+            <div className="lg:col-span-2 min-w-0 w-full">
+              <StrikeCalendar attempts={objectiveCompleted} mode="objective" />
+            </div>
+            <div className="lg:col-span-1 min-w-0 w-full">
+              <RecentTestInsights
+                attempts={officialMocks}
+                papers={papers}
+                onNavigateHistory={onNavigateHistory}
+                onViewAttempt={onViewAttempt}
+              />
+            </div>
+          </section>
+
+          {/* Row 3: Last 3 Papers Summary */}
+          <LastThreePapersSummary
+            attempts={objectiveCompleted}
+            papers={papers}
+            onViewAttempt={onViewAttempt}
+            onNavigatePapers={onNavigatePapers}
+            onStartExam={onStartExam}
+          />
+        </>
+      ) : (
+        <>
+          <SubjectiveAnalyticsSection
+            attempts={subjectiveCompleted}
+            onViewAttempt={onViewAttempt}
+            onNavigatePapers={onNavigatePapers}
+          />
+          <section className="grid grid-cols-1 lg:grid-cols-3 gap-3 sm:gap-6 w-full min-w-0">
+            <div className="lg:col-span-2 min-w-0 w-full">
+              <StrikeCalendar
+                attempts={subjectiveCompleted}
+                mode="subjective"
+              />
+            </div>
+            <div className="lg:col-span-1 min-w-0 w-full">
+              <GoalsAndRemindersBoard
+                todayAnsweredCount={todayAnsweredCount}
+                weekMocksCount={weekMocksCount}
+                onNavigatePapers={onNavigatePapers}
+              />
+            </div>
+          </section>
+        </>
+      )}
 
       {/* Row 4: Recent Activity List */}
       <section className="space-y-3 pt-2">
@@ -341,7 +511,9 @@ export function DashboardView({
           <div>
             <p className="page-eyebrow">Recent Activity History</p>
             <h2 className="mt-1 text-base sm:text-lg font-semibold text-slate-900">
-              All Completed Assessments
+              {analyticsMode === "objective"
+                ? "Completed Objective Assessments"
+                : "Completed Subjective (Mains) Assessments"}
             </h2>
           </div>
           <button
@@ -349,16 +521,16 @@ export function DashboardView({
             onClick={onNavigateHistory}
             className="text-xs font-semibold text-blue-700 hover:text-blue-800 cursor-pointer inline-flex items-center gap-1"
           >
-            View full history ({completed.length}){" "}
+            View full history ({activeCompleted.length}){" "}
             <ArrowRight className="h-3.5 w-3.5" />
           </button>
         </div>
 
         <div className="surface-card overflow-hidden rounded-xl sm:rounded-2xl border border-slate-200/90 shadow-2xs">
-          {completed.length === 0 ? (
+          {activeCompleted.length === 0 ? (
             <div className="px-4 py-8 sm:px-5 sm:py-10 text-center">
               <p className="text-sm font-medium text-slate-800">
-                No completed assessments yet
+                No completed {analyticsMode} assessments yet
               </p>
               <p className="mt-1 text-xs text-slate-500">
                 Your scores and review history will appear here.
@@ -366,7 +538,7 @@ export function DashboardView({
             </div>
           ) : (
             <ul className="divide-y divide-slate-100">
-              {completed.slice(0, 5).map((attempt) => (
+              {activeCompleted.slice(0, 5).map((attempt) => (
                 <li key={attempt.id}>
                   <div
                     role="button"

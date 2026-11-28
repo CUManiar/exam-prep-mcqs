@@ -116,7 +116,9 @@ export function AttemptReviewView({
   const [filters, setFilters] = useState<ReviewFilterState>(EMPTY_FILTER_STATE);
   const [sortOption, setSortOption] = useState<SortOptionType>("qno_asc");
   const [activeQuestionNo, setActiveQuestionNo] = useState<number>(1);
-  const [showPaperSplit, setShowPaperSplit] = useState<boolean>(true);
+  const [showPaperSplit, setShowPaperSplit] = useState<boolean>(
+    () => attempt.examType !== "subjective",
+  );
   const [reviewViewMode, setReviewViewMode] = useState<"all" | "single">(
     "single",
   );
