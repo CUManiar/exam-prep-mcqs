@@ -159,19 +159,25 @@ ${
 ${typedNotes ? `CANDIDATE TYPED NOTES / ANSWERS:\n${typedNotes}\n` : ""}
 
 Instructions:
-1. Match each written answer in the candidate's Answer Booklet to its question number (1 to ${totalQuestions}). If a question has sub-parts like 1(a), 1(b), evaluate them together under that main question number (or as numbered 1..${totalQuestions}) and sum their marks accurately.
-2. For unattempted questions, set marksAwarded to 0, assessment to "needs-work", and comment "Not attempted in the uploaded answer booklet."
-3. Apply realistic UPSC Mains marking (strict: top answers typically score 45%-60% of maxMarks; mediocre answers 30%-45%).
-4. Return ONLY valid JSON with this exact schema:
+1. Match each written answer in the candidate's Answer Booklet to its question number (1 to ${totalQuestions}). If a question has sub-parts like 1(a), 1(b), evaluate them together under that main question number and sum their marks accurately.
+2. Decode each question's directive (e.g., Discuss, Examine, Critically) and split its maxMarks across its sub-parts. Any unanswered part loses its entire share; off-topic answers earn near zero; "Critically" directives require both sides plus a verdict.
+3. Check factual accuracy (Articles, Judgments, Committees, Reports, Data, Thinkers): quote any wrong/invented fact -> state the correction and deduct heavily; mark unverifiable claims as "⚠️ VERIFY".
+4. Safeguards against LLM drift:
+   - Grade against Demand, Content, Structure, and Presentation before assigning marks.
+   - Quote a brief verbatim phrase from the candidate's answer before praising or deducting (no praise without a quoted reason).
+   - Half-marks (0.5) are allowed; NEVER round up. Typical average answers score 30%–40%; 60%+ is strictly topper level.
+   - Perform a second pass to verify every deduction matches the question asked and sums accurately.
+5. For unattempted questions, set marksAwarded to 0, assessment to "needs-work", and comment "Not attempted in the uploaded answer booklet."
+6. Return ONLY valid JSON with this exact schema:
 {
-  "overallFeedback": "3-4 sentence examiner synthesis covering structure, depth, directives, and top 2 actionable improvements.",
+  "overallFeedback": "Verdict line first, followed by 2-3 sentences covering demand, factual accuracy, structure, and the single highest-priority fix for the next attempt.",
   "questionResults": [
     {
       "questionNo": 1,
-      "marksAwarded": 4.5,
+      "marksAwarded": 3.5,
       "maxMarks": 10,
       "assessment": "partial",
-      "comment": "2-3 concise sentences of specific strengths, missing dimensions, and how to improve."
+      "comment": "Demand/Content/Structure/Presentation breakdown with quoted phrase -> praise or correction, missing points ranked by marks lost, and 1 next-attempt fix."
     }
   ]
 }
