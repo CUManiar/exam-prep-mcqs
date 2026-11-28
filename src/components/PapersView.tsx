@@ -368,9 +368,12 @@ export function PapersView({
   );
   const [isSubmittingAttach, setIsSubmittingAttach] = useState<boolean>(false);
   const [attachError, setAttachError] = useState<string | null>(null);
+  const [editError, setEditError] = useState<string | null>(null);
+  const [isSavingEdit, setIsSavingEdit] = useState(false);
 
   const handleOpenEdit = (p: QuestionPaper) => {
     setEditingPaper(p);
+    setEditError(null);
     setEditTotalQuestions(p.totalQuestions);
     setEditTotalMarks(p.totalMarks);
     setEditCorrectMarks(p.correctMarks);
@@ -385,24 +388,32 @@ export function PapersView({
     );
   };
 
-  const handleSaveEdit = () => {
-    if (!editingPaper || !onUpdatePaper) return;
-    const updated: QuestionPaper = {
-      ...editingPaper,
-      totalQuestions: editTotalQuestions,
-      totalMarks: editTotalMarks,
-      correctMarks: editCorrectMarks,
-      incorrectMarks: editIncorrectMarks,
-      timeMinutes: editTimeMinutes,
-      cutoffEnabled: editCutoffEnabled,
-      cutoffType: editCutoffType,
-      cutoffValue:
-        editCutoffEnabled && editCutoffValue !== ""
-          ? Number(editCutoffValue)
-          : undefined,
-    };
-    onUpdatePaper(updated);
-    setEditingPaper(null);
+  const handleSaveEdit = async () => {
+    if (!editingPaper || !onUpdatePaper || isSavingEdit) return;
+    setEditError(null);
+    setIsSavingEdit(true);
+    try {
+      const updated: QuestionPaper = {
+        ...editingPaper,
+        totalQuestions: editTotalQuestions,
+        totalMarks: editTotalMarks,
+        correctMarks: editCorrectMarks,
+        incorrectMarks: editIncorrectMarks,
+        timeMinutes: editTimeMinutes,
+        cutoffEnabled: editCutoffEnabled,
+        cutoffType: editCutoffType,
+        cutoffValue:
+          editCutoffEnabled && editCutoffValue !== ""
+            ? Number(editCutoffValue)
+            : undefined,
+      };
+      await onUpdatePaper(updated);
+      setEditingPaper(null);
+    } catch (err: any) {
+      setEditError(err?.message || "Failed to save changes. Please try again.");
+    } finally {
+      setIsSavingEdit(false);
+    }
   };
 
   const handleOpenAttachModal = (
@@ -1969,18 +1980,31 @@ export function PapersView({
                 </div>
               </div>
 
+              {editError && (
+                <div className="rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-xs font-medium text-rose-800">
+                  {editError}
+                </div>
+              )}
+
               <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-100">
                 <button
-                  onClick={() => setEditingPaper(null)}
-                  className="cursor-pointer px-4 py-2 rounded-xl text-xs font-bold text-slate-500 hover:text-slate-800 transition-colors"
+                  type="button"
+                  disabled={isSavingEdit}
+                  onClick={() => {
+                    setEditingPaper(null);
+                    setEditError(null);
+                  }}
+                  className="cursor-pointer px-4 py-2 rounded-xl text-xs font-bold text-slate-500 hover:text-slate-800 transition-colors disabled:opacity-50"
                 >
                   Cancel
                 </button>
                 <button
+                  type="button"
+                  disabled={isSavingEdit}
                   onClick={handleSaveEdit}
-                  className="cursor-pointer px-5 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-xs font-bold text-white transition-all shadow-xs"
+                  className="cursor-pointer px-5 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-xs font-bold text-white transition-all shadow-xs disabled:opacity-50"
                 >
-                  Save Changes
+                  {isSavingEdit ? "Saving..." : "Save Changes"}
                 </button>
               </div>
             </div>

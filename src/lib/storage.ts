@@ -406,33 +406,38 @@ export async function updatePaperOnServer(
   paperId: string,
   updates: Partial<QuestionPaper>,
 ): Promise<boolean> {
-  try {
-    const res = await fetch(`/api/papers/${paperId}`, {
-      method: "PATCH",
-      headers: {
-        "Content-Type": "application/json",
-        ...(await getAuthHeaders()),
-      },
-      body: JSON.stringify(updates),
-    });
-    if (res.ok) {
-      if (typeof window !== "undefined") {
-        const list = getCustomPapers();
-        const idx = list.findIndex((p) => p.id === paperId);
-        if (idx >= 0) {
-          list[idx] = { ...list[idx], ...updates };
-          localStorage.setItem(
-            STORAGE_KEYS.CUSTOM_PAPERS,
-            JSON.stringify(list),
-          );
-        }
-      }
-      return true;
+  const res = await fetch(`/api/papers/${paperId}`, {
+    method: "PATCH",
+    headers: {
+      "Content-Type": "application/json",
+      ...(await getAuthHeaders()),
+    },
+    body: JSON.stringify(updates),
+  });
+  if (!res.ok) {
+    const errBody = await res.json().catch(() => ({}));
+    if (res.status === 403) {
+      throw new Error(
+        errBody.error ||
+          "You don't have permission to edit this question paper.",
+      );
     }
-  } catch (err) {
-    console.error("Failed to update paper on server:", err);
+    if (res.status === 401) {
+      throw new Error("Please sign in to edit question papers.");
+    }
+    throw new Error(
+      errBody.error || `Failed to update question paper (${res.status}).`,
+    );
   }
-  return false;
+  if (typeof window !== "undefined") {
+    const list = getCustomPapers();
+    const idx = list.findIndex((p) => p.id === paperId);
+    if (idx >= 0) {
+      list[idx] = { ...list[idx], ...updates };
+      localStorage.setItem(STORAGE_KEYS.CUSTOM_PAPERS, JSON.stringify(list));
+    }
+  }
+  return true;
 }
 
 // Attach answer key and/or solution to paper on server
