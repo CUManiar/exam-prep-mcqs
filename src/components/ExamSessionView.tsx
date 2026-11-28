@@ -281,10 +281,22 @@ export function ExamSessionView({
   });
   useEffect(() => {
     if (isScanUploadPhase) {
-      setProviderVault(getProviderVault());
+      const vault = getProviderVault();
+      setProviderVault(vault);
       setBookletEvalError(null);
+      const hasPdf = submissionFiles.some((f) => f.type === "application/pdf");
+      const eligible: RevisionProvider[] = hasPdf
+        ? ["gemini", "openai", "anthropic"]
+        : ["gemini", "openai", "anthropic", "groq"];
+      if (
+        !vault[aiEvalProvider]?.trim() ||
+        !eligible.includes(aiEvalProvider)
+      ) {
+        const next = eligible.find((p) => Boolean(vault[p]?.trim()));
+        if (next) setAiEvalProvider(next);
+      }
     }
-  }, [isScanUploadPhase]);
+  }, [isScanUploadPhase, submissionFiles, aiEvalProvider]);
   const [isUploadingScan, setIsUploadingScan] = useState<boolean>(false);
   const [fullBookletUrl, setFullBookletUrl] = useState<string | undefined>(
     undefined,
@@ -4066,12 +4078,13 @@ export function ExamSessionView({
 
                 {/* AI Evaluator Selector */}
                 {(() => {
-                  const visionProviders: RevisionProvider[] = [
-                    "gemini",
-                    "openai",
-                    "anthropic",
-                  ];
-                  const configured = visionProviders.filter((p) =>
+                  const hasPdf = submissionFiles.some(
+                    (f) => f.type === "application/pdf",
+                  );
+                  const eligibleProviders: RevisionProvider[] = hasPdf
+                    ? ["gemini", "openai", "anthropic"]
+                    : ["gemini", "openai", "anthropic", "groq"];
+                  const configured = eligibleProviders.filter((p) =>
                     Boolean(providerVault[p]?.trim()),
                   );
                   return (
@@ -4201,10 +4214,18 @@ export function ExamSessionView({
                           }),
                         });
 
-                        const data = await res.json();
-                        if (!res.ok || !data.ok) {
+                        const rawText = await res.text();
+                        let data: any = null;
+                        try {
+                          data = JSON.parse(rawText);
+                        } catch {
                           throw new Error(
-                            data.error || "AI evaluation failed.",
+                            `Evaluation request failed (HTTP ${res.status}).`,
+                          );
+                        }
+                        if (!res.ok || !data?.ok) {
+                          throw new Error(
+                            data?.error || "AI evaluation failed.",
                           );
                         }
 

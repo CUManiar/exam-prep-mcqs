@@ -1,36 +1,22 @@
 import { NextRequest, NextResponse } from "next/server";
 import { RevisionProviderConfig } from "@/lib/types";
+import {
+  MediaAttachment,
+  normalizeMediaMime,
+  parseJsonFromText,
+  callGeminiMultimodal,
+  callOpenAIMultimodal,
+  callAnthropicMultimodal,
+  callGroqMultimodal,
+} from "@/lib/aiProviders";
 
 export const runtime = "nodejs";
-
-interface MediaAttachment {
-  mimeType: string;
-  data: string;
-  name?: string;
-}
+export const maxDuration = 120;
 
 interface QuestionSummaryInput {
   questionNo: number;
   text: string;
   maxMarks?: number;
-}
-
-function stripBase64Prefix(data: string): string {
-  return data.replace(/^data:[^;]+;base64,/, "").replace(/\s+/g, "");
-}
-
-function parseJsonResponse(raw: string): any {
-  const cleaned = raw
-    .trim()
-    .replace(/^```(?:json)?\s*/i, "")
-    .replace(/\s*```$/i, "");
-  const start = cleaned.indexOf("{");
-  const end = cleaned.lastIndexOf("}");
-  const slice =
-    start !== -1 && end !== -1 && end > start
-      ? cleaned.slice(start, end + 1)
-      : cleaned;
-  return JSON.parse(slice);
 }
 
 async function fetchPdfAsAttachment(
@@ -63,190 +49,6 @@ async function fetchPdfAsAttachment(
     console.warn("Failed fetching question paper PDF:", err);
     return null;
   }
-}
-
-async function callGemini(
-  apiKey: string,
-  prompt: string,
-  attachments: MediaAttachment[],
-): Promise<string> {
-  const models = ["gemini-2.5-flash", "gemini-2.5-pro", "gemini-2.0-flash"];
-  const parts: any[] = [{ text: prompt }];
-  for (const att of attachments) {
-    parts.push({
-      inline_data: {
-        mime_type: att.mimeType || "image/jpeg",
-        data: stripBase64Prefix(att.data),
-      },
-    });
-  }
-
-  let lastError = "";
-  for (const model of models) {
-    try {
-      const res = await fetch(
-        `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`,
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            contents: [{ role: "user", parts }],
-            generationConfig: {
-              temperature: 0.25,
-              maxOutputTokens: 6000,
-              responseMimeType: "application/json",
-            },
-          }),
-          signal: AbortSignal.timeout(55000),
-        },
-      );
-      if (res.ok) {
-        const data = await res.json();
-        const text = (data.candidates?.[0]?.content?.parts || [])
-          .map((p: any) => p.text || "")
-          .join("")
-          .trim();
-        if (text) return text;
-      } else {
-        const errJson = await res.json().catch(() => ({}));
-        lastError = errJson.error?.message || `HTTP ${res.status}`;
-      }
-    } catch (err: any) {
-      lastError = err?.message || "Gemini connection error";
-    }
-  }
-  throw new Error(
-    `Google Gemini evaluation failed (${models[0]}): ${lastError}`,
-  );
-}
-
-async function callOpenAI(
-  apiKey: string,
-  prompt: string,
-  attachments: MediaAttachment[],
-): Promise<string> {
-  const models = ["gpt-4o", "gpt-4o-mini"];
-  const content: any[] = [{ type: "text", text: prompt }];
-
-  for (const att of attachments) {
-    const clean = stripBase64Prefix(att.data);
-    const mime = (att.mimeType || "image/jpeg").toLowerCase().trim();
-    if (mime === "application/pdf") {
-      content.push({
-        type: "file",
-        file: {
-          filename: att.name || "document.pdf",
-          file_data: `data:application/pdf;base64,${clean}`,
-        },
-      });
-    } else {
-      content.push({
-        type: "image_url",
-        image_url: {
-          url: `data:${mime === "image/jpg" ? "image/jpeg" : mime};base64,${clean}`,
-          detail: "high",
-        },
-      });
-    }
-  }
-
-  let lastError = "";
-  for (const model of models) {
-    try {
-      const res = await fetch("https://api.openai.com/v1/chat/completions", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${apiKey}`,
-        },
-        body: JSON.stringify({
-          model,
-          messages: [{ role: "user", content }],
-          temperature: 0.25,
-          max_tokens: 6000,
-          response_format: { type: "json_object" },
-        }),
-        signal: AbortSignal.timeout(55000),
-      });
-      if (res.ok) {
-        const data = await res.json();
-        const text = data.choices?.[0]?.message?.content || "";
-        if (text) return text;
-      } else {
-        const errJson = await res.json().catch(() => ({}));
-        lastError = errJson.error?.message || `HTTP ${res.status}`;
-      }
-    } catch (err: any) {
-      lastError = err?.message || "OpenAI connection error";
-    }
-  }
-  throw new Error(`OpenAI evaluation failed: ${lastError}`);
-}
-
-async function callAnthropic(
-  apiKey: string,
-  prompt: string,
-  attachments: MediaAttachment[],
-): Promise<string> {
-  const models = ["claude-sonnet-4-5-20250929", "claude-3-7-sonnet-latest"];
-  const content: any[] = [];
-
-  for (const att of attachments) {
-    const clean = stripBase64Prefix(att.data);
-    const mime = (att.mimeType || "image/jpeg").toLowerCase().trim();
-    if (mime === "application/pdf") {
-      content.push({
-        type: "document",
-        source: {
-          type: "base64",
-          media_type: "application/pdf",
-          data: clean,
-        },
-      });
-    } else {
-      content.push({
-        type: "image",
-        source: {
-          type: "base64",
-          media_type: mime === "image/jpg" ? "image/jpeg" : mime,
-          data: clean,
-        },
-      });
-    }
-  }
-  content.push({ type: "text", text: prompt });
-
-  let lastError = "";
-  for (const model of models) {
-    try {
-      const res = await fetch("https://api.anthropic.com/v1/messages", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "x-api-key": apiKey,
-          "anthropic-version": "2023-06-01",
-        },
-        body: JSON.stringify({
-          model,
-          messages: [{ role: "user", content }],
-          max_tokens: 6000,
-          temperature: 0.25,
-        }),
-        signal: AbortSignal.timeout(55000),
-      });
-      if (res.ok) {
-        const data = await res.json();
-        const text = data.content?.[0]?.text || "";
-        if (text) return text;
-      } else {
-        const errJson = await res.json().catch(() => ({}));
-        lastError = errJson.error?.message || `HTTP ${res.status}`;
-      }
-    } catch (err: any) {
-      lastError = err?.message || "Anthropic connection error";
-    }
-  }
-  throw new Error(`Anthropic evaluation failed: ${lastError}`);
 }
 
 export async function POST(req: NextRequest) {
@@ -298,12 +100,15 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    if (provider === "groq" && answerAttachments.length > 0) {
+    const hasPdfAnswer = answerAttachments.some(
+      (att) => normalizeMediaMime(att.mimeType) === "application/pdf",
+    );
+    if (provider === "groq" && hasPdfAnswer) {
       return NextResponse.json(
         {
           ok: false,
           error:
-            "Groq does not support PDF/image answer booklet evaluation. Please switch to Gemini, OpenAI, or Claude.",
+            "Groq does not support PDF answer booklets. Please upload JPG/PNG/WebP page images, provide typed notes, or switch to Gemini, OpenAI, or Claude.",
         },
         { status: 400 },
       );
@@ -322,7 +127,7 @@ export async function POST(req: NextRequest) {
         .join("\n\n");
     } else if (markdownContent.trim()) {
       questionContextBlock = markdownContent.slice(0, 12000);
-    } else if (qpUrl) {
+    } else if (qpUrl && provider !== "groq") {
       const qpPdf = await fetchPdfAsAttachment(qpUrl, req.nextUrl.origin);
       if (qpPdf) {
         allMedia.push(qpPdf);
@@ -374,11 +179,31 @@ Allowed values for "assessment": "strong", "partial", "needs-work".`;
 
     let rawText = "";
     if (provider === "gemini") {
-      rawText = await callGemini(apiKey, prompt, allMedia);
+      rawText = await callGeminiMultimodal({
+        apiKey,
+        prompt,
+        attachments: allMedia,
+      });
     } else if (provider === "openai") {
-      rawText = await callOpenAI(apiKey, prompt, allMedia);
+      rawText = await callOpenAIMultimodal({
+        apiKey,
+        prompt,
+        attachments: allMedia,
+      });
     } else if (provider === "anthropic") {
-      rawText = await callAnthropic(apiKey, prompt, allMedia);
+      rawText = await callAnthropicMultimodal({
+        apiKey,
+        prompt,
+        attachments: allMedia,
+        systemPrompt:
+          "You are a strict UPSC Civil Services Mains Examiner. Output ONLY valid JSON matching the requested schema, with no markdown fences or extra text.",
+      });
+    } else if (provider === "groq") {
+      rawText = await callGroqMultimodal({
+        apiKey,
+        prompt,
+        attachments: allMedia,
+      });
     } else {
       return NextResponse.json(
         {
@@ -389,10 +214,23 @@ Allowed values for "assessment": "strong", "partial", "needs-work".`;
       );
     }
 
-    const parsed = parseJsonResponse(rawText);
-    const rawResults = Array.isArray(parsed?.questionResults)
-      ? parsed.questionResults
-      : [];
+    const parsed = parseJsonFromText(rawText);
+    if (!parsed || !Array.isArray(parsed.questionResults)) {
+      console.warn(
+        "Mains paper evaluation JSON parse failed:",
+        rawText.slice(0, 300),
+      );
+      return NextResponse.json(
+        {
+          ok: false,
+          error:
+            "The AI evaluator returned an unformatted response. Please retry the evaluation.",
+        },
+        { status: 502 },
+      );
+    }
+
+    const rawResults = parsed.questionResults;
 
     const questionResults = rawResults
       .map((item: any) => {
