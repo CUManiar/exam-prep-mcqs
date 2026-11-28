@@ -77,7 +77,9 @@ export function PdfViewer({
 
   const absoluteUrl =
     typeof window !== "undefined"
-      ? url?.startsWith("http")
+      ? url?.startsWith("http") ||
+        url?.startsWith("blob:") ||
+        url?.startsWith("data:")
         ? url
         : `${window.location.origin}${url}`
       : url;

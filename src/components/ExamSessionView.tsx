@@ -261,6 +261,15 @@ export function ExamSessionView({
   const [isEvaluatingBooklet, setIsEvaluatingBooklet] =
     useState<boolean>(false);
   const [bookletEvalError, setBookletEvalError] = useState<string | null>(null);
+  const evalAbortControllerRef = useRef<AbortController | null>(null);
+
+  const handleAbortBookletEvaluation = useCallback(() => {
+    if (evalAbortControllerRef.current) {
+      evalAbortControllerRef.current.abort();
+      evalAbortControllerRef.current = null;
+    }
+    setIsEvaluatingBooklet(false);
+  }, []);
   const [providerVault, setProviderVault] = useState<Record<string, string>>(
     () => (typeof window !== "undefined" ? getProviderVault() : {}),
   );
@@ -1481,7 +1490,24 @@ export function ExamSessionView({
             }
           }
         } else if (isSubjective) {
-          if (a.selected === "attempted") {
+          if (a.subjectiveMarks !== undefined) {
+            subjectiveScore += a.subjectiveMarks;
+            const maxQ =
+              subjectiveMarksPerQuestion > 0 ? subjectiveMarksPerQuestion : 10;
+            subjectiveAssessmentPoints += Math.min(
+              1,
+              Math.max(0, a.subjectiveMarks / maxQ),
+            );
+            if (a.subjectiveAssessment === "strong") {
+              correctCount++;
+              isCorrect = true;
+            } else if (a.subjectiveAssessment === "partial") {
+              partialCount++;
+            } else if (a.subjectiveAssessment === "needs-work") {
+              incorrectCount++;
+              isCorrect = false;
+            }
+          } else if (a.selected === "attempted") {
             const fraction = getSubjectiveAssessmentFraction(
               a.subjectiveAssessment,
             );
@@ -3947,8 +3973,11 @@ export function ExamSessionView({
             <div className="max-w-4xl mx-auto flex items-center justify-between gap-3">
               <button
                 type="button"
-                disabled={isSubmittingExam || isEvaluatingBooklet}
-                onClick={() => setIsScanUploadPhase(false)}
+                disabled={isSubmittingExam}
+                onClick={() => {
+                  handleAbortBookletEvaluation();
+                  setIsScanUploadPhase(false);
+                }}
                 className="flex items-center gap-1.5 rounded-xl border border-slate-200 bg-slate-50 px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-100 transition-colors shadow-2xs disabled:opacity-50 cursor-pointer"
               >
                 <ArrowLeft className="h-4 w-4" /> Back to Session
@@ -3958,8 +3987,11 @@ export function ExamSessionView({
               </h2>
               <button
                 type="button"
-                disabled={isSubmittingExam || isEvaluatingBooklet}
-                onClick={() => setIsScanUploadPhase(false)}
+                disabled={isSubmittingExam}
+                onClick={() => {
+                  handleAbortBookletEvaluation();
+                  setIsScanUploadPhase(false);
+                }}
                 aria-label="Close upload modal"
                 className="flex items-center justify-center h-8 w-8 rounded-xl border border-slate-200 bg-white text-slate-500 hover:bg-slate-100 hover:text-slate-800 transition-colors disabled:opacity-50 cursor-pointer shrink-0"
               >
@@ -4140,151 +4172,234 @@ export function ExamSessionView({
                   <button
                     type="button"
                     disabled={isSubmittingExam || isEvaluatingBooklet}
-                    onClick={() => {
+                    onClick={async () => {
                       if (isSubmittingExam || isEvaluatingBooklet) return;
-                      const blobUrl = submissionFiles[0]
-                        ? URL.createObjectURL(submissionFiles[0])
-                        : undefined;
-                      handleFinishExam(blobUrl);
+                      let uploadedUrl: string | undefined = fullBookletUrl;
+                      if (!uploadedUrl && submissionFiles[0]) {
+                        try {
+                          const fd = new FormData();
+                          fd.append("file", submissionFiles[0]);
+                          const upRes = await fetch("/api/upload-submission", {
+                            method: "POST",
+                            body: fd,
+                          });
+                          const upData = await upRes.json().catch(() => null);
+                          if (upRes.ok && upData?.ok && upData?.url) {
+                            uploadedUrl = upData.url;
+                          }
+                        } catch {}
+                        if (!uploadedUrl) {
+                          uploadedUrl = URL.createObjectURL(submissionFiles[0]);
+                        }
+                      }
+                      await handleFinishExam(uploadedUrl);
                     }}
                     className="rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-xs font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-50 cursor-pointer"
                   >
                     Skip AI &amp; Finish
                   </button>
 
-                  <button
-                    type="button"
-                    disabled={
-                      isSubmittingExam ||
-                      isEvaluatingBooklet ||
-                      submissionFiles.length === 0
-                    }
-                    onClick={async () => {
-                      if (
+                  <div className="flex flex-wrap items-center gap-2">
+                    {isEvaluatingBooklet && !isSubmittingExam && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          handleAbortBookletEvaluation();
+                          setBookletEvalError(
+                            "Evaluation stopped. You can retry, switch AI provider, or Skip AI & Finish.",
+                          );
+                        }}
+                        className="rounded-xl border border-rose-300 bg-rose-50 px-4 py-2.5 text-xs font-bold text-rose-700 hover:bg-rose-100 transition-colors cursor-pointer"
+                      >
+                        Stop &amp; Cancel
+                      </button>
+                    )}
+
+                    <button
+                      type="button"
+                      disabled={
                         isSubmittingExam ||
                         isEvaluatingBooklet ||
                         submissionFiles.length === 0
-                      ) {
-                        return;
                       }
-                      setIsEvaluatingBooklet(true);
-                      setBookletEvalError(null);
-                      try {
-                        const toAttachment = (file: File) =>
-                          new Promise<{
-                            mimeType: string;
-                            data: string;
-                            name: string;
-                          }>((resolve, reject) => {
-                            const reader = new FileReader();
-                            reader.onload = () =>
-                              resolve({
-                                mimeType: file.type || "application/pdf",
-                                data: String(reader.result || ""),
-                                name: file.name,
-                              });
-                            reader.onerror = () =>
-                              reject(new Error(`Failed reading ${file.name}`));
-                            reader.readAsDataURL(file);
+                      onClick={async () => {
+                        if (
+                          isSubmittingExam ||
+                          isEvaluatingBooklet ||
+                          submissionFiles.length === 0
+                        ) {
+                          return;
+                        }
+                        const controller = new AbortController();
+                        evalAbortControllerRef.current = controller;
+                        setIsEvaluatingBooklet(true);
+                        setBookletEvalError(null);
+                        try {
+                          const toAttachment = (file: File) =>
+                            new Promise<{
+                              mimeType: string;
+                              data: string;
+                              name: string;
+                            }>((resolve, reject) => {
+                              const reader = new FileReader();
+                              reader.onload = () =>
+                                resolve({
+                                  mimeType: file.type || "application/pdf",
+                                  data: String(reader.result || ""),
+                                  name: file.name,
+                                });
+                              reader.onerror = () =>
+                                reject(
+                                  new Error(`Failed reading ${file.name}`),
+                                );
+                              reader.readAsDataURL(file);
+                            });
+
+                          const uploadAnswerCopy = async (): Promise<
+                            string | undefined
+                          > => {
+                            if (fullBookletUrl) return fullBookletUrl;
+                            const firstFile = submissionFiles[0];
+                            if (!firstFile) return undefined;
+                            try {
+                              const fd = new FormData();
+                              fd.append("file", firstFile);
+                              const upRes = await fetch(
+                                "/api/upload-submission",
+                                {
+                                  method: "POST",
+                                  body: fd,
+                                  signal: controller.signal,
+                                },
+                              );
+                              const upData = await upRes
+                                .json()
+                                .catch(() => null);
+                              if (upRes.ok && upData?.ok && upData?.url) {
+                                setFullBookletUrl(upData.url);
+                                setFullBookletName(upData.fileName);
+                                return upData.url as string;
+                              }
+                            } catch (upErr: any) {
+                              if (upErr?.name === "AbortError") throw upErr;
+                            }
+                            return URL.createObjectURL(firstFile);
+                          };
+
+                          const [attachments, persistedUrl] = await Promise.all(
+                            [
+                              Promise.all(submissionFiles.map(toAttachment)),
+                              uploadAnswerCopy(),
+                            ],
+                          );
+
+                          const res = await fetch("/api/mains/evaluate-paper", {
+                            method: "POST",
+                            headers: { "Content-Type": "application/json" },
+                            signal: controller.signal,
+                            body: JSON.stringify({
+                              paperTitle: getPaperDisplayTitle(effectivePaper),
+                              totalQuestions: effectivePaper.totalQuestions,
+                              totalMarks: effectivePaper.totalMarks,
+                              qpUrl: effectivePaper.qpUrl,
+                              parsedQuestions:
+                                effectivePaper.parsedQuestions?.map((q) => ({
+                                  questionNo: q.questionNo,
+                                  text: q.text,
+                                })),
+                              markdownContent: effectivePaper.markdownContent,
+                              attachments,
+                              providerConfig: {
+                                provider: aiEvalProvider,
+                                apiKey: providerVault[aiEvalProvider] || "",
+                              },
+                            }),
                           });
 
-                        const attachments = await Promise.all(
-                          submissionFiles.map(toAttachment),
-                        );
-
-                        const res = await fetch("/api/mains/evaluate-paper", {
-                          method: "POST",
-                          headers: { "Content-Type": "application/json" },
-                          body: JSON.stringify({
-                            paperTitle: getPaperDisplayTitle(effectivePaper),
-                            totalQuestions: effectivePaper.totalQuestions,
-                            totalMarks: effectivePaper.totalMarks,
-                            qpUrl: effectivePaper.qpUrl,
-                            parsedQuestions:
-                              effectivePaper.parsedQuestions?.map((q) => ({
-                                questionNo: q.questionNo,
-                                text: q.text,
-                              })),
-                            markdownContent: effectivePaper.markdownContent,
-                            attachments,
-                            providerConfig: {
-                              provider: aiEvalProvider,
-                              apiKey: providerVault[aiEvalProvider] || "",
-                            },
-                          }),
-                        });
-
-                        const rawText = await res.text();
-                        let data: any = null;
-                        try {
-                          data = JSON.parse(rawText);
-                        } catch {
-                          throw new Error(
-                            `Evaluation request failed (HTTP ${res.status}).`,
-                          );
-                        }
-                        if (!res.ok || !data?.ok) {
-                          throw new Error(
-                            data?.error || "AI evaluation failed.",
-                          );
-                        }
-
-                        const updatedAnswers: Record<number, QuestionAnswer> = {
-                          ...answers,
-                        };
-                        if (Array.isArray(data.questionResults)) {
-                          for (const r of data.questionResults) {
-                            const existing = updatedAnswers[r.questionNo] || {
-                              questionNo: r.questionNo,
-                              selected: null,
-                              flagged: false,
-                              note: "",
-                              timeSpentSeconds: 0,
-                            };
-                            const attempted =
-                              r.marksAwarded > 0 ||
-                              !String(r.comment || "")
-                                .toLowerCase()
-                                .includes("not attempted");
-                            updatedAnswers[r.questionNo] = {
-                              ...existing,
-                              selected: attempted
-                                ? existing.selected || "attempted"
-                                : existing.selected,
-                              subjectiveMarks: r.marksAwarded,
-                              subjectiveAssessment: r.assessment,
-                              evaluationComment: r.comment,
-                            };
+                          const rawText = await res.text();
+                          let data: any = null;
+                          try {
+                            data = JSON.parse(rawText);
+                          } catch {
+                            throw new Error(
+                              `Evaluation request failed (HTTP ${res.status}).`,
+                            );
                           }
-                        }
+                          if (!res.ok || !data?.ok) {
+                            throw new Error(
+                              data?.error || "AI evaluation failed.",
+                            );
+                          }
 
-                        const blobUrl = submissionFiles[0]
-                          ? URL.createObjectURL(submissionFiles[0])
-                          : undefined;
-                        await handleFinishExam(blobUrl, {
-                          answersOverride: updatedAnswers,
-                          overallFeedback: data.overallFeedback,
-                        });
-                      } catch (err: any) {
-                        setBookletEvalError(
-                          err?.message ||
-                            "AI evaluation failed. You can retry or Skip AI & Finish.",
-                        );
-                      } finally {
-                        setIsEvaluatingBooklet(false);
-                      }
-                    }}
-                    className="rounded-xl bg-indigo-600 px-6 py-2.5 text-xs font-bold text-white hover:bg-indigo-700 shadow-xs flex items-center gap-2 disabled:opacity-50 cursor-pointer"
-                  >
-                    {isEvaluatingBooklet || isSubmittingExam ? (
-                      <>
-                        <Loader2 className="h-4 w-4 animate-spin" />
-                        <span>Evaluating Answer Booklet...</span>
-                      </>
-                    ) : (
-                      <span>Evaluate with AI &amp; Finish</span>
-                    )}
-                  </button>
+                          const updatedAnswers: Record<number, QuestionAnswer> =
+                            {
+                              ...answers,
+                            };
+                          const nowIso = new Date().toISOString();
+                          if (Array.isArray(data.questionResults)) {
+                            for (const r of data.questionResults) {
+                              const qNo = Number(r.questionNo);
+                              if (!Number.isFinite(qNo) || qNo < 1) continue;
+                              const existing = updatedAnswers[qNo] || {
+                                questionNo: qNo,
+                                selected: null,
+                                flagged: false,
+                                note: "",
+                                timeSpentSeconds: 0,
+                              };
+                              const attempted =
+                                r.marksAwarded > 0 ||
+                                !String(r.comment || "")
+                                  .toLowerCase()
+                                  .includes("not attempted");
+                              updatedAnswers[qNo] = {
+                                ...existing,
+                                selected: attempted
+                                  ? existing.selected || "attempted"
+                                  : existing.selected,
+                                subjectiveMarks: r.marksAwarded,
+                                subjectiveAssessment: r.assessment,
+                                evaluationComment: r.comment,
+                                evaluationSource: "ai",
+                                evaluationUpdatedAt: nowIso,
+                              };
+                            }
+                          }
+
+                          await handleFinishExam(persistedUrl, {
+                            answersOverride: updatedAnswers,
+                            overallFeedback: data.overallFeedback,
+                          });
+                        } catch (err: any) {
+                          if (err?.name === "AbortError") {
+                            setBookletEvalError(
+                              "Evaluation stopped. You can retry, switch AI provider, or Skip AI & Finish.",
+                            );
+                          } else {
+                            setBookletEvalError(
+                              err?.message ||
+                                "AI evaluation failed. You can retry or Skip AI & Finish.",
+                            );
+                          }
+                        } finally {
+                          if (evalAbortControllerRef.current === controller) {
+                            evalAbortControllerRef.current = null;
+                          }
+                          setIsEvaluatingBooklet(false);
+                        }
+                      }}
+                      className="rounded-xl bg-indigo-600 px-6 py-2.5 text-xs font-bold text-white hover:bg-indigo-700 shadow-xs flex items-center gap-2 disabled:opacity-50 cursor-pointer"
+                    >
+                      {isEvaluatingBooklet || isSubmittingExam ? (
+                        <>
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                          <span>Evaluating Answer Booklet...</span>
+                        </>
+                      ) : (
+                        <span>Evaluate with AI &amp; Finish</span>
+                      )}
+                    </button>
+                  </div>
                 </div>
               </div>
             </div>
