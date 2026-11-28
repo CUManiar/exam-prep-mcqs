@@ -50,13 +50,18 @@ export function ReviewScoreHero({
   const [scoreCollapsed, setScoreCollapsed] = useState(false);
   const [analyticsExpanded, setAnalyticsExpanded] = useState(false);
 
+  const isSubjective =
+    attempt.examType === "subjective" || attempt.category === "mains";
+
   const totalQ = attempt.totalQuestions;
   const correctPct =
     totalQ > 0 ? Math.round((attempt.correct / totalQ) * 100) : 0;
+  const partialPct =
+    totalQ > 0 ? Math.round(((attempt.partial ?? 0) / totalQ) * 100) : 0;
   const incorrectPct =
     totalQ > 0 ? Math.round((attempt.incorrect / totalQ) * 100) : 0;
   const skippedPct =
-    totalQ > 0 ? Math.max(0, 100 - correctPct - incorrectPct) : 0;
+    totalQ > 0 ? Math.max(0, 100 - correctPct - partialPct - incorrectPct) : 0;
 
   return (
     <section className="space-y-3.5">
@@ -66,7 +71,7 @@ export function ReviewScoreHero({
         <div className="p-3.5 sm:p-4 bg-gradient-to-br from-indigo-50/40 via-white to-slate-50 flex items-center justify-between gap-3 border-b border-slate-200/80">
           <div className="space-y-1 min-w-0">
             <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500 block">
-              Score & Cutoff
+              {isSubjective ? "Score & Evaluation" : "Score & Cutoff"}
             </span>
             <div className="flex items-baseline gap-2 flex-wrap">
               <span className="text-2xl sm:text-3xl font-black font-mono tracking-tight text-slate-900">
@@ -121,9 +126,13 @@ export function ReviewScoreHero({
                 onClick={() => onSelectFilter("all", EMPTY_FILTER_STATE)}
                 className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 transition-colors text-xs cursor-pointer shadow-2xs"
               >
-                <span className="text-slate-400 text-[11px]">Accuracy:</span>
+                <span className="text-slate-400 text-[11px]">
+                  {isSubjective ? "Attempted:" : "Accuracy:"}
+                </span>
                 <strong className="font-mono text-slate-900 font-bold">
-                  {formatReviewNumber(attempt.accuracyPct)}%
+                  {isSubjective
+                    ? `${attempt.answered}/${attempt.totalQuestions}`
+                    : `${formatReviewNumber(attempt.accuracyPct)}%`}
                 </strong>
               </button>
 
@@ -136,7 +145,9 @@ export function ReviewScoreHero({
               >
                 <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
                 <span className="font-mono">{attempt.correct}</span>
-                <span className="text-[11px] text-emerald-700">correct</span>
+                <span className="text-[11px] text-emerald-700">
+                  {isSubjective ? "strong" : "correct"}
+                </span>
               </button>
 
               <button
@@ -148,7 +159,9 @@ export function ReviewScoreHero({
               >
                 <span className="h-1.5 w-1.5 rounded-full bg-rose-500" />
                 <span className="font-mono">{attempt.incorrect}</span>
-                <span className="text-[11px] text-rose-700">wrong</span>
+                <span className="text-[11px] text-rose-700">
+                  {isSubjective ? "needs work" : "wrong"}
+                </span>
               </button>
 
               {(attempt.partial ?? 0) > 0 && (
@@ -257,14 +270,21 @@ export function ReviewScoreHero({
                       <div
                         style={{ width: `${correctPct}%` }}
                         className="bg-emerald-500 h-full"
-                        title={`Correct: ${attempt.correct}`}
+                        title={`${isSubjective ? "Strong" : "Correct"}: ${attempt.correct}`}
+                      />
+                    )}
+                    {partialPct > 0 && (
+                      <div
+                        style={{ width: `${partialPct}%` }}
+                        className="bg-amber-400 h-full"
+                        title={`Partial: ${attempt.partial ?? 0}`}
                       />
                     )}
                     {incorrectPct > 0 && (
                       <div
                         style={{ width: `${incorrectPct}%` }}
                         className="bg-rose-500 h-full"
-                        title={`Incorrect: ${attempt.incorrect}`}
+                        title={`${isSubjective ? "Needs Work" : "Incorrect"}: ${attempt.incorrect}`}
                       />
                     )}
                     {skippedPct > 0 && (
@@ -277,25 +297,27 @@ export function ReviewScoreHero({
                   </div>
                 </div>
 
-                {/* 2. Marks Breakdown */}
-                <div className="grid grid-cols-2 gap-2 text-xs">
-                  <div className="p-2.5 rounded-xl bg-emerald-50/80 border border-emerald-200">
-                    <span className="text-[10px] text-emerald-800 font-medium block">
-                      Gross Marks
-                    </span>
-                    <strong className="font-mono text-emerald-950 text-sm">
-                      +{grossCorrectMarks} pts
-                    </strong>
+                {/* 2. Marks Breakdown (Objective papers only — subjective papers have no negative marking) */}
+                {!isSubjective && (
+                  <div className="grid grid-cols-2 gap-2 text-xs">
+                    <div className="p-2.5 rounded-xl bg-emerald-50/80 border border-emerald-200">
+                      <span className="text-[10px] text-emerald-800 font-medium block">
+                        Gross Marks
+                      </span>
+                      <strong className="font-mono text-emerald-950 text-sm">
+                        +{grossCorrectMarks} pts
+                      </strong>
+                    </div>
+                    <div className="p-2.5 rounded-xl bg-rose-50/80 border border-rose-200">
+                      <span className="text-[10px] text-rose-800 font-medium block">
+                        Penalties
+                      </span>
+                      <strong className="font-mono text-rose-950 text-sm">
+                        -{negativePenaltyMarks} pts
+                      </strong>
+                    </div>
                   </div>
-                  <div className="p-2.5 rounded-xl bg-rose-50/80 border border-rose-200">
-                    <span className="text-[10px] text-rose-800 font-medium block">
-                      Penalties
-                    </span>
-                    <strong className="font-mono text-rose-950 text-sm">
-                      -{negativePenaltyMarks} pts
-                    </strong>
-                  </div>
-                </div>
+                )}
 
                 {/* 3. Diagnostic Insights & Takeaways (Inside Analytics) */}
                 {topTakeaways.length > 0 && (
