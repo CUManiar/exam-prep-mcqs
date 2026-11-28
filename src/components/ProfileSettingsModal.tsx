@@ -355,39 +355,57 @@ export function ProfileSettingsModal({
                   <div className="grid grid-cols-3 gap-2">
                     <button
                       type="button"
+                      aria-pressed={theme === "light"}
                       onClick={() => setTheme("light")}
-                      className={`flex flex-col items-center justify-center p-2.5 rounded-lg border text-xs font-bold transition-all cursor-pointer ${
+                      className={`relative flex flex-col items-center justify-center p-2.5 rounded-lg border text-xs font-bold transition-all cursor-pointer ${
                         theme === "light"
                           ? "border-indigo-600 bg-indigo-50/70 text-indigo-900 ring-2 ring-indigo-600/20"
                           : "border-slate-200 bg-white text-slate-700 hover:bg-slate-50"
                       }`}
                     >
+                      {theme === "light" && (
+                        <span className="absolute top-1.5 right-1.5 flex h-4 w-4 items-center justify-center rounded-full bg-indigo-600 text-white">
+                          <Check className="h-2.5 w-2.5" />
+                        </span>
+                      )}
                       <span className="h-4 w-4 rounded-full bg-white border border-slate-300 shadow-2xs mb-1.5" />
                       <span>Light</span>
                     </button>
 
                     <button
                       type="button"
+                      aria-pressed={theme === "sepia"}
                       onClick={() => setTheme("sepia")}
-                      className={`flex flex-col items-center justify-center p-2.5 rounded-lg border text-xs font-bold transition-all cursor-pointer ${
+                      className={`relative flex flex-col items-center justify-center p-2.5 rounded-lg border text-xs font-bold transition-all cursor-pointer ${
                         theme === "sepia"
                           ? "border-amber-700 bg-amber-50 text-amber-900 ring-2 ring-amber-700/20"
                           : "border-slate-200 bg-[#f7f0e3] text-[#382c1e] hover:brightness-95"
                       }`}
                     >
+                      {theme === "sepia" && (
+                        <span className="absolute top-1.5 right-1.5 flex h-4 w-4 items-center justify-center rounded-full bg-amber-700 text-white">
+                          <Check className="h-2.5 w-2.5" />
+                        </span>
+                      )}
                       <span className="h-4 w-4 rounded-full bg-[#fbf0d9] border border-[#d6c7b2] shadow-2xs mb-1.5" />
                       <span>Warm Sepia</span>
                     </button>
 
                     <button
                       type="button"
+                      aria-pressed={theme === "dark"}
                       onClick={() => setTheme("dark")}
-                      className={`flex flex-col items-center justify-center p-2.5 rounded-lg border text-xs font-bold transition-all cursor-pointer ${
+                      className={`relative flex flex-col items-center justify-center p-2.5 rounded-lg border text-xs font-bold transition-all cursor-pointer ${
                         theme === "dark"
                           ? "border-indigo-500 bg-slate-900 text-white ring-2 ring-indigo-500/30"
                           : "border-slate-200 bg-slate-800 text-slate-200 hover:bg-slate-700"
                       }`}
                     >
+                      {theme === "dark" && (
+                        <span className="absolute top-1.5 right-1.5 flex h-4 w-4 items-center justify-center rounded-full bg-indigo-500 text-white">
+                          <Check className="h-2.5 w-2.5" />
+                        </span>
+                      )}
                       <span className="h-4 w-4 rounded-full bg-slate-900 border border-slate-700 shadow-2xs mb-1.5" />
                       <span>Dark</span>
                     </button>
