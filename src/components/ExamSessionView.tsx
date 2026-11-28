@@ -1817,12 +1817,8 @@ export function ExamSessionView({
               disabled={isSubmittingExam}
               onClick={() => {
                 if (isSubmittingExam) return;
-                if (isSubjectiveScanPaper) {
-                  if (mode === "mock") {
-                    setIsScanUploadPhase(true);
-                  } else {
-                    handleFinishExam();
-                  }
+                if (isSubjective || isSubjectiveScanPaper) {
+                  setIsScanUploadPhase(true);
                 } else if (isSubjective) {
                   handleFinishExam();
                 } else {
@@ -2825,6 +2821,21 @@ export function ExamSessionView({
                           className="col-span-2 sm:col-span-1 flex items-center justify-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-xs font-medium text-slate-600 hover:text-slate-900 hover:bg-slate-50 transition-colors shadow-2xs"
                         >
                           Clear Status
+                        </button>
+                      </div>
+
+                      <div className="pt-2 border-t border-slate-200/80 flex flex-wrap items-center justify-between gap-2">
+                        <span className="text-[11px] text-slate-500">
+                          Finished writing? Upload your answer booklet once for
+                          AI marking.
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => setIsScanUploadPhase(true)}
+                          className="inline-flex items-center gap-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white px-3.5 py-2 text-xs font-bold shadow-xs transition-all cursor-pointer"
+                        >
+                          <UploadCloud className="h-3.5 w-3.5" />
+                          <span>Submit &amp; Evaluate with AI</span>
                         </button>
                       </div>
                     </div>
