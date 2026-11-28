@@ -459,7 +459,7 @@ export function DashboardView({
           {/* Row 2: Strike Calendar (2/3) + Recent Test Insights & Pacing (1/3) */}
           <section className="grid grid-cols-1 lg:grid-cols-3 gap-3 sm:gap-6 w-full min-w-0">
             <div className="lg:col-span-2 min-w-0 w-full">
-              <StrikeCalendar attempts={objectiveCompleted} />
+              <StrikeCalendar attempts={objectiveCompleted} mode="objective" />
             </div>
             <div className="lg:col-span-1 min-w-0 w-full">
               <RecentTestInsights
@@ -489,7 +489,10 @@ export function DashboardView({
           />
           <section className="grid grid-cols-1 lg:grid-cols-3 gap-3 sm:gap-6 w-full min-w-0">
             <div className="lg:col-span-2 min-w-0 w-full">
-              <StrikeCalendar attempts={subjectiveCompleted} />
+              <StrikeCalendar
+                attempts={subjectiveCompleted}
+                mode="subjective"
+              />
             </div>
             <div className="lg:col-span-1 min-w-0 w-full">
               <GoalsAndRemindersBoard
