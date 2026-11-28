@@ -251,6 +251,8 @@ export function ExamSessionView({
   });
 
   // Subjective (Mains) handwritten scan & upload state
+  const [showSubjectiveIntroModal, setShowSubjectiveIntroModal] =
+    useState<boolean>(() => paper.examType === "subjective");
   const [isScanUploadPhase, setIsScanUploadPhase] = useState<boolean>(false);
   const [userSubmissionFile, setUserSubmissionFile] = useState<File | null>(
     null,
@@ -2442,33 +2444,35 @@ export function ExamSessionView({
                       )}
                     </button>
 
-                    {/* Scratchpad Toggle Button */}
-                    <button
-                      type="button"
-                      onClick={() => setShowNoteBox(!showNoteBox)}
-                      title="Open / close rough scratchpad for this question"
-                      className={`flex items-center gap-1.5 rounded-xl px-3 py-1.5 text-xs font-bold transition-all border shadow-2xs cursor-pointer active:scale-95 ${
-                        showNoteBox || currentQObj.note
-                          ? "bg-indigo-600 border-indigo-600 text-white shadow-xs ring-2 ring-indigo-500/30"
-                          : "border-slate-200 bg-white text-slate-700 hover:border-indigo-300 hover:bg-indigo-50/50"
-                      }`}
-                    >
-                      <Edit3
-                        className={`h-3.5 w-3.5 shrink-0 ${
+                    {/* Scratchpad Toggle Button (objective papers only; subjective papers use physical sheets) */}
+                    {!isSubjective && (
+                      <button
+                        type="button"
+                        onClick={() => setShowNoteBox(!showNoteBox)}
+                        title="Open / close rough scratchpad for this question"
+                        className={`flex items-center gap-1.5 rounded-xl px-3 py-1.5 text-xs font-bold transition-all border shadow-2xs cursor-pointer active:scale-95 ${
                           showNoteBox || currentQObj.note
-                            ? "text-white"
-                            : "text-indigo-600"
+                            ? "bg-indigo-600 border-indigo-600 text-white shadow-xs ring-2 ring-indigo-500/30"
+                            : "border-slate-200 bg-white text-slate-700 hover:border-indigo-300 hover:bg-indigo-50/50"
                         }`}
-                      />
-                      <span>Scratchpad</span>
-                      {currentQObj.note && (
-                        <span
-                          className={`inline-block h-2 w-2 rounded-full ${
-                            showNoteBox ? "bg-amber-300" : "bg-indigo-600"
+                      >
+                        <Edit3
+                          className={`h-3.5 w-3.5 shrink-0 ${
+                            showNoteBox || currentQObj.note
+                              ? "text-white"
+                              : "text-indigo-600"
                           }`}
                         />
-                      )}
-                    </button>
+                        <span>Scratchpad</span>
+                        {currentQObj.note && (
+                          <span
+                            className={`inline-block h-2 w-2 rounded-full ${
+                              showNoteBox ? "bg-amber-300" : "bg-indigo-600"
+                            }`}
+                          />
+                        )}
+                      </button>
+                    )}
 
                     {/* Show Answer Toggle for Practice Mode */}
                     {isPractice &&
@@ -2840,97 +2844,6 @@ export function ExamSessionView({
                       </div>
                     </div>
 
-                    {/* In Mock Mode ONLY: Entire single booklet upload for future review */}
-                    {mode === "mock" && !isClozeQuestion(currentQuestion) && (
-                      <div className="rounded-2xl border border-violet-200 bg-violet-50/50 p-3.5 sm:p-4 space-y-2.5">
-                        <div className="flex items-center justify-between gap-2">
-                          <div className="flex items-center gap-2">
-                            <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-violet-100 text-violet-700 border border-violet-200 shrink-0">
-                              <UploadCloud className="h-4 w-4" />
-                            </div>
-                            <div>
-                              <h5 className="text-xs font-bold text-slate-900">
-                                Full Answer Booklet Copy
-                              </h5>
-                              <p className="text-[11px] text-slate-500">
-                                Single upload for all answers (stored for future
-                                review)
-                              </p>
-                            </div>
-                          </div>
-
-                          {fullBookletUrl && (
-                            <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 border border-emerald-200 px-2.5 py-0.5 text-[10px] font-bold text-emerald-800">
-                              <CheckCircle2 className="h-3 w-3 text-emerald-600" />{" "}
-                              Booklet Attached
-                            </span>
-                          )}
-                        </div>
-
-                        {fullBookletUrl ? (
-                          <div className="rounded-xl border border-violet-200 bg-white p-2.5 flex items-center justify-between gap-2 shadow-2xs">
-                            <div className="flex items-center gap-2 min-w-0">
-                              <FileText className="h-4 w-4 text-violet-600 shrink-0" />
-                              <span className="text-xs font-semibold text-slate-800 truncate">
-                                {fullBookletName || "Full_Answer_Booklet.pdf"}
-                              </span>
-                            </div>
-                            <div className="flex items-center gap-1.5 shrink-0">
-                              <a
-                                href={fullBookletUrl}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="flex items-center gap-1 rounded-lg bg-violet-50 border border-violet-200 px-2.5 py-1 text-[11px] font-semibold text-violet-700 hover:bg-violet-100 transition-colors"
-                              >
-                                <ExternalLink className="h-3 w-3" /> View
-                              </a>
-                              <label className="cursor-pointer rounded-lg border border-slate-200 bg-white px-2.5 py-1 text-[11px] font-semibold text-slate-700 hover:bg-slate-50 transition-colors shadow-2xs">
-                                Replace
-                                <input
-                                  type="file"
-                                  accept=".pdf"
-                                  className="hidden"
-                                  disabled={isUploadingScan}
-                                  onChange={(e) => {
-                                    const f = e.target.files?.[0];
-                                    if (f) handleUploadFullBooklet(f);
-                                  }}
-                                />
-                              </label>
-                            </div>
-                          </div>
-                        ) : (
-                          <label
-                            className={`flex flex-col items-center justify-center rounded-xl border border-dashed border-violet-300 hover:border-violet-500 bg-white p-3 text-center cursor-pointer transition-all ${isUploadingScan ? "opacity-60 pointer-events-none" : ""}`}
-                          >
-                            {isUploadingScan ? (
-                              <div className="flex items-center gap-2 text-violet-700 text-xs font-semibold py-1">
-                                <Loader2 className="h-4 w-4 animate-spin" />{" "}
-                                Uploading scanned booklet...
-                              </div>
-                            ) : (
-                              <div className="flex items-center gap-2 text-slate-700 text-xs font-semibold">
-                                <FileUp className="h-4 w-4 text-violet-600" />
-                                <span>
-                                  Attach Complete Scanned Answer Booklet (PDF)
-                                </span>
-                              </div>
-                            )}
-                            <input
-                              type="file"
-                              accept=".pdf"
-                              className="hidden"
-                              disabled={isUploadingScan}
-                              onChange={(e) => {
-                                const f = e.target.files?.[0];
-                                if (f) handleUploadFullBooklet(f);
-                              }}
-                            />
-                          </label>
-                        )}
-                      </div>
-                    )}
-
                     {/* In Practice Mode: Compare with Model Solution PDF */}
                     {isPractice && paper.exsUrl && (
                       <div className="rounded-xl border border-indigo-200 bg-indigo-50/60 p-3 flex items-center justify-between gap-2">
@@ -3108,8 +3021,8 @@ export function ExamSessionView({
                     );
                   })()}
 
-                {/* Optional Scratchpad - Resizable Multi-line Textarea */}
-                {showNoteBox && (
+                {/* Optional Scratchpad - Resizable Multi-line Textarea (objective papers only) */}
+                {!isSubjective && showNoteBox && (
                   <div className="mt-3.5 rounded-2xl border border-slate-200 bg-slate-50/90 p-3 sm:p-4 space-y-2 shadow-2xs">
                     <div className="flex items-center justify-between text-xs">
                       <div className="flex items-center gap-1.5 flex-wrap">
@@ -3950,22 +3863,96 @@ export function ExamSessionView({
         </div>
       )}
 
+      {/* Subjective Paper Start Notice Modal */}
+      {isSubjective && showSubjectiveIntroModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 backdrop-blur-xs p-4 animate-in fade-in duration-150">
+          <div className="w-full max-w-md rounded-2xl border border-slate-200 bg-white p-5 sm:p-6 shadow-2xl space-y-4">
+            <div className="flex items-start justify-between gap-3">
+              <div className="flex items-center gap-2.5">
+                <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-indigo-100 text-indigo-700 shrink-0">
+                  <UploadCloud className="h-5 w-5" />
+                </div>
+                <div>
+                  <h3 className="text-base font-bold text-slate-900">
+                    Subjective Answer Writing
+                  </h3>
+                  <p className="text-xs text-slate-500">
+                    {getPaperDisplayTitle(effectivePaper)}
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowSubjectiveIntroModal(false)}
+                className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100 hover:text-slate-700 transition-colors cursor-pointer"
+                aria-label="Close notice"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+
+            <div className="rounded-xl border border-indigo-100 bg-indigo-50/60 p-3.5 text-xs text-slate-700 space-y-2 leading-relaxed">
+              <p>
+                Write your answers on your physical answer sheets as you
+                normally would. Use the confidence tags and flags here to track
+                each question.
+              </p>
+              <p className="font-semibold text-indigo-950">
+                When you finish, click <span className="underline">Submit</span>{" "}
+                to upload a single PDF or photos of your full answer booklet for
+                AI evaluation.
+              </p>
+            </div>
+
+            <div className="flex justify-end">
+              <button
+                type="button"
+                onClick={() => setShowSubjectiveIntroModal(false)}
+                className="rounded-xl bg-indigo-600 px-4 py-2 text-xs font-bold text-white hover:bg-indigo-700 shadow-xs transition-colors cursor-pointer"
+              >
+                Got it, Start Paper
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Subjective Mains Scan & Upload Phase */}
       {isScanUploadPhase && (
-        <div className="fixed inset-0 z-50 overflow-y-auto bg-slate-900/40 backdrop-blur-sm text-slate-800 flex flex-col font-sans animate-in fade-in duration-200">
+        <div
+          onClick={(e) => {
+            if (
+              e.target === e.currentTarget &&
+              !isSubmittingExam &&
+              !isEvaluatingBooklet
+            ) {
+              setIsScanUploadPhase(false);
+            }
+          }}
+          className="fixed inset-0 z-50 overflow-y-auto bg-slate-900/50 backdrop-blur-sm text-slate-800 flex flex-col font-sans animate-in fade-in duration-200"
+        >
           <div className="sticky top-0 z-20 border-b border-slate-200 bg-white/95 backdrop-blur-md px-4 py-3 sm:px-6 shadow-2xs">
-            <div className="max-w-4xl mx-auto flex items-center justify-between">
+            <div className="max-w-4xl mx-auto flex items-center justify-between gap-3">
               <button
                 type="button"
                 disabled={isSubmittingExam || isEvaluatingBooklet}
                 onClick={() => setIsScanUploadPhase(false)}
-                className="flex items-center gap-1.5 rounded-xl border border-slate-200 bg-slate-50 px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-100 transition-colors shadow-2xs disabled:opacity-50"
+                className="flex items-center gap-1.5 rounded-xl border border-slate-200 bg-slate-50 px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-100 transition-colors shadow-2xs disabled:opacity-50 cursor-pointer"
               >
                 <ArrowLeft className="h-4 w-4" /> Back to Session
               </button>
-              <h2 className="text-sm sm:text-base font-bold text-slate-900">
+              <h2 className="text-sm sm:text-base font-bold text-slate-900 truncate">
                 Mains Answer Booklet &amp; AI Evaluation
               </h2>
+              <button
+                type="button"
+                disabled={isSubmittingExam || isEvaluatingBooklet}
+                onClick={() => setIsScanUploadPhase(false)}
+                aria-label="Close upload modal"
+                className="flex items-center justify-center h-8 w-8 rounded-xl border border-slate-200 bg-white text-slate-500 hover:bg-slate-100 hover:text-slate-800 transition-colors disabled:opacity-50 cursor-pointer shrink-0"
+              >
+                <X className="h-4 w-4" />
+              </button>
             </div>
           </div>
 
