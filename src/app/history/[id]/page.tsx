@@ -43,8 +43,11 @@ export default function AttemptDetailPage({
 
   if (!hasMounted || (!attempt && isLoading)) {
     return (
-      <div className="mx-auto max-w-4xl px-4 py-20 text-center text-xs text-slate-400">
-        Loading assessment report...
+      <div className="min-h-[70vh] flex flex-col items-center justify-center space-y-3">
+        <div className="h-8 w-8 animate-spin rounded-full border-2 border-slate-300 border-t-indigo-600" />
+        <span className="text-sm text-slate-500">
+          Loading assessment report…
+        </span>
       </div>
     );
   }

@@ -26,7 +26,38 @@ const STORAGE_KEYS = {
   ONLY_CUSTOM_PAPERS: "exam_prep_only_custom_papers_v1",
   CUSTOM_SYLLABUS: "exam_prep_custom_syllabus_v1",
   CUSTOM_SYLLABUS_MARKDOWN: "exam_prep_custom_syllabus_markdown_v1",
+  DELETED_ATTEMPTS: "exam_prep_deleted_attempts_v1",
 };
+
+export function getDeletedAttemptIds(userId?: string | null): Set<string> {
+  if (typeof window === "undefined") return new Set();
+  try {
+    const effective = userId !== undefined ? userId : activeStorageUserId;
+    const raw = localStorage.getItem(
+      `${STORAGE_KEYS.DELETED_ATTEMPTS}_${effective || "guest"}`,
+    );
+    const parsed = raw ? JSON.parse(raw) : [];
+    return new Set(Array.isArray(parsed) ? parsed : []);
+  } catch {
+    return new Set();
+  }
+}
+
+export function recordDeletedAttemptId(
+  attemptId: string,
+  userId?: string | null,
+): void {
+  if (typeof window === "undefined" || !attemptId) return;
+  try {
+    const effective = userId !== undefined ? userId : activeStorageUserId;
+    const set = getDeletedAttemptIds(effective);
+    set.add(attemptId);
+    localStorage.setItem(
+      `${STORAGE_KEYS.DELETED_ATTEMPTS}_${effective || "guest"}`,
+      JSON.stringify(Array.from(set).slice(-200)),
+    );
+  } catch {}
+}
 
 export function getOnlyCustomPapers(userId?: string): boolean {
   if (typeof window === "undefined") return false;
@@ -290,11 +321,17 @@ export function updateAttempt(
 }
 
 // Delete attempt
-export function deleteAttempt(attemptId: string): void {
+export function deleteAttempt(attemptId: string, userId?: string | null): void {
   if (typeof window === "undefined") return;
   try {
+    recordDeletedAttemptId(attemptId, userId);
     const list = getAttempts().filter((a) => a.id !== attemptId);
     localStorage.setItem(STORAGE_KEYS.ATTEMPTS, JSON.stringify(list));
+
+    const guestReview = getGuestReviewAttempt();
+    if (guestReview?.id === attemptId) {
+      localStorage.removeItem(STORAGE_KEYS.GUEST_REVIEW_ATTEMPT);
+    }
 
     // Server-side delete
     getAuthHeaders()
@@ -337,23 +374,52 @@ export function getEphemeralPracticePaper(
   }
 }
 
-// Custom Papers cache
-export function getCustomPapers(): QuestionPaper[] {
+let activeStorageUserId: string | null = null;
+
+export function setActiveStorageUserId(userId?: string | null): void {
+  const next = userId || null;
+  if (activeStorageUserId !== next) {
+    activeStorageUserId = next;
+    clearPapersCache();
+  }
+}
+
+function getCustomPapersStorageKey(userId?: string | null): string {
+  const effective = userId !== undefined ? userId : activeStorageUserId;
+  return `${STORAGE_KEYS.CUSTOM_PAPERS}_${effective || "guest"}`;
+}
+
+// Custom Papers cache (scoped per account)
+export function getCustomPapers(userId?: string | null): QuestionPaper[] {
   if (typeof window === "undefined") return [];
   try {
-    const raw = localStorage.getItem(STORAGE_KEYS.CUSTOM_PAPERS);
+    const effective = userId !== undefined ? userId : activeStorageUserId;
+    const raw = localStorage.getItem(getCustomPapersStorageKey(effective));
     if (!raw) return [];
     const list: QuestionPaper[] = JSON.parse(raw);
-    return Array.isArray(list) ? list.filter((p) => p && p.id && p.label) : [];
+    if (!Array.isArray(list)) return [];
+    return list.filter((p) => {
+      if (!p || !p.id || !p.label) return false;
+      if (effective) {
+        return !p.userId || p.userId === effective;
+      }
+      return !p.userId;
+    });
   } catch {
     return [];
   }
 }
 
-export function saveCustomPaper(paper: QuestionPaper): void {
+export function saveCustomPaper(
+  paper: QuestionPaper,
+  userId?: string | null,
+): void {
   if (typeof window === "undefined") return;
   try {
-    const list = getCustomPapers();
+    const effective =
+      paper.userId || (userId !== undefined ? userId : activeStorageUserId);
+    const key = getCustomPapersStorageKey(effective);
+    const list = getCustomPapers(effective);
     const idx = list.findIndex((p) => p.id === paper.id);
     if (idx >= 0) {
       list[idx] = paper;
@@ -361,13 +427,13 @@ export function saveCustomPaper(paper: QuestionPaper): void {
       list.unshift(paper);
     }
     try {
-      localStorage.setItem(STORAGE_KEYS.CUSTOM_PAPERS, JSON.stringify(list));
+      localStorage.setItem(key, JSON.stringify(list));
     } catch {
       // Prune older generated re-test papers if localStorage quota is full
       const pruned = list.filter(
         (p, i) => i === 0 || !p.id.startsWith("retest-"),
       );
-      localStorage.setItem(STORAGE_KEYS.CUSTOM_PAPERS, JSON.stringify(pruned));
+      localStorage.setItem(key, JSON.stringify(pruned));
     }
   } catch (err) {
     console.error("Failed to save custom paper:", err);
@@ -391,11 +457,18 @@ export async function deletePaperFromServer(paperId: string): Promise<boolean> {
   return false;
 }
 
-export function removeLocalCustomPaper(paperId: string): void {
+export function removeLocalCustomPaper(
+  paperId: string,
+  userId?: string | null,
+): void {
   if (typeof window === "undefined") return;
   try {
-    const list = getCustomPapers().filter((p) => p.id !== paperId);
-    localStorage.setItem(STORAGE_KEYS.CUSTOM_PAPERS, JSON.stringify(list));
+    const effective = userId !== undefined ? userId : activeStorageUserId;
+    const list = getCustomPapers(effective).filter((p) => p.id !== paperId);
+    localStorage.setItem(
+      getCustomPapersStorageKey(effective),
+      JSON.stringify(list),
+    );
   } catch (err) {
     console.error("Failed removing local custom paper:", err);
   }
@@ -434,7 +507,7 @@ export async function updatePaperOnServer(
     const idx = list.findIndex((p) => p.id === paperId);
     if (idx >= 0) {
       list[idx] = { ...list[idx], ...updates };
-      localStorage.setItem(STORAGE_KEYS.CUSTOM_PAPERS, JSON.stringify(list));
+      localStorage.setItem(getCustomPapersStorageKey(), JSON.stringify(list));
     }
   }
   return true;
@@ -463,7 +536,7 @@ export async function attachToPaperOnServer(
             list.unshift(data.paper);
           }
           localStorage.setItem(
-            STORAGE_KEYS.CUSTOM_PAPERS,
+            getCustomPapersStorageKey(data.paper.userId),
             JSON.stringify(list),
           );
         }
@@ -487,6 +560,7 @@ export function clearPapersCache(): void {
 // Fetch all papers from server filesystem + metadata store and ensure answer keys are parsed
 export async function getAllPapers(
   forceRefresh = false,
+  userId?: string | null,
 ): Promise<QuestionPaper[]> {
   if (!forceRefresh && inMemoryPapersCache && inMemoryPapersCache.length > 0) {
     return inMemoryPapersCache;
@@ -494,6 +568,8 @@ export async function getAllPapers(
   if (!forceRefresh && inFlightPapersPromise) {
     return inFlightPapersPromise;
   }
+
+  const effectiveUserId = userId !== undefined ? userId : activeStorageUserId;
 
   inFlightPapersPromise = (async () => {
     let papers: QuestionPaper[] = [];
@@ -520,9 +596,8 @@ export async function getAllPapers(
       papers = [...INITIAL_PAPERS];
     }
 
-    // Always merge local custom papers from localStorage (user uploaded / markdown mocks)
-    // Server paper (if present) takes precedence for answer keys, explanations, and marking rules.
-    const localCustom = getCustomPapers();
+    // Merge local custom papers scoped strictly to the active user/guest
+    const localCustom = getCustomPapers(effectiveUserId);
     for (const cp of localCustom) {
       const existingIdx = papers.findIndex((p) => p.id === cp.id);
       if (existingIdx >= 0) {

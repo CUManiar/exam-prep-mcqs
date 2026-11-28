@@ -33,14 +33,21 @@ export async function GET(req: NextRequest) {
         if (res.ok) {
           const data = await res.json();
           if (data.ok && Array.isArray(data.papers)) {
-            const papersList: QuestionPaper[] = [...data.papers];
+            const papersList: QuestionPaper[] = (
+              data.papers as QuestionPaper[]
+            ).filter((p) => {
+              const isUserOwned =
+                p.isCustom || p.userId || p.id.startsWith("custom_");
+              if (!isUserOwned) return true;
+              return Boolean(user?.id) && p.userId === user!.id;
+            });
             // Merge built-in INITIAL_PAPERS (including sample markdown paper)
             for (const initPaper of INITIAL_PAPERS) {
               if (!papersList.some((p) => p.id === initPaper.id)) {
                 papersList.push(initPaper);
               }
             }
-            // Also merge locally saved custom papers from papers.json if present
+            // Also merge locally saved custom papers from papers.json if owned by the authenticated user
             try {
               const localMeta = await readJsonStore<
                 Record<string, QuestionPaper>
@@ -49,7 +56,9 @@ export async function GET(req: NextRequest) {
                 if (
                   paper &&
                   paper.id &&
-                  (paper.qpUrl || paper.markdownContent)
+                  (paper.qpUrl || paper.markdownContent) &&
+                  Boolean(user?.id) &&
+                  paper.userId === user!.id
                 ) {
                   const existingIdx = papersList.findIndex(
                     (p) => p.id === paper.id,
@@ -92,9 +101,15 @@ export async function GET(req: NextRequest) {
 
     const allPapers: QuestionPaper[] = [];
 
-    // 2. Add valid papers from customMeta (user uploads)
+    // 2. Add valid papers from customMeta (strictly owned by authenticated user)
     for (const paper of Object.values(customMeta)) {
-      if (paper && paper.id && paper.qpUrl && paper.userId === user?.id) {
+      if (
+        paper &&
+        paper.id &&
+        (paper.qpUrl || paper.markdownContent) &&
+        Boolean(user?.id) &&
+        paper.userId === user!.id
+      ) {
         if (
           !paper.label ||
           paper.label.match(/^\d{4}\s*–\s*(GS\s*I|GS\s*II\s*CSAT|Mains.*)$/i)

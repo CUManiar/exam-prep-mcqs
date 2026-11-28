@@ -584,8 +584,20 @@ export function buildMainsEvaluationPrompt(params: {
   optionalSubject?: string;
   maxMarks: number;
   hasAttachment?: boolean;
+  topperAnswer?: string;
+  studentSources?: string;
+  recurringMistakes?: string[];
 }): string {
-  const { question, answerText, paperType, optionalSubject, maxMarks } = params;
+  const {
+    question,
+    answerText,
+    paperType,
+    optionalSubject,
+    maxMarks,
+    topperAnswer,
+    studentSources,
+    recurringMistakes,
+  } = params;
   const wordLimit = maxMarks === 10 ? 150 : maxMarks === 15 ? 250 : 300;
   const timeLimit = maxMarks === 10 ? 7 : maxMarks === 15 ? 11 : 20;
   const trimmedQ = (question || "").trim();
@@ -600,31 +612,42 @@ EXAM SCALE & PARAMETERS:
 - Paper: ${paperType}${optionalSubject ? ` (${optionalSubject})` : ""}
 - Question Weightage: ${maxMarks} Marks
 - Word Limit: ${wordLimit} Words (Must be realistically writable in ${timeLimit} minutes)
+${studentSources?.trim() ? `- Candidate's Declared Sources: ${studentSources.trim()}` : ""}
+${topperAnswer?.trim() ? `\nTOPPER / MODEL REFERENCE (CALIBRATION ANCHOR):\n${topperAnswer.trim().slice(0, 3000)}\n` : ""}
+${recurringMistakes?.length ? `\nRECURRING MISTAKES LOG (CHECK IF REPEATED):\n- ${recurringMistakes.slice(0, 6).join("\n- ")}\n` : ""}
 
-UPSC CSE EXAMINER GRADING STANDARD (REALISTIC & RIGOROUS - NO ARTIFICIAL FLOOR):
-Evaluate the candidate's actual answer strictly on its merits as an authentic UPSC CSE examiner.
-PO MANDATORY INSTRUCTIONS:
-1. BADGE MUST MATCH THE NOTE'S VERDICT: The "type" ('correct' | 'incorrect' | 'flawed' | 'verify') MUST strictly match the margin note. If a note mentions an error, mistake or inaccuracy, type must be "incorrect"; if it commends an accurate point, type must be "correct"; if stylistic/structure, "flawed"; if dubious fact, "verify".
+STEP 1 — DECODE THE QUESTION & PART-WISE MARK SPLIT:
+- Identify the exact operational directive (e.g. Discuss, Examine, Critically Examine, Elucidate, Comment).
+- Split the question into its explicit and implicit sub-parts and allocate each part its proportional share of the ${maxMarks} marks.
+- Any part left unanswered loses its entire share of marks.
+- Off-topic / wrong-topic answers earn near zero (strictly ≤1.5 marks on 10M, ≤2.0 on 15M/20M).
+- "Critically" directives MUST present both sides AND an explicit balanced verdict line; missing either side loses half the analytical credit.
+
+UPSC CSE EXAMINER GRADING STANDARD & CALIBRATION (NO ARTIFICIAL FLOOR):
+1. BADGE MUST MATCH THE NOTE'S VERDICT: The "type" ('correct' | 'incorrect' | 'flawed' | 'verify') MUST strictly match the margin note. If a note mentions an error, mistake or inaccuracy, type must be "incorrect"; if it commends an accurate point, type must be "correct"; if stylistic/structure, "flawed"; if dubious/unverifiable fact, "verify".
 2. TAG THE PAPER FROM THE QUESTION SOURCE: Read the question prompt and source to accurately confirm paperType (GS-1, GS-2, GS-3, GS-4, or Optional).
-3. GRADE SUB-SCORES AS PERCENTAGES, NEVER OUT OF 10: All dimension sub-scores (demand, content, structure, presentation) must be graded as percentages from 0 to 100 with max: 100.
-4. READ PRONOUN REFERENCES BEFORE FLAGGING ERRORS: Read pronoun references ('it', 'this', 'they', 'he', 'she') in the context of preceding sentences before flagging an error so valid antecedents are not erroneously flagged.
-5. FLAG EVERY FACTUAL ERROR, NOT SAMPLES: Flag every single factual inaccuracy, misattributed thinker/article, or incorrect claim across the entire script.
-6. CHECK EACH PART OF THE DIRECTIVE IS COVERED: Verify whether every sub-part of the directive is explicitly answered.
-7. CALIBRATE TO UPSC CSE REALITY: 3.0 to 4.9 / 10 (or 30% to 49%) is typical/average candidate level; 5.0+ / 10 (50%+) is Topper Level. Score with strict realism.
-8. EVALUATOR VERSION: Set evaluatorVersion: "v2.5-po-calibrated".
+3. GRADE SUB-SCORES AS PERCENTAGES (0-100, max: 100): Grade Demand, Content, Structure, and Presentation strictly as percentages.
+4. READ PRONOUN REFERENCES BEFORE FLAGGING ERRORS: Read pronoun references ('it', 'this', 'they', 'he', 'she') in context before flagging an error so valid antecedents are not misflagged.
+5. FLAG EVERY FACTUAL ERROR, NOT SAMPLES: Check Article numbers against their actual subject, and verify Judgments, Committees, Reports, and Data. Wrong fact: quote it, correct it, cite the right fact, and deduct heavily. Invented/fabricated fact: heavy deduction, flagged "incorrect". Unverifiable claim: mark "⚠️ VERIFY" with type "verify".
+6. CALIBRATE TO UPSC CSE REALITY: Typical average answer scores 3.0–4.0 / 10 (30%–40%); 6.0+ / 10 (60%+) ONLY at true topper level. Half-marks (0.5) are allowed; NEVER round up. Same answer quality must receive consistent marks.
+7. SAFEGUARDS AGAINST LLM ERROR (MANDATORY):
+   - Score strictly against the question asked BEFORE considering any external expectation.
+   - Quote a verbatim phrase/line from the candidate's answer before every praise or deduction (no praise without a quoted reason).
+   - Perform an internal second pass over every deduction, sub-score, and the modelAnswer to ensure zero invented facts in modelAnswer and exact alignment between part-wise deductions and marksAwarded.
+8. EVALUATOR VERSION: Set evaluatorVersion: "v2.6-rubric-calibrated".
 
 EVALUATE AND SCORE FOUR CORE DIMENSIONS (Grade each strictly as a PERCENTAGE from 0 to 100, max: 100):
-1. Demand (%): Operational directive compliance (e.g. Critically Examine, Discuss, Give Reasons), every sub-part answered, limits observed.
-2. Content (%): Accuracy, depth, authentic citations (Articles, Judgments, Committees, Reports, Data, Examples).
+1. Demand (%): Every part addressed by name, headings match the question's key words, off-demand filler earns 0 marks.
+2. Content (%): Accuracy, depth (causes, effects, way forward), authentic citations (Articles, Judgments, Committees, Reports, Data, specific recent Indian examples).
 ${
   isSociology
-    ? "   * Sociology Specifics: Exact sociological terms, thinkers (e.g. Weber, Durkheim, Marx, Parsons, Srinivas, Ghurye), Indian empirical examples, and analytical verdict (no years unless idea-bearing)."
+    ? "   * Sociology Specifics: Exact sociological terms, thinkers (e.g. Weber, Durkheim, Marx, Parsons, Srinivas, Ghurye), and theory. Paper 1 concepts do NOT require Indian examples; Paper 2 requires Indian empirical examples."
     : isEthics
       ? "   * GS-4 Ethics Specifics: Stakeholders, ethical dilemmas, options evaluated, chosen action justified, moral & constitutional values explicitly named."
-      : "   * General Studies Specifics: Multi-dimensional sub-headings (Constitutional, Socio-Economic, Administrative, Global) grounded in empirical policy data."
+      : "   * General Studies Specifics: Multi-dimensional sub-headings (Constitutional, Socio-Economic, Administrative, Global) grounded in specific, recent Indian empirical/policy data."
 }
-3. Structure (%): Introduction (15-20 words), question keywords used as subheadings, numbered arguments, counterview sentence, and a synthesis verdict line.
-4. Presentation (%): Within word limit, exam-writable in ${timeLimit} minutes under exam-hall time pressure, table/flowchart where it earns marks.
+3. Structure (%): Intro (definition, data, or context in 15-20 words), every point structured as claim + example, counterview before verdict line, forward-looking conclusion (not mere repetition).
+4. Presentation (%): Within ${wordLimit}-word limit, realistically writable in ${timeLimit} minutes, diagram/table only where it genuinely earns marks, no political slogans or partisan verdicts.
 
 CRUCIAL EXAMINER CHECKS:
 - Did the candidate use the question's operational key words as headings?
@@ -730,8 +753,7 @@ Return ONLY a valid, parsable JSON object matching this schema exactly (grade di
     }
   ],
   "strengths": [
-    "What candidate did well that earned marks (e.g. Accurately cited Article 360(1) / Weber's Verstehen)",
-    "Another solid argument, concept, or structural element to keep up"
+    "Quoted phrase -> why it earned marks (no praise without a quoted reason)"
   ],
   "weaknesses": [
     "Specific answer flaw (≤6 words)",
@@ -739,11 +761,11 @@ Return ONLY a valid, parsable JSON object matching this schema exactly (grade di
     "Third answer flaw (≤6 words)"
   ],
   "missingDimensions": [
-    "Specific missing Article, Judgment, Committee, or Thinker",
-    "Specific missing perspective or empirical data"
+    "[~2.0M lost] Highest-impact missing part, Article, Judgment, Committee, or Thinker (ranked by marks lost)",
+    "[~1.0M lost] Second missing perspective or empirical data"
   ],
   "actionableRoadmap": [
-    "Concrete exam-hall action to improve quality",
+    "Single highest-priority fix for the next attempt",
     "Second practical improvement step"
   ],
   "approachBreakdown": {

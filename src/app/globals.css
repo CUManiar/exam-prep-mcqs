@@ -2222,8 +2222,18 @@ html[data-theme="sepia"] body,
 }
 
 [data-theme="sepia"] .interactive-question-card,
-[data-theme="sepia"] .bg-white {
+[data-theme="sepia"] .bg-white,
+[data-theme="sepia"] [class*="bg-white/"] {
   background-color: #fcf6eb !important;
+}
+
+[data-theme="sepia"] .page-title {
+  color: #2e2316 !important;
+}
+
+[data-theme="sepia"] .page-eyebrow,
+[data-theme="sepia"] .page-description {
+  color: #6e5e4d !important;
 }
 
 [data-theme="sepia"] .text-slate-900,
@@ -2240,15 +2250,18 @@ html[data-theme="sepia"] body,
   color: #6e5e4d !important;
 }
 
-[data-theme="sepia"] .border-slate-200 {
+[data-theme="sepia"] .border-slate-200,
+[data-theme="sepia"] [class*="border-slate-200/"] {
   border-color: #e3d4be !important;
 }
 
-[data-theme="sepia"] .bg-slate-50 {
+[data-theme="sepia"] .bg-slate-50,
+[data-theme="sepia"] [class*="bg-slate-50/"] {
   background-color: #f3ebdb !important;
 }
 
-[data-theme="sepia"] .bg-slate-100 {
+[data-theme="sepia"] .bg-slate-100,
+[data-theme="sepia"] [class*="bg-slate-100/"] {
   background-color: #ede2cf !important;
 }
 
@@ -2283,8 +2296,35 @@ html[data-theme="dark"] body,
 }
 
 [data-theme="dark"] .interactive-question-card,
-[data-theme="dark"] .bg-white {
+[data-theme="dark"] .bg-white,
+[data-theme="dark"] [class*="bg-white/"] {
   background-color: #111827 !important;
+}
+
+[data-theme="dark"] .page-title {
+  color: #f8fafc !important;
+}
+
+[data-theme="dark"] .page-eyebrow,
+[data-theme="dark"] .page-description {
+  color: #94a3b8 !important;
+}
+
+[data-theme="dark"] .app-nav-link {
+  color: #cbd5e1 !important;
+}
+
+[data-theme="dark"] .app-nav-link:hover,
+[data-theme="dark"] .app-nav-link.is-active {
+  background: #1e293b !important;
+  color: #f8fafc !important;
+}
+
+[data-theme="dark"] .app-account-button,
+[data-theme="dark"] .app-sign-in {
+  background: #1e293b !important;
+  border-color: #334155 !important;
+  color: #f1f5f9 !important;
 }
 
 /* Neutral Typography Contrast */
@@ -2373,57 +2413,45 @@ html[data-theme="dark"] body,
 
 /* Light Badges & Tinted Backgrounds Contrast */
 [data-theme="dark"] .bg-slate-50,
-[data-theme="dark"] [class*="bg-slate-50/70"],
-[data-theme="dark"] [class*="bg-slate-50/80"] {
+[data-theme="dark"] [class*="bg-slate-50/"] {
   background-color: #161f30 !important;
 }
 
 [data-theme="dark"] .bg-slate-100,
-[data-theme="dark"] [class*="bg-slate-100/80"],
-[data-theme="dark"] [class*="bg-slate-100/90"],
+[data-theme="dark"] [class*="bg-slate-100/"],
 [data-theme="dark"] .bg-slate-200,
-[data-theme="dark"] [class*="bg-slate-200/80"] {
+[data-theme="dark"] [class*="bg-slate-200/"] {
   background-color: #1e293b !important;
 }
 
 [data-theme="dark"] .bg-indigo-50,
-[data-theme="dark"] [class*="bg-indigo-50/70"],
-[data-theme="dark"] [class*="bg-indigo-50/80"],
-[data-theme="dark"] [class*="bg-indigo-50/90"] {
+[data-theme="dark"] [class*="bg-indigo-50/"] {
   background-color: rgba(99, 102, 241, 0.18) !important;
 }
 
 [data-theme="dark"] .bg-emerald-50,
-[data-theme="dark"] [class*="bg-emerald-50/70"],
-[data-theme="dark"] [class*="bg-emerald-50/80"],
-[data-theme="dark"] [class*="bg-emerald-50/90"] {
+[data-theme="dark"] [class*="bg-emerald-50/"] {
   background-color: rgba(16, 185, 129, 0.18) !important;
 }
 
 [data-theme="dark"] .bg-rose-50,
-[data-theme="dark"] [class*="bg-rose-50/70"],
-[data-theme="dark"] [class*="bg-rose-50/80"],
-[data-theme="dark"] [class*="bg-rose-50/90"] {
+[data-theme="dark"] [class*="bg-rose-50/"] {
   background-color: rgba(244, 63, 94, 0.18) !important;
 }
 
 [data-theme="dark"] .bg-amber-50,
-[data-theme="dark"] [class*="bg-amber-50/70"],
-[data-theme="dark"] [class*="bg-amber-50/80"],
-[data-theme="dark"] [class*="bg-amber-50/90"],
+[data-theme="dark"] [class*="bg-amber-50/"],
 [data-theme="dark"] .bg-amber-100 {
   background-color: rgba(245, 158, 11, 0.18) !important;
 }
 
 [data-theme="dark"] .bg-violet-50,
-[data-theme="dark"] [class*="bg-violet-50/70"],
-[data-theme="dark"] [class*="bg-violet-50/80"] {
+[data-theme="dark"] [class*="bg-violet-50/"] {
   background-color: rgba(139, 92, 246, 0.18) !important;
 }
 
 [data-theme="dark"] .bg-blue-50,
-[data-theme="dark"] [class*="bg-blue-50/70"],
-[data-theme="dark"] [class*="bg-blue-50/80"] {
+[data-theme="dark"] [class*="bg-blue-50/"] {
   background-color: rgba(59, 130, 246, 0.18) !important;
 }
 

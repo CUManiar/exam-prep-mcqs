@@ -47,6 +47,9 @@ import {
   getCustomPapers,
   getGuestReviewAttempt,
   saveGuestReviewAttempt,
+  clearPapersCache,
+  setActiveStorageUserId,
+  getDeletedAttemptIds,
 } from "../lib/storage";
 import { isEphemeralPracticePaper } from "../lib/retestUtils";
 import {
@@ -337,7 +340,9 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       setCurrentUser(null);
       setUserPro(false);
       setIsPro(false);
-      await loadAllData();
+      setActiveStorageUserId(null);
+      clearPapersCache();
+      await loadAllData({ forceLoading: true });
       router.replace("/");
     }
   };
@@ -376,6 +381,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         try {
           const user = await getCurrentUser();
           lastAuthUserIdRef.current = user?.id ?? null;
+          setActiveStorageUserId(user?.id ?? null);
           setCurrentUser(user);
 
           if (user) {
@@ -390,11 +396,21 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
               ] = await Promise.all([
                 fetchUserAttemptsFromSupabase(user.id),
                 fetchUserDraftFromSupabase(user.id),
-                getAllPapers(),
+                getAllPapers(true, user.id),
                 fetchUserCustomPapersFromSupabase(user.id),
                 getUserProfile(user.id),
               ]);
-              setAttempts(userAttempts);
+              const deletedIds = getDeletedAttemptIds(user.id);
+              const filteredAttempts = userAttempts.filter(
+                (a) => !deletedIds.has(a.id),
+              );
+              setAttempts(filteredAttempts);
+              // Retry cloud deletion for any tombstoned attempts still present on server
+              userAttempts
+                .filter((a) => deletedIds.has(a.id))
+                .forEach((a) => {
+                  void deleteUserAttemptFromSupabase(a.id, user.id);
+                });
 
               // Intelligently merge Supabase draft with local draft:
               // Never wipe out active in-progress local exam work if Supabase is stale or null
@@ -450,8 +466,10 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
                 console.warn("Background vocab sync on auth load failed:", err),
               );
 
-              const localCustom = getCustomPapers().filter(
-                (p) => !isEphemeralPracticePaper(p),
+              const localCustom = getCustomPapers(user.id).filter(
+                (p) =>
+                  !isEphemeralPracticePaper(p) &&
+                  (!p.userId || p.userId === user.id),
               );
               // Backfill Markdown papers created before remote content fields existed.
               // This is the recovery path for the original browser's local copy.
@@ -542,11 +560,13 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
                 }
               }
 
-              // Merge global papers and user's custom papers, deduplicating by ID
+              // Merge global pre-defined papers and this user's own custom papers, deduplicating by ID
               const merged = [
                 ...mergedUserCustom,
                 ...loadedPapers.filter(
-                  (p) => !mergedUserCustom.some((cp) => cp.id === p.id),
+                  (p) =>
+                    !mergedUserCustom.some((cp) => cp.id === p.id) &&
+                    (!isUserUploadedPaper(p) || p.userId === user.id),
                 ),
               ];
 
@@ -592,8 +612,15 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
           // Guest / Anonymous User: Isolated local browser storage only
           setUserPro(false);
           setIsPro(false);
-          const cachedAttempts = getAttempts();
-          const guestReviewAttempt = getGuestReviewAttempt();
+          const guestDeletedIds = getDeletedAttemptIds(null);
+          const cachedAttempts = getAttempts().filter(
+            (a) => !guestDeletedIds.has(a.id),
+          );
+          const rawGuestReview = getGuestReviewAttempt();
+          const guestReviewAttempt =
+            rawGuestReview && !guestDeletedIds.has(rawGuestReview.id)
+              ? rawGuestReview
+              : null;
           setAttempts(
             guestReviewAttempt
               ? [
@@ -614,22 +641,24 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
             setOnlyCustomPapers(customOnly);
             setSyllabusItems(getCustomSyllabus());
             setSyllabusMarkdown(getCustomSyllabusMarkdown());
-            const loadedPapers = await getAllPapers();
-            const enriched = loadedPapers.map((p) => {
-              if (p.markdownContent) {
-                if (!p.parsedQuestions || p.parsedQuestions.length === 0) {
-                  p.parsedQuestions = parseQuestionnaireMarkdown(
-                    p.markdownContent,
-                  );
+            const loadedPapers = await getAllPapers(true, null);
+            const enriched = loadedPapers
+              .filter((p) => !isUserUploadedPaper(p) || !p.userId)
+              .map((p) => {
+                if (p.markdownContent) {
+                  if (!p.parsedQuestions || p.parsedQuestions.length === 0) {
+                    p.parsedQuestions = parseQuestionnaireMarkdown(
+                      p.markdownContent,
+                    );
+                  }
+                  if (!p.instructions || p.instructions.length === 0) {
+                    p.instructions = parseMarkdownHeader(
+                      p.markdownContent,
+                    ).instructions;
+                  }
                 }
-                if (!p.instructions || p.instructions.length === 0) {
-                  p.instructions = parseMarkdownHeader(
-                    p.markdownContent,
-                  ).instructions;
-                }
-              }
-              return p;
-            });
+                return p;
+              });
             setPapers(
               enriched.filter(
                 (p) =>
@@ -686,6 +715,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       lastAuthUserIdRef.current = newUserId;
 
       const user = session?.user || null;
+      setActiveStorageUserId(newUserId);
+      clearPapersCache();
       setCurrentUser(user);
       if (user) {
         const profile = await getUserProfile(user.id);
@@ -746,6 +777,9 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
   // Resume paused exam draft
   const handleResumeDraft = (draft: ActiveSessionDraft) => {
+    if (startExamLockRef.current) return;
+    startExamLockRef.current = true;
+    setIsStartingExam(true);
     const resumedDraft = { ...draft, isExited: false };
     saveActiveDraft(resumedDraft);
     setActiveDraft(resumedDraft);
@@ -755,6 +789,12 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     router.push(
       `/exam?paperId=${encodeURIComponent(draft.paperId)}&mode=${draft.mode}`,
     );
+    window.setTimeout(() => {
+      if (startExamLockRef.current) {
+        startExamLockRef.current = false;
+        setIsStartingExam(false);
+      }
+    }, 15000);
   };
 
   // Discard draft with confirmation
@@ -807,11 +847,13 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     });
 
     // Direct seamless transition to assessment review for both guest and authenticated users
+    window.dispatchEvent(new Event("app-navigation-start"));
     router.push(`/history/${encodeURIComponent(attempt.id)}`);
   };
 
   // View detail
   const handleViewAttemptDetail = (attempt: Attempt) => {
+    window.dispatchEvent(new Event("app-navigation-start"));
     router.push(`/history/${encodeURIComponent(attempt.id)}`);
   };
 
@@ -850,13 +892,13 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       confirmText: "Delete Attempt",
       cancelText: "Cancel",
       variant: "danger",
-      onConfirm: () => {
+      onConfirm: async () => {
         setModalConfig((prev) => ({ ...prev, isOpen: false }));
-        deleteAttempt(attemptId);
+        deleteAttempt(attemptId, currentUser?.id);
+        setAttempts((prev) => prev.filter((a) => a.id !== attemptId));
         if (currentUser) {
-          deleteUserAttemptFromSupabase(attemptId, currentUser.id);
+          await deleteUserAttemptFromSupabase(attemptId, currentUser.id);
         }
-        setAttempts(getAttempts());
         router.push("/history");
       },
     });
@@ -864,18 +906,23 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
   // Paper uploaded handler
   const handlePaperUploaded = async (newPaper: QuestionPaper) => {
+    const ownedPaper: QuestionPaper = {
+      ...newPaper,
+      isCustom: true,
+      userId: newPaper.userId || currentUser?.id || undefined,
+    };
     // 1. Immediately inject into state so the user sees it without delay
     setPapers((prev) => [
-      newPaper,
-      ...prev.filter((p) => p.id !== newPaper.id),
+      ownedPaper,
+      ...prev.filter((p) => p.id !== ownedPaper.id),
     ]);
 
-    // 2. Persist locally in browser storage
-    saveCustomPaper(newPaper);
+    // 2. Persist locally in user-scoped browser storage
+    saveCustomPaper(ownedPaper, currentUser?.id);
 
     // 3. Persist to Supabase if logged in
     if (currentUser?.id) {
-      await saveUserCustomPaperToSupabase(newPaper, currentUser.id);
+      await saveUserCustomPaperToSupabase(ownedPaper, currentUser.id);
     }
 
     // 4. Resync full dataset
@@ -883,7 +930,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     addNotification({
       type: "paper",
       title: "Paper added",
-      message: `${newPaper.label} is available in your paper library.`,
+      message: `${ownedPaper.label} is available in your paper library.`,
       href: "/papers?tab=custom",
     });
   };

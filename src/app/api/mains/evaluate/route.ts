@@ -335,6 +335,9 @@ export async function POST(req: NextRequest) {
       maxMarks = 10,
       images = [],
       providerConfig,
+      topperAnswer,
+      studentSources,
+      recurringMistakes,
     }: {
       question?: string;
       answerText?: string;
@@ -344,6 +347,9 @@ export async function POST(req: NextRequest) {
       images?: Array<{ mimeType: string; data: string }>;
       providerConfig?: RevisionProviderConfig | null;
       fallbackProviders?: Array<{ provider: string; apiKey: string }>;
+      topperAnswer?: string;
+      studentSources?: string;
+      recurringMistakes?: string[];
     } = body;
 
     const trimmedQuestion = (question || "").trim();
@@ -402,6 +408,9 @@ export async function POST(req: NextRequest) {
       optionalSubject,
       maxMarks,
       hasAttachment: hasValidImages,
+      topperAnswer,
+      studentSources,
+      recurringMistakes,
     });
 
     let rawOutput = "";
